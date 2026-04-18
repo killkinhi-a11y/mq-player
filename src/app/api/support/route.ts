@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 // Bot knowledge base — auto-answers for common questions (shared with admin chat)
 const botResponses: { keywords: string[]; response: string }[] = [
@@ -58,6 +59,17 @@ function findBotResponse(userMessage: string): string {
 // POST /api/support — send a message as user to support chat (no email)
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+
+    // Rate limit: 10 messages per minute per IP
+    const { success, resetIn } = rateLimit({ ip, limit: 10, window: 60, key: "support-post" });
+    if (!success) {
+      return NextResponse.json(
+        { error: "Слишком много сообщений. Подождите немного.", retryAfter: resetIn },
+        { status: 429 }
+      );
+    }
+
     const { userId, userName, content } = await req.json();
 
     if (!content || !content.trim()) {
@@ -136,6 +148,14 @@ export async function POST(req: NextRequest) {
 // GET /api/support?sessionId=xxx — get messages for a user session
 export async function GET(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+
+    // Rate limit: 30 reads per minute per IP
+    const { success } = rateLimit({ ip, limit: 30, window: 60, key: "support-get" });
+    if (!success) {
+      return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
+    }
+
     const { searchParams } = new URL(req.url);
     const sessionId = searchParams.get("sessionId");
     const userId = searchParams.get("userId");

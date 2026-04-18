@@ -115,6 +115,9 @@ interface AppState {
   unreadCounts: Record<string, number>;
   contacts: { id: string; name: string; username: string; avatar: string; online: boolean; lastSeen: string }[];
 
+  // Support chat
+  supportUnreadCount: number;
+
   // Search
   searchQuery: string;
   selectedGenre: string;
@@ -228,6 +231,10 @@ interface AppState {
   fetchPublicPlaylists: (params?: { search?: string; sort?: string; page?: number }) => Promise<void>;
   fetchPlaylistRecommendations: (likedTags?: string[], likedArtists?: string[]) => Promise<void>;
 
+  // Support chat actions
+  setSupportUnreadCount: (count: number) => void;
+  incrementSupportUnread: () => void;
+
   // Liquid Glass Mobile action
   setLiquidGlassMobile: (enabled: boolean) => void;
 
@@ -277,6 +284,7 @@ const initialState = {
   searchQuery: "",
   selectedGenre: "",
   isLoading: false,
+  supportUnreadCount: 0 as number,
   isFullTrackViewOpen: false,
   likedTrackIds: [] as string[],
   dislikedTrackIds: [] as string[],
@@ -519,6 +527,10 @@ export const useAppStore = create<AppState>()(
             (m) => m.senderId !== contactId && m.receiverId !== contactId
           ),
         })),
+
+      // ── Support chat actions ──
+      setSupportUnreadCount: (count) => set({ supportUnreadCount: count }),
+      incrementSupportUnread: () => set((s) => ({ supportUnreadCount: s.supportUnreadCount + 1 })),
 
       setSearchQuery: (query) => set({ searchQuery: query }),
 

@@ -3,9 +3,42 @@ import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { sendVerificationEmail } from "@/lib/email";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+
+    // Rate limit: 3 registrations per minute per IP
+    const { success, resetIn } = rateLimit({
+      ip,
+      limit: 3,
+      window: 60,
+      key: "register",
+    });
+
+    if (!success) {
+      return NextResponse.json(
+        { error: "Слишком много попыток регистрации. Попробуйте позже.", retryAfter: resetIn },
+        { status: 429, headers: { "X-RateLimit-Reset": String(resetIn) } }
+      );
+    }
+
+    // Check maintenance mode
+    try {
+      const maintenanceFlag = await db.featureFlag.findUnique({
+        where: { key: "maintenance_mode" },
+      });
+      if (maintenanceFlag?.enabled) {
+        return NextResponse.json(
+          { error: "Проводятся технические работы. Регистрация временно недоступна." },
+          { status: 503 }
+        );
+      }
+    } catch {
+      // Don't block registration if maintenance check fails
+    }
+
     const { username, email, password } = await req.json();
 
     if (!username || !email || !password) {

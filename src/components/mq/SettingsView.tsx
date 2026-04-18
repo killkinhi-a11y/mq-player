@@ -28,7 +28,13 @@ export default function SettingsView() {
   const [accentInput, setAccentInput] = useState(customAccent || "");
   const [showSupportDialog, setShowSupportDialog] = useState(false);
   const [supportMessages, setSupportMessages] = useState<{id:string;role:string;content:string;createdAt:string}[]>([]);
-  const [supportInput, setSupportInput] = useState("");
+  const [supportInput, setSupportInput] = useState(() => {
+    // Restore draft from localStorage
+    if (typeof window !== "undefined") {
+      try { return localStorage.getItem("mq-support-draft") || ""; } catch {}
+    }
+    return "";
+  });
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportSessionId, setSupportSessionId] = useState<string | null>(null);
   const [supportLoadingHistory, setSupportLoadingHistory] = useState(false);
@@ -36,6 +42,7 @@ export default function SettingsView() {
   const volumeSectionRef = useRef<HTMLDivElement>(null);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const themeMenuRef = useRef<HTMLDivElement>(null);
+  const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
 
   // Mouse wheel volume control on the volume section — native listener to allow preventDefault
   useEffect(() => {
@@ -63,6 +70,10 @@ export default function SettingsView() {
     setSupportLoading(true);
     const text = supportInput.trim();
     setSupportInput("");
+    // Clear draft from localStorage
+    if (typeof window !== "undefined") {
+      try { localStorage.removeItem("mq-support-draft"); } catch {}
+    }
     try {
       const res = await fetch("/api/support", {
         method: "POST",
@@ -88,6 +99,7 @@ export default function SettingsView() {
 
   const handleOpenSupport = async () => {
     setShowSupportDialog(true);
+    setSupportUnreadCount(0);
     if (supportMessages.length === 0) {
       setSupportLoadingHistory(true);
       try {
@@ -107,44 +119,92 @@ export default function SettingsView() {
     }
   };
 
-  // Poll for new support messages while the dialog is open (so admin replies appear without reload)
+  // Save draft to localStorage
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try { localStorage.setItem("mq-support-draft", supportInput); } catch {}
+    }
+  }, [supportInput]);
+
+  // SSE for real-time support messages + push notifications when dialog is open
   useEffect(() => {
     if (!showSupportDialog) return;
-    let cancelled = false;
-    let lastMessageId = supportMessages.length > 0 ? supportMessages[supportMessages.length - 1].id : null;
+    const userId = useAppStore.getState().userId;
+    if (!userId) return;
 
-    const pollMessages = async () => {
+    // Clear unread count when dialog opens
+    setSupportUnreadCount(0);
+
+    // Connect to SSE stream
+    const params = new URLSearchParams({ userId });
+    if (supportSessionId) params.set("sessionId", supportSessionId);
+    const evtSource = new EventSource(`/api/support/sse?${params}`);
+
+    evtSource.onmessage = (event) => {
       try {
-        const userId = useAppStore.getState().userId;
-        const params = userId ? `userId=${userId}` : '';
-        const res = await fetch(`/api/support?${params}`);
-        const data = await res.json();
-        if (cancelled) return;
-        if (data.messages && data.messages.length > 0) {
+        const data = JSON.parse(event.data);
+        if (data.type === "new_message" && data.message) {
           setSupportMessages(prev => {
-            // Only add messages that are newer than what we already have
-            if (prev.length === 0) return data.messages;
-            const prevIds = new Set(prev.map(m => m.id));
-            const newMessages = data.messages.filter((m: any) => !prevIds.has(m.id));
-            return newMessages.length > 0 ? [...prev, ...newMessages] : prev;
+            if (prev.some(m => m.id === data.message.id)) return prev;
+            const msg = {
+              id: data.message.id,
+              role: data.message.role,
+              content: data.message.content,
+              createdAt: data.message.createdAt,
+            };
+            return [...prev, msg];
           });
-          if (data.sessionId) setSupportSessionId(data.sessionId);
+          // Push notification for admin replies
+          if (data.message.role === "admin" && document.hidden) {
+            sendPushNotification("MQ Support", data.message.content);
+          }
         }
-      } catch {
-        // Silent
-      }
+      } catch {}
     };
-
-    // Initial poll immediately
-    pollMessages();
-    // Then poll every 3 seconds
-    const interval = setInterval(pollMessages, 3000);
 
     return () => {
-      cancelled = true;
-      clearInterval(interval);
+      evtSource.close();
     };
-  }, [showSupportDialog]);
+  }, [showSupportDialog, supportSessionId, setSupportUnreadCount]);
+
+  // Background SSE for push notifications when dialog is closed
+  useEffect(() => {
+    if (showSupportDialog) return;
+    const userId = useAppStore.getState().userId;
+    if (!userId) return;
+
+    const evtSource = new EventSource(`/api/support/sse?userId=${userId}`);
+
+    evtSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "new_message" && data.message?.role === "admin") {
+          setSupportUnreadCount(useAppStore.getState().supportUnreadCount + 1);
+          if (document.hidden) {
+            sendPushNotification("MQ Support", data.message.content);
+          }
+        }
+      } catch {}
+    };
+
+    return () => {
+      evtSource.close();
+    };
+  }, [showSupportDialog, setSupportUnreadCount]);
+
+  // Browser push notification helper
+  const sendPushNotification = (title: string, body: string) => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "granted") {
+      new Notification(title, { body, icon: "/favicon.ico" });
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(perm => {
+        if (perm === "granted") {
+          new Notification(title, { body, icon: "/favicon.ico" });
+        }
+      });
+    }
+  };
 
   useEffect(() => {
     if (supportMessages.length > 0 && supportScrollRef.current) {
@@ -615,6 +675,14 @@ export default function SettingsView() {
       >
         <Headphones className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
         Чат с поддержкой
+        {supportUnreadCount > 0 && (
+          <span
+            className="ml-auto min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold"
+            style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+          >
+            {supportUnreadCount > 99 ? "99+" : supportUnreadCount}
+          </span>
+        )}
       </motion.button>
 
       {/* Logout */}

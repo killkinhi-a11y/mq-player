@@ -5,17 +5,29 @@ import { useAppStore } from "@/store/useAppStore";
 import { Home, Search, MessageCircle, Settings, User, ListMusic, Clock } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
-const navItems: { id: ViewType; icon: typeof Home; label: string }[] = [
+const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
   { id: "main", icon: Home, label: "Главная" },
   { id: "search", icon: Search, label: "Поиск" },
   { id: "playlists", icon: ListMusic, label: "Плейлисты" },
   { id: "history", icon: Clock, label: "История" },
-  { id: "messenger", icon: MessageCircle, label: "Чаты" },
-  { id: "settings", icon: Settings, label: "Ещё" },
+  { id: "messenger", icon: MessageCircle, label: "Чаты", badgeKey: "messenger" },
+  { id: "settings", icon: Settings, label: "Ещё", badgeKey: "settings" },
 ];
 
 export default function MobileNav() {
-  const { currentView, setView, liquidGlassMobile, compactMode } = useAppStore();
+  const { currentView, setView, liquidGlassMobile, compactMode, unreadCounts, supportUnreadCount } = useAppStore();
+
+  // Calculate badge count for each item
+  const getBadgeCount = (badgeKey?: string): number => {
+    if (!badgeKey) return 0;
+    if (badgeKey === "messenger") {
+      return Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
+    }
+    if (badgeKey === "settings") {
+      return supportUnreadCount;
+    }
+    return 0;
+  };
 
   return (
     <nav
@@ -32,6 +44,7 @@ export default function MobileNav() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentView === item.id;
+          const badgeCount = getBadgeCount(item.badgeKey);
           return (
             <motion.button
               key={item.id}
@@ -56,6 +69,14 @@ export default function MobileNav() {
               )}
               <div className="relative z-10">
                 <Icon className={`${compactMode ? "w-4 h-4" : "w-5 h-5"}`} />
+                {badgeCount > 0 && (
+                  <span
+                    className="absolute -top-1.5 -right-2 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[8px] font-bold px-0.5"
+                    style={{ backgroundColor: "#ef4444", color: "#fff" }}
+                  >
+                    {badgeCount > 99 ? "99" : badgeCount}
+                  </span>
+                )}
                 {isActive && (
                   <motion.div
                     layoutId="mobileNavDot"
