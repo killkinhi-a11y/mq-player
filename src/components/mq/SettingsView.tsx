@@ -22,6 +22,8 @@ export default function SettingsView() {
     ? process.env.NEXT_PUBLIC_ADMIN_EMAILS.split(",").map((e: string) => e.trim().toLowerCase())
     : ["killkin.hi@gmail.com"];
   const showAdminLink = email ? ADMIN_EMAILS.includes(email.toLowerCase()) : false;
+
+  const [accentInput, setAccentInput] = useState(customAccent || "");
   const volumeSectionRef = useRef<HTMLDivElement>(null);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const themeMenuRef = useRef<HTMLDivElement>(null);
