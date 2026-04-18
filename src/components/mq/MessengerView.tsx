@@ -306,102 +306,149 @@ export default function MessengerView() {
   }, [userId]);
 
   // ═══════════════════════════════════════════════════════════
-  //  FEATURE 1: SSE instead of polling
+  //  REAL-TIME MESSAGES: SSE (primary) + Polling (fallback)
   // ═══════════════════════════════════════════════════════════
 
+  // Keep track of the last seen message timestamp for SSE reconnection
+  const lastSeenTimeRef = useRef<string>(new Date(Date.now() - 10000).toISOString());
+  // Track reconnection timeout to prevent leaks
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const processIncomingMessage = useCallback((m: any) => {
+    const state = useAppStore.getState();
+    const existing = state.messages.find((em: any) => em.id === m.id);
+    if (existing) return;
+
+    const msg = {
+      id: m.id,
+      content: m.content,
+      senderId: m.senderId,
+      receiverId: m.receiverId,
+      encrypted: m.encrypted ?? true,
+      createdAt: m.createdAt,
+      senderName: m.senderUsername ? `@${m.senderUsername}` : undefined,
+      messageType: m.messageType,
+      replyToId: m.replyToId,
+      edited: m.edited,
+      voiceUrl: m.voiceUrl,
+      voiceDuration: m.voiceDuration,
+    };
+    state.addMessage(msg);
+
+    // Push notification when tab is hidden
+    if (document.hidden && m.senderId !== userId) {
+      requestNotificationPermission();
+      try {
+        const decrypted = simulateDecryptSync(m.content);
+        const preview = decrypted.length > 60 ? decrypted.slice(0, 60) + "..." : decrypted;
+        const senderName = m.senderUsername || "Someone";
+        new Notification(`Сообщение от ${senderName}`, {
+          body: preview,
+          icon: "/icon-192.png",
+          tag: m.id,
+        });
+      } catch { /* ignore */ }
+    }
+
+    // Update cursor
+    if (m.createdAt) {
+      lastSeenTimeRef.current = m.createdAt;
+    }
+  }, [userId]);
+
+  // SSE connection
   useEffect(() => {
     if (!userId) return;
+
     let es: EventSource | null = null;
+    let destroyed = false;
+
     const connect = () => {
-      es = new EventSource(`/api/messages/sse?userId=${userId}`);
+      if (destroyed) return;
+
+      const since = encodeURIComponent(lastSeenTimeRef.current);
+      es = new EventSource(`/api/messages/sse?userId=${userId}&since=${since}`);
       sseRef.current = es;
+
+      es.addEventListener("connected", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data?.serverTime) {
+            lastSeenTimeRef.current = data.serverTime;
+          }
+        } catch { /* ignore */ }
+      });
+
       es.addEventListener("new_message", (event) => {
         try {
           const data = JSON.parse(event.data);
           if (data?.message) {
-            const m = data.message;
-            const existingIds = new Set(useAppStore.getState().messages.map((em: any) => em.id));
-            if (!existingIds.has(m.id)) {
-              const msg = {
-                id: m.id,
-                content: m.content,
-                senderId: m.senderId,
-                receiverId: m.receiverId,
-                encrypted: m.encrypted ?? true,
-                createdAt: m.createdAt,
-                senderName: m.senderUsername ? `@${m.senderUsername}` : undefined,
-                messageType: m.messageType,
-                replyToId: m.replyToId,
-                edited: m.edited,
-                voiceUrl: m.voiceUrl,
-                voiceDuration: m.voiceDuration,
-              };
-              addMessage(msg);
-
-              // Feature 8: Push notification when document is hidden
-              if (document.hidden && m.senderId !== userId) {
-                requestNotificationPermission();
-                try {
-                  const decrypted = simulateDecryptSync(m.content);
-                  const preview = decrypted.length > 60 ? decrypted.slice(0, 60) + "..." : decrypted;
-                  const senderName = m.senderUsername || "Someone";
-                  new Notification(`Сообщение от ${senderName}`, {
-                    body: preview,
-                    icon: "/icon-192.png",
-                    tag: m.id,
-                  });
-                } catch { /* ignore */ }
-              }
-            }
+            processIncomingMessage(data.message);
           }
         } catch { /* ignore parse errors */ }
       });
+
       es.onerror = () => {
         es?.close();
-        setTimeout(connect, 3000);
+        sseRef.current = null;
+        // Reconnect after 2s, but only if not destroyed
+        if (!destroyed) {
+          reconnectTimeoutRef.current = setTimeout(connect, 2000);
+        }
       };
     };
+
     connect();
-    return () => { es?.close(); sseRef.current = null; };
-  }, [userId, addMessage]);
+
+    return () => {
+      destroyed = true;
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      es?.close();
+      sseRef.current = null;
+    };
+  }, [userId, processIncomingMessage]);
 
   // ═══════════════════════════════════════════════════════════
-  //  POLLING FALLBACK — fetch new messages every 5 seconds
+  //  POLLING FALLBACK — every 3s for selected chat
   // ═══════════════════════════════════════════════════════════
 
   useEffect(() => {
-    if (!userId) return;
-    let latestId = "";
+    if (!userId || !selectedContactId) return;
+    let latestTime = lastSeenTimeRef.current;
+
     const poll = async () => {
       try {
-        const res = await fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId || "__none__"}`);
+        const since = encodeURIComponent(latestTime);
+        const res = await fetch(
+          `/api/messages?senderId=${userId}&receiverId=${selectedContactId}&since=${since}`
+        );
         if (!res.ok) return;
         const data = await res.json();
         const msgs: any[] = data.messages || [];
         if (msgs.length > 0) {
-          const maxId = msgs[msgs.length - 1].id;
-          if (maxId > latestId) {
-            latestId = maxId;
-            const newMsgs = msgs.filter((m: any) => {
+          const newest = msgs[msgs.length - 1].createdAt;
+          if (newest > latestTime) {
+            latestTime = newest;
+            lastSeenTimeRef.current = newest;
+            msgs.forEach((m: any) => {
               const existing = useAppStore.getState().messages.find((em: any) => em.id === m.id);
-              return !existing;
+              if (!existing) {
+                useAppStore.getState().addMessage({
+                  id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
+                  encrypted: m.encrypted, createdAt: m.createdAt,
+                  senderName: `@${m.sender?.username || "user"}`,
+                  messageType: m.messageType, replyToId: m.replyToId, edited: m.edited,
+                  voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
+                });
+              }
             });
-            if (newMsgs.length > 0) {
-              const mapped = newMsgs.map((m: any) => ({
-                id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
-                encrypted: m.encrypted, createdAt: m.createdAt,
-                senderName: `@${m.sender?.username || "user"}`,
-                messageType: m.messageType, replyToId: m.replyToId, edited: m.edited,
-                voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
-              }));
-              mapped.forEach((msg: any) => useAppStore.getState().addMessage(msg));
-            }
           }
         }
       } catch { /* silent */ }
     };
+
     poll();
-    const interval = setInterval(poll, 5000);
+    const interval = setInterval(poll, 3000);
     return () => clearInterval(interval);
   }, [userId, selectedContactId]);
 
@@ -1300,14 +1347,65 @@ export default function MessengerView() {
                 </div>
               )}
 
-              {displayMessages.length === 0 && (
+              {displayMessages.length === 0 && !isGroupChat && (
+                <div className="flex flex-col items-center justify-center py-12 px-6">
+                  {/* Empty state card — player style */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="w-full max-w-[280px] rounded-2xl p-6 text-center"
+                    style={{ ...glassPanelSolid, boxShadow: shadowDeep }}>
+                    {/* Cute character / icon */}
+                    <div className="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center"
+                      style={{ background: "linear-gradient(135deg, var(--mq-accent), rgba(255,255,255,0.1))" }}>
+                      <motion.span
+                        className="text-4xl"
+                        animate={{ y: [0, -6, 0] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}>
+                        🎵
+                      </motion.span>
+                    </div>
+                    <p className="text-sm font-semibold mb-1.5" style={{ color: "var(--mq-text)" }}>
+                      Здесь пока ничего нет...
+                    </p>
+                    <p className="text-xs leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+                      Отправьте сообщение или поделитесь треком, чтобы начать общение
+                    </p>
+                  </motion.div>
+
+                  {/* Quick action buttons */}
+                  <div className="flex gap-2 mt-5 w-full max-w-[280px]">
+                    {currentTrack && (
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        onClick={shareTrack}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
+                        style={{ ...glassPanelSolid }}>
+                        <Music2 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+                        <span style={{ color: "var(--mq-text)" }}>Поделиться треком</span>
+                      </motion.button>
+                    )}
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => { setShowEmojis(true); inputRef.current?.focus(); }}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
+                      style={{ ...glassPanelSolid }}>
+                      <Smile className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+                      <span style={{ color: "var(--mq-text)" }}>Привет! 👋</span>
+                    </motion.button>
+                  </div>
+                </div>
+              )}
+
+              {displayMessages.length === 0 && isGroupChat && (
                 <div className="text-center py-16">
                   <div className="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ ...glassPanel }}>
-                    {isGroupChat ? <Users className="w-10 h-10" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} /> : <Shield className="w-10 h-10" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />}
+                    <Users className="w-10 h-10" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
                   </div>
                   <p className="text-sm font-medium" style={{ color: "var(--mq-text-muted)" }}>Нет сообщений</p>
                   <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
-                    {isGroupChat ? "Напишите первое сообщение в группе" : "Начните зашифрованную переписку"}
+                    Напишите первое сообщение в группе
                   </p>
                 </div>
               )}

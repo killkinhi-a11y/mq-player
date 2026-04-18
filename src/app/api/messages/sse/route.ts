@@ -3,9 +3,14 @@ import { db } from "@/lib/db";
 
 /**
  * SSE endpoint for messenger — streams new DMs for a user.
- * GET /api/messages/sse?userId=xxx
+ * GET /api/messages/sse?userId=xxx&lastSeen=ISO_TIMESTAMP
+ *
+ * Uses "since" timestamp cursor instead of CUID comparison.
+ * On Vercel serverless, the connection lasts up to maxDuration (60s).
+ * Client should reconnect automatically via EventSource.
  */
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,29 +21,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Укажите userId" }, { status: 400 });
     }
 
-    const latestMessages = await db.message.findMany({
-      where: {
-        OR: [
-          { senderId: userId },
-          { receiverId: userId },
-        ],
-      },
-      orderBy: { createdAt: "desc" },
-      take: 1,
-      select: { id: true },
-    });
-    const lastKnownId = latestMessages[0]?.id || "";
+    // Use timestamp cursor — sent by client on reconnect
+    const sinceParam = searchParams.get("since");
+    const since = sinceParam ? new Date(sinceParam) : new Date(Date.now() - 5000);
 
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        controller.enqueue(encoder.encode(`event: connected\ndata: ${JSON.stringify({ type: "connected" })}\n\n`));
+        // Send connected event with current time so client can track cursor
+        controller.enqueue(
+          encoder.encode(
+            `event: connected\ndata: ${JSON.stringify({ type: "connected", serverTime: new Date().toISOString() })}\n\n`
+          )
+        );
 
-        let polling = true;
-        let currentId = lastKnownId;
+        let active = true;
+        let lastChecked = since;
 
         const poll = async () => {
-          while (polling) {
+          while (active) {
             try {
               const newMessages = await db.message.findMany({
                 where: {
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
                         { receiverId: userId },
                       ],
                     },
-                    { id: { gt: currentId } },
+                    { createdAt: { gt: lastChecked } },
                   ],
                 },
                 orderBy: { createdAt: "asc" },
@@ -80,17 +81,24 @@ export async function GET(req: NextRequest) {
                       receiverUsername: msg.receiver?.username,
                     },
                   };
-                  controller.enqueue(encoder.encode(`event: new_message\ndata: ${JSON.stringify(payload)}\n\n`));
+                  controller.enqueue(
+                    encoder.encode(`event: new_message\ndata: ${JSON.stringify(payload)}\n\n`)
+                  );
                 }
-                currentId = newMessages[newMessages.length - 1].id;
+                // Update cursor to latest message time + 1ms to avoid re-sending
+                lastChecked = new Date(
+                  newMessages[newMessages.length - 1].createdAt.getTime() + 1
+                );
               }
 
-              controller.enqueue(encoder.encode(`: keepalive\n\n`));
+              // Send keepalive comment (ignored by EventSource)
+              controller.enqueue(encoder.encode(`: ping\n\n`));
             } catch {
-              // Continue on error
+              // Continue on DB error
             }
 
-            await new Promise(resolve => setTimeout(resolve, 2500));
+            // Poll every 2 seconds
+            await new Promise((resolve) => setTimeout(resolve, 2000));
           }
           controller.close();
         };
@@ -98,7 +106,7 @@ export async function GET(req: NextRequest) {
         poll();
 
         req.signal.addEventListener("abort", () => {
-          polling = false;
+          active = false;
           controller.close();
         });
       },
@@ -107,7 +115,7 @@ export async function GET(req: NextRequest) {
     return new Response(stream, {
       headers: {
         "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache, no-transform",
+        "Cache-Control": "no-cache, no-store, no-transform, must-revalidate",
         "Connection": "keep-alive",
         "X-Accel-Buffering": "no",
       },

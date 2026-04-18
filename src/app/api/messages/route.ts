@@ -5,6 +5,7 @@ export async function GET(req: NextRequest) {
   try {
     const senderId = req.nextUrl.searchParams.get("senderId");
     const receiverId = req.nextUrl.searchParams.get("receiverId");
+    const sinceParam = req.nextUrl.searchParams.get("since");
 
     if (!senderId || !receiverId) {
       return NextResponse.json(
@@ -13,13 +14,26 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Build where clause — support "since" timestamp for incremental polling
+    const where: any = {
+      OR: [
+        { senderId, receiverId },
+        { senderId: receiverId, receiverId: senderId },
+      ],
+    };
+
+    // If "since" is provided, only fetch messages created after that time
+    if (sinceParam) {
+      try {
+        const sinceDate = new Date(sinceParam);
+        if (!isNaN(sinceDate.getTime())) {
+          where.createdAt = { gt: sinceDate };
+        }
+      } catch { /* ignore invalid since param */ }
+    }
+
     const messages = await db.message.findMany({
-      where: {
-        OR: [
-          { senderId, receiverId },
-          { senderId: receiverId, receiverId: senderId },
-        ],
-      },
+      where,
       orderBy: { createdAt: "asc" },
       include: {
         sender: { select: { id: true, username: true, avatar: true } },
