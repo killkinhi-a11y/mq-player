@@ -10,7 +10,7 @@ import {
   Plus, Music2, X, Loader2, Copy, Reply, UserPlus, UserCheck, Users, AlertCircle,
   Play, Pause, ChevronLeft, ChevronRight, BookOpen, Pin,
   Mic, MicOff, Edit3, MessageSquare, Sticker,
-  MoreVertical, Check, Phone, Bell, Ban, Download, MessageCircle
+  MoreVertical, Check, Bell, Ban, Download, MessageCircle
 } from "lucide-react";
 import { simulateEncrypt, getEncryptionStatus, generateMockFingerprint, simulateDecryptSync } from "@/lib/crypto";
 
@@ -156,6 +156,22 @@ export default function MessengerView() {
   const [showProfileMore, setShowProfileMore] = useState(false);
   const [friendNowPlaying, setFriendNowPlaying] = useState<{ title: string; artist: string; cover: string } | null>(null);
   const [friendNowPlayingActive, setFriendNowPlayingActive] = useState(false);
+  const [hideOnline, setHideOnline] = useState(() => {
+    if (typeof window !== "undefined") {
+      try { const v = localStorage.getItem("mq-hide-online"); return v === "true"; } catch { return false; }
+    }
+    return false;
+  });
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
+
+  // ── Responsive viewport height tracking ──
+  const [isMobileView, setIsMobileView] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobileView(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   // ── Pinned chats (persisted to localStorage) ──
   const [pinnedChatIds, setPinnedChatIds] = useState<Set<string>>(() => {
@@ -339,19 +355,23 @@ export default function MessengerView() {
     };
     state.addMessage(msg);
 
-    // Push notification when tab is hidden
-    if (document.hidden && m.senderId !== userId) {
-      requestNotificationPermission();
-      try {
-        const decrypted = simulateDecryptSync(m.content);
-        const preview = decrypted.length > 60 ? decrypted.slice(0, 60) + "..." : decrypted;
-        const senderName = m.senderUsername || "Someone";
-        new Notification(`Сообщение от ${senderName}`, {
-          body: preview,
-          icon: "/icon-192.png",
-          tag: m.id,
-        });
-      } catch { /* ignore */ }
+    // Push notification for new messages (all states, if permission granted)
+    if (m.senderId !== userId) {
+      playNotifSound();
+      if (notificationPermission === "granted") {
+        try {
+          const decrypted = simulateDecryptSync(m.content);
+          const preview = decrypted.length > 60 ? decrypted.slice(0, 60) + "..." : decrypted;
+          const senderName = m.senderUsername || "Someone";
+          new Notification(`Сообщение от ${senderName}`, {
+            body: preview,
+            icon: "/icon-192.png",
+            tag: m.id,
+          });
+        } catch { /* ignore */ }
+      } else if (notificationPermission === "default") {
+        requestNotifPermission();
+      }
     }
 
     // Update cursor
@@ -460,16 +480,83 @@ export default function MessengerView() {
   //  FEATURE 7: Heartbeat + online status
   // ═══════════════════════════════════════════════════════════
 
-  // Send heartbeat every 30 seconds
+  // Request notification permission on mount
   useEffect(() => {
-    if (!userId) return;
+    if (typeof window !== "undefined" && "Notification" in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
+  const requestNotifPermission = useCallback(async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    try {
+      const perm = await Notification.requestPermission();
+      setNotificationPermission(perm);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Play notification sound
+  const playNotifSound = useCallback(() => {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = "sine";
+      gain.gain.value = 0.1;
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.stop(ctx.currentTime + 0.3);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Send heartbeat (skip if hideOnline is enabled)
+  useEffect(() => {
+    if (!userId || hideOnline) return;
     const sendHeartbeat = async () => {
       try { await fetch("/api/user/heartbeat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId }) }); } catch { /* */ }
     };
     sendHeartbeat();
-    heartbeatRef.current = setInterval(sendHeartbeat, 5000);
+    heartbeatRef.current = setInterval(sendHeartbeat, 30000);
     return () => { if (heartbeatRef.current) clearInterval(heartbeatRef.current); };
-  }, [userId]);
+  }, [userId, hideOnline]);
+
+  // Persist hideOnline
+  useEffect(() => {
+    try { localStorage.setItem("mq-hide-online", JSON.stringify(hideOnline)); } catch { /* */ }
+  }, [hideOnline]);
+
+  // Poll friend requests periodically for notifications
+  useEffect(() => {
+    if (!userId) return;
+    let prevCount = pendingRequests.length;
+    const checkNewRequests = async () => {
+      try {
+        const res = await fetch(`/api/friends?userId=${userId}`);
+        if (res.ok) {
+          const data = await res.json();
+          const newPending = data.pendingRequests || [];
+          if (newPending.length > prevCount && prevCount >= 0) {
+            playNotifSound();
+            if (notificationPermission === "granted") {
+              try {
+                new Notification("Новая заявка в друзья", {
+                  body: `${newPending[newPending.length - 1].username} хочет добавить вас в друзья`,
+                  icon: "/icon-192.png",
+                });
+              } catch { /* ignore */ }
+            }
+          }
+          prevCount = newPending.length;
+          setPendingRequests(newPending);
+        }
+      } catch { /* silent */ }
+    };
+    const interval = setInterval(checkNewRequests, 15000);
+    return () => clearInterval(interval);
+  }, [userId, pendingRequests.length, notificationPermission, playNotifSound]);
 
   // Fetch friend statuses on mount and when friends change
   useEffect(() => {
@@ -613,7 +700,7 @@ export default function MessengerView() {
       } catch { if (!cancelled) { setFriendNowPlaying(null); setFriendNowPlayingActive(false); } }
     };
     fetchFriendNowPlaying();
-    const interval = setInterval(fetchFriendNowPlaying, 10000);
+    const interval = setInterval(fetchFriendNowPlaying, 5000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [showProfileView, userId, mounted]);
 
@@ -1110,8 +1197,16 @@ export default function MessengerView() {
   const isGroupChat = !!selectedGroupId && !selectedContactId;
   const displayMessages = isGroupChat ? currentGroupMessages : contactMessages;
 
+  // Compute messenger container height
+  const messengerHeight = (() => {
+    const topNav = 3.5;
+    const mobileNav = isMobileView ? 3.5 : 0;
+    const playerBar = currentTrack ? 5 : 0;
+    return `calc(100dvh - ${topNav + mobileNav + playerBar}rem)`;
+  })();
+
   return (
-    <div className="h-[calc(100dvh-3.5rem)] lg:h-[calc(100dvh-3.5rem)] flex flex-col lg:flex-row overflow-hidden" style={{ backgroundColor: "var(--mq-bg)" }}>
+    <div className="flex flex-col lg:flex-row overflow-hidden" style={{ backgroundColor: "var(--mq-bg)", height: messengerHeight }}>
       {/* ════════════════════════════════════════════════════════ */}
       {/*  LEFT SIDEBAR                                         */}
       {/* ════════════════════════════════════════════════════════ */}
@@ -2033,18 +2128,24 @@ export default function MessengerView() {
                   <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Чат</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.9 }}
-                  onClick={() => showToast("Уведомления включены")}
+                  onClick={() => { requestNotifPermission(); showToast(notificationPermission === "granted" ? "Уведомления включены" : "Разрешите уведомления в браузере"); }}
                   className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
                   style={{ ...glassPanel }}>
-                  <Bell className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+                  <Bell className="w-5 h-5" style={{ color: notificationPermission === "granted" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                   <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Звук</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.9 }}
-                  onClick={() => showToast("Звонки пока в разработке")}
+                  onClick={() => { setHideOnline(!hideOnline); showToast(hideOnline ? "Невидимка включена — вы невидимы для других" : "Невидимка выключена"); }}
                   className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
                   style={{ ...glassPanel }}>
-                  <Phone className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                  <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Звонок</span>
+                  <div className="w-5 h-5 flex items-center justify-center">
+                    {hideOnline ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--mq-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M9.343 16.243A7.5 7.5 0 0 1 12 15c.766 0 1.5.12 2.186.343"/><path d="M5.354 5.354A9 9 0 0 1 20.4 14.706"/><path d="M12 9a3 3 0 0 0 2.829 3.929"/><path d="M2 2l20 20"/></svg>
+                    ) : (
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--mq-text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-medium" style={{ color: hideOnline ? "var(--mq-accent)" : "var(--mq-text)" }}>{hideOnline ? "Скрыт" : "Видим"}</span>
                 </motion.button>
                 <div className="relative flex flex-col items-center gap-1.5 flex-1 max-w-[80px]">
                   <motion.button whileTap={{ scale: 0.9 }}

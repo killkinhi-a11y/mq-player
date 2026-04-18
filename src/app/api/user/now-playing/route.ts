@@ -19,9 +19,9 @@ export async function GET(req: NextRequest) {
     }
 
     const data = JSON.parse(sync.data);
-    // If last update was more than 5 minutes ago, consider it stale
+    // If last update was more than 2 minutes ago, consider it stale
     const updatedAt = sync.updatedAt.getTime();
-    if (Date.now() - updatedAt > 5 * 60 * 1000) {
+    if (Date.now() - updatedAt > 2 * 60 * 1000) {
       return NextResponse.json({ nowPlaying: null });
     }
 
