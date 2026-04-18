@@ -5,11 +5,12 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export default function SettingsView() {
   const {
@@ -40,6 +41,9 @@ export default function SettingsView() {
   const [supportLoadingHistory, setSupportLoadingHistory] = useState(false);
   const supportScrollRef = useRef<HTMLDivElement>(null);
   const volumeSectionRef = useRef<HTMLDivElement>(null);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const themeMenuRef = useRef<HTMLDivElement>(null);
   const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
@@ -271,6 +275,17 @@ export default function SettingsView() {
       >
         <User className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
         Настройки профиля
+      </motion.button>
+
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setShowPasswordReset(true)}
+        className="w-full p-3 rounded-xl text-left text-sm font-medium flex items-center gap-3"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+      >
+        <KeyRound className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+        Сменить пароль
       </motion.button>
 
       {showAdminLink && (
@@ -664,6 +679,61 @@ export default function SettingsView() {
           </motion.button>
         </div>
       </motion.div>
+
+      {/* Password Reset Dialog */}
+      <Dialog open={showPasswordReset} onOpenChange={setShowPasswordReset}>
+        <DialogContent style={{
+          backgroundColor: "var(--mq-card)",
+          border: "1px solid var(--mq-border)",
+          color: "var(--mq-text)",
+          maxWidth: 400,
+        }}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <KeyRound className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+              Сменить пароль
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+            Код подтверждения будет отправлен на {email}
+          </p>
+          {error && (
+            <p className="text-sm" style={{ color: "#ef4444" }}>{error}</p>
+          )}
+          <div className="flex gap-2 mt-4">
+            <Button onClick={async () => {
+              setLoading(true);
+              setError(null);
+              try {
+                const res = await fetch("/api/auth/send-code", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ email }),
+                });
+                const data = await res.json();
+                if (!res.ok) { setError(data.error || "Ошибка"); return; }
+                logout();
+                setShowPasswordReset(false);
+                setView("auth");
+              } catch {
+                setError("Ошибка соединения");
+              } finally {
+                setLoading(false);
+              }
+            }}
+              disabled={loading}
+              className="flex-1 min-h-[40px]"
+              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Отправить код"}
+            </Button>
+            <Button onClick={() => { setShowPasswordReset(false); setError(null); }}
+              className="flex-1 min-h-[40px]"
+              style={{ border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}>
+              Отмена
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Support */}
       <motion.button

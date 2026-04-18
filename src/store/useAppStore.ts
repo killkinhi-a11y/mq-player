@@ -508,7 +508,15 @@ export const useAppStore = create<AppState>()(
 
       loadMessages: (incoming) => set((s) => {
         const existingIds = new Set(s.messages.map(m => m.id));
-        const newMsgs = incoming.filter(m => !existingIds.has(m.id));
+        const existingSignatures = new Set(
+          s.messages.map(m => `${m.content}|${m.senderId}|${m.receiverId}`)
+        );
+        const newMsgs = incoming.filter(m => {
+          if (existingIds.has(m.id)) return false;
+          const sig = `${m.content}|${m.senderId}|${m.receiverId}`;
+          if (existingSignatures.has(sig)) return false;
+          return true;
+        });
         return { messages: [...s.messages, ...newMsgs] };
       }),
 

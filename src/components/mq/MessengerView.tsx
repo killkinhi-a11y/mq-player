@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import {
   Lock, Shield, Send, ArrowLeft, Search, ShieldCheck, Phone, Smile, Trash2,
   Plus, Music2, X, Loader2, Copy, Reply, UserPlus, UserCheck, Users, AlertCircle,
-  Sparkles, Play, Pause, Heart, Eye, ChevronLeft, ChevronRight, Music as MusicIcon, MessageCircle, BookOpen
+  Sparkles, Play, Pause, Heart, Eye, ChevronLeft, ChevronRight, Music as MusicIcon, MessageCircle, BookOpen, Pin
 } from "lucide-react";
 import { simulateEncrypt, getEncryptionStatus, generateMockFingerprint, simulateDecryptSync } from "@/lib/crypto";
 
@@ -106,6 +106,26 @@ export default function MessengerView() {
   const [showStoryCreate, setShowStoryCreate] = useState(false);
   const [storyText, setStoryText] = useState("");
   const [newChatSearch, setNewChatSearch] = useState("");
+  const [pinnedChatIds, setPinnedChatIds] = useState<Set<string>>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("mq-pinned-chats");
+        return saved ? new Set(JSON.parse(saved)) : new Set();
+      } catch { return new Set(); }
+    }
+    return new Set();
+  });
+
+  const togglePinChat = useCallback((contactId: string) => {
+    setPinnedChatIds(prev => {
+      const next = new Set(prev);
+      if (next.has(contactId)) next.delete(contactId);
+      else next.add(contactId);
+      try { localStorage.setItem("mq-pinned-chats", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  }, []);
+
   const [mounted, setMounted] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -348,6 +368,16 @@ export default function MessengerView() {
       c.username.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
     );
   }, [contactList, searchContact]);
+
+  const sortedContacts = useMemo(() => {
+    const pinned: typeof filteredContacts = [];
+    const unpinned: typeof filteredContacts = [];
+    for (const c of filteredContacts) {
+      if (pinnedChatIds.has(c.id)) pinned.push(c);
+      else unpinned.push(c);
+    }
+    return [...pinned, ...unpinned];
+  }, [filteredContacts, pinnedChatIds]);
 
   const selectedContact = useMemo(
     () => contacts.find((c) => c.id === selectedContactId) || contactList.find((c) => c.id === selectedContactId),
@@ -773,8 +803,8 @@ export default function MessengerView() {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
             </div>
-          ) : filteredContacts.length > 0 ? (
-            filteredContacts.map((contact, i) => {
+          ) : sortedContacts.length > 0 ? (
+            sortedContacts.map((contact, i) => {
               const lastMsg = getLastMessage(contact.id);
               const unread = getUnreadCount(contact.id);
               return (
@@ -784,6 +814,11 @@ export default function MessengerView() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: i * 0.03 }}
                   onClick={() => setSelectedContact(contact.id)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    togglePinChat(contact.id);
+                  }}
                   className="w-full flex items-center gap-3 p-3 hover:opacity-80 transition-opacity text-left cursor-pointer"
                   style={{
                     backgroundColor: selectedContactId === contact.id ? "var(--mq-accent)" : "transparent",
@@ -792,6 +827,11 @@ export default function MessengerView() {
                 >
                   <div className="relative flex-shrink-0">
                     <AvatarImg src={contact.avatar} alt={contact.name} className="w-11 h-11 rounded-full object-cover" />
+                    {pinnedChatIds.has(contact.id) && (
+                      <div className="absolute -top-1 -left-1" style={{ zIndex: 2 }}>
+                        <Pin className="w-3 h-3" style={{ color: "var(--mq-accent)", fill: "var(--mq-accent)" }} />
+                      </div>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">

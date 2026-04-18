@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { content, senderId, receiverId, encrypted } = await req.json();
+    const { content, senderId, receiverId, encrypted, id } = await req.json();
 
     if (!content || !senderId || !receiverId) {
       return NextResponse.json(
@@ -50,6 +50,7 @@ export async function POST(req: NextRequest) {
 
     const message = await db.message.create({
       data: {
+        id: id || undefined,
         content,
         senderId,
         receiverId,
