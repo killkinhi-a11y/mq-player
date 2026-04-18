@@ -221,7 +221,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                       </div>
                       {/* Delete */}
                       <button onClick={(e) => { e.stopPropagation(); deleteNotification(notif.id); }}
-                        className="p-1 rounded cursor-pointer opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity flex-shrink-0"
+                        className="p-1 rounded cursor-pointer hover:opacity-100 transition-opacity flex-shrink-0 opacity-40"
                         style={{ color: "var(--mq-text-muted)" }}>
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>

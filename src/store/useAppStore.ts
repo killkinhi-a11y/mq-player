@@ -493,7 +493,10 @@ export const useAppStore = create<AppState>()(
         set((s) => {
           // Dedup: skip messages with same ID
           if (s.messages.some((m) => m.id === message.id)) return s;
-          return { messages: [...s.messages, message] };
+          const updated = [...s.messages, message];
+          // Keep max 1000 messages in memory to prevent performance issues
+          if (updated.length > 1000) return { messages: updated.slice(-1000) };
+          return { messages: updated };
         }),
 
       setSelectedContact: (contactId) => set({ selectedContactId: contactId, unreadCounts: { ...get().unreadCounts, [contactId]: 0 } }),
@@ -950,7 +953,7 @@ export const useAppStore = create<AppState>()(
         username: state.username,
         email: state.email,
         avatar: state.avatar,
-        messages: state.messages,
+        messages: state.messages.length > 300 ? state.messages.slice(-300) : state.messages,
         unreadCounts: state.unreadCounts,
         contacts: state.contacts,
         currentView: state.currentView,
@@ -1001,8 +1004,8 @@ export const useAppStore = create<AppState>()(
           if (!Array.isArray(s.similarTracks)) fixes.similarTracks = [];
           if (!Array.isArray(s.publicPlaylists)) fixes.publicPlaylists = [];
           if (!Array.isArray(s.recommendedPlaylists)) fixes.recommendedPlaylists = [];
-          if (!Array.isArray(s.publicPlaylistsLoading)) fixes.publicPlaylistsLoading = false;
-          if (!Array.isArray(s.recommendedPlaylistsLoading)) fixes.recommendedPlaylistsLoading = false;
+          if (typeof s.publicPlaylistsLoading !== "boolean") fixes.publicPlaylistsLoading = false;
+          if (typeof s.recommendedPlaylistsLoading !== "boolean") fixes.recommendedPlaylistsLoading = false;
           if (typeof s.publicPlaylistsPage !== "number") fixes.publicPlaylistsPage = 1;
           if (typeof s.publicPlaylistsTotal !== "number") fixes.publicPlaylistsTotal = 0;
           if (typeof s.publicPlaylistsSearch !== "string") fixes.publicPlaylistsSearch = "";

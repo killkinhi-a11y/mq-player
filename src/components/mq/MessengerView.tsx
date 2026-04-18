@@ -227,6 +227,97 @@ export default function MessengerView() {
   const [storyPaused, setStoryPaused] = useState(false);
   const storyTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── Cross-tab BroadcastChannel for notifications ──
+  const bcRef = useRef<BroadcastChannel | null>(null);
+  useEffect(() => {
+    try {
+      bcRef.current = new BroadcastChannel("mq-notifications");
+      bcRef.current.onmessage = (event) => {
+        const { type, payload } = event.data;
+        if (type === "new_message" && payload?.senderId !== userId) {
+          playNotifSound();
+          if (notificationPermission === "granted") {
+            try {
+              const senderName = payload.senderUsername || "Someone";
+              const preview = (payload.preview || "").slice(0, 60);
+              new Notification(`Сообщение от ${senderName}`, {
+                body: preview,
+                icon: "/icon-192.png",
+                tag: payload.id || "",
+              });
+            } catch { /* ignore */ }
+          }
+        } else if (type === "friend_request") {
+          playNotifSound();
+          fetchFriends();
+        }
+      };
+    } catch { /* BroadcastChannel not supported */ }
+    return () => { try { bcRef.current?.close(); } catch { /* */ } };
+  }, [userId, notificationPermission, playNotifSound]);
+
+  // ── Cross-tab: broadcast new message to other tabs ──
+  useEffect(() => {
+    if (!userId) return;
+    const unsub = useAppStore.subscribe((state, prev) => {
+      if (state.messages.length > prev.messages.length) {
+        const newMsg = state.messages[state.messages.length - 1];
+        if (newMsg && newMsg.senderId === userId) {
+          // This is a message WE sent — broadcast to other tabs (they are the receivers)
+          try {
+            bcRef.current?.postMessage({ type: "self_message_sent" });
+          } catch { /* */ }
+        }
+      }
+    });
+    return unsub;
+  }, [userId]);
+
+  // ── Document title with unread count for background tab indication ──
+  useEffect(() => {
+    if (!userId) return;
+    const updateTitle = () => {
+      const totalUnread = Object.values(unreadCounts).reduce((sum, c) => sum + (c || 0), 0);
+      const baseTitle = document.title.replace(/^\(\d+\)\s*/, "");
+      document.title = totalUnread > 0 ? `(${totalUnread}) ${baseTitle}` : baseTitle;
+    };
+    updateTitle();
+  }, [unreadCounts, userId]);
+
+  // ── Visibility change: poll notifications when tab becomes visible ──
+  useEffect(() => {
+    if (!userId) return;
+    const handler = () => {
+      if (document.visibilityState === "visible") {
+        // Refresh messages, notifications, and friends when returning to tab
+        if (selectedContactId) {
+          fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId}&since=${encodeURIComponent(lastSeenTimeRef.current)}`)
+            .then(r => r.json()).then(data => {
+              (data.messages || []).forEach((m: any) => {
+                const existing = useAppStore.getState().messages.find((em: any) => em.id === m.id);
+                if (!existing) {
+                  useAppStore.getState().addMessage({
+                    id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
+                    encrypted: m.encrypted, createdAt: m.createdAt,
+                    senderName: `@${m.sender?.username || "user"}`,
+                    messageType: m.messageType, replyToId: m.replyToId, edited: m.edited,
+                    voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
+                  });
+                }
+              });
+            }).catch(() => {});
+        }
+        // Refresh unread counts
+        fetch(`/api/notifications?userId=${userId}`)
+          .then(r => r.json()).then(data => { setNotifUnreadCount(data.unreadCount || 0); }).catch(() => {});
+        // Refresh friends
+        fetchFriends();
+      }
+    };
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, [userId, selectedContactId, fetchFriends]);
+
   // ── Refs ──
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -361,7 +452,8 @@ export default function MessengerView() {
     // Push notification for new messages (all states, if permission granted)
     if (m.senderId !== userId) {
       playNotifSound();
-      if (notificationPermission === "granted") {
+      // Show browser notification
+      if (notificationPermission === "granted" && document.visibilityState === "hidden") {
         try {
           const decrypted = simulateDecryptSync(m.content);
           const preview = decrypted.length > 60 ? decrypted.slice(0, 60) + "..." : decrypted;
@@ -375,6 +467,13 @@ export default function MessengerView() {
       } else if (notificationPermission === "default") {
         requestNotifPermission();
       }
+      // Broadcast to other tabs
+      try {
+        bcRef.current?.postMessage({
+          type: "new_message",
+          payload: { senderId: m.senderId, senderUsername: m.senderUsername, id: m.id, preview: (() => { try { const d = simulateDecryptSync(m.content); return d.length > 60 ? d.slice(0, 60) : d; } catch { return m.content.slice(0, 60); } })() },
+        });
+      } catch { /* BroadcastChannel not available */ }
     }
 
     // Update cursor
@@ -498,10 +597,15 @@ export default function MessengerView() {
     } catch { /* ignore */ }
   }, []);
 
-  // Play notification sound
+  // Play notification sound — reuse AudioContext to avoid hitting browser limits
+  const notifAudioCtxRef = useRef<AudioContext | null>(null);
   const playNotifSound = useCallback(() => {
     try {
-      const ctx = new AudioContext();
+      if (!notifAudioCtxRef.current || notifAudioCtxRef.current.state === "closed") {
+        notifAudioCtxRef.current = new AudioContext();
+      }
+      const ctx = notifAudioCtxRef.current;
+      if (ctx.state === "suspended") ctx.resume();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
@@ -845,7 +949,7 @@ export default function MessengerView() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, selectedContactId, groupMessages, selectedGroupId]);
 
-  // ── Close context menu on click/touch anywhere ──
+  // ── Close context menu on click/touch/Escape anywhere ──
   useEffect(() => {
     if (!contextMenuMsgId) return;
     const close = (e: Event) => {
@@ -854,14 +958,21 @@ export default function MessengerView() {
       if (menu && menu.contains(e.target as Node)) return;
       setContextMenuMsgId(null);
     };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setContextMenuMsgId(null);
+    };
     const timer = setTimeout(() => {
       document.addEventListener("mousedown", close);
       document.addEventListener("touchstart", close, { passive: true });
+      document.addEventListener("click", close);
+      document.addEventListener("keydown", handleEscape);
     }, 50);
     return () => {
       clearTimeout(timer);
       document.removeEventListener("mousedown", close);
       document.removeEventListener("touchstart", close);
+      document.removeEventListener("click", close);
+      document.removeEventListener("keydown", handleEscape);
     };
   }, [contextMenuMsgId]);
 
@@ -1253,10 +1364,12 @@ export default function MessengerView() {
   const displayMessages = isGroupChat ? currentGroupMessages : contactMessages;
 
   // Compute messenger container height
+  // PlayerBar actual height on desktop: progress(~6px) + controls(~72px) + canvas(~28px) ≈ 106px ≈ 6.6rem
+  // PlayerBar actual height on mobile: progress(~6px) + controls(~56px) + canvas(~20px) + mobileNav(~56px) ≈ 138px
   const messengerHeight = (() => {
     const topNav = isMobileView ? 4 : 3.5;
     const mobileNav = isMobileView ? 3.5 : 0;
-    const playerBar = currentTrack ? (isMobileView ? 5.5 : 5) : 0;
+    const playerBar = currentTrack ? (isMobileView ? 7 : 7) : 0;
     return `calc(100dvh - ${topNav + mobileNav + playerBar}rem)`;
   })();
 
@@ -2363,15 +2476,18 @@ export default function MessengerView() {
           </div>
         </motion.div>
 
-        {/* Context menu — fixed positioning at cursor, touch-safe */}
+        {/* Context menu — fixed positioning at cursor, touch-safe with backdrop */}
         {contextMenuMsgId && contextMenuMsgId.id === msg.id && (
-          <div
-            data-context-menu="true"
-            className="fixed z-[9999] rounded-xl py-1 min-w-[190px]"
-            style={{ ...glassPanelSolid, boxShadow: shadowDeep, left: Math.min(contextMenuMsgId.x, window.innerWidth - 210), top: Math.min(contextMenuMsgId.y, window.innerHeight - 220) }}
-            onTouchStart={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}>
+          <>
+            {/* Transparent backdrop to catch clicks/taps outside the menu */}
+            <div className="fixed inset-0 z-[9998]" onClick={() => setContextMenuMsgId(null)} onTouchStart={() => setContextMenuMsgId(null)} />
+            <div
+              data-context-menu="true"
+              className="fixed z-[9999] rounded-xl py-1 min-w-[190px]"
+              style={{ ...glassPanelSolid, boxShadow: shadowDeep, left: Math.min(contextMenuMsgId.x, window.innerWidth - 210), top: Math.min(contextMenuMsgId.y, window.innerHeight - 220) }}
+              onTouchStart={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}>
             <button onClick={() => handleReplyMessage(msg)}
               className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
               <Reply className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Ответить
@@ -2392,7 +2508,8 @@ export default function MessengerView() {
                 <Trash2 className="w-4 h-4" /> Удалить
               </button>
             )}
-          </div>
+            </div>
+          </>
         )}
       </div>
     );
