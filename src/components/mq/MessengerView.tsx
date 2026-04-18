@@ -67,8 +67,9 @@ const stickerCategories = [
 
 function AvatarImg({ src, alt, className, style }: { src: string; alt: string; className?: string; style?: React.CSSProperties }) {
   const [errored, setErrored] = useState(false);
-  const initials = alt.split(" ").map((w) => w.charAt(0).toUpperCase()).slice(0, 2).join("");
-  if (errored) {
+  const initials = alt.replace("@", "").split(" ").map((w) => w.charAt(0).toUpperCase()).slice(0, 2).join("");
+  const useFallback = errored || !src || src.trim() === "" || src === "null" || src === "undefined";
+  if (useFallback) {
     const colors = ["#e03131", "#0ea5e9", "#f43f5e", "#f97316", "#34d399", "#a78bfa", "#ff2a6d", "#e040fb"];
     const colorIdx = (alt.charCodeAt(0) + (alt.charCodeAt(1) || 0)) % colors.length;
     return (
@@ -903,14 +904,15 @@ export default function MessengerView() {
   //  CHAT ACTIONS: Export, Clear, Delete
   // ═══════════════════════════════════════════════════════════
 
-  const handleExportChat = () => {
-    if (!selectedContactId || !userId) return;
+  const handleExportChat = (targetUserId?: string) => {
+    const targetId = targetUserId || selectedContactId;
+    if (!targetId || !userId) return;
     const msgs = messages.filter((m) =>
-      (m.senderId === userId && m.receiverId === selectedContactId) ||
-      (m.senderId === selectedContactId && m.receiverId === userId)
+      (m.senderId === userId && m.receiverId === targetId) ||
+      (m.senderId === targetId && m.receiverId === userId)
     );
     if (msgs.length === 0) { showToast("Нет сообщений для экспорта"); return; }
-    const contactName = selectedContact?.name || selectedContact?.username || "chat";
+    const contactName = contactList.find(c => c.id === targetId)?.name || contactList.find(c => c.id === targetId)?.username || "chat";
     let text = `Чат с @${contactName}\nЭкспортирован: ${new Date().toLocaleString("ru-RU")}\n${"═".repeat(40)}\n\n`;
     msgs.forEach((m) => {
       const time = new Date(m.createdAt).toLocaleString("ru-RU");
@@ -930,24 +932,28 @@ export default function MessengerView() {
     showToast("История экспортирована");
   };
 
-  const handleClearHistory = () => {
-    if (!selectedContactId || !userId) return;
+  const handleClearHistory = (targetUserId?: string) => {
+    const targetId = targetUserId || selectedContactId;
+    if (!targetId || !userId) return;
     useAppStore.setState({
       messages: useAppStore.getState().messages.filter(
-        (m) => !((m.senderId === userId && m.receiverId === selectedContactId) ||
-                 (m.senderId === selectedContactId && m.receiverId === userId))
+        (m) => !((m.senderId === userId && m.receiverId === targetId) ||
+                 (m.senderId === targetId && m.receiverId === userId))
       ),
     });
-    setServerMessagesLoaded((p) => ({ ...p, [`${userId}-${selectedContactId}`]: false }));
+    setServerMessagesLoaded((p) => ({ ...p, [`${userId}-${targetId}`]: false }));
     showToast("История очищена");
-    setSelectedContact(null);
-    setSelectedGroupId(null);
+    if (!targetUserId) {
+      setSelectedContact(null);
+      setSelectedGroupId(null);
+    }
   };
 
-  const handleDeleteChat = () => {
-    if (!selectedContactId || !userId) return;
-    // Clear messages and deselect
-    handleClearHistory();
+  const handleDeleteChat = (targetUserId?: string) => {
+    const targetId = targetUserId || selectedContactId;
+    if (!targetId || !userId) return;
+    handleClearHistory(targetUserId);
+    showToast("Чат удалён");
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -1918,7 +1924,7 @@ export default function MessengerView() {
             onClick={() => { setShowProfileView(null); setShowProfileMore(false); }}>
             <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl overflow-hidden"
+              className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl overflow-visible"
               style={{ ...glassPanelSolid, boxShadow: shadowDeep }}
               onClick={(e) => e.stopPropagation()}>
 
@@ -2002,16 +2008,16 @@ export default function MessengerView() {
                         onMouseDown={(e) => e.stopPropagation()}
                         data-context-menu="true"
                         onClick={(e) => { e.stopPropagation(); setShowProfileMore(false); }}>
-                        <button onClick={() => { setShowProfileMore(false); setShowProfileView(null); handleExportChat(); }}
+                        <button onClick={() => { handleExportChat(showProfileView!); setShowProfileMore(false); }}
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
                           <Download className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Экспорт чата
                         </button>
-                        <button onClick={() => { setShowProfileMore(false); setShowProfileView(null); handleClearHistory(); }}
+                        <button onClick={() => { handleClearHistory(showProfileView!); setShowProfileMore(false); }}
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
                           <Trash2 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Очистить историю
                         </button>
                         <div className="my-1" style={{ borderTop: "1px solid var(--mq-border)" }} />
-                        <button onClick={() => { setShowProfileMore(false); setShowProfileView(null); handleDeleteChat(); }}
+                        <button onClick={() => { handleDeleteChat(showProfileView!); setShowProfileMore(false); setShowProfileView(null); }}
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "#ef4444" }}>
                           <Ban className="w-4 h-4" /> Заблокировать
                         </button>
