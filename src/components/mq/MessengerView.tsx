@@ -6,26 +6,40 @@ import { motion, AnimatePresence } from "framer-motion";
 import MessageBubble from "./MessageBubble";
 import { Input } from "@/components/ui/input";
 import {
-  Lock, Shield, Send, ArrowLeft, Search, ShieldCheck, Phone, Smile, Trash2,
+  Lock, Shield, Send, ArrowLeft, Search, ShieldCheck, Smile, Trash2,
   Plus, Music2, X, Loader2, Copy, Reply, UserPlus, UserCheck, Users, AlertCircle,
-  Sparkles, Play, Pause, Heart, Eye, ChevronLeft, ChevronRight, Music as MusicIcon, MessageCircle, BookOpen, Pin
+  Play, Pause, ChevronLeft, ChevronRight, BookOpen, Pin,
+  Mic, MicOff, Edit3, MessageSquare, Sticker, KeyRound,
+  MoreVertical, Check
 } from "lucide-react";
 import { simulateEncrypt, getEncryptionStatus, generateMockFingerprint, simulateDecryptSync } from "@/lib/crypto";
 
-// ── Inline Stories types & data ──
+// ═══════════════════════════════════════════════════════════════
+//  TYPES
+// ═══════════════════════════════════════════════════════════════
+
 interface Story {
-  id: string;
-  userId: string;
-  username: string;
-  avatar: string;
-  content: string;
-  contentType: "text" | "image" | "track";
-  createdAt: string;
-  expiresAt: string;
-  viewed: boolean;
-  likes: number;
+  id: string; userId: string; username: string; avatar: string;
+  content: string; contentType: "text" | "image" | "track";
+  createdAt: string; expiresAt: string; viewed: boolean; likes: number;
   trackData?: { id: string; title: string; artist: string; cover: string; duration: number; streamUrl: string };
 }
+
+interface FriendUser { id: string; username: string; addedAt: string; }
+interface PendingRequest { id: string; username: string; requestId: string; }
+interface FetchedUser { id: string; username: string; email: string; createdAt: string; }
+
+interface GroupChat {
+  id: string; name: string; description?: string; creatorId: string;
+  memberIds: string[]; createdAt: string;
+}
+
+interface EditingMessage { id: string; content: string; }
+interface ReplyingTo { id: string; content: string; senderName: string; senderId: string; }
+
+// ═══════════════════════════════════════════════════════════════
+//  CONSTANTS & DATA
+// ═══════════════════════════════════════════════════════════════
 
 const storyGradients = [
   "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
@@ -36,39 +50,31 @@ const storyGradients = [
   "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
 ];
 
-interface FriendUser {
-  id: string;
-  username: string;
-  addedAt: string;
-}
-
-interface PendingRequest {
-  id: string;
-  username: string;
-  requestId: string;
-}
-
-interface FetchedUser {
-  id: string;
-  username: string;
-  email: string;
-  createdAt: string;
-}
-
 const quickEmojis = ["😀", "😂", "❤️", "🎵", "🔥", "👍", "😎", "🤔", "💪", "🫡", "✨", "🥳"];
 
-// Avatar component with fallback to initials
+const stickerCategories = [
+  { name: "Смайлы", items: ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "😉", "😊", "😇"] },
+  { name: "Жесты", items: ["👍", "👎", "👋", "🤝", "👏", "🙌", "🤞", "✌️", "🤟", "🫶", "💪", "🫡"] },
+  { name: "Животные", items: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐸"] },
+  { name: "Еда", items: ["🍕", "🍔", "🍟", "🌮", "🍣", "🍦", "🍩", "🍪", "🍫", "☕", "🧋", "🍺"] },
+  { name: "Сердца", items: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💗", "💖", "💝", "💞"] },
+  { name: "Музыка", items: ["🎵", "🎶", "🎸", "🎹", "🥁", "🎺", "🎻", "🪗", "🎙️", "🎧", "🎤", "🎼"] },
+];
+
+// ═══════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════
+
 function AvatarImg({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const [errored, setErrored] = useState(false);
-  const initials = alt.split(' ').map(w => w.charAt(0).toUpperCase()).slice(0, 2).join('');
+  const initials = alt.split(" ").map((w) => w.charAt(0).toUpperCase()).slice(0, 2).join("");
   if (errored) {
-    const colors = ['#e03131','#0ea5e9','#f43f5e','#f97316','#34d399','#a78bfa','#ff2a6d','#e040fb'];
+    const colors = ["#e03131", "#0ea5e9", "#f43f5e", "#f97316", "#34d399", "#a78bfa", "#ff2a6d", "#e040fb"];
     const colorIdx = (alt.charCodeAt(0) + (alt.charCodeAt(1) || 0)) % colors.length;
     return (
-      <div
-        className={className}
-        style={{ backgroundColor: colors[colorIdx], display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '0.8em' }}
-      >{initials || '?'}</div>
+      <div className={className} style={{ backgroundColor: colors[colorIdx], display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "0.8em" }}>
+        {initials || "?"}
+      </div>
     );
   }
   return <img src={src} alt={alt} className={className} onError={() => setErrored(true)} />;
@@ -80,21 +86,58 @@ function getDateLabel(dateStr: string): string {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-
   const msgDay = new Date(msgDate.getFullYear(), msgDate.getMonth(), msgDate.getDate());
-
   if (msgDay.getTime() === today.getTime()) return "Сегодня";
   if (msgDay.getTime() === yesterday.getTime()) return "Вчера";
   return msgDate.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
 }
 
+function formatLastSeen(iso: string | null): string {
+  if (!iso) return "давно";
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (diff < 1) return "только что";
+  if (diff < 5) return `${diff} мин назад`;
+  if (diff < 60) return `был(а) ${diff} мин назад`;
+  if (diff < 1440) return `был(а) ${Math.floor(diff / 60)} ч назад`;
+  return `был(а) ${Math.floor(diff / 1440)} дн назад`;
+}
+
+function formatRecordingTime(seconds: number): string {
+  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
+  const s = (seconds % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  GLASSMORPHISM STYLE HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+const glassPanel: React.CSSProperties = {
+  background: "rgba(255,255,255,0.04)",
+  backdropFilter: "blur(12px)",
+  WebkitBackdropFilter: "blur(12px)",
+  border: "1px solid rgba(255,255,255,0.08)",
+};
+
+const glassPanelSolid: React.CSSProperties = {
+  background: "var(--mq-card)",
+  border: "1px solid var(--mq-border)",
+};
+
+const shadowDeep = "0 8px 32px rgba(0,0,0,0.35)";
+
+// ═══════════════════════════════════════════════════════════════
+//  COMPONENT
+// ═══════════════════════════════════════════════════════════════
+
 export default function MessengerView() {
   const {
-    userId, username, messages, addMessage, selectedContactId, setSelectedContact,
+    userId, username, email, messages, addMessage, selectedContactId, setSelectedContact,
     animationsEnabled, currentTrack, unreadCounts, addContact, contacts,
     loadMessages,
   } = useAppStore();
 
+  // ── Core UI state ──
   const [inputText, setInputText] = useState("");
   const [searchContact, setSearchContact] = useState("");
   const [fingerprint] = useState(generateMockFingerprint);
@@ -106,6 +149,10 @@ export default function MessengerView() {
   const [showStoryCreate, setShowStoryCreate] = useState(false);
   const [storyText, setStoryText] = useState("");
   const [newChatSearch, setNewChatSearch] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const [showChatSettings, setShowChatSettings] = useState(false);
+
+  // ── Pinned chats (persisted to localStorage) ──
   const [pinnedChatIds, setPinnedChatIds] = useState<Set<string>>(() => {
     if (typeof window !== "undefined") {
       try {
@@ -116,42 +163,56 @@ export default function MessengerView() {
     return new Set();
   });
 
-  const togglePinChat = useCallback((contactId: string) => {
-    setPinnedChatIds(prev => {
-      const next = new Set(prev);
-      if (next.has(contactId)) next.delete(contactId);
-      else next.add(contactId);
-      try { localStorage.setItem("mq-pinned-chats", JSON.stringify([...next])); } catch {}
-      return next;
-    });
-  }, []);
+  // ── New features state ──
+  const [editingMessage, setEditingMessage] = useState<EditingMessage | null>(null);
+  const [replyingTo, setReplyingTo] = useState<ReplyingTo | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [searchMode, setSearchMode] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [showStickers, setShowStickers] = useState(false);
+  const [stickerTab, setStickerTab] = useState(0);
+  const [showGroupCreate, setShowGroupCreate] = useState(false);
+  const [groupName, setGroupName] = useState("");
+  const [groupDesc, setGroupDesc] = useState("");
+  const [groupMembers, setGroupMembers] = useState<Set<string>>(new Set());
+  const [onlineStatuses, setOnlineStatuses] = useState<Record<string, { online: boolean; lastSeen: string | null }>>({});
+  const [groupChats, setGroupChats] = useState<GroupChat[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
+  const [groupMessages, setGroupMessages] = useState<Record<string, any[]>>({});
 
-  const [mounted, setMounted] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Friends system state
+  // ── Friends system state ──
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
   const [isLoadingFriends, setIsLoadingFriends] = useState(false);
   const [friendRequestStatus, setFriendRequestStatus] = useState<Record<string, string>>({});
   const [showFriendRequests, setShowFriendRequests] = useState(false);
 
-  // New chat dialog search results
+  // ── New chat dialog search results ──
   const [newChatUsers, setNewChatUsers] = useState<FetchedUser[]>([]);
   const [isLoadingNewChat, setIsLoadingNewChat] = useState(false);
 
-  // Server messages loaded flag
+  // ── Server messages loaded flag ──
   const [serverMessagesLoaded, setServerMessagesLoaded] = useState<Record<string, boolean>>({});
 
-  // ── Stories state (loaded from API) ──
+  // ── Stories state ──
   const [stories, setStories] = useState<Story[]>([]);
   const [viewingStoryIndex, setViewingStoryIndex] = useState<number | null>(null);
   const [storyProgress, setStoryProgress] = useState(0);
   const [storyPaused, setStoryPaused] = useState(false);
   const storyTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Group stories by user
+  // ── Refs ──
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const sseRef = useRef<EventSource | null>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Stories grouping ──
   const storyGroups = stories.reduce<Record<string, Story[]>>((acc, s) => {
     if (!acc[s.userId]) acc[s.userId] = [];
     acc[s.userId].push(s);
@@ -159,20 +220,27 @@ export default function MessengerView() {
   }, {});
   const storyGroupKeys = Object.keys(storyGroups);
 
+  // ═══════════════════════════════════════════════════════════
+  //  EFFECTS
+  // ═══════════════════════════════════════════════════════════
+
+  // Prevent hydration
+  useEffect(() => { setMounted(true); }, []);
+
   // Auto-advance story
   useEffect(() => {
     if (viewingStoryIndex === null) return;
     setStoryProgress(0);
     if (storyPaused) { if (storyTimerRef.current) clearInterval(storyTimerRef.current); return; }
     storyTimerRef.current = setInterval(() => {
-      setStoryProgress(prev => {
+      setStoryProgress((prev) => {
         if (prev >= 100) {
           clearInterval(storyTimerRef.current!);
-          if (viewingStoryIndex < stories.length - 1) setViewingStoryIndex(prev => prev !== null ? prev + 1 : null);
+          if (viewingStoryIndex < stories.length - 1) setViewingStoryIndex((p) => (p !== null ? p + 1 : null));
           else setViewingStoryIndex(null);
           return 0;
         }
-        return prev + 2; // 5 sec per story
+        return prev + 2;
       });
     }, 100);
     return () => { if (storyTimerRef.current) clearInterval(storyTimerRef.current); };
@@ -181,55 +249,31 @@ export default function MessengerView() {
   const closeStoryViewer = useCallback(() => { setViewingStoryIndex(null); setStoryProgress(0); }, []);
   const viewingStory = viewingStoryIndex !== null ? stories[viewingStoryIndex] : null;
 
-  // Prevent hydration mismatch
-  useEffect(() => { setMounted(true); }, []);
-
-  // Fetch stories from API on mount
+  // ── Fetch stories on mount ──
   useEffect(() => {
     const fetchStories = async () => {
       try {
-        const res = await fetch('/api/stories?all=true');
+        const res = await fetch("/api/stories?all=true");
         if (res.ok) {
           const data = await res.json();
           const mapped: Story[] = (data.stories || []).map((s: any) => {
-            let trackData: Story['trackData'] | undefined;
-            let contentType: Story['contentType'] = 'text';
-            const contentStr = typeof s.content === 'string' ? s.content : '';
-            if (s.type === 'music' || s.type === 'track') {
-              contentType = 'track';
-              try {
-                const parsed = JSON.parse(contentStr);
-                if (parsed.track) {
-                  trackData = parsed.track;
-                }
-              } catch {}
-            } else if (s.type === 'image') {
-              contentType = 'image';
-            }
-            return {
-              id: s.id,
-              userId: s.userId,
-              username: s.user?.username || 'User',
-              avatar: "", // Use initials fallback
-              content: contentType === 'track' && trackData ? contentStr : contentStr,
-              contentType,
-              createdAt: s.createdAt,
-              expiresAt: s.expiresAt,
-              viewed: false,
-              likes: s.likes?.length || 0,
-              trackData,
-            };
+            let trackData: Story["trackData"] | undefined;
+            let contentType: Story["contentType"] = "text";
+            const cStr = typeof s.content === "string" ? s.content : "";
+            if (s.type === "music" || s.type === "track") {
+              contentType = "track";
+              try { const p = JSON.parse(cStr); if (p.track) trackData = p.track; } catch { /* */ }
+            } else if (s.type === "image") { contentType = "image"; }
+            return { id: s.id, userId: s.userId, username: s.user?.username || "User", avatar: "", content: cStr, contentType, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed: false, likes: s.likes?.length || 0, trackData };
           });
           setStories(mapped);
         }
-      } catch {
-        // silent
-      }
+      } catch { /* silent */ }
     };
     fetchStories();
   }, []);
 
-  // Fetch friends list
+  // ── Fetch friends list ──
   const fetchFriends = useCallback(async () => {
     if (!userId) return;
     setIsLoadingFriends(true);
@@ -240,97 +284,172 @@ export default function MessengerView() {
         setFriends(data.friends || []);
         setPendingRequests(data.pendingRequests || []);
       }
-    } catch {
-      // silent
-    } finally {
-      setIsLoadingFriends(false);
-    }
+    } catch { /* silent */ } finally { setIsLoadingFriends(false); }
   }, [userId]);
 
-  // Load friends on mount
-  useEffect(() => {
-    fetchFriends();
-  }, [fetchFriends]);
+  useEffect(() => { fetchFriends(); }, [fetchFriends]);
 
-  // When selecting a contact, load messages from server
+  // ── Fetch group chats on mount ──
   useEffect(() => {
-    if (!userId || !selectedContactId) return;
-    const cacheKey = `${userId}-${selectedContactId}`;
-    if (serverMessagesLoaded[cacheKey]) return;
-
-    const loadServerMessages = async () => {
+    if (!userId) return;
+    const fetchGroups = async () => {
       try {
-        const res = await fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId}`);
+        const res = await fetch(`/api/group-chats?userId=${userId}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.messages && data.messages.length > 0) {
-            const serverMsgs = data.messages.map((m: { id: string; content: string; senderId: string; receiverId: string; encrypted: boolean; createdAt: string; sender: { username: string } }) => ({
-              id: m.id,
-              content: m.content,
-              senderId: m.senderId,
-              receiverId: m.receiverId,
-              encrypted: m.encrypted,
-              createdAt: m.createdAt,
-              senderName: `@${m.sender?.username || "user"}`,
-            }));
-            loadMessages(serverMsgs);
-          }
+          setGroupChats(data.groupChats || data || []);
         }
-      } catch {
-        // silent — use local messages
-      } finally {
-        setServerMessagesLoaded(prev => ({ ...prev, [cacheKey]: true }));
-      }
+      } catch { /* silent */ }
     };
-    loadServerMessages();
-  }, [userId, selectedContactId, serverMessagesLoaded, loadMessages]);
+    fetchGroups();
+  }, [userId]);
 
-  // Poll for new messages every 5 seconds when a chat is open
+  // ═══════════════════════════════════════════════════════════
+  //  FEATURE 1: SSE instead of polling
+  // ═══════════════════════════════════════════════════════════
+
   useEffect(() => {
-    if (!userId || !selectedContactId) return;
-    const interval = setInterval(async () => {
-      try {
-        const state = useAppStore.getState();
-        const msgs = state.messages;
-        const lastMsg = msgs
-          .filter((m: any) =>
-            (m.senderId === userId && m.receiverId === selectedContactId) ||
-            (m.senderId === selectedContactId && m.receiverId === userId)
-          )
-          .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-        const res = await fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.messages && data.messages.length > 0) {
-            const newMsgs = data.messages
-              .filter((m: any) => !msgs.find((em: any) => em.id === m.id))
-              .map((m: any) => ({
+    if (!userId) return;
+    let es: EventSource | null = null;
+    const connect = () => {
+      es = new EventSource(`/api/messages/sse?userId=${userId}`);
+      sseRef.current = es;
+      es.addEventListener("new_message", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data?.message) {
+            const m = data.message;
+            const existingIds = new Set(useAppStore.getState().messages.map((em: any) => em.id));
+            if (!existingIds.has(m.id)) {
+              const msg = {
                 id: m.id,
                 content: m.content,
                 senderId: m.senderId,
                 receiverId: m.receiverId,
-                encrypted: m.encrypted,
+                encrypted: m.encrypted ?? true,
                 createdAt: m.createdAt,
-                senderName: `@${m.sender?.username || "user"}`,
-              }));
-            if (newMsgs.length > 0) {
-              loadMessages(newMsgs);
+                senderName: m.senderUsername ? `@${m.senderUsername}` : undefined,
+                messageType: m.messageType,
+              };
+              addMessage(msg);
+
+              // Feature 8: Push notification when document is hidden
+              if (document.hidden && m.senderId !== userId) {
+                requestNotificationPermission();
+                try {
+                  const decrypted = simulateDecryptSync(m.content);
+                  const preview = decrypted.length > 60 ? decrypted.slice(0, 60) + "..." : decrypted;
+                  const senderName = m.senderUsername || "Someone";
+                  new Notification(`Сообщение от ${senderName}`, {
+                    body: preview,
+                    icon: "/icon-192.png",
+                    tag: m.id,
+                  });
+                } catch { /* ignore */ }
+              }
             }
           }
-        }
-      } catch {
-        // silent
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [userId, selectedContactId, loadMessages]);
+        } catch { /* ignore parse errors */ }
+      });
+      es.onerror = () => {
+        es?.close();
+        setTimeout(connect, 3000);
+      };
+    };
+    connect();
+    return () => { es?.close(); sseRef.current = null; };
+  }, [userId, addMessage]);
 
-  // New chat dialog: search users API with debounce
+  // ═══════════════════════════════════════════════════════════
+  //  FEATURE 7: Heartbeat + online status
+  // ═══════════════════════════════════════════════════════════
+
+  // Send heartbeat every 30 seconds
+  useEffect(() => {
+    if (!userId) return;
+    const sendHeartbeat = async () => {
+      try { await fetch("/api/user/heartbeat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId }) }); } catch { /* */ }
+    };
+    sendHeartbeat();
+    heartbeatRef.current = setInterval(sendHeartbeat, 30000);
+    return () => { if (heartbeatRef.current) clearInterval(heartbeatRef.current); };
+  }, [userId]);
+
+  // Fetch friend statuses on mount and when friends change
+  useEffect(() => {
+    if (!userId || friends.length === 0) return;
+    const fetchStatuses = async () => {
+      const statuses: Record<string, { online: boolean; lastSeen: string | null }> = {};
+      await Promise.all(friends.map(async (f) => {
+        try {
+          const res = await fetch(`/api/user/${f.id}/status`);
+          if (res.ok) {
+            const data = await res.json();
+            statuses[f.id] = { online: data.online ?? false, lastSeen: data.lastSeen ?? null };
+          }
+        } catch { statuses[f.id] = { online: false, lastSeen: null }; }
+      }));
+      setOnlineStatuses(statuses);
+    };
+    fetchStatuses();
+    // Refresh every 60s
+    const interval = setInterval(fetchStatuses, 60000);
+    return () => clearInterval(interval);
+  }, [userId, friends]);
+
+  // ═══════════════════════════════════════════════════════════
+  //  Load messages from server on contact select
+  // ═══════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    if (!userId || !selectedContactId) return;
+    const cacheKey = `${userId}-${selectedContactId}`;
+    if (serverMessagesLoaded[cacheKey]) return;
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.messages?.length > 0) {
+            const serverMsgs = data.messages.map((m: any) => ({
+              id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
+              encrypted: m.encrypted, createdAt: m.createdAt, senderName: `@${m.sender?.username || "user"}`,
+              messageType: m.messageType, replyToId: m.replyToId, edited: m.edited,
+            }));
+            loadMessages(serverMsgs);
+          }
+        }
+      } catch { /* silent */ } finally { setServerMessagesLoaded((p) => ({ ...p, [cacheKey]: true })); }
+    };
+    load();
+  }, [userId, selectedContactId, serverMessagesLoaded, loadMessages]);
+
+  // ── Group chat messages polling ──
+  useEffect(() => {
+    if (!userId || !selectedGroupId) return;
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setGroupMessages((p) => ({ ...p, [selectedGroupId]: (data.messages || []).map((m: any) => ({
+            id: m.id, content: m.content, senderId: m.senderId,
+            createdAt: m.createdAt, senderName: m.sender?.username || "User",
+            messageType: m.messageType,
+          })) }));
+        }
+      } catch { /* silent */ }
+    };
+    load();
+    const interval = setInterval(load, 8000);
+    return () => clearInterval(interval);
+  }, [userId, selectedGroupId]);
+
+  // ── New chat dialog: search users API with debounce ──
   useEffect(() => {
     let cancelled = false;
     const q = newChatSearch.trim();
     if (!q) { setNewChatUsers([]); return; }
-
     const timer = setTimeout(async () => {
       setIsLoadingNewChat(true);
       try {
@@ -339,34 +458,27 @@ export default function MessengerView() {
         if (!res.ok) { if (!cancelled) setNewChatUsers([]); return; }
         const data = await res.json();
         if (!cancelled) setNewChatUsers(data.users || []);
-      } catch {
-        if (!cancelled) setNewChatUsers([]);
-      } finally {
-        if (!cancelled) setIsLoadingNewChat(false);
-      }
+      } catch { if (!cancelled) setNewChatUsers([]); } finally { if (!cancelled) setIsLoadingNewChat(false); }
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [newChatSearch, userId]);
 
-  // Build contact list from friends (not all users)
+  // ═══════════════════════════════════════════════════════════
+  //  COMPUTED VALUES
+  // ═══════════════════════════════════════════════════════════
+
   const contactList = useMemo(() => {
     return friends.map((f) => ({
-      id: f.id,
-      name: f.username,
-      username: f.username,
-      avatar: "", // Use initials-based avatar via AvatarImg fallback
-      online: false,
-      lastSeen: new Date(f.addedAt).toLocaleDateString("ru-RU"),
+      id: f.id, name: f.username, username: f.username, avatar: "",
+      online: onlineStatuses[f.id]?.online ?? false,
+      lastSeen: onlineStatuses[f.id]?.lastSeen ?? new Date(f.addedAt).toISOString(),
     }));
-  }, [friends]);
+  }, [friends, onlineStatuses]);
 
-  // Filter contacts for sidebar search
   const filteredContacts = useMemo(() => {
     if (!searchContact.trim()) return contactList;
     const q = searchContact.toLowerCase();
-    return contactList.filter(c =>
-      c.username.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
-    );
+    return contactList.filter((c) => c.username.toLowerCase().includes(q) || c.name.toLowerCase().includes(q));
   }, [contactList, searchContact]);
 
   const sortedContacts = useMemo(() => {
@@ -381,77 +493,85 @@ export default function MessengerView() {
 
   const selectedContact = useMemo(
     () => contacts.find((c) => c.id === selectedContactId) || contactList.find((c) => c.id === selectedContactId),
-    [selectedContactId, contacts, contactList]
+    [selectedContactId, contacts, contactList],
   );
 
-  // Get last message per contact
+  const selectedGroup = useMemo(
+    () => groupChats.find((g) => g.id === selectedGroupId),
+    [groupChats, selectedGroupId],
+  );
+
+  // Active chat: either DM or group
+  const activeChatId = selectedGroupId || selectedContactId;
+
   const getLastMessage = useCallback((contactId: string) => {
     if (!userId) return null;
-    const msgs = messages.filter(
-      (m) =>
-        (m.senderId === userId && m.receiverId === contactId) ||
-        (m.senderId === contactId && m.receiverId === userId)
-    );
+    const msgs = messages.filter((m) => (m.senderId === userId && m.receiverId === contactId) || (m.senderId === contactId && m.receiverId === userId));
     if (msgs.length === 0) return null;
     return msgs[msgs.length - 1];
   }, [messages, userId]);
 
-  const getUnreadCount = useCallback((contactId: string) => {
-    return unreadCounts[contactId] || 0;
-  }, [unreadCounts]);
+  const getUnreadCount = useCallback((contactId: string) => unreadCounts[contactId] || 0, [unreadCounts]);
 
-  // New chat filtered users (exclude already friends)
-  const friendIds = useMemo(() => new Set(friends.map(f => f.id)), [friends]);
+  const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
   const newChatFilteredContacts = useMemo(() => {
-    return newChatUsers
-      .filter(u => !friendIds.has(u.id))
-      .map((u) => ({
-        id: u.id,
-        name: u.username,
-        username: u.username,
-        avatar: "", // Use initials fallback
-        online: false,
-        lastSeen: new Date(u.createdAt).toLocaleDateString("ru-RU"),
-      }));
+    return newChatUsers.filter((u) => !friendIds.has(u.id)).map((u) => ({
+      id: u.id, name: u.username, username: u.username, avatar: "", online: false,
+      lastSeen: new Date(u.createdAt).toLocaleDateString("ru-RU"),
+    }));
   }, [newChatUsers, friendIds]);
 
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages, selectedContactId]);
+  // ── DM Messages ──
+  const contactMessages = useMemo(() => {
+    if (!userId || !selectedContactId) return [];
+    return messages.filter((m) => (m.senderId === userId && m.receiverId === selectedContactId) || (m.senderId === selectedContactId && m.receiverId === userId));
+  }, [messages, userId, selectedContactId]);
 
-  // Close context menu on click anywhere
+  const groupedMessages = useMemo(() => {
+    const groups: { label: string; messages: typeof contactMessages }[] = [];
+    let currentLabel = "";
+    for (const msg of contactMessages) {
+      const label = getDateLabel(msg.createdAt);
+      if (label !== currentLabel) { currentLabel = label; groups.push({ label, messages: [] }); }
+      groups[groups.length - 1].messages.push(msg);
+    }
+    return groups;
+  }, [contactMessages]);
+
+  // ── Group messages for selected group ──
+  const currentGroupMessages = useMemo(() => groupMessages[selectedGroupId || ""] || [], [groupMessages, selectedGroupId]);
+
+  // ═══════════════════════════════════════════════════════════
+  //  SCROLL TO BOTTOM
+  // ═══════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, selectedContactId, groupMessages, selectedGroupId]);
+
+  // ── Close context menu on click anywhere ──
   useEffect(() => {
     const close = () => setContextMenuMsgId(null);
     if (contextMenuMsgId) {
       document.addEventListener("click", close);
       document.addEventListener("touchstart", close);
-      return () => {
-        document.removeEventListener("click", close);
-        document.removeEventListener("touchstart", close);
-      };
+      return () => { document.removeEventListener("click", close); document.removeEventListener("touchstart", close); };
     }
   }, [contextMenuMsgId]);
 
-  // @mention detection
+  // ═══════════════════════════════════════════════════════════
+  //  @MENTIONS
+  // ═══════════════════════════════════════════════════════════
+
   const handleInputChange = (value: string) => {
     setInputText(value);
     const lastWord = value.split(/\s/).pop() || "";
-    if (lastWord.startsWith("@") && lastWord.length > 1) {
-      setMentionSearch(lastWord.slice(1).toLowerCase());
-      setShowMentions(true);
-    } else {
-      setShowMentions(false);
-      setMentionSearch("");
-    }
+    if (lastWord.startsWith("@") && lastWord.length > 1) { setMentionSearch(lastWord.slice(1).toLowerCase()); setShowMentions(true); }
+    else { setShowMentions(false); setMentionSearch(""); }
   };
 
   const filteredMentions = mentionSearch
-    ? contactList.filter((c) =>
-        c.username.toLowerCase().includes(mentionSearch) ||
-        c.name.toLowerCase().includes(mentionSearch)
-      )
+    ? contactList.filter((c) => c.username.toLowerCase().includes(mentionSearch) || c.name.toLowerCase().includes(mentionSearch))
     : contactList;
 
   const handleMentionSelect = (contact: typeof contactList[0]) => {
@@ -463,237 +583,322 @@ export default function MessengerView() {
     inputRef.current?.focus();
   };
 
-  // ── Unified optimistic message sender ──
+  // ═══════════════════════════════════════════════════════════
+  //  MESSAGE SENDING
+  // ═══════════════════════════════════════════════════════════
+
   const sendMessageOptimistic = useCallback(async (content: string, extra?: Record<string, unknown>) => {
-    if (!selectedContactId || !userId) return;
+    const targetId = selectedGroupId || selectedContactId;
+    if (!targetId || !userId) return;
     const msgId = crypto.randomUUID();
     const now = new Date().toISOString();
-
-    // Build message object
-    const msg = {
-      id: msgId,
-      content: extra ? JSON.stringify(extra) : content,
-      senderId: userId,
-      receiverId: selectedContactId,
-      encrypted: !extra, // JSON payloads (tracks, gifs) don't encrypt
-      createdAt: now,
-      senderName: `@${username || "user"}`,
-      ...(extra ? { messageType: extra.type } : {}),
+    const msg: any = {
+      id: msgId, content: extra ? JSON.stringify(extra) : content,
+      senderId: userId, receiverId: selectedGroupId ? userId : targetId,
+      encrypted: !extra, createdAt: now, senderName: `@${username || "user"}`,
     };
-
-    // Optimistic add
+    if (extra) { msg.messageType = extra.type; }
+    if (extra?.replyToId) { msg.replyToId = extra.replyToId; }
     addMessage(msg);
-
-    // Persist to server
     try {
-      await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: msgId,
-          content: msg.content,
-          senderId: userId,
-          receiverId: selectedContactId,
-          encrypted: msg.encrypted,
-          messageType: extra?.type,
-        }),
-      });
-    } catch {
-      // Already added optimistically, server save is best-effort
-    }
-  }, [selectedContactId, userId, username, addMessage]);
+      const body: any = { id: msgId, content: msg.content, senderId: userId, encrypted: msg.encrypted, messageType: extra?.type };
+      if (selectedGroupId) {
+        body.groupChatId = selectedGroupId;
+        await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      } else {
+        body.receiverId = targetId;
+        await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      }
+    } catch { /* best-effort */ }
+  }, [selectedContactId, selectedGroupId, userId, username, addMessage]);
 
   const handleSend = async () => {
-    if (!inputText.trim() || !selectedContactId || !userId) return;
+    if (!inputText.trim() || !activeChatId || !userId) return;
     const text = inputText.trim();
     setInputText("");
     setShowEmojis(false);
+    setShowStickers(false);
+    const replyPayload = replyingTo ? { replyToId: replyingTo.id } : undefined;
     try {
       const encryptedContent = await simulateEncrypt(text);
-      await sendMessageOptimistic(encryptedContent);
-    } catch {
-      await sendMessageOptimistic(text);
-    }
+      await sendMessageOptimistic(encryptedContent, replyPayload);
+    } catch { await sendMessageOptimistic(text, replyPayload); }
+    setReplyingTo(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  const handleDeleteMessage = (messageId: string) => {
-    useAppStore.setState({
-      messages: useAppStore.getState().messages.filter((m) => m.id !== messageId),
-    });
-    setContextMenuMsgId(null);
-  };
+  // ═══════════════════════════════════════════════════════════
+  //  FEATURE 3: MESSAGE EDITING
+  // ═══════════════════════════════════════════════════════════
 
-  const handleCopyMessage = (msg: typeof contactMessages[0]) => {
+  const handleStartEdit = (msg: any) => {
+    if (msg.senderId !== userId) return;
     try {
       const decrypted = simulateDecryptSync(msg.content);
-      navigator.clipboard.writeText(decrypted).catch(() => {});
-    } catch {
-      navigator.clipboard.writeText(msg.content).catch(() => {});
-    }
-    setContextMenuMsgId(null);
-  };
-
-  const handleReplyMessage = (msg: typeof contactMessages[0]) => {
-    let replyText = "";
-    try {
-      const decrypted = simulateDecryptSync(msg.content);
-      replyText = decrypted.length > 40 ? decrypted.slice(0, 40) + "..." : decrypted;
-    } catch {
-      replyText = msg.content.slice(0, 40) + "...";
-    }
-    const senderName = msg.senderId === userId ? "Вы" : (selectedContact?.name || "User");
-    setInputText(`> ${senderName}: ${replyText}\n`);
+      setEditingMessage({ id: msg.id, content: decrypted });
+    } catch { setEditingMessage({ id: msg.id, content: msg.content }); }
     setContextMenuMsgId(null);
     inputRef.current?.focus();
   };
 
+  const handleSaveEdit = async () => {
+    if (!editingMessage || !userId) return;
+    try {
+      const encrypted = await simulateEncrypt(editingMessage.content);
+      await fetch(`/api/messages/${editingMessage.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: encrypted, senderId: userId }) });
+    } catch { /* */ }
+    // Update local state
+    useAppStore.setState({ messages: useAppStore.getState().messages.map((m) => m.id === editingMessage.id ? { ...m, content: editingMessage.content, edited: true } : m) });
+    setEditingMessage(null);
+  };
+
+  const handleCancelEdit = () => { setEditingMessage(null); setInputText(""); };
+
+  // ═══════════════════════════════════════════════════════════
+  //  FEATURE 4: REPLY TO MESSAGES
+  // ═══════════════════════════════════════════════════════════
+
+  const handleReplyMessage = (msg: any) => {
+    let replyText = "";
+    try { const d = simulateDecryptSync(msg.content); replyText = d.length > 50 ? d.slice(0, 50) + "..." : d; } catch { replyText = msg.content.slice(0, 50) + "..."; }
+    const senderName = msg.senderId === userId ? "Вы" : (selectedContact?.name || "User");
+    setReplyingTo({ id: msg.id, content: replyText, senderName, senderId: msg.senderId });
+    setContextMenuMsgId(null);
+    inputRef.current?.focus();
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  //  FEATURE 6: VOICE MESSAGES
+  // ═══════════════════════════════════════════════════════════
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunksRef.current = [];
+      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const duration = recordingDuration;
+        // Convert to base64
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64Url = reader.result as string;
+          if (base64Url && activeChatId && userId) {
+            await sendMessageOptimistic("", { type: "voice", voiceUrl: base64Url, voiceDuration: duration });
+          }
+        };
+        reader.readAsDataURL(blob);
+      };
+      recorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+      recordingTimerRef.current = setInterval(() => setRecordingDuration((p) => p + 1), 1000);
+    } catch { /* mic denied */ }
+  }, [activeChatId, userId, recordingDuration, sendMessageOptimistic]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    setIsRecording(false);
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════
+  //  FEATURE 5: SEARCH MESSAGES
+  // ═══════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    if (!searchMode || !searchQuery.trim() || !userId || !selectedContactId) { setSearchResults([]); return; }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/messages/search?userId=${userId}&q=${encodeURIComponent(searchQuery.trim())}`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setSearchResults(data.messages || []);
+        }
+      } catch { if (!cancelled) setSearchResults([]); }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [searchQuery, userId, selectedContactId, searchMode]);
+
+  const handleSearchResultClick = (msg: any) => {
+    setSearchMode(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    // Scroll to message
+    setTimeout(() => {
+      const el = document.getElementById(`msg-${msg.id}`);
+      if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.style.outline = "2px solid var(--mq-accent)"; setTimeout(() => { el.style.outline = ""; }, 2000); }
+    }, 100);
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  //  CONTEXT MENU ACTIONS
+  // ═══════════════════════════════════════════════════════════
+
+  const handleDeleteMessage = (messageId: string) => {
+    useAppStore.setState({ messages: useAppStore.getState().messages.filter((m) => m.id !== messageId) });
+    setContextMenuMsgId(null);
+  };
+
+  const handleCopyMessage = (msg: any) => {
+    try { navigator.clipboard.writeText(simulateDecryptSync(msg.content)).catch(() => {}); } catch { navigator.clipboard.writeText(msg.content).catch(() => {}); }
+    setContextMenuMsgId(null);
+  };
+
+  const handleSendSticker = (emoji: string) => {
+    if (!activeChatId || !userId) return;
+    sendMessageOptimistic("", { type: "sticker", sticker: emoji });
+    setShowStickers(false);
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  //  FEATURE 13: RESET PASSWORD
+  // ═══════════════════════════════════════════════════════════
+
+  const handleResetPassword = async () => {
+    setShowChatSettings(false);
+    if (!email) return;
+    try {
+      await fetch("/api/auth/send-code", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
+      const notif = document.createElement("div");
+      notif.style.cssText = "position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;padding:12px 24px;border-radius:12px;font-size:14px;font-family:system-ui,sans-serif;color:#f5f5f5;background:rgba(30,30,30,0.95);border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.3);";
+      notif.textContent = "Код отправки пароля отправлен на вашу почту";
+      document.body.appendChild(notif);
+      setTimeout(() => { notif.style.opacity = "0"; notif.style.transition = "opacity 0.3s"; setTimeout(() => notif.remove(), 300); }, 3000);
+    } catch { /* silent */ }
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  //  FEATURE 10: GROUP CHATS
+  // ═══════════════════════════════════════════════════════════
+
+  const handleCreateGroup = async () => {
+    if (!userId || !groupName.trim()) return;
+    try {
+      const res = await fetch("/api/group-chats", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, name: groupName.trim(), description: groupDesc.trim(), memberIds: [...groupMembers] }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGroupChats((p) => [...p, data.groupChat || data]);
+        setSelectedGroupId(data.groupChat?.id || data.id);
+        setSelectedContact(null);
+        setShowGroupCreate(false);
+        setGroupName("");
+        setGroupDesc("");
+        setGroupMembers(new Set());
+      }
+    } catch { /* silent */ }
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  //  TRACK SHARING & FRIEND REQUESTS
+  // ═══════════════════════════════════════════════════════════
+
   const shareTrack = async () => {
     if (!currentTrack || !selectedContactId || !userId) return;
-    await sendMessageOptimistic("", {
-      type: "track_share",
-      track: {
-        id: currentTrack.id,
-        title: currentTrack.title,
-        artist: currentTrack.artist,
-        cover: currentTrack.cover || "",
-        duration: currentTrack.duration,
-        streamUrl: currentTrack.audioUrl || "",
-      },
-    });
+    await sendMessageOptimistic("", { type: "track_share", track: { id: currentTrack.id, title: currentTrack.title, artist: currentTrack.artist, cover: currentTrack.cover || "", duration: currentTrack.duration, streamUrl: currentTrack.audioUrl || "" } });
   };
 
-  // Send friend request
   const sendFriendRequest = async (targetUserId: string) => {
     if (!userId) return;
-    setFriendRequestStatus(prev => ({ ...prev, [targetUserId]: "loading" }));
+    setFriendRequestStatus((p) => ({ ...p, [targetUserId]: "loading" }));
     try {
-      const res = await fetch("/api/friends", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requesterId: userId, addresseeId: targetUserId }),
-      });
+      const res = await fetch("/api/friends", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requesterId: userId, addresseeId: targetUserId }) });
       const data = await res.json();
-      if (res.ok) {
-        setFriendRequestStatus(prev => ({ ...prev, [targetUserId]: "sent" }));
-        // If auto-accepted (other person had pending request), refresh friends
-        if (data.message?.includes("друзья")) {
-          fetchFriends();
-        }
-      } else {
-        setFriendRequestStatus(prev => ({ ...prev, [targetUserId]: data.error || "error" }));
-      }
-    } catch {
-      setFriendRequestStatus(prev => ({ ...prev, [targetUserId]: "error" }));
-    }
+      if (res.ok) { setFriendRequestStatus((p) => ({ ...p, [targetUserId]: "sent" })); if (data.message?.includes("друзья")) fetchFriends(); }
+      else { setFriendRequestStatus((p) => ({ ...p, [targetUserId]: data.error || "error" })); }
+    } catch { setFriendRequestStatus((p) => ({ ...p, [targetUserId]: "error" })); }
   };
 
-  // Accept / reject friend request
   const handleFriendRequest = async (requestId: string, action: "accept" | "reject") => {
-    try {
-      const res = await fetch(`/api/friends/${requestId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
-      });
-      if (res.ok) {
-        fetchFriends();
-      }
-    } catch {
-      // silent
-    }
+    try { const res = await fetch(`/api/friends/${requestId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) }); if (res.ok) fetchFriends(); } catch { /* */ }
   };
 
-  const contactMessages = useMemo(() => {
-    if (!userId) return [];
-    return messages.filter(
-      (m) =>
-        (m.senderId === userId && m.receiverId === selectedContactId) ||
-        (m.senderId === selectedContactId && userId && m.receiverId === userId)
-    );
-  }, [messages, userId, selectedContactId]);
+  const togglePinChat = useCallback((contactId: string) => {
+    setPinnedChatIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(contactId)) next.delete(contactId); else next.add(contactId);
+      try { localStorage.setItem("mq-pinned-chats", JSON.stringify([...next])); } catch { /* */ }
+      return next;
+    });
+  }, []);
 
-  // Group messages by date
-  const groupedMessages = useMemo(() => {
-    const groups: { label: string; messages: typeof contactMessages }[] = [];
-    let currentLabel = "";
-
-    for (const msg of contactMessages) {
-      const label = getDateLabel(msg.createdAt);
-      if (label !== currentLabel) {
-        currentLabel = label;
-        groups.push({ label, messages: [] });
-      }
-      groups[groups.length - 1].messages.push(msg);
-    }
-
-    return groups;
-  }, [contactMessages]);
-
-  // When selecting a contact from new chat (after sending friend request & being accepted)
   const handleSelectContact = (contact: { id: string; name: string; username: string; avatar: string; online: boolean; lastSeen: string }) => {
     addContact(contact);
     setSelectedContact(contact.id);
+    setSelectedGroupId(null);
     setShowNewChatDialog(false);
     setNewChatSearch("");
   };
 
-  // Prevent hydration mismatch — show spinner until client-side mounted
+  const handleSelectGroup = (groupId: string) => {
+    setSelectedGroupId(groupId);
+    setSelectedContact(null);
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  //  LOADING STATE
+  // ═══════════════════════════════════════════════════════════
+
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--mq-bg)" }}>
-        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
-          style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }} />
+        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }} />
       </div>
     );
   }
 
+  // ═══════════════════════════════════════════════════════════
+  //  RENDER
+  // ═══════════════════════════════════════════════════════════
+
+  const isGroupChat = !!selectedGroupId && !selectedContactId;
+  const displayMessages = isGroupChat ? currentGroupMessages : contactMessages;
+
   return (
     <div className="min-h-screen flex flex-col lg:flex-row" style={{ backgroundColor: "var(--mq-bg)", paddingBottom: currentTrack ? "calc(56px + 80px + 24px)" : "calc(56px + 24px)" }}>
-      {/* Contacts sidebar */}
+      {/* ════════════════════════════════════════════════════════ */}
+      {/*  LEFT SIDEBAR                                         */}
+      {/* ════════════════════════════════════════════════════════ */}
       <div
-        className={`w-full lg:w-80 flex-shrink-0 ${selectedContactId ? "hidden lg:flex" : "flex"} flex-col`}
-        style={{ borderRight: "1px solid var(--mq-border)", height: "calc(100dvh - 80px)" }}
+        className={`w-full lg:w-80 flex-shrink-0 ${activeChatId ? "hidden lg:flex" : "flex"} flex-col`}
+        style={{ borderRight: "1px solid var(--mq-border)", height: "calc(100dvh - 80px)", ...glassPanel }}
       >
+        {/* ── Sidebar header ── */}
         <div className="p-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-          <h2 className="font-bold" style={{ color: "var(--mq-text)" }}>Мессенджер</h2>
+          <h2 className="font-bold text-lg" style={{ color: "var(--mq-text)" }}>Мессенджер</h2>
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1" title="Сквозное шифрование">
-              <ShieldCheck className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-              <span className="text-[10px]" style={{ color: "var(--mq-accent)" }}>E2E</span>
+            <div className="flex items-center gap-1 px-2 py-1 rounded-lg" title="Сквозное шифрование" style={glassPanel}>
+              <ShieldCheck className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+              <span className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>E2E</span>
             </div>
-            {/* Friend requests badge */}
             <div className="relative">
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setShowFriendRequests(!showFriendRequests)}
-                className="p-1.5 rounded-lg cursor-pointer"
-                style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
-                title="Заявки в друзья"
-              >
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowFriendRequests(!showFriendRequests)}
+                className="p-2 rounded-xl cursor-pointer" style={{ ...glassPanel, color: "var(--mq-text)" }} title="Заявки в друзья">
                 <Users className="w-4 h-4" />
               </motion.button>
               {pendingRequests.length > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] rounded-full text-[8px] flex items-center justify-center px-0.5"
-                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full text-[9px] flex items-center justify-center px-0.5 font-bold" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
                   {pendingRequests.length}
                 </span>
               )}
             </div>
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => { setShowNewChatDialog(true); setShowFriendRequests(false); }}
-              className="p-1.5 rounded-lg cursor-pointer"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
-              title="Новый чат"
-            >
+            <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowNewChatDialog(true); setShowFriendRequests(false); }}
+              className="p-2 rounded-xl cursor-pointer" style={{ ...glassPanel, color: "var(--mq-text)" }} title="Новый чат">
               <Plus className="w-4 h-4" />
+            </motion.button>
+            <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowGroupCreate(true)}
+              className="p-2 rounded-xl cursor-pointer" style={{ ...glassPanel, color: "var(--mq-text)" }} title="Создать группу">
+              <MessageSquare className="w-4 h-4" />
             </motion.button>
           </div>
         </div>
@@ -701,27 +906,18 @@ export default function MessengerView() {
         {/* ── Stories carousel ── */}
         <div className="flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-border)" }}>
           <div className="flex gap-3 overflow-x-auto px-4 py-3" style={{ scrollbarWidth: "none" }}>
-            {storyGroupKeys.map((userId) => {
-              const userStories = storyGroups[userId];
+            {storyGroupKeys.map((uid) => {
+              const userStories = storyGroups[uid];
               const firstStory = userStories[0];
-              const hasUnviewed = userStories.some(s => !s.viewed);
-              const firstUnviewedIdx = stories.findIndex(s => s.userId === userId && !s.viewed);
-              const startIdx = firstUnviewedIdx >= 0 ? firstUnviewedIdx : stories.indexOf(firstStory);
+              const hasUnviewed = userStories.some((s) => !s.viewed);
+              const startIdx = stories.findIndex((s) => s.userId === uid && !s.viewed) >= 0
+                ? stories.findIndex((s) => s.userId === uid && !s.viewed)
+                : stories.indexOf(firstStory);
               return (
-                <motion.button
-                  key={userId}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setViewingStoryIndex(startIdx)}
-                  className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer"
-                >
-                  <div
-                    className="w-14 h-14 rounded-full p-[2px]"
-                    style={{
-                      background: hasUnviewed
-                        ? "linear-gradient(135deg, var(--mq-accent), #f5576c, #fa709a)"
-                        : "var(--mq-border)",
-                    }}
-                  >
+                <motion.button key={uid} whileTap={{ scale: 0.95 }} onClick={() => setViewingStoryIndex(startIdx)}
+                  className="flex flex-col items-center gap-1.5 flex-shrink-0 cursor-pointer">
+                  <div className="w-14 h-14 rounded-full p-[2.5px]"
+                    style={{ background: hasUnviewed ? "linear-gradient(135deg, var(--mq-accent), #f5576c, #fa709a)" : "var(--mq-border)" }}>
                     <div className="w-full h-full rounded-full overflow-hidden" style={{ border: "2px solid var(--mq-bg)" }}>
                       <AvatarImg src={firstStory.avatar} alt={firstStory.username} className="w-full h-full object-cover" />
                     </div>
@@ -735,39 +931,24 @@ export default function MessengerView() {
           </div>
         </div>
 
-        {/* Friend requests panel */}
+        {/* ── Friend requests panel ── */}
         <AnimatePresence>
           {showFriendRequests && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="overflow-hidden flex-shrink-0"
-            >
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden flex-shrink-0">
               <div className="p-3" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text)" }}>
-                  Заявки в друзья ({pendingRequests.length})
-                </p>
+                <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text)" }}>Заявки в друзья ({pendingRequests.length})</p>
                 {pendingRequests.length === 0 ? (
                   <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Нет заявок</p>
                 ) : (
                   <div className="space-y-2">
                     {pendingRequests.map((req) => (
-                      <div key={req.requestId} className="flex items-center gap-2 p-2 rounded-lg"
-                        style={{ backgroundColor: "var(--mq-input-bg)" }}>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                          style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                      <div key={req.requestId} className="flex items-center gap-2 p-2 rounded-xl" style={{ ...glassPanel }}>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
                           {req.username.charAt(0).toUpperCase()}
                         </div>
                         <span className="text-sm flex-1 truncate" style={{ color: "var(--mq-text)" }}>@{req.username}</span>
-                        <button onClick={() => handleFriendRequest(req.requestId, "accept")}
-                          className="p-1 rounded-md" style={{ color: "#4ade80" }} title="Принять">
-                          <UserCheck className="w-4 h-4" />
-                        </button>
-                        <button onClick={() => handleFriendRequest(req.requestId, "reject")}
-                          className="p-1 rounded-md" style={{ color: "#ef4444" }} title="Отклонить">
-                          <X className="w-4 h-4" />
-                        </button>
+                        <button onClick={() => handleFriendRequest(req.requestId, "accept")} className="p-1 rounded-md" style={{ color: "#4ade80" }} title="Принять"><UserCheck className="w-4 h-4" /></button>
+                        <button onClick={() => handleFriendRequest(req.requestId, "reject")} className="p-1 rounded-md" style={{ color: "#ef4444" }} title="Отклонить"><X className="w-4 h-4" /></button>
                       </div>
                     ))}
                   </div>
@@ -777,389 +958,382 @@ export default function MessengerView() {
           )}
         </AnimatePresence>
 
+        {/* ── Search contacts ── */}
         <div className="p-3 flex-shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-            <Input
-              placeholder="Поиск друзей..."
-              value={searchContact}
-              onChange={(e) => setSearchContact(e.target.value)}
-              className="pl-10 min-h-[40px]"
-              style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
-            />
+            <Input placeholder="Поиск друзей..." value={searchContact} onChange={(e) => setSearchContact(e.target.value)}
+              className="pl-10 min-h-[40px] rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} />
           </div>
         </div>
 
-        <div
-          className="mx-3 mb-2 p-2 rounded-lg text-xs flex items-start gap-2 flex-shrink-0"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
-        >
+        {/* ── E2E badge ── */}
+        <div className="mx-3 mb-2 p-2.5 rounded-xl text-xs flex items-start gap-2 flex-shrink-0" style={glassPanel}>
           <Lock className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-          <p style={{ color: "var(--mq-text-muted)" }}>Все сообщения защищены сквозным шифрованием {getEncryptionStatus()}</p>
+          <p style={{ color: "var(--mq-text-muted)" }}>Все сообщения защищены шифрованием {getEncryptionStatus()}</p>
         </div>
 
-        <div className="flex-1 overflow-y-auto">
+        {/* ── Contacts list ── */}
+        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
           {isLoadingFriends ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
-            </div>
-          ) : sortedContacts.length > 0 ? (
-            sortedContacts.map((contact, i) => {
-              const lastMsg = getLastMessage(contact.id);
-              const unread = getUnreadCount(contact.id);
-              return (
-                <motion.button
-                  key={contact.id}
-                  initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.03 }}
-                  onClick={() => setSelectedContact(contact.id)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    togglePinChat(contact.id);
-                  }}
-                  className="w-full flex items-center gap-3 p-3 hover:opacity-80 transition-opacity text-left cursor-pointer"
-                  style={{
-                    backgroundColor: selectedContactId === contact.id ? "var(--mq-accent)" : "transparent",
-                    borderBottom: "1px solid var(--mq-border)",
-                  }}
-                >
-                  <div className="relative flex-shrink-0">
-                    <AvatarImg src={contact.avatar} alt={contact.name} className="w-11 h-11 rounded-full object-cover" />
-                    {pinnedChatIds.has(contact.id) && (
-                      <div className="absolute -top-1 -left-1" style={{ zIndex: 2 }}>
-                        <Pin className="w-3 h-3" style={{ color: "var(--mq-accent)", fill: "var(--mq-accent)" }} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>
-                        {contact.name}
-                      </p>
-                      {lastMsg && (
-                        <span className="text-[10px] flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
-                          {new Date(lastMsg.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
-                        {lastMsg ? (
-                          <>
-                            {lastMsg.senderId === userId ? "Вы: " : ""}
-                            {(() => {
-                              try {
-                                const decrypted = simulateDecryptSync(lastMsg.content);
-                                return decrypted.length > 30 ? decrypted.slice(0, 30) + "..." : decrypted;
-                              } catch {
-                                return lastMsg.content.slice(0, 30) + "...";
-                              }
-                            })()}
-                          </>
-                        ) : (
-                          `@${contact.username}`
-                        )}
-                      </p>
-                      {unread > 0 && (
-                        <span
-                          className="min-w-[18px] h-[18px] rounded-full text-[10px] flex items-center justify-center px-1 flex-shrink-0 font-bold"
-                          style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
-                        >
-                          {unread}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <Lock className="w-3 h-3 flex-shrink-0" style={{ color: "var(--mq-accent)", opacity: 0.5 }} />
-                </motion.button>
-              );
-            })
+            <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-text-muted)" }} /></div>
           ) : (
-            <div className="text-center py-8">
-              <Users className="w-10 h-10 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-              <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                {searchContact.trim() ? "Друзья не найдены" : "У вас пока нет друзей"}
-              </p>
-              <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
-                Нажмите + чтобы найти и добавить друзей
-              </p>
-            </div>
+            <>
+              {/* ── Pinned section ── */}
+              {sortedContacts.filter((c) => pinnedChatIds.has(c.id)).length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider px-4 py-2" style={{ color: "var(--mq-text-muted)" }}>
+                    📌 Закреплённые
+                  </p>
+                  {sortedContacts.filter((c) => pinnedChatIds.has(c.id)).map((contact, i) => (
+                    <ContactItem key={contact.id} contact={contact} selected={selectedContactId === contact.id} userId={userId || ""}
+                      lastMsg={getLastMessage(contact.id)} unread={getUnreadCount(contact.id)} pinned onlineStatus={onlineStatuses[contact.id]}
+                      animationsEnabled={animationsEnabled} index={i} onClick={() => setSelectedContact(contact.id)} onContextMenu={() => togglePinChat(contact.id)} />
+                  ))}
+                </div>
+              )}
+
+              {/* ── Group chats section ── */}
+              {groupChats.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider px-4 py-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                    👥 Группы
+                  </p>
+                  {groupChats.map((g, i) => {
+                    const lastMsg = currentGroupMessages[0];
+                    return (
+                      <motion.button key={g.id} initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
+                        onClick={() => handleSelectGroup(g.id)}
+                        className="w-full flex items-center gap-3 p-3 hover:opacity-80 transition-all text-left cursor-pointer"
+                        style={{ backgroundColor: selectedGroupId === g.id ? "var(--mq-accent)" : "transparent", borderBottom: "1px solid var(--mq-border)" }}>
+                        <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                          style={{ background: "linear-gradient(135deg, var(--mq-accent), #f5576c)", color: "#fff" }}>
+                          {g.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{g.name}</p>
+                          <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+                            {g.memberIds?.length || 0} участников
+                          </p>
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ── All contacts ── */}
+              {sortedContacts.filter((c) => !pinnedChatIds.has(c.id)).map((contact, i) => (
+                <ContactItem key={contact.id} contact={contact} selected={selectedContactId === contact.id} userId={userId || ""}
+                  lastMsg={getLastMessage(contact.id)} unread={getUnreadCount(contact.id)} pinned={false} onlineStatus={onlineStatuses[contact.id]}
+                  animationsEnabled={animationsEnabled} index={i} onClick={() => setSelectedContact(contact.id)} onContextMenu={() => togglePinChat(contact.id)} />
+              ))}
+
+              {sortedContacts.length === 0 && groupChats.length === 0 && (
+                <div className="text-center py-8">
+                  <Users className="w-10 h-10 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+                  <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>{searchContact.trim() ? "Друзья не найдены" : "У вас пока нет друзей"}</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>Нажмите + чтобы найти и добавить друзей</p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
 
-      {/* Chat area */}
-      <div className={`flex-1 flex flex-col ${!selectedContactId ? "hidden lg:flex" : "flex"}`}
-        style={{ height: "calc(100dvh - 80px)" }}>
-        {selectedContact ? (
+      {/* ════════════════════════════════════════════════════════ */}
+      {/*  RIGHT — CHAT AREA                                     */}
+      {/* ════════════════════════════════════════════════════════ */}
+      <div className={`flex-1 flex flex-col ${!activeChatId ? "hidden lg:flex" : "flex"}`} style={{ height: "calc(100dvh - 80px)" }}>
+        {activeChatId ? (
           <>
-            {/* Chat header */}
-            <div
-              className="flex items-center gap-3 p-3 lg:p-4 flex-shrink-0"
-              style={{ borderBottom: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}
-            >
-              <button
-                onClick={() => setSelectedContact(null)}
-                className="lg:hidden p-1 cursor-pointer"
-                style={{ color: "var(--mq-text-muted)" }}
-              >
+            {/* ── Chat header ── */}
+            <div className="flex items-center gap-3 p-3 lg:p-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)", backdropFilter: "blur(10px)" }}>
+              <button onClick={() => { setSelectedContact(null); setSelectedGroupId(null); }} className="lg:hidden p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}>
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div className="relative">
-                <AvatarImg src={selectedContact.avatar} alt={selectedContact.name} className="w-9 h-9 rounded-full object-cover" />
+                {isGroupChat ? (
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
+                    style={{ background: "linear-gradient(135deg, var(--mq-accent), #f5576c)", color: "#fff" }}>
+                    {selectedGroup?.name.charAt(0).toUpperCase() || "G"}
+                  </div>
+                ) : (
+                  <AvatarImg src={selectedContact?.avatar || ""} alt={selectedContact?.name || ""} className="w-9 h-9 rounded-full object-cover" />
+                )}
+                {/* Online indicator */}
+                {!isGroupChat && onlineStatuses[selectedContactId || ""]?.online && (
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2" style={{ backgroundColor: "#4ade80", borderColor: "var(--mq-player-bg)" }} />
+                )}
               </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
-                  {selectedContact.name}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+                  {isGroupChat ? selectedGroup?.name : selectedContact?.name}
                 </p>
                 <div className="flex items-center gap-1">
-                  <Lock className="w-2.5 h-2.5" style={{ color: "var(--mq-accent)" }} />
-                  <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
-                    @{selectedContact.username} • Зашифрованный чат
+                  {!isGroupChat && (
+                    <>
+                      <Lock className="w-2.5 h-2.5" style={{ color: "var(--mq-accent)" }} />
+                      <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                        {onlineStatuses[selectedContactId || ""]?.online ? "В сети" : formatLastSeen(onlineStatuses[selectedContactId || ""]?.lastSeen || null)}
+                        {!onlineStatuses[selectedContactId || ""]?.online && " • "}
+                        {!onlineStatuses[selectedContactId || ""]?.online && "Зашифровано"}
+                      </span>
+                    </>
+                  )}
+                  {isGroupChat && (
+                    <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                      {selectedGroup?.memberIds?.length || 0} участников
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Header actions */}
+              <div className="flex items-center gap-1">
+                <motion.button whileTap={{ scale: 0.9 }} onClick={() => setSearchMode(!searchMode)}
+                  className="p-2 rounded-xl cursor-pointer" style={{ color: searchMode ? "var(--mq-accent)" : "var(--mq-text-muted)" }} title="Поиск сообщений">
+                  <Search className="w-4.5 h-4.5" />
+                </motion.button>
+                {!isGroupChat && currentTrack && (
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={shareTrack}
+                    className="p-2 rounded-xl cursor-pointer" style={{ color: "var(--mq-accent)" }} title="Поделиться треком">
+                    <Music2 className="w-4.5 h-4.5" />
+                  </motion.button>
+                )}
+                <div className="relative">
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowChatSettings(!showChatSettings)}
+                    className="p-2 rounded-xl cursor-pointer" style={{ color: "var(--mq-text-muted)" }}>
+                    <MoreVertical className="w-4.5 h-4.5" />
+                  </motion.button>
+                  <AnimatePresence>
+                    {showChatSettings && (
+                      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+                        className="absolute right-0 top-full mt-1 rounded-xl py-1 min-w-[180px] z-50" style={{ ...glassPanelSolid, boxShadow: shadowDeep }}
+                        onClick={(e) => e.stopPropagation()}>
+                        <button onClick={handleResetPassword}
+                          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-left cursor-pointer transition-opacity hover:opacity-80" style={{ color: "var(--mq-text)" }}>
+                          <KeyRound className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} /> Сменить пароль
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Reply preview bar ── */}
+            <AnimatePresence>
+              {replyingTo && !editingMessage && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden flex-shrink-0">
+                  <div className="mx-3 mt-2 p-2.5 rounded-xl flex items-center gap-2" style={{ ...glassPanel }}>
+                    <div className="w-0.5 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>{replyingTo.senderName}</p>
+                      <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{replyingTo.content}</p>
+                    </div>
+                    <button onClick={() => setReplyingTo(null)} className="p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}><X className="w-3.5 h-3.5" /></button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* ── Edit mode bar ── */}
+            <AnimatePresence>
+              {editingMessage && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden flex-shrink-0">
+                  <div className="mx-3 mt-2 p-2.5 rounded-xl flex items-center gap-2" style={{ ...glassPanel }}>
+                    <Edit3 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+                    <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: "var(--mq-accent)" }}>Редактирование</span>
+                    <div className="flex gap-1 ml-auto flex-shrink-0">
+                      <button onClick={handleCancelEdit} className="px-2.5 py-1 rounded-lg text-[10px] cursor-pointer" style={{ color: "var(--mq-text-muted)", ...glassPanel }}>Отмена</button>
+                      <button onClick={handleSaveEdit} className="px-2.5 py-1 rounded-lg text-[10px] font-semibold cursor-pointer" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>Сохранить</button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* ── Search messages panel ── */}
+            <AnimatePresence>
+              {searchMode && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden flex-shrink-0">
+                  <div className="p-3" style={{ borderBottom: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                      <Input placeholder="Поиск сообщений..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 min-h-[38px] rounded-xl" autoFocus
+                        style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} />
+                      <button onClick={() => { setSearchMode(false); setSearchQuery(""); setSearchResults([]); }}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                    {searchResults.length > 0 && (
+                      <div className="mt-2 max-h-48 overflow-y-auto rounded-xl" style={{ ...glassPanelSolid }}>
+                        {searchResults.map((m: any) => {
+                          let preview = m.content || "";
+                          try { preview = simulateDecryptSync(preview); } catch { /* */ }
+                          if (preview.length > 50) preview = preview.slice(0, 50) + "...";
+                          return (
+                            <button key={m.id} onClick={() => handleSearchResultClick(m)}
+                              className="w-full text-left p-2.5 hover:opacity-80 transition-opacity cursor-pointer" style={{ borderBottom: "1px solid var(--mq-border)" }}>
+                              <p className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>
+                                {m.senderId === userId ? "Вы" : m.sender?.username || "User"}
+                              </p>
+                              <p className="text-xs truncate" style={{ color: "var(--mq-text)" }}>{preview}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {searchQuery.trim() && searchResults.length === 0 && (
+                      <p className="text-xs text-center py-3" style={{ color: "var(--mq-text-muted)" }}>Ничего не найдено</p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* ── Messages area ── */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
+              <div className="flex justify-center mb-4">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs" style={glassPanel}>
+                  <Shield className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
+                  <span style={{ color: "var(--mq-text-muted)" }}>
+                    {isGroupChat ? "Групповой чат" : `Сообщения зашифрованы • ${getEncryptionStatus()}`}
                   </span>
                 </div>
               </div>
-              {currentTrack && (
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={shareTrack}
-                  className="p-2 cursor-pointer"
-                  style={{ color: "var(--mq-accent)" }}
-                  title="Поделиться треком"
-                >
-                  <Music2 className="w-5 h-5" />
-                </motion.button>
-              )}
-            </div>
 
-            {/* Messages */}
-            <div
-              ref={scrollRef}
-              className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0"
-            >
-              <div className="flex justify-center mb-4">
-                <div
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs"
-                  style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
-                >
-                  <Shield className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
-                  <span style={{ color: "var(--mq-text-muted)" }}>Сообщения зашифрованы • {getEncryptionStatus()}</span>
+              {/* Typing indicator */}
+              {isGroupChat && (
+                <div className="flex justify-center mb-2">
+                  <div className="flex items-center gap-1 px-3 py-1.5 rounded-full" style={glassPanel}>
+                    {[0, 1, 2].map((i) => (
+                      <motion.div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }}
+                        animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }} />
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Message list — no AnimatePresence wrapper to avoid React 19 #482 shellSuspendCounter overflow */}
-                {groupedMessages.length === 0 && (
-                  <div className="text-center py-12">
-                    <Shield className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-                    <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                      Нет сообщений
-                    </p>
+              {displayMessages.length === 0 && (
+                <div className="text-center py-16">
+                  <div className="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ ...glassPanel }}>
+                    {isGroupChat ? <Users className="w-10 h-10" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} /> : <Shield className="w-10 h-10" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />}
                   </div>
-                )}
+                  <p className="text-sm font-medium" style={{ color: "var(--mq-text-muted)" }}>Нет сообщений</p>
+                  <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                    {isGroupChat ? "Напишите первое сообщение в группе" : "Начните зашифрованную переписку"}
+                  </p>
+                </div>
+              )}
 
-                {groupedMessages.map((group) => (
-                  <div key={group.label}>
-                    <div className="flex items-center justify-center my-4">
-                      <div className="px-3 py-1 rounded-full text-[11px]" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}>
-                        {group.label}
-                      </div>
-                    </div>
-                    {group.messages.map((msg) => {
-                      let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-                      let longPressTriggered = false;
-                      const handleTouchStart = (e: React.TouchEvent) => {
-                        longPressTriggered = false;
-                        longPressTimer = setTimeout(() => {
-                          longPressTriggered = true;
-                          const touch = e.touches[0];
-                          setContextMenuMsgId({ id: msg.id, x: touch.clientX - 80, y: touch.clientY - 100 });
-                        }, 500);
-                      };
-                      const handleTouchEnd = () => {
-                        if (longPressTimer) clearTimeout(longPressTimer);
-                      };
-                      const handleTouchMove = () => {
-                        if (longPressTimer) clearTimeout(longPressTimer);
-                      };
-                      return (
-                      <div
-                        key={msg.id}
-                        className="relative group/bubble"
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setContextMenuMsgId({ id: msg.id, x: e.clientX, y: e.clientY });
-                        }}
-                        onTouchStart={handleTouchStart}
-                        onTouchEnd={handleTouchEnd}
-                        onTouchMove={handleTouchMove}
-                      >
-                        <MessageBubble message={msg} currentUserId={userId || undefined} />
-                        {contextMenuMsgId && contextMenuMsgId.id === msg.id && (
-                          <div
-                            className="absolute top-1 right-1 z-20 rounded-xl py-1 shadow-2xl min-w-[160px]"
-                            style={{
-                              backgroundColor: "var(--mq-card)",
-                              border: "1px solid var(--mq-border)",
-                              boxShadow: "0 8px 30px rgba(0,0,0,0.4)",
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              onClick={() => handleReplyMessage(msg)}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80 transition-opacity text-left"
-                              style={{ color: "var(--mq-text)" }}
-                            >
-                              <Reply className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
-                              Ответить
-                            </button>
-                            <button
-                              onClick={() => handleCopyMessage(msg)}
-                              className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80 transition-opacity text-left"
-                              style={{ color: "var(--mq-text)" }}
-                            >
-                              <Copy className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
-                              Копировать
-                            </button>
-                            {msg.senderId === userId && (
-                              <button
-                                onClick={() => handleDeleteMessage(msg.id)}
-                                className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:opacity-80 transition-opacity text-left"
-                                style={{ color: "#ef4444" }}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                Удалить
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      );
-                    })}
+              {!isGroupChat && groupedMessages.map((group) => (
+                <div key={group.label}>
+                  <div className="flex items-center justify-center my-4">
+                    <div className="px-3 py-1 rounded-full text-[11px] font-medium" style={{ ...glassPanel, color: "var(--mq-text-muted)" }}>{group.label}</div>
                   </div>
-                ))}
+                  {group.messages.map((msg) => renderMessageBubble(msg))}
+                </div>
+              ))}
+
+              {isGroupChat && displayMessages.map((msg: any) => renderGroupMessageBubble(msg))}
             </div>
 
-            {/* @mention dropdown */}
+            {/* ── @Mentions dropdown ── */}
             <AnimatePresence>
               {showMentions && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden mx-3 mb-1 rounded-xl flex-shrink-0"
-                  style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
-                >
-                  <div className="px-3 py-1.5">
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
-                      Упомянуть пользователя
-                    </p>
-                  </div>
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                  className="overflow-hidden mx-3 mb-1 rounded-xl flex-shrink-0" style={glassPanelSolid}>
+                  <div className="px-3 py-1.5"><p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Упомянуть пользователя</p></div>
                   {filteredMentions.length > 0 ? (
                     filteredMentions.slice(0, 5).map((c) => (
-                      <button
-                        key={c.id}
-                        onClick={() => handleMentionSelect(c)}
-                        className="w-full flex items-center gap-2 px-3 py-2 hover:opacity-80 transition-opacity text-left cursor-pointer"
-                        style={{ color: "var(--mq-text)" }}
-                      >
+                      <button key={c.id} onClick={() => handleMentionSelect(c)}
+                        className="w-full flex items-center gap-2 px-3 py-2 hover:opacity-80 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
                         <AvatarImg src={c.avatar} alt={c.name} className="w-6 h-6 rounded-full" />
                         <span className="text-sm font-medium">{c.name}</span>
                         <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>@{c.username}</span>
                       </button>
                     ))
                   ) : (
-                    <div className="px-3 py-2">
-                      <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-                        Пользователь не найден
-                      </p>
-                    </div>
+                    <div className="px-3 py-2"><p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Пользователь не найден</p></div>
                   )}
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Input — always visible at the bottom */}
-            <div
-              className="p-3 flex items-center gap-2 flex-shrink-0"
-              style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}
-            >
-              <div className="flex-1 relative">
-                <Input
-                  ref={inputRef}
-                  value={inputText}
-                  onChange={(e) => handleInputChange(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Написать сообщение..."
-                  className="pr-10 min-h-[44px] rounded-full"
-                  style={{
-                    backgroundColor: "var(--mq-input-bg)",
-                    border: "1px solid var(--mq-border)",
-                    color: "var(--mq-text)",
-                  }}
-                />
-                <Lock
-                  className="absolute right-10 top-1/2 -translate-y-1/2 w-3 h-3"
-                  style={{ color: "var(--mq-accent)", opacity: 0.5 }}
-                />
-              </div>
-
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setShowEmojis(!showEmojis)}
-                className="p-2 rounded-full cursor-pointer flex-shrink-0"
-                style={{ color: "var(--mq-text-muted)" }}
-              >
+            {/* ── Input area ── */}
+            <div className="p-3 flex items-end gap-2 flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
+              {/* Emoji button */}
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowEmojis(!showEmojis); setShowStickers(false); }}
+                className="p-2 rounded-xl cursor-pointer flex-shrink-0" style={{ color: showEmojis ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 <Smile className="w-5 h-5" />
               </motion.button>
 
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={() => setShowStoryCreate(!showStoryCreate)}
-                className="p-2 rounded-full cursor-pointer flex-shrink-0"
-                style={{ color: showStoryCreate ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
-                title="Добавить историю"
-              >
-                <BookOpen className="w-5 h-5" />
+              {/* Sticker button */}
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowStickers(!showStickers); setShowEmojis(false); }}
+                className="p-2 rounded-xl cursor-pointer flex-shrink-0" style={{ color: showStickers ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                <Sticker className="w-5 h-5" />
               </motion.button>
 
+              {/* Text input */}
+              <div className="flex-1 relative">
+                <Input
+                  ref={inputRef}
+                  value={editingMessage ? editingMessage.content : inputText}
+                  onChange={(e) => { if (editingMessage) setEditingMessage({ ...editingMessage, content: e.target.value }); else handleInputChange(e.target.value); }}
+                  onKeyDown={(e) => { if (editingMessage) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveEdit(); } return; } handleKeyDown(e); }}
+                  placeholder={editingMessage ? "Редактирование сообщения..." : replyingTo ? `Ответ для ${replyingTo.senderName}...` : "Написать сообщение..."}
+                  className="pr-10 min-h-[44px] rounded-2xl"
+                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+                />
+                <Lock className="absolute right-10 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: "var(--mq-accent)", opacity: 0.5 }} />
+              </div>
+
+              {/* Voice button */}
               <motion.button
-                whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                onClick={handleSend}
-                disabled={!inputText.trim()}
-                className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
+                onPointerDown={startRecording}
+                onPointerUp={stopRecording}
+                onPointerLeave={() => { if (isRecording) stopRecording(); }}
+                className="p-2 rounded-xl cursor-pointer flex-shrink-0"
+                style={{ color: isRecording ? "#ef4444" : "var(--mq-text-muted)", backgroundColor: isRecording ? "rgba(239,68,68,0.1)" : "transparent", borderRadius: 12 }}
+                title="Голосовое сообщение">
+                {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              </motion.button>
+
+              {/* Recording indicator */}
+              {isRecording && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl flex-shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.1)" }}>
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-[11px] font-mono" style={{ color: "#ef4444" }}>{formatRecordingTime(recordingDuration)}</span>
+                </div>
+              )}
+
+              {/* Send / Edit save button */}
+              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+                onClick={editingMessage ? handleSaveEdit : handleSend}
+                disabled={editingMessage ? !editingMessage.content.trim() : !inputText.trim()}
+                className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-all duration-200"
                 style={{
-                  backgroundColor: inputText.trim() ? "var(--mq-accent)" : "var(--mq-card)",
+                  background: (editingMessage ? editingMessage.content.trim() : inputText.trim())
+                    ? "linear-gradient(135deg, var(--mq-accent), rgba(255,255,255,0.15))"
+                    : "var(--mq-card)",
                   border: "1px solid var(--mq-border)",
-                }}
-              >
-                <Send className="w-4 h-4" style={{ color: "var(--mq-text)", marginLeft: 1 }} />
+                  boxShadow: (editingMessage ? editingMessage.content.trim() : inputText.trim()) ? "0 4px 15px rgba(0,0,0,0.2)" : "none",
+                }}>
+                {editingMessage ? <Check className="w-4 h-4" style={{ color: "var(--mq-text)", marginLeft: 0 }} /> : <Send className="w-4 h-4" style={{ color: "var(--mq-text)", marginLeft: 1 }} />}
               </motion.button>
             </div>
 
-            {/* Emoji picker */}
+            {/* ── Quick emoji picker ── */}
             <AnimatePresence>
               {showEmojis && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 10 }}
-                  className="p-3 flex flex-wrap gap-2 justify-center flex-shrink-0"
-                  style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}
-                >
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                  className="p-3 flex flex-wrap gap-2 justify-center flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
                   {quickEmojis.map((emoji) => (
-                    <motion.button
-                      key={emoji}
-                      whileTap={{ scale: 1.3 }}
-                      onClick={() => {
-                        setInputText((prev) => prev + emoji);
-                        inputRef.current?.focus();
-                      }}
-                      className="w-10 h-10 flex items-center justify-center text-xl rounded-lg hover:opacity-80 cursor-pointer"
-                    >
+                    <motion.button key={emoji} whileTap={{ scale: 1.3 }} onClick={() => { setInputText((p) => p + emoji); inputRef.current?.focus(); }}
+                      className="w-10 h-10 flex items-center justify-center text-xl rounded-xl hover:opacity-80 cursor-pointer" style={glassPanel}>
                       {emoji}
                     </motion.button>
                   ))}
@@ -1167,215 +1341,122 @@ export default function MessengerView() {
               )}
             </AnimatePresence>
 
-            {/* Story creation */}
+            {/* ── Sticker picker ── */}
+            <AnimatePresence>
+              {showStickers && (
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
+                  className="flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)", maxHeight: "260px" }}>
+                  {/* Category tabs */}
+                  <div className="flex gap-1 p-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+                    {stickerCategories.map((cat, i) => (
+                      <button key={cat.name} onClick={() => setStickerTab(i)}
+                        className="px-3 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap cursor-pointer transition-all"
+                        style={stickerTab === i ? { backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" } : { ...glassPanel, color: "var(--mq-text-muted)" }}>
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Sticker grid */}
+                  <div className="grid grid-cols-6 gap-1 p-3 pt-1 overflow-y-auto" style={{ maxHeight: "180px", scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
+                    {stickerCategories[stickerTab]?.items.map((emoji) => (
+                      <motion.button key={emoji} whileTap={{ scale: 1.2 }} whileHover={{ scale: 1.1 }}
+                        onClick={() => handleSendSticker(emoji)}
+                        className="w-full aspect-square flex items-center justify-center text-2xl rounded-xl cursor-pointer transition-all hover:opacity-80"
+                        style={glassPanel}>
+                        {emoji}
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* ── Story creation ── */}
             <AnimatePresence>
               {showStoryCreate && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="p-3 flex-shrink-0"
-                  style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}
-                >
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                  className="p-3 flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
                   <div className="flex items-center gap-2 mb-2">
                     <BookOpen className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
                     <span className="text-xs font-medium" style={{ color: "var(--mq-text)" }}>Новая история</span>
                   </div>
-                  <textarea
-                    value={storyText}
-                    onChange={(e) => setStoryText(e.target.value)}
-                    placeholder="Что у вас нового?"
-                    rows={2}
-                    className="w-full rounded-lg px-3 py-2 text-sm resize-none"
-                    style={{
-                      backgroundColor: "var(--mq-input-bg)",
-                      border: "1px solid var(--mq-border)",
-                      color: "var(--mq-text)",
-                    }}
-                  />
+                  <textarea value={storyText} onChange={(e) => setStoryText(e.target.value)} placeholder="Что у вас нового?" rows={2}
+                    className="w-full rounded-xl px-3 py-2 text-sm resize-none" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} />
                   <div className="flex gap-2 mt-2">
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
-                      onClick={async () => {
-                        if (!storyText.trim() || !userId) return;
-                        try {
-                          const res = await fetch('/api/stories', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userId, type: 'text', content: storyText.trim() }),
-                          });
-                          if (res.ok) {
-                            setShowStoryCreate(false);
-                            setStoryText("");
-                            const notif = document.createElement('div');
-                            notif.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;padding:12px 24px;border-radius:12px;font-size:14px;font-family:system-ui,sans-serif;color:#f5f5f5;background:rgba(30,30,30,0.95);border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.3);transition:opacity 0.3s ease;';
-                            notif.textContent = 'История опубликована!';
-                            document.body.appendChild(notif);
-                            setTimeout(() => { notif.style.opacity = '0'; setTimeout(() => notif.remove(), 300); }, 2000);
-                            // Refresh stories
-                            const storiesRes = await fetch('/api/stories?all=true');
-                            if (storiesRes.ok) {
-                              const storiesData = await storiesRes.json();
-                              const mapped: Story[] = (storiesData.stories || []).map((s: any) => {
-                                let trackData: Story['trackData'] | undefined;
-                                let contentType: Story['contentType'] = 'text';
-                                const cStr = typeof s.content === 'string' ? s.content : '';
-                                if (s.type === 'music' || s.type === 'track') {
-                                  contentType = 'track';
-                                  try { const p = JSON.parse(cStr); if (p.track) trackData = p.track; } catch {}
-                                } else if (s.type === 'image') { contentType = 'image'; }
-                                return {
-                                  id: s.id, userId: s.userId,
-                                  username: s.user?.username || 'User',
-                                  avatar: "", // Use initials fallback
-                                  content: cStr, contentType,
-                                  createdAt: s.createdAt, expiresAt: s.expiresAt,
-                                  viewed: false, likes: s.likes?.length || 0, trackData,
-                                };
-                              });
-                              setStories(mapped);
-                            }
-                          }
-                        } catch {
-                          // silent
-                        }
-                      }}
-                      disabled={!storyText.trim()}
-                      className="flex-1 py-2 rounded-lg text-xs font-medium"
-                      style={{
-                        backgroundColor: storyText.trim() ? "var(--mq-accent)" : "var(--mq-card)",
-                        color: storyText.trim() ? "var(--mq-text)" : "var(--mq-text-muted)",
-                        border: "1px solid var(--mq-border)",
-                      }}
-                    >
+                    <motion.button whileTap={{ scale: 0.95 }} onClick={async () => {
+                      if (!storyText.trim() || !userId) return;
+                      try {
+                        const res = await fetch("/api/stories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, type: "text", content: storyText.trim() }) });
+                        if (res.ok) { setShowStoryCreate(false); setStoryText(""); showToast("История опубликована!"); }
+                      } catch { /* */ }
+                    }} disabled={!storyText.trim()}
+                      className="flex-1 py-2 rounded-xl text-xs font-medium" style={{ backgroundColor: storyText.trim() ? "var(--mq-accent)" : "var(--mq-card)", color: storyText.trim() ? "var(--mq-text)" : "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}>
                       Опубликовать
                     </motion.button>
-                    <button
-                      onClick={() => { setShowStoryCreate(false); setStoryText(""); }}
-                      className="px-3 py-2 rounded-lg text-xs"
-                      style={{ color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}
-                    >
-                      Отмена
-                    </button>
+                    <button onClick={() => { setShowStoryCreate(false); setStoryText(""); }} className="px-3 py-2 rounded-xl text-xs" style={{ color: "var(--mq-text-muted)", ...glassPanel }}>Отмена</button>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </>
         ) : (
+          /* ── Empty state ── */
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <Shield className="w-16 h-16 mx-auto mb-4" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-              <h3 className="text-lg font-medium mb-2" style={{ color: "var(--mq-text)" }}>Безопасный мессенджер</h3>
-              <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Выберите друга для начала разговора</p>
-              <p className="text-xs mt-1" style={{ color: "var(--mq-accent)" }}>Отпечаток ключа: {fingerprint}</p>
+            <div className="text-center px-6">
+              <div className="w-24 h-24 mx-auto mb-6 rounded-3xl flex items-center justify-center" style={{ ...glassPanel }}>
+                <Shield className="w-12 h-12" style={{ color: "var(--mq-text-muted)", opacity: 0.25 }} />
+              </div>
+              <h3 className="text-xl font-bold mb-2" style={{ color: "var(--mq-text)" }}>Безопасный мессенджер</h3>
+              <p className="text-sm mb-1" style={{ color: "var(--mq-text-muted)" }}>Выберите друга или группу для начала разговора</p>
+              <p className="text-[10px] font-mono mt-4 px-3 py-1.5 rounded-lg inline-block" style={{ color: "var(--mq-accent)", ...glassPanel }}>
+                Отпечаток: {fingerprint}
+              </p>
             </div>
           </div>
         )}
       </div>
 
-      {/* New Chat / Add Friend Dialog */}
+      {/* ════════════════════════════════════════════════════════ */}
+      {/*  NEW CHAT / ADD FRIEND DIALOG                        */}
+      {/* ════════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {showNewChatDialog && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-            style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-            onClick={() => setShowNewChatDialog(false)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="w-full max-w-md rounded-2xl overflow-hidden"
-              style={{
-                backgroundColor: "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div
-                className="flex items-center justify-between p-4"
-                style={{ borderBottom: "1px solid var(--mq-border)" }}
-              >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onClick={() => setShowNewChatDialog(false)}>
+            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="w-full max-w-md rounded-2xl overflow-hidden" style={{ ...glassPanelSolid, boxShadow: shadowDeep }} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4" style={{ borderBottom: "1px solid var(--mq-border)" }}>
                 <h3 className="font-bold" style={{ color: "var(--mq-text)" }}>Найти и добавить друга</h3>
-                <button
-                  onClick={() => setShowNewChatDialog(false)}
-                  className="p-1 cursor-pointer"
-                  style={{ color: "var(--mq-text-muted)" }}
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <button onClick={() => setShowNewChatDialog(false)} className="p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}><X className="w-5 h-5" /></button>
               </div>
-
               <div className="p-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                  <Input
-                    placeholder="Поиск по @username или имени..."
-                    value={newChatSearch}
-                    onChange={(e) => setNewChatSearch(e.target.value)}
-                    className="pl-10 min-h-[40px]"
-                    style={{
-                      backgroundColor: "var(--mq-input-bg)",
-                      border: "1px solid var(--mq-border)",
-                      color: "var(--mq-text)",
-                    }}
-                    autoFocus
-                  />
+                  <Input placeholder="Поиск по @username или имени..." value={newChatSearch} onChange={(e) => setNewChatSearch(e.target.value)}
+                    className="pl-10 min-h-[40px] rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} autoFocus />
                 </div>
               </div>
-
               <div className="max-h-80 overflow-y-auto">
                 {isLoadingNewChat ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
-                  </div>
+                  <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-text-muted)" }} /></div>
                 ) : newChatFilteredContacts.length > 0 ? (
                   newChatFilteredContacts.map((contact) => {
                     const status = friendRequestStatus[contact.id];
                     return (
-                      <div
-                        key={contact.id}
-                        className="flex items-center gap-3 p-3"
-                        style={{ borderBottom: "1px solid var(--mq-border)" }}
-                      >
-                        <div className="relative flex-shrink-0">
-                          <img src={contact.avatar} alt={contact.name} className="w-10 h-10 rounded-full object-cover" />
-                        </div>
+                      <div key={contact.id} className="flex items-center gap-3 p-3" style={{ borderBottom: "1px solid var(--mq-border)" }}>
+                        <AvatarImg src={contact.avatar} alt={contact.name} className="w-10 h-10 rounded-full object-cover" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>
-                            {contact.name}
-                          </p>
-                          <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-                            @{contact.username}
-                          </p>
+                          <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{contact.name}</p>
+                          <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>@{contact.username}</p>
                         </div>
                         {status === "sent" ? (
-                          <span className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0" style={{ color: "var(--mq-accent)", backgroundColor: "rgba(224,49,49,0.1)" }}>
-                            Отправлено
-                          </span>
+                          <span className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0" style={{ color: "var(--mq-accent)", ...glassPanel }}>Отправлено</span>
                         ) : status && status !== "loading" ? (
-                          <span className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0" style={{ color: "#ef4444", backgroundColor: "rgba(239,68,68,0.1)" }}>
-                            <AlertCircle className="w-3 h-3 inline mr-1" />
-                            Ошибка
-                          </span>
+                          <span className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0 flex items-center gap-1" style={{ color: "#ef4444" }}><AlertCircle className="w-3 h-3" />Ошибка</span>
                         ) : (
-                          <motion.button
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => sendFriendRequest(contact.id)}
-                            disabled={status === "loading"}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer flex-shrink-0"
-                            style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
-                          >
-                            {status === "loading" ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <UserPlus className="w-3 h-3" />
-                            )}
+                          <motion.button whileTap={{ scale: 0.95 }} onClick={() => sendFriendRequest(contact.id)} disabled={status === "loading"}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                            {status === "loading" ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
                             Добавить
                           </motion.button>
                         )}
@@ -1383,9 +1464,7 @@ export default function MessengerView() {
                     );
                   })
                 ) : newChatSearch.trim() ? (
-                  <div className="text-center py-8">
-                    <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Пользователи не найдены</p>
-                  </div>
+                  <div className="text-center py-8"><p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Пользователи не найдены</p></div>
                 ) : (
                   <div className="text-center py-8">
                     <Search className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
@@ -1398,27 +1477,74 @@ export default function MessengerView() {
         )}
       </AnimatePresence>
 
-      {/* ── Full-screen story viewer ── */}
+      {/* ════════════════════════════════════════════════════════ */}
+      {/*  GROUP CREATE DIALOG                                   */}
+      {/* ════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {showGroupCreate && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onClick={() => setShowGroupCreate(false)}>
+            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="w-full max-w-md rounded-2xl overflow-hidden" style={{ ...glassPanelSolid, boxShadow: shadowDeep }} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4" style={{ borderBottom: "1px solid var(--mq-border)" }}>
+                <h3 className="font-bold" style={{ color: "var(--mq-text)" }}>Создать группу</h3>
+                <button onClick={() => setShowGroupCreate(false)} className="p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}><X className="w-5 h-5" /></button>
+              </div>
+              <div className="p-4 space-y-3">
+                <div>
+                  <label className="text-[11px] font-medium mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Название группы</label>
+                  <Input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Моя группа"
+                    className="min-h-[40px] rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Описание (необязательно)</label>
+                  <Input value={groupDesc} onChange={(e) => setGroupDesc(e.target.value)} placeholder="О чём эта группа..."
+                    className="min-h-[40px] rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Добавить участников</label>
+                  <div className="max-h-40 overflow-y-auto rounded-xl" style={{ ...glassPanel }}>
+                    {friends.length === 0 ? (
+                      <p className="text-xs p-3 text-center" style={{ color: "var(--mq-text-muted)" }}>Сначала добавьте друзей</p>
+                    ) : (
+                      friends.map((f) => (
+                        <label key={f.id} className="flex items-center gap-3 p-2.5 cursor-pointer hover:opacity-80 transition-opacity" style={{ borderBottom: "1px solid var(--mq-border)" }}>
+                          <input type="checkbox" checked={groupMembers.has(f.id)} onChange={(e) => {
+                            setGroupMembers((p) => { const n = new Set(p); if (e.target.checked) n.add(f.id); else n.delete(f.id); return n; });
+                          }} className="accent-[var(--mq-accent)]" />
+                          <AvatarImg src="" alt={f.username} className="w-7 h-7 rounded-full" />
+                          <span className="text-sm" style={{ color: "var(--mq-text)" }}>@{f.username}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="p-4 flex gap-2" style={{ borderTop: "1px solid var(--mq-border)" }}>
+                <motion.button whileTap={{ scale: 0.95 }} onClick={handleCreateGroup} disabled={!groupName.trim()}
+                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold cursor-pointer" style={{ backgroundColor: groupName.trim() ? "var(--mq-accent)" : "var(--mq-card)", color: groupName.trim() ? "var(--mq-text)" : "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}>
+                  Создать
+                </motion.button>
+                <button onClick={() => setShowGroupCreate(false)} className="px-4 py-2.5 rounded-xl text-xs cursor-pointer" style={{ color: "var(--mq-text-muted)", ...glassPanel }}>
+                  Отмена
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ════════════════════════════════════════════════════════ */}
+      {/*  FULL-SCREEN STORY VIEWER                              */}
+      {/* ════════════════════════════════════════════════════════ */}
       <AnimatePresence>
         {viewingStory && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] flex items-center justify-center"
-            style={{ backgroundColor: "rgba(0,0,0,0.95)" }}
-            onClick={() => {
-              if (viewingStoryIndex !== null && viewingStoryIndex < stories.length - 1) setViewingStoryIndex(viewingStoryIndex + 1);
-              else closeStoryViewer();
-            }}
-          >
-            {/* Close */}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.95)" }}
+            onClick={() => { if (viewingStoryIndex !== null && viewingStoryIndex < stories.length - 1) setViewingStoryIndex(viewingStoryIndex + 1); else closeStoryViewer(); }}>
             <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); closeStoryViewer(); }}
-              className="absolute top-4 right-4 z-[310] p-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.15)" }}>
-              <X className="w-5 h-5 text-white" />
-            </motion.button>
+              className="absolute top-4 right-4 z-[310] p-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.15)" }}><X className="w-5 h-5 text-white" /></motion.button>
 
-            {/* Progress bars */}
             <div className="absolute top-0 left-0 right-0 z-[310] flex gap-1 p-2">
               {stories.map((_, i) => (
                 <div key={i} className="h-0.5 flex-1 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
@@ -1430,75 +1556,54 @@ export default function MessengerView() {
               ))}
             </div>
 
-            {/* Prev/Next */}
             {viewingStoryIndex !== null && viewingStoryIndex > 0 && (
-              <motion.button whileTap={{ scale: 0.9 }}
-                onClick={(e) => { e.stopPropagation(); setViewingStoryIndex(viewingStoryIndex - 1); setStoryProgress(0); }}
-                className="absolute left-2 z-[310] p-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.1)" }}>
-                <ChevronLeft className="w-5 h-5 text-white" />
-              </motion.button>
+              <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setViewingStoryIndex(viewingStoryIndex - 1); setStoryProgress(0); }}
+                className="absolute left-2 z-[310] p-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.1)" }}><ChevronLeft className="w-5 h-5 text-white" /></motion.button>
             )}
             {viewingStoryIndex !== null && viewingStoryIndex < stories.length - 1 && (
-              <motion.button whileTap={{ scale: 0.9 }}
-                onClick={(e) => { e.stopPropagation(); setViewingStoryIndex(viewingStoryIndex + 1); setStoryProgress(0); }}
-                className="absolute right-2 z-[310] p-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.1)" }}>
-                <ChevronRight className="w-5 h-5 text-white" />
-              </motion.button>
+              <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setViewingStoryIndex(viewingStoryIndex + 1); setStoryProgress(0); }}
+                className="absolute right-2 z-[310] p-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.1)" }}><ChevronRight className="w-5 h-5 text-white" /></motion.button>
             )}
 
-            {/* Story content */}
             <motion.div key={viewingStory.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-              className="relative w-full max-w-[420px] h-[85vh] rounded-2xl overflow-hidden mx-2"
-              style={{ backgroundColor: "var(--mq-card)" }} onClick={(e) => e.stopPropagation()}>
-              {/* Header */}
-              <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-3 p-4"
-                style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)" }}>
-                <img src={viewingStory.avatar} alt={viewingStory.username} className="w-9 h-9 rounded-full object-cover" style={{ border: "2px solid white" }} />
+              className="relative w-full max-w-[420px] h-[85vh] rounded-2xl overflow-hidden mx-2" style={{ backgroundColor: "var(--mq-card)" }} onClick={(e) => e.stopPropagation()}>
+              <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-3 p-4" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)" }}>
+                <AvatarImg src={viewingStory.avatar} alt={viewingStory.username} className="w-9 h-9 rounded-full object-cover" style={{ border: "2px solid white" } as React.CSSProperties} />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-white">{viewingStory.username}</p>
-                  <p className="text-[10px] text-white/60">
-                    {new Date(viewingStory.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
-                  </p>
+                  <p className="text-[10px] text-white/60">{new Date(viewingStory.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
-                <motion.button whileTap={{ scale: 0.9 }}
-                  onClick={(e) => { e.stopPropagation(); setStoryPaused(!storyPaused); }}
+                <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setStoryPaused(!storyPaused); }}
                   className="p-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.15)" }}>
                   {storyPaused ? <Play className="w-4 h-4 text-white" /> : <Pause className="w-4 h-4 text-white" />}
                 </motion.button>
               </div>
 
-              {/* Body */}
               <div className="w-full h-full flex items-center justify-center"
                 style={viewingStory.contentType === "text" ? { background: storyGradients[viewingStoryIndex % storyGradients.length] } : {}}>
                 {viewingStory.contentType === "text" && (
-                  <div className="p-8 text-center">
-                    <p className="text-xl font-medium text-white leading-relaxed">{viewingStory.content}</p>
-                  </div>
+                  <div className="p-8 text-center"><p className="text-xl font-medium text-white leading-relaxed">{viewingStory.content}</p></div>
                 )}
                 {viewingStory.contentType === "track" && viewingStory.trackData && (
-                  <div className="p-6 flex flex-col items-center gap-4">
-                    {viewingStory.trackData.cover && (
-                      <img src={viewingStory.trackData.cover} alt="" className="w-48 h-48 rounded-2xl object-cover shadow-2xl" />
-                    )}
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-white">{viewingStory.trackData.title}</p>
-                      <p className="text-sm text-white/70">{viewingStory.trackData.artist}</p>
+                  <div className="p-8 w-full">
+                    <div className="mx-auto max-w-[280px]">
+                      {viewingStory.trackData.cover && (
+                        <img src={viewingStory.trackData.cover} alt={viewingStory.trackData.title} className="w-full aspect-square rounded-2xl object-cover mb-4 shadow-2xl" />
+                      )}
+                      <p className="text-white text-lg font-bold text-center mb-1">{viewingStory.trackData.title}</p>
+                      <p className="text-white/60 text-sm text-center">{viewingStory.trackData.artist}</p>
+                      <div className="mt-4 flex justify-center">
+                        <motion.button whileTap={{ scale: 0.9 }} className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}
+                          onClick={() => {
+                            const store = useAppStore.getState();
+                            store.playTrack({ id: viewingStory.trackData!.id, title: viewingStory.trackData!.title, artist: viewingStory.trackData!.artist, cover: viewingStory.trackData!.cover, audioUrl: viewingStory.trackData!.streamUrl, duration: viewingStory.trackData!.duration }, []);
+                          }}>
+                          <Play className="w-6 h-6 text-white" style={{ marginLeft: 2 }} />
+                        </motion.button>
+                      </div>
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* Bottom actions */}
-              <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between p-4"
-                style={{ background: "linear-gradient(to top, rgba(0,0,0,0.6), transparent)" }}>
-                <div className="flex items-center gap-4">
-                  <motion.button whileTap={{ scale: 1.2 }} className="flex items-center gap-1 cursor-pointer">
-                    <Heart className="w-6 h-6 text-white" />
-                    <span className="text-xs text-white">{viewingStory.likes}</span>
-                  </motion.button>
-                  <MessageCircle className="w-6 h-6 text-white cursor-pointer" />
-                </div>
-                <Eye className="w-4 h-4 text-white/50" />
               </div>
             </motion.div>
           </motion.div>
@@ -1506,4 +1611,219 @@ export default function MessengerView() {
       </AnimatePresence>
     </div>
   );
+
+  // ═══════════════════════════════════════════════════════════
+  //  MESSAGE BUBBLE RENDERER (DM)
+  // ═══════════════════════════════════════════════════════════
+
+  function renderMessageBubble(msg: any) {
+    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+    const handleTouchStart = (e: React.TouchEvent) => {
+      longPressTimer = setTimeout(() => {
+        const touch = e.touches[0];
+        setContextMenuMsgId({ id: msg.id, x: touch.clientX - 80, y: touch.clientY - 100 });
+      }, 500);
+    };
+    const handleTouchEnd = () => { if (longPressTimer) clearTimeout(longPressTimer); };
+    const handleTouchMove = () => { if (longPressTimer) clearTimeout(longPressTimer); };
+
+    // Check if voice message
+    let voiceData: { voiceUrl: string; voiceDuration: number } | null = null;
+    try { const parsed = JSON.parse(msg.content); if (parsed.voiceUrl) voiceData = parsed; } catch { /* not voice */ }
+
+    // Check if sticker
+    let stickerEmoji = "";
+    try { const parsed = JSON.parse(msg.content); if (parsed.type === "sticker" && parsed.sticker) stickerEmoji = parsed.sticker; } catch { /* not sticker */ }
+
+    // Check if reply content
+    let replyPreview: { senderName: string; content: string } | null = null;
+    if (msg.replyToId) {
+      const replyMsg = contactMessages.find((m) => m.id === msg.replyToId);
+      if (replyMsg) {
+        let content = "";
+        try { content = simulateDecryptSync(replyMsg.content); } catch { content = replyMsg.content; }
+        replyPreview = { senderName: replyMsg.senderId === userId ? "Вы" : (selectedContact?.name || "User"), content: content.slice(0, 40) + (content.length > 40 ? "..." : "") };
+      }
+    }
+
+    const isMine = msg.senderId === userId;
+    const isVoice = voiceData !== null;
+    const isSticker = !!stickerEmoji;
+    const isEdited = msg.edited;
+
+    return (
+      <div key={msg.id} id={`msg-${msg.id}`} className="relative group/bubble"
+        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenuMsgId({ id: msg.id, x: e.clientX, y: e.clientY }); }}
+        onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchMove={handleTouchMove}>
+        <motion.div initial={animationsEnabled ? { opacity: 0, y: 8, scale: 0.97 } : undefined} animate={{ opacity: 1, y: 0, scale: 1 }}
+          className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+          <div className="max-w-[80%] lg:max-w-[65%]">
+            {replyPreview && (
+              <div className="mb-1 ml-1 px-2.5 py-1.5 rounded-lg" style={{ ...glassPanel, borderLeft: "2px solid var(--mq-accent)" }}>
+                <p className="text-[9px] font-semibold" style={{ color: "var(--mq-accent)" }}>{replyPreview.senderName}</p>
+                <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{replyPreview.content}</p>
+              </div>
+            )}
+            {isSticker ? (
+              <div className="text-5xl py-2">{stickerEmoji}</div>
+            ) : isVoice ? (
+              <div className="rounded-2xl px-4 py-3 flex items-center gap-3 min-w-[200px]"
+                style={{ backgroundColor: isMine ? "var(--mq-accent)" : "var(--mq-card)", border: isMine ? "none" : "1px solid var(--mq-border)", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
+                <button className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: isMine ? "rgba(255,255,255,0.2)" : "var(--mq-accent)" }}>
+                  <Play className="w-3.5 h-3.5" style={{ color: isMine ? "var(--mq-text)" : "var(--mq-text)", marginLeft: 1 }} />
+                </button>
+                <audio src={voiceData.voiceUrl} className="flex-1 h-6" style={{ maxHeight: 24 }} controls />
+                <span className="text-[10px] flex-shrink-0" style={{ color: isMine ? "var(--mq-text)" : "var(--mq-text-muted)", opacity: 0.7 }}>
+                  {voiceData.voiceDuration ? `${voiceData.voiceDuration}s` : ""}
+                </span>
+              </div>
+            ) : (
+              <MessageBubble message={msg} currentUserId={userId || undefined} />
+            )}
+            {isEdited && !isSticker && !isVoice && (
+              <p className={`text-[9px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Context menu */}
+        {contextMenuMsgId && contextMenuMsgId.id === msg.id && (
+          <div className="absolute top-1 right-1 z-20 rounded-xl py-1 min-w-[170px]" style={{ ...glassPanelSolid, boxShadow: shadowDeep }} onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => handleReplyMessage(msg)}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs hover:opacity-80 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+              <Reply className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} /> Ответить
+            </button>
+            {msg.senderId === userId && !isVoice && !isSticker && (
+              <button onClick={() => handleStartEdit(msg)}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs hover:opacity-80 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+                <Edit3 className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} /> Редактировать
+              </button>
+            )}
+            <button onClick={() => handleCopyMessage(msg)}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs hover:opacity-80 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+              <Copy className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} /> Копировать
+            </button>
+            {msg.senderId === userId && (
+              <button onClick={() => handleDeleteMessage(msg.id)}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs hover:opacity-80 transition-opacity text-left cursor-pointer" style={{ color: "#ef4444" }}>
+                <Trash2 className="w-3.5 h-3.5" /> Удалить
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //  GROUP MESSAGE BUBBLE RENDERER
+  // ═══════════════════════════════════════════════════════════
+
+  function renderGroupMessageBubble(msg: any) {
+    const isMine = msg.senderId === userId;
+    let stickerEmoji = "";
+    try { const parsed = JSON.parse(msg.content); if (parsed.type === "sticker" && parsed.sticker) stickerEmoji = parsed.sticker; } catch { /* */ }
+
+    return (
+      <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"} mb-3`}>
+        <div className="max-w-[80%] lg:max-w-[65%]">
+          {/* Show sender name for group messages */}
+          {!isMine && (
+            <p className="text-[10px] mb-1 ml-1 font-semibold" style={{ color: "var(--mq-accent)" }}>
+              {msg.senderName || "User"}
+            </p>
+          )}
+          {stickerEmoji ? (
+            <div className="text-5xl py-2">{stickerEmoji}</div>
+          ) : (
+            <MessageBubble message={{ id: msg.id, content: msg.content, senderId: msg.senderId, receiverId: userId || "", encrypted: false, createdAt: msg.createdAt, senderName: msg.senderName, messageType: msg.messageType }} currentUserId={userId || undefined} />
+          )}
+        </div>
+      </div>
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  CONTACT ITEM SUB-COMPONENT
+// ═══════════════════════════════════════════════════════════════
+
+function ContactItem({ contact, selected, userId, lastMsg, unread, pinned, onlineStatus, animationsEnabled, index, onClick, onContextMenu }: {
+  contact: { id: string; name: string; username: string; avatar: string; online: boolean; lastSeen: string };
+  selected: boolean; userId: string; lastMsg: any; unread: number; pinned: boolean;
+  onlineStatus: { online: boolean; lastSeen: string | null } | undefined;
+  animationsEnabled: boolean; index: number;
+  onClick: () => void; onContextMenu: () => void;
+}) {
+  const isOnline = onlineStatus?.online ?? contact.online;
+  let lastMsgPreview = "";
+  if (lastMsg) {
+    try {
+      const decrypted = simulateDecryptSync(lastMsg.content);
+      lastMsgPreview = decrypted.length > 30 ? decrypted.slice(0, 30) + "..." : decrypted;
+    } catch {
+      lastMsgPreview = lastMsg.content.slice(0, 30) + "...";
+    }
+  }
+
+  return (
+    <motion.button
+      key={contact.id}
+      initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.03 }}
+      onClick={onClick}
+      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(); }}
+      className="w-full flex items-center gap-3 p-3 hover:opacity-80 transition-all text-left cursor-pointer"
+      style={{ backgroundColor: selected ? "var(--mq-accent)" : "transparent", borderBottom: "1px solid var(--mq-border)" }}>
+      <div className="relative flex-shrink-0">
+        <AvatarImg src={contact.avatar} alt={contact.name} className="w-11 h-11 rounded-full object-cover" />
+        {pinned && (
+          <div className="absolute -top-1 -left-1" style={{ zIndex: 2 }}><Pin className="w-3 h-3" style={{ color: "var(--mq-accent)", fill: "var(--mq-accent)" }} /></div>
+        )}
+        {isOnline && (
+          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2" style={{ backgroundColor: "#4ade80", borderColor: "var(--mq-bg)" }} />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{contact.name}</p>
+          {lastMsg && (
+            <span className="text-[10px] flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
+              {new Date(lastMsg.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+            {lastMsg ? (<>{lastMsg.senderId === userId ? "Вы: " : ""}{lastMsgPreview}</>) : `@${contact.username}`}
+          </p>
+          {unread > 0 && (
+            <span className="min-w-[18px] h-[18px] rounded-full text-[10px] flex items-center justify-center px-1 flex-shrink-0 font-bold"
+              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>{unread}</span>
+          )}
+        </div>
+      </div>
+      <Lock className="w-3 h-3 flex-shrink-0" style={{ color: "var(--mq-accent)", opacity: 0.5 }} />
+    </motion.button>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  TOAST HELPER
+// ═══════════════════════════════════════════════════════════════
+
+function showToast(message: string) {
+  const notif = document.createElement("div");
+  notif.style.cssText = "position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;padding:12px 24px;border-radius:12px;font-size:14px;font-family:system-ui,sans-serif;color:#f5f5f5;background:rgba(30,30,30,0.95);border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.3);transition:opacity 0.3s ease;";
+  notif.textContent = message;
+  document.body.appendChild(notif);
+  setTimeout(() => { notif.style.opacity = "0"; setTimeout(() => notif.remove(), 300); }, 2000);
+}
+
+// Notification permission helper
+function requestNotificationPermission() {
+  if (typeof Notification !== "undefined" && Notification.permission === "default") {
+    Notification.requestPermission();
+  }
 }

@@ -21,6 +21,7 @@ model User {
   avatar         String    @default("")
   theme          String    @default("default")
   accent         String    @default("#e03131")
+  lastSeen       DateTime?
   createdAt      DateTime  @default(now())
   sentMessages   Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")
@@ -33,6 +34,9 @@ model User {
   playlistLikes          PlaylistLike[] @relation("UserPlaylistLikes")
   adminLogs              AuditLog[] @relation("AdminLogs")
   syncData               UserSync[] @relation("UserSyncData")
+  groupChats             GroupChatMember[] @relation("GroupMemberships")
+  groupMessages          GroupMessage[] @relation("GroupMessages")
+  createdGroups          GroupChat[] @relation("GroupChatCreators")
 }
 
 model AuditLog {
@@ -46,14 +50,23 @@ model AuditLog {
 }
 
 model Message {
-  id         String   @id @default(cuid())
-  content    String
-  senderId   String
-  receiverId String
-  encrypted  Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
-  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  id           String   @id @default(cuid())
+  content      String
+  senderId     String
+  receiverId   String
+  encrypted    Boolean  @default(true)
+  messageType  String   @default("text") // "text", "voice", "sticker", "track_share", "image", "system"
+  replyToId    String?
+  edited       Boolean  @default(false)
+  editedAt     DateTime?
+  deleted      Boolean  @default(false)
+  voiceUrl     String?
+  voiceDuration Float?
+  createdAt    DateTime @default(now())
+  sender       User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver     User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  replyTo      Message? @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      Message[] @relation("MessageReplies")
 }
 
 model Friend {
@@ -221,6 +234,50 @@ model SupportChatMessage {
   content   String
   createdAt DateTime @default(now())
   session   SupportChatSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+}
+
+// ===== Group Chats =====
+
+model GroupChat {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+ avatar      String   @default("")
+ createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  members     GroupChatMember[]
+  messages    GroupMessage[]
+  creator     User     @relation("GroupChatCreators", fields: [createdBy], references: [id])
+}
+
+model GroupChatMember {
+  id         String   @id @default(cuid())
+  groupChatId String
+  userId      String
+  role       String   @default("member") // "admin", "member"
+  joinedAt   DateTime @default(now())
+  groupChat  GroupChat @relation(fields: [groupChatId], references: [id], onDelete: Cascade)
+  user       User     @relation("GroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupChatId, userId])
+}
+
+model GroupMessage {
+  id           String   @id @default(cuid())
+  groupChatId  String
+  senderId     String
+  content      String
+  messageType  String   @default("text") // "text", "voice", "sticker", "track_share", "image", "system"
+  replyToId    String?
+  edited       Boolean  @default(false)
+  editedAt     DateTime?
+  deleted      Boolean  @default(false)
+  voiceUrl     String?
+  voiceDuration Float?
+  createdAt    DateTime @default(now())
+  groupChat    GroupChat @relation(fields: [groupChatId], references: [id], onDelete: Cascade)
+  sender       User     @relation("GroupMessages", fields: [senderId], references: [id])
 }
 
 // Server-side data sync — stores user data as JSON blobs keyed by type

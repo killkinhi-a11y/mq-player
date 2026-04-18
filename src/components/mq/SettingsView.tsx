@@ -46,6 +46,16 @@ export default function SettingsView() {
   const [error, setError] = useState<string | null>(null);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const themeMenuRef = useRef<HTMLDivElement>(null);
+  const [autoTheme, setAutoTheme] = useState(() => {
+    if (typeof window !== "undefined") {
+      try { return localStorage.getItem("mq-auto-theme") === "true"; } catch {}
+    }
+    return false;
+  });
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
 
   // Mouse wheel volume control on the volume section — native listener to allow preventDefault
@@ -61,6 +71,20 @@ export default function SettingsView() {
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
   }, []);
+
+  // Auto dark/light theme based on system preference
+  useEffect(() => {
+    if (!autoTheme) return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const apply = (e: MediaQueryList | MediaQueryListEvent) => {
+      const dark = e.matches;
+      const themeId = dark ? 'midnight' : 'default';
+      setTheme(themeId);
+    };
+    apply(mq);
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, [autoTheme, setTheme]);
 
   const themeList = Object.values(themes);
 
@@ -490,6 +514,24 @@ export default function SettingsView() {
           </div>
           <Switch checked={liquidGlassMobile} onCheckedChange={setLiquidGlassMobile} />
         </div>
+
+        {/* Auto theme */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Moon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+            <div>
+              <p className="text-sm" style={{ color: "var(--mq-text)" }}>Авто-тема</p>
+              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Тёмная/светлая по настройке системы</p>
+            </div>
+          </div>
+          <Switch
+            checked={autoTheme}
+            onCheckedChange={(v) => {
+              setAutoTheme(v);
+              try { localStorage.setItem("mq-auto-theme", v ? "true" : "false"); } catch {}
+            }}
+          />
+        </div>
       </motion.div>
 
       {/* Font size */}
@@ -754,6 +796,107 @@ export default function SettingsView() {
           </span>
         )}
       </motion.button>
+
+      {/* Delete Account */}
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => { setShowDeleteAccount(true); setDeleteConfirmText(""); setDeleteError(null); }}
+        className="w-full p-3 rounded-xl text-center text-sm font-medium"
+        style={{
+          backgroundColor: "rgba(224,49,49,0.05)",
+          color: "#ef4444",
+          border: "1px solid rgba(224,49,49,0.1)",
+        }}
+      >
+        <div className="flex items-center justify-center gap-2">
+          <Trash2 className="w-4 h-4" />
+          Удалить аккаунт
+        </div>
+      </motion.button>
+
+      {/* Delete Account Dialog */}
+      <Dialog open={showDeleteAccount} onOpenChange={setShowDeleteAccount}>
+        <DialogContent style={{
+          backgroundColor: "var(--mq-card)",
+          border: "1px solid rgba(224,49,49,0.2)",
+          color: "var(--mq-text)",
+          maxWidth: 400,
+        }}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-400">
+              <Trash2 className="w-5 h-5" />
+              Удалить аккаунт
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+              Это действие необратимо. Все ваши данные, сообщения, друзья, плейлисты и история будут полностью удалены.
+            </p>
+            <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+              Введите <strong style={{ color: "#ef4444" }}>УДАЛИТЬ</strong> для подтверждения:
+            </p>
+            {deleteError && (
+              <p className="text-sm" style={{ color: "#ef4444" }}>{deleteError}</p>
+            )}
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="УДАЛИТЬ"
+              className="w-full px-3 py-2 rounded-lg text-sm"
+              style={{
+                backgroundColor: "var(--mq-input-bg)",
+                border: "1px solid var(--mq-border)",
+                color: "var(--mq-text)",
+              }}
+            />
+            <div className="flex gap-2 mt-4">
+              <Button
+                onClick={async () => {
+                  if (deleteConfirmText !== "УДАЛИТЬ") {
+                    setDeleteError("Введите УДАЛИТЬ для подтверждения");
+                    return;
+                  }
+                  setDeleteLoading(true);
+                  setDeleteError(null);
+                  try {
+                    const state = useAppStore.getState();
+                    const res = await fetch("/api/user/delete-account", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ userId: state.userId, email: state.email }),
+                    });
+                    if (!res.ok) {
+                      const data = await res.json();
+                      setDeleteError(data.error || "Ошибка удаления");
+                      return;
+                    }
+                    setShowDeleteAccount(false);
+                    logout();
+                  } catch {
+                    setDeleteError("Ошибка соединения");
+                  } finally {
+                    setDeleteLoading(false);
+                  }
+                }}
+                disabled={deleteLoading || deleteConfirmText !== "УДАЛИТЬ"}
+                className="flex-1 min-h-[40px]"
+                style={{ backgroundColor: "#ef4444", color: "#fff" }}
+              >
+                {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Удалить навсегда"}
+              </Button>
+              <Button
+                onClick={() => { setShowDeleteAccount(false); setDeleteError(null); }}
+                className="flex-1 min-h-[40px]"
+                style={{ border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}
+              >
+                Отмена
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Logout */}
       <motion.button
