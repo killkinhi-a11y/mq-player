@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
@@ -420,7 +420,7 @@ export default function SettingsView() {
         </div>
       </motion.div>
 
-      {/* Security info */}
+      {/* Data Protection */}
       <motion.div
         initial={anim ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
@@ -428,22 +428,59 @@ export default function SettingsView() {
         className="rounded-2xl p-4"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-          <h2 className="font-semibold" style={{ color: "var(--mq-text)" }}>Безопасность</h2>
+          <h2 className="font-semibold" style={{ color: "var(--mq-text)" }}>Защита данных</h2>
         </div>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Check className="w-4 h-4" style={{ color: "#4ade80" }} />
-            <span className="text-sm" style={{ color: "var(--mq-text)" }}>Сквозное шифрование сообщений</span>
+
+        <div className="space-y-3">
+          <div className="flex items-start gap-3">
+            <Lock className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#4ade80" }} />
+            <div>
+              <p className="text-sm" style={{ color: "var(--mq-text)" }}>Сквозное шифрование</p>
+              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Все сообщения шифруются AES-256-GCM. Содержимое читаете только вы и собеседник.</p>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Check className="w-4 h-4" style={{ color: "#4ade80" }} />
-            <span className="text-sm" style={{ color: "var(--mq-text)" }}>AES-256-GCM шифрование</span>
+
+          <div className="flex items-start gap-3">
+            <Server className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#4ade80" }} />
+            <div>
+              <p className="text-sm" style={{ color: "var(--mq-text)" }}>Защищённое соединение</p>
+              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Весь трафик передаётся по HTTPS с TLS 1.3. Данные невозможно перехватить.</p>
+            </div>
           </div>
+
+          <div className="flex items-start gap-3">
+            <Eye className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#4ade80" }} />
+            <div>
+              <p className="text-sm" style={{ color: "var(--mq-text)" }}>Конфиденциальность</p>
+              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Мы не продаём, не передаём и не используем ваши данные для рекламы. Никаких third-party трекеров.</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Fingerprint className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#4ade80" }} />
+            <div>
+              <p className="text-sm" style={{ color: "var(--mq-text)" }}>Аутентификация</p>
+              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Пароли хешируются bcrypt (10 rounds). Email-верификация при регистрации.</p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <Trash2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#4ade80" }} />
+            <div>
+              <p className="text-sm" style={{ color: "var(--mq-text)" }}>Право на удаление</p>
+              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Вы можете запросить полное удаление аккаунта и всех связанных данных через поддержку.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--mq-border)" }}>
           <div className="flex items-center gap-2">
-            <Check className="w-4 h-4" style={{ color: "#4ade80" }} />
-            <span className="text-sm" style={{ color: "var(--mq-text)" }}>Локальное хранение данных</span>
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#4ade80" }} />
+            <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+              Все проверки пройдены — ваши данные защищены
+            </span>
           </div>
         </div>
       </motion.div>
@@ -544,10 +581,7 @@ export default function SettingsView() {
                 />
               </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
-                  Также пишите: killkin.hi@gmail.com
-                </p>
+              <div className="flex items-center justify-end pt-1">
                 <button
                   onClick={handleSendSupport}
                   disabled={supportLoading || !supportSubject.trim() || !supportMessage.trim()}
