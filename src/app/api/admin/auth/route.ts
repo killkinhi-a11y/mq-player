@@ -1,30 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+
+// Admin emails — comma-separated in env var ADMIN_EMAILS, fallback hardcoded
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "killkin.hi@gmail.com")
+  .split(",")
+  .map((e) => e.trim().toLowerCase());
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId } = await req.json();
+    const { email } = await req.json();
 
-    if (!userId) {
-      return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
+    if (!email) {
+      return NextResponse.json({ error: "email обязателен" }, { status: 400 });
     }
 
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: { id: true, username: true, email: true, role: true, confirmed: true, blocked: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: "Пользователь не найден" }, { status: 404 });
-    }
+    const isAdmin = ADMIN_EMAILS.includes(email.toLowerCase());
 
     return NextResponse.json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      confirmed: user.confirmed,
-      blocked: user.blocked,
+      email,
+      isAdmin,
+      adminEmails: ADMIN_EMAILS,
     });
   } catch (error) {
     console.error("Admin auth check error:", error);

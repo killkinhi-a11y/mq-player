@@ -15,10 +15,13 @@ export default function SettingsView() {
     currentTheme, setTheme, customAccent, setCustomAccent,
     animationsEnabled, setAnimationsEnabled, compactMode, setCompactMode,
     fontSize, setFontSize, volume, setVolume, logout, username, animationsEnabled: anim, setView,
-    liquidGlassMobile, setLiquidGlassMobile, userRole,
+    liquidGlassMobile, setLiquidGlassMobile, email,
   } = useAppStore();
 
-  const [accentInput, setAccentInput] = useState(customAccent || "");
+  const ADMIN_EMAILS = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_ADMIN_EMAILS) 
+    ? process.env.NEXT_PUBLIC_ADMIN_EMAILS.split(",").map((e: string) => e.trim().toLowerCase())
+    : ["killkin.hi@gmail.com"];
+  const showAdminLink = email ? ADMIN_EMAILS.includes(email.toLowerCase()) : false;
   const volumeSectionRef = useRef<HTMLDivElement>(null);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const themeMenuRef = useRef<HTMLDivElement>(null);
@@ -96,7 +99,7 @@ export default function SettingsView() {
         Настройки профиля
       </motion.button>
 
-      {userRole === "admin" && (
+      {showAdminLink && (
         <motion.a
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}

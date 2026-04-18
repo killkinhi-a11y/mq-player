@@ -26,31 +26,27 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { userId } = useAppStore();
+  const { email } = useAppStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (!userId) {
+    if (!email) {
       setIsAdmin(false);
       return;
     }
     fetch("/api/admin/auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId }),
+      body: JSON.stringify({ email }),
     })
       .then((r) => r.json())
       .then((data) => {
-        if (data.role === "admin") {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
-        }
+        setIsAdmin(!!data.isAdmin);
       })
       .catch(() => setIsAdmin(false));
-  }, [userId]);
+  }, [email]);
 
   if (isAdmin === null) {
     return (
