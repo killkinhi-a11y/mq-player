@@ -72,18 +72,46 @@ const CURATED_CONFIGS = [
     subtitle: "Электронные биты",
     gradient: "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
   },
+  {
+    id: "rnb-soul",
+    name: "R&B / Соул",
+    subtitle: "Гладкие ритмы",
+    gradient: "linear-gradient(135deg, #c471f5 0%, #fa71cd 100%)",
+  },
+  {
+    id: "rock",
+    name: "Рок",
+    subtitle: "Гитарные хиты",
+    gradient: "linear-gradient(135deg, #f5576c 0%, #ff6a00 100%)",
+  },
+  {
+    id: "jazz",
+    name: "Джаз",
+    subtitle: "Атмосферные мелодии",
+    gradient: "linear-gradient(135deg, #ffd89b 0%, #19547b 100%)",
+  },
+  {
+    id: "classical",
+    name: "Классика",
+    subtitle: "Инструментальная классика",
+    gradient: "linear-gradient(135deg, #bdc3c7 0%, #2c3e50 100%)",
+  },
 ];
 
 // Search queries for each playlist
 const SEARCH_QUERIES: Record<string, string[]> = {
   "for-you": [], // filled dynamically from user data
-  discoveries: ["indie alternative", "lo-fi new artists", "experimental music"],
-  "new-releases": ["new music 2025", "popular this week", "top hits 2025"],
+  discoveries: ["indie alternative", "lo-fi new artists", "experimental music", "indie pop discovery"],
+  "new-releases": ["new music 2025", "popular this week", "top hits 2025", "new releases this month"],
   "daily-1": [], // filled dynamically
-  chill: ["chill beats", "relaxing music", "lo-fi hip hop"],
-  energy: ["workout music", "energy boost", "party mix"],
-  "hip-hop": ["hip hop new", "rap hits", "trap music"],
-  electronic: ["electronic music", "edm mix", "deep house"],
+  chill: ["chill beats", "relaxing music", "lo-fi hip hop", "ambient chill", "downtempo"],
+  energy: ["workout music", "energy boost", "party mix", "gym motivation", "bass drop"],
+  "hip-hop": ["hip hop new", "rap hits", "trap music", "drill beats"],
+  electronic: ["electronic music", "edm mix", "deep house", "techno set"],
+  "rnb-soul": ["rnb soul", "neo soul", "rnb new", "soulful music", "rnb hits"],
+  "rock": ["rock music", "alternative rock", "indie rock", "rock hits 2025"],
+  "jazz": ["jazz music", "lo-fi jazz", "jazz fusion", "smooth jazz"],
+  "classical": ["classical music", "piano instrumental", "orchestral", "neoclassical"],
 };
 
 // Keep a cache to avoid re-searching on every request
@@ -94,9 +122,10 @@ async function searchAndBuildTracks(queries: string[], limit: number) {
   const allTracks: CuratedPlaylist["tracks"] = [];
   const seen = new Set<string>();
 
-  for (const query of queries.slice(0, 3)) {
+  for (const query of queries.slice(0, 5)) {
     try {
-      const results = await searchSCTracks(query, 10);
+      const perQuery = Math.min(20, Math.ceil((limit - allTracks.length) / Math.max(1, queries.slice(0, 5).length - queries.indexOf(query))));
+      const results = await searchSCTracks(query, Math.max(10, perQuery));
       for (const t of results) {
         if (seen.has(String(t.scTrackId))) continue;
         seen.add(String(t.scTrackId));
@@ -155,7 +184,7 @@ export async function GET(req: NextRequest) {
 
     // Search for playlists in parallel (batch of 3 at a time)
     const playlists: CuratedPlaylist[] = [];
-    const batchSize = 3;
+    const batchSize = 4;
 
     for (let i = 0; i < CURATED_CONFIGS.length; i += batchSize) {
       const batch = CURATED_CONFIGS.slice(i, i + batchSize);
@@ -165,7 +194,7 @@ export async function GET(req: NextRequest) {
           if (config.id === "for-you") queries = forYouQueries;
           if (config.id === "daily-1") queries = dailyQueries;
 
-          const tracks = await searchAndBuildTracks(queries, 15);
+          const tracks = await searchAndBuildTracks(queries, 50);
           return {
             ...config,
             tracks,
@@ -174,7 +203,7 @@ export async function GET(req: NextRequest) {
       );
 
       for (const result of results) {
-        if (result.status === "fulfilled" && result.value.tracks.length >= 3) {
+        if (result.status === "fulfilled" && result.value.tracks.length >= 2) {
           playlists.push(result.value);
         }
       }

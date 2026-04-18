@@ -302,16 +302,19 @@ export default function MainView() {
           initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl overflow-hidden relative"
-          style={{ border: "1px solid var(--mq-border)" }}
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
         >
-          {/* Gradient background using the playlist's own gradient */}
-          <div className="absolute inset-0" style={{ background: selectedCurated.gradient }} />
-          {/* Dark overlay for readability */}
-          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.6))" }} />
-          {/* Decorative pattern */}
-          <div className="absolute inset-0 opacity-15"
+          {/* Accent glow — themed */}
+          <div className="absolute -top-16 -left-16 w-48 h-48 rounded-full opacity-[0.15]"
+            style={{ background: "var(--mq-accent)" }}
+          />
+          <div className="absolute -bottom-12 -right-12 w-40 h-40 rounded-full opacity-[0.08]"
+            style={{ background: "var(--mq-accent)" }}
+          />
+          {/* Decorative pattern — themed */}
+          <div className="absolute inset-0 opacity-[0.03]"
             style={{
-              backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(255,255,255,0.08) 4px, rgba(255,255,255,0.08) 5px)",
+              backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 6px, var(--mq-accent) 6px, var(--mq-accent) 7px)",
             }}
           />
 
@@ -319,20 +322,20 @@ export default function MainView() {
             <div className="flex items-start gap-5">
               {/* Playlist icon */}
               <div className="w-24 h-24 lg:w-32 lg:h-32 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-                style={{ backgroundColor: "rgba(0,0,0,0.3)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <Disc3 className="w-10 h-10 lg:w-14 lg:h-14 text-white/80" />
+                style={{ backgroundColor: "var(--mq-accent)", opacity: 0.9 }}>
+                <Disc3 className="w-10 h-10 lg:w-14 lg:h-14" style={{ color: "var(--mq-text)" }} />
               </div>
 
               {/* Playlist info */}
               <div className="flex-1 min-w-0 pt-1">
-                <p className="text-xs font-medium uppercase tracking-wider text-white/50 mb-1">Плейлист</p>
-                <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2 truncate">
+                <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: "var(--mq-text-muted)" }}>Плейлист</p>
+                <h1 className="text-2xl lg:text-3xl font-bold mb-2 truncate" style={{ color: "var(--mq-text)" }}>
                   {selectedCurated.name}
                 </h1>
-                <p className="text-sm text-white/60 mb-3">
+                <p className="text-sm mb-3" style={{ color: "var(--mq-text-muted)" }}>
                   {selectedCurated.subtitle}
                 </p>
-                <div className="flex items-center gap-3 text-xs text-white/50">
+                <div className="flex items-center gap-3 text-xs" style={{ color: "var(--mq-text-muted)" }}>
                   <span className="flex items-center gap-1">
                     <Music2 className="w-3 h-3" />
                     {selectedCurated.tracks.length} треков
@@ -360,7 +363,7 @@ export default function MainView() {
                 onClick={() => handleShuffleCurated(selectedCurated)}
                 disabled={selectedCurated.tracks.length === 0}
                 className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-40"
-                style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "white", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.15)" }}
+                style={{ backgroundColor: "var(--mq-card-hover)", color: "var(--mq-text)", border: "1px solid var(--mq-border)" }}
               >
                 <Shuffle className="w-4 h-4" />
                 Перемешать
@@ -455,38 +458,45 @@ export default function MainView() {
                 key={pl.id}
                 initial={animationsEnabled ? { opacity: 0, x: 30 } : undefined}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.07 }}
+                transition={{ delay: i * 0.05 }}
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => {
                   setSelectedCurated(pl);
                 }}
-                className="flex-shrink-0 w-36 h-48 rounded-2xl relative overflow-hidden cursor-pointer"
+                className="flex-shrink-0 w-36 h-48 rounded-2xl relative overflow-hidden cursor-pointer group"
+                style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
               >
-                {/* Gradient background */}
-                <div className="absolute inset-0" style={{ background: pl.gradient }} />
-                {/* Decorative lines */}
-                <div className="absolute inset-0 opacity-20"
+                {/* Accent glow at top-left — subtle themed tint */}
+                <div className="absolute -top-8 -left-8 w-24 h-24 rounded-full opacity-[0.12] group-hover:opacity-[0.18] transition-opacity duration-300"
+                  style={{ background: "var(--mq-accent)" }}
+                />
+                <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full opacity-[0.06] group-hover:opacity-[0.10] transition-opacity duration-300"
+                  style={{ background: "var(--mq-accent)" }}
+                />
+                {/* Decorative pattern — themed */}
+                <div className="absolute inset-0 opacity-[0.04]"
                   style={{
-                    backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(255,255,255,0.08) 4px, rgba(255,255,255,0.08) 5px)",
+                    backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 6px, var(--mq-accent) 6px, var(--mq-accent) 7px)",
                   }}
                 />
                 {/* Content */}
                 <div className="relative z-10 h-full flex flex-col justify-between p-3">
                   <div className="mt-1">
-                    <p className="text-sm font-bold text-white leading-tight drop-shadow-sm">
+                    <p className="text-sm font-bold leading-tight" style={{ color: "var(--mq-text)" }}>
                       {pl.name}
                     </p>
-                    <p className="text-[11px] mt-1 text-white/70 leading-tight">
+                    <p className="text-[11px] mt-1 leading-tight" style={{ color: "var(--mq-text-muted)" }}>
                       {pl.subtitle}
                     </p>
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-[10px] text-white/50">
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
                       {pl.tracks.length} треков
                     </p>
-                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
-                      <Music2 className="w-3.5 h-3.5 text-white" />
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200"
+                      style={{ backgroundColor: "var(--mq-accent)", opacity: 0.8 }}>
+                      <Music2 className="w-3.5 h-3.5" style={{ color: "var(--mq-text)" }} />
                     </div>
                   </div>
                 </div>
