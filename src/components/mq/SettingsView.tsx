@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
@@ -17,6 +17,7 @@ export default function SettingsView() {
     animationsEnabled, setAnimationsEnabled, compactMode, setCompactMode,
     fontSize, setFontSize, volume, setVolume, logout, username, animationsEnabled: anim, setView,
     liquidGlassMobile, setLiquidGlassMobile, email, avatar,
+    lastSyncAt, isSyncing, syncToServer, syncFromServer,
   } = useAppStore();
 
   const ADMIN_EMAILS = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_ADMIN_EMAILS) 
@@ -482,6 +483,64 @@ export default function SettingsView() {
               Все проверки пройдены — ваши данные защищены
             </span>
           </div>
+        </div>
+      </motion.div>
+
+      {/* Cloud Sync */}
+      <motion.div
+        initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-2xl p-4 space-y-3"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Cloud className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+            <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Облачная синхронизация</span>
+          </div>
+          {isSyncing && (
+            <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--mq-accent)" }} />
+          )}
+          {!isSyncing && lastSyncAt && (
+            <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+              {new Date(lastSyncAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+        </div>
+        <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+          История, плейлисты, лайки и настройки сохраняются на сервере. Данные будут доступны на любом устройстве после входа в аккаунт.
+        </p>
+        <div className="flex gap-2">
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => { syncFromServer(); }}
+            disabled={isSyncing}
+            className="flex-1 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5"
+            style={{
+              backgroundColor: isSyncing ? "var(--mq-border)" : "var(--mq-input-bg)",
+              color: isSyncing ? "var(--mq-text-muted)" : "var(--mq-text)",
+              border: "1px solid var(--mq-border)",
+            }}
+          >
+            <Server className="w-3 h-3" />
+            Загрузить с сервера
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => { syncToServer(); }}
+            disabled={isSyncing}
+            className="flex-1 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5"
+            style={{
+              backgroundColor: isSyncing ? "var(--mq-border)" : "var(--mq-accent)",
+              color: isSyncing ? "var(--mq-text-muted)" : "var(--mq-text)",
+              opacity: isSyncing ? 0.5 : 1,
+            }}
+          >
+            <Cloud className="w-3 h-3" />
+            Сохранить на сервер
+          </motion.button>
         </div>
       </motion.div>
 

@@ -32,6 +32,7 @@ model User {
   playlists              Playlist[] @relation("UserPlaylists")
   playlistLikes          PlaylistLike[] @relation("UserPlaylistLikes")
   adminLogs              AuditLog[] @relation("AdminLogs")
+  syncData               UserSync[] @relation("UserSyncData")
 }
 
 model AuditLog {
@@ -150,4 +151,16 @@ model SupportMessage {
   message   String
   status    String   @default("new") // "new", "read", "replied", "closed"
   createdAt DateTime @default(now())
+}
+
+// Server-side data sync — stores user data as JSON blobs keyed by type
+model UserSync {
+  id        String   @id @default(cuid())
+  userId    String
+  key       String   // "history", "playlists", "likedTracks", "dislikedTracks", "settings"
+  data      String   // JSON blob
+  updatedAt DateTime @updatedAt
+  user      User     @relation("UserSyncData", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
 }

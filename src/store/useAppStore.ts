@@ -78,6 +78,11 @@ interface AppState {
   currentView: ViewType;
   authStep: AuthStep;
 
+  // Sync
+  lastSyncAt: number | null;
+  isSyncing: boolean;
+  syncError: string | null;
+
   // Theme
   currentTheme: string;
   customAccent: string | null;
@@ -145,6 +150,8 @@ interface AppState {
   // Actions
   setAuth: (userId: string, username: string, email: string, role?: string, avatar?: string | null) => void;
   logout: () => void;
+  syncToServer: () => Promise<void>;
+  syncFromServer: () => Promise<void>;
   setView: (view: ViewType) => void;
   setAuthStep: (step: AuthStep) => void;
 
@@ -234,6 +241,9 @@ interface AppState {
 
 const initialState = {
   isAuthenticated: false,
+  lastSyncAt: null as number | null,
+  isSyncing: false,
+  syncError: null as string | null,
   userId: null as string | null,
   username: null as string | null,
   email: null as string | null,
@@ -312,6 +322,10 @@ export const useAppStore = create<AppState>()(
             }
           })
           .catch(() => {});
+        // Sync data from server after a short delay (let localStorage hydrate first)
+        setTimeout(() => {
+          get().syncFromServer();
+        }, 1500);
       },
 
       logout: () =>
@@ -756,6 +770,141 @@ export const useAppStore = create<AppState>()(
 
       clearHistory: () => set({ history: [] }),
 
+      // ── Server sync actions ──
+      syncToServer: async () => {
+        const state = get();
+        if (!state.userId) return;
+        set({ isSyncing: true, syncError: null });
+        try {
+          const payload = {
+            userId: state.userId,
+            data: {
+              history: state.history,
+              playlists: state.playlists,
+              likedTracks: state.likedTrackIds,
+              dislikedTracks: state.dislikedTrackIds,
+              likedTracksData: state.likedTracksData,
+              settings: {
+                volume: state.volume,
+                compactMode: state.compactMode,
+                fontSize: state.fontSize,
+                animationsEnabled: state.animationsEnabled,
+                liquidGlassEnabled: state.liquidGlassEnabled,
+                liquidGlassMobile: state.liquidGlassMobile,
+                shuffle: state.shuffle,
+                repeat: state.repeat,
+              },
+            },
+          };
+          const res = await fetch("/api/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (res.ok) {
+            set({ lastSyncAt: Date.now(), isSyncing: false });
+          } else {
+            set({ isSyncing: false, syncError: "sync_failed" });
+          }
+        } catch {
+          set({ isSyncing: false, syncError: "sync_failed" });
+        }
+      },
+
+      syncFromServer: async () => {
+        const state = get();
+        if (!state.userId) return;
+        set({ isSyncing: true, syncError: null });
+        try {
+          const res = await fetch(`/api/sync?userId=${state.userId}`);
+          if (!res.ok) {
+            set({ isSyncing: false });
+            return;
+          }
+          const { data } = await res.json();
+          if (!data || typeof data !== "object") {
+            set({ isSyncing: false, lastSyncAt: Date.now() });
+            return;
+          }
+
+          const updates: Record<string, unknown> = {};
+
+          // Merge history: combine server + local, deduplicate by track.id
+          if (Array.isArray(data.history)) {
+            const localHistory = state.history || [];
+            const serverMap = new Map<string, typeof localHistory[0]>();
+            for (const entry of data.history) {
+              if (entry?.track?.id) serverMap.set(entry.track.id, entry);
+            }
+            // Server entries that aren't in local
+            const localIds = new Set(localHistory.map(h => h.track?.id));
+            const newFromServer = data.history.filter(
+              (e: any) => e?.track?.id && !localIds.has(e.track.id)
+            );
+            updates.history = [...newFromServer, ...localHistory].slice(0, 200);
+          }
+
+          // Merge playlists: take server version if newer/more tracks
+          if (Array.isArray(data.playlists)) {
+            const localPlaylists = state.playlists || [];
+            const serverPlIds = new Set((data.playlists as any[]).map((p: any) => p.id));
+            const localPlIds = new Set(localPlaylists.map(p => p.id));
+            // Add server playlists that don't exist locally
+            const merged = [...localPlaylists];
+            for (const pl of data.playlists) {
+              if (!localPlIds.has(pl.id)) {
+                merged.push(pl);
+              }
+            }
+            updates.playlists = merged;
+          }
+
+          // Merge liked tracks: union of server + local
+          if (Array.isArray(data.likedTracks)) {
+            const local = state.likedTrackIds || [];
+            const combined = [...new Set([...data.likedTracks, ...local])];
+            updates.likedTrackIds = combined;
+          }
+
+          // Merge disliked tracks: union of server + local
+          if (Array.isArray(data.dislikedTracks)) {
+            const local = state.dislikedTrackIds || [];
+            const combined = [...new Set([...data.dislikedTracks, ...local])];
+            updates.dislikedTrackIds = combined;
+          }
+
+          // Merge liked tracks data
+          if (Array.isArray(data.likedTracksData)) {
+            const local = state.likedTracksData || [];
+            const localIds = new Set(local.map(t => t.id));
+            const merged = [...local];
+            for (const t of data.likedTracksData) {
+              if (!localIds.has(t.id)) merged.push(t);
+            }
+            updates.likedTracksData = merged;
+          }
+
+          // Apply settings from server
+          if (data.settings && typeof data.settings === "object") {
+            const s = data.settings;
+            if (typeof s.volume === "number") updates.volume = s.volume;
+            if (typeof s.compactMode === "boolean") updates.compactMode = s.compactMode;
+            if (typeof s.fontSize === "number") updates.fontSize = s.fontSize;
+            if (typeof s.animationsEnabled === "boolean") updates.animationsEnabled = s.animationsEnabled;
+            if (typeof s.liquidGlassEnabled === "boolean") updates.liquidGlassEnabled = s.liquidGlassEnabled;
+            if (typeof s.liquidGlassMobile === "boolean") updates.liquidGlassMobile = s.liquidGlassMobile;
+          }
+
+          if (Object.keys(updates).length > 0) {
+            set(updates as any);
+          }
+
+          set({ isSyncing: false, lastSyncAt: Date.now() });
+        } catch {
+          set({ isSyncing: false, syncError: "sync_failed" });
+        }
+      },
+
       reset: () => set(initialState),
     }),
     {
@@ -840,8 +989,8 @@ export const useAppStore = create<AppState>()(
           if (!Array.isArray(s.similarTracks)) fixes.similarTracks = [];
           if (!Array.isArray(s.publicPlaylists)) fixes.publicPlaylists = [];
           if (!Array.isArray(s.recommendedPlaylists)) fixes.recommendedPlaylists = [];
-          if (typeof s.publicPlaylistsLoading !== "boolean") fixes.publicPlaylistsLoading = false;
-          if (typeof s.recommendedPlaylistsLoading !== "boolean") fixes.recommendedPlaylistsLoading = false;
+          if (!Array.isArray(s.publicPlaylistsLoading)) fixes.publicPlaylistsLoading = false;
+          if (!Array.isArray(s.recommendedPlaylistsLoading)) fixes.recommendedPlaylistsLoading = false;
           if (typeof s.publicPlaylistsPage !== "number") fixes.publicPlaylistsPage = 1;
           if (typeof s.publicPlaylistsTotal !== "number") fixes.publicPlaylistsTotal = 0;
           if (typeof s.publicPlaylistsSearch !== "string") fixes.publicPlaylistsSearch = "";
@@ -855,6 +1004,13 @@ export const useAppStore = create<AppState>()(
           if (Object.keys(fixes).length > 0) {
             console.warn("[MQ Store] fixing missing fields:", Object.keys(fixes));
             useAppStore.setState(fixes);
+          }
+
+          // Auto-sync on rehydrate (after page reload) — push local data to server
+          if (s.userId) {
+            setTimeout(() => {
+              useAppStore.getState().syncToServer();
+            }, 3000);
           }
         };
       },

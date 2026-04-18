@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Download } from "lucide-react";
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -266,6 +266,38 @@ export default function MainView() {
           </motion.button>
         ))}
       </div>
+
+      {/* Import playlist card */}
+      <motion.button
+        initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
+        whileHover={{ scale: 1.01 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setView("playlists")}
+        className="w-full rounded-2xl p-4 flex items-center gap-4 text-left transition-all duration-200"
+        style={{
+          background: "linear-gradient(135deg, var(--mq-card), var(--mq-input-bg))",
+          border: "1px dashed var(--mq-border)",
+        }}
+      >
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: "var(--mq-accent)", opacity: 0.15 }}>
+          <Download className="w-6 h-6" style={{ color: "var(--mq-accent)" }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
+            Импорт плейлиста
+          </p>
+          <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+            VK, Яндекс.Музыка, Spotify, YouTube, Apple Music, SoundCloud
+          </p>
+        </div>
+        <div className="px-3 py-1.5 rounded-lg text-xs font-medium"
+          style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", opacity: 0.9 }}>
+          Открыть
+        </div>
+      </motion.button>
 
       {/* Recent history */}
       {recentTracks.length > 0 && (

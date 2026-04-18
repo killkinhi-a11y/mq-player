@@ -70,6 +70,68 @@ function AppShell() {
     document.documentElement.style.fontSize = `${fontSize}px`;
   }, [fontSize]);
 
+  // ── Auto-sync to server periodically + on tab close ──
+  useEffect(() => {
+    const store = useAppStore.getState();
+    if (!store.isAuthenticated || !store.userId) return;
+
+    // Sync every 60 seconds
+    const interval = setInterval(() => {
+      const s = useAppStore.getState();
+      if (s.isAuthenticated && s.userId) {
+        s.syncToServer();
+      }
+    }, 60_000);
+
+    // Sync when tab becomes visible again
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        const s = useAppStore.getState();
+        if (s.isAuthenticated && s.userId) {
+          s.syncToServer();
+        }
+      }
+    };
+
+    // Sync before page unload
+    const handleUnload = () => {
+      const s = useAppStore.getState();
+      if (s.isAuthenticated && s.userId) {
+        // Use sendBeacon for reliability on page close
+        const payload = {
+          userId: s.userId,
+          data: {
+            history: s.history,
+            playlists: s.playlists,
+            likedTracks: s.likedTrackIds,
+            dislikedTracks: s.dislikedTrackIds,
+            likedTracksData: s.likedTracksData,
+            settings: {
+              volume: s.volume,
+              compactMode: s.compactMode,
+              fontSize: s.fontSize,
+              animationsEnabled: s.animationsEnabled,
+              liquidGlassEnabled: s.liquidGlassEnabled,
+              liquidGlassMobile: s.liquidGlassMobile,
+            },
+          },
+        };
+        try {
+          navigator.sendBeacon("/api/sync", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+        } catch {}
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("beforeunload", handleUnload);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("beforeunload", handleUnload);
+    };
+  }, [isAuthenticated]);
+
   const prevViewRef = useRef(currentView);
   useEffect(() => {
     if (prevViewRef.current === "search" && currentView !== "search" && searchQuery) {

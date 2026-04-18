@@ -2,14 +2,15 @@
 
 import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
-import { Home, Search, MessageCircle, Settings, User } from "lucide-react";
+import { Home, Search, MessageCircle, Settings, User, ListMusic, Clock } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
 const navItems: { id: ViewType; icon: typeof Home; label: string }[] = [
   { id: "main", icon: Home, label: "Главная" },
   { id: "search", icon: Search, label: "Поиск" },
+  { id: "playlists", icon: ListMusic, label: "Плейлисты" },
+  { id: "history", icon: Clock, label: "История" },
   { id: "messenger", icon: MessageCircle, label: "Чаты" },
-  { id: "profile", icon: User, label: "Профиль" },
   { id: "settings", icon: Settings, label: "Ещё" },
 ];
 
