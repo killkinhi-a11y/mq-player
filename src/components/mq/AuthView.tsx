@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 
 type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
 
-const USERNAME_REGEX = /^[a-zA-Z0-9_-]+$/;
+const USERNAME_REGEX = /^[a-zA-Z0-9а-яА-Я_-]+$/;
 const USERNAME_LENGTH_MIN = 2;
 const USERNAME_LENGTH_MAX = 20;
 
@@ -94,6 +94,12 @@ export default function AuthView() {
       const data = await res.json();
       if (controller.signal.aborted) return;
 
+      if (!res.ok) {
+        setUsernameStatus('invalid');
+        setUsernameError(data.error || 'Ошибка сервера, попробуйте позже');
+        return;
+      }
+
       if (data.available) {
         setUsernameStatus('available');
         setUsernameError('');
@@ -138,7 +144,7 @@ export default function AuthView() {
     // Check character format
     if (!USERNAME_REGEX.test(cleaned)) {
       setUsernameStatus('invalid');
-      setUsernameError('Имя может содержать только буквы, цифры, _ и -');
+      setUsernameError('Только буквы, цифры, _ и -. Русские буквы разрешены');
       return;
     }
 
