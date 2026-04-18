@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import { sendVerificationEmail } from "@/lib/email";
+import { sendVerificationEmail, isEmailConfigured } from "@/lib/email";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
@@ -130,10 +130,13 @@ export async function POST(req: NextRequest) {
     });
 
     // Send verification email
+    let emailSent = false;
+    const emailConfigured = isEmailConfigured();
     try {
-      await sendVerificationEmail(email, code);
-    } catch (emailError) {
-      console.error("Failed to send verification email:", emailError);
+      const result = await sendVerificationEmail(email, code);
+      emailSent = !(result as any).mock;
+    } catch (emailError: any) {
+      console.error("Failed to send verification email:", emailError?.message || emailError);
     }
 
     return NextResponse.json(
@@ -141,7 +144,10 @@ export async function POST(req: NextRequest) {
         message: "Регистрация успешна! Добро пожаловать в MQ Player.",
         userId: user.id,
         email: user.email,
-        emailSent: true,
+        emailSent,
+        emailConfigured,
+        // In dev mode without email configured, include the code so dev can test
+        ...(process.env.NODE_ENV === 'development' && !emailConfigured ? { devCode: code } : {}),
       },
       { status: 201 }
     );

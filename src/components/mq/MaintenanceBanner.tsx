@@ -15,28 +15,39 @@ export default function MaintenanceBanner({
 }) {
   const [info, setInfo] = useState<MaintenanceInfo | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const check = async () => {
       try {
         const res = await fetch("/api/maintenance");
+        if (!res.ok) {
+          if (!cancelled) setError(true);
+          return;
+        }
         const data = await res.json();
-        if (!cancelled) setInfo(data);
+        if (!cancelled) {
+          setInfo(data);
+          setError(false);
+        }
       } catch {
-        // Silent — if can't check, don't block user
+        if (!cancelled) setError(true);
       }
     };
     check();
-    // Re-check every 60 seconds (admin might disable maintenance)
-    const interval = setInterval(check, 60_000);
+    // Re-check every 15 seconds (admin might enable/disable maintenance)
+    const interval = setInterval(check, 15_000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
   }, []);
 
-  if (!info?.maintenance) return null;
+  // If we haven't loaded yet or there's an error, don't show anything
+  if (error) return null;
+  if (!info) return null;
+  if (!info.maintenance) return null;
   if (dismissed) return null;
 
   const handleDismiss = () => {

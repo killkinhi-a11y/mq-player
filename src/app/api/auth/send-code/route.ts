@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sendVerificationEmail } from "@/lib/email";
+import { sendPasswordResetEmail, isEmailConfigured } from "@/lib/email";
 import crypto from "crypto";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req);
+
+    // Rate limit: 3 code requests per minute per IP
+    const { success, resetIn } = rateLimit({ ip, limit: 3, window: 60, key: "send-code" });
+    if (!success) {
+      return NextResponse.json(
+        { error: "Слишком частые запросы. Попробуйте позже.", retryAfter: resetIn },
+        { status: 429 }
+      );
+    }
+
     const { email } = await req.json();
 
     if (!email) {
@@ -67,10 +79,22 @@ export async function POST(req: NextRequest) {
     });
 
     // Send email
-    await sendVerificationEmail(email, code);
+    let emailSent = false;
+    const emailConfigured = isEmailConfigured();
+    try {
+      const result = await sendPasswordResetEmail(email, code);
+      emailSent = !(result as any).mock;
+    } catch (emailError: any) {
+      console.error("Failed to send password reset email:", emailError?.message || emailError);
+    }
 
     return NextResponse.json({
-      message: "Код отправлен на email",
+      message: emailSent
+        ? "Код отправлен на email"
+        : "Код сгенерирован, но email-сервис не настроен. Свяжитесь с поддержкой.",
+      emailSent,
+      emailConfigured,
+      ...(process.env.NODE_ENV === 'development' && !emailConfigured ? { devCode: code } : {}),
     });
   } catch (error) {
     console.error("Send code error:", error);
