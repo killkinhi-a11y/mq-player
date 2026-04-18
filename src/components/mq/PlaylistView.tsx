@@ -409,6 +409,7 @@ export default function PlaylistView() {
                     const lines = importText.trim().split("\n").filter(l => l.trim());
                     const tracks: Track[] = [];
                     for (let i = 0; i < lines.length; i++) {
+                      setImportProgress(`Поиск трека ${i + 1} из ${lines.length}...`);
                       const line = lines[i];
                       const parts = line.split(" - ");
                       const title = (parts[1] || parts[0] || "").trim();
@@ -451,6 +452,7 @@ export default function PlaylistView() {
                     setShowImport(false);
                     setImportText("");
                     setImporting(false);
+                    setImportProgress("");
                     toast({
                       title: "Плейлист импортирован",
                       description: `${tracks.length} треков добавлено`,
@@ -464,7 +466,10 @@ export default function PlaylistView() {
                   }}
                 >
                   {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                  Импортировать ({importText.trim().split("\n").filter(l => l.trim()).length} треков)
+                  {importing
+                    ? (importProgress || `Импортирование...`)
+                    : `Импортировать (${importText.trim().split("\n").filter(l => l.trim()).length} треков)`
+                  }
                 </button>
               </>
             ) : (
