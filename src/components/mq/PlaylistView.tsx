@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { type Track } from "@/lib/musicApi";
 import {
   Plus, Trash2, Play, Music, ListMusic, ChevronRight,
-  Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle
+  Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle, Image, Camera
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import TrackCard from "./TrackCard";
@@ -24,6 +24,7 @@ export default function PlaylistView() {
   const [newDesc, setNewDesc] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
   const [showImport, setShowImport] = useState(false);
   const [importMode, setImportMode] = useState<'text' | 'url'>('text');
   const [importText, setImportText] = useState("");
@@ -36,8 +37,77 @@ export default function PlaylistView() {
   const [importHint, setImportHint] = useState('');
   const [vkToken, setVkToken] = useState('');
   const [showVkToken, setShowVkToken] = useState(false);
+  const [coverUploadingId, setCoverUploadingId] = useState<string | null>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const selectedPlaylist = playlists.find((p) => p.id === selectedPlaylistId);
+
+  // Upload playlist cover image
+  const handleCoverUpload = useCallback(async (playlistId: string, file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast({ title: "Ошибка", description: "Выберите изображение (JPG, PNG, WebP)" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Ошибка", description: "Максимальный размер — 5 МБ" });
+      return;
+    }
+
+    setCoverUploadingId(playlistId);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/music/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const data = await res.json();
+      const imageUrl = data.url || data.fileUrl || `/api/music/upload/file/${data.filename}`;
+
+      // Update playlist cover in store
+      const { playlists: currentPlaylists } = useAppStore.getState();
+      useAppStore.setState({
+        playlists: currentPlaylists.map(p =>
+          p.id === playlistId ? { ...p, cover: imageUrl } : p
+        ),
+      });
+
+      toast({ title: "Обложка обновлена", description: "Новая обложка плейлиста установлена" });
+    } catch (err) {
+      // Fallback: use data URL for local preview
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const { playlists: currentPlaylists } = useAppStore.getState();
+        useAppStore.setState({
+          playlists: currentPlaylists.map(p =>
+            p.id === playlistId ? { ...p, cover: dataUrl } : p
+          ),
+        });
+        toast({ title: "Обложка обновлена", description: "Локальное изображение установлено" });
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setCoverUploadingId(null);
+    }
+  }, [toast]);
+
+  // Remove playlist cover
+  const handleRemoveCover = useCallback((playlistId: string) => {
+    const { playlists: currentPlaylists } = useAppStore.getState();
+    useAppStore.setState({
+      playlists: currentPlaylists.map(p =>
+        p.id === playlistId ? { ...p, cover: '' } : p
+      ),
+    });
+    toast({ title: "Обложка удалена", description: "Установлена обложка по умолчанию" });
+  }, [toast]);
 
   const handleCreate = useCallback(() => {
     if (newName.trim()) {
@@ -54,6 +124,7 @@ export default function PlaylistView() {
     }
     setEditingId(null);
     setEditName("");
+    setEditDesc("");
   }, [editName, renamePlaylist]);
 
   const handlePlayAll = useCallback((pl: UserPlaylist) => {
@@ -76,12 +147,8 @@ export default function PlaylistView() {
 
       if (data.error) {
         setImportError(data.error);
-        if (data.hint) {
-          setImportHint(data.hint);
-        }
-        if (data.needVkToken) {
-          setShowVkToken(true);
-        }
+        if (data.hint) setImportHint(data.hint);
+        if (data.needVkToken) setShowVkToken(true);
         return;
       }
 
@@ -93,7 +160,6 @@ export default function PlaylistView() {
 
       setImportProgress(`Найдено ${rawTracks.length} треков, создаём плейлист...`);
 
-      // Map tracks — use source: "soundcloud" when scTrackId is present
       const tracks: Track[] = rawTracks.map((t: any, i: number) => {
         const isPlayable = t._playable === true || !!t.scTrackId;
         return {
@@ -108,7 +174,7 @@ export default function PlaylistView() {
           genre: t.genre || '',
           audioUrl: t.audioUrl || '',
           previewUrl: t.previewUrl || '',
-          source: isPlayable ? ("soundcloud" as const) : ("soundcloud" as const),
+          source: "soundcloud" as const,
           scTrackId: t.scTrackId || null,
           scStreamPolicy: t.scStreamPolicy || '',
           scIsFull: t.scIsFull || false,
@@ -118,7 +184,6 @@ export default function PlaylistView() {
       const playableCount = data.playableCount ?? tracks.filter(t => !!t.scTrackId).length;
       const totalCount = data.totalCount ?? tracks.length;
 
-      // Build description with playable info
       let description: string;
       if (playableCount === totalCount) {
         description = `${totalCount} треков из ${data.source || 'внешнего сервиса'} · все воспроизводимы`;
@@ -144,13 +209,12 @@ export default function PlaylistView() {
       setVkToken('');
       setShowVkToken(false);
 
-      // Show toast with result
       toast({
         title: `Плейлист импортирован`,
         description: `${totalCount} треков из ${data.source || 'внешнего сервиса'}` +
           (playableCount > 0 ? ` · ${playableCount} воспроизводимы` : ''),
       });
-    } catch (err: any) {
+    } catch {
       setImportError('Ошибка при импорте. Проверьте ссылку и попробуйте снова.');
     } finally {
       setImporting(false);
@@ -181,28 +245,108 @@ export default function PlaylistView() {
           style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
         >
           <div className="flex items-start gap-4">
-            <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-              style={{ backgroundColor: "var(--mq-accent)", opacity: 0.8 }}>
-              {selectedPlaylist.cover ? (
-                <img src={selectedPlaylist.cover} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <ListMusic className="w-8 h-8" style={{ color: "var(--mq-text)" }} />
-              )}
+            {/* Cover with upload overlay */}
+            <div className="relative group/cover flex-shrink-0">
+              <div className="w-20 h-20 rounded-xl overflow-hidden flex items-center justify-center"
+                style={{ backgroundColor: selectedPlaylist.cover ? "transparent" : "var(--mq-accent)", opacity: 0.9 }}>
+                {selectedPlaylist.cover ? (
+                  <img src={selectedPlaylist.cover} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <ListMusic className="w-8 h-8" style={{ color: "var(--mq-text)" }} />
+                )}
+              </div>
+              {/* Upload overlay */}
+              <div className="absolute inset-0 rounded-xl bg-black/60 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer"
+                onClick={() => coverInputRef.current?.click()}>
+                {coverUploadingId === selectedPlaylist.id ? (
+                  <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-text)" }} />
+                ) : (
+                  <>
+                    <Camera className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+                    {selectedPlaylist.cover && (
+                      <button
+                        className="absolute top-1 right-1 p-0.5 rounded-full"
+                        style={{ backgroundColor: "rgba(239,68,68,0.8)" }}
+                        onClick={(e) => { e.stopPropagation(); handleRemoveCover(selectedPlaylist.id); }}>
+                        <X className="w-3 h-3" style={{ color: "#fff" }} />
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+              <input
+                ref={coverInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleCoverUpload(selectedPlaylist.id, file);
+                  e.target.value = '';
+                }}
+              />
             </div>
+
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold truncate" style={{ color: "var(--mq-text)" }}>
-                {selectedPlaylist.name}
-              </h1>
-              {selectedPlaylist.description && (
-                <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
-                  {selectedPlaylist.description}
-                </p>
+              {editingId === selectedPlaylist.id ? (
+                <div className="space-y-2">
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full text-xl font-bold rounded-lg px-2 py-1"
+                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleRename(selectedPlaylist.id); if (e.key === "Escape") setEditingId(null); }}
+                    autoFocus
+                  />
+                  <input
+                    value={editDesc}
+                    onChange={(e) => setEditDesc(e.target.value)}
+                    placeholder="Описание плейлиста"
+                    className="w-full text-sm rounded-lg px-2 py-1"
+                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+                    onKeyDown={(e) => { if (e.key === "Enter") handleRename(selectedPlaylist.id); if (e.key === "Escape") setEditingId(null); }}
+                  />
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleRename(selectedPlaylist.id)} className="p-1.5 rounded-lg" style={{ color: "#4ade80", backgroundColor: "var(--mq-input-bg)" }}>
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="p-1.5 rounded-lg" style={{ color: "var(--mq-text-muted)", backgroundColor: "var(--mq-input-bg)" }}>
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-xl font-bold truncate" style={{ color: "var(--mq-text)" }}>
+                    {selectedPlaylist.name}
+                  </h1>
+                  {selectedPlaylist.description ? (
+                    <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                      {selectedPlaylist.description}
+                    </p>
+                  ) : (
+                    <p className="text-sm mt-1 italic" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
+                      Без описания
+                    </p>
+                  )}
+                </>
               )}
               <p className="text-xs mt-2" style={{ color: "var(--mq-text-muted)" }}>
                 {selectedPlaylist.tracks.length} треков
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {editingId !== selectedPlaylist.id && (
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => { setEditingId(selectedPlaylist.id); setEditName(selectedPlaylist.name); setEditDesc(selectedPlaylist.description); }}
+                  className="p-2 rounded-lg"
+                  style={{ color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}
+                  title="Редактировать"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </motion.button>
+              )}
               {selectedPlaylist.tracks.length > 0 && (
                 <motion.button
                   whileHover={{ scale: 1.1 }}
@@ -249,7 +393,7 @@ export default function PlaylistView() {
               Плейлист пуст. Добавьте треки из поиска.
             </p>
             <p className="text-xs mt-2" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
-              Нажмите правой кнопкой на трек и выберите &quot;Добавить в плейлист&quot;
+              Нажмите правой кнопкой на трек и выберите «Добавить в плейлист»
             </p>
           </div>
         )}
@@ -362,7 +506,6 @@ export default function PlaylistView() {
               </button>
             </div>
 
-            {/* Tab buttons */}
             <div className="flex gap-2">
               <button
                 onClick={() => setImportMode('text')}
@@ -391,7 +534,7 @@ export default function PlaylistView() {
             {importMode === 'text' ? (
               <>
                 <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-                  Вставьте названия треков (каждый на новой строке в формате &quot;Исполнитель - Название&quot;):
+                  Вставьте названия треков (каждый на новой строке в формате «Исполнитель - Название»):
                 </p>
                 <textarea
                   value={importText}
@@ -414,7 +557,6 @@ export default function PlaylistView() {
                       const parts = line.split(" - ");
                       const title = (parts[1] || parts[0] || "").trim();
                       const artist = (parts[1] ? parts[0] : "Unknown Artist").trim();
-                      // Try to find on SoundCloud
                       try {
                         const query = `${artist} ${title}`;
                         const res = await fetch(`/api/music/search?q=${encodeURIComponent(query)}`);
@@ -428,35 +570,17 @@ export default function PlaylistView() {
                       } catch {}
                       tracks.push({
                         id: `import_${i}_${Date.now()}`,
-                        title,
-                        artist,
-                        album: "",
-                        cover: "",
-                        duration: 0,
-                        genre: "",
-                        source: "soundcloud" as const,
-                        audioUrl: "",
-                        scTrackId: null,
-                        scIsFull: false,
+                        title, artist, album: "", cover: "", duration: 0, genre: "",
+                        source: "soundcloud" as const, audioUrl: "", scTrackId: null, scIsFull: false,
                       } as Track);
                     }
                     const newPl: UserPlaylist = {
-                      id,
-                      name: `Импорт ${new Date().toLocaleDateString("ru-RU")}`,
-                      description: `${tracks.length} треков`,
-                      cover: "",
-                      tracks,
-                      createdAt: Date.now(),
+                      id, name: `Импорт ${new Date().toLocaleDateString("ru-RU")}`,
+                      description: `${tracks.length} треков`, cover: "", tracks, createdAt: Date.now(),
                     };
                     useAppStore.setState(s => ({ playlists: [...s.playlists, newPl] }));
-                    setShowImport(false);
-                    setImportText("");
-                    setImporting(false);
-                    setImportProgress("");
-                    toast({
-                      title: "Плейлист импортирован",
-                      description: `${tracks.length} треков добавлено`,
-                    });
+                    setShowImport(false); setImportText(""); setImporting(false); setImportProgress("");
+                    toast({ title: "Плейлист импортирован", description: `${tracks.length} треков добавлено` });
                   }}
                   disabled={!importText.trim() || importing}
                   className="w-full py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
@@ -467,9 +591,8 @@ export default function PlaylistView() {
                 >
                   {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                   {importing
-                    ? (importProgress || `Импортирование...`)
-                    : `Импортировать (${importText.trim().split("\n").filter(l => l.trim()).length} треков)`
-                  }
+                    ? (importProgress || "Импортирование...")
+                    : `Импортировать (${importText.trim().split("\n").filter(l => l.trim()).length} треков)`}
                 </button>
               </>
             ) : (
@@ -501,20 +624,12 @@ export default function PlaylistView() {
                     {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                   </motion.button>
                 </div>
-                {/* VK Token input (shown when needed or when URL is VK) */}
                 {(showVkToken || /vk\.com/i.test(importUrl)) && (
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-medium" style={{ color: "var(--mq-text)" }}>VK API-токен</label>
-                      <a
-                        href="https://vk.com/dev/audio.getPlaylistById"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[10px] underline"
-                        style={{ color: "var(--mq-accent)" }}
-                      >
-                        Как получить?
-                      </a>
+                      <a href="https://vk.com/dev/audio.getPlaylistById" target="_blank" rel="noopener noreferrer"
+                        className="text-[10px] underline" style={{ color: "var(--mq-accent)" }}>Как получить?</a>
                     </div>
                     <input
                       type={showVkToken ? "text" : "password"}
@@ -525,9 +640,6 @@ export default function PlaylistView() {
                       style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
                       onKeyDown={(e) => { if (e.key === 'Enter' && !importing && importUrl.trim()) triggerUrlImport(); }}
                     />
-                    <p className="text-[10px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-                      Откройте ссылку «Как получить?» → нажмите «Попробовать» → скопируйте access_token из адресной строки (параметр after /access_token=)
-                    </p>
                   </div>
                 )}
                 {importing && importProgress && (
@@ -547,7 +659,7 @@ export default function PlaylistView() {
                 {importHint && !importing && (
                   <div className="rounded-lg p-2.5" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)" }}>
                     <p className="text-[11px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-                      💡 {importHint}
+                      {importHint}
                     </p>
                   </div>
                 )}
@@ -575,13 +687,34 @@ export default function PlaylistView() {
               className="rounded-xl p-4 cursor-pointer relative group"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
             >
-              <div className="w-14 h-14 rounded-lg overflow-hidden mb-3 flex items-center justify-center"
-                style={{ backgroundColor: "var(--mq-accent)", opacity: 0.7 }}>
+              {/* Cover with upload hover */}
+              <div className="relative group/cover w-14 h-14 rounded-lg overflow-hidden mb-3 flex items-center justify-center"
+                style={{ backgroundColor: pl.cover ? "transparent" : "var(--mq-accent)", opacity: 0.7 }}>
                 {pl.cover ? (
                   <img src={pl.cover} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <ListMusic className="w-6 h-6" style={{ color: "var(--mq-text)" }} />
                 )}
+                {/* Hover overlay for changing cover */}
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/jpeg,image/png,image/webp';
+                    input.onchange = (ev) => {
+                      const file = (ev.target as HTMLInputElement).files?.[0];
+                      if (file) handleCoverUpload(pl.id, file);
+                    };
+                    input.click();
+                  }}
+                >
+                  {coverUploadingId === pl.id ? (
+                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: "#fff" }} />
+                  ) : (
+                    <Camera className="w-5 h-5" style={{ color: "#fff" }} />
+                  )}
+                </div>
               </div>
               {editingId === pl.id ? (
                 <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -617,7 +750,7 @@ export default function PlaylistView() {
               >
                 {editingId !== pl.id && (
                   <button
-                    onClick={() => { setEditingId(pl.id); setEditName(pl.name); }}
+                    onClick={() => { setEditingId(pl.id); setEditName(pl.name); setEditDesc(pl.description); }}
                     className="p-1 rounded"
                     style={{ color: "var(--mq-text-muted)", backgroundColor: "var(--mq-bg)" }}
                   >

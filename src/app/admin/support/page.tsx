@@ -10,6 +10,9 @@ import {
   Zap,
   UserCheck,
   XCircle,
+  Wifi,
+  WifiOff,
+  Sparkles,
 } from "lucide-react";
 
 interface SupportChatSession {
@@ -33,7 +36,7 @@ interface SupportChatMessage {
 }
 
 const quickReplies = [
-  { label: "Быстрый ответ", icon: Zap, content: "Спасибо за обращение! Ваш запрос принят в обработку. Ожидайте ответ." },
+  { label: "Авто-ответ", icon: Zap, content: "Спасибо за обращение! Ваш запрос принят в обработку. Ожидайте ответ." },
   { label: "Передать специалисту", icon: UserCheck, content: "Ваше обращение передано специалисту. Мы свяжемся с вами в ближайшее время." },
   { label: "Закрыть обращение", icon: XCircle, content: "Обращение закрыто. Если у вас возникнут дополнительные вопросы, обращайтесь снова." },
 ];
@@ -46,7 +49,9 @@ export default function AdminSupportPage() {
   const [sendLoading, setSendLoading] = useState(false);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [inputText, setInputText] = useState("");
+  const [botEnabled, setBotEnabled] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -80,7 +85,6 @@ export default function AdminSupportPage() {
   useEffect(() => {
     if (selectedSession) {
       fetchMessages(selectedSession);
-      // Auto refresh messages every 3 seconds
       const interval = setInterval(() => fetchMessages(selectedSession), 3000);
       return () => clearInterval(interval);
     }
@@ -100,7 +104,7 @@ export default function AdminSupportPage() {
     if (!selectedSession || !content.trim()) return;
     setSendLoading(true);
     try {
-      await fetch("/api/admin/support-chat", {
+      const res = await fetch("/api/admin/support-chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -109,8 +113,17 @@ export default function AdminSupportPage() {
           content: content.trim(),
         }),
       });
+      const data = await res.json();
+      // Immediately add bot message if returned (though bot only triggers on user messages)
+      const allMessages = [...messages];
+      if (data.message) {
+        allMessages.push(data.message);
+      }
+      if (data.botMessage) {
+        allMessages.push(data.botMessage);
+      }
+      setMessages(allMessages);
       setInputText("");
-      fetchMessages(selectedSession);
       fetchSessions();
     } catch (err) {
       console.error("Send message error:", err);
@@ -139,17 +152,46 @@ export default function AdminSupportPage() {
   };
 
   const activeSession = sessions.find((s) => s.sessionId === selectedSession);
+  const openSessions = sessions.filter((s) => s.status === "open");
+  const closedSessions = sessions.filter((s) => s.status === "closed");
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
-          Поддержка
-        </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
-          Чат поддержки пользователей
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
+            Поддержка
+          </h1>
+          <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
+            Чат поддержки с интегрированным чат-ботом
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {/* Bot status toggle */}
+          <button
+            onClick={() => setBotEnabled(!botEnabled)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+            style={{
+              backgroundColor: botEnabled ? "rgba(6,182,212,0.1)" : "var(--mq-input-bg)",
+              border: `1px solid ${botEnabled ? "rgba(6,182,212,0.3)" : "var(--mq-border)"}`,
+              color: botEnabled ? "#06b6d4" : "var(--mq-text-muted)",
+            }}
+          >
+            {botEnabled ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
+            Бот {botEnabled ? "ON" : "OFF"}
+          </button>
+          {/* Stats */}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
+            style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}>
+            <span className="flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#4ade80" }} />
+              {openSessions.length} открытых
+            </span>
+            <span>•</span>
+            <span>{sessions.length} всего</span>
+          </div>
+        </div>
       </div>
 
       {/* 2-column layout */}
@@ -158,7 +200,7 @@ export default function AdminSupportPage() {
         style={{
           backgroundColor: "var(--mq-card)",
           border: "1px solid var(--mq-border)",
-          height: "calc(100vh - 220px)",
+          height: "calc(100vh - 240px)",
           minHeight: "500px",
         }}
       >
@@ -171,9 +213,17 @@ export default function AdminSupportPage() {
             className="px-4 py-3 flex-shrink-0"
             style={{ borderBottom: "1px solid var(--mq-border)" }}
           >
-            <h3 className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
-              Сессии ({sessions.length})
-            </h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
+                Сессии
+              </h3>
+              <div className="flex items-center gap-1.5">
+                <Bot className="w-3.5 h-3.5" style={{ color: botEnabled ? "#06b6d4" : "var(--mq-text-muted)" }} />
+                <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                  Авто-бот {botEnabled ? "активен" : "выключен"}
+                </span>
+              </div>
+            </div>
           </div>
 
           <div className="flex-1 overflow-y-auto">
@@ -185,7 +235,7 @@ export default function AdminSupportPage() {
               <div className="px-4 py-12 text-center">
                 <MessageCircle className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)" }} />
                 <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-                  Нет активных сессий
+                  Нет сессий
                 </p>
               </div>
             ) : (
@@ -250,18 +300,35 @@ export default function AdminSupportPage() {
             <>
               {/* Chat Header */}
               <div
-                className="px-4 py-3 flex items-center gap-3 flex-shrink-0"
+                className="px-4 py-3 flex items-center justify-between flex-shrink-0"
                 style={{ borderBottom: "1px solid var(--mq-border)" }}
               >
-                <MessageCircle className="w-5 h-5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-sm truncate" style={{ color: "var(--mq-text)" }}>
-                    {activeSession?.userName || selectedSession.substring(0, 8)}
-                  </p>
-                  <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
-                    ID: {selectedSession}
-                  </p>
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: "var(--mq-accent)", opacity: 0.8 }}>
+                    <UserCircle className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm truncate" style={{ color: "var(--mq-text)" }}>
+                      {activeSession?.userName || selectedSession.substring(0, 8)}
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full" style={{
+                        backgroundColor: activeSession?.status === "open" ? "#4ade80" : "var(--mq-text-muted)"
+                      }} />
+                      <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                        ID: {selectedSession.substring(0, 12)}
+                      </p>
+                    </div>
+                  </div>
                 </div>
+                {botEnabled && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+                    style={{ backgroundColor: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.2)" }}>
+                    <Sparkles className="w-3 h-3" style={{ color: "#06b6d4" }} />
+                    <span className="text-[10px] font-medium" style={{ color: "#06b6d4" }}>Бот активен</span>
+                  </div>
+                )}
               </div>
 
               {/* Messages */}
@@ -272,9 +339,15 @@ export default function AdminSupportPage() {
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
-                    <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                      Нет сообщений
-                    </p>
+                    <div className="text-center">
+                      <Bot className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+                      <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                        Нет сообщений
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                        Ожидайте первое сообщение от пользователя
+                      </p>
+                    </div>
                   </div>
                 ) : (
                   messages.map((msg) => {
@@ -287,34 +360,46 @@ export default function AdminSupportPage() {
                         key={msg.id}
                         className={`flex ${isUser ? "justify-start" : "justify-end"}`}
                       >
-                        <div className="flex gap-2 max-w-[75%]">
+                        <div className="flex gap-2 max-w-[80%]">
                           {!isUser && (
                             <div
                               className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
                               style={{
-                                backgroundColor: isAdmin
-                                  ? "rgba(224,49,49,0.15)"
-                                  : "rgba(6,182,212,0.15)",
+                                backgroundColor: isBot
+                                  ? "rgba(6,182,212,0.15)"
+                                  : "rgba(224,49,49,0.15)",
                               }}
                             >
-                              {isAdmin ? (
-                                <UserCircle className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-                              ) : (
+                              {isBot ? (
                                 <Bot className="w-4 h-4" style={{ color: "#06b6d4" }} />
+                              ) : (
+                                <UserCircle className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
                               )}
                             </div>
                           )}
                           <div>
+                            {isBot && (
+                              <p className="text-[10px] font-medium mb-1 flex items-center gap-1"
+                                style={{ color: "#06b6d4" }}>
+                                <Sparkles className="w-2.5 h-2.5" />
+                                MQ Bot
+                              </p>
+                            )}
+                            {isAdmin && (
+                              <p className="text-[10px] font-medium mb-1" style={{ color: "var(--mq-accent)" }}>
+                                Вы (админ)
+                              </p>
+                            )}
                             <div
-                              className="rounded-2xl px-4 py-2.5 text-sm"
+                              className="rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap"
                               style={{
                                 backgroundColor: isUser
                                   ? "var(--mq-input-bg)"
-                                  : isAdmin
-                                  ? "rgba(224,49,49,0.12)"
-                                  : "rgba(6,182,212,0.12)",
+                                  : isBot
+                                  ? "rgba(6,182,212,0.08)"
+                                  : "rgba(224,49,49,0.1)",
                                 color: "var(--mq-text)",
-                                border: `1px solid ${isUser ? "var(--mq-border)" : "transparent"}`,
+                                border: `1px solid ${isUser ? "var(--mq-border)" : isBot ? "rgba(6,182,212,0.2)" : "rgba(224,49,49,0.15)"}`,
                               }}
                             >
                               {msg.content}
@@ -372,10 +457,11 @@ export default function AdminSupportPage() {
                 style={{ borderTop: "1px solid var(--mq-border)" }}
               >
                 <input
+                  ref={inputRef}
                   type="text"
                   value={inputText}
                   onChange={(e) => setInputText(e.target.value)}
-                  placeholder="Написать ответ..."
+                  placeholder="Написать ответ как администратор..."
                   disabled={sendLoading}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm"
                   style={{
@@ -406,13 +492,25 @@ export default function AdminSupportPage() {
             /* Empty State */
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
-                <MessageCircle className="w-12 h-12 mx-auto mb-4" style={{ color: "var(--mq-text-muted)" }} />
+                <div className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+                  style={{ backgroundColor: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.15)" }}>
+                  <Bot className="w-10 h-10" style={{ color: "#06b6d4" }} />
+                </div>
                 <p className="text-lg font-medium mb-1" style={{ color: "var(--mq-text)" }}>
-                  Выберите сессию
+                  Поддержка с чат-ботом
                 </p>
-                <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                  Выберите сессию чата из списка слева
+                <p className="text-sm max-w-xs mx-auto" style={{ color: "var(--mq-text-muted)" }}>
+                  Выберите сессию чата из списка. Бот автоматически отвечает на常见 вопросы пользователей.
                 </p>
+                {botEnabled && (
+                  <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                    style={{ backgroundColor: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.2)" }}>
+                    <Sparkles className="w-3 h-3" style={{ color: "#06b6d4" }} />
+                    <span className="text-[11px] font-medium" style={{ color: "#06b6d4" }}>
+                      AI-бот автоматически отвечает на 10+ тем
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           )}

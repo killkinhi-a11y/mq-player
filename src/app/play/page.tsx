@@ -18,6 +18,7 @@ const FullTrackView = lazy(() => import("@/components/mq/FullTrackView"));
 const PiPPlayer = lazy(() => import("@/components/mq/PiPPlayer"));
 const NavBar = lazy(() => import("@/components/mq/NavBar"));
 const MobileNav = lazy(() => import("@/components/mq/MobileNav"));
+const SeasonalEffects = lazy(() => import("@/components/mq/SeasonalEffects"));
 
 // Safe require — never throws, returns empty defaults if module unavailable
 let _framer: any = { motion: "div", AnimatePresence: ({ children }: any) => children };
@@ -43,8 +44,36 @@ function AppShell() {
 
   const {
     currentView, currentTheme, customAccent, fontSize, animationsEnabled,
-    isAuthenticated, setView, searchQuery, setSearchQuery,
+    isAuthenticated, setView, searchQuery, setSearchQuery, setTheme,
   } = useAppStore();
+
+  // ── Seasonal theme auto-detection from admin flags ──
+  const [seasonalTheme, setSeasonalTheme] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSeasonal = async () => {
+      try {
+        const res = await fetch("/api/seasonal-theme");
+        const data = await res.json();
+        if (!cancelled && data.activeTheme) {
+          const themeKey = data.activeTheme;
+          // Check if this seasonal theme exists in themes
+          if (themes[themeKey]) {
+            setSeasonalTheme(themeKey);
+            // Auto-apply the seasonal theme (user can still override in settings)
+            setTheme(themeKey);
+          }
+        }
+      } catch {
+        // Silent fail — seasonal themes are optional
+      }
+    };
+    fetchSeasonal();
+    // Re-check every 5 minutes (admin might toggle a theme)
+    const interval = setInterval(fetchSeasonal, 5 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined" && window.__mqRemoveSplash) {
@@ -201,6 +230,11 @@ function AppShell() {
       <Suspense fallback={null}><FullTrackView /></Suspense>
       <Suspense fallback={null}><PiPPlayer /></Suspense>
       <Suspense fallback={null}>{showNav && <MobileNav />}</Suspense>
+      <Suspense fallback={null}>{
+        seasonalTheme && isAuthenticated ? (
+          <SeasonalEffects theme={seasonalTheme as any} />
+        ) : null
+      }</Suspense>
     </div>
   );
 }

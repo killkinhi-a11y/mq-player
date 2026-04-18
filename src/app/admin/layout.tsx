@@ -10,7 +10,6 @@ import {
   ScrollText,
   ChevronLeft,
   Shield,
-  Mail,
   Clock,
   DollarSign,
   ToggleLeft,
@@ -21,7 +20,6 @@ import { useAppStore } from "@/store/useAppStore";
 const navItems = [
   { href: "/admin", label: "Дашборд", icon: LayoutDashboard },
   { href: "/admin/users", label: "Пользователи", icon: Users },
-  { href: "/admin/campaigns", label: "Рассылки", icon: Mail },
   { href: "/admin/cron", label: "Задачи", icon: Clock },
   { href: "/admin/audit", label: "Аудит", icon: ScrollText },
   { href: "/admin/billing", label: "Финансы", icon: DollarSign },
@@ -29,6 +27,33 @@ const navItems = [
   { href: "/admin/support", label: "Поддержка", icon: MessageCircle },
   { href: "/admin/settings", label: "Настройки", icon: Settings },
 ];
+
+function useAdminCheck(email: string | null) {
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!email) {
+      setIsAdmin(false);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/admin/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!cancelled) setIsAdmin(!!data.isAdmin);
+      })
+      .catch(() => {
+        if (!cancelled) setIsAdmin(false);
+      });
+    return () => { cancelled = true; };
+  }, [email]);
+
+  return isAdmin;
+}
 
 export default function AdminLayout({
   children,
@@ -39,24 +64,7 @@ export default function AdminLayout({
   const { email } = useAppStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (!email) {
-      setIsAdmin(false);
-      return;
-    }
-    fetch("/api/admin/auth", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        setIsAdmin(!!data.isAdmin);
-      })
-      .catch(() => setIsAdmin(false));
-  }, [email]);
+  const isAdmin = useAdminCheck(email);
 
   if (isAdmin === null) {
     return (

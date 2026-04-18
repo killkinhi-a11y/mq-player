@@ -66,20 +66,57 @@ export default function FullTrackView() {
     }
   }, [showLyricsRequested, clearShowLyricsRequest]);
 
-  // Fetch similar tracks
+  // Fetch similar tracks using the smart similarity algorithm
   useEffect(() => {
     if (!currentTrack || !showSimilar) return;
     let cancelled = false;
     const fetchSimilar = async () => {
       setSimilarTracksLoading(true);
       try {
-        const query = `${currentTrack.artist}`;
-        const res = await fetch(`/api/music/search?q=${encodeURIComponent(query)}&limit=8`);
+        // Build params for the similarity API
+        const store = useAppStore.getState();
+        const dislikedIds = store.dislikedTrackIds || [];
+        const dislikedTracksData = store.likedTracksData || [];
+        const historyData = store.history || [];
+
+        // Collect disliked artists and genres
+        const dislikedArtistsSet = new Set<string>();
+        const dislikedGenresSet = new Set<string>();
+        const allKnown = [...dislikedTracksData, ...historyData.slice(0, 100).map((h: any) => h.track)];
+        for (const t of allKnown) {
+          if (dislikedIds.includes(t.id)) {
+            if (t.artist) dislikedArtistsSet.add(t.artist);
+            if (t.genre) dislikedGenresSet.add(t.genre);
+          }
+        }
+
+        const params = new URLSearchParams({
+          title: currentTrack.title || "",
+          artist: currentTrack.artist || "",
+          genre: currentTrack.genre || "",
+          duration: String(currentTrack.duration || 0),
+          excludeId: currentTrack.id,
+          limit: "8",
+          dislikedIds: dislikedIds.join(","),
+          dislikedArtists: [...dislikedArtistsSet].join(","),
+          dislikedGenres: [...dislikedGenresSet].join(","),
+        });
+
+        const res = await fetch(`/api/music/similar?${params}`);
         const data = await res.json();
         const tracks: Track[] = (data.tracks || []).filter((t: Track) => t.id !== currentTrack.id);
-        if (!cancelled) setSimilarTracks(tracks.slice(0, 6));
+
+        if (!cancelled) setSimilarTracks(tracks.slice(0, 8));
       } catch {
-        if (!cancelled) setSimilarTracks([]);
+        // Fallback to simple artist search
+        try {
+          const res = await fetch(`/api/music/search?q=${encodeURIComponent(currentTrack.artist)}&limit=8`);
+          const data = await res.json();
+          const tracks: Track[] = (data.tracks || []).filter((t: Track) => t.id !== currentTrack.id);
+          if (!cancelled) setSimilarTracks(tracks.slice(0, 6));
+        } catch {
+          if (!cancelled) setSimilarTracks([]);
+        }
       } finally {
         if (!cancelled) setSimilarTracksLoading(false);
       }
@@ -582,7 +619,10 @@ export default function FullTrackView() {
               style={{ maxHeight: "50vh", backgroundColor: "var(--mq-card)", borderTop: "1px solid var(--mq-border)" }}>
               <div className="p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Похожие треки</h3>
+                  <h3 className="text-sm font-bold flex items-center gap-1.5" style={{ color: "var(--mq-text)" }}>
+                    Похожие треки
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(224,49,49,0.1)", color: "var(--mq-accent)" }}>AI</span>
+                  </h3>
                   <button onClick={() => setShowSimilar(false)} style={{ color: "var(--mq-text-muted)" }}>
                     <X className="w-4 h-4" />
                   </button>

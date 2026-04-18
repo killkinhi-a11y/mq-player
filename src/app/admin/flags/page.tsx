@@ -6,7 +6,10 @@ import {
   Plus,
   Loader2,
   X,
+  Sparkles,
+  Calendar,
 } from "lucide-react";
+import { seasonalThemes } from "@/lib/themes";
 
 interface FeatureFlag {
   id: string;
@@ -97,6 +100,20 @@ export default function AdminFlagsPage() {
     }
   };
 
+  // Check if a seasonal flag is enabled
+  const isSeasonalEnabled = (seasonalKey: string) => {
+    return flags.some(f => f.key === `theme_${seasonalKey}` && f.enabled);
+  };
+
+  // Get current month for auto-suggest
+  const currentMonth = new Date().getMonth() + 1;
+  const currentSeasonalThemes = seasonalThemes.filter(st => st.months.includes(currentMonth));
+
+  // Separate seasonal flags from regular flags
+  const seasonalFlagKeys = seasonalThemes.map(st => `theme_${st.key}`);
+  const regularFlags = flags.filter(f => !f.key.startsWith("theme_"));
+  const activeSeasonalFlags = flags.filter(f => f.key.startsWith("theme_") && f.enabled);
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -106,7 +123,7 @@ export default function AdminFlagsPage() {
             Feature Flags
           </h1>
           <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
-            Управление экспериментальными функциями и флагами
+            Управление функциями и сезонными темами
           </p>
         </div>
         <button
@@ -237,41 +254,175 @@ export default function AdminFlagsPage() {
         </div>
       )}
 
-      {/* Flags List */}
-      {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--mq-accent)" }} />
-        </div>
-      ) : flags.length === 0 ? (
+      {/* Seasonal Themes Section */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          backgroundColor: "var(--mq-card)",
+          border: "1px solid var(--mq-border)",
+        }}
+      >
         <div
-          className="rounded-2xl p-12 text-center"
-          style={{
-            backgroundColor: "var(--mq-card)",
-            border: "1px solid var(--mq-border)",
-          }}
+          className="flex items-center justify-between px-4 sm:px-5 py-4"
+          style={{ borderBottom: "1px solid var(--mq-border)" }}
         >
-          <ToggleLeftIcon className="w-12 h-12 mx-auto mb-4" style={{ color: "var(--mq-text-muted)" }} />
-          <p className="text-lg font-medium mb-1" style={{ color: "var(--mq-text)" }}>
-            Нет флагов
-          </p>
-          <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-            Создайте первый feature flag
-          </p>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+            <div>
+              <h2 className="font-semibold text-sm" style={{ color: "var(--mq-text)" }}>
+                Сезонные темы
+              </h2>
+              <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                {activeSeasonalFlags.length > 0
+                  ? `Активных: ${activeSeasonalFlags.length}`
+                  : "Включите тему для автоматического переключения"}
+              </p>
+            </div>
+          </div>
+          {currentSeasonalThemes.length > 0 && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+              style={{ backgroundColor: "rgba(224,49,49,0.08)", border: "1px solid rgba(224,49,49,0.15)" }}>
+              <Sparkles className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
+              <span className="text-[10px] font-medium" style={{ color: "var(--mq-accent)" }}>
+                Сейчас: {currentSeasonalThemes.map(st => st.icon).join(" ")}
+              </span>
+            </div>
+          )}
         </div>
-      ) : (
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{
-            backgroundColor: "var(--mq-card)",
-            border: "1px solid var(--mq-border)",
-          }}
-        >
-          {flags.map((flag, idx) => (
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
+          {seasonalThemes.map((st, idx) => {
+            const flag = flags.find(f => f.key === `theme_${st.key}`);
+            const isEnabled = !!flag?.enabled;
+            const isCurrentMonth = st.months.includes(currentMonth);
+            const rowBorder = idx < seasonalThemes.length - 1;
+
+            return (
+              <div
+                key={st.key}
+                className="flex items-center gap-3 px-4 sm:px-5 py-3.5"
+                style={{
+                  borderBottom: rowBorder ? "1px solid var(--mq-border)" : "none",
+                  borderRight: "1px solid var(--mq-border)",
+                }}
+              >
+                <button
+                  onClick={() => {
+                    if (flag) {
+                      handleToggle(flag);
+                    } else {
+                      // Auto-create the seasonal flag and enable it
+                      const createSeasonalFlag = async () => {
+                        setToggleLoading(`new_${st.key}`);
+                        try {
+                          // Create flag
+                          await fetch("/api/admin/feature-flags", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              key: `theme_${st.key}`,
+                              name: `Тема: ${st.name}`,
+                              description: st.description,
+                              enabled: true,
+                            }),
+                          });
+                          fetchFlags();
+                        } catch (err) {
+                          console.error("Create seasonal flag error:", err);
+                        } finally {
+                          setToggleLoading(null);
+                        }
+                      };
+                      createSeasonalFlag();
+                    }
+                  }}
+                  disabled={toggleLoading === flag?.id || toggleLoading === `new_${st.key}`}
+                  className="flex-shrink-0 relative w-11 h-6 rounded-full transition-colors"
+                  style={{
+                    backgroundColor: isEnabled ? "var(--mq-accent)" : "var(--mq-border)",
+                  }}
+                >
+                  {toggleLoading === flag?.id || toggleLoading === `new_${st.key}` ? (
+                    <Loader2
+                      className="absolute top-1 left-1 w-4 h-4 animate-spin"
+                      style={{ color: "#fff" }}
+                    />
+                  ) : (
+                    <div
+                      className="absolute top-1 w-4 h-4 rounded-full transition-transform"
+                      style={{
+                        backgroundColor: "#fff",
+                        transform: isEnabled ? "translateX(20px)" : "translateX(0)",
+                      }}
+                    />
+                  )}
+                </button>
+
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className="text-lg flex-shrink-0">{st.icon}</span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <h3 className="font-medium text-sm truncate" style={{ color: "var(--mq-text)" }}>
+                        {st.name}
+                      </h3>
+                      {isCurrentMonth && (
+                        <span
+                          className="text-[9px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
+                          style={{
+                            backgroundColor: "rgba(224,49,49,0.15)",
+                            color: "var(--mq-accent)",
+                          }}
+                        >
+                          СЕЙЧАС
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                      {st.description}
+                    </p>
+                  </div>
+                </div>
+
+                <span
+                  className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+                  style={{
+                    backgroundColor: isEnabled ? "rgba(74,222,128,0.15)" : "rgba(136,136,136,0.15)",
+                    color: isEnabled ? "#4ade80" : "var(--mq-text-muted)",
+                  }}
+                >
+                  {isEnabled ? "ON" : "OFF"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Regular Feature Flags */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          backgroundColor: "var(--mq-card)",
+          border: "1px solid var(--mq-border)",
+        }}
+      >
+        {regularFlags.length === 0 ? (
+          <div className="p-8 text-center">
+            <ToggleLeftIcon className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+            <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+              Нет пользовательских флагов
+            </p>
+            <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+              Создайте первый feature flag
+            </p>
+          </div>
+        ) : (
+          regularFlags.map((flag, idx) => (
             <div
               key={flag.id}
               className="flex items-center gap-4 px-4 sm:px-5 py-4"
               style={{
-                borderBottom: idx < flags.length - 1 ? "1px solid var(--mq-border)" : "none",
+                borderBottom: idx < regularFlags.length - 1 ? "1px solid var(--mq-border)" : "none",
               }}
             >
               {/* Toggle Switch */}
@@ -334,9 +485,9 @@ export default function AdminFlagsPage() {
                 {flag.enabled ? "ON" : "OFF"}
               </span>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 }
