@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion } from "framer-motion";
 import {
-  User, Camera, Edit3, Check, X, LogOut, Heart, MessageCircle, Music, Loader2, AlertCircle
+  User, Camera, Edit3, Check, X, LogOut, Heart, MessageCircle, Music, Loader2, AlertCircle, EyeOff, Eye
 } from "lucide-react";
 
 const USERNAME_RULES = "Буквы, цифры, _ и -. 2-20 символов.";
@@ -26,6 +26,34 @@ export default function ProfileView() {
   const [isSavingUsername, setIsSavingUsername] = useState(false);
 
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
+
+  // Invisible mode state (shared with MessengerView via localStorage)
+  const [hideOnline, setHideOnline] = useState(() => {
+    if (typeof window !== "undefined") {
+      try { return JSON.parse(localStorage.getItem("mq-hide-online") || "false"); } catch { return false; }
+    }
+    return false;
+  });
+
+  // Sync hideOnline to localStorage and dispatch storage event for MessengerView
+  const toggleHideOnline = useCallback(() => {
+    const newVal = !hideOnline;
+    setHideOnline(newVal);
+    try { localStorage.setItem("mq-hide-online", JSON.stringify(newVal)); } catch { /* */ }
+    // Dispatch storage event so MessengerView picks it up
+    window.dispatchEvent(new StorageEvent("storage", { key: "mq-hide-online", newValue: JSON.stringify(newVal) }));
+  }, [hideOnline]);
+
+  // Listen for hideOnline changes from MessengerView or other tabs
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === "mq-hide-online" && e.newValue !== null) {
+        try { setHideOnline(JSON.parse(e.newValue)); } catch { /* */ }
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -300,6 +328,44 @@ export default function ProfileView() {
       >
         <span className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Email</span>
         <p className="text-sm font-medium mt-1" style={{ color: "var(--mq-text)" }}>{email || "—"}</p>
+      </motion.div>
+
+      {/* Invisible mode toggle */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.22 }}
+        className="rounded-2xl p-4 flex items-center justify-between"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: hideOnline ? "var(--mq-accent)" : "var(--mq-card)", border: `1px solid ${hideOnline ? "var(--mq-accent)" : "var(--mq-border)"}`, opacity: hideOnline ? 1 : 0.7 }}>
+            {hideOnline ? (
+              <EyeOff className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+            ) : (
+              <Eye className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+            )}
+          </div>
+          <div>
+            <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
+              Невидимка
+            </p>
+            <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+              {hideOnline ? "Вы невидимы для других пользователей" : "Ваш статус «В сети» виден всем"}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={toggleHideOnline}
+          className="relative w-12 h-7 rounded-full transition-colors duration-200 cursor-pointer flex-shrink-0"
+          style={{ backgroundColor: hideOnline ? "var(--mq-accent)" : "var(--mq-border)" }}
+        >
+          <div
+            className="absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-200"
+            style={{ transform: hideOnline ? "translateX(22px)" : "translateX(2px)" }}
+          />
+        </button>
       </motion.div>
 
       {/* Stats */}

@@ -15,17 +15,23 @@ export async function GET(req: NextRequest) {
     });
 
     if (!sync) {
-      return NextResponse.json({ nowPlaying: null });
+      return NextResponse.json({ nowPlaying: null }, {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache" },
+      });
     }
 
     const data = JSON.parse(sync.data);
     // If last update was more than 2 minutes ago, consider it stale
     const updatedAt = sync.updatedAt.getTime();
     if (Date.now() - updatedAt > 2 * 60 * 1000) {
-      return NextResponse.json({ nowPlaying: null });
+      return NextResponse.json({ nowPlaying: null }, {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache" },
+      });
     }
 
-    return NextResponse.json({ nowPlaying: data });
+    return NextResponse.json({ nowPlaying: data }, {
+      headers: { "Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache" },
+    });
   } catch (error) {
     return NextResponse.json({ error: "Ошибка" }, { status: 500 });
   }

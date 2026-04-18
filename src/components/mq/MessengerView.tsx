@@ -4,13 +4,14 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import MessageBubble from "./MessageBubble";
+import NotificationPanel from "./NotificationPanel";
 import { Input } from "@/components/ui/input";
 import {
   Lock, Shield, Send, ArrowLeft, Search, ShieldCheck, Smile, Trash2,
   Plus, Music2, X, Loader2, Copy, Reply, UserPlus, UserCheck, Users, AlertCircle,
   Play, Pause, ChevronLeft, ChevronRight, BookOpen, Pin,
   Mic, MicOff, Edit3, MessageSquare, Sticker,
-  MoreVertical, Check, Bell, Ban, Download, MessageCircle
+  MoreVertical, Check, Bell, Ban, Download, MessageCircle, Phone
 } from "lucide-react";
 import { simulateEncrypt, getEncryptionStatus, generateMockFingerprint, simulateDecryptSync } from "@/lib/crypto";
 
@@ -163,6 +164,8 @@ export default function MessengerView() {
     return false;
   });
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifUnreadCount, setNotifUnreadCount] = useState(0);
 
   // ── Responsive viewport height tracking ──
   const [isMobileView, setIsMobileView] = useState(false);
@@ -558,6 +561,55 @@ export default function MessengerView() {
     return () => clearInterval(interval);
   }, [userId, pendingRequests.length, notificationPermission, playNotifSound]);
 
+  // ── Server-side notifications: create notification when receiving a message ──
+  useEffect(() => {
+    if (!userId) return;
+    const handler = (msg: any) => {
+      if (msg.senderId !== userId) {
+        // Create server-side notification for the recipient
+        fetch("/api/notifications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            type: "message",
+            title: `Сообщение от ${msg.senderUsername || "пользователя"}`,
+            body: (() => { try { const d = JSON.parse(msg.content); return d.type === "sticker" ? "Стикер" : d.type === "voice" ? "Голосовое сообщение" : d.type === "track_share" ? "Поделился треком" : (d.text || msg.content).slice(0, 60); } catch { return msg.content.slice(0, 60); } })(),
+            data: { senderId: msg.senderId, senderUsername: msg.senderUsername },
+          }),
+        }).catch(() => {});
+      }
+    };
+    // Hook into processIncomingMessage by listening to store changes
+    const origMessages = useAppStore.getState().messages;
+    const unsub = useAppStore.subscribe((state, prev) => {
+      if (state.messages.length > prev.messages.length) {
+        const newMsg = state.messages[state.messages.length - 1];
+        if (newMsg && newMsg.senderId !== userId) {
+          handler(newMsg);
+        }
+      }
+    });
+    return unsub;
+  }, [userId]);
+
+  // ── Poll notification unread count ──
+  useEffect(() => {
+    if (!userId) return;
+    const fetchCount = async () => {
+      try {
+        const res = await fetch(`/api/notifications?userId=${userId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setNotifUnreadCount(data.unreadCount || 0);
+        }
+      } catch { /* silent */ }
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 20000);
+    return () => clearInterval(interval);
+  }, [userId]);
+
   // Fetch friend statuses on mount and when friends change
   useEffect(() => {
     if (!userId || friends.length === 0) return;
@@ -686,7 +738,9 @@ export default function MessengerView() {
     let cancelled = false;
     const fetchFriendNowPlaying = async () => {
       try {
-        const res = await fetch(`/api/user/now-playing?userId=${showProfileView}`);
+        // Add cache-busting to avoid Vercel edge caching
+        const bust = Date.now();
+        const res = await fetch(`/api/user/now-playing?userId=${showProfileView}&_=${bust}`);
         if (!res.ok) return;
         const data = await res.json();
         if (cancelled) return;
@@ -700,7 +754,8 @@ export default function MessengerView() {
       } catch { if (!cancelled) { setFriendNowPlaying(null); setFriendNowPlayingActive(false); } }
     };
     fetchFriendNowPlaying();
-    const interval = setInterval(fetchFriendNowPlaying, 5000);
+    // Poll every 3 seconds for near-real-time updates
+    const interval = setInterval(fetchFriendNowPlaying, 3000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [showProfileView, userId, mounted]);
 
@@ -1199,9 +1254,9 @@ export default function MessengerView() {
 
   // Compute messenger container height
   const messengerHeight = (() => {
-    const topNav = 3.5;
+    const topNav = isMobileView ? 4 : 3.5;
     const mobileNav = isMobileView ? 3.5 : 0;
-    const playerBar = currentTrack ? 5 : 0;
+    const playerBar = currentTrack ? (isMobileView ? 5.5 : 5) : 0;
     return `calc(100dvh - ${topNav + mobileNav + playerBar}rem)`;
   })();
 
@@ -1221,6 +1276,17 @@ export default function MessengerView() {
             <div className="flex items-center gap-1 px-2 py-1 rounded-lg" title="Сквозное шифрование" style={glassPanel}>
               <ShieldCheck className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
               <span className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>E2E</span>
+            </div>
+            <div className="relative">
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowNotifications(true)}
+                className="p-2 rounded-xl cursor-pointer" style={{ ...glassPanel, color: "var(--mq-text)" }} title="Уведомления">
+                <Bell className="w-4 h-4" />
+              </motion.button>
+              {notifUnreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full text-[9px] flex items-center justify-center px-0.5 font-bold" style={{ backgroundColor: "#ef4444", color: "#fff" }}>
+                  {notifUnreadCount > 99 ? "99" : notifUnreadCount}
+                </span>
+              )}
             </div>
             <div className="relative">
               <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowFriendRequests(!showFriendRequests)}
@@ -1716,7 +1782,7 @@ export default function MessengerView() {
               </div>
             ) : (
               /* ── Normal input mode ── */
-              <div className="px-3 py-2 flex items-center gap-2 flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
+              <div className="px-3 py-2 flex items-center gap-2 flex-shrink-0 relative z-10" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
                 {/* Emoji / Sticker toggle */}
                 <motion.button whileTap={{ scale: 0.9 }}
                   onClick={() => { if (showEmojis) { setShowEmojis(false); } else if (showStickers) { setShowStickers(false); } else { setShowEmojis(true); } }}
@@ -2128,24 +2194,18 @@ export default function MessengerView() {
                   <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Чат</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.9 }}
+                  onClick={() => { showToast("Звонки скоро будут доступны"); }}
+                  className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
+                  style={{ ...glassPanel }}>
+                  <Phone className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+                  <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Звонок</span>
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.9 }}
                   onClick={() => { requestNotifPermission(); showToast(notificationPermission === "granted" ? "Уведомления включены" : "Разрешите уведомления в браузере"); }}
                   className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
                   style={{ ...glassPanel }}>
                   <Bell className="w-5 h-5" style={{ color: notificationPermission === "granted" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                   <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Звук</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.9 }}
-                  onClick={() => { setHideOnline(!hideOnline); showToast(hideOnline ? "Невидимка включена — вы невидимы для других" : "Невидимка выключена"); }}
-                  className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
-                  style={{ ...glassPanel }}>
-                  <div className="w-5 h-5 flex items-center justify-center">
-                    {hideOnline ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--mq-accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M9.343 16.243A7.5 7.5 0 0 1 12 15c.766 0 1.5.12 2.186.343"/><path d="M5.354 5.354A9 9 0 0 1 20.4 14.706"/><path d="M12 9a3 3 0 0 0 2.829 3.929"/><path d="M2 2l20 20"/></svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="var(--mq-text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                    )}
-                  </div>
-                  <span className="text-[10px] font-medium" style={{ color: hideOnline ? "var(--mq-accent)" : "var(--mq-text)" }}>{hideOnline ? "Скрыт" : "Видим"}</span>
                 </motion.button>
                 <div className="relative flex flex-col items-center gap-1.5 flex-1 max-w-[80px]">
                   <motion.button whileTap={{ scale: 0.9 }}
@@ -2232,6 +2292,9 @@ export default function MessengerView() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Notification Panel */}
+      <NotificationPanel isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
     </div>
   );
 

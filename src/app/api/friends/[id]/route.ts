@@ -25,6 +25,22 @@ export async function PUT(
       data: { status: newStatus },
     });
 
+    // Create notification when accepted
+    if (action === "accept") {
+      try {
+        const requester = await db.user.findUnique({ where: { id: friendRequest.requesterId }, select: { username: true } });
+        const addressee = await db.user.findUnique({ where: { id: friendRequest.addresseeId }, select: { username: true } });
+        if (requester && addressee) {
+          await db.notification.createMany({
+            data: [
+              { userId: friendRequest.requesterId, type: "friend_accepted", title: "Новый друг", body: `${addressee.username} принял(а) вашу заявку`, data: JSON.stringify({ friendId: friendRequest.addresseeId }) },
+              { userId: friendRequest.addresseeId, type: "friend_accepted", title: "Новый друг", body: `${requester.username} теперь ваш друг`, data: JSON.stringify({ friendId: friendRequest.requesterId }) },
+            ],
+          });
+        }
+      } catch { /* non-critical */ }
+    }
+
     return NextResponse.json({
       message: action === "accept" ? "Заявка принята" : "Заявка отклонена",
       status: newStatus,

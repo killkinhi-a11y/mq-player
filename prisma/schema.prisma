@@ -37,6 +37,7 @@ model User {
   groupChats             GroupChatMember[] @relation("GroupMemberships")
   groupMessages          GroupMessage[] @relation("GroupMessages")
   createdGroups          GroupChat[] @relation("GroupChatCreators")
+  notifications          Notification[] @relation("UserNotifications")
 }
 
 model AuditLog {
@@ -290,4 +291,20 @@ model UserSync {
   user      User     @relation("UserSyncData", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, key])
+}
+
+// Notifications system
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   // recipient
+  type      String   // "message", "friend_request", "friend_accepted"
+  title     String
+  body      String
+  data      String   @default("{}") // JSON with extra data (senderId, senderName, etc.)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
 }

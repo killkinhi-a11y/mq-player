@@ -99,6 +99,15 @@ export async function POST(req: NextRequest) {
             where: { id: existing.id },
             data: { status: "accepted" },
           });
+          // Create notification for both users
+          try {
+            await db.notification.createMany({
+              data: [
+                { userId: addresseeId, type: "friend_accepted", title: "Новый друг", body: `${requester.username} теперь ваш друг`, data: JSON.stringify({ friendId: requesterId }) },
+                { userId: requesterId, type: "friend_accepted", title: "Новый друг", body: `${addressee.username} теперь ваш друг`, data: JSON.stringify({ friendId: addresseeId }) },
+              ],
+            });
+          } catch { /* non-critical */ }
           return NextResponse.json({ message: "Заявка принята — вы теперь друзья!" }, { status: 200 });
         }
       }
@@ -113,6 +122,19 @@ export async function POST(req: NextRequest) {
     const friend = await db.friend.create({
       data: { requesterId, addresseeId, status: "pending" },
     });
+
+    // Create notification for the addressee
+    try {
+      await db.notification.create({
+        data: {
+          userId: addresseeId,
+          type: "friend_request",
+          title: `Заявка в друзья`,
+          body: `${requester.username} хочет добавить вас в друзья`,
+          data: JSON.stringify({ senderId: requesterId, senderUsername: requester.username, requestId: friend.id }),
+        },
+      });
+    } catch { /* non-critical */ }
 
     return NextResponse.json({ message: "Запрос в друзья отправлен", friendId: friend.id }, { status: 201 });
   } catch (error) {

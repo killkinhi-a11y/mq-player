@@ -570,7 +570,7 @@ export default function PlayerBar() {
       animate={{ y: 0 }}
       transition={{ type: "spring", stiffness: 200, damping: 25 }}
       className="fixed left-0 right-0 z-40 lg:bottom-0 bottom-[56px]"
-      style={{ backgroundColor: "var(--mq-player-bg)", borderTop: "1px solid var(--mq-border)" }}
+      style={{ backgroundColor: "var(--mq-player-bg)", borderTop: "1px solid var(--mq-border)", touchAction: "none" }}
     >
       {/* Progress bar */}
       <div
