@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
-import { Music, Mail, Eye, EyeOff, Loader2, ArrowLeft, AtSign, Check, X, Search, ShieldCheck } from "lucide-react";
+import { Music, Mail, Eye, EyeOff, Loader2, ArrowLeft, AtSign, Check, X, Search, ShieldCheck, KeyRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -504,11 +504,29 @@ export default function AuthView() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 mb-4">
-                  <input type="checkbox" id="remember-me" className="w-4 h-4 rounded accent-current" style={{ accentColor: "var(--mq-accent)" }} />
-                  <label htmlFor="remember-me" className="text-sm cursor-pointer" style={{ color: "var(--mq-text-muted)" }}>
-                    Запомнить меня
-                  </label>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="remember-me" className="w-4 h-4 rounded accent-current" style={{ accentColor: "var(--mq-accent)" }} />
+                    <label htmlFor="remember-me" className="text-sm cursor-pointer" style={{ color: "var(--mq-text-muted)" }}>
+                      Запомнить меня
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!loginData.email) {
+                        setError("Введите email для восстановления пароля");
+                        return;
+                      }
+                      setAuthStep("forgot-password");
+                      setError("");
+                    }}
+                    className="text-xs font-medium flex items-center gap-1 transition-colors"
+                    style={{ color: "var(--mq-accent)" }}
+                  >
+                    <KeyRound className="w-3 h-3" />
+                    Забыли пароль?
+                  </button>
                 </div>
 
                 <Button onClick={handleLogin} disabled={loading || !loginData.email || !loginData.password}
@@ -680,6 +698,86 @@ export default function AuthView() {
                 </p>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+
+        {authStep === "forgot-password" && (
+          <motion.div key="forgot-password"
+            initial={{ opacity: 0, y: 30, filter: 'blur(8px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: -20, filter: 'blur(4px)' }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            className="w-full max-w-md relative z-10">
+            <div className="rounded-2xl p-6 lg:p-8"
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+              <button onClick={() => { setAuthStep("login"); setError(""); }} className="flex items-center gap-1 mb-4" style={{ color: "var(--mq-text-muted)" }}>
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-sm">Назад</span>
+              </button>
+
+              <motion.div className="flex flex-col items-center text-center mb-6"
+                initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                transition={{ delay: 0.3, duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}>
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                  style={{ backgroundColor: "rgba(224,49,49,0.12)" }}
+                  animate={{ boxShadow: ["0 0 0px rgba(224,49,49,0)", "0 0 30px rgba(224,49,49,0.2)", "0 0 0px rgba(224,49,49,0)"] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
+                  <KeyRound className="w-8 h-8" style={{ color: "var(--mq-accent)" }} />
+                </div>
+                <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--mq-text)" }}>Восстановление пароля</h2>
+                <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                  Введите email, на который зарегистрирован аккаунт
+                </p>
+              </motion.div>
+
+              {error && (
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                  className="mb-4 p-3 rounded-lg text-sm"
+                  style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
+                  {error}
+                </motion.div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Email</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                    <Input type="email" placeholder="your@email.com" value={loginData.email}
+                      onChange={(e) => setLoginData({ ...loginData, email: e.target.value })}
+                      className="pl-10" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} />
+                  </div>
+                </div>
+
+                <Button onClick={async () => {
+                  if (!loginData.email) { setError("Введите email"); return; }
+                  setLoading(true); setError("");
+                  try {
+                    const res = await fetch("/api/auth/send-code", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ email: loginData.email }),
+                    });
+                    const data = await res.json();
+                    if (!res.ok) { setError(data.error || "Ошибка"); return; }
+                    setConfirmEmail(loginData.email);
+                    setAuthStep("confirm");
+                  } catch { setError("Ошибка соединения"); }
+                  finally { setLoading(false); }
+                }} disabled={loading || !loginData.email}
+                  className="w-full min-h-[44px]" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Отправить код восстановления"}
+                </Button>
+
+                <p className="text-center text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                  Вспомнили пароль?{" "}
+                  <button onClick={() => { setAuthStep("login"); setError(""); }} className="font-medium" style={{ color: "var(--mq-accent)" }}>
+                    Войти
+                  </button>
+                </p>
+              </div>
+            </div>
           </motion.div>
         )}
 

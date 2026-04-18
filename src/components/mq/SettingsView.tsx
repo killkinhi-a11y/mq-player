@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
@@ -27,11 +27,12 @@ export default function SettingsView() {
 
   const [accentInput, setAccentInput] = useState(customAccent || "");
   const [showSupportDialog, setShowSupportDialog] = useState(false);
-  const [supportSubject, setSupportSubject] = useState("");
-  const [supportMessage, setSupportMessage] = useState("");
+  const [supportMessages, setSupportMessages] = useState<{id:string;role:string;content:string;createdAt:string}[]>([]);
+  const [supportInput, setSupportInput] = useState("");
   const [supportLoading, setSupportLoading] = useState(false);
-  const [supportSuccess, setSupportSuccess] = useState(false);
-  const [supportError, setSupportError] = useState("");
+  const [supportSessionId, setSupportSessionId] = useState<string | null>(null);
+  const [supportLoadingHistory, setSupportLoadingHistory] = useState(false);
+  const supportScrollRef = useRef<HTMLDivElement>(null);
   const volumeSectionRef = useRef<HTMLDivElement>(null);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const themeMenuRef = useRef<HTMLDivElement>(null);
@@ -58,38 +59,59 @@ export default function SettingsView() {
   };
 
   const handleSendSupport = async () => {
-    if (!supportSubject.trim() || !supportMessage.trim()) return;
+    if (!supportInput.trim() || supportLoading) return;
     setSupportLoading(true);
-    setSupportError("");
+    const text = supportInput.trim();
+    setSupportInput("");
     try {
       const res = await fetch("/api/support", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: email || "",
-          subject: supportSubject.trim(),
-          message: supportMessage.trim(),
           userId: useAppStore.getState().userId,
+          userName: username || null,
+          content: text,
         }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setSupportError(data.error);
-        return;
+      if (!res.ok) return;
+      if (data.sessionId && !supportSessionId) setSupportSessionId(data.sessionId);
+      if (data.userMessage && data.botMessage) {
+        setSupportMessages(prev => [...prev, data.userMessage, data.botMessage]);
       }
-      setSupportSuccess(true);
-      setTimeout(() => {
-        setShowSupportDialog(false);
-        setSupportSubject("");
-        setSupportMessage("");
-        setSupportSuccess(false);
-      }, 2000);
     } catch {
-      setSupportError("Ошибка соединения");
+      // silent
     } finally {
       setSupportLoading(false);
     }
   };
+
+  const handleOpenSupport = async () => {
+    setShowSupportDialog(true);
+    if (supportMessages.length === 0) {
+      setSupportLoadingHistory(true);
+      try {
+        const userId = useAppStore.getState().userId;
+ const params = userId ? `userId=${userId}` : '';
+        const res = await fetch(`/api/support?${params}`);
+        const data = await res.json();
+        if (data.messages && data.messages.length > 0) {
+          setSupportMessages(data.messages);
+          if (data.sessionId) setSupportSessionId(data.sessionId);
+        }
+      } catch {
+        // silent
+      } finally {
+        setSupportLoadingHistory(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (supportMessages.length > 0 && supportScrollRef.current) {
+      supportScrollRef.current.scrollTop = supportScrollRef.current.scrollHeight;
+    }
+  }, [supportMessages]);
 
   const presetAccents = ["#e03131", "#8b5cf6", "#4ade80", "#f59e0b", "#ec4899", "#06b6d4", "#f97316"];
 
@@ -548,12 +570,12 @@ export default function SettingsView() {
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
-        onClick={() => { setShowSupportDialog(true); setSupportError(""); setSupportSuccess(false); }}
+        onClick={() => { handleOpenSupport(); }}
         className="w-full p-3 rounded-xl text-left text-sm font-medium flex items-center gap-3"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
       >
         <Headphones className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-        Связь с поддержкой
+        Чат с поддержкой
       </motion.button>
 
       {/* Logout */}
@@ -571,92 +593,113 @@ export default function SettingsView() {
         Выйти из аккаунта
       </motion.button>
 
-      {/* Support Dialog */}
+      {/* Support Chat Dialog */}
       <Dialog open={showSupportDialog} onOpenChange={setShowSupportDialog}>
         <DialogContent
           style={{
             backgroundColor: "var(--mq-card)",
             border: "1px solid var(--mq-border)",
             color: "var(--mq-text)",
-            maxWidth: 480,
+            maxWidth: 520,
+            height: "70vh",
+            maxHeight: 600,
+            padding: 0,
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          <DialogHeader>
+          <DialogHeader className="px-4 pt-4 pb-0 flex-shrink-0">
             <DialogTitle className="flex items-center gap-2" style={{ color: "var(--mq-text)" }}>
               <Headphones className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-              Связь с поддержкой
+              Чат с поддержкой
             </DialogTitle>
+            <p className="text-[11px] mt-1 flex items-center gap-1.5" style={{ color: "var(--mq-text-muted)" }}>
+              <Bot className="w-3 h-3" style={{ color: "#06b6d4" }} />
+              AI-бот отвечает мгновенно, администратор — в рабочее время
+            </p>
           </DialogHeader>
 
-          {supportSuccess ? (
-            <div className="flex flex-col items-center gap-3 py-8">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(74,222,128,0.15)" }}>
-                <Check className="w-7 h-7" style={{ color: "#4ade80" }} />
+          {/* Messages area */}
+          <div
+            ref={supportScrollRef}
+            className="flex-1 overflow-y-auto px-4 py-3 space-y-3 min-h-0"
+          >
+            {supportLoadingHistory ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-accent)" }} />
               </div>
-              <p className="text-sm font-medium" style={{ color: "#4ade80" }}>Сообщение отправлено!</p>
-              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Мы ответим на вашу почту как можно скорее</p>
-            </div>
-          ) : (
-            <div className="space-y-4 mt-2">
-              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-                Опишите проблему или задайте вопрос. Мы ответим на <span style={{ color: "var(--mq-text)", fontWeight: 500 }}>{email || "вашу почту"}</span>
-              </p>
-
-              {supportError && (
-                <div className="p-2.5 rounded-lg text-xs" style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b" }}>
-                  {supportError}
+            ) : supportMessages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 gap-2">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.15)" }}>
+                  <Bot className="w-6 h-6" style={{ color: "#06b6d4" }} />
                 </div>
-              )}
-
-              <div>
-                <label className="text-xs mb-1.5 block" style={{ color: "var(--mq-text-muted)" }}>Тема</label>
-                <input
-                  type="text"
-                  value={supportSubject}
-                  onChange={(e) => setSupportSubject(e.target.value)}
-                  placeholder="Кратко опишите проблему"
-                  className="w-full rounded-lg px-3 py-2.5 text-sm"
-                  style={{
-                    backgroundColor: "var(--mq-input-bg)",
-                    border: "1px solid var(--mq-border)",
-                    color: "var(--mq-text)",
-                  }}
-                />
+                <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Начните чат с поддержкой</p>
+                <p className="text-[11px]" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>Опишите проблему, и бот поможет или передаст администратору</p>
               </div>
+            ) : (
+              supportMessages.map((msg) => {
+                const isUser = msg.role === "user";
+                const isBot = msg.role === "bot";
+                return (
+                  <div key={msg.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
+                    <div className="max-w-[85%]">
+                      {isBot && (
+                        <p className="text-[10px] font-medium mb-1 flex items-center gap-1" style={{ color: "#06b6d4" }}>
+                          <Bot className="w-2.5 h-2.5" /> MQ Bot
+                        </p>
+                      )}
+                      {msg.role === "admin" && (
+                        <p className="text-[10px] font-medium mb-1" style={{ color: "var(--mq-accent)" }}>Администратор</p>
+                      )}
+                      <div
+                        className="rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap"
+                        style={{
+                          backgroundColor: isUser ? "var(--mq-accent)" : isBot ? "rgba(6,182,212,0.08)" : "rgba(224,49,49,0.1)",
+                          color: isUser ? "var(--mq-text)" : "var(--mq-text)",
+                          border: `1px solid ${isUser ? "var(--mq-accent)" : isBot ? "rgba(6,182,212,0.2)" : "rgba(224,49,49,0.15)"}`,
+                        }}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
 
-              <div>
-                <label className="text-xs mb-1.5 block" style={{ color: "var(--mq-text-muted)" }}>Сообщение</label>
-                <textarea
-                  value={supportMessage}
-                  onChange={(e) => setSupportMessage(e.target.value)}
-                  placeholder="Подробно опишите проблему или вопрос..."
-                  rows={4}
-                  className="w-full rounded-lg px-3 py-2.5 text-sm resize-none"
-                  style={{
-                    backgroundColor: "var(--mq-input-bg)",
-                    border: "1px solid var(--mq-border)",
-                    color: "var(--mq-text)",
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center justify-end pt-1">
-                <button
-                  onClick={handleSendSupport}
-                  disabled={supportLoading || !supportSubject.trim() || !supportMessage.trim()}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity"
-                  style={{
-                    backgroundColor: "var(--mq-accent)",
-                    color: "var(--mq-text)",
-                    opacity: supportLoading || !supportSubject.trim() || !supportMessage.trim() ? 0.5 : 1,
-                  }}
-                >
-                  {supportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  Отправить
-                </button>
-              </div>
-            </div>
-          )}
+          {/* Input area */}
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleSendSupport(); }}
+            className="px-4 py-3 flex items-center gap-2 flex-shrink-0"
+            style={{ borderTop: "1px solid var(--mq-border)" }}
+          >
+            <input
+              type="text"
+              value={supportInput}
+              onChange={(e) => setSupportInput(e.target.value)}
+              placeholder="Напишите сообщение..."
+              disabled={supportLoading}
+              className="flex-1 px-3.5 py-2.5 rounded-xl text-sm"
+              style={{
+                backgroundColor: "var(--mq-input-bg)",
+                border: "1px solid var(--mq-border)",
+                color: "var(--mq-text)",
+              }}
+            />
+            <button
+              type="submit"
+              disabled={supportLoading || !supportInput.trim()}
+              className="p-2.5 rounded-xl flex-shrink-0"
+              style={{
+                backgroundColor: supportInput.trim() ? "var(--mq-accent)" : "var(--mq-border)",
+                color: "var(--mq-text)",
+                opacity: !supportInput.trim() ? 0.5 : 1,
+              }}
+            >
+              {supportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </button>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

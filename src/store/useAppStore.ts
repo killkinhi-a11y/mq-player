@@ -28,7 +28,7 @@ if (typeof window !== "undefined") {
 }
 
 export type ViewType = "auth" | "main" | "search" | "messenger" | "settings" | "profile" | "playlists" | "public-playlists" | "history" | "stories";
-export type AuthStep = "login" | "register" | "confirm" | "confirmed";
+export type AuthStep = "login" | "register" | "confirm" | "confirmed" | "forgot-password";
 
 export interface UserPlaylist {
   id: string;

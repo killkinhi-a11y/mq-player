@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import {
   Database,
-  Mail,
   Server,
   Shield,
   CheckCircle,
@@ -12,13 +11,13 @@ import {
   Loader2,
   Globe,
   Cpu,
+  ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface SystemInfo {
   dbStatus: "connected" | "error";
   dbResponseTime: number;
-  smtpStatus: "configured" | "not_configured";
   envVarsCount: number;
   nodeEnv: string;
   dbProvider: string;
@@ -39,19 +38,11 @@ export default function AdminSettingsPage() {
         const dbTime = Date.now() - dbStart;
         const statsData = await statsRes.json();
 
-        // Check SMTP by reading env vars (indirect)
-        const smtpConfigured = statsData.error ? false : true; // If API works, system is up
-
-        // Count env vars we know about
         const knownEnvVars = [
           "DATABASE_URL",
           "POSTGRES_URL_NON_POOLING",
           "NEXTAUTH_SECRET",
           "NEXTAUTH_URL",
-          "SMTP_HOST",
-          "SMTP_PORT",
-          "SMTP_USER",
-          "SMTP_PASS",
           "NODE_ENV",
           "VERCEL_URL",
         ];
@@ -59,7 +50,6 @@ export default function AdminSettingsPage() {
         setInfo({
           dbStatus: statsData.error ? "error" : "connected",
           dbResponseTime: dbTime,
-          smtpStatus: smtpConfigured ? "configured" : "not_configured",
           envVarsCount: knownEnvVars.length,
           nodeEnv: process.env.NODE_ENV || "production",
           dbProvider: "PostgreSQL (Neon)",
@@ -69,7 +59,6 @@ export default function AdminSettingsPage() {
         setInfo({
           dbStatus: "error",
           dbResponseTime: 0,
-          smtpStatus: "not_configured",
           envVarsCount: 0,
           nodeEnv: process.env.NODE_ENV || "unknown",
           dbProvider: "PostgreSQL (Neon)",
@@ -101,14 +90,6 @@ export default function AdminSettingsPage() {
       status: info.dbStatus,
       statusLabel: info.dbStatus === "connected" ? "Подключена" : "Ошибка",
       detail: `${info.dbResponseTime}мс`,
-    },
-    {
-      title: "SMTP (Email)",
-      description: "Сервис отправки писем",
-      icon: Mail,
-      status: info.smtpStatus === "configured" ? "connected" : "error",
-      statusLabel: info.smtpStatus === "configured" ? "Настроен" : "Не настроен",
-      detail: info.smtpStatus === "configured" ? "Активен" : "Требуется настройка",
     },
     {
       title: "Среда выполнения",

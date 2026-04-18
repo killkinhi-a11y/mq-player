@@ -1,8 +1,13 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 export async function sendVerificationEmail(to: string, code: string) {
+  if (!resend) {
+    console.log(`[EMAIL MOCK] Verification code for ${to}: ${code}`);
+    return { id: 'mock' };
+  }
+
   return resend.emails.send({
     from: 'MQ Player <onboarding@resend.dev>',
     to,
