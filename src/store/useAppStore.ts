@@ -491,16 +491,8 @@ export const useAppStore = create<AppState>()(
 
       addMessage: (message) =>
         set((s) => {
-          // Dedup: skip messages with same content+sender+receiver within 15 seconds
-          const now = Date.now();
-          const isDuplicate = s.messages.some(
-            (m) =>
-              m.content === message.content &&
-              m.senderId === message.senderId &&
-              m.receiverId === message.receiverId &&
-              Math.abs(new Date(m.createdAt).getTime() - now) < 15000
-          );
-          if (isDuplicate) return s;
+          // Dedup: skip messages with same ID
+          if (s.messages.some((m) => m.id === message.id)) return s;
           return { messages: [...s.messages, message] };
         }),
 

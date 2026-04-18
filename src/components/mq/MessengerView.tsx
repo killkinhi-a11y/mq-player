@@ -9,7 +9,7 @@ import {
   Lock, Shield, Send, ArrowLeft, Search, ShieldCheck, Smile, Trash2,
   Plus, Music2, X, Loader2, Copy, Reply, UserPlus, UserCheck, Users, AlertCircle,
   Play, Pause, ChevronLeft, ChevronRight, BookOpen, Pin,
-  Mic, MicOff, Edit3, MessageSquare, Sticker, KeyRound,
+  Mic, MicOff, Edit3, MessageSquare, Sticker,
   MoreVertical, Check
 } from "lucide-react";
 import { simulateEncrypt, getEncryptionStatus, generateMockFingerprint, simulateDecryptSync } from "@/lib/crypto";
@@ -65,19 +65,19 @@ const stickerCategories = [
 //  HELPERS
 // ═══════════════════════════════════════════════════════════════
 
-function AvatarImg({ src, alt, className }: { src: string; alt: string; className?: string }) {
+function AvatarImg({ src, alt, className, style }: { src: string; alt: string; className?: string; style?: React.CSSProperties }) {
   const [errored, setErrored] = useState(false);
   const initials = alt.split(" ").map((w) => w.charAt(0).toUpperCase()).slice(0, 2).join("");
   if (errored) {
     const colors = ["#e03131", "#0ea5e9", "#f43f5e", "#f97316", "#34d399", "#a78bfa", "#ff2a6d", "#e040fb"];
     const colorIdx = (alt.charCodeAt(0) + (alt.charCodeAt(1) || 0)) % colors.length;
     return (
-      <div className={className} style={{ backgroundColor: colors[colorIdx], display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "0.8em" }}>
+      <div className={className} style={{ backgroundColor: colors[colorIdx], display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "0.8em", ...style }}>
         {initials || "?"}
       </div>
     );
   }
-  return <img src={src} alt={alt} className={className} onError={() => setErrored(true)} />;
+  return <img src={src} alt={alt} className={className} style={style} onError={() => setErrored(true)} />;
 }
 
 function getDateLabel(dateStr: string): string {
@@ -133,7 +133,7 @@ const shadowDeep = "0 8px 32px rgba(0,0,0,0.35)";
 export default function MessengerView() {
   const {
     userId, username, email, messages, addMessage, selectedContactId, setSelectedContact,
-    animationsEnabled, currentTrack, unreadCounts, addContact, contacts,
+    animationsEnabled, currentTrack, isPlaying, unreadCounts, addContact, contacts,
     loadMessages,
   } = useAppStore();
 
@@ -366,6 +366,46 @@ export default function MessengerView() {
   }, [userId, addMessage]);
 
   // ═══════════════════════════════════════════════════════════
+  //  POLLING FALLBACK — fetch new messages every 5 seconds
+  // ═══════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    if (!userId) return;
+    let latestId = "";
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId || "__none__"}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const msgs: any[] = data.messages || [];
+        if (msgs.length > 0) {
+          const maxId = msgs[msgs.length - 1].id;
+          if (maxId > latestId) {
+            latestId = maxId;
+            const newMsgs = msgs.filter((m: any) => {
+              const existing = useAppStore.getState().messages.find((em: any) => em.id === m.id);
+              return !existing;
+            });
+            if (newMsgs.length > 0) {
+              const mapped = newMsgs.map((m: any) => ({
+                id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
+                encrypted: m.encrypted, createdAt: m.createdAt,
+                senderName: `@${m.sender?.username || "user"}`,
+                messageType: m.messageType, replyToId: m.replyToId, edited: m.edited,
+                voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
+              }));
+              mapped.forEach((msg: any) => useAppStore.getState().addMessage(msg));
+            }
+          }
+        }
+      } catch { /* silent */ }
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [userId, selectedContactId]);
+
+  // ═══════════════════════════════════════════════════════════
   //  FEATURE 7: Heartbeat + online status
   // ═══════════════════════════════════════════════════════════
 
@@ -557,14 +597,18 @@ export default function MessengerView() {
 
   // ── Close context menu on click/touch anywhere ──
   useEffect(() => {
+    if (!contextMenuMsgId) return;
     const close = () => setContextMenuMsgId(null);
-    if (contextMenuMsgId) {
-      document.addEventListener("click", close);
-      document.addEventListener("touchstart", close);
+    // Use setTimeout so the touch/click that opened the menu doesn't immediately close it
+    const timer = setTimeout(() => {
+      document.addEventListener("mousedown", close);
       document.addEventListener("touchend", close);
-      document.addEventListener("contextmenu", close);
-      return () => { document.removeEventListener("click", close); document.removeEventListener("touchstart", close); document.removeEventListener("touchend", close); document.removeEventListener("contextmenu", close); };
-    }
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("touchend", close);
+    };
   }, [contextMenuMsgId]);
 
   // ═══════════════════════════════════════════════════════════
@@ -793,18 +837,7 @@ export default function MessengerView() {
   //  FEATURE 13: RESET PASSWORD
   // ═══════════════════════════════════════════════════════════
 
-  const handleResetPassword = async () => {
-    setShowChatSettings(false);
-    if (!email) return;
-    try {
-      await fetch("/api/auth/send-code", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email }) });
-      const notif = document.createElement("div");
-      notif.style.cssText = "position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;padding:12px 24px;border-radius:12px;font-size:14px;font-family:system-ui,sans-serif;color:#f5f5f5;background:rgba(30,30,30,0.95);border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.3);";
-      notif.textContent = "Код отправки пароля отправлен на вашу почту";
-      document.body.appendChild(notif);
-      setTimeout(() => { notif.style.opacity = "0"; notif.style.transition = "opacity 0.3s"; setTimeout(() => notif.remove(), 300); }, 3000);
-    } catch { /* silent */ }
-  };
+  // Password reset is available in Settings only
 
   // ═══════════════════════════════════════════════════════════
   //  FEATURE 10: GROUP CHATS
@@ -1141,11 +1174,13 @@ export default function MessengerView() {
                     {showChatSettings && (
                       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
                         className="absolute right-0 top-full mt-1 rounded-xl py-1 min-w-[180px] z-50" style={{ ...glassPanelSolid, boxShadow: shadowDeep }}
-                        onClick={(e) => e.stopPropagation()}>
-                        <button onClick={handleResetPassword}
-                          className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-left cursor-pointer transition-opacity hover:opacity-80" style={{ color: "var(--mq-text)" }}>
-                          <KeyRound className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} /> Сменить пароль
-                        </button>
+                        onClick={(e) => { e.stopPropagation(); setShowChatSettings(false); }}>
+                        {!isGroupChat && selectedContactId && (
+                          <button onClick={() => { setShowChatSettings(false); setShowProfileView(selectedContactId); }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-left cursor-pointer transition-opacity hover:opacity-80" style={{ color: "var(--mq-text)" }}>
+                            <Users className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} /> Профиль
+                          </button>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -1599,7 +1634,7 @@ export default function MessengerView() {
             <motion.div key={viewingStory.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
               className="relative w-full max-w-[420px] h-[85vh] rounded-2xl overflow-hidden mx-2" style={{ backgroundColor: "var(--mq-card)" }} onClick={(e) => e.stopPropagation()}>
               <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-3 p-4" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)" }}>
-                <AvatarImg src={viewingStory.avatar} alt={viewingStory.username} className="w-9 h-9 rounded-full object-cover" style={{ border: "2px solid white" } as React.CSSProperties} />
+                <AvatarImg src={viewingStory.avatar} alt={viewingStory.username} className="w-9 h-9 rounded-full object-cover" style={{ border: "2px solid white" }} />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-white">{viewingStory.username}</p>
                   <p className="text-[10px] text-white/60">{new Date(viewingStory.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</p>
@@ -1627,7 +1662,7 @@ export default function MessengerView() {
                         <motion.button whileTap={{ scale: 0.9 }} className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}
                           onClick={() => {
                             const store = useAppStore.getState();
-                            store.playTrack({ id: viewingStory.trackData!.id, title: viewingStory.trackData!.title, artist: viewingStory.trackData!.artist, cover: viewingStory.trackData!.cover, audioUrl: viewingStory.trackData!.streamUrl, duration: viewingStory.trackData!.duration }, []);
+                            store.playTrack({ id: viewingStory.trackData!.id, title: viewingStory.trackData!.title, artist: viewingStory.trackData!.artist, cover: viewingStory.trackData!.cover, audioUrl: viewingStory.trackData!.streamUrl, duration: viewingStory.trackData!.duration } as any, []);
                           }}>
                           <Play className="w-6 h-6 text-white" style={{ marginLeft: 2 }} />
                         </motion.button>
@@ -1660,10 +1695,38 @@ export default function MessengerView() {
                 <AvatarImg src={contactList.find(c => c.id === showProfileView)?.avatar || ""} alt={contactList.find(c => c.id === showProfileView)?.name || "User"} className="w-20 h-20 rounded-full object-cover" style={{ border: "3px solid var(--mq-accent)" }} />
                 <div className="text-center">
                   <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>@{contactList.find(c => c.id === showProfileView)?.username || "User"}</p>
-                  <p className="text-xs mt-1" style={{ color: onlineStatuses[showProfileView || ""]?.online ? "#4ade80" : "var(--mq-text-muted)" }}>
-                    {onlineStatuses[showProfileView || ""]?.online ? "В сети" : formatLastSeen(onlineStatuses[showProfileView || ""]?.lastSeen || null)}
-                  </p>
+                  <div className="flex items-center justify-center gap-1.5 mt-1.5">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: onlineStatuses[showProfileView || ""]?.online ? "#4ade80" : "#6b7280" }} />
+                    <p className="text-xs" style={{ color: onlineStatuses[showProfileView || ""]?.online ? "#4ade80" : "var(--mq-text-muted)" }}>
+                      {onlineStatuses[showProfileView || ""]?.online ? "В сети" : formatLastSeen(onlineStatuses[showProfileView || ""]?.lastSeen || null)}
+                    </p>
+                  </div>
                 </div>
+                {/* Now listening status */}
+                {showProfileView === userId && currentTrack && (
+                  <div className="w-full rounded-xl p-3 flex items-center gap-3" style={{ ...glassPanel }}>
+                    {currentTrack.cover ? (
+                      <img src={currentTrack.cover} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }}>
+                        <Music2 className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>Сейчас слушает</p>
+                      <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+                      <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
+                    </div>
+                    {isPlaying && (
+                      <div className="flex items-end gap-0.5 flex-shrink-0">
+                        {[0, 1, 2].map((i) => (
+                          <motion.div key={i} className="w-0.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)", height: 8 }}
+                            animate={{ height: [4, 12, 6, 10, 4] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
@@ -1727,16 +1790,7 @@ export default function MessengerView() {
             {isSticker ? (
               <div className="text-5xl py-2">{stickerEmoji}</div>
             ) : isVoice ? (
-              <div className="rounded-2xl px-4 py-3 flex items-center gap-3 min-w-[200px]"
-                style={{ backgroundColor: isMine ? "var(--mq-accent)" : "var(--mq-card)", border: isMine ? "none" : "1px solid var(--mq-border)", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
-                <button className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: isMine ? "rgba(255,255,255,0.2)" : "var(--mq-accent)" }}>
-                  <Play className="w-3.5 h-3.5" style={{ color: isMine ? "var(--mq-text)" : "var(--mq-text)", marginLeft: 1 }} />
-                </button>
-                <audio src={voiceData.voiceUrl} className="flex-1 h-6" style={{ maxHeight: 24 }} controls />
-                <span className="text-[10px] flex-shrink-0" style={{ color: isMine ? "var(--mq-text)" : "var(--mq-text-muted)", opacity: 0.7 }}>
-                  {voiceData.voiceDuration ? `${voiceData.voiceDuration}s` : ""}
-                </span>
-              </div>
+              <VoiceMessageBubble voiceUrl={voiceData!.voiceUrl} duration={voiceData!.voiceDuration || 0} isMine={isMine} />
             ) : (
               <MessageBubble message={msg} currentUserId={userId || undefined} />
             )}
@@ -1797,16 +1851,7 @@ export default function MessengerView() {
           {stickerEmoji ? (
             <div className="text-5xl py-2">{stickerEmoji}</div>
           ) : voiceData ? (
-            <div className="rounded-2xl px-4 py-3 flex items-center gap-3 min-w-[200px]"
-              style={{ backgroundColor: isMine ? "var(--mq-accent)" : "var(--mq-card)", border: isMine ? "none" : "1px solid var(--mq-border)", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
-              <button className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: isMine ? "rgba(255,255,255,0.2)" : "var(--mq-accent)" }}>
-                <Play className="w-3.5 h-3.5" style={{ color: "var(--mq-text)", marginLeft: 1 }} />
-              </button>
-              <audio src={voiceData.voiceUrl} className="flex-1 h-6" style={{ maxHeight: 24 }} controls />
-              <span className="text-[10px] flex-shrink-0" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
-                {voiceData.voiceDuration ? `${voiceData.voiceDuration}s` : ""}
-              </span>
-            </div>
+            <VoiceMessageBubble voiceUrl={voiceData!.voiceUrl} duration={voiceData!.voiceDuration || 0} isMine={isMine} />
           ) : (
             <MessageBubble message={{ id: msg.id, content: msg.content, senderId: msg.senderId, receiverId: userId || "", encrypted: false, createdAt: msg.createdAt, senderName: msg.senderName, messageType: msg.messageType, replyToId: msg.replyToId, edited: msg.edited }} currentUserId={userId || undefined} />
           )}
@@ -1818,6 +1863,106 @@ export default function MessengerView() {
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+//  VOICE MESSAGE BUBBLE COMPONENT
+// ═══════════════════════════════════════════════════════════════
+
+function VoiceMessageBubble({ voiceUrl, duration, isMine }: { voiceUrl: string; duration: number; isMine: boolean }) {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Generate pseudo-random bar heights based on duration for consistent waveform
+  const barCount = 28;
+  const barHeights = useMemo(() => {
+    const heights: number[] = [];
+    let seed = duration * 7;
+    for (let i = 0; i < barCount; i++) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      heights.push(20 + (seed % 80));
+    }
+    return heights;
+  }, [duration]);
+
+  useEffect(() => {
+    return () => {
+      if (progressInterval.current) clearInterval(progressInterval.current);
+    };
+  }, []);
+
+  const togglePlay = () => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio(voiceUrl);
+      audioRef.current.onended = () => {
+        setIsPlaying(false);
+        setProgress(0);
+        setCurrentTime(0);
+        if (progressInterval.current) clearInterval(progressInterval.current);
+      };
+      audioRef.current.ontimeupdate = () => {
+        if (audioRef.current) {
+          const pct = (audioRef.current.currentTime / audioRef.current.duration) * 100;
+          setProgress(pct);
+          setCurrentTime(audioRef.current.currentTime);
+        }
+      };
+    }
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      if (progressInterval.current) clearInterval(progressInterval.current);
+    } else {
+      audioRef.current.play().catch(() => {});
+      setIsPlaying(true);
+    }
+  };
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60).toString().padStart(2, "0");
+    const sec = Math.floor(s % 60).toString().padStart(2, "0");
+    return `${m}:${sec}`;
+  };
+
+  return (
+    <div className="rounded-2xl px-4 py-3 flex items-center gap-3 min-w-[220px] max-w-[280px]"
+      style={{ backgroundColor: isMine ? "var(--mq-accent)" : "var(--mq-card)", border: isMine ? "none" : "1px solid var(--mq-border)", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
+      {/* Play button */}
+      <button onClick={togglePlay} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-90"
+        style={{ backgroundColor: isMine ? "rgba(255,255,255,0.25)" : "var(--mq-accent)" }}>
+        {isPlaying ? (
+          <Pause className="w-3.5 h-3.5" style={{ color: isMine ? "var(--mq-text)" : "var(--mq-text)" }} />
+        ) : (
+          <Play className="w-3.5 h-3.5" style={{ color: isMine ? "var(--mq-text)" : "var(--mq-text)", marginLeft: 2 }} />
+        )}
+      </button>
+      {/* Waveform bars */}
+      <div className="flex-1 flex items-center gap-[2px] h-8 cursor-pointer" onClick={togglePlay}>
+        {barHeights.map((h, i) => {
+          const isPast = (i / barCount) * 100 < progress;
+          return (
+            <div key={i} className="flex-1 rounded-full transition-all duration-200"
+              style={{
+                height: `${h}%`,
+                minHeight: 3,
+                backgroundColor: isPast
+                  ? (isMine ? "rgba(255,255,255,0.9)" : "var(--mq-accent)")
+                  : (isMine ? "rgba(255,255,255,0.3)" : "var(--mq-border)"),
+              }} />
+          );
+        })}
+      </div>
+      {/* Time */}
+      <span className="text-[10px] font-mono flex-shrink-0 w-10 text-right"
+        style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)" }}>
+        {isPlaying ? formatTime(currentTime) : formatTime(duration)}
+      </span>
+    </div>
+  );
+}
+
 
 // ═══════════════════════════════════════════════════════════════
 //  CONTACT ITEM SUB-COMPONENT
