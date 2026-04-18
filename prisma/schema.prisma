@@ -141,3 +141,13 @@ model PlaylistLike {
 
   @@unique([playlistId, userId])
 }
+
+model SupportMessage {
+  id        String   @id @default(cuid())
+  userId    String?
+  email     String
+  subject   String
+  message   String
+  status    String   @default("new") // "new", "read", "replied", "closed"
+  createdAt DateTime @default(now())
+}

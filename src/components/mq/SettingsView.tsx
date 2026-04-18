@@ -5,10 +5,11 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 export default function SettingsView() {
   const {
@@ -24,6 +25,12 @@ export default function SettingsView() {
   const showAdminLink = email ? ADMIN_EMAILS.includes(email.toLowerCase()) : false;
 
   const [accentInput, setAccentInput] = useState(customAccent || "");
+  const [showSupportDialog, setShowSupportDialog] = useState(false);
+  const [supportSubject, setSupportSubject] = useState("");
+  const [supportMessage, setSupportMessage] = useState("");
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportSuccess, setSupportSuccess] = useState(false);
+  const [supportError, setSupportError] = useState("");
   const volumeSectionRef = useRef<HTMLDivElement>(null);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const themeMenuRef = useRef<HTMLDivElement>(null);
@@ -47,6 +54,40 @@ export default function SettingsView() {
   const handleAccentChange = (color: string) => {
     setAccentInput(color);
     setCustomAccent(color);
+  };
+
+  const handleSendSupport = async () => {
+    if (!supportSubject.trim() || !supportMessage.trim()) return;
+    setSupportLoading(true);
+    setSupportError("");
+    try {
+      const res = await fetch("/api/support", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email || "",
+          subject: supportSubject.trim(),
+          message: supportMessage.trim(),
+          userId: useAppStore.getState().userId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSupportError(data.error);
+        return;
+      }
+      setSupportSuccess(true);
+      setTimeout(() => {
+        setShowSupportDialog(false);
+        setSupportSubject("");
+        setSupportMessage("");
+        setSupportSuccess(false);
+      }, 2000);
+    } catch {
+      setSupportError("Ошибка соединения");
+    } finally {
+      setSupportLoading(false);
+    }
   };
 
   const presetAccents = ["#e03131", "#8b5cf6", "#4ade80", "#f59e0b", "#ec4899", "#06b6d4", "#f97316"];
@@ -407,6 +448,18 @@ export default function SettingsView() {
         </div>
       </motion.div>
 
+      {/* Support */}
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => { setShowSupportDialog(true); setSupportError(""); setSupportSuccess(false); }}
+        className="w-full p-3 rounded-xl text-left text-sm font-medium flex items-center gap-3"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+      >
+        <Headphones className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+        Связь с поддержкой
+      </motion.button>
+
       {/* Logout */}
       <motion.button
         whileHover={{ scale: 1.02 }}
@@ -421,6 +474,98 @@ export default function SettingsView() {
       >
         Выйти из аккаунта
       </motion.button>
+
+      {/* Support Dialog */}
+      <Dialog open={showSupportDialog} onOpenChange={setShowSupportDialog}>
+        <DialogContent
+          style={{
+            backgroundColor: "var(--mq-card)",
+            border: "1px solid var(--mq-border)",
+            color: "var(--mq-text)",
+            maxWidth: 480,
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" style={{ color: "var(--mq-text)" }}>
+              <Headphones className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+              Связь с поддержкой
+            </DialogTitle>
+          </DialogHeader>
+
+          {supportSuccess ? (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(74,222,128,0.15)" }}>
+                <Check className="w-7 h-7" style={{ color: "#4ade80" }} />
+              </div>
+              <p className="text-sm font-medium" style={{ color: "#4ade80" }}>Сообщение отправлено!</p>
+              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Мы ответим на вашу почту как можно скорее</p>
+            </div>
+          ) : (
+            <div className="space-y-4 mt-2">
+              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                Опишите проблему или задайте вопрос. Мы ответим на <span style={{ color: "var(--mq-text)", fontWeight: 500 }}>{email || "вашу почту"}</span>
+              </p>
+
+              {supportError && (
+                <div className="p-2.5 rounded-lg text-xs" style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b" }}>
+                  {supportError}
+                </div>
+              )}
+
+              <div>
+                <label className="text-xs mb-1.5 block" style={{ color: "var(--mq-text-muted)" }}>Тема</label>
+                <input
+                  type="text"
+                  value={supportSubject}
+                  onChange={(e) => setSupportSubject(e.target.value)}
+                  placeholder="Кратко опишите проблему"
+                  className="w-full rounded-lg px-3 py-2.5 text-sm"
+                  style={{
+                    backgroundColor: "var(--mq-input-bg)",
+                    border: "1px solid var(--mq-border)",
+                    color: "var(--mq-text)",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs mb-1.5 block" style={{ color: "var(--mq-text-muted)" }}>Сообщение</label>
+                <textarea
+                  value={supportMessage}
+                  onChange={(e) => setSupportMessage(e.target.value)}
+                  placeholder="Подробно опишите проблему или вопрос..."
+                  rows={4}
+                  className="w-full rounded-lg px-3 py-2.5 text-sm resize-none"
+                  style={{
+                    backgroundColor: "var(--mq-input-bg)",
+                    border: "1px solid var(--mq-border)",
+                    color: "var(--mq-text)",
+                  }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                  Также пишите: killkin.hi@gmail.com
+                </p>
+                <button
+                  onClick={handleSendSupport}
+                  disabled={supportLoading || !supportSubject.trim() || !supportMessage.trim()}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-opacity"
+                  style={{
+                    backgroundColor: "var(--mq-accent)",
+                    color: "var(--mq-text)",
+                    opacity: supportLoading || !supportSubject.trim() || !supportMessage.trim() ? 0.5 : 1,
+                  }}
+                >
+                  {supportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  Отправить
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
