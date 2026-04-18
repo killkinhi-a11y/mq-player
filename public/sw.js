@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mq-pwa-v4';
+const CACHE_NAME = 'mq-pwa-v6';
 
 const STATIC_ASSETS = [
   '/play',
@@ -36,17 +36,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // _next static chunks: NETWORK-FIRST (never serve stale JS/CSS from cache)
+  // _next static chunks: NEVER cache — always network-only to avoid stale chunks
   if (url.pathname.startsWith('/_next/')) {
-    event.respondWith(
-      fetch(event.request).then((response) => {
-        if (response.ok && event.request.method === 'GET') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => caches.match(event.request))
-    );
     return;
   }
 
