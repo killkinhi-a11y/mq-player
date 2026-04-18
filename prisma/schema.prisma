@@ -1,0 +1,115 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id             String    @id @default(cuid())
+  username       String    @unique
+  email          String    @unique
+  password       String
+  confirmed      Boolean   @default(false)
+  theme          String    @default("default")
+  accent         String    @default("#e03131")
+  createdAt      DateTime  @default(now())
+  sentMessages   Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  sentFriendRequests     Friend[] @relation("SentFriendRequests")
+  receivedFriendRequests Friend[] @relation("ReceivedFriendRequests")
+  stories                Story[]  @relation("UserStories")
+  storyLikes             StoryLike[] @relation("UserStoryLikes")
+  storyComments          StoryComment[] @relation("UserStoryComments")
+  playlists              Playlist[] @relation("UserPlaylists")
+  playlistLikes          PlaylistLike[] @relation("UserPlaylistLikes")
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  content    String
+  senderId   String
+  receiverId String
+  encrypted  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+}
+
+model Friend {
+  id         String   @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status     String   @default("pending") // "pending", "accepted", "rejected"
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  requester  User     @relation("SentFriendRequests", fields: [requesterId], references: [id])
+  addressee  User     @relation("ReceivedFriendRequests", fields: [addresseeId], references: [id])
+
+  @@unique([requesterId, addresseeId])
+}
+
+model Story {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   @default("text") // "text", "image", "music"
+  content   String   // text content or image URL
+  bgColor   String   @default("#1a1a2e")
+  textColor String   @default("#ffffff")
+  createdAt DateTime @default(now())
+  expiresAt DateTime // stories expire after 24h
+  user      User     @relation("UserStories", fields: [userId], references: [id])
+  likes     StoryLike[]
+  comments  StoryComment[]
+}
+
+model StoryLike {
+  id      String @id @default(cuid())
+  storyId String
+  userId  String
+  createdAt DateTime @default(now())
+  story   Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user    User  @relation("UserStoryLikes", fields: [userId], references: [id])
+
+  @@unique([storyId, userId])
+}
+
+model StoryComment {
+  id        String   @id @default(cuid())
+  storyId   String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserStoryComments", fields: [userId], references: [id])
+}
+
+model Playlist {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String   @default("")
+  cover       String   @default("")
+  isPublic    Boolean  @default(true)
+  tags        String   @default("")     // comma-separated: "pop,rock,chill"
+  tracksJson  String   @default("[]")   // JSON array of Track objects
+  playCount   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation("UserPlaylists", fields: [userId], references: [id], onDelete: Cascade)
+  likes       PlaylistLike[]
+}
+
+model PlaylistLike {
+  id         String   @id @default(cuid())
+  playlistId String
+  userId     String
+  createdAt  DateTime @default(now())
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  user       User     @relation("UserPlaylistLikes", fields: [userId], references: [id])
+
+  @@unique([playlistId, userId])
+}
