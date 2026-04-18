@@ -154,6 +154,8 @@ export default function MessengerView() {
   const [showChatSettings, setShowChatSettings] = useState(false);
   const [showProfileView, setShowProfileView] = useState<string | null>(null);
   const [showProfileMore, setShowProfileMore] = useState(false);
+  const [friendNowPlaying, setFriendNowPlaying] = useState<{ title: string; artist: string; cover: string } | null>(null);
+  const [friendNowPlayingActive, setFriendNowPlayingActive] = useState(false);
 
   // ── Pinned chats (persisted to localStorage) ──
   const [pinnedChatIds, setPinnedChatIds] = useState<Set<string>>(() => {
@@ -557,6 +559,63 @@ export default function MessengerView() {
     }, 300);
     return () => { cancelled = true; clearTimeout(timer); };
   }, [newChatSearch, userId]);
+
+  // ── Push own now-playing status when track changes ──
+  useEffect(() => {
+    if (!userId || !mounted) return;
+    const pushNowPlaying = async () => {
+      try {
+        const store = useAppStore.getState();
+        const track = store.currentTrack;
+        const playing = store.isPlaying;
+        if (track && playing) {
+          await fetch("/api/user/now-playing", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId,
+              track: { title: track.title, artist: track.artist, cover: track.cover || "" },
+            }),
+          });
+        } else {
+          await fetch("/api/user/now-playing", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId, track: {} }),
+          });
+        }
+      } catch { /* silent */ }
+    };
+    pushNowPlaying();
+  }, [currentTrack?.id, isPlaying, userId, mounted]);
+
+  // ── Fetch friend's now-playing when viewing their profile ──
+  useEffect(() => {
+    if (!showProfileView || showProfileView === userId || !mounted) {
+      setFriendNowPlaying(null);
+      setFriendNowPlayingActive(false);
+      return;
+    }
+    let cancelled = false;
+    const fetchFriendNowPlaying = async () => {
+      try {
+        const res = await fetch(`/api/user/now-playing?userId=${showProfileView}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.nowPlaying) {
+          setFriendNowPlaying(data.nowPlaying);
+          setFriendNowPlayingActive(true);
+        } else {
+          setFriendNowPlaying(null);
+          setFriendNowPlayingActive(false);
+        }
+      } catch { if (!cancelled) { setFriendNowPlaying(null); setFriendNowPlayingActive(false); } }
+    };
+    fetchFriendNowPlaying();
+    const interval = setInterval(fetchFriendNowPlaying, 10000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [showProfileView, userId, mounted]);
 
   // ═══════════════════════════════════════════════════════════
   //  COMPUTED VALUES
@@ -1052,13 +1111,13 @@ export default function MessengerView() {
   const displayMessages = isGroupChat ? currentGroupMessages : contactMessages;
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row" style={{ backgroundColor: "var(--mq-bg)", paddingBottom: currentTrack ? "calc(56px + 80px + 24px)" : "calc(56px + 24px)" }}>
+    <div className="h-[calc(100dvh-3.5rem)] lg:h-[calc(100dvh-3.5rem)] flex flex-col lg:flex-row overflow-hidden" style={{ backgroundColor: "var(--mq-bg)" }}>
       {/* ════════════════════════════════════════════════════════ */}
       {/*  LEFT SIDEBAR                                         */}
       {/* ════════════════════════════════════════════════════════ */}
       <div
         className={`w-full lg:w-80 flex-shrink-0 ${activeChatId ? "hidden lg:flex" : "flex"} flex-col`}
-        style={{ borderRight: "1px solid var(--mq-border)", height: "calc(100dvh - 80px)", ...glassPanel }}
+        style={{ borderRight: "1px solid var(--mq-border)", flex: "0 0 auto", overflow: "hidden", ...glassPanel }}
       >
         {/* ── Sidebar header ── */}
         <div className="p-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-border)" }}>
@@ -1231,11 +1290,11 @@ export default function MessengerView() {
       {/* ════════════════════════════════════════════════════════ */}
       {/*  RIGHT — CHAT AREA                                     */}
       {/* ════════════════════════════════════════════════════════ */}
-      <div className={`flex-1 flex flex-col ${!activeChatId ? "hidden lg:flex" : "flex"}`} style={{ height: "calc(100dvh - 80px)" }}>
+      <div className={`flex-1 flex flex-col ${!activeChatId ? "hidden lg:flex" : "flex"} min-h-0 overflow-hidden`}>
         {activeChatId ? (
           <>
             {/* ── Chat header ── */}
-            <div className="flex items-center gap-3 p-3 lg:p-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)", backdropFilter: "blur(10px)" }}>
+            <div className="flex items-center gap-3 p-3 lg:p-4 flex-shrink-0 sticky top-0 z-10" style={{ borderBottom: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)", backdropFilter: "blur(10px)" }}>
               <button onClick={() => { setSelectedContact(null); setSelectedGroupId(null); }} className="lg:hidden p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}>
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -2027,11 +2086,11 @@ export default function MessengerView() {
                 </div>
               </div>
 
-              {/* Now listening status — shows when user is playing a track */}
-              {currentTrack && (
+              {/* Now listening status — shows friend's currently playing track */}
+              {friendNowPlaying && (
                 <div className="mx-4 mb-4 rounded-xl p-3 flex items-center gap-3" style={{ ...glassPanel }}>
-                  {currentTrack.cover ? (
-                    <img src={currentTrack.cover} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0 shadow-lg" />
+                  {friendNowPlaying.cover ? (
+                    <img src={friendNowPlaying.cover} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0 shadow-lg" />
                   ) : (
                     <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }}>
                       <Music2 className="w-6 h-6" style={{ color: "var(--mq-text)" }} />
@@ -2039,10 +2098,10 @@ export default function MessengerView() {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-semibold tracking-wide uppercase" style={{ color: "var(--mq-accent)" }}>Сейчас слушает</p>
-                    <p className="text-xs font-medium truncate mt-0.5" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
-                    <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
+                    <p className="text-xs font-medium truncate mt-0.5" style={{ color: "var(--mq-text)" }}>{friendNowPlaying.title}</p>
+                    <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{friendNowPlaying.artist}</p>
                   </div>
-                  {isPlaying && (
+                  {friendNowPlayingActive && (
                     <div className="flex items-end gap-[3px] flex-shrink-0 h-5">
                       {[0, 1, 2, 3].map((i) => (
                         <motion.div
