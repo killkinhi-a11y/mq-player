@@ -15,7 +15,7 @@ export default function SettingsView() {
     currentTheme, setTheme, customAccent, setCustomAccent,
     animationsEnabled, setAnimationsEnabled, compactMode, setCompactMode,
     fontSize, setFontSize, volume, setVolume, logout, username, animationsEnabled: anim, setView,
-    liquidGlassMobile, setLiquidGlassMobile, email,
+    liquidGlassMobile, setLiquidGlassMobile, email, avatar,
   } = useAppStore();
 
   const ADMIN_EMAILS = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_ADMIN_EMAILS) 
@@ -74,12 +74,21 @@ export default function SettingsView() {
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
         <div className="flex items-center gap-4">
-          <div
-            className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold"
-            style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
-          >
-            {username?.charAt(0)?.toUpperCase() || "U"}
-          </div>
+          {avatar ? (
+            <img
+              src={avatar}
+              alt="avatar"
+              className="w-14 h-14 rounded-full object-cover flex-shrink-0"
+              style={{ border: "2px solid var(--mq-accent)" }}
+            />
+          ) : (
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold flex-shrink-0"
+              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+            >
+              {username?.charAt(0)?.toUpperCase() || "U"}
+            </div>
+          )}
           <div>
             <p className="font-semibold" style={{ color: "var(--mq-text)" }}>{username}</p>
             <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
