@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "connected" })}\n\n`));
+        controller.enqueue(encoder.encode(`event: connected\ndata: ${JSON.stringify({ type: "connected" })}\n\n`));
 
         let polling = true;
         let currentId = lastKnownId;
@@ -80,7 +80,7 @@ export async function GET(req: NextRequest) {
                       receiverUsername: msg.receiver?.username,
                     },
                   };
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+                  controller.enqueue(encoder.encode(`event: new_message\ndata: ${JSON.stringify(payload)}\n\n`));
                 }
                 currentId = newMessages[newMessages.length - 1].id;
               }

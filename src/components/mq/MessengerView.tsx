@@ -598,16 +598,20 @@ export default function MessengerView() {
   // ── Close context menu on click/touch anywhere ──
   useEffect(() => {
     if (!contextMenuMsgId) return;
-    const close = () => setContextMenuMsgId(null);
-    // Use setTimeout so the touch/click that opened the menu doesn't immediately close it
+    const close = (e: Event) => {
+      // Don't close if click/touch is inside the context menu
+      const menu = document.querySelector("[data-context-menu]");
+      if (menu && menu.contains(e.target as Node)) return;
+      setContextMenuMsgId(null);
+    };
     const timer = setTimeout(() => {
       document.addEventListener("mousedown", close);
-      document.addEventListener("touchend", close);
-    }, 100);
+      document.addEventListener("touchstart", close, { passive: true });
+    }, 50);
     return () => {
       clearTimeout(timer);
       document.removeEventListener("mousedown", close);
-      document.removeEventListener("touchend", close);
+      document.removeEventListener("touchstart", close);
     };
   }, [contextMenuMsgId]);
 
@@ -743,23 +747,27 @@ export default function MessengerView() {
   //  FEATURE 6: VOICE MESSAGES
   // ═══════════════════════════════════════════════════════════
 
+  // Recording duration ref for stale closure fix
+  const recordingDurationRef = useRef(0);
+
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       chunksRef.current = [];
-      let duration = 0;
+      recordingDurationRef.current = 0;
       const recorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm" });
       mediaRecorderRef.current = recorder;
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
+        const finalDuration = recordingDurationRef.current;
+        if (finalDuration < 1) { setIsRecording(false); return; } // Too short, discard
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        // Convert to base64
         const reader = new FileReader();
         reader.onloadend = async () => {
           const base64Url = reader.result as string;
           if (base64Url && activeChatId && userId) {
-            await sendMessageOptimistic("", { type: "voice", voiceUrl: base64Url, voiceDuration: duration });
+            await sendMessageOptimistic("", { type: "voice", voiceUrl: base64Url, voiceDuration: finalDuration });
           }
         };
         reader.readAsDataURL(blob);
@@ -767,10 +775,9 @@ export default function MessengerView() {
       recorder.start();
       setIsRecording(true);
       setRecordingDuration(0);
-      duration = 0;
       recordingTimerRef.current = setInterval(() => {
-        duration += 1;
-        setRecordingDuration(duration);
+        recordingDurationRef.current += 1;
+        setRecordingDuration(recordingDurationRef.current);
       }, 1000);
     } catch (err) {
       showToast("Нет доступа к микрофону");
@@ -781,6 +788,17 @@ export default function MessengerView() {
     if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
     if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     setIsRecording(false);
+  }, []);
+
+  const cancelRecording = useCallback(() => {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.onstop = null; // Prevent sending
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    setIsRecording(false);
+    setRecordingDuration(0);
+    recordingDurationRef.current = 0;
   }, []);
 
   // ═══════════════════════════════════════════════════════════
@@ -1328,111 +1346,151 @@ export default function MessengerView() {
               )}
             </AnimatePresence>
 
-            {/* ── Input area ── */}
-            <div className="p-3 flex items-center gap-1.5 flex-shrink-0 flex-wrap" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
-              {/* Emoji button */}
-              <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowEmojis(!showEmojis); setShowStickers(false); }}
-                className="p-2 rounded-xl cursor-pointer flex-shrink-0" style={{ color: showEmojis ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-                <Smile className="w-5 h-5" />
-              </motion.button>
+            {/* ═══ INPUT AREA ═══ */}
+            {/* ── Voice recording mode: replaces input area ── */}
+            {isRecording ? (
+              <div className="px-3 py-2 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
+                {/* Cancel button */}
+                <motion.button whileTap={{ scale: 0.85 }} onClick={cancelRecording}
+                  className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
+                  style={{ backgroundColor: "rgba(239,68,68,0.15)" }}>
+                  <X className="w-4 h-4" style={{ color: "#ef4444" }} />
+                </motion.button>
 
-              {/* Sticker button */}
-              <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowStickers(!showStickers); setShowEmojis(false); }}
-                className="p-2 rounded-xl cursor-pointer flex-shrink-0" style={{ color: showStickers ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-                <Sticker className="w-5 h-5" />
-              </motion.button>
-
-              {/* Text input */}
-              <div className="flex-1 relative min-w-0">
-                <Input
-                  ref={inputRef}
-                  value={editingMessage ? editingMessage.content : inputText}
-                  onChange={(e) => { if (editingMessage) setEditingMessage({ ...editingMessage, content: e.target.value }); else handleInputChange(e.target.value); }}
-                  onKeyDown={(e) => { if (editingMessage) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveEdit(); } return; } handleKeyDown(e); }}
-                  placeholder={editingMessage ? "Редактирование сообщения..." : replyingTo ? `Ответ для ${replyingTo.senderName}...` : "Написать сообщение..."}
-                  className="pr-10 min-h-[44px] rounded-2xl"
-                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
-                />
-                <Lock className="absolute right-10 top-1/2 -translate-y-1/2 w-3 h-3" style={{ color: "var(--mq-accent)", opacity: 0.5 }} />
-              </div>
-
-              {/* Voice button */}
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onPointerDown={startRecording}
-                onPointerUp={stopRecording}
-                onPointerLeave={() => { if (isRecording) stopRecording(); }}
-                className="p-2 rounded-xl cursor-pointer flex-shrink-0"
-                style={{ color: isRecording ? "#ef4444" : "var(--mq-text-muted)", backgroundColor: isRecording ? "rgba(239,68,68,0.1)" : "transparent", borderRadius: 12 }}
-                title="Голосовое сообщение">
-                {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-              </motion.button>
-
-              {/* Recording indicator */}
-              {isRecording && (
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl flex-shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.1)" }}>
-                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-[11px] font-mono" style={{ color: "#ef4444" }}>{formatRecordingTime(recordingDuration)}</span>
-                </div>
-              )}
-
-              {/* Send / Edit save button */}
-              <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
-                onClick={editingMessage ? handleSaveEdit : handleSend}
-                disabled={editingMessage ? !editingMessage.content.trim() : !inputText.trim()}
-                className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-all duration-200"
-                style={{
-                  background: (editingMessage ? editingMessage.content.trim() : inputText.trim())
-                    ? "linear-gradient(135deg, var(--mq-accent), rgba(255,255,255,0.15))"
-                    : "var(--mq-card)",
-                  border: "1px solid var(--mq-border)",
-                  boxShadow: (editingMessage ? editingMessage.content.trim() : inputText.trim()) ? "0 4px 15px rgba(0,0,0,0.2)" : "none",
-                }}>
-                {editingMessage ? <Check className="w-4 h-4" style={{ color: "var(--mq-text)", marginLeft: 0 }} /> : <Send className="w-4 h-4" style={{ color: "var(--mq-text)", marginLeft: 1 }} />}
-              </motion.button>
-            </div>
-
-            {/* ── Quick emoji picker ── */}
-            <AnimatePresence>
-              {showEmojis && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                  className="p-3 flex flex-wrap gap-2 justify-center flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
-                  {quickEmojis.map((emoji) => (
-                    <motion.button key={emoji} whileTap={{ scale: 1.3 }} onClick={() => { setInputText((p) => p + emoji); inputRef.current?.focus(); }}
-                      className="w-10 h-10 flex items-center justify-center text-xl rounded-xl hover:opacity-80 cursor-pointer" style={glassPanel}>
-                      {emoji}
-                    </motion.button>
+                {/* Recording wave indicator */}
+                <div className="flex-1 flex items-center gap-1 h-8 overflow-hidden">
+                  {Array.from({ length: 24 }).map((_, i) => (
+                    <motion.div key={i} className="w-[3px] rounded-full flex-shrink-0"
+                      style={{ backgroundColor: "#ef4444" }}
+                      animate={{ height: [4, 6 + Math.random() * 22, 4] }}
+                      transition={{ duration: 0.4 + (i % 3) * 0.15, repeat: Infinity, delay: i * 0.02, ease: "easeInOut" }}
+                    />
                   ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
+                </div>
 
-            {/* ── Sticker picker ── */}
+                {/* Timer */}
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.12)" }}>
+                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-[11px] font-mono font-medium" style={{ color: "#ef4444" }}>{formatRecordingTime(recordingDuration)}</span>
+                </div>
+
+                {/* Send voice button */}
+                <motion.button whileTap={{ scale: 0.85 }} onClick={stopRecording}
+                  className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
+                  style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)", boxShadow: "0 4px 15px rgba(239,68,68,0.3)" }}>
+                <Send className="w-4 h-4 text-white" style={{ marginLeft: 1 }} />
+              </motion.button>
+              </div>
+            ) : (
+              /* ── Normal input mode ── */
+              <div className="px-3 py-2 flex items-center gap-2 flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
+                {/* Emoji / Sticker toggle */}
+                <motion.button whileTap={{ scale: 0.9 }}
+                  onClick={() => { if (showEmojis) { setShowEmojis(false); } else if (showStickers) { setShowStickers(false); } else { setShowEmojis(true); } }}
+                  className="p-2 rounded-full cursor-pointer flex-shrink-0"
+                  style={{ color: (showEmojis || showStickers) ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                  <Smile className="w-5 h-5" />
+                </motion.button>
+
+                {/* Text input */}
+                <div className="flex-1 min-w-0">
+                  <Input
+                    ref={inputRef}
+                    value={editingMessage ? editingMessage.content : inputText}
+                    onChange={(e) => { if (editingMessage) setEditingMessage({ ...editingMessage, content: e.target.value }); else handleInputChange(e.target.value); }}
+                    onKeyDown={(e) => { if (editingMessage) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveEdit(); } return; } handleKeyDown(e); }}
+                    placeholder={editingMessage ? "Редактирование..." : replyingTo ? `Ответ для ${replyingTo.senderName}...` : "Сообщение"}
+                    className="min-h-[42px] rounded-full"
+                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)", paddingLeft: 16 }}
+                  />
+                </div>
+
+                {/* Mic button (when no text) OR Send button (when has text) */}
+                {(!inputText.trim() && !editingMessage) ? (
+                  <motion.button whileTap={{ scale: 0.85 }} onClick={startRecording}
+                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
+                    style={{ background: "var(--mq-accent)", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}
+                    title="Голосовое сообщение">
+                    <Mic className="w-4.5 h-4.5" style={{ color: "var(--mq-text)" }} />
+                  </motion.button>
+                ) : (
+                  <motion.button whileTap={{ scale: 0.85 }}
+                    onClick={editingMessage ? handleSaveEdit : handleSend}
+                    disabled={editingMessage ? !editingMessage.content.trim() : !inputText.trim()}
+                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer transition-all"
+                    style={{
+                      background: (editingMessage ? editingMessage.content.trim() : inputText.trim())
+                        ? "var(--mq-accent)"
+                        : "var(--mq-card)",
+                      boxShadow: (editingMessage ? editingMessage.content.trim() : inputText.trim())
+                        ? "0 2px 12px rgba(0,0,0,0.15)" : "none",
+                      opacity: (editingMessage ? editingMessage.content.trim() : inputText.trim()) ? 1 : 0.5,
+                    }}>
+                    {editingMessage
+                      ? <Check className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
+                      : <Send className="w-4 h-4" style={{ color: "var(--mq-text)", marginLeft: 1 }} />}
+                  </motion.button>
+                )}
+              </div>
+            )}
+
+            {/* ── Unified Emoji/Sticker picker ── */}
             <AnimatePresence>
-              {showStickers && (
+              {(showEmojis || showStickers) && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                  className="flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)", maxHeight: "260px" }}>
-                  {/* Category tabs */}
-                  <div className="flex gap-1 p-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-                    {stickerCategories.map((cat, i) => (
-                      <button key={cat.name} onClick={() => setStickerTab(i)}
-                        className="px-3 py-1.5 rounded-lg text-[11px] font-medium whitespace-nowrap cursor-pointer transition-all"
-                        style={stickerTab === i ? { backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" } : { ...glassPanel, color: "var(--mq-text-muted)" }}>
-                        {cat.name}
-                      </button>
-                    ))}
+                  className="flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)", maxHeight: "280px" }}>
+                  {/* Tabs: Emojis | Stickers */}
+                  <div className="flex gap-1 px-3 pt-2 pb-1">
+                    <button onClick={() => { setShowEmojis(true); setShowStickers(false); }}
+                      className="px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all"
+                      style={showEmojis ? { backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" } : { ...glassPanel, color: "var(--mq-text-muted)" }}>
+                      Эмодзи
+                    </button>
+                    <button onClick={() => { setShowStickers(true); setShowEmojis(false); }}
+                      className="px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all"
+                      style={showStickers ? { backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" } : { ...glassPanel, color: "var(--mq-text-muted)" }}>
+                      Стикеры
+                    </button>
                   </div>
-                  {/* Sticker grid */}
-                  <div className="grid grid-cols-8 gap-1 p-3 pt-1 overflow-y-auto" style={{ maxHeight: "220px", scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
-                    {stickerCategories[stickerTab]?.items.map((emoji) => (
-                      <motion.button key={emoji} whileTap={{ scale: 1.2 }} whileHover={{ scale: 1.1 }}
-                        onClick={() => handleSendSticker(emoji)}
-                        className="w-full aspect-square flex items-center justify-center text-2xl rounded-xl cursor-pointer transition-all hover:opacity-80"
-                        style={glassPanel}>
-                        {emoji}
-                      </motion.button>
-                    ))}
-                  </div>
+
+                  {/* Emoji grid */}
+                  {showEmojis && (
+                    <div className="grid grid-cols-8 gap-1 px-3 pb-3 pt-1 overflow-y-auto" style={{ maxHeight: "220px", scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
+                      {[...quickEmojis, ...stickerCategories[0].items, ...stickerCategories[1].items].map((emoji) => (
+                        <motion.button key={emoji} whileTap={{ scale: 1.2 }}
+                          onClick={() => { setInputText((p) => p + emoji); inputRef.current?.focus(); }}
+                          className="w-full aspect-square flex items-center justify-center text-xl rounded-xl cursor-pointer hover:opacity-80 transition-opacity"
+                          style={glassPanel}>
+                          {emoji}
+                        </motion.button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Sticker grid with categories */}
+                  {showStickers && (
+                    <>
+                      <div className="flex gap-1 px-3 pb-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+                        {stickerCategories.map((cat, i) => (
+                          <button key={cat.name} onClick={() => setStickerTab(i)}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap cursor-pointer transition-all"
+                            style={stickerTab === i ? { backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" } : { ...glassPanel, color: "var(--mq-text-muted)" }}>
+                            {cat.name}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-8 gap-1 px-3 pb-3 overflow-y-auto" style={{ maxHeight: "200px", scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
+                        {stickerCategories[stickerTab]?.items.map((emoji) => (
+                          <motion.button key={emoji} whileTap={{ scale: 1.2 }}
+                            onClick={() => handleSendSticker(emoji)}
+                            className="w-full aspect-square flex items-center justify-center text-2xl rounded-xl cursor-pointer hover:opacity-80 transition-opacity"
+                            style={glassPanel}>
+                            {emoji}
+                          </motion.button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -1800,27 +1858,33 @@ export default function MessengerView() {
           </div>
         </motion.div>
 
-        {/* Context menu — fixed positioning at cursor */}
+        {/* Context menu — fixed positioning at cursor, touch-safe */}
         {contextMenuMsgId && contextMenuMsgId.id === msg.id && (
-          <div className="fixed z-[9999] rounded-xl py-1 min-w-[180px]" style={{ ...glassPanelSolid, boxShadow: shadowDeep, left: Math.min(contextMenuMsgId.x, window.innerWidth - 200), top: Math.min(contextMenuMsgId.y, window.innerHeight - 200) }} onClick={(e) => e.stopPropagation()}>
+          <div
+            data-context-menu="true"
+            className="fixed z-[9999] rounded-xl py-1 min-w-[190px]"
+            style={{ ...glassPanelSolid, boxShadow: shadowDeep, left: Math.min(contextMenuMsgId.x, window.innerWidth - 210), top: Math.min(contextMenuMsgId.y, window.innerHeight - 220) }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}>
             <button onClick={() => handleReplyMessage(msg)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs hover:opacity-80 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-              <Reply className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} /> Ответить
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+              <Reply className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Ответить
             </button>
             {msg.senderId === userId && !isVoice && !isSticker && (
               <button onClick={() => handleStartEdit(msg)}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs hover:opacity-80 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-                <Edit3 className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} /> Редактировать
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+                <Edit3 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Редактировать
               </button>
             )}
             <button onClick={() => handleCopyMessage(msg)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs hover:opacity-80 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-              <Copy className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} /> Копировать
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+              <Copy className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Копировать
             </button>
             {msg.senderId === userId && (
               <button onClick={() => handleDeleteMessage(msg.id)}
-                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs hover:opacity-80 transition-opacity text-left cursor-pointer" style={{ color: "#ef4444" }}>
-                <Trash2 className="w-3.5 h-3.5" /> Удалить
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "#ef4444" }}>
+                <Trash2 className="w-4 h-4" /> Удалить
               </button>
             )}
           </div>
