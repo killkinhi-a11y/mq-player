@@ -196,7 +196,7 @@ export default function AuthView() {
         setError(data.error);
         return;
       }
-      setAuth(data.userId, data.username, data.email);
+      setAuth(data.userId, data.username, data.email, data.role, data.avatar);
     } catch {
       setError("Ошибка соединения");
     } finally {
@@ -227,7 +227,7 @@ export default function AuthView() {
         setTimeout(() => codeInputRefs.current[0]?.focus(), 100);
         return;
       }
-      setAuth(data.userId, data.username, confirmEmail);
+      setAuth(data.userId, data.username, confirmEmail, data.role, data.avatar);
     } catch {
       setVerifyError("Ошибка соединения");
     } finally {
@@ -353,7 +353,7 @@ export default function AuthView() {
         setTimeout(() => codeInputRefs.current[0]?.focus(), 100);
         return;
       }
-      setAuth(data.userId, data.username, confirmEmail);
+      setAuth(data.userId, data.username, confirmEmail, data.role, data.avatar);
     } catch {
       setVerifyError("Ошибка соединения");
     } finally {
@@ -377,7 +377,7 @@ export default function AuthView() {
         return;
       }
       setAuthStep("confirmed");
-      setAuth(data.userId, data.username, email);
+      setAuth(data.userId, data.username, email, data.role, data.avatar);
     } catch {
       setError("Ошибка соединения");
     } finally {

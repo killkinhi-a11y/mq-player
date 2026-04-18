@@ -41,6 +41,8 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       username: user.username,
       email: user.email,
+      role: user.role,
+      avatar: user.avatar || null,
       theme: user.theme,
       accent: user.accent,
     });

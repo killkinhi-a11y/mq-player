@@ -57,6 +57,8 @@ export async function POST(req: NextRequest) {
       message: "Email успешно подтверждён",
       userId: user.id,
       username: user.username,
+      role: user.role,
+      avatar: user.avatar || null,
     });
   } catch (error) {
     console.error("Verify code error:", error);

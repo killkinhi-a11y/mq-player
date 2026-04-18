@@ -143,7 +143,7 @@ interface AppState {
   history: HistoryEntry[];
 
   // Actions
-  setAuth: (userId: string, username: string, email: string) => void;
+  setAuth: (userId: string, username: string, email: string, role?: string, avatar?: string | null) => void;
   logout: () => void;
   setView: (view: ViewType) => void;
   setAuthStep: (step: AuthStep) => void;
@@ -297,8 +297,8 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       ...initialState,
 
-      setAuth: (userId, username, email) => {
-        set({ isAuthenticated: true, userId, username, email, currentView: "main" });
+      setAuth: (userId, username, email, role, avatar) => {
+        set({ isAuthenticated: true, userId, username, email, userRole: role || "user", avatar: avatar || null, currentView: "main" });
         // Load saved theme from account
         fetch(`/api/user/theme?userId=${userId}`)
           .then(r => r.json())

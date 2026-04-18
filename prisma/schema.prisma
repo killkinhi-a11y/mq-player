@@ -18,6 +18,7 @@ model User {
   blocked        Boolean   @default(false)
   blockedAt      DateTime?
   blockedReason  String?
+  avatar         String    @default("")
   theme          String    @default("default")
   accent         String    @default("#e03131")
   createdAt      DateTime  @default(now())

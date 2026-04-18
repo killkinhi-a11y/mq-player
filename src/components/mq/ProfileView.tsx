@@ -25,6 +25,8 @@ export default function ProfileView() {
   const [isCheckingUsername, setIsCheckingUsername] = useState(false);
   const [isSavingUsername, setIsSavingUsername] = useState(false);
 
+  const [isSavingAvatar, setIsSavingAvatar] = useState(false);
+
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -49,7 +51,21 @@ export default function ProfileView() {
         ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
 
         const resized = canvas.toDataURL("image/jpeg", 0.8);
+        // Save locally immediately
         useAppStore.setState({ avatar: resized });
+        // Save to server
+        const uid = useAppStore.getState().userId;
+        if (uid) {
+          setIsSavingAvatar(true);
+          fetch("/api/user/avatar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: uid, avatar: resized }),
+          })
+            .then((r) => r.json())
+            .catch(() => {})
+            .finally(() => setIsSavingAvatar(false));
+        }
       };
       img.src = result;
     };
