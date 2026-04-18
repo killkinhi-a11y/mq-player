@@ -107,6 +107,45 @@ export default function SettingsView() {
     }
   };
 
+  // Poll for new support messages while the dialog is open (so admin replies appear without reload)
+  useEffect(() => {
+    if (!showSupportDialog) return;
+    let cancelled = false;
+    let lastMessageId = supportMessages.length > 0 ? supportMessages[supportMessages.length - 1].id : null;
+
+    const pollMessages = async () => {
+      try {
+        const userId = useAppStore.getState().userId;
+        const params = userId ? `userId=${userId}` : '';
+        const res = await fetch(`/api/support?${params}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.messages && data.messages.length > 0) {
+          setSupportMessages(prev => {
+            // Only add messages that are newer than what we already have
+            if (prev.length === 0) return data.messages;
+            const prevIds = new Set(prev.map(m => m.id));
+            const newMessages = data.messages.filter((m: any) => !prevIds.has(m.id));
+            return newMessages.length > 0 ? [...prev, ...newMessages] : prev;
+          });
+          if (data.sessionId) setSupportSessionId(data.sessionId);
+        }
+      } catch {
+        // Silent
+      }
+    };
+
+    // Initial poll immediately
+    pollMessages();
+    // Then poll every 3 seconds
+    const interval = setInterval(pollMessages, 3000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [showSupportDialog]);
+
   useEffect(() => {
     if (supportMessages.length > 0 && supportScrollRef.current) {
       supportScrollRef.current.scrollTop = supportScrollRef.current.scrollHeight;

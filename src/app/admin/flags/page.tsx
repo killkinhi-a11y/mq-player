@@ -8,6 +8,7 @@ import {
   X,
   Sparkles,
   Calendar,
+  AlertTriangle,
 } from "lucide-react";
 import { seasonalThemes } from "@/lib/themes";
 
@@ -111,8 +112,48 @@ export default function AdminFlagsPage() {
 
   // Separate seasonal flags from regular flags
   const seasonalFlagKeys = seasonalThemes.map(st => `theme_${st.key}`);
-  const regularFlags = flags.filter(f => !f.key.startsWith("theme_"));
+  const maintenanceFlag = flags.find(f => f.key === "maintenance_mode");
+  const regularFlags = flags.filter(f => !f.key.startsWith("theme_") && f.key !== "maintenance_mode");
   const activeSeasonalFlags = flags.filter(f => f.key.startsWith("theme_") && f.enabled);
+
+  // Toggle maintenance mode
+  const handleMaintenanceToggle = async () => {
+    if (maintenanceFlag) {
+      setToggleLoading(maintenanceFlag.id);
+      try {
+        await fetch("/api/admin/feature-flags", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: maintenanceFlag.id, enabled: !maintenanceFlag.enabled }),
+        });
+        fetchFlags();
+      } catch (err) {
+        console.error("Toggle maintenance error:", err);
+      } finally {
+        setToggleLoading(null);
+      }
+    } else {
+      // Create maintenance flag and enable it
+      setToggleLoading("new_maintenance");
+      try {
+        await fetch("/api/admin/feature-flags", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: "maintenance_mode",
+            name: "Технические работы",
+            description: "Включает баннер о технических работах для всех пользователей",
+            enabled: true,
+          }),
+        });
+        fetchFlags();
+      } catch (err) {
+        console.error("Create maintenance flag error:", err);
+      } finally {
+        setToggleLoading(null);
+      }
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -253,6 +294,76 @@ export default function AdminFlagsPage() {
           </div>
         </div>
       )}
+
+      {/* Maintenance Mode */}
+      <div
+        className="rounded-2xl overflow-hidden"
+        style={{
+          backgroundColor: maintenanceFlag?.enabled
+            ? "rgba(234,179,8,0.06)"
+            : "var(--mq-card)",
+          border: `1px solid ${maintenanceFlag?.enabled ? "rgba(234,179,8,0.25)" : "var(--mq-border)"}`,
+        }}
+      >
+        <div
+          className="flex items-center gap-4 px-4 sm:px-5 py-4"
+        >
+          {/* Toggle Switch */}
+          <button
+            onClick={handleMaintenanceToggle}
+            disabled={toggleLoading === maintenanceFlag?.id || toggleLoading === "new_maintenance"}
+            className="flex-shrink-0 relative w-11 h-6 rounded-full transition-colors"
+            style={{
+              backgroundColor: maintenanceFlag?.enabled ? "#eab308" : "var(--mq-border)",
+            }}
+          >
+            {toggleLoading === maintenanceFlag?.id || toggleLoading === "new_maintenance" ? (
+              <Loader2
+                className="absolute top-1 left-1 w-4 h-4 animate-spin"
+                style={{ color: "#fff" }}
+              />
+            ) : (
+              <div
+                className="absolute top-1 w-4 h-4 rounded-full transition-transform"
+                style={{
+                  backgroundColor: "#fff",
+                  transform: maintenanceFlag?.enabled ? "translateX(20px)" : "translateX(0)",
+                }}
+              />
+            )}
+          </button>
+
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <AlertTriangle
+              className="w-5 h-5 flex-shrink-0"
+              style={{ color: maintenanceFlag?.enabled ? "#eab308" : "var(--mq-text-muted)" }}
+            />
+            <div className="min-w-0">
+              <h2 className="font-semibold text-sm" style={{ color: "var(--mq-text)" }}>
+                Технические работы
+              </h2>
+              <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                {maintenanceFlag?.enabled
+                  ? "Баннер активен — пользователи видят уведомление о тех. работах"
+                  : "Включите, чтобы показать пользователям баннер о технических работах"
+                }
+              </p>
+            </div>
+          </div>
+
+          <span
+            className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+            style={{
+              backgroundColor: maintenanceFlag?.enabled
+                ? "rgba(234,179,8,0.15)"
+                : "rgba(136,136,136,0.15)",
+              color: maintenanceFlag?.enabled ? "#eab308" : "var(--mq-text-muted)",
+            }}
+          >
+            {maintenanceFlag?.enabled ? "ON" : "OFF"}
+          </span>
+        </div>
+      </div>
 
       {/* Seasonal Themes Section */}
       <div

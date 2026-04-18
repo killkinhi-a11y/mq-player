@@ -610,6 +610,19 @@ export default function SeasonalEffects({ theme }: { theme: SeasonalTheme }) {
     };
   }, [config]);
 
+  // Clear canvas when effects are hidden (so particles disappear, not freeze)
+  useEffect(() => {
+    if (isVisible || !theme || !config) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    // Clear particle array so they don't linger
+    particlesRef.current = [];
+  }, [isVisible, theme, config]);
+
   useEffect(() => {
     if (!theme || !config || !isVisible) return;
 
@@ -712,7 +725,7 @@ export default function SeasonalEffects({ theme }: { theme: SeasonalTheme }) {
   return (
     <>
       {/* Background glow */}
-      {config.bgGlow && (
+      {isVisible && config.bgGlow && (
         <div
           className="fixed inset-0 pointer-events-none z-[1]"
           style={{ background: config.bgGlow }}
@@ -720,7 +733,7 @@ export default function SeasonalEffects({ theme }: { theme: SeasonalTheme }) {
       )}
 
       {/* Overlay gradient */}
-      {config.overlayGradient && (
+      {isVisible && config.overlayGradient && (
         <div
           className="fixed inset-0 pointer-events-none z-[2]"
           style={{ background: config.overlayGradient }}

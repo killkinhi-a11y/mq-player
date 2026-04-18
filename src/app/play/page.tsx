@@ -19,6 +19,7 @@ const PiPPlayer = lazy(() => import("@/components/mq/PiPPlayer"));
 const NavBar = lazy(() => import("@/components/mq/NavBar"));
 const MobileNav = lazy(() => import("@/components/mq/MobileNav"));
 const SeasonalEffects = lazy(() => import("@/components/mq/SeasonalEffects"));
+const MaintenanceBanner = lazy(() => import("@/components/mq/MaintenanceBanner"));
 
 // Safe require — never throws, returns empty defaults if module unavailable
 let _framer: any = { motion: "div", AnimatePresence: ({ children }: any) => children };
@@ -195,6 +196,7 @@ function AppShell() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--mq-bg)" }}>
+      <Suspense fallback={null}><MaintenanceBanner /></Suspense>
       <Suspense fallback={
         <nav className="fixed top-0 left-0 right-0 z-50 h-14 flex items-center px-4 border-b"
           style={{ backgroundColor: "var(--mq-surface, #161616)", borderColor: "var(--mq-border, #222)" }}>
