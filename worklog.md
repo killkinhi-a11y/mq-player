@@ -27,3 +27,23 @@ Stage Summary:
 - 4 files modified: MessengerView.tsx, messages/route.ts, messages/sse/route.ts, friends/route.ts
 - Pushed to GitHub as commit f3ae06e
 - TypeScript compiles clean for messenger files
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix message bubble width, "Сейчас слушает" status, and profile "Ещё" button
+
+Work Log:
+- Analyzed MessageBubble.tsx and MessengerView.tsx for bubble width styling
+- Added `w-fit` class to all message bubble containers (standard, voice, deleted, group)
+- Changed voice and group bubble max-width to 85%/70% (from 80%/65%)
+- Fixed "Сейчас слушает" bug: removed `showProfileView === userId` condition that never matched since user can't open own profile
+- Enhanced "Сейчас слушает" with larger cover (48px), 4 animated bars, opacity animation
+- Replaced "Ещё" button behavior: now shows inline dropdown with options instead of redirecting
+- Removed navigation from "Чат", "Звук", "Звонок" buttons (they no longer close the profile)
+- Added showProfileMore state for profile dropdown menu
+- Committed and pushed to GitHub (91916a5)
+
+Stage Summary:
+- All 3 issues fixed: adaptive bubbles, now-listening status, profile navigation
+- Files changed: MessageBubble.tsx, MessengerView.tsx (73 insertions, 28 deletions)
+- Deployed to Vercel via git push
