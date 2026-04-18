@@ -6,7 +6,15 @@ import { motion } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2 } from "lucide-react";
+
+interface CuratedPlaylist {
+  id: string;
+  name: string;
+  subtitle: string;
+  gradient: string;
+  tracks: Track[];
+}
 
 function getGreeting(): string {
   const hour = new Date().getHours();
@@ -35,6 +43,8 @@ export default function MainView() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRecLoading, setIsRecLoading] = useState(true);
   const [allUsersCount, setAllUsersCount] = useState(0);
+  const [curatedPlaylists, setCuratedPlaylists] = useState<CuratedPlaylist[]>([]);
+  const [curatedLoading, setCuratedLoading] = useState(true);
 
   // Build taste profile from liked tracks + history
   const tasteProfile = useMemo(() => {
@@ -114,6 +124,32 @@ export default function MainView() {
     fetchTrending();
     return () => { cancelled = true; };
   }, []);
+
+  // Fetch curated algorithmic playlists
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCurated = async () => {
+      setCuratedLoading(true);
+      try {
+        const { topGenres, topArtists } = tasteProfile;
+        const sp = new URLSearchParams();
+        if (userId) sp.set("userId", userId);
+        if (topGenres.length > 0) sp.set("genres", topGenres.join(","));
+        if (topArtists.length > 0) sp.set("artists", topArtists.join(","));
+        const res = await fetch(`/api/playlists/curated?${sp}`);
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          setCuratedPlaylists(data.playlists || []);
+        }
+      } catch {
+        if (!cancelled) setCuratedPlaylists([]);
+      } finally {
+        if (!cancelled) setCuratedLoading(false);
+      }
+    };
+    fetchCurated();
+    return () => { cancelled = true; };
+  }, [tasteProfile, userId]);
 
   // Fetch smart recommendations based on taste
   const loadRecommendations = useCallback(async () => {
@@ -265,6 +301,67 @@ export default function MainView() {
             </div>
           </motion.button>
         ))}
+      </div>
+
+      {/* Curated playlists — horizontal gradient cards */}
+      <div>
+        <h2 className="text-lg font-bold mb-4" style={{ color: "var(--mq-text)" }}>
+          Плейлисты для вас
+        </h2>
+        {curatedLoading ? (
+          <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex-shrink-0 w-36 h-48 rounded-2xl" style={{ background: "var(--mq-card)" }}>
+                <Skeleton className="w-full h-full rounded-2xl" />
+              </div>
+            ))}
+          </div>
+        ) : curatedPlaylists.length > 0 ? (
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+            {curatedPlaylists.map((pl, i) => (
+              <motion.button
+                key={pl.id}
+                initial={animationsEnabled ? { opacity: 0, x: 30 } : undefined}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.07 }}
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => {
+                  if (pl.tracks.length > 0) playTrack(pl.tracks[0], pl.tracks);
+                }}
+                className="flex-shrink-0 w-36 h-48 rounded-2xl relative overflow-hidden cursor-pointer"
+              >
+                {/* Gradient background */}
+                <div className="absolute inset-0" style={{ background: pl.gradient }} />
+                {/* Decorative lines */}
+                <div className="absolute inset-0 opacity-20"
+                  style={{
+                    backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(255,255,255,0.08) 4px, rgba(255,255,255,0.08) 5px)",
+                  }}
+                />
+                {/* Content */}
+                <div className="relative z-10 h-full flex flex-col justify-between p-3">
+                  <div className="mt-1">
+                    <p className="text-sm font-bold text-white leading-tight drop-shadow-sm">
+                      {pl.name}
+                    </p>
+                    <p className="text-[11px] mt-1 text-white/70 leading-tight">
+                      {pl.subtitle}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] text-white/50">
+                      {pl.tracks.length} треков
+                    </p>
+                    <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
+                      <Music2 className="w-3.5 h-3.5 text-white" />
+                    </div>
+                  </div>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       {/* Recent history */}
