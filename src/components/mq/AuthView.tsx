@@ -95,8 +95,9 @@ export default function AuthView() {
       if (controller.signal.aborted) return;
 
       if (!res.ok) {
-        setUsernameStatus('invalid');
-        setUsernameError(data.error || 'Ошибка сервера, попробуйте позже');
+        // Server error — don't block the form, backend will validate on submit
+        setUsernameStatus('idle');
+        setUsernameError('Не удалось проверить имя, но вы можете продолжить');
         return;
       }
 
@@ -109,8 +110,9 @@ export default function AuthView() {
       }
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      setUsernameStatus('invalid');
-      setUsernameError('Ошибка проверки имени');
+      // Network error — don't block the form
+      setUsernameStatus('idle');
+      setUsernameError('Нет подключения к серверу, но вы можете продолжить');
     }
   }, []);
 
@@ -665,7 +667,7 @@ export default function AuthView() {
                 </div>
 
                 <Button onClick={handleRegister}
-                  disabled={loading || !formData.username || !formData.email || !formData.password || usernameStatus !== 'available' && usernameStatus !== 'idle'}
+                  disabled={loading || !formData.username || !formData.email || !formData.password || usernameStatus === 'taken'}
                   className="w-full min-h-[44px]" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
                   {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Создать аккаунт"}
                 </Button>
