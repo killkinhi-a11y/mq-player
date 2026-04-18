@@ -14,7 +14,7 @@ const navItems: { id: ViewType; icon: typeof Home; label: string }[] = [
 ];
 
 export default function MobileNav() {
-  const { currentView, setView, liquidGlassMobile } = useAppStore();
+  const { currentView, setView, liquidGlassMobile, compactMode } = useAppStore();
 
   return (
     <nav
@@ -27,7 +27,7 @@ export default function MobileNav() {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      <div className="flex items-center justify-around py-1.5 px-1">
+      <div className={`flex items-center justify-around ${compactMode ? "py-1" : "py-1.5"} px-1`}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = currentView === item.id;
@@ -36,7 +36,7 @@ export default function MobileNav() {
               key={item.id}
               whileTap={{ scale: 0.9 }}
               onClick={() => setView(item.id)}
-              className="flex flex-col items-center gap-0.5 px-3 py-1.5 min-w-[48px] min-h-[44px] cursor-pointer rounded-xl transition-all duration-200 relative overflow-hidden"
+              className={`flex flex-col items-center gap-0.5 ${compactMode ? "px-2 py-1 min-w-[40px] min-h-[38px]" : "px-3 py-1.5 min-w-[48px] min-h-[44px]"} cursor-pointer rounded-xl transition-all duration-200 relative overflow-hidden`}
               style={{
                 color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
                 backgroundColor: isActive
@@ -54,7 +54,7 @@ export default function MobileNav() {
                 />
               )}
               <div className="relative z-10">
-                <Icon className="w-5 h-5" />
+                <Icon className={`${compactMode ? "w-4 h-4" : "w-5 h-5"}`} />
                 {isActive && (
                   <motion.div
                     layoutId="mobileNavDot"
@@ -63,7 +63,7 @@ export default function MobileNav() {
                   />
                 )}
               </div>
-              <span className="text-[10px] relative z-10">{item.label}</span>
+              <span className={`${compactMode ? "text-[9px]" : "text-[10px]"} relative z-10`}>{item.label}</span>
             </motion.button>
           );
         })}

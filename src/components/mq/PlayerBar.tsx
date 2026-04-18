@@ -28,7 +28,7 @@ export default function PlayerBar() {
     currentTrack, isPlaying, volume, progress, duration,
     shuffle, repeat, togglePlay, nextTrack, prevTrack,
     setVolume, setProgress, setDuration, toggleShuffle, toggleRepeat,
-    animationsEnabled,
+    animationsEnabled, compactMode,
     setFullTrackViewOpen, setPiPActive, isPiPActive,
     setPlaybackMode, requestShowSimilar, requestShowLyrics,
     toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
@@ -577,7 +577,7 @@ export default function PlayerBar() {
         ref={progressRef}
         onMouseDown={handleProgressMouseDown}
         onTouchStart={handleProgressTouchStart}
-        className="w-full h-1.5 cursor-pointer group relative"
+        className={`w-full ${compactMode ? "h-1" : "h-1.5"} cursor-pointer group relative`}
         style={{ backgroundColor: "var(--mq-border)" }}
       >
         <div className="h-full transition-all duration-100" style={{
@@ -600,13 +600,13 @@ export default function PlayerBar() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between px-3 py-2 lg:px-6 lg:py-3 max-w-screen-2xl mx-auto">
+      <div className={`flex items-center justify-between ${compactMode ? "px-2 py-1 lg:px-4 lg:py-2" : "px-3 py-2 lg:px-6 lg:py-3"} max-w-screen-2xl mx-auto`}>
         {/* Track info */}
         <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => setFullTrackViewOpen(true)}>
           {currentTrack.cover ? (
-            <img src={currentTrack.cover} alt={currentTrack.album} className="w-10 h-10 lg:w-12 lg:h-12 rounded-lg object-cover flex-shrink-0" />
+            <img src={currentTrack.cover} alt={currentTrack.album} className={`${compactMode ? "w-8 h-8 lg:w-10 lg:h-10" : "w-10 h-10 lg:w-12 lg:h-12"} rounded-lg object-cover flex-shrink-0`} />
           ) : (
-            <div className="w-10 h-10 lg:w-12 lg:h-12 rounded-lg flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.5 }}>
+            <div className={`${compactMode ? "w-8 h-8 lg:w-10 lg:h-10" : "w-10 h-10 lg:w-12 lg:h-12"} rounded-lg flex-shrink-0 flex items-center justify-center`} style={{ backgroundColor: "var(--mq-accent)", opacity: 0.5 }}>
               <Music className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
             </div>
           )}
@@ -758,7 +758,7 @@ export default function PlayerBar() {
       <canvas
         ref={canvasRef}
         className="w-full pointer-events-none block"
-        style={{ height: 28, opacity: isPlaying ? 0.7 : 0.1, transition: "opacity 0.3s", minHeight: 28 }}
+        style={{ height: compactMode ? 20 : 28, opacity: isPlaying ? 0.7 : 0.1, transition: "opacity 0.3s", minHeight: compactMode ? 20 : 28 }}
       />
 
     </motion.div>

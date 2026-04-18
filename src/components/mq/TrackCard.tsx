@@ -15,7 +15,7 @@ interface TrackCardProps {
 
 export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
   const { currentTrack, isPlaying, playTrack, togglePlay, animationsEnabled,
-    toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds } = useAppStore();
+    toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds, compactMode } = useAppStore();
   const _likedIds = Array.isArray(likedTrackIds) ? likedTrackIds : [];
   const _dislikedIds = Array.isArray(dislikedTrackIds) ? dislikedTrackIds : [];
   const isActive = currentTrack?.id === track.id;
@@ -63,7 +63,7 @@ export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
         {...motionProps}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl cursor-pointer transition-all duration-200 group"
+        className={`flex items-center ${compactMode ? "gap-1 sm:gap-2 p-1.5 sm:p-2" : "gap-2 sm:gap-3 p-2 sm:p-3"} rounded-xl cursor-pointer transition-all duration-200 group`}
         style={{
           backgroundColor: isActive ? "var(--mq-accent)" : "var(--mq-card)",
         }}
@@ -71,7 +71,7 @@ export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
         whileTap={animationsEnabled ? { scale: 0.98 } : undefined}
       >
         {/* Cover — smaller on mobile */}
-        <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-lg overflow-hidden flex-shrink-0">
+        <div className={`relative ${compactMode ? "w-8 h-8 sm:w-10 sm:h-10" : "w-10 h-10 sm:w-12 sm:h-12"} rounded-lg overflow-hidden flex-shrink-0`}>
           <img src={track.cover} alt={track.album} className="w-full h-full object-cover" loading="lazy" />
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
-import { Music, Mail, Eye, EyeOff, Loader2, ArrowLeft, AtSign, Check, X, Search } from "lucide-react";
+import { Music, Mail, Eye, EyeOff, Loader2, ArrowLeft, AtSign, Check, X, Search, ShieldCheck } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -28,19 +28,22 @@ export default function AuthView() {
     password: "",
   });
 
+  // Verification code states
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [verifyCode, setVerifyCode] = useState<string[]>(["", "", "", "", "", ""]);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyError, setVerifyError] = useState("");
+  const [resendTimer, setResendTimer] = useState(60);
+  const [resendLoading, setResendLoading] = useState(false);
+
   // Username validation states
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
   const [usernameError, setUsernameError] = useState('');
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Cleanup debounce timer on unmount
-  useEffect(() => {
-    return () => {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-      if (abortControllerRef.current) abortControllerRef.current.abort();
-    };
-  }, []);
+  // Refs for verification code inputs
+  const codeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Reset username validation when switching away from register step
   useEffect(() => {
@@ -49,6 +52,34 @@ export default function AuthView() {
       setUsernameError('');
     }
   }, [authStep]);
+
+  // Countdown timer for resend
+  useEffect(() => {
+    if (authStep !== "confirm" || resendTimer <= 0) return;
+    const timer = setTimeout(() => setResendTimer(prev => prev - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [authStep, resendTimer]);
+
+  // Auto-focus first code input when entering confirm step
+  useEffect(() => {
+    if (authStep === "confirm") {
+      setVerifyCode(["", "", "", "", "", ""]);
+      setVerifyError("");
+      setResendTimer(60);
+      // Small delay for animation
+      setTimeout(() => {
+        codeInputRefs.current[0]?.focus();
+      }, 400);
+    }
+  }, [authStep]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
+  }, []);
 
   const checkUsernameAvailability = useCallback(async (username: string) => {
     // Abort any in-flight request
@@ -134,6 +165,7 @@ export default function AuthView() {
         setError(data.error);
         return;
       }
+      setConfirmEmail(formData.email);
       setAuthStep("confirm");
     } catch {
       setError("Ошибка соединения");
@@ -161,6 +193,163 @@ export default function AuthView() {
       setError("Ошибка соединения");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    const code = verifyCode.join("");
+    if (code.length !== 6) {
+      setVerifyError("Введите 6-значный код");
+      return;
+    }
+
+    setVerifyLoading(true);
+    setVerifyError("");
+    try {
+      const res = await fetch("/api/auth/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: confirmEmail, code }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setVerifyError(data.error);
+        // Shake animation: clear and refocus
+        setVerifyCode(["", "", "", "", "", ""]);
+        setTimeout(() => codeInputRefs.current[0]?.focus(), 100);
+        return;
+      }
+      setAuth(data.userId, data.username, confirmEmail);
+    } catch {
+      setVerifyError("Ошибка соединения");
+    } finally {
+      setVerifyLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (resendTimer > 0 || resendLoading) return;
+    setResendLoading(true);
+    setVerifyError("");
+    try {
+      const res = await fetch("/api/auth/send-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: confirmEmail }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setVerifyError(data.error);
+        return;
+      }
+      setResendTimer(60);
+      setVerifyCode(["", "", "", "", "", ""]);
+      setTimeout(() => codeInputRefs.current[0]?.focus(), 100);
+    } catch {
+      setVerifyError("Ошибка при повторной отправке кода");
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  const handleCodeInput = (index: number, value: string) => {
+    // Only allow digits
+    const digit = value.replace(/\D/g, "");
+    if (!digit) {
+      setVerifyCode(prev => {
+        const next = [...prev];
+        next[index] = "";
+        return next;
+      });
+      return;
+    }
+
+    setVerifyCode(prev => {
+      const next = [...prev];
+      next[index] = digit[0]; // Take only first digit
+      return next;
+    });
+
+    // Auto-focus next input
+    if (index < 5) {
+      codeInputRefs.current[index + 1]?.focus();
+    }
+
+    // If all 6 digits filled, auto-verify
+    const newCode = [...verifyCode];
+    newCode[index] = digit[0];
+    if (newCode.every(d => d !== "")) {
+      setTimeout(() => handleVerifyCodeWithCode(newCode.join("")), 200);
+    }
+  };
+
+  const handleCodeKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace") {
+      if (verifyCode[index] === "" && index > 0) {
+        // Move to previous input and clear it
+        codeInputRefs.current[index - 1]?.focus();
+        setVerifyCode(prev => {
+          const next = [...prev];
+          next[index - 1] = "";
+          return next;
+        });
+      } else {
+        setVerifyCode(prev => {
+          const next = [...prev];
+          next[index] = "";
+          return next;
+        });
+      }
+    } else if (e.key === "ArrowLeft" && index > 0) {
+      codeInputRefs.current[index - 1]?.focus();
+    } else if (e.key === "ArrowRight" && index < 5) {
+      codeInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleCodePaste = (e: React.ClipboardEvent) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!pasted) return;
+
+    const newCode = [...verifyCode];
+    for (let i = 0; i < pasted.length; i++) {
+      newCode[i] = pasted[i];
+    }
+    setVerifyCode(newCode);
+
+    // Focus the next empty input or the last one
+    const nextIndex = Math.min(pasted.length, 5);
+    codeInputRefs.current[nextIndex]?.focus();
+
+    // If 6 digits pasted, auto-verify
+    if (pasted.length === 6) {
+      setTimeout(() => handleVerifyCodeWithCode(pasted), 200);
+    }
+  };
+
+  // Separate function to avoid stale closure issues
+  const handleVerifyCodeWithCode = async (code: string) => {
+    setVerifyLoading(true);
+    setVerifyError("");
+    try {
+      const res = await fetch("/api/auth/verify-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: confirmEmail, code }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setVerifyError(data.error);
+        setVerifyCode(["", "", "", "", "", ""]);
+        setTimeout(() => codeInputRefs.current[0]?.focus(), 100);
+        return;
+      }
+      setAuth(data.userId, data.username, confirmEmail);
+    } catch {
+      setVerifyError("Ошибка соединения");
+    } finally {
+      setVerifyLoading(false);
     }
   };
 
@@ -487,19 +676,146 @@ export default function AuthView() {
         )}
 
         {authStep === "confirm" && (
-          <motion.div key="confirm" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+          <motion.div key="confirm" initial={{ opacity: 0, scale: 0.9, filter: 'blur(6px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }} exit={{ opacity: 0, scale: 0.9, filter: 'blur(4px)' }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             className="w-full max-w-md relative z-10">
-            <div className="rounded-2xl p-8 text-center"
+            <div className="rounded-2xl p-6 lg:p-8"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
-              <Mail className="w-16 h-16 mx-auto mb-4" style={{ color: "var(--mq-accent)" }} />
-              <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--mq-text)" }}>Подтвердите почту</h2>
-              <p className="text-sm mb-6" style={{ color: "var(--mq-text-muted)" }}>
-                Мы отправили письмо на {formData.email}. Нажмите кнопку ниже для симуляции подтверждения.
-              </p>
-              <Button onClick={handleConfirm} disabled={loading} className="w-full min-h-[44px]"
-                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Подтвердить почту"}
-              </Button>
+              
+              <motion.div 
+                className="flex flex-col items-center text-center mb-6"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.4 }}>
+                <motion.div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                  style={{ backgroundColor: "rgba(224,49,49,0.12)" }}
+                  animate={{ boxShadow: ["0 0 0px rgba(224,49,49,0)", "0 0 30px rgba(224,49,49,0.2)", "0 0 0px rgba(224,49,49,0)"] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <ShieldCheck className="w-8 h-8" style={{ color: "var(--mq-accent)" }} />
+                </motion.div>
+                <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--mq-text)" }}>Подтверждение email</h2>
+                <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                  Код подтверждения отправлен на
+                </p>
+                <p className="text-sm font-medium mt-0.5" style={{ color: "var(--mq-text)" }}>
+                  {confirmEmail}
+                </p>
+              </motion.div>
+
+              {verifyError && (
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                  className="mb-4 p-3 rounded-lg text-sm text-center"
+                  style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
+                  {verifyError}
+                </motion.div>
+              )}
+
+              {/* 6-digit code inputs */}
+              <motion.div 
+                className="flex justify-center gap-2.5 sm:gap-3 mb-6"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.4 }}
+              >
+                {verifyCode.map((digit, index) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 + index * 0.05, duration: 0.3 }}
+                  >
+                    <input
+                      ref={(el) => { codeInputRefs.current[index] = el; }}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={digit}
+                      onChange={(e) => handleCodeInput(index, e.target.value)}
+                      onKeyDown={(e) => handleCodeKeyDown(index, e)}
+                      onPaste={index === 0 ? handleCodePaste : undefined}
+                      disabled={verifyLoading}
+                      className="w-11 h-14 sm:w-13 sm:h-16 text-center text-xl sm:text-2xl font-bold rounded-xl outline-none transition-all duration-200"
+                      style={{
+                        backgroundColor: "var(--mq-input-bg)",
+                        border: `2px solid ${verifyError ? '#ef4444' : digit ? 'var(--mq-accent)' : 'var(--mq-border)'}`,
+                        color: "var(--mq-text)",
+                        caretColor: "var(--mq-accent)",
+                        boxShadow: digit ? '0 0 12px rgba(224,49,49,0.15)' : 'none',
+                      }}
+                      autoComplete="one-time-code"
+                    />
+                  </motion.div>
+                ))}
+              </motion.div>
+
+              {/* Verify button */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.3 }}
+              >
+                <Button
+                  onClick={handleVerifyCode}
+                  disabled={verifyLoading || verifyCode.some(d => !d)}
+                  className="w-full min-h-[44px]"
+                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+                >
+                  {verifyLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Подтвердить"}
+                </Button>
+              </motion.div>
+
+              {/* Resend code */}
+              <motion.div 
+                className="mt-4 text-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5, duration: 0.3 }}
+              >
+                <p className="text-sm mb-2" style={{ color: "var(--mq-text-muted)" }}>
+                  Не получили код?
+                </p>
+                <button
+                  onClick={handleResendCode}
+                  disabled={resendTimer > 0 || resendLoading}
+                  className="text-sm font-medium transition-colors duration-200"
+                  style={{
+                    color: resendTimer > 0 ? "var(--mq-text-muted)" : "var(--mq-accent)",
+                    opacity: resendTimer > 0 ? 0.6 : 1,
+                    cursor: resendTimer > 0 ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {resendLoading ? (
+                    <span className="flex items-center justify-center gap-1.5">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Отправка...
+                    </span>
+                  ) : resendTimer > 0 ? (
+                    `Отправить повторно (${resendTimer}с)`
+                  ) : (
+                    "Отправить код повторно"
+                  )}
+                </button>
+              </motion.div>
+
+              {/* Back to login */}
+              <motion.div 
+                className="mt-6 pt-4"
+                style={{ borderTop: "1px solid var(--mq-border)" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6, duration: 0.3 }}
+              >
+                <button
+                  onClick={() => { setAuthStep("login"); setError(""); }}
+                  className="flex items-center gap-1.5 mx-auto text-sm transition-colors duration-200"
+                  style={{ color: "var(--mq-text-muted)" }}
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Вернуться к входу
+                </button>
+              </motion.div>
             </div>
           </motion.div>
         )}

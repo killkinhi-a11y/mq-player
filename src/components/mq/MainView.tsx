@@ -27,7 +27,7 @@ function getGreetingSubtext(): string {
 export default function MainView() {
   const {
     animationsEnabled, playTrack, likedTrackIds, dislikedTrackIds, likedTracksData,
-    history, playlists, setView, contacts, messages, userId,
+    history, playlists, setView, contacts, messages, userId, compactMode,
   } = useAppStore();
 
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
@@ -223,16 +223,16 @@ export default function MainView() {
   ];
 
   return (
-    <div className="p-4 lg:p-6 pb-40 lg:pb-28 space-y-6">
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"}`}>
       {/* Hero */}
       <motion.div
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl p-6 lg:p-8 relative overflow-hidden"
+        className={`rounded-2xl ${compactMode ? "p-4 lg:p-5" : "p-6 lg:p-8"} relative overflow-hidden`}
         style={{ background: "var(--mq-gradient), var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
         <div className="relative z-10">
-          <h1 className="text-2xl lg:text-3xl font-bold" style={{ color: "var(--mq-text)" }}>
+          <h1 className={`${compactMode ? "text-xl lg:text-2xl" : "text-2xl lg:text-3xl"} font-bold`} style={{ color: "var(--mq-text)" }}>
             {getGreeting()}
           </h1>
         </div>

@@ -15,11 +15,11 @@ const navItems: { id: ViewType; icon: typeof Home; label: string }[] = [
 ];
 
 export default function NavBar() {
-  const { currentView, setView, logout, username, avatar } = useAppStore();
+  const { currentView, setView, logout, username, avatar, compactMode } = useAppStore();
 
   return (
     <header
-      className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center justify-between px-6 py-3"
+      className={`hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center justify-between ${compactMode ? "px-4 py-2" : "px-6 py-3"}`}
       style={{
         backgroundColor: "rgba(14,14,14,0.7)",
         backdropFilter: "blur(40px) saturate(180%)",
@@ -53,7 +53,7 @@ export default function NavBar() {
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => setView(item.id)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all duration-200 relative overflow-hidden"
+              className={`flex items-center gap-2 ${compactMode ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm"} rounded-xl transition-all duration-200 relative overflow-hidden`}
               style={{
                 backgroundColor: isActive ? "rgba(255,255,255,0.1)" : "transparent",
                 color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
@@ -68,7 +68,7 @@ export default function NavBar() {
                   }}
                 />
               )}
-              <Icon className="w-4 h-4 relative z-10" />
+              <Icon className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"} relative z-10`} />
               <span className="relative z-10">{item.label}</span>
               {isActive && (
                 <motion.div

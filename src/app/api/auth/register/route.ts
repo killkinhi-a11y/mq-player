@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
+import { sendVerificationEmail } from "@/lib/email";
 
 export async function POST(req: NextRequest) {
   try {
@@ -78,15 +80,35 @@ export async function POST(req: NextRequest) {
         username,
         email,
         password: hashedPassword,
-        confirmed: true,
+        confirmed: false,
       },
     });
+
+    // Generate verification code
+    const code = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await db.verificationCode.create({
+      data: {
+        email,
+        code,
+        userId: user.id,
+        expiresAt,
+      },
+    });
+
+    // Send verification email
+    try {
+      await sendVerificationEmail(email, code);
+    } catch (emailError) {
+      console.error("Failed to send verification email:", emailError);
+    }
 
     return NextResponse.json(
       {
         message: "Регистрация успешна! Добро пожаловать в MQ Player.",
         userId: user.id,
         email: user.email,
+        emailSent: true,
       },
       { status: 201 }
     );

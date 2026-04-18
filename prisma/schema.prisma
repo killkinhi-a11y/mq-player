@@ -87,6 +87,18 @@ model StoryComment {
   user      User     @relation("UserStoryComments", fields: [userId], references: [id])
 }
 
+model VerificationCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  userId    String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([email, code])
+}
+
 model Playlist {
   id          String   @id @default(cuid())
   userId      String

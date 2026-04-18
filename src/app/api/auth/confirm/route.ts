@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
+// Legacy confirm endpoint — now requires a verification code
+// Kept for backward compatibility but now verifies via code
 export async function POST(req: NextRequest) {
   try {
-    const { email } = await req.json();
+    const { email, code } = await req.json();
 
     if (!email) {
       return NextResponse.json(
@@ -21,10 +23,35 @@ export async function POST(req: NextRequest) {
     }
 
     if (user.confirmed) {
-      return NextResponse.json(
-        { message: "Почта уже подтверждена" },
-        { status: 200 }
-      );
+      return NextResponse.json({
+        message: "Почта уже подтверждена",
+        userId: user.id,
+        username: user.username,
+      });
+    }
+
+    // If code is provided, verify it
+    if (code) {
+      const verificationCode = await db.verificationCode.findFirst({
+        where: {
+          email,
+          code,
+          used: false,
+          expiresAt: { gt: new Date() },
+        },
+      });
+
+      if (!verificationCode) {
+        return NextResponse.json(
+          { error: "Неверный код или срок действия истёк" },
+          { status: 400 }
+        );
+      }
+
+      await db.verificationCode.update({
+        where: { id: verificationCode.id },
+        data: { used: true },
+      });
     }
 
     await db.user.update({
