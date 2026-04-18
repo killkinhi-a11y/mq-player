@@ -17,10 +17,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Максимум 20 символов" }, { status: 400 });
     }
 
-    // Username rules: only alphanumeric, underscore, hyphen, Russian letters
-    const usernameRegex = /^[a-zA-Z0-9а-яА-Я_-]+$/;
+    // Username rules: only alphanumeric, underscore, hyphen
+    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
     if (!usernameRegex.test(username)) {
-      return NextResponse.json({ error: "Только буквы, цифры, _ и -. Русские буквы разрешены" }, { status: 400 });
+      return NextResponse.json({ error: "Только буквы, цифры, _ и -" }, { status: 400 });
     }
 
     // Reserved names

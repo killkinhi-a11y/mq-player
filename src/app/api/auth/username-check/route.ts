@@ -15,10 +15,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ available: false, error: "Максимум 20 символов" });
     }
 
-    // Username rules: only alphanumeric, underscore, hyphen, Russian letters
-    const usernameRegex = /^[a-zA-Z0-9а-яА-Я_-]+$/;
+    // Username rules: only alphanumeric, underscore, hyphen
+    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
     if (!usernameRegex.test(username)) {
-      return NextResponse.json({ available: false, error: "Только буквы, цифры, _ и -. Русские буквы разрешены" });
+      return NextResponse.json({ available: false, error: "Только буквы, цифры, _ и -" });
     }
 
     // Reserved names

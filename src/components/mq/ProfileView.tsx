@@ -7,7 +7,7 @@ import {
   User, Camera, Edit3, Check, X, LogOut, Heart, MessageCircle, Music, Loader2, AlertCircle
 } from "lucide-react";
 
-const USERNAME_RULES = "Буквы, цифры, _ и -. Русские буквы разрешены. 2-20 символов.";
+const USERNAME_RULES = "Буквы, цифры, _ и -. 2-20 символов.";
 
 export default function ProfileView() {
   const {
@@ -60,7 +60,7 @@ export default function ProfileView() {
   const validateUsername = useCallback((name: string): string | null => {
     if (name.length < 2) return "Минимум 2 символа";
     if (name.length > 20) return "Максимум 20 символов";
-    if (!/^[a-zA-Z0-9а-яА-Я_-]+$/.test(name)) return "Только буквы, цифры, _ и -";
+    if (!/^[a-zA-Z0-9_-]+$/.test(name)) return "Только буквы, цифры, _ и -";
     const reserved = ["admin", "administrator", "moderator", "support", "help", "system", "mq", "mqplayer", "root", "null", "undefined"];
     if (reserved.includes(name.toLowerCase())) return "Это имя зарезервировано";
     return null;
