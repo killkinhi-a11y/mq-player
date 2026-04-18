@@ -74,6 +74,7 @@ interface AppState {
   username: string | null;
   email: string | null;
   avatar: string | null;
+  userRole: string;
   currentView: ViewType;
   authStep: AuthStep;
 

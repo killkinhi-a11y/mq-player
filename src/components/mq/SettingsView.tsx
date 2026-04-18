@@ -5,8 +5,9 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings
 } from "lucide-react";
+import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
 
 export default function SettingsView() {
@@ -14,7 +15,7 @@ export default function SettingsView() {
     currentTheme, setTheme, customAccent, setCustomAccent,
     animationsEnabled, setAnimationsEnabled, compactMode, setCompactMode,
     fontSize, setFontSize, volume, setVolume, logout, username, animationsEnabled: anim, setView,
-    liquidGlassMobile, setLiquidGlassMobile,
+    liquidGlassMobile, setLiquidGlassMobile, userRole,
   } = useAppStore();
 
   const [accentInput, setAccentInput] = useState(customAccent || "");
@@ -94,6 +95,19 @@ export default function SettingsView() {
         <User className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
         Настройки профиля
       </motion.button>
+
+      {userRole === "admin" && (
+        <motion.a
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          href="/admin"
+          className="w-full p-3 rounded-xl text-left text-sm font-medium flex items-center gap-3 block"
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+        >
+          <Settings className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+          Панель администратора
+        </motion.a>
+      )}
 
       {/* Themes — collapsed by default */}
       <motion.div

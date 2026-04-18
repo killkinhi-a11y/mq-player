@@ -14,6 +14,10 @@ model User {
   email          String    @unique
   password       String
   confirmed      Boolean   @default(false)
+  role           String    @default("user")
+  blocked        Boolean   @default(false)
+  blockedAt      DateTime?
+  blockedReason  String?
   theme          String    @default("default")
   accent         String    @default("#e03131")
   createdAt      DateTime  @default(now())
@@ -26,6 +30,17 @@ model User {
   storyComments          StoryComment[] @relation("UserStoryComments")
   playlists              Playlist[] @relation("UserPlaylists")
   playlistLikes          PlaylistLike[] @relation("UserPlaylistLikes")
+  adminLogs              AuditLog[] @relation("AdminLogs")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  targetId  String?
+  details   String?
+  createdAt DateTime @default(now())
+  admin     User     @relation("AdminLogs", fields: [adminId], references: [id])
 }
 
 model Message {
