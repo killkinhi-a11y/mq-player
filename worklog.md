@@ -47,3 +47,20 @@ Stage Summary:
 - All 3 issues fixed: adaptive bubbles, now-listening status, profile navigation
 - Files changed: MessageBubble.tsx, MessengerView.tsx (73 insertions, 28 deletions)
 - Deployed to Vercel via git push
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix profile dropdown, avatar fallback, handler functions, now-listening
+
+Work Log:
+- Discovered two git repos (outer /home/z/my-project and inner /home/z/my-project/mq-player)
+- Previous changes were committed to wrong repo and never pushed to Vercel
+- Fixed: Profile modal overflow-hidden → overflow-visible (dropdown was clipped)
+- Fixed: handleExportChat/ClearHistory/DeleteChat now accept targetUserId param
+- Fixed: Profile "Ещё" dropdown passes showProfileView as targetUserId
+- Fixed: AvatarImg shows colored initials when src is empty/null/undefined
+- Pushed from correct inner repo (d06a736) to GitHub
+
+Stage Summary:
+- All changes verified in pushed commit d06a736
+- w-fit bubbles, now-listening without userId check, clickable dropdown, avatar fallback
