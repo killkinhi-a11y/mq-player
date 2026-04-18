@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from "react";
+import { createPortal } from "react-dom";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import MessageBubble from "./MessageBubble";
@@ -230,22 +231,48 @@ export default function MessengerView() {
   // ── Cross-tab BroadcastChannel for notifications ──
   const bcRef = useRef<BroadcastChannel | null>(null);
   useEffect(() => {
+    if (!userId) return;
     try {
       bcRef.current = new BroadcastChannel("mq-notifications");
       bcRef.current.onmessage = (event) => {
         const { type, payload } = event.data;
-        if (type === "new_message" && payload?.senderId !== userId) {
-          playNotifSound();
-          if (notificationPermission === "granted") {
-            try {
-              const senderName = payload.senderUsername || "Someone";
-              const preview = (payload.preview || "").slice(0, 60);
-              new Notification(`Сообщение от ${senderName}`, {
-                body: preview,
-                icon: "/icon-192.png",
-                tag: payload.id || "",
+        if (type === "new_message") {
+          // Add message to store (deduped by processIncomingMessage / addMessage)
+          if (payload?.senderId && payload?.id) {
+            const state = useAppStore.getState();
+            const existing = state.messages.find((em: any) => em.id === payload.id);
+            if (!existing) {
+              state.addMessage({
+                id: payload.id,
+                content: payload.content,
+                senderId: payload.senderId,
+                receiverId: payload.receiverId,
+                encrypted: payload.encrypted ?? true,
+                createdAt: payload.createdAt,
+                senderName: payload.senderUsername ? `@${payload.senderUsername}` : undefined,
+                messageType: payload.messageType,
+                replyToId: payload.replyToId,
+                edited: payload.edited,
+                voiceUrl: payload.voiceUrl,
+                voiceDuration: payload.voiceDuration,
               });
-            } catch { /* ignore */ }
+            }
+          }
+          // Show notification if from another user
+          if (payload?.senderId !== userId) {
+            playNotifSound();
+            if (notificationPermission === "granted") {
+              try {
+                let preview = "";
+                try { preview = simulateDecryptSync(payload.content); } catch { preview = (payload.content || "").slice(0, 60); }
+                const senderName = payload.senderUsername || "Someone";
+                new Notification(`Сообщение от ${senderName}`, {
+                  body: preview.length > 60 ? preview.slice(0, 60) + "..." : preview,
+                  icon: "/icon-192.png",
+                  tag: payload.id || "",
+                });
+              } catch { /* ignore */ }
+            }
           }
         } else if (type === "friend_request") {
           playNotifSound();
@@ -254,7 +281,7 @@ export default function MessengerView() {
       };
     } catch { /* BroadcastChannel not supported */ }
     return () => { try { bcRef.current?.close(); } catch { /* */ } };
-  }, [userId, notificationPermission, playNotifSound]);
+  }, [userId, notificationPermission, playNotifSound, fetchFriends]);
 
   // ── Cross-tab: broadcast new message to other tabs ──
   useEffect(() => {
@@ -467,11 +494,11 @@ export default function MessengerView() {
       } else if (notificationPermission === "default") {
         requestNotifPermission();
       }
-      // Broadcast to other tabs
+      // Broadcast to other tabs — include full message data
       try {
         bcRef.current?.postMessage({
           type: "new_message",
-          payload: { senderId: m.senderId, senderUsername: m.senderUsername, id: m.id, preview: (() => { try { const d = simulateDecryptSync(m.content); return d.length > 60 ? d.slice(0, 60) : d; } catch { return m.content.slice(0, 60); } })() },
+          payload: m,
         });
       } catch { /* BroadcastChannel not available */ }
     }
@@ -1369,7 +1396,7 @@ export default function MessengerView() {
   const messengerHeight = (() => {
     const topNav = isMobileView ? 4 : 3.5;
     const mobileNav = isMobileView ? 3.5 : 0;
-    const playerBar = currentTrack ? (isMobileView ? 7 : 7) : 0;
+    const playerBar = currentTrack ? (isMobileView ? 7.5 : 7.5) : 0;
     return `calc(100dvh - ${topNav + mobileNav + playerBar}rem)`;
   })();
 
@@ -1633,7 +1660,7 @@ export default function MessengerView() {
                         style={{ ...glassPanelSolid, boxShadow: shadowDeep }}
                         onTouchStart={(e) => e.stopPropagation()}
                         onMouseDown={(e) => e.stopPropagation()}
-                        data-context-menu="true"
+                        data-chat-settings="true"
                         onClick={(e) => { e.stopPropagation(); setShowChatSettings(false); }}>
                         {!isGroupChat && selectedContactId && (
                           <>
@@ -1895,7 +1922,7 @@ export default function MessengerView() {
               </div>
             ) : (
               /* ── Normal input mode ── */
-              <div className="px-3 py-2 flex items-center gap-2 flex-shrink-0 relative z-10" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
+              <div className="px-3 py-2 flex items-center gap-2 flex-shrink-0 relative z-50" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
                 {/* Emoji / Sticker toggle */}
                 <motion.button whileTap={{ scale: 0.9 }}
                   onClick={() => { if (showEmojis) { setShowEmojis(false); } else if (showStickers) { setShowStickers(false); } else { setShowEmojis(true); } }}
@@ -2408,6 +2435,59 @@ export default function MessengerView() {
 
       {/* Notification Panel */}
       <NotificationPanel isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
+
+      {/* Context menu — rendered via Portal to body to avoid transform stacking context issues */}
+      {contextMenuMsgId && (() => {
+        const menuMsg = contactMessages.find((m: any) => m.id === contextMenuMsgId!.id);
+        if (!menuMsg) return null;
+        let menuIsVoice = false;
+        try { const parsed = JSON.parse(menuMsg.content); if (parsed.voiceUrl) menuIsVoice = true; } catch { /* */ }
+        let menuIsSticker = false;
+        try { const parsed = JSON.parse(menuMsg.content); if (parsed.type === "sticker" && parsed.sticker) menuIsSticker = true; } catch { /* */ }
+        return createPortal(
+          <Fragment>
+            {/* Transparent backdrop to catch clicks/taps outside the menu */}
+            <div className="fixed inset-0 z-[9998]" style={{ background: "transparent" }}
+              onClick={() => setContextMenuMsgId(null)}
+              onTouchStart={() => setContextMenuMsgId(null)}
+              onMouseDown={() => setContextMenuMsgId(null)} />
+            <div
+              data-context-menu="true"
+              className="fixed z-[9999] rounded-xl py-1 min-w-[190px]"
+              style={{
+                ...glassPanelSolid,
+                boxShadow: shadowDeep,
+                left: Math.min(contextMenuMsgId.x, window.innerWidth - 210),
+                top: Math.min(contextMenuMsgId.y, window.innerHeight - 220),
+              }}
+              onTouchStart={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => handleReplyMessage(menuMsg)}
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+                <Reply className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Ответить
+              </button>
+              {menuMsg.senderId === userId && !menuIsVoice && !menuIsSticker && (
+                <button onClick={() => handleStartEdit(menuMsg)}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+                  <Edit3 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Редактировать
+                </button>
+              )}
+              <button onClick={() => handleCopyMessage(menuMsg)}
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+                <Copy className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Копировать
+              </button>
+              {menuMsg.senderId === userId && (
+                <button onClick={() => handleDeleteMessage(menuMsg.id)}
+                  className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "#ef4444" }}>
+                  <Trash2 className="w-4 h-4" /> Удалить
+                </button>
+              )}
+            </div>
+          </Fragment>,
+          document.body
+        );
+      })()}
     </div>
   );
 
@@ -2475,42 +2555,6 @@ export default function MessengerView() {
             )}
           </div>
         </motion.div>
-
-        {/* Context menu — fixed positioning at cursor, touch-safe with backdrop */}
-        {contextMenuMsgId && contextMenuMsgId.id === msg.id && (
-          <>
-            {/* Transparent backdrop to catch clicks/taps outside the menu */}
-            <div className="fixed inset-0 z-[9998]" onClick={() => setContextMenuMsgId(null)} onTouchStart={() => setContextMenuMsgId(null)} />
-            <div
-              data-context-menu="true"
-              className="fixed z-[9999] rounded-xl py-1 min-w-[190px]"
-              style={{ ...glassPanelSolid, boxShadow: shadowDeep, left: Math.min(contextMenuMsgId.x, window.innerWidth - 210), top: Math.min(contextMenuMsgId.y, window.innerHeight - 220) }}
-              onTouchStart={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => handleReplyMessage(msg)}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-              <Reply className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Ответить
-            </button>
-            {msg.senderId === userId && !isVoice && !isSticker && (
-              <button onClick={() => handleStartEdit(msg)}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-                <Edit3 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Редактировать
-              </button>
-            )}
-            <button onClick={() => handleCopyMessage(msg)}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-              <Copy className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Копировать
-            </button>
-            {msg.senderId === userId && (
-              <button onClick={() => handleDeleteMessage(msg.id)}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "#ef4444" }}>
-                <Trash2 className="w-4 h-4" /> Удалить
-              </button>
-            )}
-            </div>
-          </>
-        )}
       </div>
     );
   }
