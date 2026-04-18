@@ -64,3 +64,26 @@ Work Log:
 Stage Summary:
 - All changes verified in pushed commit d06a736
 - w-fit bubbles, now-listening without userId check, clickable dropdown, avatar fallback
+---
+Task ID: 1-6
+Agent: main
+Task: Fix messenger issues — now-playing, hide online, player blocking, notifications
+
+Work Log:
+- Read MessengerView.tsx (2460+ lines), PlayerBar.tsx, useAppStore.ts, now-playing API, heartbeat API, status API, schema.prisma
+- Found now-playing polling was already at 5s interval; reduced server-side stale timeout from 5min to 2min
+- Added hideOnline state with localStorage persistence ("mq-hide-online")
+- Modified heartbeat to skip when hideOnline is true (was every 5s → now 30s when online)
+- Added isMobileView state with resize listener for responsive height calculation
+- Fixed messenger container height: dynamically accounts for top nav + mobile nav + player bar
+- Added notificationPermission state + requestNotifPermission callback + playNotifSound callback
+- Changed message notification: now plays sound + sends browser notification for ALL messages (not just hidden tab)
+- Added friend request polling every 15s with notification sound + browser push
+- Replaced "Звонок" button with "Невидимка" toggle (eye on/off icon with active state)
+- Updated "Звук" button to request notification permission and show status
+- Removed unused Phone import
+
+Stage Summary:
+- Pushed to GitHub: commit ae702de
+- Files changed: MessengerView.tsx, now-playing/route.ts
+- 3 files changed, 129 insertions(+), 28 deletions(-)
