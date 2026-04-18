@@ -279,6 +279,16 @@ export default function PlaylistView() {
               <Plus className="w-4 h-4" />
               Создать
             </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm"
+              style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border)" }}
+            >
+              <Download className="w-4 h-4" />
+              Импорт
+            </motion.button>
           </div>
         </div>
         <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
@@ -335,117 +345,7 @@ export default function PlaylistView() {
         )}
       </AnimatePresence>
 
-      {/* ── Text Import — always visible ── */}
-      <motion.div
-        initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="rounded-2xl p-4 space-y-3"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
-      >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ListMusic className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-            <h3 className="font-semibold text-sm" style={{ color: "var(--mq-text)" }}>Импорт треков текстом</h3>
-          </div>
-          {importing && (
-            <div className="flex items-center gap-2">
-              <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--mq-accent)" }} />
-              <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
-                {importProgress || `Обработка...`}
-              </span>
-            </div>
-          )}
-        </div>
-        <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-          Вставьте названия треков — каждый на новой строке в формате &quot;Исполнитель - Название&quot;:
-        </p>
-        <textarea
-          value={importText}
-          onChange={(e) => setImportText(e.target.value)}
-          placeholder={"Eminem - Lose Yourself\nImagine Dragons - Believer\nThe Weeknd - Blinding Lights"}
-          rows={5}
-          disabled={importing}
-          className="w-full rounded-lg px-3 py-2 text-sm resize-none"
-          style={{
-            backgroundColor: "var(--mq-input-bg)",
-            border: "1px solid var(--mq-border)",
-            color: importing ? "var(--mq-text-muted)" : "var(--mq-text)",
-            opacity: importing ? 0.6 : 1,
-          }}
-        />
-        <button
-          onClick={async () => {
-            if (!importText.trim()) return;
-            setImporting(true);
-            const id = `pl_import_${Date.now()}`;
-            const lines = importText.trim().split("\n").filter(l => l.trim());
-            const tracks: Track[] = [];
-            for (let i = 0; i < lines.length; i++) {
-              setImportProgress(`Поиск трека ${i + 1} из ${lines.length}...`);
-              const line = lines[i];
-              const parts = line.split(" - ");
-              const title = (parts[1] || parts[0] || "").trim();
-              const artist = (parts[1] ? parts[0] : "Unknown Artist").trim();
-              // Try to find on SoundCloud
-              try {
-                const query = `${artist} ${title}`;
-                const res = await fetch(`/api/music/search?q=${encodeURIComponent(query)}`);
-                if (res.ok) {
-                  const data = await res.json();
-                  if (data.tracks && data.tracks.length > 0) {
-                    tracks.push(data.tracks[0]);
-                    continue;
-                  }
-                }
-              } catch {}
-              tracks.push({
-                id: `import_${i}_${Date.now()}`,
-                title,
-                artist,
-                album: "",
-                cover: "",
-                duration: 0,
-                genre: "",
-                source: "soundcloud" as const,
-                audioUrl: "",
-                scTrackId: null,
-                scIsFull: false,
-              } as Track);
-            }
-            const newPl: UserPlaylist = {
-              id,
-              name: `Импорт ${new Date().toLocaleDateString("ru-RU")}`,
-              description: `${tracks.length} треков`,
-              cover: "",
-              tracks,
-              createdAt: Date.now(),
-            };
-            useAppStore.setState(s => ({ playlists: [...s.playlists, newPl] }));
-            setImportText("");
-            setImporting(false);
-            setImportProgress("");
-            toast({
-              title: "Плейлист импортирован",
-              description: `${tracks.length} треков добавлено`,
-            });
-          }}
-          disabled={!importText.trim() || importing}
-          className="w-full py-2.5 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
-          style={{
-            backgroundColor: importText.trim() && !importing ? "var(--mq-accent)" : "var(--mq-border)",
-            color: importText.trim() && !importing ? "var(--mq-text)" : "var(--mq-text-muted)",
-          }}
-        >
-          {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          {importing
-            ? `Импортирование... ${importProgress || ""}`
-            : `Импортировать (${importText.trim().split("\n").filter(l => l.trim()).length} треков)`
-          }
-        </button>
-      </motion.div>
-
-      {/* ── URL Import — collapsible ── */}
+      {/* Import playlist dialog */}
       <AnimatePresence>
         {showImport && (
           <motion.div
@@ -456,119 +356,204 @@ export default function PlaylistView() {
             style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Link className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-                <h3 className="font-semibold text-sm" style={{ color: "var(--mq-text)" }}>Импорт по ссылке</h3>
-              </div>
+              <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Импорт плейлиста</h3>
               <button onClick={() => { setShowImport(false); setImportError(""); setImportHint(""); setVkToken(""); setShowVkToken(false); }} style={{ color: "var(--mq-text-muted)" }}>
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-              Вставьте ссылку на плейлист (VK, Яндекс.Музыка, Spotify, YouTube, Apple Music, SoundCloud):
-            </p>
+            {/* Tab buttons */}
             <div className="flex gap-2">
-              <input
-                ref={importInputRef}
-                type="url"
-                value={importUrl}
-                onChange={(e) => { setImportUrl(e.target.value); setImportError(""); setImportHint(""); }}
-                placeholder="https://open.spotify.com/playlist/..."
-                className="flex-1 rounded-lg px-3 py-2 text-sm"
-                style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !importing && importUrl.trim()) triggerUrlImport(); }}
-              />
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={triggerUrlImport}
-                disabled={importing || !importUrl.trim()}
-                className="px-4 py-2 rounded-lg text-sm font-medium"
+              <button
+                onClick={() => setImportMode('text')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
                 style={{
-                  backgroundColor: importUrl.trim() && !importing ? "var(--mq-accent)" : "var(--mq-border)",
-                  color: importUrl.trim() && !importing ? "var(--mq-text)" : "var(--mq-text-muted)",
+                  backgroundColor: importMode === 'text' ? "var(--mq-accent)" : "var(--mq-input-bg)",
+                  color: importMode === 'text' ? "var(--mq-text)" : "var(--mq-text-muted)",
+                  border: "1px solid var(--mq-border)",
                 }}
               >
-                {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              </motion.button>
+                <ListMusic className="w-3 h-3" /> Текстом
+              </button>
+              <button
+                onClick={() => setImportMode('url')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{
+                  backgroundColor: importMode === 'url' ? "var(--mq-accent)" : "var(--mq-input-bg)",
+                  color: importMode === 'url' ? "var(--mq-text)" : "var(--mq-text-muted)",
+                  border: "1px solid var(--mq-border)",
+                }}
+              >
+                <Link className="w-3 h-3" /> По ссылке
+              </button>
             </div>
-            {/* VK Token input (shown when needed or when URL is VK) */}
-            {(showVkToken || /vk\.com/i.test(importUrl)) && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-medium" style={{ color: "var(--mq-text)" }}>VK API-токен</label>
-                  <a
-                    href="https://vk.com/dev/audio.getPlaylistById"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[10px] underline"
-                    style={{ color: "var(--mq-accent)" }}
-                  >
-                    Как получить?
-                  </a>
-                </div>
-                <input
-                  type={showVkToken ? "text" : "password"}
-                  value={vkToken}
-                  onChange={(e) => { setVkToken(e.target.value); setImportError(""); setImportHint(""); }}
-                  placeholder="vk1.a.abc..."
-                  className="w-full rounded-lg px-3 py-2 text-xs font-mono"
+
+            {importMode === 'text' ? (
+              <>
+                <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                  Вставьте названия треков (каждый на новой строке в формате &quot;Исполнитель - Название&quot;):
+                </p>
+                <textarea
+                  value={importText}
+                  onChange={(e) => setImportText(e.target.value)}
+                  placeholder={"Artist - Track Name\nArtist2 - Track Name 2"}
+                  rows={6}
+                  className="w-full rounded-lg px-3 py-2 text-sm resize-none"
                   style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !importing && importUrl.trim()) triggerUrlImport(); }}
                 />
-                <p className="text-[10px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-                  Откройте ссылку «Как получить?» → нажмите «Попробовать» → скопируйте access_token из адресной строки (параметр after /access_token=)
+                <button
+                  onClick={async () => {
+                    if (!importText.trim()) return;
+                    setImporting(true);
+                    const id = `pl_import_${Date.now()}`;
+                    const lines = importText.trim().split("\n").filter(l => l.trim());
+                    const tracks: Track[] = [];
+                    for (let i = 0; i < lines.length; i++) {
+                      const line = lines[i];
+                      const parts = line.split(" - ");
+                      const title = (parts[1] || parts[0] || "").trim();
+                      const artist = (parts[1] ? parts[0] : "Unknown Artist").trim();
+                      // Try to find on SoundCloud
+                      try {
+                        const query = `${artist} ${title}`;
+                        const res = await fetch(`/api/music/search?q=${encodeURIComponent(query)}`);
+                        if (res.ok) {
+                          const data = await res.json();
+                          if (data.tracks && data.tracks.length > 0) {
+                            tracks.push(data.tracks[0]);
+                            continue;
+                          }
+                        }
+                      } catch {}
+                      tracks.push({
+                        id: `import_${i}_${Date.now()}`,
+                        title,
+                        artist,
+                        album: "",
+                        cover: "",
+                        duration: 0,
+                        genre: "",
+                        source: "soundcloud" as const,
+                        audioUrl: "",
+                        scTrackId: null,
+                        scIsFull: false,
+                      } as Track);
+                    }
+                    const newPl: UserPlaylist = {
+                      id,
+                      name: `Импорт ${new Date().toLocaleDateString("ru-RU")}`,
+                      description: `${tracks.length} треков`,
+                      cover: "",
+                      tracks,
+                      createdAt: Date.now(),
+                    };
+                    useAppStore.setState(s => ({ playlists: [...s.playlists, newPl] }));
+                    setShowImport(false);
+                    setImportText("");
+                    setImporting(false);
+                    toast({
+                      title: "Плейлист импортирован",
+                      description: `${tracks.length} треков добавлено`,
+                    });
+                  }}
+                  disabled={!importText.trim() || importing}
+                  className="w-full py-2 rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                  style={{
+                    backgroundColor: importText.trim() && !importing ? "var(--mq-accent)" : "var(--mq-border)",
+                    color: importText.trim() && !importing ? "var(--mq-text)" : "var(--mq-text-muted)",
+                  }}
+                >
+                  {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                  Импортировать ({importText.trim().split("\n").filter(l => l.trim()).length} треков)
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                  Вставьте ссылку на плейлист (VK, Яндекс.Музыка, Spotify, YouTube, Apple Music, SoundCloud):
                 </p>
-              </div>
-            )}
-            {importing && importProgress && (
-              <div className="flex items-center gap-2 py-1">
-                <Loader2 className="w-3 h-3 animate-spin" style={{ color: "var(--mq-accent)" }} />
-                <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>{importProgress}</p>
-              </div>
-            )}
-            {importError && (
-              <div className="space-y-1">
-                <div className="flex items-start gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#ef4444" }} />
-                  <p className="text-xs" style={{ color: "#ef4444" }}>{importError}</p>
+                <div className="flex gap-2">
+                  <input
+                    ref={importInputRef}
+                    type="url"
+                    value={importUrl}
+                    onChange={(e) => { setImportUrl(e.target.value); setImportError(""); setImportHint(""); }}
+                    placeholder="https://open.spotify.com/playlist/..."
+                    className="flex-1 rounded-lg px-3 py-2 text-sm"
+                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !importing && importUrl.trim()) triggerUrlImport(); }}
+                  />
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={triggerUrlImport}
+                    disabled={importing || !importUrl.trim()}
+                    className="px-4 py-2 rounded-lg text-sm font-medium"
+                    style={{
+                      backgroundColor: importUrl.trim() && !importing ? "var(--mq-accent)" : "var(--mq-border)",
+                      color: importUrl.trim() && !importing ? "var(--mq-text)" : "var(--mq-text-muted)",
+                    }}
+                  >
+                    {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  </motion.button>
                 </div>
-              </div>
-            )}
-            {importHint && !importing && (
-              <div className="rounded-lg p-2.5" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)" }}>
-                <p className="text-[11px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-                  💡 {importHint}
+                {/* VK Token input (shown when needed or when URL is VK) */}
+                {(showVkToken || /vk\.com/i.test(importUrl)) && (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium" style={{ color: "var(--mq-text)" }}>VK API-токен</label>
+                      <a
+                        href="https://vk.com/dev/audio.getPlaylistById"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] underline"
+                        style={{ color: "var(--mq-accent)" }}
+                      >
+                        Как получить?
+                      </a>
+                    </div>
+                    <input
+                      type={showVkToken ? "text" : "password"}
+                      value={vkToken}
+                      onChange={(e) => { setVkToken(e.target.value); setImportError(""); setImportHint(""); }}
+                      placeholder="vk1.a.abc..."
+                      className="w-full rounded-lg px-3 py-2 text-xs font-mono"
+                      style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !importing && importUrl.trim()) triggerUrlImport(); }}
+                    />
+                    <p className="text-[10px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+                      Откройте ссылку «Как получить?» → нажмите «Попробовать» → скопируйте access_token из адресной строки (параметр after /access_token=)
+                    </p>
+                  </div>
+                )}
+                {importing && importProgress && (
+                  <div className="flex items-center gap-2 py-1">
+                    <Loader2 className="w-3 h-3 animate-spin" style={{ color: "var(--mq-accent)" }} />
+                    <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>{importProgress}</p>
+                  </div>
+                )}
+                {importError && (
+                  <div className="space-y-1">
+                    <div className="flex items-start gap-1.5">
+                      <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#ef4444" }} />
+                      <p className="text-xs" style={{ color: "#ef4444" }}>{importError}</p>
+                    </div>
+                  </div>
+                )}
+                {importHint && !importing && (
+                  <div className="rounded-lg p-2.5" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)" }}>
+                    <p className="text-[11px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+                      💡 {importHint}
+                    </p>
+                  </div>
+                )}
+                <p className="text-[10px]" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                  Поддержка: VK, Яндекс.Музыка, Spotify, YouTube Music, Apple Music, SoundCloud
                 </p>
-              </div>
+              </>
             )}
-            <p className="text-[10px]" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
-              Поддержка: VK, Яндекс.Музыка, Spotify, YouTube Music, Apple Music, SoundCloud
-            </p>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* URL import toggle button */}
-      {!showImport && (
-        <motion.button
-          initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-          whileHover={{ scale: 1.01 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={() => setShowImport(true)}
-          className="w-full p-3 rounded-xl text-left text-sm flex items-center gap-3"
-          style={{
-            background: "linear-gradient(135deg, var(--mq-card), var(--mq-input-bg))",
-            border: "1px dashed var(--mq-border)",
-            color: "var(--mq-text-muted)",
-          }}
-        >
-          <Link className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-          <span>Импорт по ссылке (VK, Spotify, YouTube...)</span>
-        </motion.button>
-      )}
 
       {/* Playlist grid */}
       {playlists.length > 0 ? (
