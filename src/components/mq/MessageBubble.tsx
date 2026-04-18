@@ -308,7 +308,7 @@ export default function MessageBubble({
         animate={{ opacity: 1, y: 0 }}
         className={`flex ${isMine ? "justify-end" : "justify-start"}`}
       >
-        <div className="max-w-[80%] lg:max-w-[65%]">
+        <div className="max-w-[80%] lg:max-w-[65%] w-fit">
           <div
             className="rounded-2xl px-4 py-2"
             style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
@@ -380,7 +380,7 @@ export default function MessageBubble({
         animate={{ opacity: 1, y: 0, scale: 1 }}
         className={`flex ${isMine ? "justify-end" : "justify-start"}`}
       >
-        <div className="max-w-[80%] lg:max-w-[65%]">
+        <div className="max-w-[85%] lg:max-w-[70%] w-fit">
           {!isMine && message.senderName && (
             <p
               className="text-[10px] mb-1 ml-1 font-medium"
@@ -537,7 +537,7 @@ export default function MessageBubble({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       className={`flex ${isMine ? "justify-end" : "justify-start"}`}
     >
-      <div className="max-w-[85%] lg:max-w-[70%]" style={{ minWidth: 0 }}>
+      <div className="max-w-[85%] lg:max-w-[70%] w-fit" style={{ minWidth: 0 }}>
         {/* Sender name (received messages only) */}
         {!isMine && message.senderName && (
           <p

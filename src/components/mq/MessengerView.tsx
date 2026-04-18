@@ -152,6 +152,7 @@ export default function MessengerView() {
   const [mounted, setMounted] = useState(false);
   const [showChatSettings, setShowChatSettings] = useState(false);
   const [showProfileView, setShowProfileView] = useState<string | null>(null);
+  const [showProfileMore, setShowProfileMore] = useState(false);
 
   // ── Pinned chats (persisted to localStorage) ──
   const [pinnedChatIds, setPinnedChatIds] = useState<Set<string>>(() => {
@@ -1914,7 +1915,7 @@ export default function MessengerView() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center"
             style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-            onClick={() => setShowProfileView(null)}>
+            onClick={() => { setShowProfileView(null); setShowProfileMore(false); }}>
             <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl overflow-hidden"
@@ -1928,7 +1929,7 @@ export default function MessengerView() {
 
               {/* Close button */}
               <div className="flex justify-end px-4 pb-2">
-                <button onClick={() => setShowProfileView(null)} className="p-1.5 rounded-full cursor-pointer" style={{ ...glassPanel, color: "var(--mq-text-muted)" }}>
+                <button onClick={() => { setShowProfileView(null); setShowProfileMore(false); }} className="p-1.5 rounded-full cursor-pointer" style={{ ...glassPanel, color: "var(--mq-text-muted)" }}>
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -1960,55 +1961,99 @@ export default function MessengerView() {
               {/* Action buttons row */}
               <div className="flex justify-center gap-2 px-4 pb-4">
                 <motion.button whileTap={{ scale: 0.9 }}
-                  onClick={() => { setShowProfileView(null); if (selectedContactId !== showProfileView) setSelectedContact(showProfileView); }}
+                  onClick={() => { setShowProfileView(null); }}
                   className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
                   style={{ ...glassPanel }}>
                   <MessageCircle className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
                   <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Чат</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.9 }}
-                  onClick={() => { setShowProfileView(null); showToast("Уведомления включены"); }}
+                  onClick={() => showToast("Уведомления включены")}
                   className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
                   style={{ ...glassPanel }}>
                   <Bell className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
                   <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Звук</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.9 }}
-                  onClick={() => { setShowProfileView(null); showToast("Звонки пока в разработке"); }}
+                  onClick={() => showToast("Звонки пока в разработке")}
                   className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
                   style={{ ...glassPanel }}>
                   <Phone className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
                   <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Звонок</span>
                 </motion.button>
-                <motion.button whileTap={{ scale: 0.9 }}
-                  onClick={() => { setShowProfileView(null); setShowChatSettings(true); }}
-                  className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
-                  style={{ ...glassPanel }}>
-                  <MoreVertical className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                  <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Ещё</span>
-                </motion.button>
+                <div className="relative flex flex-col items-center gap-1.5 flex-1 max-w-[80px]">
+                  <motion.button whileTap={{ scale: 0.9 }}
+                    onClick={(e) => { e.stopPropagation(); setShowProfileMore(!showProfileMore); }}
+                    className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer w-full"
+                    style={{ ...glassPanel }}>
+                    <MoreVertical className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+                    <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Ещё</span>
+                  </motion.button>
+                  <AnimatePresence>
+                    {showProfileMore && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.9, y: -5 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: -5 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 rounded-xl py-1 min-w-[180px] z-50"
+                        style={{ ...glassPanelSolid, boxShadow: shadowDeep }}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        data-context-menu="true"
+                        onClick={(e) => { e.stopPropagation(); setShowProfileMore(false); }}>
+                        <button onClick={() => { setShowProfileMore(false); setShowProfileView(null); handleExportChat(); }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
+                          <Download className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Экспорт чата
+                        </button>
+                        <button onClick={() => { setShowProfileMore(false); setShowProfileView(null); handleClearHistory(); }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
+                          <Trash2 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Очистить историю
+                        </button>
+                        <div className="my-1" style={{ borderTop: "1px solid var(--mq-border)" }} />
+                        <button onClick={() => { setShowProfileMore(false); setShowProfileView(null); handleDeleteChat(); }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "#ef4444" }}>
+                          <Ban className="w-4 h-4" /> Заблокировать
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
-              {/* Now listening status — for own profile OR could show for any user with track */}
-              {(showProfileView === userId) && currentTrack && (
+              {/* Now listening status — shows when user is playing a track */}
+              {currentTrack && (
                 <div className="mx-4 mb-4 rounded-xl p-3 flex items-center gap-3" style={{ ...glassPanel }}>
                   {currentTrack.cover ? (
-                    <img src={currentTrack.cover} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                    <img src={currentTrack.cover} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0 shadow-lg" />
                   ) : (
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }}>
-                      <Music2 className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+                    <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }}>
+                      <Music2 className="w-6 h-6" style={{ color: "var(--mq-text)" }} />
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>Сейчас слушает</p>
-                    <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+                    <p className="text-[10px] font-semibold tracking-wide uppercase" style={{ color: "var(--mq-accent)" }}>Сейчас слушает</p>
+                    <p className="text-xs font-medium truncate mt-0.5" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
                     <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
                   </div>
                   {isPlaying && (
-                    <div className="flex items-end gap-0.5 flex-shrink-0">
-                      {[0, 1, 2].map((i) => (
-                        <motion.div key={i} className="w-0.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)", height: 8 }}
-                          animate={{ height: [4, 12, 6, 10, 4] }} transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15 }} />
+                    <div className="flex items-end gap-[3px] flex-shrink-0 h-5">
+                      {[0, 1, 2, 3].map((i) => (
+                        <motion.div
+                          key={i}
+                          className="w-[3px] rounded-full"
+                          style={{ backgroundColor: "var(--mq-accent)" }}
+                          animate={{
+                            height: [4, 14, 6, 12, 4],
+                            opacity: [0.5, 1, 0.6, 0.9, 0.5],
+                          }}
+                          transition={{
+                            duration: 1.2,
+                            repeat: Infinity,
+                            delay: i * 0.15,
+                            ease: "easeInOut",
+                          }}
+                        />
                       ))}
                     </div>
                   )}
@@ -2069,7 +2114,7 @@ export default function MessengerView() {
         onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchMove={handleTouchMove}>
         <motion.div initial={animationsEnabled ? { opacity: 0, y: 8, scale: 0.97 } : undefined} animate={{ opacity: 1, y: 0, scale: 1 }}
           className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-          <div className="max-w-[85%] lg:max-w-[70%]" style={{ minWidth: 0 }}>
+          <div className="max-w-[85%] lg:max-w-[70%] w-fit" style={{ minWidth: 0 }}>
             {replyPreview && (
               <div className="mb-1 ml-1 px-2.5 py-1.5 rounded-lg" style={{ ...glassPanel, borderLeft: "2px solid var(--mq-accent)" }}>
                 <p className="text-[9px] font-semibold" style={{ color: "var(--mq-accent)" }}>{replyPreview.senderName}</p>
@@ -2137,7 +2182,7 @@ export default function MessengerView() {
 
     return (
       <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"} mb-3`}>
-        <div className="max-w-[80%] lg:max-w-[65%]">
+        <div className="max-w-[85%] lg:max-w-[70%] w-fit">
           {!isMine && (
             <p className="text-[10px] mb-1 ml-1 font-semibold" style={{ color: "var(--mq-accent)" }}>
               {msg.senderName || "User"}
