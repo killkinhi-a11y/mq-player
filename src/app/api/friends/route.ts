@@ -18,14 +18,14 @@ export async function GET(req: NextRequest) {
         ],
       },
       include: {
-        requester: { select: { id: true, username: true } },
-        addressee: { select: { id: true, username: true } },
+        requester: { select: { id: true, username: true, avatar: true } },
+        addressee: { select: { id: true, username: true, avatar: true } },
       },
       orderBy: { updatedAt: "desc" },
     });
 
     // Separate into accepted friends and pending incoming requests
-    const friends: { id: string; username: string; addedAt: string }[] = [];
+    const friends: { id: string; username: string; avatar: string; addedAt: string }[] = [];
     const pendingRequests: { id: string; username: string; requestId: string }[] = [];
 
     for (const f of friendships) {
@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
         friends.push({
           id: friendUser.id,
           username: friendUser.username,
+          avatar: (friendUser as any).avatar || "",
           addedAt: f.updatedAt.toISOString(),
         });
       } else if (f.status === "pending" && f.addresseeId === userId) {

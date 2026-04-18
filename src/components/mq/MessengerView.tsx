@@ -25,7 +25,7 @@ interface Story {
   trackData?: { id: string; title: string; artist: string; cover: string; duration: number; streamUrl: string };
 }
 
-interface FriendUser { id: string; username: string; addedAt: string; }
+interface FriendUser { id: string; username: string; avatar: string; addedAt: string; }
 interface PendingRequest { id: string; username: string; requestId: string; }
 interface FetchedUser { id: string; username: string; email: string; createdAt: string; }
 
@@ -53,12 +53,12 @@ const storyGradients = [
 const quickEmojis = ["😀", "😂", "❤️", "🎵", "🔥", "👍", "😎", "🤔", "💪", "🫡", "✨", "🥳"];
 
 const stickerCategories = [
-  { name: "Смайлы", items: ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "😉", "😊", "😇"] },
-  { name: "Жесты", items: ["👍", "👎", "👋", "🤝", "👏", "🙌", "🤞", "✌️", "🤟", "🫶", "💪", "🫡"] },
-  { name: "Животные", items: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐸"] },
-  { name: "Еда", items: ["🍕", "🍔", "🍟", "🌮", "🍣", "🍦", "🍩", "🍪", "🍫", "☕", "🧋", "🍺"] },
-  { name: "Сердца", items: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💗", "💖", "💝", "💞"] },
-  { name: "Музыка", items: ["🎵", "🎶", "🎸", "🎹", "🥁", "🎺", "🎻", "🪗", "🎙️", "🎧", "🎤", "🎼"] },
+  { name: "Смайлы", items: ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "😉", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪"] },
+  { name: "Жесты", items: ["👍", "👎", "👋", "🤝", "👏", "🙌", "🤞", "✌️", "🤟", "🫶", "💪", "🫡", "🤙", "🖕", "✋", "🖖", "👌", "🤌", "🤏", "👈", "👉", "👆", "👇", "☝️"] },
+  { name: "Животные", items: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐸", "🐵", "🐔", "🐧", "🦄", "🐙", "🦋", "🐢", "🦀", "🐬", "🦜", "🐝", "🦉"] },
+  { name: "Еда", items: ["🍕", "🍔", "🍟", "🌮", "🍣", "🍦", "🍩", "🍪", "🍫", "☕", "🧋", "🍺", "🥗", "🍝", "🍜", "🥐", "🧇", "🥞", "🍿", "🧁", "🎂", "🍰", "🥧", "🍬"] },
+  { name: "Сердца", items: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💗", "💖", "💝", "💞", "💕", "💓", "💔", "❤️‍🔥", "❤️‍🩹", "💌", "💗", "💘", "💝", "💟", "♥️", "🏳️"] },
+  { name: "Музыка", items: ["🎵", "🎶", "🎸", "🎹", "🥁", "🎺", "🎻", "🪗", "🎙️", "🎧", "🎤", "🎼", "🪕", "🎷", "🪘", "🥁", "🔊", "🔉", "🔈", "🔇", "📻", "🪇", "🎹", "🎵"] },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -151,6 +151,7 @@ export default function MessengerView() {
   const [newChatSearch, setNewChatSearch] = useState("");
   const [mounted, setMounted] = useState(false);
   const [showChatSettings, setShowChatSettings] = useState(false);
+  const [showProfileView, setShowProfileView] = useState<string | null>(null);
 
   // ── Pinned chats (persisted to localStorage) ──
   const [pinnedChatIds, setPinnedChatIds] = useState<Set<string>>(() => {
@@ -330,6 +331,10 @@ export default function MessengerView() {
                 createdAt: m.createdAt,
                 senderName: m.senderUsername ? `@${m.senderUsername}` : undefined,
                 messageType: m.messageType,
+                replyToId: m.replyToId,
+                edited: m.edited,
+                voiceUrl: m.voiceUrl,
+                voiceDuration: m.voiceDuration,
               };
               addMessage(msg);
 
@@ -371,7 +376,7 @@ export default function MessengerView() {
       try { await fetch("/api/user/heartbeat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId }) }); } catch { /* */ }
     };
     sendHeartbeat();
-    heartbeatRef.current = setInterval(sendHeartbeat, 30000);
+    heartbeatRef.current = setInterval(sendHeartbeat, 5000);
     return () => { if (heartbeatRef.current) clearInterval(heartbeatRef.current); };
   }, [userId]);
 
@@ -393,7 +398,7 @@ export default function MessengerView() {
     };
     fetchStatuses();
     // Refresh every 60s
-    const interval = setInterval(fetchStatuses, 60000);
+    const interval = setInterval(fetchStatuses, 5000);
     return () => clearInterval(interval);
   }, [userId, friends]);
 
@@ -415,6 +420,7 @@ export default function MessengerView() {
               id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
               encrypted: m.encrypted, createdAt: m.createdAt, senderName: `@${m.sender?.username || "user"}`,
               messageType: m.messageType, replyToId: m.replyToId, edited: m.edited,
+              voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration, editedAt: m.editedAt,
             }));
             loadMessages(serverMsgs);
           }
@@ -469,7 +475,7 @@ export default function MessengerView() {
 
   const contactList = useMemo(() => {
     return friends.map((f) => ({
-      id: f.id, name: f.username, username: f.username, avatar: "",
+      id: f.id, name: f.username, username: f.username, avatar: f.avatar || "",
       online: onlineStatuses[f.id]?.online ?? false,
       lastSeen: onlineStatuses[f.id]?.lastSeen ?? new Date(f.addedAt).toISOString(),
     }));
@@ -549,13 +555,15 @@ export default function MessengerView() {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, selectedContactId, groupMessages, selectedGroupId]);
 
-  // ── Close context menu on click anywhere ──
+  // ── Close context menu on click/touch anywhere ──
   useEffect(() => {
     const close = () => setContextMenuMsgId(null);
     if (contextMenuMsgId) {
       document.addEventListener("click", close);
       document.addEventListener("touchstart", close);
-      return () => { document.removeEventListener("click", close); document.removeEventListener("touchstart", close); };
+      document.addEventListener("touchend", close);
+      document.addEventListener("contextmenu", close);
+      return () => { document.removeEventListener("click", close); document.removeEventListener("touchstart", close); document.removeEventListener("touchend", close); document.removeEventListener("contextmenu", close); };
     }
   }, [contextMenuMsgId]);
 
@@ -593,15 +601,33 @@ export default function MessengerView() {
     const msgId = crypto.randomUUID();
     const now = new Date().toISOString();
     const msg: any = {
-      id: msgId, content: extra ? JSON.stringify(extra) : content,
+      id: msgId,
       senderId: userId, receiverId: selectedGroupId ? userId : targetId,
-      encrypted: !extra, createdAt: now, senderName: `@${username || "user"}`,
+      createdAt: now, senderName: `@${username || "user"}`,
     };
-    if (extra) { msg.messageType = extra.type; }
+    // For sticker/voice/track_share: content is JSON with type
+    // For reply with text: content is the encrypted text, replyToId is separate
+    if (extra && extra.type && extra.type !== "reply") {
+      msg.content = JSON.stringify(extra);
+      msg.encrypted = false;
+      msg.messageType = extra.type;
+    } else {
+      msg.content = content;
+      msg.encrypted = true;
+      msg.messageType = "text";
+    }
     if (extra?.replyToId) { msg.replyToId = extra.replyToId; }
     addMessage(msg);
     try {
-      const body: any = { id: msgId, content: msg.content, senderId: userId, encrypted: msg.encrypted, messageType: extra?.type };
+      const body: any = {
+        id: msgId, content: msg.content, senderId: userId,
+        encrypted: msg.encrypted, messageType: msg.messageType,
+      };
+      if (extra?.voiceUrl) { body.voiceUrl = extra.voiceUrl; }
+      if (extra?.voiceDuration) { body.voiceDuration = extra.voiceDuration; }
+      if (extra?.sticker) { body.content = JSON.stringify({ type: "sticker", sticker: extra.sticker }); }
+      if (extra?.track) { body.content = JSON.stringify({ type: "track_share", track: extra.track }); }
+      if (extra?.replyToId) { body.replyToId = extra.replyToId; }
       if (selectedGroupId) {
         body.groupChatId = selectedGroupId;
         await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -618,11 +644,10 @@ export default function MessengerView() {
     setInputText("");
     setShowEmojis(false);
     setShowStickers(false);
-    const replyPayload = replyingTo ? { replyToId: replyingTo.id } : undefined;
     try {
       const encryptedContent = await simulateEncrypt(text);
-      await sendMessageOptimistic(encryptedContent, replyPayload);
-    } catch { await sendMessageOptimistic(text, replyPayload); }
+      await sendMessageOptimistic(encryptedContent, replyingTo ? { replyToId: replyingTo.id } : undefined);
+    } catch { await sendMessageOptimistic(text, replyingTo ? { replyToId: replyingTo.id } : undefined); }
     setReplyingTo(null);
   };
 
@@ -649,9 +674,9 @@ export default function MessengerView() {
     try {
       const encrypted = await simulateEncrypt(editingMessage.content);
       await fetch(`/api/messages/${editingMessage.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: encrypted, senderId: userId }) });
+      // Update local state with encrypted content
+      useAppStore.setState({ messages: useAppStore.getState().messages.map((m) => m.id === editingMessage.id ? { ...m, content: encrypted, edited: true, editedAt: new Date().toISOString() } : m) });
     } catch { /* */ }
-    // Update local state
-    useAppStore.setState({ messages: useAppStore.getState().messages.map((m) => m.id === editingMessage.id ? { ...m, content: editingMessage.content, edited: true } : m) });
     setEditingMessage(null);
   };
 
@@ -678,13 +703,13 @@ export default function MessengerView() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       chunksRef.current = [];
-      const recorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+      let duration = 0;
+      const recorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm" });
       mediaRecorderRef.current = recorder;
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      recorder.onstop = async () => {
+      recorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const duration = recordingDuration;
         // Convert to base64
         const reader = new FileReader();
         reader.onloadend = async () => {
@@ -698,9 +723,15 @@ export default function MessengerView() {
       recorder.start();
       setIsRecording(true);
       setRecordingDuration(0);
-      recordingTimerRef.current = setInterval(() => setRecordingDuration((p) => p + 1), 1000);
-    } catch { /* mic denied */ }
-  }, [activeChatId, userId, recordingDuration, sendMessageOptimistic]);
+      duration = 0;
+      recordingTimerRef.current = setInterval(() => {
+        duration += 1;
+        setRecordingDuration(duration);
+      }, 1000);
+    } catch (err) {
+      showToast("Нет доступа к микрофону");
+    }
+  }, [activeChatId, userId, sendMessageOptimistic]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
@@ -1052,7 +1083,7 @@ export default function MessengerView() {
               <button onClick={() => { setSelectedContact(null); setSelectedGroupId(null); }} className="lg:hidden p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}>
                 <ArrowLeft className="w-5 h-5" />
               </button>
-              <div className="relative">
+              <div className="relative cursor-pointer" onClick={() => { if (!isGroupChat && selectedContactId) setShowProfileView(selectedContactId); }}>
                 {isGroupChat ? (
                   <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
                     style={{ background: "linear-gradient(135deg, var(--mq-accent), #f5576c)", color: "#fff" }}>
@@ -1263,7 +1294,7 @@ export default function MessengerView() {
             </AnimatePresence>
 
             {/* ── Input area ── */}
-            <div className="p-3 flex items-end gap-2 flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
+            <div className="p-3 flex items-center gap-1.5 flex-shrink-0 flex-wrap" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
               {/* Emoji button */}
               <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowEmojis(!showEmojis); setShowStickers(false); }}
                 className="p-2 rounded-xl cursor-pointer flex-shrink-0" style={{ color: showEmojis ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
@@ -1277,7 +1308,7 @@ export default function MessengerView() {
               </motion.button>
 
               {/* Text input */}
-              <div className="flex-1 relative">
+              <div className="flex-1 relative min-w-0">
                 <Input
                   ref={inputRef}
                   value={editingMessage ? editingMessage.content : inputText}
@@ -1357,7 +1388,7 @@ export default function MessengerView() {
                     ))}
                   </div>
                   {/* Sticker grid */}
-                  <div className="grid grid-cols-6 gap-1 p-3 pt-1 overflow-y-auto" style={{ maxHeight: "180px", scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
+                  <div className="grid grid-cols-8 gap-1 p-3 pt-1 overflow-y-auto" style={{ maxHeight: "220px", scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
                     {stickerCategories[stickerTab]?.items.map((emoji) => (
                       <motion.button key={emoji} whileTap={{ scale: 1.2 }} whileHover={{ scale: 1.1 }}
                         onClick={() => handleSendSticker(emoji)}
@@ -1609,6 +1640,35 @@ export default function MessengerView() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ════════════════════════════════════════════════════════ */}
+      {/*  PROFILE VIEW PANEL                                    */}
+      {/* ════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {showProfileView && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+            onClick={() => setShowProfileView(null)}>
+            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ ...glassPanelSolid, boxShadow: shadowDeep }}
+              onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between p-4" style={{ borderBottom: "1px solid var(--mq-border)" }}>
+                <h3 className="font-bold" style={{ color: "var(--mq-text)" }}>Профиль</h3>
+                <button onClick={() => setShowProfileView(null)} className="p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}><X className="w-5 h-5" /></button>
+              </div>
+              <div className="p-6 flex flex-col items-center gap-4">
+                <AvatarImg src={contactList.find(c => c.id === showProfileView)?.avatar || ""} alt={contactList.find(c => c.id === showProfileView)?.name || "User"} className="w-20 h-20 rounded-full object-cover" style={{ border: "3px solid var(--mq-accent)" }} />
+                <div className="text-center">
+                  <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>@{contactList.find(c => c.id === showProfileView)?.username || "User"}</p>
+                  <p className="text-xs mt-1" style={{ color: onlineStatuses[showProfileView || ""]?.online ? "#4ade80" : "var(--mq-text-muted)" }}>
+                    {onlineStatuses[showProfileView || ""]?.online ? "В сети" : formatLastSeen(onlineStatuses[showProfileView || ""]?.lastSeen || null)}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 
@@ -1621,11 +1681,11 @@ export default function MessengerView() {
     const handleTouchStart = (e: React.TouchEvent) => {
       longPressTimer = setTimeout(() => {
         const touch = e.touches[0];
-        setContextMenuMsgId({ id: msg.id, x: touch.clientX - 80, y: touch.clientY - 100 });
+        setContextMenuMsgId({ id: msg.id, x: touch.clientX, y: touch.clientY });
       }, 500);
     };
-    const handleTouchEnd = () => { if (longPressTimer) clearTimeout(longPressTimer); };
-    const handleTouchMove = () => { if (longPressTimer) clearTimeout(longPressTimer); };
+    const handleTouchEnd = (e: React.TouchEvent) => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } };
+    const handleTouchMove = () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } };
 
     // Check if voice message
     let voiceData: { voiceUrl: string; voiceDuration: number } | null = null;
@@ -1686,9 +1746,9 @@ export default function MessengerView() {
           </div>
         </motion.div>
 
-        {/* Context menu */}
+        {/* Context menu — fixed positioning at cursor */}
         {contextMenuMsgId && contextMenuMsgId.id === msg.id && (
-          <div className="absolute top-1 right-1 z-20 rounded-xl py-1 min-w-[170px]" style={{ ...glassPanelSolid, boxShadow: shadowDeep }} onClick={(e) => e.stopPropagation()}>
+          <div className="fixed z-[9999] rounded-xl py-1 min-w-[180px]" style={{ ...glassPanelSolid, boxShadow: shadowDeep, left: Math.min(contextMenuMsgId.x, window.innerWidth - 200), top: Math.min(contextMenuMsgId.y, window.innerHeight - 200) }} onClick={(e) => e.stopPropagation()}>
             <button onClick={() => handleReplyMessage(msg)}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs hover:opacity-80 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
               <Reply className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} /> Ответить
@@ -1723,11 +1783,12 @@ export default function MessengerView() {
     const isMine = msg.senderId === userId;
     let stickerEmoji = "";
     try { const parsed = JSON.parse(msg.content); if (parsed.type === "sticker" && parsed.sticker) stickerEmoji = parsed.sticker; } catch { /* */ }
+    let voiceData: { voiceUrl: string; voiceDuration: number } | null = null;
+    try { const parsed = JSON.parse(msg.content); if (parsed.voiceUrl) voiceData = parsed; } catch { /* */ }
 
     return (
       <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"} mb-3`}>
         <div className="max-w-[80%] lg:max-w-[65%]">
-          {/* Show sender name for group messages */}
           {!isMine && (
             <p className="text-[10px] mb-1 ml-1 font-semibold" style={{ color: "var(--mq-accent)" }}>
               {msg.senderName || "User"}
@@ -1735,8 +1796,22 @@ export default function MessengerView() {
           )}
           {stickerEmoji ? (
             <div className="text-5xl py-2">{stickerEmoji}</div>
+          ) : voiceData ? (
+            <div className="rounded-2xl px-4 py-3 flex items-center gap-3 min-w-[200px]"
+              style={{ backgroundColor: isMine ? "var(--mq-accent)" : "var(--mq-card)", border: isMine ? "none" : "1px solid var(--mq-border)", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
+              <button className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: isMine ? "rgba(255,255,255,0.2)" : "var(--mq-accent)" }}>
+                <Play className="w-3.5 h-3.5" style={{ color: "var(--mq-text)", marginLeft: 1 }} />
+              </button>
+              <audio src={voiceData.voiceUrl} className="flex-1 h-6" style={{ maxHeight: 24 }} controls />
+              <span className="text-[10px] flex-shrink-0" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                {voiceData.voiceDuration ? `${voiceData.voiceDuration}s` : ""}
+              </span>
+            </div>
           ) : (
-            <MessageBubble message={{ id: msg.id, content: msg.content, senderId: msg.senderId, receiverId: userId || "", encrypted: false, createdAt: msg.createdAt, senderName: msg.senderName, messageType: msg.messageType }} currentUserId={userId || undefined} />
+            <MessageBubble message={{ id: msg.id, content: msg.content, senderId: msg.senderId, receiverId: userId || "", encrypted: false, createdAt: msg.createdAt, senderName: msg.senderName, messageType: msg.messageType, replyToId: msg.replyToId, edited: msg.edited }} currentUserId={userId || undefined} />
+          )}
+          {msg.edited && !stickerEmoji && !voiceData && (
+            <p className={`text-[9px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
           )}
         </div>
       </div>

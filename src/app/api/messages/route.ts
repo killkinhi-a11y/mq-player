@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
       },
       orderBy: { createdAt: "asc" },
       include: {
-        sender: { select: { id: true, username: true } },
-        receiver: { select: { id: true, username: true } },
+        sender: { select: { id: true, username: true, avatar: true } },
+        receiver: { select: { id: true, username: true, avatar: true } },
       },
     });
 
@@ -39,9 +39,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { content, senderId, receiverId, encrypted, id } = await req.json();
+    const { content, senderId, receiverId, encrypted, id, messageType, replyToId, voiceUrl, voiceDuration } = await req.json();
 
-    if (!content || !senderId || !receiverId) {
+    if (!senderId || !receiverId) {
       return NextResponse.json(
         { error: "Все поля обязательны" },
         { status: 400 }
@@ -51,10 +51,14 @@ export async function POST(req: NextRequest) {
     const message = await db.message.create({
       data: {
         id: id || undefined,
-        content,
+        content: content || "",
         senderId,
         receiverId,
         encrypted: encrypted !== false,
+        messageType: messageType || "text",
+        replyToId: replyToId || null,
+        voiceUrl: voiceUrl || null,
+        voiceDuration: voiceDuration || null,
       },
       include: {
         sender: { select: { id: true, username: true } },
