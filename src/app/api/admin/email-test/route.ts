@@ -2,17 +2,18 @@ import { NextResponse } from "next/server";
 import { sendVerificationEmail, getEmailStatus, isEmailConfigured } from "@/lib/email";
 
 /**
- * GET /api/admin/email-test — returns email configuration status
- * POST /api/admin/email-test — sends a test email to verify Resend is working
+ * GET  /api/admin/email-test — returns Brevo email configuration status
+ * POST /api/admin/email-test — sends a test email to verify Brevo is working
  */
 export async function GET() {
   const status = getEmailStatus();
   return NextResponse.json({
     configured: status.configured,
-    from: status.from,
+    provider: status.provider,
+    senderName: status.senderName,
+    senderEmail: status.senderEmail,
     hasApiKey: status.hasApiKey,
-    nodeEnv: process.env.NODE_ENV || 'unknown',
-    resendFromEnv: process.env.RESEND_FROM || 'not set (using default: onboarding@resend.dev)',
+    nodeEnv: process.env.NODE_ENV || "unknown",
   });
 }
 
@@ -39,9 +40,9 @@ export async function POST(req: Request) {
     if (!isEmailConfigured()) {
       return NextResponse.json({
         success: false,
-        error: "RESEND_API_KEY не настроен. Добавьте его в переменные окружения Vercel (Settings → Environment Variables).",
+        error: "BREVO_API_KEY или BREVO_SENDER_EMAIL не настроены.",
         status: getEmailStatus(),
-        hint: "1. Зарегистрируйтесь на resend.com\n2. Получите API ключ\n3. Добавьте RESEND_API_KEY в Vercel\n4. (Опционально) Добавьте RESEND_FROM для кастомного домена",
+        hint: "1. Зарегистрируйтесь на brevo.com\n2. Settings → SMTP & API → сгенерируйте API ключ\n3. Settings → Senders → добавьте и верифицируйте email\n4. Добавьте BREVO_API_KEY и BREVO_SENDER_EMAIL в Vercel (Settings → Environment Variables)",
       });
     }
 
@@ -49,20 +50,17 @@ export async function POST(req: Request) {
     const result = await sendVerificationEmail(testEmail, testCode);
 
     return NextResponse.json({
-      success: true,
+      success: !(result as any).mock,
       message: `Тестовое письмо отправлено на ${testEmail}`,
-      result: {
-        id: (result as any).id,
-      },
+      result,
       status: getEmailStatus(),
-      note: "onboarding@resend.dev работает только для верифицированных email-адресов в Resend. Для любых адресов нужно добавить свой домен.",
     });
   } catch (error: any) {
     return NextResponse.json({
       success: false,
       error: error?.message || "Неизвестная ошибка",
       status: getEmailStatus(),
-      hint: "Проверьте RESEND_API_KEY и убедитесь, что домен отправителя верифицирован в Resend.",
+      hint: "Проверьте BREVO_API_KEY и убедитесь, что отправитель верифицирован в Brevo (Settings → Senders).",
     }, { status: 500 });
   }
 }
