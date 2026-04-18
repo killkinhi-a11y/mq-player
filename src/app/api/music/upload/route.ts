@@ -5,8 +5,8 @@ import { existsSync } from "fs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-// 10 minutes for large/high-bitrate files
-export const maxDuration = 600;
+// 5 minutes max (Vercel Hobby plan limit)
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
