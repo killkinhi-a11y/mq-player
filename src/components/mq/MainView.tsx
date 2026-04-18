@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2 } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3 } from "lucide-react";
 
 interface CuratedPlaylist {
   id: string;
@@ -45,6 +45,7 @@ export default function MainView() {
   const [allUsersCount, setAllUsersCount] = useState(0);
   const [curatedPlaylists, setCuratedPlaylists] = useState<CuratedPlaylist[]>([]);
   const [curatedLoading, setCuratedLoading] = useState(true);
+  const [selectedCurated, setSelectedCurated] = useState<CuratedPlaylist | null>(null);
 
   // Build taste profile from liked tracks + history
   const tasteProfile = useMemo(() => {
@@ -258,6 +259,137 @@ export default function MainView() {
     },
   ];
 
+  // Shuffle helper — Fisher-Yates
+  const shuffleArray = useCallback((arr: Track[]) => {
+    const shuffled = [...arr];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }, []);
+
+  const handlePlayCuratedAll = useCallback((pl: CuratedPlaylist) => {
+    if (pl.tracks.length > 0) playTrack(pl.tracks[0], pl.tracks);
+  }, [playTrack]);
+
+  const handleShuffleCurated = useCallback((pl: CuratedPlaylist) => {
+    if (pl.tracks.length > 0) {
+      const shuffled = shuffleArray(pl.tracks);
+      playTrack(shuffled[0], shuffled);
+    }
+  }, [playTrack, shuffleArray]);
+
+  // ── Curated playlist detail view ──
+  if (selectedCurated) {
+    return (
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24" : "p-4 lg:p-6 pb-40 lg:pb-28"}`}>
+        {/* Back button */}
+        <motion.button
+          initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
+          animate={{ opacity: 1, x: 0 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setSelectedCurated(null)}
+          className="flex items-center gap-2 mb-5 cursor-pointer"
+          style={{ color: "var(--mq-accent)" }}
+        >
+          <ChevronLeft className="w-5 h-5" />
+          <span className="text-sm font-medium">Назад</span>
+        </motion.button>
+
+        {/* Playlist hero header */}
+        <motion.div
+          initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl overflow-hidden relative"
+          style={{ border: "1px solid var(--mq-border)" }}
+        >
+          {/* Gradient background using the playlist's own gradient */}
+          <div className="absolute inset-0" style={{ background: selectedCurated.gradient }} />
+          {/* Dark overlay for readability */}
+          <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.1), rgba(0,0,0,0.6))" }} />
+          {/* Decorative pattern */}
+          <div className="absolute inset-0 opacity-15"
+            style={{
+              backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(255,255,255,0.08) 4px, rgba(255,255,255,0.08) 5px)",
+            }}
+          />
+
+          <div className="relative z-10 p-5 lg:p-8">
+            <div className="flex items-start gap-5">
+              {/* Playlist icon */}
+              <div className="w-24 h-24 lg:w-32 lg:h-32 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center"
+                style={{ backgroundColor: "rgba(0,0,0,0.3)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                <Disc3 className="w-10 h-10 lg:w-14 lg:h-14 text-white/80" />
+              </div>
+
+              {/* Playlist info */}
+              <div className="flex-1 min-w-0 pt-1">
+                <p className="text-xs font-medium uppercase tracking-wider text-white/50 mb-1">Плейлист</p>
+                <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2 truncate">
+                  {selectedCurated.name}
+                </h1>
+                <p className="text-sm text-white/60 mb-3">
+                  {selectedCurated.subtitle}
+                </p>
+                <div className="flex items-center gap-3 text-xs text-white/50">
+                  <span className="flex items-center gap-1">
+                    <Music2 className="w-3 h-3" />
+                    {selectedCurated.tracks.length} треков
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex items-center gap-3 mt-6">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handlePlayCuratedAll(selectedCurated)}
+                disabled={selectedCurated.tracks.length === 0}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-40"
+                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+              >
+                <Play className="w-4 h-4" style={{ marginLeft: 1 }} />
+                Слушать
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => handleShuffleCurated(selectedCurated)}
+                disabled={selectedCurated.tracks.length === 0}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-40"
+                style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "white", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.15)" }}
+              >
+                <Shuffle className="w-4 h-4" />
+                Перемешать
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Track list */}
+        <div className="mt-6">
+          {selectedCurated.tracks.length > 0 ? (
+            <div className="space-y-2">
+              {selectedCurated.tracks.map((track, i) => (
+                <TrackCard key={track.id} track={track} index={i} queue={selectedCurated.tracks} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <Music className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+              <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                Плейлист пуст
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"}`}>
       {/* Hero */}
@@ -327,7 +459,7 @@ export default function MainView() {
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => {
-                  if (pl.tracks.length > 0) playTrack(pl.tracks[0], pl.tracks);
+                  setSelectedCurated(pl);
                 }}
                 className="flex-shrink-0 w-36 h-48 rounded-2xl relative overflow-hidden cursor-pointer"
               >
