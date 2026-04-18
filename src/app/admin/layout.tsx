@@ -10,14 +10,24 @@ import {
   ScrollText,
   ChevronLeft,
   Shield,
+  Mail,
+  Clock,
+  DollarSign,
+  ToggleLeft,
+  MessageCircle,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 
 const navItems = [
   { href: "/admin", label: "Дашборд", icon: LayoutDashboard },
   { href: "/admin/users", label: "Пользователи", icon: Users },
-  { href: "/admin/settings", label: "Настройки", icon: Settings },
+  { href: "/admin/campaigns", label: "Рассылки", icon: Mail },
+  { href: "/admin/cron", label: "Задачи", icon: Clock },
   { href: "/admin/audit", label: "Аудит", icon: ScrollText },
+  { href: "/admin/billing", label: "Финансы", icon: DollarSign },
+  { href: "/admin/flags", label: "Флаги", icon: ToggleLeft },
+  { href: "/admin/support", label: "Поддержка", icon: MessageCircle },
+  { href: "/admin/settings", label: "Настройки", icon: Settings },
 ];
 
 export default function AdminLayout({

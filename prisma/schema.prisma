@@ -153,6 +153,76 @@ model SupportMessage {
   createdAt DateTime @default(now())
 }
 
+// ===== Admin Panel Extensions =====
+
+model EmailCampaign {
+  id          String   @id @default(cuid())
+  name        String
+  subject     String
+  htmlBody    String   @default("")
+  segment     String   @default("all") // "all", "verified", "active_7d", "inactive"
+  status      String   @default("draft") // "draft", "sent"
+  sentCount   Int      @default(0)
+  openCount   Int      @default(0)
+  clickCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  sentAt      DateTime?
+}
+
+model CronJob {
+  id        String   @id @default(cuid())
+  name      String
+  cronExpr  String?
+  status    String   @default("idle") // "idle", "running", "completed", "failed"
+  lastRun   DateTime?
+  nextRun   DateTime?
+  log       String?
+  createdAt DateTime @default(now())
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  userId    String
+  userName  String   @default("")
+  amount    Float
+  currency  String   @default("USD")
+  status    String   @default("completed") // "completed", "pending", "failed", "refunded", "promo"
+  type      String   @default("subscription") // "subscription", "one_time", "promo_period"
+  createdAt DateTime @default(now())
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  enabled     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SupportChatSession {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  userId    String?
+  userName  String?
+  lastMessage String  @default("")
+  messageCount Int    @default(0)
+  status    String   @default("open") // "open", "closed"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages  SupportChatMessage[]
+}
+
+model SupportChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String   // "user", "bot", "admin"
+  content   String
+  createdAt DateTime @default(now())
+  session   SupportChatSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+}
+
 // Server-side data sync — stores user data as JSON blobs keyed by type
 model UserSync {
   id        String   @id @default(cuid())
