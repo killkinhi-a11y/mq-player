@@ -113,13 +113,26 @@ export default function PlayerBar() {
       } else {
         setPlayError(true);
         setIsLoadingTrack(false);
-        // Auto-skip to next track after delay when retries exhausted
-        console.warn(`[Player] Max retries reached, auto-skipping to next track`);
-        setTimeout(() => {
-          if (playErrorRef.current && useAppStore.getState().currentTrack) {
-            nextTrackRef.current();
-          }
-        }, 2000);
+        // If we have scTrackId but it wasn't used (e.g. shared track), try resolving SC stream
+        const st = useAppStore.getState();
+        if (st.currentTrack?.scTrackId && audioEl.src && !audioEl.src.includes("api/v1/soundcloud")) {
+          console.warn(`[Player] Trying SC stream resolution as fallback`);
+          resolveSoundCloudStream(st.currentTrack.scTrackId).then(stream => {
+            if (stream?.url) {
+              retryCountRef.current = 0;
+              audioEl.src = stream.url;
+              audioEl.load();
+              audioEl.play().catch(() => {});
+            }
+          }).catch(() => {});
+        } else {
+          console.warn(`[Player] Max retries reached, auto-skipping to next track`);
+          setTimeout(() => {
+            if (playErrorRef.current && useAppStore.getState().currentTrack) {
+              nextTrackRef.current();
+            }
+          }, 2000);
+        }
       }
     };
     const onCanPlay = () => {
@@ -333,19 +346,23 @@ export default function PlayerBar() {
           const stream = await resolveSoundCloudStream(currentTrack.scTrackId);
           if (cancelled) return;
 
-          if (!stream || !stream.url) {
+          if (stream && stream.url) {
+            audioEl.src = stream.url;
+            audioEl.load();
+            audioEl.play().catch(() => {
+              // If play fails due to autoplay policy, onCanPlay/onPlaying will handle it
+            });
+          } else if (currentTrack.audioUrl) {
+            // Fallback: SC stream resolution failed, try audioUrl (e.g. shared track with expired stream)
+            resetCorsState();
+            audioEl.src = currentTrack.audioUrl;
+            audioEl.load();
+            audioEl.play().catch(() => {});
+          } else {
             setPlayError(true);
             setIsLoadingTrack(false);
-            // Auto-skip to next track after delay when stream resolution fails
             setTimeout(() => nextTrackRef.current(), 1500);
-            return;
           }
-
-          audioEl.src = stream.url;
-          audioEl.load();
-          audioEl.play().catch(() => {
-            // If play fails due to autoplay policy, onCanPlay/onPlaying will handle it
-          });
         } else if (currentTrack.audioUrl) {
           setPlaybackMode("soundcloud");
           audioEl.crossOrigin = "anonymous";
