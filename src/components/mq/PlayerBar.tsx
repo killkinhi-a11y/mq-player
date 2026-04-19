@@ -42,7 +42,13 @@ export default function PlayerBar() {
   const prevTrackIdForCrossfade = useRef<string | null>(null);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [isLoadingTrack, setIsLoadingTrack] = useState(false);
+  const [isLoadingTrack, _setIsLoadingTrack] = useState(false);
+  const isLoadingTrackRef = useRef(false);
+  // Wrapper that keeps the ref in sync with local state (needed for cross-handler checks)
+  const setIsLoadingTrack = useCallback((val: boolean) => {
+    isLoadingTrackRef.current = val;
+    _setIsLoadingTrack(val);
+  }, []);
   const [playError, _setPlayError] = useState(false);
   const playErrorRef = useRef(false);
   // Wrapper that keeps the ref in sync with local state (needed for cross-handler checks)
@@ -114,6 +120,10 @@ export default function PlayerBar() {
       const audioEl = getActive();
       const st = useAppStore.getState();
       const isSCTrack = !!st.currentTrack?.scTrackId;
+
+      // If loadTrack already handled this error (set loading=false and returned),
+      // the retry will be managed there — skip duplicate handling
+      if (!isLoadingTrackRef.current && isSCTrack) return;
 
       // For SoundCloud tracks: re-resolve stream URL instead of reloading same (possibly expired) URL
       if (isSCTrack && st.currentTrack?.scTrackId && retryCountRef.current < maxRetries) {
@@ -406,9 +416,19 @@ export default function PlayerBar() {
             audioEl.src = stream.url;
 
             // Wait for audio to be ready before playing/crossfading
+            let loadFailed = false;
             await new Promise<void>((resolve) => {
-              const onCanPlay = () => { audioEl.removeEventListener("canplay", onCanPlay); resolve(); };
-              const onError = () => { audioEl.removeEventListener("error", onError); resolve(); };
+              const onCanPlay = () => {
+                audioEl.removeEventListener("canplay", onCanPlay);
+                audioEl.removeEventListener("error", onError);
+                resolve();
+              };
+              const onError = () => {
+                audioEl.removeEventListener("canplay", onCanPlay);
+                audioEl.removeEventListener("error", onError);
+                loadFailed = true;
+                resolve(); // Let outer onError handler manage retries
+              };
               audioEl.addEventListener("canplay", onCanPlay);
               audioEl.addEventListener("error", onError);
               audioEl.load();
@@ -417,6 +437,12 @@ export default function PlayerBar() {
             });
 
             if (cancelled) return;
+
+            // Skip play/crossfade if load failed — outer onError handler manages retries
+            if (loadFailed) {
+              setIsLoadingTrack(false);
+              return;
+            }
 
             if (canCrossfade) {
               // Crossfade: start new audio and fade between elements
