@@ -104,14 +104,14 @@ const CURATED_CONFIGS = [
 const SEARCH_QUERIES: Record<string, string[]> = {
   "for-you": [], // filled dynamically from user data
   discoveries: ["indie alternative", "lo-fi new artists", "experimental music", "indie pop discovery"],
-  "new-releases": ["new music 2025", "popular this week", "top hits 2025", "new releases this month"],
+  "new-releases": ["new music", "popular this week", "top hits", "new releases this month"],
   "daily-1": [], // filled dynamically
   chill: ["chill beats", "relaxing music", "lo-fi hip hop", "ambient chill", "downtempo"],
   energy: ["workout music", "energy boost", "party mix", "gym motivation", "bass drop"],
   "hip-hop": ["hip hop new", "rap hits", "trap music", "drill beats"],
   electronic: ["electronic music", "edm mix", "deep house", "techno set"],
   "rnb-soul": ["rnb soul", "neo soul", "rnb new", "soulful music", "rnb hits"],
-  "rock": ["rock music", "alternative rock", "indie rock", "rock hits 2025"],
+  "rock": ["rock music", "alternative rock", "indie rock", "rock hits"],
   "jazz": ["jazz music", "lo-fi jazz", "jazz fusion", "smooth jazz"],
   "classical": ["classical music", "piano instrumental", "orchestral", "neoclassical"],
 };
@@ -132,7 +132,7 @@ async function searchAndBuildTracks(queries: string[], limit: number) {
         if (seen.has(String(t.scTrackId))) continue;
         seen.add(String(t.scTrackId));
         allTracks.push({
-          id: `sc_${t.scTrackId}_${Date.now()}`,
+          id: `sc_${t.scTrackId}`,
           title: t.title,
           artist: t.artist,
           album: t.album,

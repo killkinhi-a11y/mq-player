@@ -111,10 +111,19 @@ export default function MainView() {
     const fetchTrending = async () => {
       setIsLoading(true);
       try {
-        const res = await fetch("/api/music/trending");
+        const { dislikedArtists, dislikedGenres, excludeIds } = tasteProfile;
+        const disliked = useAppStore.getState().dislikedTrackIds || [];
+        const params = new URLSearchParams();
+        if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
+        if (dislikedArtists) params.set("dislikedArtists", dislikedArtists);
+        if (dislikedGenres) params.set("dislikedGenres", dislikedGenres);
+        const res = await fetch(`/api/music/trending?${params}`);
         if (!cancelled) {
           const data = await res.json();
-          setTrendingTracks(data.tracks || []);
+          // Also filter client-side for excludeIds
+          const excludeSet = new Set(excludeIds.split(",").filter(Boolean));
+          const filtered = (data.tracks || []).filter((t: Track) => !excludeSet.has(t.id));
+          setTrendingTracks(filtered);
         }
       } catch {
         if (!cancelled) setTrendingTracks([]);
@@ -124,7 +133,7 @@ export default function MainView() {
     };
     fetchTrending();
     return () => { cancelled = true; };
-  }, []);
+  }, [tasteProfile]);
 
   // Fetch curated algorithmic playlists
   useEffect(() => {

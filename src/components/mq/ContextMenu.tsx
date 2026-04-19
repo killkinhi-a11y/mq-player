@@ -17,9 +17,8 @@ interface ContextMenuProps {
 export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) {
   const {
     playTrack, queue, toggleLike, toggleDislike,
-    isTrackLiked, isTrackDisliked, setSimilarTracks,
-    setSimilarTracksLoading, setFullTrackViewOpen,
-    playlists, addToPlaylist, createPlaylist,
+    isTrackLiked, isTrackDisliked, setFullTrackViewOpen,
+    playlists, addToPlaylist, createPlaylist, requestShowSimilar,
   } = useAppStore();
 
   const menuRef = useRef<HTMLDivElement>(null);
@@ -63,18 +62,13 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
   };
 
   const handleSimilar = async () => {
-    setFullTrackViewOpen(true);
-    setSimilarTracksLoading(true);
-    try {
-      const res = await fetch(`/api/music/search?q=${encodeURIComponent(track.artist)}&limit=8`);
-      const data = await res.json();
-      const tracks: Track[] = (data.tracks || []).filter((t: Track) => t.id !== track.id);
-      setSimilarTracks(tracks.slice(0, 6));
-    } catch {
-      setSimilarTracks([]);
-    } finally {
-      setSimilarTracksLoading(false);
+    // If this isn't the current track, play it first so FullTrackView has the right context
+    const st = useAppStore.getState();
+    if (!st.currentTrack || st.currentTrack.id !== track.id) {
+      playTrack(track, [...st.queue, track]);
     }
+    setFullTrackViewOpen(true);
+    requestShowSimilar();
     onClose();
   };
 

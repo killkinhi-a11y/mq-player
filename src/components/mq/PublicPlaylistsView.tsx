@@ -396,8 +396,8 @@ function PlaylistCard({ playlist, index, onClick, onLike, animationsEnabled, sho
         </div>
         {showScore && playlist.score && playlist.score > 0 && (
           <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px]"
-            style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "#4ade80", backdropFilter: "blur(8px)" }}>
-            {playlist.score}% match
+            style={{ backgroundColor: "rgba(0,0,0,0.6)", color: playlist.score >= 70 ? "#4ade80" : playlist.score >= 40 ? "#facc15" : "var(--mq-text-muted)", backdropFilter: "blur(8px)" }}>
+            {playlist.score}%
           </div>
         )}
       </div>

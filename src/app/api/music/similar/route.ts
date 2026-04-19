@@ -189,7 +189,7 @@ async function handler(request: NextRequest) {
     dislikedGenresParam.split(",").filter(Boolean).map(g => normalizeGenre(g))
   );
 
-  const cacheKey = `similar:${trackArtist}:${trackTitle}:${trackGenre}:${limit}`;
+  const cacheKey = `similar:${trackArtist}:${trackTitle}:${trackGenre}:${limit}:${dislikedIdsParam}:${dislikedArtistsParam}:${dislikedGenresParam}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 

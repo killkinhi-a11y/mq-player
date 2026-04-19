@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks, type SCTrack } from "@/lib/soundcloud";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
@@ -27,6 +27,12 @@ function getFromCache(key: string): unknown | null {
 }
 
 function setCache(key: string, data: unknown): void {
+  if (cache.size > 50) {
+    const now = Date.now();
+    for (const [k, v] of cache) {
+      if (v.expiry <= now) cache.delete(k);
+    }
+  }
   cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
 }
 
@@ -37,7 +43,7 @@ const queryPool = {
     "top 50 global",
     "viral 50",
     "billboard hot 100",
-    "most streamed 2025",
+    "most streamed",
     "top charts",
   ],
   // Trending / rising — tracks gaining momentum
@@ -58,13 +64,13 @@ const queryPool = {
   ],
   // Genre diversity — ensures we don't just show pop
   genres: [
-    "hip hop new 2025",
+    "hip hop new",
     "electronic dance",
     "r&b soul",
     "indie alternative",
     "latin music",
     "rock new",
-    "pop hits 2025",
+    "pop hits",
     "afrobeats",
   ],
 };
@@ -131,8 +137,20 @@ function scoreTrack(track: ScoredTrack["track"], queryCount: number, category: s
   return score;
 }
 
-async function handler() {
-  const cacheKey = "popular:sc:v4-weighted";
+async function handler(request: NextRequest) {
+  // Parse disliked params for filtering
+  const { searchParams } = new URL(request.url);
+  const dislikedIds = new Set(
+    (searchParams.get("dislikedIds") || "").split(",").filter(Boolean)
+  );
+  const dislikedArtists = new Set(
+    (searchParams.get("dislikedArtists") || "").split(",").filter(Boolean).map(a => a.toLowerCase())
+  );
+  const dislikedGenres = new Set(
+    (searchParams.get("dislikedGenres") || "").split(",").filter(Boolean).map(g => g.toLowerCase())
+  );
+
+  const cacheKey = `popular:sc:v4-weighted:${dislikedIds.size > 0 ? "f" : ""}:${dislikedArtists.size > 0 ? "f" : ""}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 
@@ -165,6 +183,11 @@ async function handler() {
 
       for (const track of result.value) {
         if (!track.cover) continue; // Filter tracks without artwork (low quality signal)
+
+        // Filter disliked content
+        if (dislikedIds.has(track.id) || dislikedIds.has(String(track.scTrackId))) continue;
+        if (dislikedArtists.size > 0 && track.artist && dislikedArtists.has(track.artist.toLowerCase())) continue;
+        if (dislikedGenres.size > 0 && track.genre && dislikedGenres.has(track.genre.toLowerCase())) continue;
 
         const existing = trackMap.get(track.scTrackId);
         if (existing) {

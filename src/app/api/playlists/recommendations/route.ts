@@ -122,7 +122,7 @@ async function handler(req: NextRequest) {
         trackCount: p.tracks.length,
         likeCount: p._count?.likes || 0,
         playCount: p.playCount,
-        score: Math.round(p._score),
+        score: Math.min(100, Math.round(p._score / 2)),
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
       };

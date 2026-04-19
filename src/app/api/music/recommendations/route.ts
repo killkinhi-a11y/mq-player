@@ -56,7 +56,7 @@ async function handler(request: NextRequest) {
   const genres: string[] = genresParam ? genresParam.split(",").filter(Boolean) : [];
   const artists: string[] = artistsParam ? artistsParam.split(",").filter(Boolean).slice(0, 3) : [];
 
-  const tasteKey = `${genre}:${genresParam || ""}:${artistsParam || ""}:${dislikedParam || ""}`;
+  const tasteKey = `${genre}:${genresParam || ""}:${artistsParam || ""}:${dislikedParam || ""}:${dislikedArtistsParam || ""}:${dislikedGenresParam || ""}`;
   const cacheKey = `rec:smart:${tasteKey}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
@@ -74,11 +74,11 @@ async function handler(request: NextRequest) {
       }
       // Add related searches
       if (genres.length > 0) {
-        queries.push(`${genres[0]} 2025`);
+        queries.push(`${genres[0]} new`);
         queries.push(`best ${genres[0]}`);
       }
     } else if (genre !== "random") {
-      queries = [genre, `${genre} 2025`, `top ${genre}`];
+      queries = [genre, `${genre} new`, `top ${genre}`];
     } else {
       // Better fallback: popular/trending searches
       const fallbacks = [
