@@ -227,6 +227,334 @@ export default function MessengerView() {
   const [storyPaused, setStoryPaused] = useState(false);
   const storyTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ═══════════════════════════════════════════════════════════
+  //  COMPUTED VALUES (useCallback / useMemo)
+  //  Defined before useEffects to avoid TDZ in Turbopack minifier
+  // ═══════════════════════════════════════════════════════════
+
+  // ── Fetch friends list ──
+  const fetchFriends = useCallback(async () => {
+    if (!userId) return;
+    setIsLoadingFriends(true);
+    try {
+      const res = await fetch(`/api/friends?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setFriends(data.friends || []);
+        setPendingRequests(data.pendingRequests || []);
+      }
+    } catch { /* silent */ } finally { setIsLoadingFriends(false); }
+  }, [userId]);
+
+  // ── Notification permission ──
+  const requestNotifPermission = useCallback(async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    try {
+      const perm = await Notification.requestPermission();
+      setNotificationPermission(perm);
+    } catch { /* ignore */ }
+  }, []);
+
+  const playNotifSound = useCallback(() => {
+    try {
+      if (!notifAudioCtxRef.current || notifAudioCtxRef.current.state === "closed") {
+        notifAudioCtxRef.current = new AudioContext();
+      }
+      const ctx = notifAudioCtxRef.current;
+      if (ctx.state === "suspended") ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = "sine";
+      gain.gain.value = 0.1;
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.stop(ctx.currentTime + 0.3);
+    } catch { /* ignore */ }
+  }, []);
+
+  const closeStoryViewer = useCallback(() => { setViewingStoryIndex(null); setStoryProgress(0); }, []);
+  const viewingStory = viewingStoryIndex !== null ? stories[viewingStoryIndex] : null;
+
+  // ── Fetch stories on mount ──
+  useEffect(() => {
+    const fetchStories = async () => {
+      try {
+        const res = await fetch("/api/stories?all=true");
+        if (res.ok) {
+          const data = await res.json();
+          const mapped: Story[] = (data.stories || []).map((s: any) => {
+            let trackData: Story["trackData"] | undefined;
+            let contentType: Story["contentType"] = "text";
+            const cStr = typeof s.content === "string" ? s.content : "";
+            if (s.type === "music" || s.type === "track") {
+              contentType = "track";
+              try { const p = JSON.parse(cStr); if (p.track) trackData = p.track; } catch { /* */ }
+            } else if (s.type === "image") { contentType = "image"; }
+            return { id: s.id, userId: s.userId, username: s.user?.username || "User", avatar: "", content: cStr, contentType, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed: false, likes: s.likes?.length || 0, trackData };
+          });
+          setStories(mapped);
+        }
+      } catch { /* silent */ }
+    };
+    fetchStories();
+  }, []);
+
+  const processIncomingMessage = useCallback((m: any) => {
+    const state = useAppStore.getState();
+    const existing = state.messages.find((em: any) => em.id === m.id);
+    if (existing) return;
+
+    const msg = {
+      id: m.id,
+      content: m.content,
+      senderId: m.senderId,
+      receiverId: m.receiverId,
+      encrypted: m.encrypted ?? true,
+      createdAt: m.createdAt,
+      senderName: m.senderUsername ? `@${m.senderUsername}` : undefined,
+      messageType: m.messageType,
+      replyToId: m.replyToId,
+      edited: m.edited,
+      voiceUrl: m.voiceUrl,
+      voiceDuration: m.voiceDuration,
+    };
+    state.addMessage(msg);
+
+    // Push notification for new messages (all states, if permission granted)
+    if (m.senderId !== userId) {
+      playNotifSound();
+      // Show browser notification
+      if (notificationPermission === "granted" && document.visibilityState === "hidden") {
+        try {
+          const decrypted = simulateDecryptSync(m.content);
+          const preview = decrypted.length > 60 ? decrypted.slice(0, 60) + "..." : decrypted;
+          const senderName = m.senderUsername || "Someone";
+          new Notification(`Сообщение от ${senderName}`, {
+            body: preview,
+            icon: "/icon-192.png",
+            tag: m.id,
+          });
+        } catch { /* ignore */ }
+      } else if (notificationPermission === "default") {
+        requestNotifPermission();
+      }
+      // Broadcast to other tabs — include full message data
+      try {
+        bcRef.current?.postMessage({
+          type: "new_message",
+          payload: m,
+        });
+      } catch { /* BroadcastChannel not available */ }
+    }
+
+    // Update cursor
+    if (m.createdAt) {
+      lastSeenTimeRef.current = m.createdAt;
+    }
+  }, [userId]);
+
+  const contactList = useMemo(() => {
+    return friends.map((f) => ({
+      id: f.id, name: f.username, username: f.username, avatar: f.avatar || "",
+      online: onlineStatuses[f.id]?.online ?? false,
+      lastSeen: onlineStatuses[f.id]?.lastSeen ?? new Date(f.addedAt).toISOString(),
+    }));
+  }, [friends, onlineStatuses]);
+
+  const filteredContacts = useMemo(() => {
+    if (!searchContact.trim()) return contactList;
+    const q = searchContact.toLowerCase();
+    return contactList.filter((c) => c.username.toLowerCase().includes(q) || c.name.toLowerCase().includes(q));
+  }, [contactList, searchContact]);
+
+  const sortedContacts = useMemo(() => {
+    const pinned: typeof filteredContacts = [];
+    const unpinned: typeof filteredContacts = [];
+    for (const c of filteredContacts) {
+      if (pinnedChatIds.has(c.id)) pinned.push(c);
+      else unpinned.push(c);
+    }
+    return [...pinned, ...unpinned];
+  }, [filteredContacts, pinnedChatIds]);
+
+  const selectedContact = useMemo(
+    () => contacts.find((c) => c.id === selectedContactId) || contactList.find((c) => c.id === selectedContactId),
+    [selectedContactId, contacts, contactList],
+  );
+
+  const selectedGroup = useMemo(
+    () => groupChats.find((g) => g.id === selectedGroupId),
+    [groupChats, selectedGroupId],
+  );
+
+  const getLastMessage = useCallback((contactId: string) => {
+    if (!userId) return null;
+    const msgs = messages.filter((m) => (m.senderId === userId && m.receiverId === contactId) || (m.senderId === contactId && m.receiverId === userId));
+    if (msgs.length === 0) return null;
+    return msgs[msgs.length - 1];
+  }, [messages, userId]);
+
+  const getUnreadCount = useCallback((contactId: string) => unreadCounts[contactId] || 0, [unreadCounts]);
+
+  const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
+
+  const newChatFilteredContacts = useMemo(() => {
+    return newChatUsers.filter((u) => !friendIds.has(u.id)).map((u) => ({
+      id: u.id, name: u.username, username: u.username, avatar: "", online: false,
+      lastSeen: new Date(u.createdAt).toLocaleDateString("ru-RU"),
+    }));
+  }, [newChatUsers, friendIds]);
+
+  // ── DM Messages ──
+  const contactMessages = useMemo(() => {
+    if (!userId || !selectedContactId) return [];
+    return messages.filter((m) => (m.senderId === userId && m.receiverId === selectedContactId) || (m.senderId === selectedContactId && m.receiverId === userId));
+  }, [messages, userId, selectedContactId]);
+
+  const groupedMessages = useMemo(() => {
+    const groups: { label: string; messages: typeof contactMessages }[] = [];
+    let currentLabel = "";
+    for (const msg of contactMessages) {
+      const label = getDateLabel(msg.createdAt);
+      if (label !== currentLabel) { currentLabel = label; groups.push({ label, messages: [] }); }
+      groups[groups.length - 1].messages.push(msg);
+    }
+    return groups;
+  }, [contactMessages]);
+
+  // ── Group messages for selected group ──
+  const currentGroupMessages = useMemo(() => groupMessages[selectedGroupId || ""] || [], [groupMessages, selectedGroupId]);
+
+  // ═══════════════════════════════════════════════════════════
+  //  SCROLL TO BOTTOM
+  // ═══════════════════════════════════════════════════════════
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, selectedContactId, groupMessages, selectedGroupId]);
+
+  const sendMessageOptimistic = useCallback(async (content: string, extra?: Record<string, unknown>) => {
+    const targetId = selectedGroupId || selectedContactId;
+    if (!targetId || !userId) return;
+    const msgId = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const msg: any = {
+      id: msgId,
+      senderId: userId, receiverId: selectedGroupId ? userId : targetId,
+      createdAt: now, senderName: `@${username || "user"}`,
+    };
+    // For sticker/voice/track_share: content is JSON with type
+    // For reply with text: content is the encrypted text, replyToId is separate
+    if (extra && extra.type && extra.type !== "reply") {
+      msg.content = JSON.stringify(extra);
+      msg.encrypted = false;
+      msg.messageType = extra.type;
+    } else {
+      msg.content = content;
+      msg.encrypted = true;
+      msg.messageType = "text";
+    }
+    if (extra?.replyToId) { msg.replyToId = extra.replyToId; }
+    addMessage(msg);
+    try {
+      const body: any = {
+        id: msgId, content: msg.content, senderId: userId,
+        encrypted: msg.encrypted, messageType: msg.messageType,
+      };
+      if (extra?.voiceUrl) { body.voiceUrl = extra.voiceUrl; }
+      if (extra?.voiceDuration) { body.voiceDuration = extra.voiceDuration; }
+      if (extra?.sticker) { body.content = JSON.stringify({ type: "sticker", sticker: extra.sticker }); }
+      if (extra?.track) { body.content = JSON.stringify({ type: "track_share", track: extra.track }); }
+      if (extra?.replyToId) { body.replyToId = extra.replyToId; }
+      if (selectedGroupId) {
+        body.groupChatId = selectedGroupId;
+        await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      } else {
+        body.receiverId = targetId;
+        await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      }
+    } catch { /* best-effort */ }
+  }, [selectedContactId, selectedGroupId, userId, username, addMessage]);
+
+  const startRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunksRef.current = [];
+      recordingDurationRef.current = 0;
+      const recorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm" });
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const finalDuration = recordingDurationRef.current;
+        if (finalDuration < 1) { setIsRecording(false); return; } // Too short, discard
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64Url = reader.result as string;
+          if (base64Url && activeChatId && userId) {
+            await sendMessageOptimistic("", { type: "voice", voiceUrl: base64Url, voiceDuration: finalDuration });
+          }
+        };
+        reader.readAsDataURL(blob);
+      };
+      recorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+      recordingTimerRef.current = setInterval(() => {
+        recordingDurationRef.current += 1;
+        setRecordingDuration(recordingDurationRef.current);
+      }, 1000);
+    } catch (err) {
+      showToast("Нет доступа к микрофону");
+    }
+  }, [activeChatId, userId, sendMessageOptimistic]);
+
+  const stopRecording = useCallback(() => {
+    if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    setIsRecording(false);
+  }, []);
+
+  const cancelRecording = useCallback(() => {
+    if (mediaRecorderRef.current?.state === "recording") {
+      mediaRecorderRef.current.onstop = null; // Prevent sending
+      mediaRecorderRef.current.stop();
+    }
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    setIsRecording(false);
+    setRecordingDuration(0);
+    recordingDurationRef.current = 0;
+  }, []);
+
+  const togglePinChat = useCallback((contactId: string) => {
+    setPinnedChatIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(contactId)) next.delete(contactId); else next.add(contactId);
+      try { localStorage.setItem("mq-pinned-chats", JSON.stringify([...next])); } catch { /* */ }
+      return next;
+    });
+  }, []);
+
+  const barHeights = useMemo(() => {
+    const heights: number[] = [];
+    let seed = duration * 7;
+    for (let i = 0; i < barCount; i++) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      heights.push(20 + (seed % 80));
+    }
+    return heights;
+  }, [duration]);
+
+
+  // ═══════════════════════════════════════════════════════════
+  //  EFFECTS
+  // ═══════════════════════════════════════════════════════════
+
+
   // ── Cross-tab BroadcastChannel for notifications ──
   const bcRef = useRef<BroadcastChannel | null>(null);
   useEffect(() => {
@@ -365,50 +693,10 @@ export default function MessengerView() {
   //  CALLBACKS (defined before effects to avoid TDZ in minifier)
   // ═══════════════════════════════════════════════════════════
 
-  // ── Fetch friends list ──
-  const fetchFriends = useCallback(async () => {
-    if (!userId) return;
-    setIsLoadingFriends(true);
-    try {
-      const res = await fetch(`/api/friends?userId=${userId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setFriends(data.friends || []);
-        setPendingRequests(data.pendingRequests || []);
-      }
-    } catch { /* silent */ } finally { setIsLoadingFriends(false); }
-  }, [userId]);
 
-  // ── Notification permission ──
-  const requestNotifPermission = useCallback(async () => {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    try {
-      const perm = await Notification.requestPermission();
-      setNotificationPermission(perm);
-    } catch { /* ignore */ }
-  }, []);
 
   // ── Play notification sound ──
   const notifAudioCtxRef = useRef<AudioContext | null>(null);
-  const playNotifSound = useCallback(() => {
-    try {
-      if (!notifAudioCtxRef.current || notifAudioCtxRef.current.state === "closed") {
-        notifAudioCtxRef.current = new AudioContext();
-      }
-      const ctx = notifAudioCtxRef.current;
-      if (ctx.state === "suspended") ctx.resume();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      osc.type = "sine";
-      gain.gain.value = 0.1;
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.stop(ctx.currentTime + 0.3);
-    } catch { /* ignore */ }
-  }, []);
 
   // ═══════════════════════════════════════════════════════════
   //  EFFECTS
@@ -436,32 +724,6 @@ export default function MessengerView() {
     return () => { if (storyTimerRef.current) clearInterval(storyTimerRef.current); };
   }, [viewingStoryIndex, storyPaused, stories.length]);
 
-  const closeStoryViewer = useCallback(() => { setViewingStoryIndex(null); setStoryProgress(0); }, []);
-  const viewingStory = viewingStoryIndex !== null ? stories[viewingStoryIndex] : null;
-
-  // ── Fetch stories on mount ──
-  useEffect(() => {
-    const fetchStories = async () => {
-      try {
-        const res = await fetch("/api/stories?all=true");
-        if (res.ok) {
-          const data = await res.json();
-          const mapped: Story[] = (data.stories || []).map((s: any) => {
-            let trackData: Story["trackData"] | undefined;
-            let contentType: Story["contentType"] = "text";
-            const cStr = typeof s.content === "string" ? s.content : "";
-            if (s.type === "music" || s.type === "track") {
-              contentType = "track";
-              try { const p = JSON.parse(cStr); if (p.track) trackData = p.track; } catch { /* */ }
-            } else if (s.type === "image") { contentType = "image"; }
-            return { id: s.id, userId: s.userId, username: s.user?.username || "User", avatar: "", content: cStr, contentType, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed: false, likes: s.likes?.length || 0, trackData };
-          });
-          setStories(mapped);
-        }
-      } catch { /* silent */ }
-    };
-    fetchStories();
-  }, []);
 
   useEffect(() => { fetchFriends(); }, [fetchFriends]);
 
@@ -489,59 +751,6 @@ export default function MessengerView() {
   // Track reconnection timeout to prevent leaks
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const processIncomingMessage = useCallback((m: any) => {
-    const state = useAppStore.getState();
-    const existing = state.messages.find((em: any) => em.id === m.id);
-    if (existing) return;
-
-    const msg = {
-      id: m.id,
-      content: m.content,
-      senderId: m.senderId,
-      receiverId: m.receiverId,
-      encrypted: m.encrypted ?? true,
-      createdAt: m.createdAt,
-      senderName: m.senderUsername ? `@${m.senderUsername}` : undefined,
-      messageType: m.messageType,
-      replyToId: m.replyToId,
-      edited: m.edited,
-      voiceUrl: m.voiceUrl,
-      voiceDuration: m.voiceDuration,
-    };
-    state.addMessage(msg);
-
-    // Push notification for new messages (all states, if permission granted)
-    if (m.senderId !== userId) {
-      playNotifSound();
-      // Show browser notification
-      if (notificationPermission === "granted" && document.visibilityState === "hidden") {
-        try {
-          const decrypted = simulateDecryptSync(m.content);
-          const preview = decrypted.length > 60 ? decrypted.slice(0, 60) + "..." : decrypted;
-          const senderName = m.senderUsername || "Someone";
-          new Notification(`Сообщение от ${senderName}`, {
-            body: preview,
-            icon: "/icon-192.png",
-            tag: m.id,
-          });
-        } catch { /* ignore */ }
-      } else if (notificationPermission === "default") {
-        requestNotifPermission();
-      }
-      // Broadcast to other tabs — include full message data
-      try {
-        bcRef.current?.postMessage({
-          type: "new_message",
-          payload: m,
-        });
-      } catch { /* BroadcastChannel not available */ }
-    }
-
-    // Update cursor
-    if (m.createdAt) {
-      lastSeenTimeRef.current = m.createdAt;
-    }
-  }, [userId]);
 
   // SSE connection
   useEffect(() => {
@@ -898,87 +1107,18 @@ export default function MessengerView() {
   //  COMPUTED VALUES
   // ═══════════════════════════════════════════════════════════
 
-  const contactList = useMemo(() => {
-    return friends.map((f) => ({
-      id: f.id, name: f.username, username: f.username, avatar: f.avatar || "",
-      online: onlineStatuses[f.id]?.online ?? false,
-      lastSeen: onlineStatuses[f.id]?.lastSeen ?? new Date(f.addedAt).toISOString(),
-    }));
-  }, [friends, onlineStatuses]);
 
-  const filteredContacts = useMemo(() => {
-    if (!searchContact.trim()) return contactList;
-    const q = searchContact.toLowerCase();
-    return contactList.filter((c) => c.username.toLowerCase().includes(q) || c.name.toLowerCase().includes(q));
-  }, [contactList, searchContact]);
 
-  const sortedContacts = useMemo(() => {
-    const pinned: typeof filteredContacts = [];
-    const unpinned: typeof filteredContacts = [];
-    for (const c of filteredContacts) {
-      if (pinnedChatIds.has(c.id)) pinned.push(c);
-      else unpinned.push(c);
-    }
-    return [...pinned, ...unpinned];
-  }, [filteredContacts, pinnedChatIds]);
 
-  const selectedContact = useMemo(
-    () => contacts.find((c) => c.id === selectedContactId) || contactList.find((c) => c.id === selectedContactId),
-    [selectedContactId, contacts, contactList],
-  );
 
-  const selectedGroup = useMemo(
-    () => groupChats.find((g) => g.id === selectedGroupId),
-    [groupChats, selectedGroupId],
-  );
 
   // Active chat: either DM or group
   const activeChatId = selectedGroupId || selectedContactId;
 
-  const getLastMessage = useCallback((contactId: string) => {
-    if (!userId) return null;
-    const msgs = messages.filter((m) => (m.senderId === userId && m.receiverId === contactId) || (m.senderId === contactId && m.receiverId === userId));
-    if (msgs.length === 0) return null;
-    return msgs[msgs.length - 1];
-  }, [messages, userId]);
 
-  const getUnreadCount = useCallback((contactId: string) => unreadCounts[contactId] || 0, [unreadCounts]);
 
-  const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
-  const newChatFilteredContacts = useMemo(() => {
-    return newChatUsers.filter((u) => !friendIds.has(u.id)).map((u) => ({
-      id: u.id, name: u.username, username: u.username, avatar: "", online: false,
-      lastSeen: new Date(u.createdAt).toLocaleDateString("ru-RU"),
-    }));
-  }, [newChatUsers, friendIds]);
 
-  // ── DM Messages ──
-  const contactMessages = useMemo(() => {
-    if (!userId || !selectedContactId) return [];
-    return messages.filter((m) => (m.senderId === userId && m.receiverId === selectedContactId) || (m.senderId === selectedContactId && m.receiverId === userId));
-  }, [messages, userId, selectedContactId]);
 
-  const groupedMessages = useMemo(() => {
-    const groups: { label: string; messages: typeof contactMessages }[] = [];
-    let currentLabel = "";
-    for (const msg of contactMessages) {
-      const label = getDateLabel(msg.createdAt);
-      if (label !== currentLabel) { currentLabel = label; groups.push({ label, messages: [] }); }
-      groups[groups.length - 1].messages.push(msg);
-    }
-    return groups;
-  }, [contactMessages]);
-
-  // ── Group messages for selected group ──
-  const currentGroupMessages = useMemo(() => groupMessages[selectedGroupId || ""] || [], [groupMessages, selectedGroupId]);
-
-  // ═══════════════════════════════════════════════════════════
-  //  SCROLL TO BOTTOM
-  // ═══════════════════════════════════════════════════════════
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, selectedContactId, groupMessages, selectedGroupId]);
 
   // ── Close context menu on click/touch/Escape anywhere ──
   useEffect(() => {
@@ -1035,48 +1175,6 @@ export default function MessengerView() {
   //  MESSAGE SENDING
   // ═══════════════════════════════════════════════════════════
 
-  const sendMessageOptimistic = useCallback(async (content: string, extra?: Record<string, unknown>) => {
-    const targetId = selectedGroupId || selectedContactId;
-    if (!targetId || !userId) return;
-    const msgId = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const msg: any = {
-      id: msgId,
-      senderId: userId, receiverId: selectedGroupId ? userId : targetId,
-      createdAt: now, senderName: `@${username || "user"}`,
-    };
-    // For sticker/voice/track_share: content is JSON with type
-    // For reply with text: content is the encrypted text, replyToId is separate
-    if (extra && extra.type && extra.type !== "reply") {
-      msg.content = JSON.stringify(extra);
-      msg.encrypted = false;
-      msg.messageType = extra.type;
-    } else {
-      msg.content = content;
-      msg.encrypted = true;
-      msg.messageType = "text";
-    }
-    if (extra?.replyToId) { msg.replyToId = extra.replyToId; }
-    addMessage(msg);
-    try {
-      const body: any = {
-        id: msgId, content: msg.content, senderId: userId,
-        encrypted: msg.encrypted, messageType: msg.messageType,
-      };
-      if (extra?.voiceUrl) { body.voiceUrl = extra.voiceUrl; }
-      if (extra?.voiceDuration) { body.voiceDuration = extra.voiceDuration; }
-      if (extra?.sticker) { body.content = JSON.stringify({ type: "sticker", sticker: extra.sticker }); }
-      if (extra?.track) { body.content = JSON.stringify({ type: "track_share", track: extra.track }); }
-      if (extra?.replyToId) { body.replyToId = extra.replyToId; }
-      if (selectedGroupId) {
-        body.groupChatId = selectedGroupId;
-        await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      } else {
-        body.receiverId = targetId;
-        await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      }
-    } catch { /* best-effort */ }
-  }, [selectedContactId, selectedGroupId, userId, username, addMessage]);
 
   const handleSend = async () => {
     if (!inputText.trim() || !activeChatId || !userId) return;
@@ -1142,56 +1240,8 @@ export default function MessengerView() {
   // Recording duration ref for stale closure fix
   const recordingDurationRef = useRef(0);
 
-  const startRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      chunksRef.current = [];
-      recordingDurationRef.current = 0;
-      const recorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm" });
-      mediaRecorderRef.current = recorder;
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      recorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const finalDuration = recordingDurationRef.current;
-        if (finalDuration < 1) { setIsRecording(false); return; } // Too short, discard
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64Url = reader.result as string;
-          if (base64Url && activeChatId && userId) {
-            await sendMessageOptimistic("", { type: "voice", voiceUrl: base64Url, voiceDuration: finalDuration });
-          }
-        };
-        reader.readAsDataURL(blob);
-      };
-      recorder.start();
-      setIsRecording(true);
-      setRecordingDuration(0);
-      recordingTimerRef.current = setInterval(() => {
-        recordingDurationRef.current += 1;
-        setRecordingDuration(recordingDurationRef.current);
-      }, 1000);
-    } catch (err) {
-      showToast("Нет доступа к микрофону");
-    }
-  }, [activeChatId, userId, sendMessageOptimistic]);
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
-    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-    setIsRecording(false);
-  }, []);
 
-  const cancelRecording = useCallback(() => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.onstop = null; // Prevent sending
-      mediaRecorderRef.current.stop();
-    }
-    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-    setIsRecording(false);
-    setRecordingDuration(0);
-    recordingDurationRef.current = 0;
-  }, []);
 
   // ═══════════════════════════════════════════════════════════
   //  FEATURE 5: SEARCH MESSAGES
@@ -1353,14 +1403,6 @@ export default function MessengerView() {
     try { const res = await fetch(`/api/friends/${requestId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) }); if (res.ok) fetchFriends(); } catch { /* */ }
   };
 
-  const togglePinChat = useCallback((contactId: string) => {
-    setPinnedChatIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(contactId)) next.delete(contactId); else next.add(contactId);
-      try { localStorage.setItem("mq-pinned-chats", JSON.stringify([...next])); } catch { /* */ }
-      return next;
-    });
-  }, []);
 
   const handleSelectContact = (contact: { id: string; name: string; username: string; avatar: string; online: boolean; lastSeen: string }) => {
     addContact(contact);
@@ -2595,15 +2637,6 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: { voiceUrl: string; 
 
   // Generate pseudo-random bar heights based on duration for consistent waveform
   const barCount = 28;
-  const barHeights = useMemo(() => {
-    const heights: number[] = [];
-    let seed = duration * 7;
-    for (let i = 0; i < barCount; i++) {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-      heights.push(20 + (seed % 80));
-    }
-    return heights;
-  }, [duration]);
 
   useEffect(() => {
     return () => {
