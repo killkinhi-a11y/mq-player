@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  generateBuildId: async () => {
+    return Date.now().toString();
+  },
   experimental: {
     // Allow uploads up to 200MB (default is 10MB)
     proxyClientMaxBodySize: 200 * 1024 * 1024,
