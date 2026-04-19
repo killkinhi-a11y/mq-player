@@ -452,7 +452,7 @@ export default function MessengerView() {
       if (extra?.replyToId) { body.replyToId = extra.replyToId; }
       if (selectedGroupId) {
         body.groupChatId = selectedGroupId;
-        await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        await fetch(`/api/group-chats/${selectedGroupId}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       } else {
         body.receiverId = targetId;
         await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -860,7 +860,7 @@ export default function MessengerView() {
   useEffect(() => {
     if (!userId || hideOnline) return;
     const sendHeartbeat = async () => {
-      try { await fetch("/api/user/heartbeat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId }) }); } catch { /* */ }
+      try { await fetch("/api/user/heartbeat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }); } catch { /* */ }
     };
     sendHeartbeat();
     heartbeatRef.current = setInterval(sendHeartbeat, 30000);
@@ -1053,7 +1053,6 @@ export default function MessengerView() {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              userId,
               track: { title: track.title, artist: track.artist, cover: track.cover || "" },
             }),
           });
@@ -1061,7 +1060,7 @@ export default function MessengerView() {
           await fetch("/api/user/now-playing", {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId, track: {} }),
+            body: JSON.stringify({ track: {} }),
           });
         }
       } catch { /* silent */ }
@@ -1208,7 +1207,7 @@ export default function MessengerView() {
     if (!editingMessage || !userId) return;
     try {
       const encrypted = await simulateEncrypt(editingMessage.content);
-      await fetch(`/api/messages/${editingMessage.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: encrypted, senderId: userId }) });
+      await fetch(`/api/messages/${editingMessage.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: encrypted }) });
       // Update local state with encrypted content
       useAppStore.setState({ messages: useAppStore.getState().messages.map((m) => m.id === editingMessage.id ? { ...m, content: encrypted, edited: true, editedAt: new Date().toISOString() } : m) });
     } catch { /* */ }
@@ -1358,7 +1357,7 @@ export default function MessengerView() {
     try {
       const res = await fetch("/api/group-chats", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, name: groupName.trim(), description: groupDesc.trim(), memberIds: [...groupMembers] }),
+        body: JSON.stringify({ name: groupName.trim(), description: groupDesc.trim(), memberIds: [...groupMembers] }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -1386,7 +1385,7 @@ export default function MessengerView() {
     if (!userId) return;
     setFriendRequestStatus((p) => ({ ...p, [targetUserId]: "loading" }));
     try {
-      const res = await fetch("/api/friends", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ requesterId: userId, addresseeId: targetUserId }) });
+      const res = await fetch("/api/friends", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ addresseeId: targetUserId }) });
       const data = await res.json();
       if (res.ok) { setFriendRequestStatus((p) => ({ ...p, [targetUserId]: "sent" })); if (data.message?.includes("друзья")) fetchFriends(); }
       else { setFriendRequestStatus((p) => ({ ...p, [targetUserId]: data.error || "error" })); }
@@ -2089,7 +2088,7 @@ export default function MessengerView() {
                     <motion.button whileTap={{ scale: 0.95 }} onClick={async () => {
                       if (!storyText.trim() || !userId) return;
                       try {
-                        const res = await fetch("/api/stories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, type: "text", content: storyText.trim() }) });
+                        const res = await fetch("/api/stories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "text", content: storyText.trim() }) });
                         if (res.ok) { setShowStoryCreate(false); setStoryText(""); showToast("История опубликована!"); }
                       } catch { /* */ }
                     }} disabled={!storyText.trim()}

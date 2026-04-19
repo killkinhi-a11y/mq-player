@@ -85,7 +85,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
       await fetch("/api/notifications", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, markAll: true }),
+        body: JSON.stringify({ markAll: true }),
       });
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
@@ -97,7 +97,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
       await fetch("/api/notifications", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, notificationId: id }),
+        body: JSON.stringify({ notificationId: id }),
       });
       setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
       setUnreadCount((prev) => Math.max(0, prev - 1));

@@ -331,7 +331,7 @@ export const useAppStore = create<AppState>()(
       setAuth: (userId, username, email, role, avatar) => {
         set({ isAuthenticated: true, userId, username, email, userRole: role || "user", avatar: avatar || null, currentView: "main" });
         // Load saved theme from account
-        fetch(`/api/user/theme?userId=${userId}`)
+        fetch('/api/user/theme')
           .then(r => r.json())
           .then(data => {
             if (data.theme && data.theme !== "default") {
@@ -364,7 +364,7 @@ export const useAppStore = create<AppState>()(
           fetch('/api/user/theme', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, theme }),
+            body: JSON.stringify({ theme }),
           }).catch(() => {});
         }
       },
@@ -377,7 +377,7 @@ export const useAppStore = create<AppState>()(
           fetch('/api/user/theme', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, accent: color }),
+            body: JSON.stringify({ accent: color }),
           }).catch(() => {});
         }
       },
@@ -668,7 +668,6 @@ export const useAppStore = create<AppState>()(
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              userId,
               name: playlist.name,
               description: playlist.description,
               cover: playlist.cover,
@@ -688,7 +687,7 @@ export const useAppStore = create<AppState>()(
           const res = await fetch('/api/playlists', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: playlistId, userId, isPublic: false }),
+            body: JSON.stringify({ id: playlistId, isPublic: false }),
           });
           if (res.ok) {
             set((s) => ({ publicPlaylists: s.publicPlaylists.filter((p) => p.id !== playlistId) }));
@@ -704,7 +703,7 @@ export const useAppStore = create<AppState>()(
           const res = await fetch('/api/playlists/like', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playlistId, userId }),
+            body: JSON.stringify({ playlistId }),
           });
           const data = await res.json();
           if (res.ok) {
@@ -725,7 +724,7 @@ export const useAppStore = create<AppState>()(
         const { userId } = get();
         set({ publicPlaylistsLoading: true });
         try {
-          const sp = new URLSearchParams({ userId: userId || '' });
+          const sp = new URLSearchParams();
           if (params.search) sp.set('search', params.search);
           if (params.sort) sp.set('sort', params.sort);
           if (params.page) sp.set('page', String(params.page));
@@ -766,7 +765,7 @@ export const useAppStore = create<AppState>()(
         }
 
         try {
-          const sp = new URLSearchParams({ userId: userId || '', limit: '10' });
+          const sp = new URLSearchParams({ limit: '10' });
           if (tags.length > 0) sp.set('likedTags', tags.join(','));
           if (artists.length > 0) sp.set('likedArtists', artists.join(','));
           const res = await fetch(`/api/playlists/recommendations?${sp}`);
@@ -805,7 +804,6 @@ export const useAppStore = create<AppState>()(
         set({ isSyncing: true, syncError: null });
         try {
           const payload = {
-            userId: state.userId,
             data: {
               history: state.history,
               playlists: state.playlists,
@@ -844,7 +842,7 @@ export const useAppStore = create<AppState>()(
         if (!state.userId) return;
         set({ isSyncing: true, syncError: null });
         try {
-          const res = await fetch(`/api/sync?userId=${state.userId}`);
+          const res = await fetch('/api/sync');
           if (!res.ok) {
             set({ isSyncing: false });
             return;
@@ -1036,9 +1034,26 @@ export const useAppStore = create<AppState>()(
 
           // Auto-sync on rehydrate (after page reload) — push local data to server
           if (s.userId) {
-            setTimeout(() => {
-              useAppStore.getState().syncToServer();
-            }, 3000);
+            // Verify session is still valid before syncing
+            fetch('/api/auth/me')
+              .then((res) => {
+                if (!res.ok) {
+                  // Session expired or invalid — logout
+                  console.warn("[MQ Store] session expired on rehydrate — logging out");
+                  useAppStore.getState().logout();
+                  return;
+                }
+                // Session valid — sync local data to server
+                setTimeout(() => {
+                  useAppStore.getState().syncToServer();
+                }, 3000);
+              })
+              .catch(() => {
+                // Network error — keep local state, will retry later
+                setTimeout(() => {
+                  useAppStore.getState().syncToServer();
+                }, 3000);
+              });
           }
         };
       },

@@ -865,7 +865,7 @@ export default function SettingsView() {
                     const res = await fetch("/api/user/delete-account", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ userId: state.userId, email: state.email }),
+                      body: JSON.stringify({ email: state.email }),
                     });
                     if (!res.ok) {
                       const data = await res.json();

@@ -88,7 +88,7 @@ export default function ProfileView() {
           fetch("/api/user/avatar", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId: uid, avatar: resized }),
+            body: JSON.stringify({ avatar: resized }),
           })
             .then((r) => r.json())
             .catch(() => {})
@@ -163,7 +163,7 @@ export default function ProfileView() {
       const res = await fetch("/api/auth/update-username", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, username: editName }),
+        body: JSON.stringify({ username: editName }),
       });
       const data = await res.json();
       if (res.ok) {

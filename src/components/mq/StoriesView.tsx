@@ -182,7 +182,7 @@ export default function StoriesView() {
       const res = await fetch('/api/stories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, type: 'text', content: newStoryText.trim() }),
+        body: JSON.stringify({ type: 'text', content: newStoryText.trim() }),
       });
       if (res.ok) {
         setShowCreateModal(false);
