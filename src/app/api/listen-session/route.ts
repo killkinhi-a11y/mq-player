@@ -101,6 +101,19 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Отсутствуют обязательные поля" }, { status: 400 });
       }
 
+      // Verify the two users are friends
+      const friendship = await db.friend.findFirst({
+        where: {
+          OR: [
+            { requesterId: userId, addresseeId: guestId, status: "accepted" },
+            { requesterId: guestId, addresseeId: userId, status: "accepted" },
+          ],
+        },
+      });
+      if (!friendship) {
+        return NextResponse.json({ error: "Можно слушать вместе только с друзьями" }, { status: 403 });
+      }
+
       // Check if session already exists between these users
       const existing = await db.listenSession.findFirst({
         where: {

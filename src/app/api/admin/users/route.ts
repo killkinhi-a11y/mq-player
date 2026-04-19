@@ -124,6 +124,9 @@ async function patchHandler(req: NextRequest) {
         if (newRole !== "user" && newRole !== "admin") {
           return NextResponse.json({ error: "Некорректная роль" }, { status: 400 });
         }
+        if (targetId === userId) {
+          return NextResponse.json({ error: "Нельзя изменить свою роль" }, { status: 400 });
+        }
         result = await db.user.update({
           where: { id: targetId },
           data: { role: newRole },

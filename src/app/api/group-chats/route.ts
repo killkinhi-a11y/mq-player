@@ -108,6 +108,12 @@ async function postHandler(req: NextRequest) {
 
     // Verify that all provided memberIds exist
     if (memberIds && memberIds.length > 0) {
+      if (memberIds.length > 50) {
+        return NextResponse.json(
+          { error: "Максимум 50 участников в группе" },
+          { status: 400 }
+        );
+      }
       const uniqueIds = [...new Set(memberIds)];
       const existingUsers = await db.user.findMany({
         where: { id: { in: uniqueIds } },

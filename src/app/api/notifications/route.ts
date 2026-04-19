@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Only allow system notification types — users cannot create arbitrary notifications
-    const allowedTypes = ["message", "friend_request", "friend_accepted", "system"];
+    const allowedTypes = ["message", "friend_request", "friend_accepted", "system", "listen_invite"];
     if (!allowedTypes.includes(type)) {
       return NextResponse.json({ error: "Invalid notification type" }, { status: 400 });
     }

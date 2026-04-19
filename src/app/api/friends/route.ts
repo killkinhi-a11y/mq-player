@@ -125,14 +125,10 @@ export async function POST(req: NextRequest) {
       }
       // rejected — delete old and create fresh request
       await db.friend.delete({ where: { id: existing.id } });
-      var friend = await db.friend.create({
-        data: { requesterId: userId, addresseeId, status: "pending" },
-      });
-    } else {
-      var friend = await db.friend.create({
-        data: { requesterId: userId, addresseeId, status: "pending" },
-      });
     }
+    let friend = await db.friend.create({
+      data: { requesterId: userId, addresseeId, status: "pending" },
+    });
 
     // Create notification for the addressee
     try {

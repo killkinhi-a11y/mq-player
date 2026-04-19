@@ -33,7 +33,32 @@ async function handler(
       return NextResponse.json({ error: "Пользователь не найден" }, { status: 404 });
     }
 
-    await db.user.delete({ where: { id } });
+    // Delete all related data in a transaction (same pattern as self-delete)
+    await db.$transaction(async (tx) => {
+      await tx.message.deleteMany({ where: { OR: [{ senderId: id }, { receiverId: id }] } });
+      await tx.friend.deleteMany({ where: { OR: [{ requesterId: id }, { addresseeId: id }] } });
+      await tx.storyLike.deleteMany({ where: { userId: id } });
+      await tx.storyComment.deleteMany({ where: { userId: id } });
+      await tx.story.deleteMany({ where: { userId: id } });
+      await tx.playlistLike.deleteMany({ where: { userId: id } });
+      await tx.playlist.deleteMany({ where: { userId: id } });
+      await tx.userSync.deleteMany({ where: { userId: id } });
+      await tx.groupChatMember.deleteMany({ where: { userId: id } });
+      await tx.groupMessage.deleteMany({ where: { senderId: id } });
+      await tx.notification.deleteMany({ where: { userId: id } });
+      await tx.listenSession.deleteMany({ where: { OR: [{ hostId: id }, { guestId: id }] } });
+
+      // Get group chats created by this user and delete them
+      const createdGroups = await tx.groupChat.findMany({ where: { createdBy: id }, select: { id: true } });
+      for (const g of createdGroups) {
+        await tx.groupChatMember.deleteMany({ where: { groupChatId: g.id } });
+        await tx.groupMessage.deleteMany({ where: { groupChatId: g.id } });
+        await tx.groupChat.delete({ where: { id: g.id } });
+      }
+
+      await tx.verificationCode.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
+    });
 
     await db.auditLog.create({
       data: {

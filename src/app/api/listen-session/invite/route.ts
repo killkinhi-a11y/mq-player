@@ -24,6 +24,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Нельзя пригласить себя" }, { status: 400 });
     }
 
+    // Verify the two users are friends
+    const friendship = await db.friend.findFirst({
+      where: {
+        OR: [
+          { requesterId: userId, addresseeId: contactId, status: "accepted" },
+          { requesterId: contactId, addresseeId: userId, status: "accepted" },
+        ],
+      },
+    });
+    if (!friendship) {
+      return NextResponse.json({ error: "Можно приглашать только друзей" }, { status: 403 });
+    }
+
     // Check the user exists
     const friend = await db.user.findUnique({
       where: { id: contactId },

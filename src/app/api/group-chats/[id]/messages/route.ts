@@ -134,6 +134,13 @@ async function postHandler(
       );
     }
 
+    if (content.length > 10_000) {
+      return NextResponse.json(
+        { error: "Сообщение слишком длинное (макс. 10 000 символов)" },
+        { status: 400 }
+      );
+    }
+
     // Verify group chat exists
     const groupChat = await db.groupChat.findUnique({
       where: { id },
