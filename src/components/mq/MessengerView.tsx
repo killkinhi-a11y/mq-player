@@ -331,6 +331,9 @@ export default function MessengerView() {
 
   /* useEffect: fetch stories moved to bottom of declarations */
 
+  const notifPermRef = useRef(notificationPermission);
+  useEffect(() => { notifPermRef.current = notificationPermission; }, [notificationPermission]);
+
   const processIncomingMessage = useCallback((m: any) => {
     const state = useAppStore.getState();
     const existing = state.messages.find((em: any) => em.id === m.id);
@@ -355,8 +358,9 @@ export default function MessengerView() {
     // Push notification for new messages (all states, if permission granted)
     if (m.senderId !== userId) {
       playNotifSound();
-      // Show browser notification
-      if (notificationPermission === "granted" && document.visibilityState === "hidden") {
+      // Show browser notification — use ref to avoid stale closure
+      const perm = notifPermRef.current;
+      if (perm === "granted" && document.visibilityState === "hidden") {
         try {
           const decrypted = simulateDecryptSync(m.content);
           const preview = decrypted.length > 60 ? decrypted.slice(0, 60) + "..." : decrypted;
@@ -367,7 +371,7 @@ export default function MessengerView() {
             tag: m.id,
           });
         } catch { /* ignore */ }
-      } else if (notificationPermission === "default") {
+      } else if (perm === "default") {
         requestNotifPermission();
       }
       // Broadcast to other tabs — include full message data
@@ -383,7 +387,7 @@ export default function MessengerView() {
     if (m.createdAt) {
       lastSeenTimeRef.current = m.createdAt;
     }
-  }, [userId]);
+  }, [userId, playNotifSound, requestNotifPermission]);
 
   const contactList = useMemo(() => {
     return friends.map((f) => ({
@@ -605,9 +609,14 @@ export default function MessengerView() {
     fetchStories();
   }, []);
 
-  // ── Scroll to bottom (moved from above sendMessageOptimistic) ──
+  // ── Scroll to bottom only if user is already near bottom (moved from above sendMessageOptimistic) ──
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el) return;
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    if (isNearBottom) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages, selectedContactId, groupMessages, selectedGroupId]);
 
   // ── Cross-tab BroadcastChannel for notifications ──

@@ -17,6 +17,10 @@ async function postHandler(req: NextRequest) {
       return NextResponse.json({ error: "storyId и content обязательны" }, { status: 400 });
     }
 
+    if (typeof content !== "string" || content.trim().length === 0 || content.length > 1000) {
+      return NextResponse.json({ error: "Комментарий должен быть от 1 до 1000 символов" }, { status: 400 });
+    }
+
     // Check if story exists
     const story = await db.story.findUnique({ where: { id: storyId } });
     if (!story) {

@@ -39,4 +39,4 @@ async function handler() {
     return NextResponse.json({ activeTheme: null, flags: [] });
   }
 }
-export const GET = withRateLimit(RATE_LIMITS.write, handler);
+export const GET = withRateLimit(RATE_LIMITS.read, handler);

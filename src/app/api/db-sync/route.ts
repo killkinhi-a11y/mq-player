@@ -508,13 +508,12 @@ export async function GET() {
       ok: true,
       message: "Database synced successfully",
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("DB sync error:", error);
     return NextResponse.json(
       {
         ok: false,
         error: "Migration failed",
-        details: error.message || String(error),
       },
       { status: 500 }
     );

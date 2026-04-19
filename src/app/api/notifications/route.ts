@@ -74,13 +74,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "type, title обязательны" }, { status: 400 });
     }
 
+    // Only allow system notification types — users cannot create arbitrary notifications
+    const allowedTypes = ["message", "friend_request", "friend_accepted", "system"];
+    if (!allowedTypes.includes(type)) {
+      return NextResponse.json({ error: "Invalid notification type" }, { status: 400 });
+    }
+
+    // Limit notification body length
+    if (body && body.length > 500) {
+      return NextResponse.json({ error: "Body too long" }, { status: 400 });
+    }
+
     const notification = await db.notification.create({
       data: {
         userId,
         type,
-        title,
-        body: body || "",
-        data: data ? JSON.stringify(data) : "{}",
+        title: title.slice(0, 100),
+        body: body ? body.slice(0, 500) : "",
+        data: typeof data === "string" ? data : JSON.stringify(data || {}),
       },
     });
 

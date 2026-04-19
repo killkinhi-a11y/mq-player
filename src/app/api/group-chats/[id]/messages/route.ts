@@ -125,7 +125,6 @@ async function postHandler(
       replyToId,
       voiceUrl,
       voiceDuration,
-      id: messageId,
     } = await req.json();
 
     if (!content) {
@@ -172,7 +171,6 @@ async function postHandler(
 
     const message = await db.groupMessage.create({
       data: {
-        id: messageId || undefined,
         groupChatId: id,
         senderId: userId,
         content,

@@ -25,6 +25,7 @@ async function getHandler(req: NextRequest) {
           },
         },
         orderBy: { createdAt: "desc" },
+        take: 100,
       });
 
       return NextResponse.json({ stories });
@@ -69,8 +70,11 @@ async function postHandler(req: NextRequest) {
     const userId = session.userId;
     const { type, content, bgColor, textColor } = await req.json();
 
-    if (!content) {
+    if (!content || typeof content !== "string") {
       return NextResponse.json({ error: "content обязателен" }, { status: 400 });
+    }
+    if (content.length > 500_000) {
+      return NextResponse.json({ error: "Содержимое слишком большое (макс. 500KB)" }, { status: 400 });
     }
 
     // Verify user exists

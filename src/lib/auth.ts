@@ -1,6 +1,10 @@
 import { SignJWT, jwtVerify } from "jose";
 
-const secret = new TextEncoder().encode(process.env.JWT_SECRET || "fallback-dev-secret-change-me");
+const secretRaw = process.env.JWT_SECRET;
+if (!secretRaw) {
+  throw new Error("JWT_SECRET environment variable is required");
+}
+const secret = new TextEncoder().encode(secretRaw);
 
 export interface SessionPayload {
   userId: string;

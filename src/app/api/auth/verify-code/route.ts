@@ -43,6 +43,13 @@ async function handler(req: NextRequest) {
       );
     }
 
+    if (user.blocked) {
+      return NextResponse.json(
+        { error: "Аккаунт заблокирован" },
+        { status: 403 }
+      );
+    }
+
     // Mark code as used AND confirm user atomically in a transaction
     await db.$transaction([
       db.verificationCode.update({

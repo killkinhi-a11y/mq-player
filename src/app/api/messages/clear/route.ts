@@ -22,37 +22,53 @@ export async function DELETE(req: NextRequest) {
     }
 
     if (forBoth === true) {
-      // Delete all messages between both users — irreversible
-      const result = await db.message.deleteMany({
+      // Soft-delete for both users — do NOT hard-delete messages
+      const result = await db.message.updateMany({
         where: {
           OR: [
             { senderId: userId, receiverId: contactId },
             { senderId: contactId, receiverId: userId },
           ],
+          deleted: false,
+        },
+        data: {
+          deleted: true,
+          content: "[Очищено]",
+          messageType: "system",
+          encrypted: false,
+          voiceUrl: null,
+          voiceDuration: null,
         },
       });
 
       return NextResponse.json({ deleted: result.count, forBoth: true });
     } else {
-      // Soft-clear for current user only: mark messages as deleted for this user
-      // Messages sent BY the current user — delete them (they won't see their own sent messages)
-      // Messages sent BY the other user — add a "clearedFor" marker so they don't reload
-      const { Prisma } = await import("@prisma/client");
-
-      // Delete messages the current user sent
-      const sentDeleted = await db.message.deleteMany({
+      // Soft-clear for current user only
+      const sentDeleted = await db.message.updateMany({
         where: {
           senderId: userId,
           receiverId: contactId,
+          deleted: false,
+        },
+        data: {
+          deleted: true,
+          content: "[Очищено]",
+          messageType: "system",
+          encrypted: false,
         },
       });
 
-      // For received messages, we mark them with a special field so the sender still sees them
-      // But if the Message model doesn't have such a field, we just delete all for simplicity
-      const receivedDeleted = await db.message.deleteMany({
+      const receivedDeleted = await db.message.updateMany({
         where: {
           senderId: contactId,
           receiverId: userId,
+          deleted: false,
+        },
+        data: {
+          deleted: true,
+          content: "[Очищено]",
+          messageType: "system",
+          encrypted: false,
         },
       });
 

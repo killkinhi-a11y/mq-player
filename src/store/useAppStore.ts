@@ -461,7 +461,10 @@ export const useAppStore = create<AppState>()(
         const { queue, queueIndex, shuffle, repeat } = get();
         let nextIdx: number;
         if (shuffle) {
-          nextIdx = Math.floor(Math.random() * queue.length);
+          if (queue.length <= 1) { nextIdx = 0; }
+          else {
+            do { nextIdx = Math.floor(Math.random() * queue.length); } while (nextIdx === queueIndex);
+          }
         } else {
           nextIdx = queueIndex + 1;
           if (nextIdx >= queue.length) {
@@ -547,6 +550,8 @@ export const useAppStore = create<AppState>()(
 
       addMessage: (message) =>
         set((s) => {
+          // Basic validation
+          if (!message?.id || !message.senderId) return s;
           // Dedup: skip messages with same ID
           if (s.messages.some((m) => m.id === message.id)) return s;
           const updated = [...s.messages, message];

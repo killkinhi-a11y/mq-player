@@ -68,6 +68,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (user.blocked) {
+      return NextResponse.json(
+        { error: "Аккаунт заблокирован" },
+        { status: 403 }
+      );
+    }
+
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
       return NextResponse.json(

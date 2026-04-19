@@ -26,18 +26,17 @@ async function handler(
       return NextResponse.json({ error: "Playlist not found" }, { status: 404 });
     }
 
+    // Access control: only owner or public playlists can be viewed
+    if (!playlist.isPublic && playlist.userId !== userId) {
+      return NextResponse.json({ error: "Playlist not found" }, { status: 404 });
+    }
+
     let tracks = [];
     try {
       tracks = JSON.parse(playlist.tracksJson || "[]");
     } catch {
       tracks = [];
     }
-
-    // Increment play count
-    await db.playlist.update({
-      where: { id },
-      data: { playCount: { increment: 1 } },
-    });
 
     let isLiked = false;
     if (userId) {

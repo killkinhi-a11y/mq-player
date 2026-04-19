@@ -46,6 +46,12 @@ async function postHandler(req: NextRequest) {
       return NextResponse.json({ error: "data required" }, { status: 400 });
     }
 
+    // Size limit: 2MB per sync payload
+    const jsonSize = JSON.stringify(data).length;
+    if (jsonSize > 2 * 1024 * 1024) {
+      return NextResponse.json({ error: "Data too large (max 2MB)" }, { status: 413 });
+    }
+
     // Only allow specific keys
     const allowedKeys = new Set([
       "history",

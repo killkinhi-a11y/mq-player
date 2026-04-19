@@ -72,6 +72,7 @@ export async function GET(req: NextRequest) {
                       ],
                     },
                     { createdAt: { gt: lastChecked } },
+                    { deleted: false },
                   ],
                 },
                 orderBy: { createdAt: "asc" },

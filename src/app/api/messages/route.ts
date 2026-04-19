@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
         { senderId: userId, receiverId },
         { senderId: receiverId, receiverId: userId },
       ],
+      deleted: false,
     };
 
     // If "since" is provided, only fetch messages created after that time
@@ -44,6 +45,7 @@ export async function GET(req: NextRequest) {
     const messages = await db.message.findMany({
       where,
       orderBy: { createdAt: "asc" },
+      take: 200,
       include: {
         sender: { select: { id: true, username: true, avatar: true } },
         receiver: { select: { id: true, username: true, avatar: true } },
@@ -70,7 +72,7 @@ export async function POST(req: NextRequest) {
     }
     const senderId = session.userId;
 
-    const { content, receiverId, encrypted, id, messageType, replyToId, voiceUrl, voiceDuration } = await req.json();
+    const { content, receiverId, encrypted, messageType, replyToId, voiceUrl, voiceDuration } = await req.json();
 
     if (!receiverId) {
       return NextResponse.json(
@@ -81,7 +83,6 @@ export async function POST(req: NextRequest) {
 
     const message = await db.message.create({
       data: {
-        id: id || undefined,
         content: content || "",
         senderId,
         receiverId,

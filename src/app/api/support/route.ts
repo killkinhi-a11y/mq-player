@@ -183,6 +183,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ messages: [], sessionId: null });
     }
 
+    // IDOR check: user can only access their own support sessions
+    if (supportSession.userId && supportSession.userId !== userId) {
+      return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
+    }
+    // For guest sessions, verify the sessionId matches expected pattern
+    if (!supportSession.userId && !sessionId) {
+      return NextResponse.json({ messages: [], sessionId: null });
+    }
+
     const messages = await db.supportChatMessage.findMany({
       where: { sessionId: supportSession.sessionId },
       orderBy: { createdAt: "asc" },

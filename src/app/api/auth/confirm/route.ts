@@ -56,15 +56,24 @@ async function handler(req: NextRequest) {
       );
     }
 
-    await db.verificationCode.update({
-      where: { id: verificationCode.id },
-      data: { used: true },
-    });
+    if (user.blocked) {
+      return NextResponse.json(
+        { error: "Аккаунт заблокирован" },
+        { status: 403 }
+      );
+    }
 
-    await db.user.update({
-      where: { id: user.id },
-      data: { confirmed: true },
-    });
+    // Mark code as used AND confirm user atomically in a transaction
+    await db.$transaction([
+      db.verificationCode.update({
+        where: { id: verificationCode.id },
+        data: { used: true },
+      }),
+      db.user.update({
+        where: { id: user.id },
+        data: { confirmed: true },
+      }),
+    ]);
 
     // Issue JWT session token — auto-login after confirmation
     const token = await signToken({ userId: user.id, username: user.username });

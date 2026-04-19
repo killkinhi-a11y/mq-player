@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 export const dynamic = "force-dynamic";
 
 async function handler(req: NextRequest, ctx?: { params: Promise<Record<string, string>> }) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
     const { id } = await ctx!.params;
     const user = await db.user.findUnique({
       where: { id },

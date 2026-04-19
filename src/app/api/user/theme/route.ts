@@ -39,8 +39,18 @@ async function postHandler(req: NextRequest) {
     const { theme, accent } = await req.json();
 
     const updateData: Record<string, string> = {};
-    if (theme !== undefined) updateData.theme = theme;
-    if (accent !== undefined) updateData.accent = accent;
+    if (theme !== undefined) {
+      if (typeof theme !== "string" || theme.length > 50) {
+        return NextResponse.json({ error: "Invalid theme" }, { status: 400 });
+      }
+      updateData.theme = theme;
+    }
+    if (accent !== undefined) {
+      if (typeof accent !== "string" || !/^#[0-9a-fA-F]{6}$/.test(accent)) {
+        return NextResponse.json({ error: "Invalid accent color" }, { status: 400 });
+      }
+      updateData.accent = accent;
+    }
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: "No data to update" }, { status: 400 });

@@ -123,17 +123,16 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ message: "Заявка принята — вы теперь друзья!" }, { status: 200 });
         }
       }
-      // rejected — allow re-sending
-      await db.friend.update({
-        where: { id: existing.id },
-        data: { status: "pending", requesterId: userId, addresseeId },
+      // rejected — delete old and create fresh request
+      await db.friend.delete({ where: { id: existing.id } });
+      var friend = await db.friend.create({
+        data: { requesterId: userId, addresseeId, status: "pending" },
       });
-      return NextResponse.json({ message: "Запрос отправлен повторно" }, { status: 201 });
+    } else {
+      var friend = await db.friend.create({
+        data: { requesterId: userId, addresseeId, status: "pending" },
+      });
     }
-
-    const friend = await db.friend.create({
-      data: { requesterId: userId, addresseeId, status: "pending" },
-    });
 
     // Create notification for the addressee
     try {

@@ -132,6 +132,14 @@ async function postHandler(req: NextRequest) {
       return NextResponse.json({ error: "name required" }, { status: 400 });
     }
 
+    if (typeof name !== "string" || name.trim().length > 200) {
+      return NextResponse.json({ error: "Name too long (max 200 chars)" }, { status: 400 });
+    }
+
+    if (description && typeof description === "string" && description.length > 2000) {
+      return NextResponse.json({ error: "Description too long (max 2000 chars)" }, { status: 400 });
+    }
+
     const tracksJson = JSON.stringify(tracks || []);
     const tagsStr = Array.isArray(tags) ? tags.join(",") : (tags || "");
 

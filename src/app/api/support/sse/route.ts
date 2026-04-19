@@ -32,6 +32,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Сессия не найдена" }, { status: 404 });
     }
 
+    // IDOR check: user can only subscribe to their own support sessions
+    if (supportSession.userId && supportSession.userId !== userId) {
+      return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
+    }
+
     const lastMessages = await db.supportChatMessage.findMany({
       where: { sessionId: supportSession.sessionId },
       orderBy: { createdAt: "desc" },
