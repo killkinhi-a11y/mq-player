@@ -40,6 +40,8 @@ model User {
   notifications          Notification[] @relation("UserNotifications")
   hostedSessions         ListenSession[] @relation("HostedSessions")
   joinedSessions         ListenSession[] @relation("JoinedSessions")
+  typingEventsFrom       TypingEvent[] @relation("TypingFrom")
+  typingEventsTo         TypingEvent[] @relation("TypingTo")
 }
 
 model AuditLog {
@@ -317,6 +319,19 @@ model ListenSession {
   @@unique([hostId, guestId])
   @@index([hostId])
   @@index([guestId])
+}
+
+// Typing events — database-backed typing indicators (works on serverless)
+model TypingEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  contactId String
+  updatedAt DateTime @updatedAt
+
+  from User @relation("TypingFrom", fields: [userId], references: [id], onDelete: Cascade)
+  to   User @relation("TypingTo", fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contactId])
 }
 
 // Notifications system

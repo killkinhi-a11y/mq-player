@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
-import { getTypingIndicatorsForUser, cleanupTypingMap } from "@/app/api/messages/typing/route";
+import { getActiveTypingForUser } from "@/app/api/messages/typing/route";
 
 /**
  * SSE endpoint for messenger — streams new DMs for a user.
@@ -43,18 +43,18 @@ export async function GET(req: NextRequest) {
 
         let active = true;
         let lastChecked = since;
-        const emittedTypingKeys = new Set<string>();
+        const lastEmittedTyping = new Set<string>();
 
         const poll = async () => {
           while (active) {
             try {
-              // ── Check typing indicators ──
-              cleanupTypingMap();
-              const typingEntries = getTypingIndicatorsForUser(userId);
+              // ── Check typing indicators from DB ──
+              const typingEntries = await getActiveTypingForUser(userId);
+              const currentTypingKeys = new Set(typingEntries.map((e) => `${e.userId}→${e.contactId}`));
+              // Emit new typing events not yet sent
               for (const entry of typingEntries) {
                 const typingKey = `${entry.userId}→${entry.contactId}`;
-                if (!emittedTypingKeys.has(typingKey)) {
-                  emittedTypingKeys.add(typingKey);
+                if (!lastEmittedTyping.has(typingKey)) {
                   controller.enqueue(
                     encoder.encode(
                       `event: typing\ndata: ${JSON.stringify({ type: "typing", userId: entry.userId, contactId: entry.contactId })}\n\n`
@@ -62,12 +62,15 @@ export async function GET(req: NextRequest) {
                   );
                 }
               }
-              // Remove emitted keys that are no longer active
-              const activeTypingKeys = new Set(typingEntries.map((e) => `${e.userId}→${e.contactId}`));
-              for (const key of emittedTypingKeys) {
-                if (!activeTypingKeys.has(key)) {
-                  emittedTypingKeys.delete(key);
+              // Clear keys that are no longer active in DB
+              for (const key of lastEmittedTyping) {
+                if (!currentTypingKeys.has(key)) {
+                  lastEmittedTyping.delete(key);
                 }
+              }
+              // Add newly active keys
+              for (const key of currentTypingKeys) {
+                lastEmittedTyping.add(key);
               }
 
               // ── Check new messages ──

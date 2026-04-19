@@ -64,21 +64,32 @@ export async function POST(req: NextRequest) {
       data: { read: true },
     });
 
+    // Re-read the session fresh to get the most up-to-date track data
+    const freshSession = await db.listenSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        host: { select: { id: true, username: true, avatar: true } },
+        guest: { select: { id: true, username: true, avatar: true } },
+      },
+    });
+
+    const src = freshSession || listenSession;
+
     const sessionData = {
-      id: listenSession.id,
-      hostId: listenSession.hostId,
-      hostName: listenSession.host.username,
-      guestId: listenSession.guestId,
-      guestName: listenSession.guest.username,
-      trackId: listenSession.trackId,
-      trackTitle: listenSession.trackTitle,
-      trackArtist: listenSession.trackArtist,
-      trackCover: listenSession.trackCover,
-      scTrackId: listenSession.scTrackId,
-      audioUrl: listenSession.audioUrl,
-      source: listenSession.source,
-      progress: listenSession.progress,
-      isPlaying: listenSession.isPlaying,
+      id: src.id,
+      hostId: src.hostId,
+      hostName: src.host.username,
+      guestId: src.guestId,
+      guestName: src.guest.username,
+      trackId: src.trackId,
+      trackTitle: src.trackTitle,
+      trackArtist: src.trackArtist,
+      trackCover: src.trackCover,
+      scTrackId: src.scTrackId,
+      audioUrl: src.audioUrl,
+      source: src.source,
+      progress: src.progress,
+      isPlaying: src.isPlaying,
       isHost: false,
     };
 

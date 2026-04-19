@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
     const userId = session.userId;
 
-    const { contactId } = await req.json();
+    const { contactId, trackId, trackTitle, trackArtist, trackCover, scTrackId, audioUrl, source } = await req.json();
     if (!contactId) {
       return NextResponse.json({ error: "contactId обязателен" }, { status: 400 });
     }
@@ -40,17 +40,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Пользователь не найден" }, { status: 404 });
     }
 
-    // Create the ListenSession
-    const listenSession = await db.listenSession.create({
-      data: {
+    // Create or update the ListenSession (upsert to handle re-invites)
+    const listenSession = await db.listenSession.upsert({
+      where: {
+        hostId_guestId: { hostId: userId, guestId: contactId },
+      },
+      create: {
         hostId: userId,
         guestId: contactId,
-        trackId: "",
-        trackTitle: "Ожидание...",
-        trackArtist: "",
-        trackCover: "",
-        audioUrl: "",
-        source: "soundcloud",
+        trackId: trackId || "",
+        trackTitle: trackTitle || "Ожидание...",
+        trackArtist: trackArtist || "",
+        trackCover: trackCover || "",
+        scTrackId: scTrackId != null ? scTrackId : null,
+        audioUrl: audioUrl || "",
+        source: source || "soundcloud",
+      },
+      update: {
+        trackId: trackId || "",
+        trackTitle: trackTitle || "Ожидание...",
+        trackArtist: trackArtist || "",
+        trackCover: trackCover || "",
+        scTrackId: scTrackId != null ? scTrackId : null,
+        audioUrl: audioUrl || "",
+        source: source || "soundcloud",
       },
     });
 

@@ -158,6 +158,33 @@ export function useListenSessionSync() {
         const active = data.hosted || data.joined;
         if (active) {
           useAppStore.getState().setListenSession(active);
+
+          // If host with a session, immediately POST current track data to DB
+          if (data.hosted) {
+            const state = useAppStore.getState();
+            if (state.currentTrack) {
+              try {
+                await fetch("/api/listen-session", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: "update",
+                    progress: state.progress || 0,
+                    isPlaying: state.isPlaying,
+                    trackId: state.currentTrack.id,
+                    trackTitle: state.currentTrack.title,
+                    trackArtist: state.currentTrack.artist,
+                    trackCover: state.currentTrack.cover,
+                    scTrackId: state.currentTrack.scTrackId,
+                    audioUrl: state.currentTrack.audioUrl,
+                    source: state.currentTrack.source,
+                  }),
+                });
+              } catch {
+                // silent
+              }
+            }
+          }
         }
       } catch {
         // silent

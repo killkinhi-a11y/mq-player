@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { type Track } from "@/lib/musicApi";
 import {
   Plus, Trash2, Play, Music, ListMusic, ChevronRight,
-  Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle, Image, Camera
+  Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle, Image, Camera, Sparkles, ImagePlus
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import TrackCard from "./TrackCard";
@@ -39,6 +39,8 @@ export default function PlaylistView() {
   const [showVkToken, setShowVkToken] = useState(false);
   const [coverUploadingId, setCoverUploadingId] = useState<string | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const [aiGeneratingTags, setAiGeneratingTags] = useState(false);
+  const [aiGeneratingCover, setAiGeneratingCover] = useState(false);
 
   const selectedPlaylist = playlists.find((p) => p.id === selectedPlaylistId);
 
@@ -108,6 +110,69 @@ export default function PlaylistView() {
     });
     toast({ title: "Обложка удалена", description: "Установлена обложка по умолчанию" });
   }, [toast]);
+
+  // AI auto-generate tags and description
+  const handleAiGenerateTags = useCallback(async (playlistId: string) => {
+    if (aiGeneratingTags) return;
+    setAiGeneratingTags(true);
+    try {
+      const res = await fetch('/api/playlists/auto-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playlistId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Ошибка", description: data.error || "Не удалось сгенерировать теги" });
+        return;
+      }
+      // Update local store with new description and tags
+      const { playlists: currentPlaylists } = useAppStore.getState();
+      useAppStore.setState({
+        playlists: currentPlaylists.map(p =>
+          p.id === playlistId ? { ...p, description: data.description || p.description } : p
+        ),
+      });
+      toast({
+        title: "Теги сгенерированы",
+        description: data.tags.length > 0 ? data.tags.join(', ') : "Теги созданы",
+      });
+    } catch {
+      toast({ title: "Ошибка", description: "Не удалось связаться с сервером" });
+    } finally {
+      setAiGeneratingTags(false);
+    }
+  }, [aiGeneratingTags, toast]);
+
+  // AI generate cover image
+  const handleAiGenerateCover = useCallback(async (playlistId: string) => {
+    if (aiGeneratingCover) return;
+    setAiGeneratingCover(true);
+    try {
+      const res = await fetch('/api/playlists/generate-cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ playlistId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Ошибка", description: data.error || "Не удалось сгенерировать обложку" });
+        return;
+      }
+      // Update local store with new cover
+      const { playlists: currentPlaylists } = useAppStore.getState();
+      useAppStore.setState({
+        playlists: currentPlaylists.map(p =>
+          p.id === playlistId ? { ...p, cover: data.cover } : p
+        ),
+      });
+      toast({ title: "Обложка создана", description: "AI-обложка установлена" });
+    } catch {
+      toast({ title: "Ошибка", description: "Не удалось связаться с сервером" });
+    } finally {
+      setAiGeneratingCover(false);
+    }
+  }, [aiGeneratingCover, toast]);
 
   const handleCreate = useCallback(() => {
     if (newName.trim()) {
@@ -369,6 +434,68 @@ export default function PlaylistView() {
             </div>
           </div>
         </motion.div>
+
+        {/* AI-powered actions */}
+        {selectedPlaylist.tracks.length > 0 && (
+          <motion.div
+            initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl p-4"
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+          >
+            <p className="text-xs font-medium mb-3" style={{ color: "var(--mq-text-muted)" }}>
+              ИИ-функции
+            </p>
+            <div className="flex items-center gap-2">
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => handleAiGenerateTags(selectedPlaylist.id)}
+                disabled={aiGeneratingTags || aiGeneratingCover}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium flex-1"
+                style={{
+                  backgroundColor: aiGeneratingTags
+                    ? "var(--mq-border)"
+                    : "var(--mq-input-bg)",
+                  color: aiGeneratingTags
+                    ? "var(--mq-text-muted)"
+                    : "var(--mq-text)",
+                  border: "1px solid var(--mq-border)",
+                }}
+              >
+                {aiGeneratingTags ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--mq-accent)" }} />
+                ) : (
+                  <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+                )}
+                {aiGeneratingTags ? "Генерация..." : "Сгенерировать теги"}
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => handleAiGenerateCover(selectedPlaylist.id)}
+                disabled={aiGeneratingTags || aiGeneratingCover}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium flex-1"
+                style={{
+                  backgroundColor: aiGeneratingCover
+                    ? "var(--mq-border)"
+                    : "var(--mq-input-bg)",
+                  color: aiGeneratingCover
+                    ? "var(--mq-text-muted)"
+                    : "var(--mq-text)",
+                  border: "1px solid var(--mq-border)",
+                }}
+              >
+                {aiGeneratingCover ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--mq-accent)" }} />
+                ) : (
+                  <ImagePlus className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+                )}
+                {aiGeneratingCover ? "Генерация..." : "Сгенерировать обложку"}
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Tracks list */}
         {selectedPlaylist.tracks.length > 0 ? (

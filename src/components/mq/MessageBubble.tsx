@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion } from "framer-motion";
-import { Lock, Play, Pause, Music2, Headphones } from "lucide-react";
+import { Lock, Play, Pause, Music2, Headphones, BookOpen, Loader2 } from "lucide-react";
 import { simulateDecryptSync } from "@/lib/crypto";
 
 // ── Types ────────────────────────────────────────────────────
@@ -89,6 +89,9 @@ function VoicePlayer({
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(voiceDuration || 0);
+  const [transcribing, setTranscribing] = useState(false);
+  const [transcription, setTranscription] = useState<string | null>(null);
+  const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
 
   useEffect(() => {
     const audio = new Audio(voiceUrl);
@@ -127,6 +130,37 @@ function VoicePlayer({
     }
   }, [playing]);
 
+  const handleTranscribe = useCallback(async () => {
+    if (transcribing || transcription) return;
+    setTranscribing(true);
+    setTranscriptionError(null);
+
+    try {
+      const res = await fetch("/api/messages/transcribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ voiceUrl }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setTranscriptionError(data.error || "Ошибка транскрибации");
+        return;
+      }
+
+      if (data.text) {
+        setTranscription(data.text);
+      } else {
+        setTranscriptionError("Не удалось распознать речь");
+      }
+    } catch {
+      setTranscriptionError("Ошибка соединения");
+    } finally {
+      setTranscribing(false);
+    }
+  }, [transcribing, transcription, voiceUrl]);
+
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
     const sec = Math.floor(s % 60);
@@ -136,47 +170,91 @@ function VoicePlayer({
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   return (
-    <div className="flex items-center gap-3 min-w-[220px]">
-      {/* Play / Pause */}
-      <button
-        onClick={togglePlay}
-        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-transform hover:scale-105 active:scale-95"
-        style={{
-          backgroundColor: isMine ? "rgba(255,255,255,0.2)" : "var(--mq-accent)",
-        }}
-      >
-        {playing ? (
-          <Pause className="w-4 h-4" style={{ color: isMine ? "var(--mq-text)" : "var(--mq-text)" }} />
-        ) : (
-          <Play className="w-4 h-4" style={{ color: isMine ? "var(--mq-text)" : "var(--mq-text)", marginLeft: 1 }} />
-        )}
-      </button>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-3 min-w-[220px]">
+        {/* Play / Pause */}
+        <button
+          onClick={togglePlay}
+          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-transform hover:scale-105 active:scale-95"
+          style={{
+            backgroundColor: isMine ? "rgba(255,255,255,0.2)" : "var(--mq-accent)",
+          }}
+        >
+          {playing ? (
+            <Pause className="w-4 h-4" style={{ color: isMine ? "var(--mq-text)" : "var(--mq-text)" }} />
+          ) : (
+            <Play className="w-4 h-4" style={{ color: isMine ? "var(--mq-text)" : "var(--mq-text)", marginLeft: 1 }} />
+          )}
+        </button>
 
-      {/* Waveform + progress bar */}
-      <div className="relative flex-1 min-w-0">
-        <div className="absolute inset-0 flex items-center">
-          <div
-            className="h-[2px] rounded-full transition-all duration-200"
-            style={{
-              width: `${progress}%`,
-              backgroundColor: isMine ? "var(--mq-text)" : "var(--mq-accent)",
-              opacity: 0.5,
-            }}
-          />
+        {/* Waveform + progress bar */}
+        <div className="relative flex-1 min-w-0">
+          <div className="absolute inset-0 flex items-center">
+            <div
+              className="h-[2px] rounded-full transition-all duration-200"
+              style={{
+                width: `${progress}%`,
+                backgroundColor: isMine ? "var(--mq-text)" : "var(--mq-accent)",
+                opacity: 0.5,
+              }}
+            />
+          </div>
+          <FakeWaveform playing={playing} isMine={isMine} />
         </div>
-        <FakeWaveform playing={playing} isMine={isMine} />
+
+        {/* Duration */}
+        <span
+          className="text-[10px] flex-shrink-0 tabular-nums"
+          style={{
+            color: isMine ? "var(--mq-text)" : "var(--mq-text-muted)",
+            opacity: 0.7,
+          }}
+        >
+          {playing ? formatTime(currentTime) : formatTime(duration)}
+        </span>
       </div>
 
-      {/* Duration */}
-      <span
-        className="text-[10px] flex-shrink-0 tabular-nums"
-        style={{
-          color: isMine ? "var(--mq-text)" : "var(--mq-text-muted)",
-          opacity: 0.7,
-        }}
-      >
-        {playing ? formatTime(currentTime) : formatTime(duration)}
-      </span>
+      {/* Transcribe button */}
+      {!transcription && !transcribing && (
+        <button
+          onClick={handleTranscribe}
+          className="flex items-center gap-1.5 text-[11px] font-medium transition-opacity hover:opacity-80 active:opacity-70 self-start mt-0.5"
+          style={{ color: "var(--mq-text-muted)" }}
+          title="Транскрибировать голосовое сообщение"
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          Транскрибировать
+        </button>
+      )}
+
+      {/* Transcribing spinner */}
+      {transcribing && (
+        <div className="flex items-center gap-1.5 text-[11px] self-start mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          Транскрибация…
+        </div>
+      )}
+
+      {/* Transcription result */}
+      {transcription && (
+        <div
+          className="text-[12px] leading-relaxed rounded-lg px-3 py-2 mt-0.5 max-w-[100%] break-words"
+          style={{
+            backgroundColor: isMine ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)",
+            color: "var(--mq-text)",
+            borderLeft: "3px solid var(--mq-accent)",
+          }}
+        >
+          {transcription}
+        </div>
+      )}
+
+      {/* Transcription error */}
+      {transcriptionError && (
+        <p className="text-[10px] self-start mt-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+          {transcriptionError}
+        </p>
+      )}
     </div>
   );
 }

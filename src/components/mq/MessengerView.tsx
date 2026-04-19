@@ -1494,7 +1494,16 @@ export default function MessengerView() {
       const res = await fetch("/api/listen-session/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId }),
+        body: JSON.stringify({
+          contactId,
+          trackId: currentTrack.id,
+          trackTitle: currentTrack.title,
+          trackArtist: currentTrack.artist,
+          trackCover: currentTrack.cover || "",
+          scTrackId: currentTrack.scTrackId || null,
+          audioUrl: currentTrack.audioUrl || "",
+          source: currentTrack.source,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
