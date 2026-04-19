@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 // Bot knowledge base — auto-answers for common questions (shared with admin chat)
 const botResponses: { keywords: string[]; response: string }[] = [
@@ -70,7 +71,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { userId, userName, content } = await req.json();
+    const session = await getSession();
+    const userId = session?.userId || null;
+    const { userName, content } = await req.json();
 
     if (!content || !content.trim()) {
       return NextResponse.json({ error: "Сообщение не может быть пустым" }, { status: 400 });
@@ -81,18 +84,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Find or create a support chat session for this user
-    let session = await db.supportChatSession.findFirst({
+    let supportSession = await db.supportChatSession.findFirst({
       where: userId ? { userId } : { sessionId: `guest_${Date.now()}` },
       orderBy: { updatedAt: "desc" },
     });
 
     // If session exists but is closed, create a new one
-    if (session && session.status === "closed") {
-      session = null;
+    if (supportSession && supportSession.status === "closed") {
+      supportSession = null;
     }
 
-    if (!session) {
-      session = await db.supportChatSession.create({
+    if (!supportSession) {
+      supportSession = await db.supportChatSession.create({
         data: {
           sessionId: userId ? `user_${userId}` : `guest_${Date.now()}`,
           userId: userId || null,
@@ -107,7 +110,7 @@ export async function POST(req: NextRequest) {
     // Create user message
     const message = await db.supportChatMessage.create({
       data: {
-        sessionId: session.sessionId,
+        sessionId: supportSession.sessionId,
         role: "user",
         content: content.trim(),
       },
@@ -117,7 +120,7 @@ export async function POST(req: NextRequest) {
     const botReply = findBotResponse(content);
     const botMessage = await db.supportChatMessage.create({
       data: {
-        sessionId: session.sessionId,
+        sessionId: supportSession.sessionId,
         role: "bot",
         content: botReply,
       },
@@ -125,7 +128,7 @@ export async function POST(req: NextRequest) {
 
     // Update session
     await db.supportChatSession.update({
-      where: { sessionId: session.sessionId },
+      where: { sessionId: supportSession.sessionId },
       data: {
         lastMessage: botReply.length > 100 ? botReply.substring(0, 100) + "..." : botReply,
         messageCount: { increment: 2 },
@@ -135,7 +138,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      sessionId: session.sessionId,
+      sessionId: supportSession.sessionId,
       userMessage: message,
       botMessage: botMessage,
     });
@@ -158,14 +161,16 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const sessionId = searchParams.get("sessionId");
-    const userId = searchParams.get("userId");
+
+    const session = await getSession();
+    const userId = session?.userId || null;
 
     if (!sessionId && !userId) {
-      return NextResponse.json({ error: "Укажите sessionId или userId" }, { status: 400 });
+      return NextResponse.json({ error: "Укажите sessionId" }, { status: 400 });
     }
 
     // Find session
-    const session = await db.supportChatSession.findFirst({
+    const supportSession = await db.supportChatSession.findFirst({
       where: sessionId
         ? { sessionId }
         : userId
@@ -174,16 +179,16 @@ export async function GET(req: NextRequest) {
       orderBy: { updatedAt: "desc" },
     });
 
-    if (!session) {
+    if (!supportSession) {
       return NextResponse.json({ messages: [], sessionId: null });
     }
 
     const messages = await db.supportChatMessage.findMany({
-      where: { sessionId: session.sessionId },
+      where: { sessionId: supportSession.sessionId },
       orderBy: { createdAt: "asc" },
     });
 
-    return NextResponse.json({ messages, sessionId: session.sessionId });
+    return NextResponse.json({ messages, sessionId: supportSession.sessionId });
   } catch (error) {
     console.error("Support chat fetch error:", error);
     return NextResponse.json({ error: "Ошибка загрузки чата" }, { status: 500 });

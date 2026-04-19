@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/group-chats?userId=xxx — list all group chats for a user
+// GET /api/group-chats — list all group chats for a user
 async function getHandler(req: NextRequest) {
   try {
-    const userId = req.nextUrl.searchParams.get("userId");
-
-    if (!userId) {
+    const session = await getSession();
+    if (!session) {
       return NextResponse.json(
-        { error: "userId обязателен" },
-        { status: 400 }
+        { error: "Необходима авторизация" },
+        { status: 401 }
       );
     }
+    const userId = session.userId;
 
     // Get all memberships for the user
     const memberships = await db.groupChatMember.findMany({
@@ -79,17 +80,25 @@ async function getHandler(req: NextRequest) {
 // POST /api/group-chats — create a new group chat
 async function postHandler(req: NextRequest) {
   try {
-    const { name, description, createdBy, memberIds }: { name: string; description?: string; createdBy: string; memberIds?: string[] } = await req.json();
-
-    if (!name || !createdBy) {
+    const session = await getSession();
+    if (!session) {
       return NextResponse.json(
-        { error: "Название и createdBy обязательны" },
+        { error: "Необходима авторизация" },
+        { status: 401 }
+      );
+    }
+    const userId = session.userId;
+    const { name, description, memberIds }: { name: string; description?: string; memberIds?: string[] } = await req.json();
+
+    if (!name) {
+      return NextResponse.json(
+        { error: "Название обязательно" },
         { status: 400 }
       );
     }
 
     // Verify the creator exists
-    const creator = await db.user.findUnique({ where: { id: createdBy } });
+    const creator = await db.user.findUnique({ where: { id: userId } });
     if (!creator) {
       return NextResponse.json(
         { error: "Пользователь не найден" },
@@ -116,7 +125,7 @@ async function postHandler(req: NextRequest) {
 
     // Remove creator from memberIds if present to avoid duplicates
     const filteredMemberIds = (memberIds || []).filter(
-      (id: string) => id !== createdBy
+      (id: string) => id !== userId
     );
 
     // Create group chat with creator as admin
@@ -125,13 +134,13 @@ async function postHandler(req: NextRequest) {
         name,
         description: description || "",
         avatar: "",
-        createdBy,
+        createdBy: userId,
         members: {
           createMany: {
             data: [
-              { userId: createdBy, role: "admin" },
-              ...filteredMemberIds.map((userId: string) => ({
-                userId,
+              { userId: userId, role: "admin" },
+              ...filteredMemberIds.map((id: string) => ({
+                userId: id,
                 role: "member" as const,
               })),
             ],

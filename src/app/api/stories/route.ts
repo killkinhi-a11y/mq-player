@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
-// GET /api/stories?userId=xxx — get stories from a specific user
 // GET /api/stories?all=true — get all active stories (feed)
+// GET /api/stories — get stories from the authenticated user
 async function getHandler(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
     const all = searchParams.get("all");
 
     const now = new Date();
@@ -30,27 +30,29 @@ async function getHandler(req: NextRequest) {
       return NextResponse.json({ stories });
     }
 
-    if (userId) {
-      const stories = await db.story.findMany({
-        where: {
-          userId,
-          expiresAt: { gt: now },
-        },
-        include: {
-          user: { select: { id: true, username: true } },
-          likes: { select: { userId: true } },
-          comments: {
-            include: { user: { select: { id: true, username: true } } },
-            orderBy: { createdAt: "desc" },
-          },
-        },
-        orderBy: { createdAt: "desc" },
-      });
-
-      return NextResponse.json({ stories });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
     }
+    const userId = session.userId;
 
-    return NextResponse.json({ error: "Укажите userId или all=true" }, { status: 400 });
+    const stories = await db.story.findMany({
+      where: {
+        userId,
+        expiresAt: { gt: now },
+      },
+      include: {
+        user: { select: { id: true, username: true } },
+        likes: { select: { userId: true } },
+        comments: {
+          include: { user: { select: { id: true, username: true } } },
+          orderBy: { createdAt: "desc" },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return NextResponse.json({ stories });
   } catch (error) {
     console.error("Get stories error:", error);
     return NextResponse.json({ error: "Ошибка при загрузке историй" }, { status: 500 });
@@ -60,10 +62,15 @@ async function getHandler(req: NextRequest) {
 // POST /api/stories — create a new story
 async function postHandler(req: NextRequest) {
   try {
-    const { userId, type, content, bgColor, textColor } = await req.json();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
+    const { type, content, bgColor, textColor } = await req.json();
 
-    if (!userId || !content) {
-      return NextResponse.json({ error: "userId и content обязательны" }, { status: 400 });
+    if (!content) {
+      return NextResponse.json({ error: "content обязателен" }, { status: 400 });
     }
 
     // Verify user exists

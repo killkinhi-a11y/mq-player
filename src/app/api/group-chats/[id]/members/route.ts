@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 // POST /api/group-chats/[id]/members — add member (admin only)
 async function postHandler(
@@ -8,12 +9,20 @@ async function postHandler(
   ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await ctx!.params;
-    const { userId, addedBy } = await req.json();
-
-    if (!userId || !addedBy) {
+    const session = await getSession();
+    if (!session) {
       return NextResponse.json(
-        { error: "userId и addedBy обязательны" },
+        { error: "Необходима авторизация" },
+        { status: 401 }
+      );
+    }
+    const userId = session.userId;
+    const { id } = await ctx!.params;
+    const { userId: targetUserId } = await req.json();
+
+    if (!targetUserId) {
+      return NextResponse.json(
+        { error: "userId обязателен" },
         { status: 400 }
       );
     }
@@ -32,7 +41,7 @@ async function postHandler(
     }
 
     // Verify the adder is an admin
-    const adderMembership = groupChat.members.find((m) => m.userId === addedBy);
+    const adderMembership = groupChat.members.find((m) => m.userId === userId);
     if (!adderMembership) {
       return NextResponse.json(
         { error: "Вы не являетесь участником этого чата" },
@@ -48,7 +57,7 @@ async function postHandler(
     }
 
     // Verify the target user exists
-    const targetUser = await db.user.findUnique({ where: { id: userId } });
+    const targetUser = await db.user.findUnique({ where: { id: targetUserId } });
     if (!targetUser) {
       return NextResponse.json(
         { error: "Пользователь не найден" },
@@ -57,7 +66,7 @@ async function postHandler(
     }
 
     // Check if already a member
-    const existingMember = groupChat.members.find((m) => m.userId === userId);
+    const existingMember = groupChat.members.find((m) => m.userId === targetUserId);
     if (existingMember) {
       return NextResponse.json(
         { error: "Пользователь уже является участником чата" },
@@ -69,7 +78,7 @@ async function postHandler(
     const member = await db.groupChatMember.create({
       data: {
         groupChatId: id,
-        userId,
+        userId: targetUserId,
         role: "member",
       },
       include: {
@@ -98,19 +107,26 @@ async function postHandler(
   }
 }
 
-// DELETE /api/group-chats/[id]/members?userId=xxx&removedBy=xxx — remove member
+// DELETE /api/group-chats/[id]/members?userId=xxx — remove member
 async function deleteHandler(
   req: NextRequest,
   ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await ctx!.params;
-    const userId = req.nextUrl.searchParams.get("userId");
-    const removedBy = req.nextUrl.searchParams.get("removedBy");
-
-    if (!userId || !removedBy) {
+    const session = await getSession();
+    if (!session) {
       return NextResponse.json(
-        { error: "userId и removedBy обязательны" },
+        { error: "Необходима авторизация" },
+        { status: 401 }
+      );
+    }
+    const userId = session.userId;
+    const { id } = await ctx!.params;
+    const targetUserId = req.nextUrl.searchParams.get("userId");
+
+    if (!targetUserId) {
+      return NextResponse.json(
+        { error: "userId обязателен" },
         { status: 400 }
       );
     }
@@ -129,7 +145,7 @@ async function deleteHandler(
     }
 
     // Verify the remover is a member
-    const removerMembership = groupChat.members.find((m) => m.userId === removedBy);
+    const removerMembership = groupChat.members.find((m) => m.userId === userId);
     if (!removerMembership) {
       return NextResponse.json(
         { error: "Вы не являетесь участником этого чата" },
@@ -138,7 +154,7 @@ async function deleteHandler(
     }
 
     // A user can remove themselves, or an admin can remove others
-    const isSelfRemoval = userId === removedBy;
+    const isSelfRemoval = targetUserId === userId;
     const isAdmin = removerMembership.role === "admin";
 
     if (!isSelfRemoval && !isAdmin) {
@@ -149,7 +165,7 @@ async function deleteHandler(
     }
 
     // Verify the target is actually a member
-    const targetMembership = groupChat.members.find((m) => m.userId === userId);
+    const targetMembership = groupChat.members.find((m) => m.userId === targetUserId);
     if (!targetMembership) {
       return NextResponse.json(
         { error: "Пользователь не является участником чата" },
@@ -158,7 +174,7 @@ async function deleteHandler(
     }
 
     // Don't allow removing the creator unless it's self-removal (and even then warn)
-    if (groupChat.createdBy === userId && !isSelfRemoval) {
+    if (groupChat.createdBy === targetUserId && !isSelfRemoval) {
       return NextResponse.json(
         { error: "Невозможно удалить создателя чата" },
         { status: 403 }

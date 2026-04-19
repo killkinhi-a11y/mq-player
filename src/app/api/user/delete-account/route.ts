@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 async function handler(req: NextRequest) {
   try {
-    const { userId, email } = await req.json();
-    if (!userId || !email) return NextResponse.json({ error: "userId и email обязательны" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
+    const { email } = await req.json();
+    if (!email) return NextResponse.json({ error: "email обязателен" }, { status: 400 });
 
     const user = await db.user.findUnique({ where: { id: userId } });
     if (!user || user.email !== email) return NextResponse.json({ error: "Неверные данные" }, { status: 403 });

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
-// GET /api/playlists/recommendations?userId=&likedTags=pop,rock&dislikedTags=jazz&limit=10
+// GET /api/playlists/recommendations?likedTags=pop,rock&dislikedTags=jazz&limit=10
 //
 // Algorithm:
 // 1. Extract taste profile from user's liked tracks and history (sent as likedTags, likedArtists)
@@ -11,8 +12,9 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 // 4. Return top N recommendations
 async function handler(req: NextRequest) {
   try {
+    const session = await getSession();
+    const userId = session?.userId || "";
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId") || "";
     const likedTags = (searchParams.get("likedTags") || "").split(",").filter(Boolean).map((t) => t.trim().toLowerCase());
     const likedArtists = (searchParams.get("likedArtists") || "").split(",").filter(Boolean).map((a) => a.trim().toLowerCase());
     const dislikedTags = (searchParams.get("dislikedTags") || "").split(",").filter(Boolean).map((t) => t.trim().toLowerCase());

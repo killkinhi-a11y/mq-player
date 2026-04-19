@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 // Bot knowledge base — auto-answers for common questions
 const botResponses: { keywords: string[]; response: string }[] = [
@@ -60,8 +61,20 @@ function findBotResponse(userMessage: string): string {
   return "Спасибо за ваше обращение! Я обработал ваш запрос. Если мой ответ не помог — администратор увидит ваше сообщение и ответит лично. Обычно это занимает несколько минут в рабочее время.";
 }
 
+async function verifyAdmin(req: NextRequest): Promise<{ userId: string } | NextResponse> {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  const userId = session.userId;
+  const admin = await db.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!admin || admin.role !== "admin") return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
+  return { userId };
+}
+
 async function getHandler(req: NextRequest) {
   try {
+    const adminCheck = await verifyAdmin(req);
+    if (adminCheck instanceof NextResponse) return adminCheck;
+
     const { searchParams } = new URL(req.url);
     const sessionsFlag = searchParams.get("sessions");
     const sessionId = searchParams.get("sessionId");
@@ -90,6 +103,9 @@ async function getHandler(req: NextRequest) {
 
 async function postHandler(req: NextRequest) {
   try {
+    const adminCheck = await verifyAdmin(req);
+    if (adminCheck instanceof NextResponse) return adminCheck;
+
     const body = await req.json();
     const { sessionId, role, content } = body;
 

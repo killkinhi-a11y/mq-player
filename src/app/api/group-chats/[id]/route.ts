@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
-// GET /api/group-chats/[id]?userId=xxx — group chat details with members and last 50 messages
+// GET /api/group-chats/[id] — group chat details with members and last 50 messages
 async function getHandler(
   req: NextRequest,
   ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: "Необходима авторизация" },
+        { status: 401 }
+      );
+    }
+    const userId = session.userId;
     const { id } = await ctx!.params;
-    const userId = req.nextUrl.searchParams.get("userId");
 
     const groupChat = await db.groupChat.findUnique({
       where: { id },
@@ -39,14 +47,12 @@ async function getHandler(
     }
 
     // Check if the requesting user is a member
-    if (userId) {
-      const isMember = groupChat.members.some((m) => m.userId === userId);
-      if (!isMember) {
-        return NextResponse.json(
-          { error: "У вас нет доступа к этому чату" },
-          { status: 403 }
-        );
-      }
+    const isMember = groupChat.members.some((m) => m.userId === userId);
+    if (!isMember) {
+      return NextResponse.json(
+        { error: "У вас нет доступа к этому чату" },
+        { status: 403 }
+      );
     }
 
     // Messages are returned newest first; reverse for chronological order
@@ -99,15 +105,16 @@ async function patchHandler(
   ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await ctx!.params;
-    const { userId, name, description, avatar } = await req.json();
-
-    if (!userId) {
+    const session = await getSession();
+    if (!session) {
       return NextResponse.json(
-        { error: "userId обязателен" },
-        { status: 400 }
+        { error: "Необходима авторизация" },
+        { status: 401 }
       );
     }
+    const userId = session.userId;
+    const { id } = await ctx!.params;
+    const { name, description, avatar } = await req.json();
 
     const groupChat = await db.groupChat.findUnique({
       where: { id },
@@ -175,21 +182,21 @@ async function patchHandler(
   }
 }
 
-// DELETE /api/group-chats/[id]?userId=xxx — delete group chat (creator only)
+// DELETE /api/group-chats/[id] — delete group chat (creator only)
 async function deleteHandler(
   req: NextRequest,
   ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await ctx!.params;
-    const userId = req.nextUrl.searchParams.get("userId");
-
-    if (!userId) {
+    const session = await getSession();
+    if (!session) {
       return NextResponse.json(
-        { error: "userId обязателен" },
-        { status: 400 }
+        { error: "Необходима авторизация" },
+        { status: 401 }
       );
     }
+    const userId = session.userId;
+    const { id } = await ctx!.params;
 
     const groupChat = await db.groupChat.findUnique({
       where: { id },

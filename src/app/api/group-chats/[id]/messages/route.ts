@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/group-chats/[id]/messages?cursor=xxx&limit=50&userId=xxx — paginated messages
+// GET /api/group-chats/[id]/messages?cursor=xxx&limit=50 — paginated messages
 async function getHandler(
   req: NextRequest,
   ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: "Необходима авторизация" },
+        { status: 401 }
+      );
+    }
+    const userId = session.userId;
     const { id } = await ctx!.params;
     const cursor = req.nextUrl.searchParams.get("cursor");
     const limitParam = req.nextUrl.searchParams.get("limit");
-    const userId = req.nextUrl.searchParams.get("userId");
     const limit = Math.min(Math.max(parseInt(limitParam || "50", 10) || 50, 1), 100);
 
     // Verify the group chat exists and user is a member
@@ -29,14 +37,12 @@ async function getHandler(
       );
     }
 
-    if (userId) {
-      const isMember = groupChat.members.some((m) => m.userId === userId);
-      if (!isMember) {
-        return NextResponse.json(
-          { error: "У вас нет доступа к этому чату" },
-          { status: 403 }
-        );
-      }
+    const isMember = groupChat.members.some((m) => m.userId === userId);
+    if (!isMember) {
+      return NextResponse.json(
+        { error: "У вас нет доступа к этому чату" },
+        { status: 403 }
+      );
     }
 
     // Build where clause with cursor-based pagination
@@ -104,9 +110,16 @@ async function postHandler(
   ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: "Необходима авторизация" },
+        { status: 401 }
+      );
+    }
+    const userId = session.userId;
     const { id } = await ctx!.params;
     const {
-      senderId,
       content,
       messageType,
       replyToId,
@@ -115,9 +128,9 @@ async function postHandler(
       id: messageId,
     } = await req.json();
 
-    if (!senderId || !content) {
+    if (!content) {
       return NextResponse.json(
-        { error: "senderId и content обязательны" },
+        { error: "content обязателен" },
         { status: 400 }
       );
     }
@@ -136,7 +149,7 @@ async function postHandler(
     }
 
     // Verify sender is a member
-    const isMember = groupChat.members.some((m) => m.userId === senderId);
+    const isMember = groupChat.members.some((m) => m.userId === userId);
     if (!isMember) {
       return NextResponse.json(
         { error: "Только участники могут отправлять сообщения" },
@@ -161,7 +174,7 @@ async function postHandler(
       data: {
         id: messageId || undefined,
         groupChatId: id,
-        senderId,
+        senderId: userId,
         content,
         messageType: messageType || "text",
         replyToId: replyToId || null,

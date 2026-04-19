@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 export const dynamic = "force-dynamic";
 
 async function handler(req: NextRequest) {
   try {
-    const userId = req.nextUrl.searchParams.get("userId");
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
     const query = (req.nextUrl.searchParams.get("q") || "").trim().slice(0, 100);
-    if (!userId || !query) return NextResponse.json({ error: "userId и q обязательны" }, { status: 400 });
+    if (!query) return NextResponse.json({ error: "q обязателен" }, { status: 400 });
 
     const messages = await db.message.findMany({
       where: {

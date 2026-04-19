@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
 import { sendVerificationEmail, getEmailStatus, isEmailConfigured } from "@/lib/email";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 /**
  * GET  /api/admin/email-test — returns Brevo email configuration status
  * POST /api/admin/email-test — sends a test email to verify Brevo is working
  */
 async function getHandler() {
+  const session = await getSession();
+  if (!session) {
+    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+  }
+  if (session.role !== "admin") {
+    return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
+  }
+
   const status = getEmailStatus();
   return NextResponse.json({
     configured: status.configured,
@@ -20,6 +29,14 @@ async function getHandler() {
 
 async function postHandler(req: Request) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+    }
+    if (session.role !== "admin") {
+      return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
+    }
+
     const body = await req.json();
     const testEmail = body.email;
 

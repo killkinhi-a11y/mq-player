@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchSCTracks } from '@/lib/soundcloud';
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 async function handler(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+    }
+
     const { url, vkToken } = await req.json();
     if (!url || typeof url !== 'string') {
       return NextResponse.json({ error: 'URL не указана' }, { status: 400 });

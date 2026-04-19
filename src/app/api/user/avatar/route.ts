@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 async function handler(req: NextRequest) {
   try {
-    const { userId, avatar } = await req.json();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
+    const { avatar } = await req.json();
 
-    if (!userId || !avatar) {
-      return NextResponse.json({ error: "userId и avatar обязательны" }, { status: 400 });
+    if (!avatar) {
+      return NextResponse.json({ error: "avatar обязателен" }, { status: 400 });
     }
 
     // Validate it's a data URL (base64 image)

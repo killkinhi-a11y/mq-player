@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 // POST /api/stories/like — like or unlike a story
 async function handler(req: NextRequest) {
   try {
-    const { storyId, userId } = await req.json();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
+    const { storyId } = await req.json();
 
-    if (!storyId || !userId) {
-      return NextResponse.json({ error: "storyId и userId обязательны" }, { status: 400 });
+    if (!storyId) {
+      return NextResponse.json({ error: "storyId обязателен" }, { status: 400 });
     }
 
     // Check if story exists

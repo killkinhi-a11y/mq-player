@@ -2,9 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 async function getHandler(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
+
+    const admin = await db.user.findUnique({ where: { id: userId }, select: { role: true } });
+    if (!admin || admin.role !== "admin") {
+      return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
+    }
+
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page") || 1));
     const limit = Math.min(100, Math.max(1, Number(searchParams.get("limit") || 20)));
@@ -48,9 +60,14 @@ async function getHandler(req: NextRequest) {
 
 async function patchHandler(req: NextRequest) {
   try {
-    const { userId, targetId, action, data } = await req.json();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
+    const { targetId, action, data } = await req.json();
 
-    if (!userId || !targetId || !action) {
+    if (!targetId || !action) {
       return NextResponse.json({ error: "Параметры обязательны" }, { status: 400 });
     }
 

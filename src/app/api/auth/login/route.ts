@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { signToken, SESSION_COOKIE_OPTIONS } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -75,7 +76,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    // Issue JWT session token in httpOnly cookie
+    const token = await signToken({ userId: user.id, username: user.username, email: user.email, role: user.role });
+
+    const response = NextResponse.json({
       message: "Вход выполнен успешно",
       userId: user.id,
       username: user.username,
@@ -85,6 +89,16 @@ export async function POST(req: NextRequest) {
       theme: user.theme,
       accent: user.accent,
     });
+
+    response.cookies.set(SESSION_COOKIE_OPTIONS.name, token, {
+      httpOnly: SESSION_COOKIE_OPTIONS.httpOnly,
+      secure: SESSION_COOKIE_OPTIONS.secure,
+      sameSite: SESSION_COOKIE_OPTIONS.sameSite,
+      maxAge: SESSION_COOKIE_OPTIONS.maxAge,
+      path: SESSION_COOKIE_OPTIONS.path,
+    });
+
+    return response;
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(

@@ -1,38 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/get-session";
 
 /**
  * SSE endpoint for support chat — streams new messages to the user.
- * GET /api/support/sse?sessionId=xxx&userId=xxx
+ * GET /api/support/sse?sessionId=xxx
  */
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
     const sessionId = searchParams.get("sessionId");
 
-    if (!userId && !sessionId) {
-      return NextResponse.json({ error: "Укажите userId или sessionId" }, { status: 400 });
-    }
-
-    let session;
+    let supportSession;
     if (sessionId) {
-      session = await db.supportChatSession.findUnique({ where: { sessionId } });
+      supportSession = await db.supportChatSession.findUnique({ where: { sessionId } });
     } else if (userId) {
-      session = await db.supportChatSession.findFirst({
+      supportSession = await db.supportChatSession.findFirst({
         where: { userId },
         orderBy: { updatedAt: "desc" },
       });
     }
 
-    if (!session) {
+    if (!supportSession) {
       return NextResponse.json({ error: "Сессия не найдена" }, { status: 404 });
     }
 
     const lastMessages = await db.supportChatMessage.findMany({
-      where: { sessionId: session.sessionId },
+      where: { sessionId: supportSession.sessionId },
       orderBy: { createdAt: "desc" },
       take: 1,
     });
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest) {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "connected", sessionId: session!.sessionId })}\n\n`));
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "connected", sessionId: supportSession!.sessionId })}\n\n`));
 
         let polling = true;
         let currentId = lastKnownId;
@@ -50,7 +51,7 @@ export async function GET(req: NextRequest) {
           while (polling) {
             try {
               const freshSession = await db.supportChatSession.findUnique({
-                where: { sessionId: session!.sessionId },
+                where: { sessionId: supportSession!.sessionId },
               });
               if (!freshSession || freshSession.status === "closed") {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "closed" })}\n\n`));
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
 
               const newMessages = await db.supportChatMessage.findMany({
                 where: {
-                  sessionId: session!.sessionId,
+                  sessionId: supportSession!.sessionId,
                   id: { gt: currentId },
                 },
                 orderBy: { createdAt: "asc" },

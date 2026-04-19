@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 export async function GET(req: NextRequest) {
   const { success } = rateLimit({ ip: getClientIp(req), limit: 60, window: 60, key: "messages-get" });
   if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
-    const senderId = req.nextUrl.searchParams.get("senderId");
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+    }
+    const userId = session.userId;
+
     const receiverId = req.nextUrl.searchParams.get("receiverId");
     const sinceParam = req.nextUrl.searchParams.get("since");
 
-    if (!senderId || !receiverId) {
+    if (!receiverId) {
       return NextResponse.json(
-        { error: "senderId и receiverId обязательны" },
+        { error: "receiverId обязателен" },
         { status: 400 }
       );
     }
@@ -20,8 +26,8 @@ export async function GET(req: NextRequest) {
     // Build where clause — support "since" timestamp for incremental polling
     const where: Record<string, unknown> = {
       OR: [
-        { senderId, receiverId },
-        { senderId: receiverId, receiverId: senderId },
+        { senderId: userId, receiverId },
+        { senderId: receiverId, receiverId: userId },
       ],
     };
 
@@ -58,11 +64,17 @@ export async function POST(req: NextRequest) {
   const { success } = rateLimit({ ip: getClientIp(req), limit: 30, window: 60, key: "messages-post" });
   if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
-    const { content, senderId, receiverId, encrypted, id, messageType, replyToId, voiceUrl, voiceDuration } = await req.json();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+    }
+    const senderId = session.userId;
 
-    if (!senderId || !receiverId) {
+    const { content, receiverId, encrypted, id, messageType, replyToId, voiceUrl, voiceDuration } = await req.json();
+
+    if (!receiverId) {
       return NextResponse.json(
-        { error: "Все поля обязательны" },
+        { error: "receiverId обязателен" },
         { status: 400 }
       );
     }

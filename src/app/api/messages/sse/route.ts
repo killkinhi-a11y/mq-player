@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 /**
  * SSE endpoint for messenger — streams new DMs for a user.
- * GET /api/messages/sse?userId=xxx&lastSeen=ISO_TIMESTAMP
+ * GET /api/messages/sse?since=ISO_TIMESTAMP
  *
  * Uses "since" timestamp cursor instead of CUID comparison.
  * On Vercel serverless, the connection lasts up to maxDuration (60s).
@@ -17,12 +18,13 @@ export async function GET(req: NextRequest) {
   const { success } = rateLimit({ ip: getClientIp(req), limit: 20, window: 60, key: "sse" });
   if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-
-    if (!userId) {
-      return NextResponse.json({ error: "Укажите userId" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
     }
+    const userId = session.userId;
+
+    const { searchParams } = new URL(req.url);
 
     // Use timestamp cursor — sent by client on reconnect
     const sinceParam = searchParams.get("since");

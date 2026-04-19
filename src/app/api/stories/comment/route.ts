@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 // POST /api/stories/comment — comment on a story
 async function postHandler(req: NextRequest) {
   try {
-    const { storyId, userId, content } = await req.json();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
+    const { storyId, content } = await req.json();
 
-    if (!storyId || !userId || !content) {
-      return NextResponse.json({ error: "storyId, userId и content обязательны" }, { status: 400 });
+    if (!storyId || !content) {
+      return NextResponse.json({ error: "storyId и content обязательны" }, { status: 400 });
     }
 
     // Check if story exists

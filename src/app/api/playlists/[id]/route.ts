@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
-// GET /api/playlists/[id]?userId= (userId optional for like status)
+// GET /api/playlists/[id] — get playlist details (userId optional for like status)
 async function handler(
   req: NextRequest,
   ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
     const { id } = await ctx!.params;
-    const userId = new URL(req.url).searchParams.get("userId");
+
+    const session = await getSession();
+    const userId = session?.userId || null;
 
     const playlist = await db.playlist.findUnique({
       where: { id },

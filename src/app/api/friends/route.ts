@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
-// GET /api/friends?userId=xxx — list accepted friends + pending requests received
+// GET /api/friends — list accepted friends + pending requests received
 export async function GET(req: NextRequest) {
   const { success } = rateLimit({ ip: getClientIp(req), limit: 60, window: 60, key: "friends-get" });
   if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
-    const userId = req.nextUrl.searchParams.get("userId");
-    if (!userId) {
-      return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
     }
+    const userId = session.userId;
 
     // Get all friend relations where this user is involved
     const friendships = await db.friend.findMany({
@@ -62,19 +64,24 @@ export async function POST(req: NextRequest) {
   const { success } = rateLimit({ ip: getClientIp(req), limit: 10, window: 60, key: "friends-post" });
   if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
-    const { requesterId, addresseeId } = await req.json();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
+    const { addresseeId } = await req.json();
 
-    if (!requesterId || !addresseeId) {
+    if (!addresseeId) {
       return NextResponse.json({ error: "Все поля обязательны" }, { status: 400 });
     }
 
-    if (requesterId === addresseeId) {
+    if (userId === addresseeId) {
       return NextResponse.json({ error: "Нельзя добавить себя в друзья" }, { status: 400 });
     }
 
     // Verify both users exist
     const [requester, addressee] = await Promise.all([
-      db.user.findUnique({ where: { id: requesterId } }),
+      db.user.findUnique({ where: { id: userId } }),
       db.user.findUnique({ where: { id: addresseeId } }),
     ]);
     if (!requester || !addressee) {
@@ -85,8 +92,8 @@ export async function POST(req: NextRequest) {
     const existing = await db.friend.findFirst({
       where: {
         OR: [
-          { requesterId, addresseeId },
-          { requesterId: addresseeId, addresseeId: requesterId },
+          { requesterId: userId, addresseeId },
+          { requesterId: addresseeId, addresseeId: userId },
         ],
       },
     });
@@ -96,7 +103,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Вы уже друзья" }, { status: 409 });
       }
       if (existing.status === "pending") {
-        if (existing.requesterId === requesterId) {
+        if (existing.requesterId === userId) {
           return NextResponse.json({ error: "Запрос уже отправлен" }, { status: 409 });
         } else {
           // The other person sent us a request — auto-accept
@@ -108,8 +115,8 @@ export async function POST(req: NextRequest) {
           try {
             await db.notification.createMany({
               data: [
-                { userId: addresseeId, type: "friend_accepted", title: "Новый друг", body: `${requester.username} теперь ваш друг`, data: JSON.stringify({ friendId: requesterId }) },
-                { userId: requesterId, type: "friend_accepted", title: "Новый друг", body: `${addressee.username} теперь ваш друг`, data: JSON.stringify({ friendId: addresseeId }) },
+                { userId: addresseeId, type: "friend_accepted", title: "Новый друг", body: `${requester.username} теперь ваш друг`, data: JSON.stringify({ friendId: userId }) },
+                { userId: userId, type: "friend_accepted", title: "Новый друг", body: `${addressee.username} теперь ваш друг`, data: JSON.stringify({ friendId: addresseeId }) },
               ],
             });
           } catch { /* non-critical */ }
@@ -119,13 +126,13 @@ export async function POST(req: NextRequest) {
       // rejected — allow re-sending
       await db.friend.update({
         where: { id: existing.id },
-        data: { status: "pending", requesterId, addresseeId },
+        data: { status: "pending", requesterId: userId, addresseeId },
       });
       return NextResponse.json({ message: "Запрос отправлен повторно" }, { status: 201 });
     }
 
     const friend = await db.friend.create({
-      data: { requesterId, addresseeId, status: "pending" },
+      data: { requesterId: userId, addresseeId, status: "pending" },
     });
 
     // Create notification for the addressee
@@ -136,7 +143,7 @@ export async function POST(req: NextRequest) {
           type: "friend_request",
           title: `Заявка в друзья`,
           body: `${requester.username} хочет добавить вас в друзья`,
-          data: JSON.stringify({ senderId: requesterId, senderUsername: requester.username, requestId: friend.id }),
+          data: JSON.stringify({ senderId: userId, senderUsername: requester.username, requestId: friend.id }),
         },
       });
     } catch { /* non-critical */ }

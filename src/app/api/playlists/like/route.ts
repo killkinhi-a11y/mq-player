@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 // POST /api/playlists/like — toggle like on a playlist
 async function handler(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+    }
+    const userId = session.userId;
     const body = await req.json();
-    const { playlistId, userId } = body;
+    const { playlistId } = body;
 
-    if (!playlistId || !userId) {
-      return NextResponse.json({ error: "playlistId and userId required" }, { status: 400 });
+    if (!playlistId) {
+      return NextResponse.json({ error: "playlistId required" }, { status: 400 });
     }
 
     // Verify playlist exists

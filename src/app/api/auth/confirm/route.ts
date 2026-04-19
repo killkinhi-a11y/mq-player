@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { signToken, SESSION_COOKIE_OPTIONS } from "@/lib/auth";
 
 // Legacy confirm endpoint — now requires a verification code
 // Kept for backward compatibility but now verifies via code
@@ -60,11 +61,24 @@ async function handler(req: NextRequest) {
       data: { confirmed: true },
     });
 
-    return NextResponse.json({
+    // Issue JWT session token — auto-login after confirmation
+    const token = await signToken({ userId: user.id, username: user.username });
+
+    const response = NextResponse.json({
       message: "Почта успешно подтверждена!",
       userId: user.id,
       username: user.username,
     });
+
+    response.cookies.set(SESSION_COOKIE_OPTIONS.name, token, {
+      httpOnly: SESSION_COOKIE_OPTIONS.httpOnly,
+      secure: SESSION_COOKIE_OPTIONS.secure,
+      sameSite: SESSION_COOKIE_OPTIONS.sameSite,
+      maxAge: SESSION_COOKIE_OPTIONS.maxAge,
+      path: SESSION_COOKIE_OPTIONS.path,
+    });
+
+    return response;
   } catch (error) {
     console.error("Confirm error:", error);
     return NextResponse.json(

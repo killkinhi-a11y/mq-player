@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
-// GET /api/user/theme?userId=xxx — get user's saved theme
+// GET /api/user/theme — get user's saved theme
 async function getHandler(req: NextRequest) {
   try {
-    const userId = req.nextUrl.searchParams.get("userId");
-    if (!userId) {
-      return NextResponse.json({ error: "userId required" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
     }
+    const userId = session.userId;
 
     const user = await db.user.findUnique({
       where: { id: userId },
@@ -29,11 +31,12 @@ async function getHandler(req: NextRequest) {
 // POST /api/user/theme — save user's theme preference
 async function postHandler(req: NextRequest) {
   try {
-    const { userId, theme, accent } = await req.json();
-
-    if (!userId) {
-      return NextResponse.json({ error: "userId required" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
     }
+    const userId = session.userId;
+    const { theme, accent } = await req.json();
 
     const updateData: Record<string, string> = {};
     if (theme !== undefined) updateData.theme = theme;

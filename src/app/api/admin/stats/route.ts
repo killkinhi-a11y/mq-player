@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 async function verifyAdmin(req: NextRequest): Promise<{ userId: string; body: Record<string, unknown> } | NextResponse> {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+  const userId = session.userId;
   let body: Record<string, unknown> = {};
-  let userId: string | undefined;
   // Try body first (POST/PATCH), then query param (GET)
-  try { body = await req.json(); userId = body?.userId as string | undefined; } catch { /* body parse failed */ }
-  if (!userId) userId = req.nextUrl.searchParams.get("userId") || undefined;
-  if (!userId) return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
+  try { body = await req.json(); } catch { /* body parse failed */ }
   const admin = await db.user.findUnique({ where: { id: userId }, select: { role: true } });
   if (!admin || admin.role !== "admin") return NextResponse.json({ error: "Access denied" }, { status: 403 });
   return { userId, body };

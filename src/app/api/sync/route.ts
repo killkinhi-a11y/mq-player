@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
-// GET /api/sync?userId=xxx — fetch all user data from server
+// GET /api/sync — fetch all user data from server
 async function getHandler(req: NextRequest) {
   try {
-    const userId = req.nextUrl.searchParams.get("userId");
-    if (!userId) {
-      return NextResponse.json({ error: "userId required" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
     }
+    const userId = session.userId;
 
     const syncData = await db.userSync.findMany({
       where: { userId },
@@ -31,12 +33,17 @@ async function getHandler(req: NextRequest) {
 }
 
 // POST /api/sync — save user data to server
-// Body: { userId, data: { key: value, ... } }
+// Body: { data: { key: value, ... } }
 async function postHandler(req: NextRequest) {
   try {
-    const { userId, data } = await req.json();
-    if (!userId || !data || typeof data !== "object") {
-      return NextResponse.json({ error: "userId and data required" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
+    const { data } = await req.json();
+    if (!data || typeof data !== "object") {
+      return NextResponse.json({ error: "data required" }, { status: 400 });
     }
 
     // Only allow specific keys

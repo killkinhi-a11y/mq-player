@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 // PUT /api/friends/[id] — accept or reject a friend request
 async function putHandler(
@@ -8,6 +9,10 @@ async function putHandler(
   ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+    }
     const { id } = await ctx!.params;
     const { action } = await req.json(); // "accept" or "reject"
 
@@ -58,6 +63,10 @@ async function deleteHandler(
   ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
+    }
     const { id } = await ctx!.params;
 
     await db.friend.delete({ where: { id } });

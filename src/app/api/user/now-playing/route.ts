@@ -1,15 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/user/now-playing?userId=xxx — get someone's now-playing status
+// GET /api/user/now-playing — get own now-playing status
 async function getHandler(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-    if (!userId) return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
 
     const sync = await db.userSync.findUnique({
       where: { userId_key: { userId, key: "nowPlaying" } },
@@ -41,8 +44,12 @@ async function getHandler(req: NextRequest) {
 // PUT /api/user/now-playing — set own now-playing status
 async function putHandler(req: NextRequest) {
   try {
-    const { userId, track } = await req.json();
-    if (!userId) return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
+    const { track } = await req.json();
 
     if (!track || Object.keys(track).length === 0) {
       // Clear now-playing status

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 export const dynamic = "force-dynamic";
 
@@ -28,15 +29,17 @@ async function ensureTable() {
   migrationRan = true;
 }
 
-// GET /api/notifications?userId=xxx — get user's notifications
+// GET /api/notifications — get user's notifications
 export async function GET(req: NextRequest) {
   const { success } = rateLimit({ ip: getClientIp(req), limit: 60, window: 60, key: "notif-get" });
   if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     await ensureTable();
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
-    if (!userId) return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
 
     const notifications = await db.notification.findMany({
       where: { userId },
@@ -61,9 +64,14 @@ export async function POST(req: NextRequest) {
   if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     await ensureTable();
-    const { userId, type, title, body, data } = await req.json();
-    if (!userId || !type || !title) {
-      return NextResponse.json({ error: "userId, type, title обязательны" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
+    const { type, title, body, data } = await req.json();
+    if (!type || !title) {
+      return NextResponse.json({ error: "type, title обязательны" }, { status: 400 });
     }
 
     const notification = await db.notification.create({
@@ -89,8 +97,12 @@ export async function PUT(req: NextRequest) {
   if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     await ensureTable();
-    const { userId, notificationId, markAll } = await req.json();
-    if (!userId) return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
+    const { notificationId, markAll } = await req.json();
 
     if (markAll) {
       await db.notification.updateMany({
@@ -115,18 +127,22 @@ export async function PUT(req: NextRequest) {
   }
 }
 
-// DELETE /api/notifications?userId=xxx&notificationId=xxx — delete a notification
+// DELETE /api/notifications?notificationId=xxx — delete a notification
 export async function DELETE(req: NextRequest) {
   const { success } = rateLimit({ ip: getClientIp(req), limit: 30, window: 60, key: "notif-del" });
   if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     await ensureTable();
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
     const notificationId = searchParams.get("notificationId");
 
-    if (!userId || !notificationId) {
-      return NextResponse.json({ error: "userId и notificationId обязательны" }, { status: 400 });
+    if (!notificationId) {
+      return NextResponse.json({ error: "notificationId обязателен" }, { status: 400 });
     }
 
     await db.notification.delete({

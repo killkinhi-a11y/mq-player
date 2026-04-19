@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
-// GET /api/playlists?userId=&search=&tags=&sort=&page=&limit=
+// GET /api/playlists?search=&tags=&sort=&page=&limit=
 async function getHandler(req: NextRequest) {
   try {
+    const session = await getSession();
+    const userId = session?.userId || "";
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId") || "";
     const search = (searchParams.get("search") || "").trim().slice(0, 100);
     const tags = searchParams.get("tags") || "";
     const sort = searchParams.get("sort") || "popular"; // popular, new, likes
@@ -118,11 +120,16 @@ async function getHandler(req: NextRequest) {
 // POST /api/playlists — create or publish a playlist
 async function postHandler(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
     const body = await req.json();
-    const { userId, name, description, cover, isPublic, tags, tracks } = body;
+    const { name, description, cover, isPublic, tags, tracks } = body;
 
-    if (!userId || !name) {
-      return NextResponse.json({ error: "userId and name required" }, { status: 400 });
+    if (!name) {
+      return NextResponse.json({ error: "name required" }, { status: 400 });
     }
 
     const tracksJson = JSON.stringify(tracks || []);
@@ -154,11 +161,16 @@ async function postHandler(req: NextRequest) {
 // PUT /api/playlists — update playlist
 async function putHandler(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
     const body = await req.json();
-    const { id, userId, name, description, cover, isPublic, tags, tracks } = body;
+    const { id, name, description, cover, isPublic, tags, tracks } = body;
 
-    if (!id || !userId) {
-      return NextResponse.json({ error: "id and userId required" }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: "id required" }, { status: 400 });
     }
 
     // Verify ownership
@@ -193,15 +205,19 @@ async function putHandler(req: NextRequest) {
   }
 }
 
-// DELETE /api/playlists?playlistId=&userId=
+// DELETE /api/playlists?playlistId=
 async function deleteHandler(req: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+    const userId = session.userId;
     const { searchParams } = new URL(req.url);
     const playlistId = searchParams.get("playlistId");
-    const userId = searchParams.get("userId");
 
-    if (!playlistId || !userId) {
-      return NextResponse.json({ error: "playlistId and userId required" }, { status: 400 });
+    if (!playlistId) {
+      return NextResponse.json({ error: "playlistId required" }, { status: 400 });
     }
 
     const existing = await db.playlist.findUnique({ where: { id: playlistId } });
