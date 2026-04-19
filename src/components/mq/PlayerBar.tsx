@@ -53,11 +53,13 @@ export default function PlayerBar() {
   const retryCountRef = useRef(0);
   const maxRetries = 3;
 
+  const prevTrackRef = useRef(prevTrack);
   const nextTrackRef = useRef(nextTrack);
   const setProgressRef = useRef(setProgress);
   const setDurationRef = useRef(setDuration);
   const isPlayingRef = useRef(isPlaying);
 
+  useEffect(() => { prevTrackRef.current = prevTrack; }, [prevTrack]);
   useEffect(() => { nextTrackRef.current = nextTrack; }, [nextTrack]);
   useEffect(() => { setProgressRef.current = setProgress; }, [setProgress]);
   useEffect(() => { setDurationRef.current = setDuration; }, [setDuration]);
@@ -466,6 +468,28 @@ export default function PlayerBar() {
     return () => { cancelled = true; };
   }, [currentTrack?.id]);
 
+  // ── Override prevTrack: seek audio to 0 when progress > 3s ──
+  const handlePrevTrack = useCallback(() => {
+    const st = useAppStore.getState();
+    if (st.progress > 3) {
+      // Seek audio element to beginning instead of just setting store state
+      const audio = getAudioElement();
+      if (audio && audio.src) {
+        audio.currentTime = 0;
+      }
+      const secondary = getInactiveAudio();
+      if (secondary && secondary.src) {
+        secondary.currentTime = 0;
+      }
+      st.setProgress(0);
+    } else {
+      st.prevTrack();
+    }
+  }, []);
+
+  const handlePrevTrackRef = useRef(handlePrevTrack);
+  useEffect(() => { handlePrevTrackRef.current = handlePrevTrack; }, [handlePrevTrack]);
+
   // ── Handle play/pause ───────────────────────────────────
   useEffect(() => {
     // Always use the current active audio element (not stale audioRef)
@@ -522,7 +546,7 @@ export default function PlayerBar() {
     });
     navigator.mediaSession.setActionHandler("previoustrack", () => {
       resumeAudioContext();
-      useAppStore.getState().prevTrack();
+      handlePrevTrackRef.current();
     });
     navigator.mediaSession.setActionHandler("nexttrack", () => {
       resumeAudioContext();
@@ -720,7 +744,7 @@ export default function PlayerBar() {
             style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
             <Shuffle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </motion.button>
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={prevTrack}
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handlePrevTrack}
             className="p-1.5 sm:p-2 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center" style={{ color: "var(--mq-text)" }}>
             <SkipBack className="w-4 h-4 sm:w-5 sm:h-5" />
           </motion.button>
