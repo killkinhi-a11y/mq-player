@@ -177,6 +177,9 @@ export function crossfadeTo(newAudio: HTMLAudioElement, fadeIn: boolean = true):
     oldGain.gain.setValueAtTime(0, startTime);
   }
 
+  // Capture old audio BEFORE the swap — it's the one fading out
+  const oldAudio = _activeAudio === "A" ? _audioA : _audioB;
+
   // Swap active element
   if (_activeAudio === "A") {
     _activeAudio = "B";
@@ -185,10 +188,10 @@ export function crossfadeTo(newAudio: HTMLAudioElement, fadeIn: boolean = true):
   }
 
   // Stop old audio after crossfade completes
-  const oldAudio = _activeAudio === "A" ? _audioA : _audioB;
   setTimeout(() => {
     if (oldAudio && oldAudio !== getAudioElement()) {
       oldAudio.pause();
+      oldAudio.currentTime = 0;
       // Don't set src="" — keeps it ready for next crossfade
     }
   }, (duration + 0.1) * 1000);
