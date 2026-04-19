@@ -306,7 +306,7 @@ export default function MessageBubble({
       <motion.div
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+        className={`flex ${isMine ? "justify-end" : "justify-start"} w-full`}
       >
         <div className="max-w-[80%] lg:max-w-[65%] w-fit">
           <div
@@ -331,7 +331,7 @@ export default function MessageBubble({
       <motion.div
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex justify-center"
+        className="flex justify-center w-full"
       >
         <div
           className="rounded-full px-4 py-1.5 max-w-[75%]"
@@ -358,7 +358,7 @@ export default function MessageBubble({
         initial={{ opacity: 0, scale: 0.6 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ type: "spring", stiffness: 400, damping: 20 }}
-        className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+        className={`flex ${isMine ? "justify-end" : "justify-start"} w-full`}
       >
         <div
           className="text-5xl py-2 select-none cursor-default"
@@ -378,7 +378,7 @@ export default function MessageBubble({
       <motion.div
         initial={{ opacity: 0, y: 10, scale: 0.95 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+        className={`flex ${isMine ? "justify-end" : "justify-start"} w-full`}
       >
         <div className="max-w-[85%] lg:max-w-[70%] w-fit">
           {!isMine && message.senderName && (
@@ -538,7 +538,7 @@ export default function MessageBubble({
     <motion.div
       initial={{ opacity: 0, y: 10, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      className={`flex ${isMine ? "justify-end" : "justify-start"}`}
+      className={`flex ${isMine ? "justify-end" : "justify-start"} w-full`}
     >
       <div className="max-w-[85%] lg:max-w-[70%] w-fit" style={{ minWidth: 0 }}>
         {/* Sender name (received messages only) */}

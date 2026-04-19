@@ -2521,7 +2521,7 @@ export default function MessengerView() {
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenuMsgId({ id: msg.id, x: e.clientX, y: e.clientY }); }}
         onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchMove={handleTouchMove}>
         <motion.div initial={animationsEnabled ? { opacity: 0, y: 8, scale: 0.97 } : undefined} animate={{ opacity: 1, y: 0, scale: 1 }}
-          className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+          className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
           {replyPreview && (
             <div className="mb-1 ml-1 px-2.5 py-1.5 rounded-lg max-w-[85%] lg:max-w-[70%] w-fit" style={{ ...glassPanel, borderLeft: "2px solid var(--mq-accent)" }}>
               <p className="text-[9px] font-semibold" style={{ color: "var(--mq-accent)" }}>{replyPreview.senderName}</p>
@@ -2534,9 +2534,6 @@ export default function MessengerView() {
             <VoiceMessageBubble voiceUrl={voiceData!.voiceUrl} duration={voiceData!.voiceDuration || 0} isMine={isMine} />
           ) : (
             <MessageBubble message={msg} currentUserId={userId || undefined} />
-          )}
-          {isEdited && !isSticker && !isVoice && (
-            <p className={`text-[9px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
           )}
         </motion.div>
 
