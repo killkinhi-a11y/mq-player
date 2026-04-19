@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mq-pwa-v7';
+const CACHE_NAME = 'mq-pwa-v8';
 
 const STATIC_ASSETS = [
   '/play',
@@ -6,6 +6,14 @@ const STATIC_ASSETS = [
   '/favicon.ico',
   '/icon-192.png',
   '/icon-512.png',
+  '/logo.svg',
+];
+
+// Routes that must NEVER be intercepted — always pass through to network
+const NO_INTERCEPT = [
+  '/api/',          // all API routes (auth, messages, SSE, etc.)
+  '/uploads/',      // user uploads
+  '/_next/',        // Next.js build chunks — always fresh from CDN
 ];
 
 self.addEventListener('install', (event) => {
@@ -30,26 +38,30 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
-  
-  // API routes & audio: always network, no cache
-  if (url.pathname.startsWith('/api/') || url.pathname.includes('/uploads/')) {
-    return;
-  }
 
-  // _next static chunks: NEVER cache — always network-only to avoid stale chunks
-  if (url.pathname.startsWith('/_next/')) {
-    return;
+  // Never intercept: API, SSE, uploads, _next chunks
+  for (const pattern of NO_INTERCEPT) {
+    if (url.pathname.startsWith(pattern)) return;
   }
 
   // Navigation: network-first with cache fallback
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request).catch(() => caches.match('/play'))
+      fetch(event.request)
+        .then((response) => {
+          // Cache successful navigations for offline fallback
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match('/play'))
     );
     return;
   }
 
-  // Other static assets: cache-first
+  // Static assets (images, fonts, etc.): cache-first
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
