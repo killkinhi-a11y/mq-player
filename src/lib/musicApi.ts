@@ -31,6 +31,12 @@ export interface Message {
   encrypted: boolean;
   createdAt: string;
   senderName?: string;
+  messageType?: string;
+  replyToId?: string | null;
+  edited?: boolean;
+  editedAt?: string | null;
+  voiceUrl?: string | null;
+  voiceDuration?: number;
 }
 
 export interface Contact {
