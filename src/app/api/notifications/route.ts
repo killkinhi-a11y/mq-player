@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,8 @@ async function ensureTable() {
 
 // GET /api/notifications?userId=xxx — get user's notifications
 export async function GET(req: NextRequest) {
+  const { success } = rateLimit({ ip: getClientIp(req), limit: 60, window: 60, key: "notif-get" });
+  if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     await ensureTable();
     const { searchParams } = new URL(req.url);
@@ -54,6 +57,8 @@ export async function GET(req: NextRequest) {
 
 // POST /api/notifications — create a notification
 export async function POST(req: NextRequest) {
+  const { success } = rateLimit({ ip: getClientIp(req), limit: 20, window: 60, key: "notif-post" });
+  if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     await ensureTable();
     const { userId, type, title, body, data } = await req.json();
@@ -80,6 +85,8 @@ export async function POST(req: NextRequest) {
 
 // PUT /api/notifications — mark notifications as read
 export async function PUT(req: NextRequest) {
+  const { success } = rateLimit({ ip: getClientIp(req), limit: 30, window: 60, key: "notif-put" });
+  if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     await ensureTable();
     const { userId, notificationId, markAll } = await req.json();
@@ -110,6 +117,8 @@ export async function PUT(req: NextRequest) {
 
 // DELETE /api/notifications?userId=xxx&notificationId=xxx — delete a notification
 export async function DELETE(req: NextRequest) {
+  const { success } = rateLimit({ ip: getClientIp(req), limit: 30, window: 60, key: "notif-del" });
+  if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     await ensureTable();
     const { searchParams } = new URL(req.url);

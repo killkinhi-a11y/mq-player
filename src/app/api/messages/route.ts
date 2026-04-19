@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET(req: NextRequest) {
+  const { success } = rateLimit({ ip: getClientIp(req), limit: 60, window: 60, key: "messages-get" });
+  if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     const senderId = req.nextUrl.searchParams.get("senderId");
     const receiverId = req.nextUrl.searchParams.get("receiverId");
@@ -52,6 +55,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const { success } = rateLimit({ ip: getClientIp(req), limit: 30, window: 60, key: "messages-post" });
+  if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     const { content, senderId, receiverId, encrypted, id, messageType, replyToId, voiceUrl, voiceDuration } = await req.json();
 

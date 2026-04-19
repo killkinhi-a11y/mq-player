@@ -1396,7 +1396,7 @@ export default function MessengerView() {
   const messengerHeight = (() => {
     const topNav = isMobileView ? 4 : 3.5;
     const mobileNav = isMobileView ? 3.5 : 0;
-    const playerBar = currentTrack ? (isMobileView ? 7.5 : 7.5) : 0;
+    const playerBar = currentTrack ? (isMobileView ? 8.75 : 7.5) : 0;
     return `calc(100dvh - ${topNav + mobileNav + playerBar}rem)`;
   })();
 
@@ -1888,7 +1888,7 @@ export default function MessengerView() {
             {/* ═══ INPUT AREA ═══ */}
             {/* ── Voice recording mode: replaces input area ── */}
             {isRecording ? (
-              <div className="px-3 py-2 flex items-center gap-3 flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
+              <div className="px-3 py-2 flex items-center gap-3 flex-shrink-0 relative z-50" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
                 {/* Cancel button */}
                 <motion.button whileTap={{ scale: 0.85 }} onClick={cancelRecording}
                   className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"

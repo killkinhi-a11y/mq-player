@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       email,
       isAdmin,
-      adminEmails: ADMIN_EMAILS,
     });
   } catch (error) {
     console.error("Admin auth check error:", error);

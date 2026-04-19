@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 // GET /api/friends?userId=xxx — list accepted friends + pending requests received
 export async function GET(req: NextRequest) {
+  const { success } = rateLimit({ ip: getClientIp(req), limit: 60, window: 60, key: "friends-get" });
+  if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     const userId = req.nextUrl.searchParams.get("userId");
     if (!userId) {
@@ -56,6 +59,8 @@ export async function GET(req: NextRequest) {
 
 // POST /api/friends — send friend request
 export async function POST(req: NextRequest) {
+  const { success } = rateLimit({ ip: getClientIp(req), limit: 10, window: 60, key: "friends-post" });
+  if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     const { requesterId, addresseeId } = await req.json();
 

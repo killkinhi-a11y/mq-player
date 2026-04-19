@@ -1,8 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-export async function GET() {
+async function verifyAdmin(req: NextRequest): Promise<{ userId: string } | NextResponse> {
+  let userId: string | undefined;
   try {
+    const body = await req.json();
+    userId = body?.userId;
+  } catch { /* body parse failed */ }
+  if (!userId) return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
+  const admin = await db.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!admin || admin.role !== "admin") return NextResponse.json({ error: "Access denied" }, { status: 403 });
+  return { userId };
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const adminCheck = await verifyAdmin(req);
+    if (adminCheck instanceof NextResponse) return adminCheck;
+
     const flags = await db.featureFlag.findMany({
       orderBy: { createdAt: "desc" },
     });
@@ -15,6 +30,9 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const adminCheck = await verifyAdmin(req);
+    if (adminCheck instanceof NextResponse) return adminCheck;
+
     const body = await req.json();
     const { key, name, description, enabled } = body;
 
@@ -46,6 +64,9 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const adminCheck = await verifyAdmin(req);
+    if (adminCheck instanceof NextResponse) return adminCheck;
+
     const body = await req.json();
     const { id, enabled, name, description } = body;
 

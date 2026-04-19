@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 /**
  * SSE endpoint for messenger — streams new DMs for a user.
@@ -13,6 +14,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function GET(req: NextRequest) {
+  const { success } = rateLimit({ ip: getClientIp(req), limit: 20, window: 60, key: "sse" });
+  if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");

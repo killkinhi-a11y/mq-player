@@ -17,15 +17,12 @@ const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "me
 export default function MobileNav() {
   const { currentView, setView, liquidGlassMobile, compactMode, unreadCounts, supportUnreadCount } = useAppStore();
 
-  // Calculate badge count for each item
+  // Calculate badge counts once per render (not per nav item)
+  const messengerBadge = Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
   const getBadgeCount = (badgeKey?: string): number => {
     if (!badgeKey) return 0;
-    if (badgeKey === "messenger") {
-      return Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
-    }
-    if (badgeKey === "settings") {
-      return supportUnreadCount;
-    }
+    if (badgeKey === "messenger") return messengerBadge;
+    if (badgeKey === "settings") return supportUnreadCount;
     return 0;
   };
 
