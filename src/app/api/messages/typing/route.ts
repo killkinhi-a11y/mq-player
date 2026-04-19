@@ -3,6 +3,7 @@ import { rateLimit, getClientIp, RATE_LIMITS } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
 import { db } from "@/lib/db";
 
+export const maxDuration = 30;
 export const TYPING_TTL_MS = 4000;
 
 export const dynamic = "force-dynamic";

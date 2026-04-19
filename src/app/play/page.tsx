@@ -52,6 +52,14 @@ function AppShell() {
   // ── All refs declared before effects ──
   const prevViewRef = useRef(currentView);
 
+  // ── DB sync: ensure all tables exist on first load ──
+  useEffect(() => {
+    fetch("/api/db-sync").then(r => r.json()).then(data => {
+      if (data.ok) console.log("[db-sync] Database synced");
+      else console.warn("[db-sync] Sync issue:", data.details);
+    }).catch(() => {});
+  }, []);
+
   // ── All effects declared after refs ──
   useEffect(() => {
     let cancelled = false;

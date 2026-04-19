@@ -3,6 +3,8 @@ import { db } from "@/lib/db";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
 
+export const maxDuration = 30;
+
 export async function POST(req: NextRequest) {
   const { success } = rateLimit({ ip: getClientIp(req), limit: 10, window: 60, key: "listen-accept" });
   if (!success) return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
