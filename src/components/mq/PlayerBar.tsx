@@ -9,7 +9,7 @@ import {
   Heart, ThumbsDown, FileText, Download
 } from "lucide-react";
 import { formatDuration } from "@/lib/musicApi";
-import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState } from "@/lib/audioEngine";
+import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade } from "@/lib/audioEngine";
 
 async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string; isPreview: boolean; duration: number; fullDuration: number } | null> {
   try {
@@ -38,6 +38,8 @@ export default function PlayerBar() {
   const volumeRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number>(0);
+  const crossfadeRef = useRef(false); // track if crossfade is in progress
+  const prevTrackIdForCrossfade = useRef<string | null>(null);
 
   const [isDragging, setIsDragging] = useState(false);
   const [isLoadingTrack, setIsLoadingTrack] = useState(false);
@@ -70,37 +72,46 @@ export default function PlayerBar() {
 
     initAudioEngine(audio);
 
+    // Helper to always get the current active audio element
+    const getActive = () => getAudioElement();
+
     const onTimeUpdate = () => {
-      if (!isDragging) setProgressRef.current(audio.currentTime);
+      const a = getActive();
+      if (!isDragging && a) setProgressRef.current(a.currentTime);
       // Update MediaSession position state for lock-screen progress bar
-      if ("mediaSession" in navigator && navigator.mediaSession && audio.duration && isFinite(audio.duration)) {
+      if ("mediaSession" in navigator && navigator.mediaSession && a?.duration && isFinite(a.duration)) {
         try {
           navigator.mediaSession.setPositionState({
-            duration: audio.duration,
-            playbackRate: audio.playbackRate,
-            position: audio.currentTime,
+            duration: a.duration,
+            playbackRate: a.playbackRate,
+            position: a.currentTime,
           });
         } catch {}
       }
     };
     const onLoaded = () => {
-      if (audio.duration && isFinite(audio.duration)) setDurationRef.current(audio.duration);
+      const a = getActive();
+      if (a?.duration && isFinite(a.duration)) setDurationRef.current(a.duration);
     };
     const onEnded = () => {
       setPlayError(false);
+      crossfadeRef.current = false;
       const st = useAppStore.getState();
       if (st.repeat === "one") {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-        setProgressRef.current(0);
+        const a = getActive();
+        if (a) {
+          a.currentTime = 0;
+          a.play().catch(() => {});
+          setProgressRef.current(0);
+        }
       } else {
         nextTrackRef.current();
       }
     };
     const onError = () => {
-      const audioEl = audioRef.current || getAudioElement();
+      const audioEl = getActive();
       // Retry on error for the same track (max 3 times)
-      if (audioEl.src && retryCountRef.current < maxRetries) {
+      if (audioEl?.src && retryCountRef.current < maxRetries) {
         retryCountRef.current++;
         console.warn(`[Player] Error loading track, retry ${retryCountRef.current}/${maxRetries}`);
         setTimeout(() => {
@@ -113,16 +124,19 @@ export default function PlayerBar() {
       } else {
         setPlayError(true);
         setIsLoadingTrack(false);
-        // If we have scTrackId but it wasn't used (e.g. shared track), try resolving SC stream
         const st = useAppStore.getState();
-        if (st.currentTrack?.scTrackId && audioEl.src && !audioEl.src.includes("api/v1/soundcloud")) {
+        if (st.currentTrack?.scTrackId && audioEl?.src && !audioEl.src.includes("api/v1/soundcloud")) {
           console.warn(`[Player] Trying SC stream resolution as fallback`);
           resolveSoundCloudStream(st.currentTrack.scTrackId).then(stream => {
             if (stream?.url) {
               retryCountRef.current = 0;
-              audioEl.src = stream.url;
-              audioEl.load();
-              audioEl.play().catch(() => {});
+              cancelCrossfade();
+              const a = getActive();
+              if (a) {
+                a.src = stream.url;
+                a.load();
+                a.play().catch(() => {});
+              }
             }
           }).catch(() => {});
         } else {
@@ -139,40 +153,52 @@ export default function PlayerBar() {
       setIsLoadingTrack(false);
       setPlayError(false);
       resumeAudioContext();
-      // Read store state directly for reliable timing (not the ref which may lag)
       const st = useAppStore.getState();
       if (st.isPlaying) {
-        audio.play().catch(() => {});
+        const a = getActive();
+        if (a && !crossfadeRef.current) a.play().catch(() => {});
       }
     };
     const onPlaying = () => {
       setIsLoadingTrack(false);
       setPlayError(false);
       resumeAudioContext();
-      // Always sync isPlaying state — ensure play button shows correct state
       if (!useAppStore.getState().isPlaying) {
         useAppStore.getState().togglePlay();
       }
     };
 
-    audio.addEventListener("timeupdate", onTimeUpdate);
-    audio.addEventListener("loadedmetadata", onLoaded);
-    audio.addEventListener("canplay", onCanPlay);
-    audio.addEventListener("durationchange", onLoaded);
-    audio.addEventListener("ended", onEnded);
-    audio.addEventListener("error", onError);
-    audio.addEventListener("playing", onPlaying);
+    // Listen on both audio elements
+    const addListeners = (el: HTMLAudioElement) => {
+      el.addEventListener("timeupdate", onTimeUpdate);
+      el.addEventListener("loadedmetadata", onLoaded);
+      el.addEventListener("canplay", onCanPlay);
+      el.addEventListener("durationchange", onLoaded);
+      el.addEventListener("ended", onEnded);
+      el.addEventListener("error", onError);
+      el.addEventListener("playing", onPlaying);
+    };
+    const removeListeners = (el: HTMLAudioElement) => {
+      el.removeEventListener("timeupdate", onTimeUpdate);
+      el.removeEventListener("loadedmetadata", onLoaded);
+      el.removeEventListener("canplay", onCanPlay);
+      el.removeEventListener("durationchange", onLoaded);
+      el.removeEventListener("ended", onEnded);
+      el.removeEventListener("error", onError);
+      el.removeEventListener("playing", onPlaying);
+    };
+
+    addListeners(audio);
+    // Also listen on the secondary audio element for crossfade
+    const secondary = getInactiveAudio();
+    if (secondary) addListeners(secondary);
 
     return () => {
-      audio.removeEventListener("timeupdate", onTimeUpdate);
-      audio.removeEventListener("loadedmetadata", onLoaded);
-      audio.removeEventListener("canplay", onCanPlay);
-      audio.removeEventListener("durationchange", onLoaded);
-      audio.removeEventListener("ended", onEnded);
-      audio.removeEventListener("error", onError);
-      audio.removeEventListener("playing", onPlaying);
+      removeListeners(audio);
+      if (secondary) removeListeners(secondary);
       audio.pause();
       audio.src = "";
+      if (secondary) { secondary.pause(); secondary.src = ""; }
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, []);
@@ -314,13 +340,10 @@ export default function PlayerBar() {
       return;
     }
 
-    const audio = audioRef.current || getAudioElement();
-    if (!audio) return;
-
     if (currentTrack.id !== prevTrackIdRef.current) {
       prevTrackIdRef.current = currentTrack.id;
       setProgress(0);
-      retryCountRef.current = 0; // reset retries for new track
+      retryCountRef.current = 0;
     }
 
     // Cancellation flag — prevents race conditions from rapid track switching
@@ -332,8 +355,16 @@ export default function PlayerBar() {
         setPlayError(false);
         retryCountRef.current = 0;
 
-        const audioEl = getAudioElement();
-        // DON'T clear src — just pause and set new source directly to keep notification alive
+        // Determine if crossfade is possible (needs a previous track that was playing)
+        const canCrossfade = prevTrackIdForCrossfade.current !== null
+          && prevTrackIdForCrossfade.current !== currentTrack.id
+          && useAppStore.getState().isPlaying;
+
+        // Get the audio element to use
+        // For crossfade: use the inactive element, preload, then crossfade
+        // For first load or no crossfade: use the active element directly
+        const audioEl = canCrossfade ? getInactiveAudio() : getAudioElement();
+        if (!audioEl) return;
         audioEl.pause();
 
         if (cancelled) return;
@@ -354,16 +385,45 @@ export default function PlayerBar() {
               audioEl.crossOrigin = "";
             }
             audioEl.src = stream.url;
-            audioEl.load();
-            audioEl.play().catch(() => {
-              // If play fails due to autoplay policy, onCanPlay/onPlaying will handle it
+
+            // Wait for audio to be ready before playing/crossfading
+            await new Promise<void>((resolve) => {
+              const onCanPlay = () => { audioEl.removeEventListener("canplay", onCanPlay); resolve(); };
+              const onError = () => { audioEl.removeEventListener("error", onError); resolve(); };
+              audioEl.addEventListener("canplay", onCanPlay);
+              audioEl.addEventListener("error", onError);
+              audioEl.load();
+              // Timeout fallback
+              setTimeout(resolve, 5000);
             });
+
+            if (cancelled) return;
+
+            if (canCrossfade) {
+              // Crossfade: start new audio and fade between elements
+              crossfadeRef.current = true;
+              audioEl.play().catch(() => {});
+              crossfadeTo(audioEl);
+              prevTrackIdForCrossfade.current = currentTrack.id;
+            } else {
+              // No crossfade: direct play on active element
+              cancelCrossfade();
+              audioEl.play().catch(() => {});
+              prevTrackIdForCrossfade.current = currentTrack.id;
+            }
           } else if (currentTrack.audioUrl) {
-            // Fallback: SC stream resolution failed, try audioUrl (e.g. shared track with expired stream)
             resetCorsState();
             audioEl.src = currentTrack.audioUrl;
             audioEl.load();
-            audioEl.play().catch(() => {});
+            if (canCrossfade) {
+              crossfadeRef.current = true;
+              audioEl.play().catch(() => {});
+              crossfadeTo(audioEl);
+            } else {
+              cancelCrossfade();
+              audioEl.play().catch(() => {});
+            }
+            prevTrackIdForCrossfade.current = currentTrack.id;
           } else {
             setPlayError(true);
             setIsLoadingTrack(false);
@@ -372,24 +432,27 @@ export default function PlayerBar() {
         } else if (currentTrack.audioUrl) {
           setPlaybackMode("soundcloud");
           audioEl.crossOrigin = "anonymous";
-          // Reset CORS state to test if this source has real frequency data
           resetCorsState();
           audioEl.src = currentTrack.audioUrl;
           audioEl.load();
-          audioEl.play().catch(() => {
-            // If play fails due to autoplay policy, it's fine - onCanPlay/onPlaying will retry
-          });
+          if (canCrossfade) {
+            crossfadeRef.current = true;
+            audioEl.play().catch(() => {});
+            crossfadeTo(audioEl);
+          } else {
+            cancelCrossfade();
+            audioEl.play().catch(() => {});
+          }
+          prevTrackIdForCrossfade.current = currentTrack.id;
         } else {
           setPlayError(true);
           setIsLoadingTrack(false);
-          // Auto-skip to next track when track has no playable source
           setTimeout(() => nextTrackRef.current(), 1500);
         }
       } catch (err) {
         console.error("loadTrack error:", err);
         setPlayError(true);
         setIsLoadingTrack(false);
-        // Auto-skip to next track after error
         setTimeout(() => nextTrackRef.current(), 2000);
       }
     };

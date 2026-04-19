@@ -38,6 +38,8 @@ model User {
   groupMessages          GroupMessage[] @relation("GroupMessages")
   createdGroups          GroupChat[] @relation("GroupChatCreators")
   notifications          Notification[] @relation("UserNotifications")
+  hostedSessions         ListenSession[] @relation("HostedSessions")
+  joinedSessions         ListenSession[] @relation("JoinedSessions")
 }
 
 model AuditLog {
@@ -291,6 +293,30 @@ model UserSync {
   user      User     @relation("UserSyncData", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, key])
+}
+
+// Collaborative listening sessions
+model ListenSession {
+  id          String   @id @default(cuid())
+  hostId      String
+  guestId     String
+  trackId     String
+  trackTitle  String
+  trackArtist String
+  trackCover  String   @default("")
+  scTrackId   Int?
+  audioUrl    String   @default("")
+  source      String   @default("soundcloud")
+  progress    Float    @default(0)
+  isPlaying   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  host        User     @relation("HostedSessions", fields: [hostId], references: [id])
+  guest       User     @relation("JoinedSessions", fields: [guestId], references: [id])
+
+  @@unique([hostId, guestId])
+  @@index([hostId])
+  @@index([guestId])
 }
 
 // Notifications system

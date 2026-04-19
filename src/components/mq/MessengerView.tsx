@@ -11,7 +11,7 @@ import {
   Plus, Music2, X, Loader2, Copy, Reply, UserPlus, UserCheck, Users, AlertCircle,
   Play, Pause, ChevronLeft, ChevronRight, BookOpen, Pin,
   Mic, MicOff, Edit3, MessageSquare, Sticker,
-  MoreVertical, Check, Bell, Ban, Download, MessageCircle, Phone
+  MoreVertical, Check, Bell, Ban, Download, MessageCircle, Phone, Headphones
 } from "lucide-react";
 import { simulateEncrypt, getEncryptionStatus, generateMockFingerprint, simulateDecryptSync } from "@/lib/crypto";
 
@@ -129,6 +129,42 @@ const glassPanelSolid: React.CSSProperties = {
 const shadowDeep = "0 8px 32px rgba(0,0,0,0.35)";
 
 // ═══════════════════════════════════════════════════════════════
+//  TYPING INDICATOR COMPONENT
+// ═══════════════════════════════════════════════════════════════
+
+function TypingBubble({ contactId }: { contactId: string }) {
+  const typingTs = useAppStore((s) => s.typingUsers[contactId]);
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    if (!typingTs) return;
+    // Force re-check every 500ms to auto-hide after 4s TTL
+    const interval = setInterval(() => forceUpdate((n) => n + 1), 500);
+    return () => clearInterval(interval);
+  }, [typingTs]);
+
+  if (!typingTs || Date.now() - typingTs > 4000) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 5 }}
+        className="flex items-center gap-2 px-4 py-2"
+      >
+        <div className="flex gap-1">
+          <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--mq-accent)", animationDelay: "0ms" }} />
+          <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--mq-accent)", animationDelay: "150ms" }} />
+          <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--mq-accent)", animationDelay: "300ms" }} />
+        </div>
+        <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>печатает...</span>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
@@ -215,6 +251,11 @@ export default function MessengerView() {
   // ── Server messages loaded flag ──
   const [serverMessagesLoaded, setServerMessagesLoaded] = useState<Record<string, boolean>>({});
 
+  // ── Listen together state ──
+  const [listenInviteLoading, setListenInviteLoading] = useState(false);
+  const [listenInviteConfirm, setListenInviteConfirm] = useState<string | null>(null);
+  const [acceptingSessionId, setAcceptingSessionId] = useState<string | null>(null);
+
   // ── Stories state ──
   const [stories, setStories] = useState<Story[]>([]);
   const [viewingStoryIndex, setViewingStoryIndex] = useState<number | null>(null);
@@ -235,6 +276,7 @@ export default function MessengerView() {
   const lastSeenTimeRef = useRef<string>(new Date(Date.now() - 10000).toISOString());
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordingDurationRef = useRef(0);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ═══════════════════════════════════════════════════════════
   //  COMPUTED VALUES (useCallback / useMemo)
@@ -781,6 +823,19 @@ export default function MessengerView() {
         } catch { /* ignore parse errors */ }
       });
 
+      es.addEventListener("typing", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "typing" && data.userId) {
+            useAppStore.getState().setTypingUser(data.userId);
+            // Auto-clear after 4 seconds
+            setTimeout(() => {
+              useAppStore.getState().clearTypingUser(data.userId);
+            }, 4000);
+          }
+        } catch { /* ignore parse errors */ }
+      });
+
       es.onerror = () => {
         es?.close();
         sseRef.current = null;
@@ -1152,6 +1207,18 @@ export default function MessengerView() {
     const lastWord = value.split(/\s/).pop() || "";
     if (lastWord.startsWith("@") && lastWord.length > 1) { setMentionSearch(lastWord.slice(1).toLowerCase()); setShowMentions(true); }
     else { setShowMentions(false); setMentionSearch(""); }
+
+    // Send typing indicator (debounced)
+    if (selectedContactId) {
+      typingTimeoutRef.current && clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        fetch('/api/messages/typing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contactId: selectedContactId }),
+        }).catch(() => {});
+      }, 300);
+    }
   };
 
   const filteredMentions = mentionSearch
@@ -1187,6 +1254,17 @@ export default function MessengerView() {
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    // Send typing indicator on non-special keys (skip Enter/Escape/Tab/etc.)
+    else if (selectedContactId && !["Enter", "Escape", "Tab", "Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key)) {
+      typingTimeoutRef.current && clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        fetch('/api/messages/typing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ contactId: selectedContactId }),
+        }).catch(() => {});
+      }, 300);
+    }
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -1403,6 +1481,93 @@ export default function MessengerView() {
   const shareTrack = async () => {
     if (!currentTrack || !selectedContactId || !userId) return;
     await sendMessageOptimistic("", { type: "track_share", track: { id: currentTrack.id, title: currentTrack.title, artist: currentTrack.artist, cover: currentTrack.cover || "", duration: currentTrack.duration, streamUrl: currentTrack.audioUrl || "", scTrackId: currentTrack.scTrackId, source: currentTrack.source } });
+  };
+
+  // ── Listen together: invite ──
+  const sendListenInvite = async (contactId: string) => {
+    if (!currentTrack || !userId) {
+      showToast("Сначала выберите трек для прослушивания");
+      return;
+    }
+    setListenInviteLoading(true);
+    try {
+      const res = await fetch("/api/listen-session/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Start the session immediately as host
+        useAppStore.getState().setListenSession({
+          id: data.sessionId,
+          hostId: userId,
+          hostName: username || "You",
+          guestId: contactId,
+          guestName: null,
+          trackId: currentTrack.id,
+          trackTitle: currentTrack.title,
+          trackArtist: currentTrack.artist,
+          trackCover: currentTrack.cover || "",
+          scTrackId: currentTrack.scTrackId || null,
+          audioUrl: currentTrack.audioUrl || "",
+          source: currentTrack.source,
+          progress: 0,
+          isPlaying: true,
+          isHost: true,
+        });
+        showToast("Приглашение отправлено! 🎵");
+        setListenInviteConfirm(null);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || "Ошибка при отправке приглашения");
+      }
+    } catch {
+      showToast("Ошибка сети");
+    } finally {
+      setListenInviteLoading(false);
+    }
+  };
+
+  // ── Listen together: accept invite ──
+  const acceptListenInvite = async (sessionId: string) => {
+    setAcceptingSessionId(sessionId);
+    try {
+      const res = await fetch("/api/listen-session/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        useAppStore.getState().setListenSession(data.session);
+        showToast("Вы присоединились к прослушиванию! 🎶");
+        // Switch to play view to show the synced player
+        useAppStore.getState().setView("main");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || "Ошибка при принятии приглашения");
+      }
+    } catch {
+      showToast("Ошибка сети");
+    } finally {
+      setAcceptingSessionId(null);
+    }
+  };
+
+  // ── Listen together: leave session ──
+  const leaveListenSession = async () => {
+    try {
+      await fetch("/api/listen-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "leave" }),
+      });
+      useAppStore.getState().clearListenSession();
+      showToast("Сессия завершена");
+    } catch {
+      // silent
+    }
   };
 
   const sendFriendRequest = async (targetUserId: string) => {
@@ -1711,6 +1876,13 @@ export default function MessengerView() {
                     <Music2 className="w-4.5 h-4.5" />
                   </motion.button>
                 )}
+                {!isGroupChat && currentTrack && selectedContactId && (
+                  <motion.button whileTap={{ scale: 0.9 }}
+                    onClick={() => setListenInviteConfirm(selectedContactId)}
+                    className="p-2 rounded-xl cursor-pointer" style={{ color: "var(--mq-accent)" }} title="Слушать вместе">
+                    <Headphones className="w-4.5 h-4.5" />
+                  </motion.button>
+                )}
                 <div className="relative">
                   <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowChatSettings(!showChatSettings)}
                     className="p-2 rounded-xl cursor-pointer" style={{ color: "var(--mq-text-muted)" }}>
@@ -1929,6 +2101,9 @@ export default function MessengerView() {
 
               {isGroupChat && displayMessages.map((msg: any) => renderGroupMessageBubble(msg))}
             </div>
+
+            {/* ── Typing indicator ── */}
+            {!isGroupChat && selectedContactId && <TypingBubble contactId={selectedContactId} />}
 
             {/* ── @Mentions dropdown ── */}
             <AnimatePresence>
@@ -2548,6 +2723,38 @@ export default function MessengerView() {
 
       {/* Notification Panel */}
       {/* NotificationPanel is now global — rendered in play/page.tsx */}
+
+      {/* Listen together invite confirm */}
+      <AnimatePresence>
+        {listenInviteConfirm && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center" onClick={() => setListenInviteConfirm(null)}>
+            <div className="absolute inset-0 bg-black/40" />
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
+              className="relative z-10 p-5 rounded-2xl w-72 shadow-xl" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+              onClick={(e) => e.stopPropagation()}>
+              <div className="text-center mb-4">
+                <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: "rgba(224,49,49,0.1)" }}>
+                  <Headphones className="w-6 h-6" style={{ color: "var(--mq-accent)" }} />
+                </div>
+                <p className="text-sm font-bold mb-1" style={{ color: "var(--mq-text)" }}>Слушать вместе</p>
+                <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Пригласить друга слушать этот трек в реальном времени?</p>
+              </div>
+              <div className="space-y-2">
+                <button onClick={() => sendListenInvite(listenInviteConfirm)} disabled={listenInviteLoading}
+                  className="w-full py-2.5 rounded-xl text-sm font-medium transition-opacity disabled:opacity-50"
+                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                  {listenInviteLoading ? "Отправка..." : "Пригласить"}
+                </button>
+                <button onClick={() => setListenInviteConfirm(null)}
+                  className="w-full py-2.5 rounded-xl text-sm" style={{ backgroundColor: "var(--mq-input-bg)", color: "var(--mq-text-muted)" }}>
+                  Отмена
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 

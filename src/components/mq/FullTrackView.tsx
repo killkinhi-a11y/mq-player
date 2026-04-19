@@ -33,6 +33,12 @@ export default function FullTrackView() {
   const [showSimilar, setShowSimilar] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [showSleepTimer, setShowSleepTimer] = useState(false);
+  const [lyricsLines, setLyricsLines] = useState<{ time: number; text: string }[]>([]);
+  const [lyricsPlainText, setLyricsPlainText] = useState("");
+  const [lyricsLoading, setLyricsLoading] = useState(false);
+  const [activeLineIndex, setActiveLineIndex] = useState(-1);
+  const lyricsScrollRef = useRef<HTMLDivElement>(null);
+  const activeLineRef = useRef<HTMLParagraphElement>(null);
 
   // Native wheel handler for volume section (fix passive listener issue)
   useEffect(() => {
@@ -65,6 +71,52 @@ export default function FullTrackView() {
       clearShowLyricsRequest();
     }
   }, [showLyricsRequested, clearShowLyricsRequest]);
+
+  // Fetch lyrics when lyrics panel opens or track changes
+  useEffect(() => {
+    if (!showLyrics || !currentTrack) return;
+    const artist = currentTrack.artist;
+    const title = currentTrack.title;
+    if (!artist || !title) return;
+
+    let cancelled = false;
+    setLyricsLoading(true);
+    setLyricsLines([]);
+    setLyricsPlainText("");
+    setActiveLineIndex(-1);
+
+    fetch(`/api/music/lyrics?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`)
+      .then(res => res.json())
+      .then(data => {
+        if (cancelled) return;
+        setLyricsLines(data.lyrics || []);
+        setLyricsPlainText(data.plainText || "");
+      })
+      .catch(() => {
+        if (!cancelled) { setLyricsLines([]); setLyricsPlainText(""); }
+      })
+      .finally(() => { if (!cancelled) setLyricsLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [showLyrics, currentTrack?.id, currentTrack?.artist, currentTrack?.title]);
+
+  // Sync lyrics with playback progress
+  useEffect(() => {
+    if (lyricsLines.length === 0 || !isPlaying) return;
+    // Find the current active line
+    let idx = -1;
+    for (let i = lyricsLines.length - 1; i >= 0; i--) {
+      if (progress >= lyricsLines[i].time) { idx = i; break; }
+    }
+    if (idx !== activeLineIndex) setActiveLineIndex(idx);
+  }, [progress, lyricsLines, isPlaying, activeLineIndex]);
+
+  // Auto-scroll active lyrics line into view
+  useEffect(() => {
+    if (activeLineRef.current && lyricsScrollRef.current) {
+      activeLineRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [activeLineIndex]);
 
   // Fetch similar tracks using the smart similarity algorithm
   useEffect(() => {
@@ -578,13 +630,48 @@ export default function FullTrackView() {
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="absolute bottom-0 left-0 right-0 z-20 rounded-t-2xl overflow-hidden"
               style={{ maxHeight: "50vh", backgroundColor: "var(--mq-card)", borderTop: "1px solid var(--mq-border)" }}>
-              <div className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Текст песни</h3>
-                  <button onClick={() => setShowLyrics(false)} style={{ color: "var(--mq-text-muted)" }}>
-                    <X className="w-4 h-4" />
-                  </button>
+              <div className="flex items-center justify-between p-4 pb-2">
+                <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Текст песни</h3>
+                <button onClick={() => setShowLyrics(false)} style={{ color: "var(--mq-text-muted)" }}>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {lyricsLoading ? (
+                <div className="px-4 pb-4 space-y-3">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="h-4 rounded animate-pulse" style={{ backgroundColor: "var(--mq-input-bg)", width: `${60 + Math.random() * 40}%` }} />
+                  ))}
                 </div>
+              ) : lyricsLines.length > 0 ? (
+                <div ref={lyricsScrollRef} className="overflow-y-auto px-4 pb-4" style={{ maxHeight: "40vh" }}>
+                  {lyricsLines.map((line, i) => (
+                    <p key={i}
+                      ref={activeLineIndex === i ? activeLineRef : undefined}
+                      className="py-1.5 text-sm transition-all duration-300 cursor-pointer hover:opacity-80"
+                      style={{
+                        fontSize: activeLineIndex === i ? "1rem" : "0.875rem",
+                        fontWeight: activeLineIndex === i ? 600 : 400,
+                        color: activeLineIndex === i ? "var(--mq-accent)" :
+                          i < activeLineIndex ? "var(--mq-text-muted)" : "rgba(128,128,128,0.4)",
+                        transform: activeLineIndex === i ? "scale(1.02)" : "scale(1)",
+                      }}
+                      onClick={() => {
+                        const audio = getAudioElement();
+                        if (audio) { audio.currentTime = line.time; setProgress(line.time); }
+                      }}
+                    >
+                      {line.text || "\u266A"}
+                    </p>
+                  ))}
+                </div>
+              ) : lyricsPlainText ? (
+                <div className="overflow-y-auto px-4 pb-4 whitespace-pre-line" style={{ maxHeight: "40vh" }}>
+                  {lyricsPlainText.split("\n").map((line, i) => (
+                    <p key={i} className="py-1 text-sm" style={{ color: "var(--mq-text-muted)" }}>{line}</p>
+                  ))}
+                </div>
+              ) : (
                 <div className="text-center py-8">
                   <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
                   <p className="text-sm mb-4" style={{ color: "var(--mq-text-muted)" }}>
@@ -605,7 +692,7 @@ export default function FullTrackView() {
                     </motion.button>
                   </div>
                 </div>
-              </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

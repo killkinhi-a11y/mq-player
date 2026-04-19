@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion } from "framer-motion";
-import { Lock, Play, Pause, Music2 } from "lucide-react";
+import { Lock, Play, Pause, Music2, Headphones } from "lucide-react";
 import { simulateDecryptSync } from "@/lib/crypto";
 
 // ── Types ────────────────────────────────────────────────────
@@ -329,6 +329,53 @@ export default function MessageBubble({
 
   // ── System message ──
   if (isSystem) {
+    // Check for listen together invite
+    if (displayContent.startsWith("listen_invite:")) {
+      const sessionId = displayContent.replace("listen_invite:", "");
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex justify-center w-full"
+        >
+          <div
+            className="rounded-2xl px-5 py-3 max-w-[85%] flex flex-col items-center gap-2"
+            style={{
+              backgroundColor: "var(--mq-card)",
+              border: "1px solid var(--mq-border)",
+            }}
+          >
+            <p className="text-xs text-center font-medium" style={{ color: "var(--mq-text)" }}>
+              Приглашение слушать вместе
+            </p>
+            <p className="text-[11px] text-center" style={{ color: "var(--mq-text-muted)" }}>
+              Присоединиться к совместному прослушиванию?
+            </p>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/listen-session/accept", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ sessionId }),
+                  });
+                  if (res.ok) {
+                    const data = await res.json();
+                    useAppStore.getState().setListenSession(data.session);
+                  }
+                } catch {}
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium transition-opacity hover:opacity-80"
+              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+            >
+              <Headphones className="w-3.5 h-3.5" />
+              Принять
+            </button>
+          </div>
+        </motion.div>
+      );
+    }
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 6 }}

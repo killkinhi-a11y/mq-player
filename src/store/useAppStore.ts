@@ -115,6 +115,9 @@ interface AppState {
   unreadCounts: Record<string, number>;
   contacts: { id: string; name: string; username: string; avatar: string; online: boolean; lastSeen: string }[];
 
+  // Typing indicator
+  typingUsers: Record<string, number>; // contactId → last typing timestamp
+
   // Support chat
   supportUnreadCount: number;
 
@@ -194,6 +197,8 @@ interface AppState {
   clearUnread: (contactId: string) => void;
   addContact: (contact: { id: string; name: string; username: string; avatar: string; online: boolean; lastSeen: string }) => void;
   deleteMessagesForContact: (contactId: string) => void;
+  setTypingUser: (contactId: string) => void;
+  clearTypingUser: (contactId: string) => void;
 
   // Search actions
   setSearchQuery: (query: string) => void;
@@ -237,6 +242,27 @@ interface AppState {
 
   // Group chat
   selectedGroupId: string | null;
+
+  // Collaborative listening
+  listenSession: {
+    id: string;
+    hostId: string;
+    hostName: string;
+    guestId: string | null;
+    guestName: string | null;
+    trackId: string;
+    trackTitle: string;
+    trackArtist: string;
+    trackCover: string;
+    scTrackId: number | null;
+    audioUrl: string;
+    source: string;
+    progress: number;
+    isPlaying: boolean;
+    isHost: boolean;
+  } | null;
+  setListenSession: (session: any) => void;
+  clearListenSession: () => void;
 
   // Public playlists
   publicPlaylists: PublicPlaylist[];
@@ -299,6 +325,7 @@ const initialState = {
   selectedContactId: null as string | null,
   unreadCounts: {} as Record<string, number>,
   contacts: [] as { id: string; name: string; username: string; avatar: string; online: boolean; lastSeen: string }[],
+  typingUsers: {} as Record<string, number>,
   searchQuery: "",
   selectedGenre: "",
   isLoading: false,
@@ -331,6 +358,9 @@ const initialState = {
   publicPlaylistsSort: "popular",
   recommendedPlaylistsLoading: false,
   selectedGroupId: null as string | null,
+
+  // Collaborative listening
+  listenSession: null as any,
 };
 
 export const useAppStore = create<AppState>()(
@@ -556,6 +586,15 @@ export const useAppStore = create<AppState>()(
             (m) => m.senderId !== contactId && m.receiverId !== contactId
           ),
         })),
+
+      setTypingUser: (contactId) => set((s) => ({
+        typingUsers: { ...s.typingUsers, [contactId]: Date.now() },
+      })),
+      clearTypingUser: (contactId) => set((s) => {
+        const next = { ...s.typingUsers };
+        delete next[contactId];
+        return { typingUsers: next };
+ }),
 
       // ── Support chat actions ──
       setSupportUnreadCount: (count) => set({ supportUnreadCount: count }),
@@ -947,6 +986,10 @@ export const useAppStore = create<AppState>()(
         }
       },
 
+      // ── Collaborative listening actions ──
+      setListenSession: (session) => set({ listenSession: session }),
+      clearListenSession: () => set({ listenSession: null }),
+
       reset: () => set(initialState),
     }),
     {
@@ -988,6 +1031,7 @@ export const useAppStore = create<AppState>()(
         playlists: state.playlists,
         history: state.history,
         liquidGlassMobile: state.liquidGlassMobile,
+        // typingUsers is intentionally excluded — it's ephemeral real-time state
       }),
       migrate: (persisted: unknown, version: number) => {
         // On any version mismatch, start completely fresh

@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { themes, applyThemeToDOM } from "@/lib/themes";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
+import { useListenSessionSync } from "@/hooks/useListenSessionSync";
 
 declare global {
   interface Window {
@@ -158,6 +159,7 @@ function AppShell() {
 
   // ── Global notifications: polling-based, works on ALL tabs ──
   useGlobalNotifications();
+  useListenSessionSync();
 
   useEffect(() => {
     if (prevViewRef.current === "search" && currentView !== "search" && searchQuery) {

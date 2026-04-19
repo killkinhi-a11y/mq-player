@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
+import { getTypingIndicatorsForUser, cleanupTypingMap } from "@/app/api/messages/typing/route";
 
 /**
  * SSE endpoint for messenger — streams new DMs for a user.
@@ -42,10 +43,34 @@ export async function GET(req: NextRequest) {
 
         let active = true;
         let lastChecked = since;
+        const emittedTypingKeys = new Set<string>();
 
         const poll = async () => {
           while (active) {
             try {
+              // ── Check typing indicators ──
+              cleanupTypingMap();
+              const typingEntries = getTypingIndicatorsForUser(userId);
+              for (const entry of typingEntries) {
+                const typingKey = `${entry.userId}→${entry.contactId}`;
+                if (!emittedTypingKeys.has(typingKey)) {
+                  emittedTypingKeys.add(typingKey);
+                  controller.enqueue(
+                    encoder.encode(
+                      `event: typing\ndata: ${JSON.stringify({ type: "typing", userId: entry.userId, contactId: entry.contactId })}\n\n`
+                    )
+                  );
+                }
+              }
+              // Remove emitted keys that are no longer active
+              const activeTypingKeys = new Set(typingEntries.map((e) => `${e.userId}→${e.contactId}`));
+              for (const key of emittedTypingKeys) {
+                if (!activeTypingKeys.has(key)) {
+                  emittedTypingKeys.delete(key);
+                }
+              }
+
+              // ── Check new messages ──
               const newMessages = await db.message.findMany({
                 where: {
                   AND: [
