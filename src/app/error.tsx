@@ -2,6 +2,9 @@
 
 import { useEffect, useCallback } from "react";
 
+const MAX_AUTO_RELOADS = 2;
+const RELOAD_KEY = "mq-root-error-reload-count";
+
 export default function ErrorBoundary({
   error,
   reset,
@@ -12,20 +15,68 @@ export default function ErrorBoundary({
   const errorMsg = error?.message || "";
 
   useEffect(() => {
-    console.error("[MQ Error]", errorMsg);
+    console.error("[MQ Root Error]", errorMsg);
+
+    // ── Auto-recover from TDZ / stale-data errors ──
+    const tdzPattern = /can't access.*lexical declaration/i;
+    const isTdZError = tdzPattern.test(errorMsg);
+
+    const stalePatterns = [
+      "Failed to execute 'getItem' on 'Storage'",
+      "Parsing failed",
+      "shellSuspendCounter",
+    ];
+    const isStaleError = stalePatterns.some((p) => errorMsg.includes(p));
+
+    if (!isTdZError && !isStaleError) return;
+
+    try {
+      const count = parseInt(sessionStorage.getItem(RELOAD_KEY) || "0");
+      if (count >= MAX_AUTO_RELOADS) {
+        sessionStorage.removeItem(RELOAD_KEY);
+        return;
+      }
+      sessionStorage.setItem(RELOAD_KEY, String(count + 1));
+    } catch {
+      return;
+    }
+
+    // Clear mq-related storage
+    try {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.includes("mq") || k.includes("MQ") || k.includes("zustand"))) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    } catch {}
+
+    // Unregister service workers
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.unregister());
+      });
+    }
+
+    // Clear Cache API then reload
+    if (window.caches) {
+      window.caches.keys().then((ks) => {
+        Promise.all(ks.map((k) => window.caches.delete(k))).then(() => {
+          window.location.replace("/play?_r=" + Date.now());
+        });
+      });
+      return;
+    }
+
+    window.location.replace("/play?_r=" + Date.now());
   }, [errorMsg]);
 
   const handleReset = useCallback(() => {
-    // Only clear the app store, NOT all localStorage
-    try { localStorage.removeItem("mq-store-v5"); } catch {}
+    try { sessionStorage.removeItem(RELOAD_KEY); } catch {}
     reset();
   }, [reset]);
-
-  const handleFullReset = useCallback(() => {
-    // Clear only the app store, then hard reload
-    try { localStorage.removeItem("mq-store-v5"); } catch {}
-    window.location.href = "/";
-  }, []);
 
   return (
     <div
@@ -69,7 +120,10 @@ export default function ErrorBoundary({
             Перезагрузить
           </button>
           <button
-            onClick={handleFullReset}
+            onClick={() => {
+              try { sessionStorage.removeItem(RELOAD_KEY); } catch {}
+              window.location.href = "/";
+            }}
             className="w-full p-3 rounded-xl text-sm font-medium"
             style={{
               backgroundColor: "transparent",

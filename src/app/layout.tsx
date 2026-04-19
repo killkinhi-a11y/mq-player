@@ -48,7 +48,7 @@ export default function RootLayout({
             __html: `(function(){
               try{
                 // === CACHE-BUST v7 (safe) ===
-                var BUILD_ID="mq-build-v47";
+                var BUILD_ID="mq-build-v48";
                 var prevBuild=localStorage.getItem('mq-build-id');
                 if(prevBuild && prevBuild!==BUILD_ID){
                   // Stale build — clear old data and reload once
@@ -70,6 +70,38 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){
+      // ── Global TDZ / chunk-loading error recovery ──
+      // Catches "can't access lexical declaration 'X' before initialization"
+      // which happens when old+new JS chunks are mixed due to caching.
+      // Runs BEFORE React hydrates, so it can auto-recover before the error boundary.
+      window.addEventListener('error',function(e){
+        var msg=(e&&e.message)||'';
+        if(/can\\'t access.*lexical declaration/i.test(msg)){
+          console.warn('[MQ] TDZ chunk error detected, auto-recovering...');
+          // Only auto-reload once per session to prevent loops
+          var key='mq-tdz-recovered';
+          try{
+            if(sessionStorage.getItem(key))return;
+            sessionStorage.setItem(key,'1');
+          }catch(ex){return}
+          // Clear all caches and reload
+          if(navigator.serviceWorker){
+            navigator.serviceWorker.getRegistrations().then(function(regs){
+              regs.forEach(function(r){r.unregister()});
+            });
+          }
+          if(window.caches){
+            window.caches.keys().then(function(ks){
+              Promise.all(ks.map(function(k){return window.caches.delete(k)})).then(function(){
+                window.location.replace(window.location.pathname+'?_tdz='+Date.now());
+              });
+            });
+            return;
+          }
+          window.location.replace(window.location.pathname+'?_tdz='+Date.now());
+        }
+      },true);
+
       function initSplash(){
         if(!document.body){document.addEventListener('DOMContentLoaded',initSplash);return}
         var splash=document.createElement('div');

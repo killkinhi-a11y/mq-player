@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useRef } from "react";
 
-const MAX_AUTO_RELOADS = 1;
+const MAX_AUTO_RELOADS = 2;
 const RELOAD_KEY = "mq-error-reload-count";
 
 export default function ErrorBoundary({
@@ -20,8 +20,15 @@ export default function ErrorBoundary({
 
     console.error("[MQ Error]", errorMsg);
 
-    // Only auto-recover for very specific stale-data / cache-bust scenarios.
-    // These patterns indicate corrupted persisted state, NOT runtime bugs.
+    // ── TDZ / module-init errors are almost always caused by stale chunks ──
+    // The error "can't access lexical declaration 'X' before initialization"
+    // means a JS chunk references a variable before its declaration executes.
+    // This happens when the browser mixes old + new chunks (cache, SW, CDN race).
+    // The only reliable fix is a hard reload with full cache busting.
+    const tdzPattern = /can't access.*lexical declaration/i;
+    const isTdZError = tdzPattern.test(errorMsg);
+
+    // Other stale-data / cache-bust error patterns
     const stalePatterns = [
       "Failed to execute 'getItem' on 'Storage'", // Storage blocked/corrupted
       "Parsing failed",                           // Zustand JSON parse error
@@ -29,7 +36,7 @@ export default function ErrorBoundary({
     ];
     const isStaleError = stalePatterns.some((p) => errorMsg.includes(p));
 
-    if (!isStaleError) return; // For all other errors, just show the UI
+    if (!isTdZError && !isStaleError) return; // For all other errors, just show the UI
 
     // Check retry limit to prevent infinite reload loop
     try {
@@ -37,15 +44,15 @@ export default function ErrorBoundary({
       if (count >= MAX_AUTO_RELOADS) {
         sessionStorage.removeItem(RELOAD_KEY);
         console.warn("[MQ Error] Max auto-reloads reached, showing error UI");
-        return; // Stop the loop
+        return;
       }
       sessionStorage.setItem(RELOAD_KEY, String(count + 1));
     } catch {
-      return; // sessionStorage unavailable — don't risk a loop
+      return;
     }
 
     didReload.current = true;
-    console.warn("[MQ Error] Detected stale-data error, auto-clearing...");
+    console.warn("[MQ Error] Detected TDZ / stale-data error, auto-clearing...");
 
     // Clear mq-related storage
     try {
@@ -66,7 +73,7 @@ export default function ErrorBoundary({
       });
     }
 
-    // Clear Cache API then reload
+    // Clear Cache API then hard reload
     if (window.caches) {
       window.caches.keys().then((ks) => {
         Promise.all(ks.map((k) => window.caches.delete(k))).then(() => {
@@ -96,6 +103,24 @@ export default function ErrorBoundary({
       keysToRemove.forEach((k) => localStorage.removeItem(k));
     } catch {}
     try { sessionStorage.removeItem(RELOAD_KEY); } catch {}
+
+    // Unregister service workers
+    if (navigator.serviceWorker) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.unregister());
+      });
+    }
+
+    // Clear all caches
+    if (window.caches) {
+      window.caches.keys().then((ks) => {
+        Promise.all(ks.map((k) => window.caches.delete(k))).then(() => {
+          window.location.replace("/play?_r=" + Date.now());
+        });
+      });
+      return;
+    }
+
     window.location.replace("/play?_r=" + Date.now());
   }, []);
 
