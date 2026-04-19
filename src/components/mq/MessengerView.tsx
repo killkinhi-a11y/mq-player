@@ -1402,7 +1402,7 @@ export default function MessengerView() {
 
   const shareTrack = async () => {
     if (!currentTrack || !selectedContactId || !userId) return;
-    await sendMessageOptimistic("", { type: "track_share", track: { id: currentTrack.id, title: currentTrack.title, artist: currentTrack.artist, cover: currentTrack.cover || "", duration: currentTrack.duration, streamUrl: currentTrack.audioUrl || "" } });
+    await sendMessageOptimistic("", { type: "track_share", track: { id: currentTrack.id, title: currentTrack.title, artist: currentTrack.artist, cover: currentTrack.cover || "", duration: currentTrack.duration, streamUrl: currentTrack.audioUrl || "", scTrackId: currentTrack.scTrackId, source: currentTrack.source } });
   };
 
   const sendFriendRequest = async (targetUserId: string) => {
