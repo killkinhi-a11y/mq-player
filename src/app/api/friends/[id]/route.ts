@@ -13,6 +13,7 @@ async function putHandler(
     if (!session) {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
     }
+    const userId = session.userId;
     const { id } = await ctx!.params;
     const { action } = await req.json(); // "accept" or "reject"
 
@@ -23,6 +24,11 @@ async function putHandler(
     const friendRequest = await db.friend.findUnique({ where: { id } });
     if (!friendRequest) {
       return NextResponse.json({ error: "Запрос не найден" }, { status: 404 });
+    }
+
+    // Authorization: only the addressee can accept/reject
+    if (friendRequest.addresseeId !== userId) {
+      return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
     }
 
     const newStatus = action === "accept" ? "accepted" : "rejected";
@@ -67,7 +73,14 @@ async function deleteHandler(
     if (!session) {
       return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
     }
+    const userId = session.userId;
     const { id } = await ctx!.params;
+
+    // Verify the user is a party to this friendship
+    const friendship = await db.friend.findUnique({ where: { id } });
+    if (!friendship || (friendship.requesterId !== userId && friendship.addresseeId !== userId)) {
+      return NextResponse.json({ error: "Запрос не найден или нет доступа" }, { status: 403 });
+    }
 
     await db.friend.delete({ where: { id } });
 

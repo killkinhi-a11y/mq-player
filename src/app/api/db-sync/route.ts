@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getSession } from "@/lib/get-session";
 
 // Safe migration: creates missing tables and columns without dropping existing ones.
 // Uses PostgreSQL's CREATE TABLE IF NOT EXISTS and DO $$ blocks.
@@ -490,6 +491,16 @@ END $$;
 
 export async function GET() {
   try {
+    // Auth: only admins can trigger DB migration
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ ok: false, error: "Необходима авторизация" }, { status: 401 });
+    }
+    const user = await db.user.findUnique({ where: { id: session.userId }, select: { role: true } });
+    if (!user || user.role !== "admin") {
+      return NextResponse.json({ ok: false, error: "Доступ запрещён" }, { status: 403 });
+    }
+
     // Execute the safe migration SQL
     await db.$executeRawUnsafe(SAFE_MIGRATION_SQL);
 

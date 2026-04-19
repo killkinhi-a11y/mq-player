@@ -114,7 +114,7 @@ export async function PUT(req: NextRequest) {
 
     if (notificationId) {
       await db.notification.update({
-        where: { id: notificationId },
+        where: { id: notificationId, userId },
         data: { read: true },
       });
       return NextResponse.json({ success: true });

@@ -75,6 +75,7 @@ export async function GET(req: NextRequest) {
                   ],
                 },
                 orderBy: { createdAt: "asc" },
+                take: 100,
                 include: {
                   sender: { select: { id: true, username: true, avatar: true } },
                   receiver: { select: { id: true, username: true, avatar: true } },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { type Track } from "@/lib/musicApi";
 
@@ -10,17 +10,31 @@ import { type Track } from "@/lib/musicApi";
  * - Guest: polls GET /api/listen-session every 3s; syncs track/progress/isPlaying from host.
  * - Host: polls GET /api/listen-session every 3s to detect session deletion;
  *         POSTs progress+isPlaying every 3s.
+ *
+ * Polling automatically stops when the session is cleared.
  */
 export function useListenSessionSync() {
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const hostIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const guestIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hostPostIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hostCheckIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Helper: clear all intervals ──
+  const clearAllIntervals = useRef(() => {
+    if (guestIntervalRef.current) { clearInterval(guestIntervalRef.current); guestIntervalRef.current = null; }
+    if (hostPostIntervalRef.current) { clearInterval(hostPostIntervalRef.current); hostPostIntervalRef.current = null; }
+    if (hostCheckIntervalRef.current) { clearInterval(hostCheckIntervalRef.current); hostCheckIntervalRef.current = null; }
+  });
 
   // ── Guest: poll and sync from host ──
   useEffect(() => {
     const poll = async () => {
       const state = useAppStore.getState();
       const session = state.listenSession;
-      if (!session || session.isHost) return;
+      if (!session || session.isHost) {
+        // No session or user is host — clear guest interval
+        if (guestIntervalRef.current) { clearInterval(guestIntervalRef.current); guestIntervalRef.current = null; }
+        return;
+      }
 
       try {
         const res = await fetch("/api/listen-session");
@@ -37,10 +51,10 @@ export function useListenSessionSync() {
         const s = useAppStore.getState();
         const store = s as any;
 
-        // Track changed — play the new track
+        // Track changed — set directly without adding to history
         if (activeSession.trackId && activeSession.trackId !== store.currentTrack?.id) {
-          store.playTrack(
-            {
+          useAppStore.setState({
+            currentTrack: {
               id: activeSession.trackId,
               title: activeSession.trackTitle || "",
               artist: activeSession.trackArtist || "",
@@ -52,8 +66,12 @@ export function useListenSessionSync() {
               source: (activeSession.source as any) || "soundcloud",
               scTrackId: activeSession.scTrackId,
             } as Track,
-            []
-          );
+            queue: [],
+            queueIndex: 0,
+            progress: 0,
+            duration: 0,
+            isPlaying: true,
+          });
         }
 
         // Sync progress (seek if differs by > 3s)
@@ -67,10 +85,8 @@ export function useListenSessionSync() {
         // Sync play/pause
         if (typeof activeSession.isPlaying === "boolean" && store.isPlaying !== activeSession.isPlaying) {
           if (activeSession.isPlaying) {
-            // If store says paused but host says playing, toggle
             if (!store.isPlaying) store.togglePlay();
           } else {
-            // If store says playing but host says paused, toggle
             if (store.isPlaying) store.togglePlay();
           }
         }
@@ -80,9 +96,10 @@ export function useListenSessionSync() {
     };
 
     poll();
-    intervalRef.current = setInterval(poll, 3000);
+    guestIntervalRef.current = setInterval(poll, 3000);
+
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (guestIntervalRef.current) { clearInterval(guestIntervalRef.current); guestIntervalRef.current = null; }
     };
   }, []);
 
@@ -91,11 +108,15 @@ export function useListenSessionSync() {
     const hostInterval = setInterval(async () => {
       const state = useAppStore.getState();
       const session = state.listenSession;
-      if (!session || !session.isHost) return;
+      if (!session || !session.isHost) {
+        // No session or user is guest — clear host interval
+        if (hostPostIntervalRef.current) { clearInterval(hostPostIntervalRef.current); hostPostIntervalRef.current = null; }
+        return;
+      }
       if (!state.currentTrack) return;
 
       try {
-        await fetch("/api/listen-session", {
+        const res = await fetch("/api/listen-session", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -111,22 +132,31 @@ export function useListenSessionSync() {
             source: state.currentTrack.source,
           }),
         });
+
+        // If session was deleted (guest left), stop polling
+        if (res.status === 404 || res.status === 410) {
+          useAppStore.getState().clearListenSession();
+        }
       } catch {
         // silent
       }
     }, 3000);
 
-    hostIntervalRef.current = hostInterval;
+    hostPostIntervalRef.current = hostInterval;
+
     return () => {
-      if (hostIntervalRef.current) clearInterval(hostIntervalRef.current);
+      if (hostPostIntervalRef.current) { clearInterval(hostPostIntervalRef.current); hostPostIntervalRef.current = null; }
     };
   }, []);
 
-  // ── Host: detect session deletion (guest left) ──
+  // ── Host: detect session deletion (guest left) — check via GET every 5s ──
   useEffect(() => {
     const checkSession = async () => {
       const session = useAppStore.getState().listenSession;
-      if (!session || !session.isHost) return;
+      if (!session || !session.isHost) {
+        if (hostCheckIntervalRef.current) { clearInterval(hostCheckIntervalRef.current); hostCheckIntervalRef.current = null; }
+        return;
+      }
 
       try {
         const res = await fetch("/api/listen-session");
@@ -142,9 +172,13 @@ export function useListenSessionSync() {
       }
     };
 
-    // Check every 5s (less frequent than the POST)
+    // Slight delay to avoid racing with the POST interval
     const interval = setInterval(checkSession, 5000);
-    return () => clearInterval(interval);
+    hostCheckIntervalRef.current = interval;
+
+    return () => {
+      if (hostCheckIntervalRef.current) { clearInterval(hostCheckIntervalRef.current); hostCheckIntervalRef.current = null; }
+    };
   }, []);
 
   // ── Initialize: check for existing session on mount ──

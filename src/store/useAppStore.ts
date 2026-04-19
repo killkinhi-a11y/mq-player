@@ -414,9 +414,9 @@ export const useAppStore = create<AppState>()(
 
       setCustomAccent: (color) => {
         set({ customAccent: color });
-        // Save accent to account if logged in
+        // Save accent to account if logged in (including null to clear)
         const { userId } = get();
-        if (userId && color) {
+        if (userId) {
           fetch('/api/user/theme', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -925,16 +925,22 @@ export const useAppStore = create<AppState>()(
             updates.history = [...newFromServer, ...localHistory].slice(0, 200);
           }
 
-          // Merge playlists: take server version if newer/more tracks
+          // Merge playlists: take server version if newer (by track count for local playlists without timestamps)
           if (Array.isArray(data.playlists)) {
             const localPlaylists = state.playlists || [];
-            const serverPlIds = new Set((data.playlists as any[]).map((p: any) => p.id));
-            const localPlIds = new Set(localPlaylists.map(p => p.id));
-            // Add server playlists that don't exist locally
             const merged = [...localPlaylists];
             for (const pl of data.playlists) {
-              if (!localPlIds.has(pl.id)) {
+              const localIdx = merged.findIndex(p => p.id === pl.id);
+              if (localIdx === -1) {
+                // New playlist from server
                 merged.push(pl);
+              } else {
+                // Update if server version has more tracks or local has no description but server does
+                const serverTracks = pl.tracks?.length || 0;
+                const localTracks = merged[localIdx].tracks?.length || 0;
+                if (serverTracks > localTracks) {
+                  merged[localIdx] = pl;
+                }
               }
             }
             updates.playlists = merged;
@@ -974,6 +980,8 @@ export const useAppStore = create<AppState>()(
             if (typeof s.animationsEnabled === "boolean") updates.animationsEnabled = s.animationsEnabled;
             if (typeof s.liquidGlassEnabled === "boolean") updates.liquidGlassEnabled = s.liquidGlassEnabled;
             if (typeof s.liquidGlassMobile === "boolean") updates.liquidGlassMobile = s.liquidGlassMobile;
+            if (typeof s.shuffle === "boolean") updates.shuffle = s.shuffle;
+            if (typeof s.repeat === "string") updates.repeat = s.repeat;
           }
 
           if (Object.keys(updates).length > 0) {
@@ -1031,6 +1039,8 @@ export const useAppStore = create<AppState>()(
         playlists: state.playlists,
         history: state.history,
         liquidGlassMobile: state.liquidGlassMobile,
+        shuffle: state.shuffle,
+        repeat: state.repeat,
         // typingUsers is intentionally excluded — it's ephemeral real-time state
       }),
       migrate: (persisted: unknown, version: number) => {

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile, stat } from "fs/promises";
+import { stat, createReadStream } from "fs";
 import { join } from "path";
 import { existsSync } from "fs";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 // Allow sufficient time for serving large audio files
 export const maxDuration = 60;
@@ -12,6 +13,12 @@ async function handler(
   ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
+    // Auth check — only logged-in users can access uploaded files
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+
     const { filename } = await ctx!.params;
     
     // Validate filename to prevent directory traversal
@@ -25,8 +32,12 @@ async function handler(
       return NextResponse.json({ error: "File not found" }, { status: 404 });
     }
     
-    const fileBuffer = await readFile(filePath);
-    const fileStat = await stat(filePath);
+    const fileStat = await new Promise<{ size: number }>((resolve, reject) => {
+      stat(filePath, (err, stats) => {
+        if (err) reject(err);
+        else resolve({ size: stats.size });
+      });
+    });
     
     // Determine content type
     const ext = filename.split('.').pop()?.toLowerCase() || '';
@@ -40,8 +51,11 @@ async function handler(
       'webm': 'audio/webm',
     };
     const contentType = contentTypes[ext] || 'application/octet-stream';
-    
-    return new NextResponse(fileBuffer, {
+
+    // Stream file instead of loading entire file into memory
+    const stream = createReadStream(filePath);
+
+    return new NextResponse(stream as any, {
       headers: {
         'Content-Type': contentType,
         'Content-Length': fileStat.size.toString(),

@@ -32,29 +32,34 @@ async function handler(req: NextRequest) {
       });
     }
 
-    // If code is provided, verify it
-    if (code) {
-      const verificationCode = await db.verificationCode.findFirst({
-        where: {
-          email,
-          code,
-          used: false,
-          expiresAt: { gt: new Date() },
-        },
-      });
-
-      if (!verificationCode) {
-        return NextResponse.json(
-          { error: "Неверный код или срок действия истёк" },
-          { status: 400 }
-        );
-      }
-
-      await db.verificationCode.update({
-        where: { id: verificationCode.id },
-        data: { used: true },
-      });
+    // Code is required — no code = no confirmation
+    if (!code) {
+      return NextResponse.json(
+        { error: "Код подтверждения обязателен" },
+        { status: 400 }
+      );
     }
+
+    const verificationCode = await db.verificationCode.findFirst({
+      where: {
+        email,
+        code,
+        used: false,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!verificationCode) {
+      return NextResponse.json(
+        { error: "Неверный код или срок действия истёк" },
+        { status: 400 }
+      );
+    }
+
+    await db.verificationCode.update({
+      where: { id: verificationCode.id },
+      data: { used: true },
+    });
 
     await db.user.update({
       where: { id: user.id },

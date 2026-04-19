@@ -1,10 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
+  // Auth check
+  try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+  } catch {
+    return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+  }
+
   // Rate limit: 10 requests per minute
   const { success, resetIn } = rateLimit({
     ip: getClientIp(req),

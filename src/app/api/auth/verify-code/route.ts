@@ -31,13 +31,7 @@ async function handler(req: NextRequest) {
       );
     }
 
-    // Mark code as used
-    await db.verificationCode.update({
-      where: { id: verificationCode.id },
-      data: { used: true },
-    });
-
-    // Find user and confirm
+    // Find user first (before marking code used) — so we can do both atomically
     const user = await db.user.findUnique({
       where: { email },
     });
@@ -49,11 +43,17 @@ async function handler(req: NextRequest) {
       );
     }
 
-    // Update user.confirmed = true
-    await db.user.update({
-      where: { id: user.id },
-      data: { confirmed: true },
-    });
+    // Mark code as used AND confirm user atomically in a transaction
+    await db.$transaction([
+      db.verificationCode.update({
+        where: { id: verificationCode.id },
+        data: { used: true },
+      }),
+      db.user.update({
+        where: { id: user.id },
+        data: { confirmed: true },
+      }),
+    ]);
 
     // Issue JWT session token — auto-login after confirmation
     const token = await signToken({ userId: user.id, username: user.username, role: user.role });

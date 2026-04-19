@@ -1,25 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { getSession } from "@/lib/get-session";
 
 async function handler(request: NextRequest) {
   try {
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const q = (searchParams.get("q") || "").trim().slice(0, 100);
     const excludeId = searchParams.get("excludeId") || "";
 
-    // Build where clause: no confirmed filter so all registered users are visible
+    // Build where clause
     const where: Record<string, unknown> = {};
     if (excludeId) {
       where.id = { not: excludeId };
     }
     if (q) {
-      const qLower = q.toLowerCase();
       where.OR = [
         { username: { contains: q } },
-        { username: { contains: qLower } },
-        { email: { contains: q } },
-        { email: { contains: qLower } },
       ];
     }
 
@@ -28,7 +30,6 @@ async function handler(request: NextRequest) {
       select: {
         id: true,
         username: true,
-        email: true,
         createdAt: true,
       },
       take: 50,
