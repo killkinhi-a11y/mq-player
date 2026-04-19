@@ -675,7 +675,7 @@ export default function MessengerView() {
         }
         // Refresh unread counts
         fetch(`/api/notifications?userId=${userId}`)
-          .then(r => r.json()).then(data => { setNotifUnreadCount(data.unreadCount || 0); }).catch(() => {});
+          .then(r => r.json()).then(data => { useAppStore.getState().setNotificationCount(data.unreadCount || 0); }).catch(() => {});
         // Refresh friends
         fetchFriends();
       }
@@ -942,7 +942,7 @@ export default function MessengerView() {
         const res = await fetch(`/api/notifications?userId=${userId}`);
         if (res.ok) {
           const data = await res.json();
-          setNotifUnreadCount(data.unreadCount || 0);
+          useAppStore.getState().setNotificationCount(data.unreadCount || 0);
         }
       } catch { /* silent */ }
     };
