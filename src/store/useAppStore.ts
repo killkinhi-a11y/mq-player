@@ -349,8 +349,11 @@ export const useAppStore = create<AppState>()(
         }, 1500);
       },
 
-      logout: () =>
-        set({ ...initialState }),
+      logout: () => {
+        set({ ...initialState });
+        // Also clear the JWT cookie on the server
+        fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+      },
 
       setView: (view) => set({ currentView: view }),
 
@@ -960,10 +963,8 @@ export const useAppStore = create<AppState>()(
         liquidGlassEnabled: state.liquidGlassEnabled,
         volume: state.volume,
         isAuthenticated: state.isAuthenticated,
-        userId: state.userId,
-        username: state.username,
-        email: state.email,
-        avatar: state.avatar,
+        // SECURITY: do NOT persist userId, username, email, avatar, userRole
+        // These come from the JWT httpOnly cookie via /api/auth/me
         messages: state.messages.length > 300 ? state.messages.slice(-300) : state.messages,
         unreadCounts: state.unreadCounts,
         contacts: state.contacts,
@@ -1032,27 +1033,28 @@ export const useAppStore = create<AppState>()(
             useAppStore.setState(fixes);
           }
 
-          // Auto-sync on rehydrate (after page reload) — push local data to server
-          if (s.userId) {
-            // Verify session is still valid before syncing
+          // Auto-sync on rehydrate (after page reload)
+          // Check session via JWT cookie — if valid, restore user info from server
+          if (s.isAuthenticated) {
             fetch('/api/auth/me')
-              .then((res) => {
+              .then(async (res) => {
                 if (!res.ok) {
                   // Session expired or invalid — logout
                   console.warn("[MQ Store] session expired on rehydrate — logging out");
                   useAppStore.getState().logout();
                   return;
                 }
-                // Session valid — sync local data to server
+                // Session valid — restore user info from server
+                const me = await res.json();
+                useAppStore.getState().setAuth(me.userId, me.username, me.email, me.role, me.avatar);
+                // Sync local data to server after short delay
                 setTimeout(() => {
                   useAppStore.getState().syncToServer();
                 }, 3000);
               })
               .catch(() => {
-                // Network error — keep local state, will retry later
-                setTimeout(() => {
-                  useAppStore.getState().syncToServer();
-                }, 3000);
+                // Network error — keep local state, will retry on next interaction
+                console.warn("[MQ Store] /api/auth/me failed on rehydrate — skipping");
               });
           }
         };
