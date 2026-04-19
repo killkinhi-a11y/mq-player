@@ -30,15 +30,47 @@ export async function POST(request: NextRequest) {
 
     const originalName = file.name || "uploaded.mp3";
 
+    // Allowed audio MIME types for strict validation
+    const ALLOWED_MIME_TYPES = new Set([
+      "audio/mpeg",       // mp3
+      "audio/wav",        // wav
+      "audio/wave",       // wav (alternative)
+      "audio/x-wav",      // wav (alternative)
+      "audio/ogg",        // ogg/opus
+      "audio/vorbis",     // ogg vorbis
+      "audio/flac",       // flac
+      "audio/aac",        // aac
+      "audio/mp4",        // m4a
+      "audio/x-m4a",      // m4a (alternative)
+      "audio/webm",       // webm
+      "audio/opus",       // opus
+      "audio/x-ms-wma",   // wma
+      "audio/aiff",       // aiff
+      "audio/x-aiff",     // aiff (alternative)
+    ]);
+
     // Validate extension
     const hasAudioExt = !!originalName.match(/\.(mp3|wav|ogg|flac|aac|m4a|webm|opus|wma|aiff|alac)$/i);
     if (!hasAudioExt) {
       return NextResponse.json({ error: "Invalid file type. Only audio files are accepted." }, { status: 400 });
     }
 
+    // Validate MIME type (double-check — extension can be spoofed)
+    if (file.type && !ALLOWED_MIME_TYPES.has(file.type)) {
+      return NextResponse.json(
+        { error: `Invalid MIME type: ${file.type}. Only audio files are accepted.` },
+        { status: 400 }
+      );
+    }
+
     // Validate file size (200MB max)
     if (file.size > 200 * 1024 * 1024) {
       return NextResponse.json({ error: "File too large. Maximum size is 200MB." }, { status: 400 });
+    }
+
+    // Reject empty files
+    if (file.size === 0) {
+      return NextResponse.json({ error: "Empty file is not allowed." }, { status: 400 });
     }
 
     const uniqueId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
