@@ -62,6 +62,7 @@ async function handler(request: NextRequest) {
     const resolvedUrl = `${streamUrl}${separator}client_id=${clientId}`;
 
     // Try to fetch the actual redirect URL
+    let directUrl = resolvedUrl;
     try {
       const redirectRes = await fetch(resolvedUrl, {
         signal: AbortSignal.timeout(8000),
@@ -69,23 +70,24 @@ async function handler(request: NextRequest) {
       });
       const redirectData = await redirectRes.json();
       if (redirectData.url) {
-        streamCache.set(trackId, {
-          url: redirectData.url,
-          expiry: Date.now() + 3 * 60 * 1000,
-        });
-        return NextResponse.json({
-          url: redirectData.url,
-          isPreview: track.policy === "SNIP",
-          duration: Math.round((track.duration || 0) / 1000),
-          fullDuration: Math.round((track.full_duration || 0) / 1000),
-        });
+        directUrl = redirectData.url;
       }
     } catch {
-      // Fallback: return the resolved URL template
+      // Fallback: use the resolved URL template
     }
 
+    // Cache the direct URL for 3 minutes
+    streamCache.set(trackId, {
+      url: directUrl,
+      expiry: Date.now() + 3 * 60 * 1000,
+    });
+
+    // Return URL through our server proxy to bypass client-side blocks
+    const proxyUrl = `/api/music/soundcloud/proxy?url=${encodeURIComponent(directUrl)}`;
+
     return NextResponse.json({
-      url: resolvedUrl,
+      url: proxyUrl,
+      directUrl: directUrl, // keep original for download feature
       isPreview: track.policy === "SNIP",
       duration: Math.round((track.duration || 0) / 1000),
       fullDuration: Math.round((track.full_duration || 0) / 1000),

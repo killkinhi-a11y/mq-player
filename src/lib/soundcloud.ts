@@ -92,9 +92,13 @@ export async function searchSCTracks(
     return tracks.map((t: Record<string, unknown>) => {
       const user = t.user as Record<string, unknown> | undefined;
       const artwork = t.artwork_url as string | undefined;
-      const cover = artwork
+      const rawCover = artwork
         ? artwork.replace("-large.", "-t500x500.")
         : (user?.avatar_url as string | undefined)?.replace("-large.", "-t500x500.") || "";
+      // Route cover images through our proxy to bypass client-side blocks
+      const cover = rawCover
+        ? `/api/music/soundcloud/image-proxy?url=${encodeURIComponent(rawCover)}`
+        : "";
       const fullDuration =
         (t.full_duration as number) || (t.duration as number) || 30000;
 

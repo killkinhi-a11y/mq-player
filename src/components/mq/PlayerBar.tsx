@@ -341,12 +341,18 @@ export default function PlayerBar() {
         if (currentTrack.source === "soundcloud" && currentTrack.scTrackId) {
           // Inline SoundCloud stream resolution (no separate callback to avoid extra async hop)
           setPlaybackMode("soundcloud");
-          resetCorsState(); // SC streams have no CORS — mark as blocked
+          resetCorsState(); // will be auto-detected — proxy has CORS so real data will work
 
           const stream = await resolveSoundCloudStream(currentTrack.scTrackId);
           if (cancelled) return;
 
           if (stream && stream.url) {
+            // If using our proxy (same-origin), set crossOrigin for real frequency data
+            if (stream.url.startsWith('/api/')) {
+              audioEl.crossOrigin = "anonymous";
+            } else {
+              audioEl.crossOrigin = "";
+            }
             audioEl.src = stream.url;
             audioEl.load();
             audioEl.play().catch(() => {
@@ -727,13 +733,19 @@ export default function PlayerBar() {
             const t = useAppStore.getState().currentTrack;
             if (audio && audio.src && t) {
               try {
-                const res = await fetch(audio.src);
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
+                // For proxied tracks, use the direct URL for download
+                let downloadSrc = audio.src;
+                if (t.scTrackId) {
+                  const res = await fetch(`/api/music/soundcloud/stream?trackId=${t.scTrackId}`);
+                  if (res.ok) {
+                    const data = await res.json();
+                    if (data.directUrl) downloadSrc = data.directUrl;
+                  }
+                }
                 const a = document.createElement('a');
-                a.href = url; a.download = `${t.artist} - ${t.title}.mp3`;
+                a.href = downloadSrc; a.download = `${t.artist} - ${t.title}.mp3`;
+                a.target = '_blank'; a.rel = 'noopener';
                 document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                URL.revokeObjectURL(url);
               } catch {
                 const a = document.createElement('a');
                 a.href = audio.src; a.download = `${t.artist} - ${t.title}.mp3`;
