@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
-import { Home, Search, MessageCircle, Settings, Music, LogOut, User, ListMusic, Clock } from "lucide-react";
+import { Home, Search, MessageCircle, Settings, Music, LogOut, User, ListMusic, Clock, Download, Monitor } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
 const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
@@ -107,6 +107,25 @@ export default function NavBar() {
       </nav>
 
       <div className="flex items-center gap-3">
+        {/* Download Desktop App */}
+        <motion.a
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all duration-200"
+          style={{
+            backgroundColor: "rgba(74,222,128,0.08)",
+            border: "1px solid rgba(74,222,128,0.2)",
+            color: "#4ade80",
+          }}
+          title="Скачать приложение для ПК"
+        >
+          <Monitor className="w-4 h-4" />
+          <span className="text-xs font-medium hidden xl:inline">Скачать</span>
+        </motion.a>
+
         {/* User profile button */}
         <motion.button
           whileHover={{ scale: 1.05 }}

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
-import { Home, Search, MessageCircle, Settings, User, ListMusic, Clock } from "lucide-react";
+import { Home, Search, MessageCircle, Settings, User, ListMusic, Clock, Monitor } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
 const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
@@ -86,6 +86,20 @@ export default function MobileNav() {
             </motion.button>
           );
         })}
+
+        {/* Download Desktop App */}
+        <motion.a
+          whileTap={{ scale: 0.9 }}
+          href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex flex-col items-center gap-0.5 px-3 py-1.5 min-w-[48px] min-h-[44px] cursor-pointer rounded-xl transition-all duration-200"
+          style={{ color: "#4ade80" }}
+          title="Скачать приложение для ПК"
+        >
+          <Monitor className="w-5 h-5" />
+          <span className="text-[10px]">ПК</span>
+        </motion.a>
       </div>
     </nav>
   );

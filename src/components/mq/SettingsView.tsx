@@ -743,7 +743,7 @@ export default function SettingsView() {
           <motion.a
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQ-Player-Setup.exe"
+            href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
@@ -755,7 +755,7 @@ export default function SettingsView() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold" style={{ color: "var(--mq-text)" }}>Windows</p>
-              <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>.exe установщик (230 MB)</p>
+              <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>.zip установщик (117 MB)</p>
             </div>
             <Download className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
           </motion.a>
@@ -764,7 +764,7 @@ export default function SettingsView() {
           <motion.a
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQ-Player.dmg"
+            href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player.dmg"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
@@ -785,7 +785,7 @@ export default function SettingsView() {
           <motion.a
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQ-Player-1.0.0.AppImage"
+            href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player.AppImage"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
@@ -806,7 +806,7 @@ export default function SettingsView() {
         <div className="mt-3 flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#4ade80" }} />
           <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
-            Версия 1.0.0 — работает как обёртка над веб-версией, все данные синхронизируются через аккаунт
+            Версия 1.0.1 — работает как обёртка над веб-версией, все данные синхронизируются через аккаунт
           </span>
         </div>
       </motion.div>
