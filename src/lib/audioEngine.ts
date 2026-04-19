@@ -85,7 +85,7 @@ export function resumeAudioContext(): void {
  *  3. If all zeros and audio has been playing a while → CORS is blocked, simulate.
  *  4. When paused/ended → fade out whatever is currently in the array.
  */
-export function getFrequencyData(dataArray: Uint8Array): Uint8Array {
+export function getFrequencyData(dataArray: Uint8Array<ArrayBuffer>): Uint8Array<ArrayBuffer> {
   if (!dataArray.length) return dataArray;
 
   const audio = _audio;

@@ -345,7 +345,7 @@ function drawBat(ctx: CanvasRenderingContext2D, x: number, y: number, size: numb
   ctx.restore();
 }
 
-function drawWeb(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string, opacity: number) {
+function drawWeb(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, rotation: number, color: string, opacity: number) {
   ctx.save();
   ctx.translate(x, y);
   ctx.globalAlpha = opacity * 0.4;

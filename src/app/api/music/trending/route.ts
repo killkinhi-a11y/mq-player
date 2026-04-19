@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { searchSCTracks } from "@/lib/soundcloud";
+import { searchSCTracks, type SCTrack } from "@/lib/soundcloud";
 
 /**
  * Popular tracks — Spotify/YouTube Music inspired ranking algorithm.
@@ -69,23 +69,7 @@ const queryPool = {
 };
 
 interface ScoredTrack {
-  track: {
-    id: string;
-    title: string;
-    artist: string;
-    cover: string;
-    duration: number;
-    scTrackId: number;
-    scIsFull: boolean;
-    source: string;
-    audioUrl?: string;
-    album?: string;
-    genre?: string;
-    previewUrl?: string;
-    artwork?: string;
-    waveformUrl?: string;
-    [key: string]: unknown;
-  };
+  track: SCTrack & { [key: string]: unknown };
   score: number;
   queryCount: number;
   category: string;
@@ -187,7 +171,7 @@ export async function GET() {
           existing.categories.add(category);
         } else {
           trackMap.set(track.scTrackId, {
-            track,
+            track: track as SCTrack & { [key: string]: unknown },
             queryCount: 1,
             categories: new Set([category]),
             totalCategoryWeight: 0,

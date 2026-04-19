@@ -459,16 +459,19 @@ export default function MessageBubble({
           whileTap={{ scale: 0.98 }}
           onClick={() => {
             const store = useAppStore.getState();
-            if (trackShareData.streamUrl || trackShareData.cover) {
+            if (trackShareData!.streamUrl || trackShareData!.cover) {
               store.playTrack(
                 {
-                  id: trackShareData.id,
-                  title: trackShareData.title,
-                  artist: trackShareData.artist,
-                  cover: trackShareData.cover,
-                  audioUrl: trackShareData.streamUrl || "",
-                  duration: trackShareData.duration,
-                },
+                  id: trackShareData!.id,
+                  title: trackShareData!.title,
+                  artist: trackShareData!.artist,
+                  cover: trackShareData!.cover,
+                  audioUrl: trackShareData!.streamUrl || "",
+                  duration: trackShareData!.duration,
+                  album: "",
+                  genre: "",
+                  source: "soundcloud",
+                } as any,
                 []
               );
             }

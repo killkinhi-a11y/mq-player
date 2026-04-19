@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
     });
 
     // If the message is from a user (not admin/bot), generate bot auto-response
-    let botMessage = null;
+    let botMessage: any = null;
     if (role === "user") {
       const botReply = findBotResponse(content);
       botMessage = await db.supportChatMessage.create({

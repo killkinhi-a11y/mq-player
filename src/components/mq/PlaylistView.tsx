@@ -571,7 +571,7 @@ export default function PlaylistView() {
                       tracks.push({
                         id: `import_${i}_${Date.now()}`,
                         title, artist, album: "", cover: "", duration: 0, genre: "",
-                        source: "soundcloud" as const, audioUrl: "", scTrackId: null, scIsFull: false,
+                        source: "soundcloud" as const, audioUrl: "", scTrackId: undefined, scIsFull: false,
                       } as Track);
                     }
                     const newPl: UserPlaylist = {

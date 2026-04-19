@@ -393,7 +393,7 @@ export default function StoriesView() {
                     className="h-full rounded-full transition-all duration-100"
                     style={{
                       backgroundColor: i === viewingIndex ? "white" : "rgba(255,255,255,0.5)",
-                      width: i < viewingIndex ? "100%" : i === viewingIndex ? `${progress}%` : "0%",
+                      width: i < (viewingIndex ?? 0) ? "100%" : i === viewingIndex ? `${progress}%` : "0%",
                     }}
                   />
                 </div>
@@ -462,7 +462,7 @@ export default function StoriesView() {
 
               {/* Story body */}
               <div className="w-full h-full flex items-center justify-center"
-                style={viewingStory.contentType === "text" ? { background: storyGradients[viewingIndex % storyGradients.length] } : {}}>
+                style={viewingStory.contentType === "text" ? { background: storyGradients[(viewingIndex ?? 0) % storyGradients.length] } : {}}>
                 {viewingStory.contentType === "text" && (
                   <div className="p-8 text-center">
                     <p className="text-xl font-medium text-white leading-relaxed">

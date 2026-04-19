@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
         data: {
           action: enabled ? "maintenance_enabled" : "maintenance_disabled",
           details: `Maintenance mode ${enabled ? "включён" : "выключен"}${adminEmail ? ` администратором ${adminEmail}` : ""}`,
+          admin: adminEmail || "unknown",
         },
       });
     } catch (auditError) {

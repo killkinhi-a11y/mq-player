@@ -231,6 +231,16 @@ interface AppState {
   fetchPublicPlaylists: (params?: { search?: string; sort?: string; page?: number }) => Promise<void>;
   fetchPlaylistRecommendations: (likedTags?: string[], likedArtists?: string[]) => Promise<void>;
 
+  // Group chat
+  selectedGroupId: string | null;
+
+  // Public playlists
+  publicPlaylists: PublicPlaylist[];
+  recommendedPlaylists: PublicPlaylist[];
+  publicPlaylistsLoading: boolean;
+  recommendedPlaylistsLoading: boolean;
+  publicPlaylistsTotal: number;
+
   // Support chat actions
   setSupportUnreadCount: (count: number) => void;
   incrementSupportUnread: () => void;
@@ -297,6 +307,8 @@ const initialState = {
   playlists: [] as UserPlaylist[],
   selectedPlaylistId: null as string | null,
 
+  userRole: "user" as string,
+
   // Public playlists
   liquidGlassMobile: false as boolean,
   history: [] as HistoryEntry[],
@@ -308,6 +320,7 @@ const initialState = {
   publicPlaylistsSearch: "",
   publicPlaylistsSort: "popular",
   recommendedPlaylistsLoading: false,
+  selectedGroupId: null as string | null,
 };
 
 export const useAppStore = create<AppState>()(
@@ -499,7 +512,7 @@ export const useAppStore = create<AppState>()(
           return { messages: updated };
         }),
 
-      setSelectedContact: (contactId) => set({ selectedContactId: contactId, unreadCounts: { ...get().unreadCounts, [contactId]: 0 } }),
+      setSelectedContact: (contactId) => set({ selectedContactId: contactId, unreadCounts: { ...get().unreadCounts, [contactId as string]: 0 } }),
 
       loadMessages: (incoming) => set((s) => {
         const existingIds = new Set(s.messages.map(m => m.id));
@@ -991,7 +1004,7 @@ export const useAppStore = create<AppState>()(
           }
           if (!state) return;
           // Validate every critical field – belt and suspenders
-          const s = state as Record<string, unknown>;
+          const s = state as unknown as Record<string, unknown>;
           const fixes: Record<string, unknown> = {};
           if (!Array.isArray(s.likedTrackIds)) fixes.likedTrackIds = [];
           if (!Array.isArray(s.dislikedTrackIds)) fixes.dislikedTrackIds = [];

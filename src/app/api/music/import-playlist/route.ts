@@ -291,7 +291,7 @@ async function extractYandex(url: string): Promise<{ name: string; tracks: { tit
     }
 
     // Pattern 1: __INITIAL_STATE__ JSON
-    const stateMatch = html.match(/__INITIAL_STATE__\s*=\s*({.*?});?\s*<\/script>/s);
+    const stateMatch = html.match(/__INITIAL_STATE__\s*=\s*([\s\S]*?);?\s*<\/script>/);
     if (stateMatch) {
       try {
         const stateJson = stateMatch[1].replace(/undefined/g, 'null');
@@ -405,7 +405,7 @@ async function extractSpotify(url: string): Promise<{ name: string; tracks: { ti
     const html = await fetchPage(url, 10000);
     if (html) {
       // Spotify embeds data in __NEXT_DATA__ or script tags
-      const nextData = html.match(/__NEXT_DATA__\s*=\s*({.*?})\s*;?\s*<\/script>/s);
+      const nextData = html.match(/__NEXT_DATA__\s*=\s*([\s\S]*?)\s*;?\s*<\/script>/);
       if (nextData) {
         try {
           const data = JSON.parse(nextData[1]);
@@ -459,7 +459,7 @@ async function extractYouTube(url: string): Promise<{ name: string; tracks: { ti
     const html = await fetchPage(url, 10000);
     if (html) {
       // YouTube Music stores data in ytInitialData
-      const initData = html.match(/ytInitialData\s*=\s*({.*?});?\s*<\/script>/s);
+      const initData = html.match(/ytInitialData\s*=\s*([\s\S]*?);?\s*<\/script>/);
       if (initData) {
         try {
           const data = JSON.parse(initData[1]);
@@ -535,9 +535,9 @@ async function extractGeneric(url: string, platform: string): Promise<{ name: st
 
     // Try __INITIAL_STATE__ or similar JSON blocks
     const statePatterns = [
-      /__INITIAL_STATE__\s*=\s*({.*?})\s*;?\s*<\/script>/s,
-      /__NEXT_DATA__\s*=\s*({.*?})\s*;?\s*<\/script>/s,
-      /window\.__data\s*=\s*({.*?})\s*;?\s*<\/script>/s,
+      /__INITIAL_STATE__\s*=\s*([\s\S]*?)\s*;?\s*<\/script>/,
+      /__NEXT_DATA__\s*=\s*([\s\S]*?)\s*;?\s*<\/script>/,
+      /window\.__data\s*=\s*([\s\S]*?)\s*;?\s*<\/script>/,
     ];
     for (const pattern of statePatterns) {
       const match = html.match(pattern);

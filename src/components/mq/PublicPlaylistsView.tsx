@@ -22,10 +22,10 @@ const sortOptions = [
 export default function PublicPlaylistsView() {
   const {
     userId,
-    publicPlaylists,
-    recommendedPlaylists,
-    publicPlaylistsLoading,
-    recommendedPlaylistsLoading,
+    publicPlaylists: publicPlaylistsData,
+    recommendedPlaylists: recommendedPlaylistsData,
+    publicPlaylistsLoading: publicPlaylistsLoadingData,
+    recommendedPlaylistsLoading: recommendedPlaylistsLoadingData,
     fetchPublicPlaylists,
     fetchPlaylistRecommendations,
     togglePlaylistLike,
@@ -33,6 +33,11 @@ export default function PublicPlaylistsView() {
     playTrack,
     animationsEnabled,
   } = useAppStore();
+
+  const publicPlaylists = publicPlaylistsData as any as PublicPlaylist[];
+  const recommendedPlaylists = recommendedPlaylistsData as any as PublicPlaylist[];
+  const publicPlaylistsLoading = publicPlaylistsLoadingData as boolean;
+  const recommendedPlaylistsLoading = recommendedPlaylistsLoadingData as boolean;
 
   const [tab, setTab] = useState<Tab>("public");
   const [search, setSearch] = useState("");

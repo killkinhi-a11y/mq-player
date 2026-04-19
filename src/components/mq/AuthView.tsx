@@ -720,9 +720,7 @@ export default function AuthView() {
                 animate={{ opacity: 1, scale: 1, rotate: 0 }}
                 transition={{ delay: 0.3, duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}>
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-                  style={{ backgroundColor: "rgba(224,49,49,0.12)" }}
-                  animate={{ boxShadow: ["0 0 0px rgba(224,49,49,0)", "0 0 30px rgba(224,49,49,0.2)", "0 0 0px rgba(224,49,49,0)"] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
+                  style={{ backgroundColor: "rgba(224,49,49,0.12)" }}>
                   <KeyRound className="w-8 h-8" style={{ color: "var(--mq-accent)" }} />
                 </div>
                 <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--mq-text)" }}>Восстановление пароля</h2>

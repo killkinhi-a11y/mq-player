@@ -478,7 +478,7 @@ export default function MessengerView() {
           const base64Url = reader.result as string;
           // Use selectedGroupId || selectedContactId directly from store
           // to avoid TDZ from referencing activeChatId before its declaration
-          const chatId = useAppStore.getState().selectedGroupId || useAppStore.getState().selectedContactId;
+          const chatId = (useAppStore.getState() as any).selectedGroupId || useAppStore.getState().selectedContactId;
           if (base64Url && chatId && userId) {
             await sendMessageOptimistic("", { type: "voice", voiceUrl: base64Url, voiceDuration: finalDuration });
           }
@@ -594,7 +594,7 @@ export default function MessengerView() {
                 edited: payload.edited,
                 voiceUrl: payload.voiceUrl,
                 voiceDuration: payload.voiceDuration,
-              });
+              } as any);
             }
           }
           // Show notification if from another user
@@ -668,7 +668,7 @@ export default function MessengerView() {
                     senderName: `@${m.sender?.username || "user"}`,
                     messageType: m.messageType, replyToId: m.replyToId, edited: m.edited,
                     voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
-                  });
+                  } as any);
                 }
               });
             }).catch(() => {});
@@ -832,7 +832,7 @@ export default function MessengerView() {
                   senderName: `@${m.sender?.username || "user"}`,
                   messageType: m.messageType, replyToId: m.replyToId, edited: m.edited,
                   voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
-                });
+                } as any);
               }
             });
           }
@@ -1306,7 +1306,7 @@ export default function MessengerView() {
       const sender = m.senderId === userId ? "Вы" : `@${contactName}`;
       let content = "";
       try { content = simulateDecryptSync(m.content); } catch { content = m.content; }
-      if (m.edited) content += " (ред.)";
+      if ((m as any).edited) content += " (ред.)";
       text += `[${time}] ${sender}: ${content}\n`;
     });
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
@@ -2253,7 +2253,7 @@ export default function MessengerView() {
                 <div key={i} className="h-0.5 flex-1 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
                   <div className="h-full rounded-full transition-all duration-100" style={{
                     backgroundColor: i === viewingStoryIndex ? "white" : "rgba(255,255,255,0.5)",
-                    width: i < viewingStoryIndex ? "100%" : i === viewingStoryIndex ? `${storyProgress}%` : "0%",
+                    width: i < (viewingStoryIndex ?? 0) ? "100%" : i === viewingStoryIndex ? `${storyProgress}%` : "0%",
                   }} />
                 </div>
               ))}
@@ -2283,7 +2283,7 @@ export default function MessengerView() {
               </div>
 
               <div className="w-full h-full flex items-center justify-center"
-                style={viewingStory.contentType === "text" ? { background: storyGradients[viewingStoryIndex % storyGradients.length] } : {}}>
+                style={viewingStory.contentType === "text" ? { background: storyGradients[(viewingStoryIndex ?? 0) % storyGradients.length] } : {}}>
                 {viewingStory.contentType === "text" && (
                   <div className="p-8 text-center"><p className="text-xl font-medium text-white leading-relaxed">{viewingStory.content}</p></div>
                 )}

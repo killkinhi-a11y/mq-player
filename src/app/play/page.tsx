@@ -5,6 +5,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { themes, applyThemeToDOM } from "@/lib/themes";
 
+declare global {
+  interface Window {
+    __mqRemoveSplash?: () => void;
+  }
+}
+
 // Static lazy imports — created ONCE at module level, not per-render
 const AuthView = lazy(() => import("@/components/mq/AuthView"));
 const MainView = lazy(() => import("@/components/mq/MainView"));

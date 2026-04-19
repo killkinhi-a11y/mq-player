@@ -237,7 +237,7 @@ export async function GET(request: NextRequest) {
     );
 
     const scoredTracks: {
-      id: number;
+      id: string;
       scTrackId: number;
       title: string;
       artist: string;

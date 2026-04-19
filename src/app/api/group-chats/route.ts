@@ -78,7 +78,7 @@ export async function GET(req: NextRequest) {
 // POST /api/group-chats — create a new group chat
 export async function POST(req: NextRequest) {
   try {
-    const { name, description, createdBy, memberIds } = await req.json();
+    const { name, description, createdBy, memberIds }: { name: string; description?: string; createdBy: string; memberIds?: string[] } = await req.json();
 
     if (!name || !createdBy) {
       return NextResponse.json(
