@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
         friends.push({
           id: friendUser.id,
           username: friendUser.username,
-          avatar: (friendUser as any).avatar || "",
+          avatar: friendUser.avatar || "",
           addedAt: f.updatedAt.toISOString(),
         });
       } else if (f.status === "pending" && f.addresseeId === userId) {

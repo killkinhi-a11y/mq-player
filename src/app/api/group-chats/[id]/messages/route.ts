@@ -198,5 +198,5 @@ async function postHandler(
     );
   }
 }
-export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const GET = withRateLimit(RATE_LIMITS.read, getHandler);
 export const POST = withRateLimit(RATE_LIMITS.write, postHandler);

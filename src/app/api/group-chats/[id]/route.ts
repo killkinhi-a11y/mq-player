@@ -220,6 +220,6 @@ async function deleteHandler(
     );
   }
 }
-export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const GET = withRateLimit(RATE_LIMITS.read, getHandler);
 export const PATCH = withRateLimit(RATE_LIMITS.write, patchHandler);
 export const DELETE = withRateLimit(RATE_LIMITS.write, deleteHandler);

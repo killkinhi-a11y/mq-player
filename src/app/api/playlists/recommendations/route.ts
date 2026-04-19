@@ -16,11 +16,11 @@ async function handler(req: NextRequest) {
     const likedTags = (searchParams.get("likedTags") || "").split(",").filter(Boolean).map((t) => t.trim().toLowerCase());
     const likedArtists = (searchParams.get("likedArtists") || "").split(",").filter(Boolean).map((a) => a.trim().toLowerCase());
     const dislikedTags = (searchParams.get("dislikedTags") || "").split(",").filter(Boolean).map((t) => t.trim().toLowerCase());
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") || "10") || 10), 100);
     const offset = parseInt(searchParams.get("offset") || "0");
 
     // Fetch all public playlists (except user's own)
-    const where: any = { isPublic: true };
+    const where: Record<string, unknown> = { isPublic: true };
     if (userId) {
       where.userId = { not: userId };
     }

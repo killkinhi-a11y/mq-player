@@ -54,5 +54,5 @@ async function postHandler(req: NextRequest) {
     return NextResponse.json({ error: "Failed to save theme" }, { status: 500 });
   }
 }
-export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const GET = withRateLimit(RATE_LIMITS.read, getHandler);
 export const POST = withRateLimit(RATE_LIMITS.write, postHandler);

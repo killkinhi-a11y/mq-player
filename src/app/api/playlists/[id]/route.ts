@@ -68,4 +68,4 @@ async function handler(
     return NextResponse.json({ error: "Failed to fetch playlist" }, { status: 500 });
   }
 }
-export const GET = withRateLimit(RATE_LIMITS.write, handler);
+export const GET = withRateLimit(RATE_LIMITS.read, handler);

@@ -7,11 +7,11 @@ async function getHandler(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId") || "";
-    const search = searchParams.get("search") || "";
+    const search = (searchParams.get("search") || "").trim().slice(0, 100);
     const tags = searchParams.get("tags") || "";
     const sort = searchParams.get("sort") || "popular"; // popular, new, likes
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "20");
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1") || 1);
+    const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") || "20") || 20), 100);
     const myOnly = searchParams.get("myOnly") === "true";
 
     const skip = (page - 1) * limit;
@@ -40,7 +40,7 @@ async function getHandler(req: NextRequest) {
     }
 
     // Public playlists feed
-    const where: any = { isPublic: true };
+    const where: Record<string, unknown> = { isPublic: true };
     if (search) {
       where.OR = [
         { name: { contains: search } },
@@ -56,7 +56,7 @@ async function getHandler(req: NextRequest) {
       where.userId = { not: userId }; // exclude own playlists from feed
     }
 
-    let orderBy: any = {};
+    let orderBy: { createdAt: "desc" } | { likes: { _count: "desc" } } = { createdAt: "desc" };
     switch (sort) {
       case "new":
         orderBy = { createdAt: "desc" };
@@ -167,7 +167,7 @@ async function putHandler(req: NextRequest) {
       return NextResponse.json({ error: "Playlist not found or unauthorized" }, { status: 403 });
     }
 
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name.trim();
     if (description !== undefined) updateData.description = description.trim();
     if (cover !== undefined) updateData.cover = cover;
@@ -217,14 +217,30 @@ async function deleteHandler(req: NextRequest) {
   }
 }
 
-export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const GET = withRateLimit(RATE_LIMITS.read, getHandler);
 export const POST = withRateLimit(RATE_LIMITS.write, postHandler);
 export const PUT = withRateLimit(RATE_LIMITS.write, putHandler);
 export const DELETE = withRateLimit(RATE_LIMITS.write, deleteHandler);
 
 // GET /api/playlists/[id] — handled in separate file
 
-function formatPlaylist(p: any) {
+interface PlaylistRow {
+  id: string;
+  userId: string;
+  name: string;
+  description: string;
+  cover: string;
+  isPublic: boolean;
+  tags: string;
+  tracksJson: string;
+  playCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+  user?: { username: string };
+  _count?: { likes: number };
+}
+
+function formatPlaylist(p: PlaylistRow) {
   let tracks = [];
   try {
     tracks = JSON.parse(p.tracksJson || "[]");

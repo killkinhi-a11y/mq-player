@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Build where clause — support "since" timestamp for incremental polling
-    const where: any = {
+    const where: Record<string, unknown> = {
       OR: [
         { senderId, receiverId },
         { senderId: receiverId, receiverId: senderId },

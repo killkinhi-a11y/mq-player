@@ -169,7 +169,7 @@ async function handler(request: NextRequest) {
   const trackArtist = searchParams.get("artist") || "";
   const trackGenre = searchParams.get("genre") || "";
   const trackDuration = parseFloat(searchParams.get("duration") || "0");
-  const limit = parseInt(searchParams.get("limit") || "20");
+  const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") || "20") || 20), 100);
   const excludeId = searchParams.get("excludeId") || "";
   const dislikedIdsParam = searchParams.get("dislikedIds") || "";
   const dislikedArtistsParam = searchParams.get("dislikedArtists") || "";

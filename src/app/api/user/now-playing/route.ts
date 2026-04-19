@@ -71,5 +71,5 @@ async function putHandler(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка" }, { status: 500 });
   }
 }
-export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const GET = withRateLimit(RATE_LIMITS.read, getHandler);
 export const PUT = withRateLimit(RATE_LIMITS.write, putHandler);

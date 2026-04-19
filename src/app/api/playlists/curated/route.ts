@@ -226,4 +226,4 @@ async function handler(req: NextRequest) {
     return NextResponse.json({ playlists: [] });
   }
 }
-export const GET = withRateLimit(RATE_LIMITS.write, handler);
+export const GET = withRateLimit(RATE_LIMITS.heavy, handler);

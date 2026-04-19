@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 async function handler(req: NextRequest) {
   try {
     const userId = req.nextUrl.searchParams.get("userId");
-    const query = req.nextUrl.searchParams.get("q");
+    const query = (req.nextUrl.searchParams.get("q") || "").trim().slice(0, 100);
     if (!userId || !query) return NextResponse.json({ error: "userId и q обязательны" }, { status: 400 });
 
     const messages = await db.message.findMany({

@@ -5,7 +5,7 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 async function handler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const q = searchParams.get("q") || "";
+    const q = (searchParams.get("q") || "").trim().slice(0, 100);
     const excludeId = searchParams.get("excludeId") || "";
 
     // Build where clause: no confirmed filter so all registered users are visible
