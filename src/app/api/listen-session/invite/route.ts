@@ -40,32 +40,49 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Пользователь не найден" }, { status: 404 });
     }
 
-    // Create or update the ListenSession (upsert to handle re-invites)
-    const listenSession = await db.listenSession.upsert({
+    // Check for existing session in either direction (A→B or B→A)
+    const existingSession = await db.listenSession.findFirst({
       where: {
-        hostId_guestId: { hostId: userId, guestId: contactId },
-      },
-      create: {
-        hostId: userId,
-        guestId: contactId,
-        trackId: trackId || "",
-        trackTitle: trackTitle || "Ожидание...",
-        trackArtist: trackArtist || "",
-        trackCover: trackCover || "",
-        scTrackId: scTrackId != null ? scTrackId : null,
-        audioUrl: audioUrl || "",
-        source: source || "soundcloud",
-      },
-      update: {
-        trackId: trackId || "",
-        trackTitle: trackTitle || "Ожидание...",
-        trackArtist: trackArtist || "",
-        trackCover: trackCover || "",
-        scTrackId: scTrackId != null ? scTrackId : null,
-        audioUrl: audioUrl || "",
-        source: source || "soundcloud",
+        OR: [
+          { hostId: userId, guestId: contactId },
+          { hostId: contactId, guestId: userId },
+        ],
       },
     });
+
+    let listenSession;
+    if (existingSession) {
+      // Update existing session with new track data
+      listenSession = await db.listenSession.update({
+        where: { id: existingSession.id },
+        data: {
+          trackId: trackId || "",
+          trackTitle: trackTitle || "Ожидание...",
+          trackArtist: trackArtist || "",
+          trackCover: trackCover || "",
+          scTrackId: scTrackId != null ? scTrackId : null,
+          audioUrl: audioUrl || "",
+          source: source || "soundcloud",
+          progress: 0,
+          isPlaying: true,
+        },
+      });
+    } else {
+      // Create new session
+      listenSession = await db.listenSession.create({
+        data: {
+          hostId: userId,
+          guestId: contactId,
+          trackId: trackId || "",
+          trackTitle: trackTitle || "Ожидание...",
+          trackArtist: trackArtist || "",
+          trackCover: trackCover || "",
+          scTrackId: scTrackId != null ? scTrackId : null,
+          audioUrl: audioUrl || "",
+          source: source || "soundcloud",
+        },
+      });
+    }
 
     // Send a system message in the DM
     await db.message.create({

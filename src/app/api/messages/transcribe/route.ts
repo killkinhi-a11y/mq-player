@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 30;
+
 export async function POST(req: NextRequest) {
   // Rate limit: 10 requests per minute
   const { success, resetIn } = rateLimit({

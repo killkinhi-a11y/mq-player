@@ -43,34 +43,22 @@ export async function GET(req: NextRequest) {
 
         let active = true;
         let lastChecked = since;
-        const lastEmittedTyping = new Set<string>();
 
         const poll = async () => {
           while (active) {
             try {
               // ── Check typing indicators from DB ──
+              // Emit ALL active typing entries every poll cycle.
+              // The client-side setTypingUser() overwrites the timestamp each time,
+              // and TypingBubble auto-hides after 4s, so re-emission is necessary
+              // to keep the indicator alive while the user is still typing.
               const typingEntries = await getActiveTypingForUser(userId);
-              const currentTypingKeys = new Set(typingEntries.map((e) => `${e.userId}→${e.contactId}`));
-              // Emit new typing events not yet sent
               for (const entry of typingEntries) {
-                const typingKey = `${entry.userId}→${entry.contactId}`;
-                if (!lastEmittedTyping.has(typingKey)) {
-                  controller.enqueue(
-                    encoder.encode(
-                      `event: typing\ndata: ${JSON.stringify({ type: "typing", userId: entry.userId, contactId: entry.contactId })}\n\n`
-                    )
-                  );
-                }
-              }
-              // Clear keys that are no longer active in DB
-              for (const key of lastEmittedTyping) {
-                if (!currentTypingKeys.has(key)) {
-                  lastEmittedTyping.delete(key);
-                }
-              }
-              // Add newly active keys
-              for (const key of currentTypingKeys) {
-                lastEmittedTyping.add(key);
+                controller.enqueue(
+                  encoder.encode(
+                    `event: typing\ndata: ${JSON.stringify({ type: "typing", userId: entry.userId, contactId: entry.contactId })}\n\n`
+                  )
+                );
               }
 
               // ── Check new messages ──

@@ -4,6 +4,9 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
 import ZAI from "z-ai-web-dev-sdk";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 60;
+
 async function postHandler(req: NextRequest) {
   try {
     const session = await getSession();

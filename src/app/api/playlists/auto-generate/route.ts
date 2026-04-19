@@ -4,6 +4,9 @@ import { withRateLimit } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
 import ZAI from "z-ai-web-dev-sdk";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 30;
+
 async function postHandler(req: NextRequest) {
   try {
     const session = await getSession();
@@ -56,7 +59,7 @@ async function postHandler(req: NextRequest) {
     const completion = await zai.chat.completions.create({
       messages: [
         {
-          role: "system",
+          role: "assistant",
           content:
             "You are a music expert. Generate playlist tags and description in Russian. " +
             'Return ONLY valid JSON in this exact format: {"tags": ["tag1","tag2","tag3"],"description": "описание плейлиста"}. ' +
@@ -70,6 +73,7 @@ async function postHandler(req: NextRequest) {
         },
       ],
       temperature: 0.7,
+      thinking: { type: 'disabled' },
     });
 
     const raw = completion.choices?.[0]?.message?.content || "";
