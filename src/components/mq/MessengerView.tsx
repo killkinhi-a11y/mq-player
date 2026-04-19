@@ -227,6 +227,20 @@ export default function MessengerView() {
   const [storyPaused, setStoryPaused] = useState(false);
   const storyTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── All refs declared here before any useEffect to avoid TDZ in SWC minifier ──
+  const bcRef = useRef<BroadcastChannel | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const sseRef = useRef<EventSource | null>(null);
+  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const notifAudioCtxRef = useRef<AudioContext | null>(null);
+  const lastSeenTimeRef = useRef<string>(new Date(Date.now() - 10000).toISOString());
+  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recordingDurationRef = useRef(0);
+
   // ═══════════════════════════════════════════════════════════
   //  COMPUTED VALUES (useCallback / useMemo)
   //  Defined before useEffects to avoid TDZ in Turbopack minifier
@@ -556,7 +570,6 @@ export default function MessengerView() {
 
 
   // ── Cross-tab BroadcastChannel for notifications ──
-  const bcRef = useRef<BroadcastChannel | null>(null);
   useEffect(() => {
     if (!userId) return;
     try {
@@ -672,15 +685,6 @@ export default function MessengerView() {
     return () => document.removeEventListener("visibilitychange", handler);
   }, [userId, selectedContactId, fetchFriends]);
 
-  // ── Refs ──
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const sseRef = useRef<EventSource | null>(null);
-  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
   // ── Stories grouping ──
   const storyGroups = stories.reduce<Record<string, Story[]>>((acc, s) => {
     if (!acc[s.userId]) acc[s.userId] = [];
@@ -696,7 +700,6 @@ export default function MessengerView() {
 
 
   // ── Play notification sound ──
-  const notifAudioCtxRef = useRef<AudioContext | null>(null);
 
   // ═══════════════════════════════════════════════════════════
   //  EFFECTS
@@ -745,11 +748,6 @@ export default function MessengerView() {
   // ═══════════════════════════════════════════════════════════
   //  REAL-TIME MESSAGES: SSE (primary) + Polling (fallback)
   // ═══════════════════════════════════════════════════════════
-
-  // Keep track of the last seen message timestamp for SSE reconnection
-  const lastSeenTimeRef = useRef<string>(new Date(Date.now() - 10000).toISOString());
-  // Track reconnection timeout to prevent leaks
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 
   // SSE connection
@@ -1236,9 +1234,6 @@ export default function MessengerView() {
   // ═══════════════════════════════════════════════════════════
   //  FEATURE 6: VOICE MESSAGES
   // ═══════════════════════════════════════════════════════════
-
-  // Recording duration ref for stale closure fix
-  const recordingDurationRef = useRef(0);
 
 
 
