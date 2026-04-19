@@ -112,7 +112,37 @@ export default function PlayerBar() {
     };
     const onError = () => {
       const audioEl = getActive();
-      // Retry on error for the same track (max 3 times)
+      const st = useAppStore.getState();
+      const isSCTrack = !!st.currentTrack?.scTrackId;
+
+      // For SoundCloud tracks: re-resolve stream URL instead of reloading same (possibly expired) URL
+      if (isSCTrack && st.currentTrack?.scTrackId && retryCountRef.current < maxRetries) {
+        retryCountRef.current++;
+        console.warn(`[Player] Error loading SC track, re-resolving stream (attempt ${retryCountRef.current}/${maxRetries})`);
+        resolveSoundCloudStream(st.currentTrack.scTrackId).then(stream => {
+          if (stream?.url) {
+            const a = getActive();
+            if (a) {
+              a.src = stream.url;
+              a.load();
+              a.play().catch(() => {});
+              retryCountRef.current = 0; // reset on successful re-resolve
+            }
+          } else {
+            // No stream available — skip
+            setPlayError(true);
+            setIsLoadingTrack(false);
+            setTimeout(() => { nextTrackRef.current(); }, 1500);
+          }
+        }).catch(() => {
+          setPlayError(true);
+          setIsLoadingTrack(false);
+          setTimeout(() => { nextTrackRef.current(); }, 1500);
+        });
+        return;
+      }
+
+      // Non-SC tracks or max retries: try reloading same URL once more
       if (audioEl?.src && retryCountRef.current < maxRetries) {
         retryCountRef.current++;
         console.warn(`[Player] Error loading track, retry ${retryCountRef.current}/${maxRetries}`);
@@ -126,29 +156,12 @@ export default function PlayerBar() {
       } else {
         setPlayError(true);
         setIsLoadingTrack(false);
-        const st = useAppStore.getState();
-        if (st.currentTrack?.scTrackId && audioEl?.src && !audioEl.src.includes("api/v1/soundcloud")) {
-          console.warn(`[Player] Trying SC stream resolution as fallback`);
-          resolveSoundCloudStream(st.currentTrack.scTrackId).then(stream => {
-            if (stream?.url) {
-              retryCountRef.current = 0;
-              cancelCrossfade();
-              const a = getActive();
-              if (a) {
-                a.src = stream.url;
-                a.load();
-                a.play().catch(() => {});
-              }
-            }
-          }).catch(() => {});
-        } else {
-          console.warn(`[Player] Max retries reached, auto-skipping to next track`);
-          setTimeout(() => {
-            if (playErrorRef.current && useAppStore.getState().currentTrack) {
-              nextTrackRef.current();
-            }
-          }, 2000);
-        }
+        console.warn(`[Player] Max retries reached, auto-skipping to next track`);
+        setTimeout(() => {
+          if (playErrorRef.current && useAppStore.getState().currentTrack) {
+            nextTrackRef.current();
+          }
+        }, 2000);
       }
     };
     const onCanPlay = () => {

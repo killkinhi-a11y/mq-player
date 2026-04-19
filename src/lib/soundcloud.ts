@@ -89,7 +89,14 @@ export async function searchSCTracks(
     const tracks = data.collection || [];
     if (tracks.length === 0) return [];
 
-    return tracks.map((t: Record<string, unknown>) => {
+    return tracks
+      .filter((t: Record<string, unknown>) => {
+        const policy = (t.policy as string) || "";
+        // Filter out completely blocked tracks — they have no playable media
+        if (policy === "BLOCK") return false;
+        return true;
+      })
+      .map((t: Record<string, unknown>) => {
       const user = t.user as Record<string, unknown> | undefined;
       const artwork = t.artwork_url as string | undefined;
       const rawCover = artwork
@@ -101,6 +108,7 @@ export async function searchSCTracks(
         : "";
       const fullDuration =
         (t.full_duration as number) || (t.duration as number) || 30000;
+      const policy = (t.policy as string) || "ALLOW";
 
       return {
         id: `sc_${t.id}`,
@@ -114,8 +122,8 @@ export async function searchSCTracks(
         previewUrl: "",
         source: "soundcloud" as const,
         scTrackId: t.id as number,
-        scStreamPolicy: t.policy as string,
-        scIsFull: t.policy !== "SNIP",
+        scStreamPolicy: policy,
+        scIsFull: policy === "ALLOW", // Only ALLOW = truly full playable track
       };
     });
   } catch {
