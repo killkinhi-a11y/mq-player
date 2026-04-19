@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
@@ -719,6 +719,95 @@ export default function SettingsView() {
             <Cloud className="w-3 h-3" />
             Сохранить на сервер
           </motion.button>
+        </div>
+      </motion.div>
+
+      {/* Desktop App Download */}
+      <motion.div
+        initial={anim ? { opacity: 0, y: 20 } : undefined}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45 }}
+        className="rounded-2xl p-4"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <Monitor className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+          <h2 className="font-semibold" style={{ color: "var(--mq-text)" }}>Приложение для компьютера</h2>
+        </div>
+        <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
+          Установите MQ Player как нативное приложение. Автоматические обновления, ярлык на рабочем столе, работа в фоновом режиме.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {/* Windows */}
+          <motion.a
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQ-Player-Setup.exe"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
+            style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)" }}
+          >
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: "rgba(59,130,246,0.12)" }}>
+              <Monitor className="w-5 h-5" style={{ color: "#3b82f6" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold" style={{ color: "var(--mq-text)" }}>Windows</p>
+              <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>.exe установщик</p>
+            </div>
+            <Download className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+          </motion.a>
+
+          {/* macOS */}
+          <motion.a
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQ-Player.dmg"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
+            style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)" }}
+          >
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: "rgba(168,85,247,0.12)" }}>
+              <Apple className="w-5 h-5" style={{ color: "#a855f7" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold" style={{ color: "var(--mq-text)" }}>macOS</p>
+              <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>.dmg образ</p>
+            </div>
+            <Download className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+          </motion.a>
+
+          {/* Linux */}
+          <motion.a
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQ-Player.AppImage"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
+            style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)" }}
+          >
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: "rgba(234,179,8,0.12)" }}>
+              <Smartphone className="w-5 h-5" style={{ color: "#eab308" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold" style={{ color: "var(--mq-text)" }}>Linux</p>
+              <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>.AppImage</p>
+            </div>
+            <Download className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+          </motion.a>
+        </div>
+
+        <div className="mt-3 flex items-center gap-1.5">
+          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#4ade80" }} />
+          <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+            Версия 1.0.0 — работает как обёртка над веб-версией, все данные синхронизируются через аккаунт
+          </span>
         </div>
       </motion.div>
 
