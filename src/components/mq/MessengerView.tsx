@@ -362,6 +362,55 @@ export default function MessengerView() {
   const storyGroupKeys = Object.keys(storyGroups);
 
   // ═══════════════════════════════════════════════════════════
+  //  CALLBACKS (defined before effects to avoid TDZ in minifier)
+  // ═══════════════════════════════════════════════════════════
+
+  // ── Fetch friends list ──
+  const fetchFriends = useCallback(async () => {
+    if (!userId) return;
+    setIsLoadingFriends(true);
+    try {
+      const res = await fetch(`/api/friends?userId=${userId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setFriends(data.friends || []);
+        setPendingRequests(data.pendingRequests || []);
+      }
+    } catch { /* silent */ } finally { setIsLoadingFriends(false); }
+  }, [userId]);
+
+  // ── Notification permission ──
+  const requestNotifPermission = useCallback(async () => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    try {
+      const perm = await Notification.requestPermission();
+      setNotificationPermission(perm);
+    } catch { /* ignore */ }
+  }, []);
+
+  // ── Play notification sound ──
+  const notifAudioCtxRef = useRef<AudioContext | null>(null);
+  const playNotifSound = useCallback(() => {
+    try {
+      if (!notifAudioCtxRef.current || notifAudioCtxRef.current.state === "closed") {
+        notifAudioCtxRef.current = new AudioContext();
+      }
+      const ctx = notifAudioCtxRef.current;
+      if (ctx.state === "suspended") ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = "sine";
+      gain.gain.value = 0.1;
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+      osc.stop(ctx.currentTime + 0.3);
+    } catch { /* ignore */ }
+  }, []);
+
+  // ═══════════════════════════════════════════════════════════
   //  EFFECTS
   // ═══════════════════════════════════════════════════════════
 
@@ -413,20 +462,6 @@ export default function MessengerView() {
     };
     fetchStories();
   }, []);
-
-  // ── Fetch friends list ──
-  const fetchFriends = useCallback(async () => {
-    if (!userId) return;
-    setIsLoadingFriends(true);
-    try {
-      const res = await fetch(`/api/friends?userId=${userId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setFriends(data.friends || []);
-        setPendingRequests(data.pendingRequests || []);
-      }
-    } catch { /* silent */ } finally { setIsLoadingFriends(false); }
-  }, [userId]);
 
   useEffect(() => { fetchFriends(); }, [fetchFriends]);
 
@@ -613,36 +648,6 @@ export default function MessengerView() {
     if (typeof window !== "undefined" && "Notification" in window) {
       setNotificationPermission(Notification.permission);
     }
-  }, []);
-
-  const requestNotifPermission = useCallback(async () => {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    try {
-      const perm = await Notification.requestPermission();
-      setNotificationPermission(perm);
-    } catch { /* ignore */ }
-  }, []);
-
-  // Play notification sound — reuse AudioContext to avoid hitting browser limits
-  const notifAudioCtxRef = useRef<AudioContext | null>(null);
-  const playNotifSound = useCallback(() => {
-    try {
-      if (!notifAudioCtxRef.current || notifAudioCtxRef.current.state === "closed") {
-        notifAudioCtxRef.current = new AudioContext();
-      }
-      const ctx = notifAudioCtxRef.current;
-      if (ctx.state === "suspended") ctx.resume();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      osc.type = "sine";
-      gain.gain.value = 0.1;
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.stop(ctx.currentTime + 0.3);
-    } catch { /* ignore */ }
   }, []);
 
   // Send heartbeat (skip if hideOnline is enabled)
