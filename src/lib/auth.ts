@@ -1,10 +1,12 @@
 import { SignJWT, jwtVerify } from "jose";
 
-const secretRaw = process.env.JWT_SECRET;
-if (!secretRaw) {
-  throw new Error("JWT_SECRET environment variable is required");
+function getSecret(): Uint8Array {
+  const secretRaw = process.env.JWT_SECRET;
+  if (!secretRaw) {
+    throw new Error("JWT_SECRET environment variable is required");
+  }
+  return new TextEncoder().encode(secretRaw);
 }
-const secret = new TextEncoder().encode(secretRaw);
 
 export interface SessionPayload {
   userId: string;
@@ -22,7 +24,7 @@ export async function signToken(payload: SessionPayload): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("7d")
-    .sign(secret);
+    .sign(getSecret());
 }
 
 /**
@@ -31,7 +33,7 @@ export async function signToken(payload: SessionPayload): Promise<string> {
  */
 export async function verifyToken(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, secret);
+    const { payload } = await jwtVerify(token, getSecret());
     return {
       userId: payload.userId as string,
       username: payload.username as string | undefined,
