@@ -1,6 +1,9 @@
 "use client";
 
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useAppStore } from "@/store/useAppStore";
+import { themes, applyThemeToDOM } from "@/lib/themes";
 
 // Static lazy imports — created ONCE at module level, not per-render
 const AuthView = lazy(() => import("@/components/mq/AuthView"));
@@ -21,16 +24,6 @@ const MobileNav = lazy(() => import("@/components/mq/MobileNav"));
 const SeasonalEffects = lazy(() => import("@/components/mq/SeasonalEffects"));
 const MaintenanceBanner = lazy(() => import("@/components/mq/MaintenanceBanner"));
 
-// Safe require — never throws, returns empty defaults if module unavailable
-let _framer: any = { motion: "div", AnimatePresence: ({ children }: any) => children };
-let _useAppStore: any = () => ({});
-let _themes: any = {};
-let _applyThemeToDOM: any = () => {};
-
-try { const m = require("framer-motion"); _framer = m; } catch {}
-try { const m = require("@/store/useAppStore"); _useAppStore = m.useAppStore; } catch {}
-try { const m = require("@/lib/themes"); _themes = m.themes; _applyThemeToDOM = m.applyThemeToDOM; } catch {}
-
 function useIsClient() {
   const [isClient, setIsClient] = useState(false);
   useEffect(() => { setIsClient(true); }, []);
@@ -38,11 +31,6 @@ function useIsClient() {
 }
 
 function AppShell() {
-  const { motion, AnimatePresence } = _framer;
-  const useAppStore = _useAppStore;
-  const themes = _themes;
-  const applyThemeToDOM = _applyThemeToDOM;
-
   const {
     currentView, currentTheme, customAccent, fontSize, animationsEnabled,
     isAuthenticated, setView, searchQuery, setSearchQuery, setTheme,
@@ -51,6 +39,10 @@ function AppShell() {
   // ── Seasonal theme auto-detection from admin flags ──
   const [seasonalTheme, setSeasonalTheme] = useState<string | null>(null);
 
+  // ── All refs declared before effects ──
+  const prevViewRef = useRef(currentView);
+
+  // ── All effects declared after refs ──
   useEffect(() => {
     let cancelled = false;
     const fetchSeasonal = async () => {
@@ -59,10 +51,8 @@ function AppShell() {
         const data = await res.json();
         if (!cancelled && data.activeTheme) {
           const themeKey = data.activeTheme;
-          // Check if this seasonal theme exists in themes
           if (themes[themeKey]) {
             setSeasonalTheme(themeKey);
-            // Auto-apply the seasonal theme (user can still override in settings)
             setTheme(themeKey);
           }
         }
@@ -71,7 +61,6 @@ function AppShell() {
       }
     };
     fetchSeasonal();
-    // Re-check every 5 minutes (admin might toggle a theme)
     const interval = setInterval(fetchSeasonal, 5 * 60 * 1000);
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
@@ -105,7 +94,6 @@ function AppShell() {
     const store = useAppStore.getState();
     if (!store.isAuthenticated || !store.userId) return;
 
-    // Sync every 60 seconds
     const interval = setInterval(() => {
       const s = useAppStore.getState();
       if (s.isAuthenticated && s.userId) {
@@ -113,7 +101,6 @@ function AppShell() {
       }
     }, 60_000);
 
-    // Sync when tab becomes visible again
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         const s = useAppStore.getState();
@@ -123,11 +110,9 @@ function AppShell() {
       }
     };
 
-    // Sync before page unload
     const handleUnload = () => {
       const s = useAppStore.getState();
       if (s.isAuthenticated && s.userId) {
-        // Use sendBeacon for reliability on page close
         const payload = {
           userId: s.userId,
           data: {
@@ -162,7 +147,6 @@ function AppShell() {
     };
   }, [isAuthenticated]);
 
-  const prevViewRef = useRef(currentView);
   useEffect(() => {
     if (prevViewRef.current === "search" && currentView !== "search" && searchQuery) {
       setSearchQuery("");

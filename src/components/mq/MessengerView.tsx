@@ -476,7 +476,10 @@ export default function MessengerView() {
         const reader = new FileReader();
         reader.onloadend = async () => {
           const base64Url = reader.result as string;
-          if (base64Url && activeChatId && userId) {
+          // Use selectedGroupId || selectedContactId directly from store
+          // to avoid TDZ from referencing activeChatId before its declaration
+          const chatId = useAppStore.getState().selectedGroupId || useAppStore.getState().selectedContactId;
+          if (base64Url && chatId && userId) {
             await sendMessageOptimistic("", { type: "voice", voiceUrl: base64Url, voiceDuration: finalDuration });
           }
         };
@@ -492,7 +495,7 @@ export default function MessengerView() {
     } catch (err) {
       showToast("Нет доступа к микрофону");
     }
-  }, [activeChatId, userId, sendMessageOptimistic]);
+  }, [userId, sendMessageOptimistic]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
@@ -520,15 +523,8 @@ export default function MessengerView() {
     });
   }, []);
 
-  const barHeights = useMemo(() => {
-    const heights: number[] = [];
-    let seed = duration * 7;
-    for (let i = 0; i < barCount; i++) {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-      heights.push(20 + (seed % 80));
-    }
-    return heights;
-  }, [duration]);
+  // barHeights removed from here — it was referencing undefined `duration`/`barCount`.
+  // Waveform bars are now computed inside VoiceMessageBubble where they belong.
 
   // ═══════════════════════════════════════════════════════════
   //  EFFECTS — all useEffects placed after all useCallback/useMemo declarations
@@ -2635,6 +2631,15 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: { voiceUrl: string; 
 
   // Generate pseudo-random bar heights based on duration for consistent waveform
   const barCount = 28;
+  const barHeights = useMemo(() => {
+    const heights: number[] = [];
+    let seed = duration * 7;
+    for (let i = 0; i < barCount; i++) {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      heights.push(20 + (seed % 80));
+    }
+    return heights;
+  }, [duration]);
 
   useEffect(() => {
     return () => {
