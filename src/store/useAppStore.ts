@@ -395,7 +395,14 @@ export const useAppStore = create<AppState>()(
         fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
       },
 
-      setView: (view) => set({ currentView: view }),
+      setView: (view) => {
+        set({ currentView: view });
+        // Sync with browser history for back/forward button support
+        if (typeof window !== "undefined") {
+          const url = view === "main" ? "/play" : `/play?v=${view}`;
+          window.history.pushState({ view }, "", url);
+        }
+      },
 
       setAuthStep: (step) => set({ authStep: step }),
 

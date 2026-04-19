@@ -93,6 +93,25 @@ function AppShell() {
     if (isAuthenticated && currentView === "auth") setView("main");
   }, [isAuthenticated, currentView, setView]);
 
+  // ── Browser back/forward button support ──
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      const view = e.state?.view as ViewType | undefined;
+      if (view) {
+        useAppStore.setState({ currentView: view });
+      } else {
+        // Fallback: if no state (e.g. initial page load), go to main
+        useAppStore.setState({ currentView: "main" });
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    // Set initial history state so back button works from the first navigation
+    if (!window.history.state?.view) {
+      window.history.replaceState({ view: currentView }, "", currentView === "main" ? "/play" : `/play?v=${currentView}`);
+    }
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const theme = themes[currentTheme];
     if (!theme) {
