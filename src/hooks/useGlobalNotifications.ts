@@ -68,30 +68,13 @@ export function useGlobalNotifications() {
         if (!res.ok) return;
         const data = await res.json();
 
-        // 1. Update per-contact unread counts for messenger badge
-        if (data.perContact && typeof data.perContact === "object") {
-          const currentCounts = { ...state.unreadCounts };
-          // Only update counts from the server — don't reset contacts that had local updates
-          for (const [contactId, serverCount] of Object.entries(data.perContact)) {
-            const sc = serverCount as number;
-            // Keep the higher of local vs server count
-            if (sc > (currentCounts[contactId] || 0)) {
-              currentCounts[contactId] = sc;
-            }
-          }
-          useAppStore.setState({ unreadCounts: currentCounts });
-        }
-
-        // 2. Update document title with total unread count
-        const totalCount = data.count || 0;
-        const baseTitle = document.title.replace(/^\(\d+\)\s*/, "");
-        document.title = totalCount > 0 ? `(${totalCount}) ${baseTitle}` : baseTitle;
-
-        // 3. New message detection — play sound + browser notification
+        // 1. New message detection — play sound + browser notification + increment badge
         if (data.latestMessage) {
           const lm = data.latestMessage;
-          if (lastMessageIdRef.current !== null && lm.id !== lastMessageIdRef.current) {
-            // This is genuinely a NEW message since last poll
+          const isNewMessage = lastMessageIdRef.current !== null && lm.id !== lastMessageIdRef.current;
+
+          if (isNewMessage && lm.senderId && lm.senderId !== state.userId) {
+            // Sound
             playNotifSound();
 
             // Decrypt for preview
@@ -102,6 +85,7 @@ export function useGlobalNotifications() {
               preview = (lm.content || "").slice(0, 80);
             }
 
+            // Browser notification
             const senderName = lm.senderUsername || "Someone";
             showBrowserNotification(senderName, preview, lm.id);
 
@@ -114,9 +98,21 @@ export function useGlobalNotifications() {
             } catch {
               /* BroadcastChannel not supported */
             }
+
+            // Increment unread count ONLY for the sender (if not on messenger with that chat)
+            if (state.currentView !== "messenger" || state.selectedContactId !== lm.senderId) {
+              const counts = { ...state.unreadCounts };
+              counts[lm.senderId] = (counts[lm.senderId] || 0) + 1;
+              useAppStore.setState({ unreadCounts: counts });
+            }
           }
           lastMessageIdRef.current = lm.id;
         }
+
+        // 2. Update document title with local unread sum (not server total)
+        const localUnread = Object.values(useAppStore.getState().unreadCounts).reduce((sum: number, c) => sum + (c || 0), 0);
+        const baseTitle = document.title.replace(/^\(\d+\)\s*/, "");
+        document.title = localUnread > 0 ? `(${localUnread}) ${baseTitle}` : baseTitle;
       } catch {
         /* network error — silent */
       }
