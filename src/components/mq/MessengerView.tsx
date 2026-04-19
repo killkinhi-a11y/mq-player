@@ -2522,24 +2522,22 @@ export default function MessengerView() {
         onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchMove={handleTouchMove}>
         <motion.div initial={animationsEnabled ? { opacity: 0, y: 8, scale: 0.97 } : undefined} animate={{ opacity: 1, y: 0, scale: 1 }}
           className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
-          <div className="max-w-[85%] lg:max-w-[70%] w-fit" style={{ minWidth: 0 }}>
-            {replyPreview && (
-              <div className="mb-1 ml-1 px-2.5 py-1.5 rounded-lg" style={{ ...glassPanel, borderLeft: "2px solid var(--mq-accent)" }}>
-                <p className="text-[9px] font-semibold" style={{ color: "var(--mq-accent)" }}>{replyPreview.senderName}</p>
-                <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{replyPreview.content}</p>
-              </div>
-            )}
-            {isSticker ? (
-              <div className="text-5xl py-2">{stickerEmoji}</div>
-            ) : isVoice ? (
-              <VoiceMessageBubble voiceUrl={voiceData!.voiceUrl} duration={voiceData!.voiceDuration || 0} isMine={isMine} />
-            ) : (
-              <MessageBubble message={msg} currentUserId={userId || undefined} />
-            )}
-            {isEdited && !isSticker && !isVoice && (
-              <p className={`text-[9px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
-            )}
-          </div>
+          {replyPreview && (
+            <div className="mb-1 ml-1 px-2.5 py-1.5 rounded-lg max-w-[85%] lg:max-w-[70%] w-fit" style={{ ...glassPanel, borderLeft: "2px solid var(--mq-accent)" }}>
+              <p className="text-[9px] font-semibold" style={{ color: "var(--mq-accent)" }}>{replyPreview.senderName}</p>
+              <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{replyPreview.content}</p>
+            </div>
+          )}
+          {isSticker ? (
+            <div className="text-5xl py-2">{stickerEmoji}</div>
+          ) : isVoice ? (
+            <VoiceMessageBubble voiceUrl={voiceData!.voiceUrl} duration={voiceData!.voiceDuration || 0} isMine={isMine} />
+          ) : (
+            <MessageBubble message={msg} currentUserId={userId || undefined} />
+          )}
+          {isEdited && !isSticker && !isVoice && (
+            <p className={`text-[9px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
+          )}
         </motion.div>
 
         {/* Context menu — fixed positioning at cursor */}
@@ -2595,23 +2593,36 @@ export default function MessengerView() {
 
     return (
       <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"} mb-3`}>
-        <div className="max-w-[85%] lg:max-w-[70%] w-fit">
-          {!isMine && (
-            <p className="text-[10px] mb-1 ml-1 font-semibold" style={{ color: "var(--mq-accent)" }}>
-              {msg.senderName || "User"}
-            </p>
-          )}
-          {stickerEmoji ? (
-            <div className="text-5xl py-2">{stickerEmoji}</div>
-          ) : voiceData ? (
-            <VoiceMessageBubble voiceUrl={voiceData!.voiceUrl} duration={voiceData!.voiceDuration || 0} isMine={isMine} />
+          {!isMine ? (
+            <div className="max-w-[85%] lg:max-w-[70%] w-fit">
+              <p className="text-[10px] mb-1 ml-1 font-semibold" style={{ color: "var(--mq-accent)" }}>
+                {msg.senderName || "User"}
+              </p>
+              {stickerEmoji ? (
+                <div className="text-5xl py-2">{stickerEmoji}</div>
+              ) : voiceData ? (
+                <VoiceMessageBubble voiceUrl={voiceData!.voiceUrl} duration={voiceData!.voiceDuration || 0} isMine={isMine} />
+              ) : (
+                <MessageBubble message={{ id: msg.id, content: msg.content, senderId: msg.senderId, receiverId: userId || "", encrypted: false, createdAt: msg.createdAt, senderName: msg.senderName, messageType: msg.messageType, replyToId: msg.replyToId, edited: msg.edited }} currentUserId={userId || undefined} />
+              )}
+              {msg.edited && !stickerEmoji && !voiceData && (
+                <p className={`text-[9px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
+              )}
+            </div>
           ) : (
-            <MessageBubble message={{ id: msg.id, content: msg.content, senderId: msg.senderId, receiverId: userId || "", encrypted: false, createdAt: msg.createdAt, senderName: msg.senderName, messageType: msg.messageType, replyToId: msg.replyToId, edited: msg.edited }} currentUserId={userId || undefined} />
+            <>
+              {stickerEmoji ? (
+                <div className="text-5xl py-2">{stickerEmoji}</div>
+              ) : voiceData ? (
+                <VoiceMessageBubble voiceUrl={voiceData!.voiceUrl} duration={voiceData!.voiceDuration || 0} isMine={isMine} />
+              ) : (
+                <MessageBubble message={{ id: msg.id, content: msg.content, senderId: msg.senderId, receiverId: userId || "", encrypted: false, createdAt: msg.createdAt, senderName: msg.senderName, messageType: msg.messageType, replyToId: msg.replyToId, edited: msg.edited }} currentUserId={userId || undefined} />
+              )}
+              {msg.edited && !stickerEmoji && !voiceData && (
+                <p className={`text-[9px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
+              )}
+            </>
           )}
-          {msg.edited && !stickerEmoji && !voiceData && (
-            <p className={`text-[9px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
-          )}
-        </div>
       </div>
     );
   }
