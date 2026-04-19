@@ -115,6 +115,8 @@
     "appId": "com.mq.player",
     "productName": "MQ Player",
     "copyright": "Copyright 2025 MQ Player",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
     "directories": {
       "output": "dist-electron"
     },
