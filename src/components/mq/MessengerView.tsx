@@ -147,6 +147,7 @@ export default function MessengerView() {
   const [mentionSearch, setMentionSearch] = useState("");
   const [showMentions, setShowMentions] = useState(false);
   const [contextMenuMsgId, setContextMenuMsgId] = useState<{ id: string; x: number; y: number } | null>(null);
+  const [clearConfirm, setClearConfirm] = useState<{ contactId: string | null; forBoth: boolean } | null>(null);
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
   const [showStoryCreate, setShowStoryCreate] = useState(false);
   const [storyText, setStoryText] = useState("");
@@ -1318,28 +1319,52 @@ export default function MessengerView() {
     showToast("История экспортирована");
   };
 
-  const handleClearHistory = (targetUserId?: string) => {
+  const handleClearHistory = async (targetUserId?: string, forBoth = false) => {
     const targetId = targetUserId || selectedContactId;
     if (!targetId || !userId) return;
-    useAppStore.setState({
-      messages: useAppStore.getState().messages.filter(
-        (m) => !((m.senderId === userId && m.receiverId === targetId) ||
-                 (m.senderId === targetId && m.receiverId === userId))
-      ),
-    });
-    setServerMessagesLoaded((p) => ({ ...p, [`${userId}-${targetId}`]: false }));
-    showToast("История очищена");
-    if (!targetUserId) {
-      setSelectedContact(null);
-      setSelectedGroupId(null);
-    }
+    setClearConfirm({ contactId: targetId, forBoth });
   };
 
-  const handleDeleteChat = (targetUserId?: string) => {
+  const confirmClearHistory = async () => {
+    if (!clearConfirm?.contactId || !userId) return;
+    const targetId = clearConfirm.contactId;
+    const forBoth = clearConfirm.forBoth;
+
+    try {
+      const res = await fetch("/api/messages/clear", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactId: targetId, forBoth }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        showToast(data.error || "Ошибка при очистке");
+        setClearConfirm(null);
+        return;
+      }
+      // Clear local state
+      useAppStore.setState({
+        messages: useAppStore.getState().messages.filter(
+          (m) => !((m.senderId === userId && m.receiverId === targetId) ||
+                   (m.senderId === targetId && m.receiverId === userId))
+        ),
+      });
+      setServerMessagesLoaded((p) => ({ ...p, [`${userId}-${targetId}`]: false }));
+      showToast(forBoth ? "Чат очищен для обоих" : "История очищена");
+      if (targetId === selectedContactId) {
+        setSelectedContact(null);
+        setSelectedGroupId(null);
+      }
+    } catch {
+      showToast("Ошибка сети");
+    }
+    setClearConfirm(null);
+  };
+
+  const handleDeleteChat = async (targetUserId?: string) => {
     const targetId = targetUserId || selectedContactId;
     if (!targetId || !userId) return;
-    handleClearHistory(targetUserId);
-    showToast("Чат удалён");
+    await handleClearHistory(targetUserId, false);
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -1715,9 +1740,13 @@ export default function MessengerView() {
                               className="w-full flex items-center gap-3 px-4 py-3 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
                               <Download className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Экспорт истории чата
                             </button>
-                            <button onClick={() => { setShowChatSettings(false); handleClearHistory(); }}
+                            <button onClick={() => { setShowChatSettings(false); handleClearHistory(undefined, false); }}
                               className="w-full flex items-center gap-3 px-4 py-3 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
                               <Trash2 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Очистить историю
+                            </button>
+                            <button onClick={() => { setShowChatSettings(false); handleClearHistory(undefined, true); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "#f97316" }}>
+                              <Trash2 className="w-4 h-4" /> Очистить для обоих
                             </button>
                             <div className="my-1" style={{ borderTop: "1px solid var(--mq-border)" }} />
                             <button onClick={() => { setShowChatSettings(false); handleDeleteChat(); }}
@@ -2119,6 +2148,48 @@ export default function MessengerView() {
       </div>
 
       {/* ════════════════════════════════════════════════════════ */}
+      {/*  CLEAR HISTORY CONFIRMATION DIALOG                     */}
+      {/* ════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {clearConfirm && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+            onClick={() => setClearConfirm(null)}>
+            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ ...glassPanelSolid, boxShadow: shadowDeep }}
+              onClick={(e) => e.stopPropagation()}>
+              <div className="p-5 text-center">
+                <div className="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: clearConfirm.forBoth ? "rgba(249,115,22,0.15)" : "rgba(239,68,68,0.15)" }}>
+                  <AlertCircle className="w-6 h-6" style={{ color: clearConfirm.forBoth ? "#f97316" : "#ef4444" }} />
+                </div>
+                <h3 className="font-bold text-base mb-2" style={{ color: "var(--mq-text)" }}>
+                  {clearConfirm.forBoth ? "Очистить чат для обоих?" : "Очистить историю чата?"}
+                </h3>
+                <p className="text-xs mb-5" style={{ color: "var(--mq-text-muted)" }}>
+                  {clearConfirm.forBoth
+                    ? "Все сообщения будут удалены для вас и собеседника. Это действие необратимо."
+                    : "Все сообщения будут удалены навсегда."}
+                </p>
+                <div className="flex gap-3">
+                  <button onClick={() => setClearConfirm(null)}
+                    className="flex-1 px-4 py-2.5 rounded-xl text-xs font-medium cursor-pointer transition-opacity active:opacity-70"
+                    style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}>
+                    Отмена
+                  </button>
+                  <button onClick={confirmClearHistory}
+                    className="flex-1 px-4 py-2.5 rounded-xl text-xs font-medium cursor-pointer transition-opacity active:opacity-70"
+                    style={{ backgroundColor: clearConfirm.forBoth ? "#f97316" : "#ef4444", color: "#fff" }}>
+                    {clearConfirm.forBoth ? "Очистить для обоих" : "Очистить"}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ════════════════════════════════════════════════════════ */}
       {/*  NEW CHAT / ADD FRIEND DIALOG                        */}
       {/* ════════════════════════════════════════════════════════ */}
       <AnimatePresence>
@@ -2411,9 +2482,13 @@ export default function MessengerView() {
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
                           <Download className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Экспорт чата
                         </button>
-                        <button onClick={() => { handleClearHistory(showProfileView!); setShowProfileMore(false); }}
+                        <button onClick={() => { handleClearHistory(showProfileView!, false); setShowProfileMore(false); }}
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
                           <Trash2 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Очистить историю
+                        </button>
+                        <button onClick={() => { handleClearHistory(showProfileView!, true); setShowProfileMore(false); }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "#f97316" }}>
+                          <Trash2 className="w-4 h-4" /> Очистить для обоих
                         </button>
                         <div className="my-1" style={{ borderTop: "1px solid var(--mq-border)" }} />
                         <button onClick={() => { handleDeleteChat(showProfileView!); setShowProfileMore(false); setShowProfileView(null); }}
