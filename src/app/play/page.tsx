@@ -155,6 +155,89 @@ function AppShell() {
     };
   }, [isAuthenticated]);
 
+  // ── Global SSE: keep messenger badges updated on ALL tabs ──
+  useEffect(() => {
+    const s = useAppStore.getState();
+    if (!s.isAuthenticated || !s.userId) return;
+
+    let es: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let destroyed = false;
+    const since = new Date(Date.now() - 10000).toISOString();
+
+    const connect = () => {
+      if (destroyed) return;
+      es = new EventSource(`/api/messages/sse?userId=${s.userId}&since=${encodeURIComponent(since)}`);
+
+      es.addEventListener("new_message", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const msg = data?.message;
+          if (!msg) return;
+          const state = useAppStore.getState();
+
+          // Add message to store
+          if (!state.messages.some((m: any) => m.id === msg.id)) {
+            state.addMessage({
+              id: msg.id,
+              content: msg.content,
+              senderId: msg.senderId,
+              receiverId: msg.receiverId,
+              encrypted: msg.encrypted ?? true,
+              createdAt: msg.createdAt,
+              senderName: msg.senderUsername ? `@${msg.senderUsername}` : undefined,
+              messageType: msg.messageType,
+              replyToId: msg.replyToId,
+              edited: msg.edited,
+              voiceUrl: msg.voiceUrl,
+              voiceDuration: msg.voiceDuration,
+            });
+          }
+
+          // Update unread count for the sender if not on messenger with that chat
+          if (msg.senderId !== state.userId && state.currentView !== "messenger") {
+            const counts = { ...state.unreadCounts };
+            const otherId = msg.senderId;
+            counts[otherId] = (counts[otherId] || 0) + 1;
+            useAppStore.setState({ unreadCounts: counts });
+          }
+
+          // Update document title
+          const totalUnread = Object.values(useAppStore.getState().unreadCounts).reduce((sum: number, c: any) => sum + (c || 0), 0);
+          const baseTitle = document.title.replace(/^\(\d+\)\s*/, "");
+          document.title = totalUnread > 0 ? `(${totalUnread}) ${baseTitle}` : baseTitle;
+        } catch { /* ignore */ }
+      });
+
+      es.onerror = () => {
+        es?.close();
+        es = null;
+        if (!destroyed) {
+          reconnectTimer = setTimeout(connect, 3000);
+        }
+      };
+    };
+
+    connect();
+
+    // Also poll notification count every 10s
+    const pollNotifs = setInterval(() => {
+      const st = useAppStore.getState();
+      if (!st.userId) return;
+      fetch(`/api/notifications?userId=${st.userId}`)
+        .then(r => r.json())
+        .then(data => { useAppStore.getState().setNotificationCount(data.unreadCount || 0); })
+        .catch(() => {});
+    }, 10000);
+
+    return () => {
+      destroyed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      es?.close();
+      clearInterval(pollNotifs);
+    };
+  }, [isAuthenticated]);
+
   useEffect(() => {
     if (prevViewRef.current === "search" && currentView !== "search" && searchQuery) {
       setSearchQuery("");

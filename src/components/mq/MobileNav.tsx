@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
-import { Home, Search, MessageCircle, Settings, User, ListMusic, Clock, Monitor, Bell } from "lucide-react";
+import { Home, Search, MessageCircle, Settings, User, ListMusic, Clock, Monitor } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
 const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
@@ -15,7 +15,7 @@ const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "me
 ];
 
 export default function MobileNav() {
-  const { currentView, setView, liquidGlassMobile, compactMode, unreadCounts, supportUnreadCount, notificationCount, setNotifPanelOpen } = useAppStore();
+  const { currentView, setView, liquidGlassMobile, compactMode, unreadCounts, supportUnreadCount } = useAppStore();
 
   // Calculate badge counts once per render (not per nav item)
   const messengerBadge = Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
@@ -87,25 +87,6 @@ export default function MobileNav() {
           );
         })}
 
-        {/* Notifications */}
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setNotifPanelOpen(true)}
-          className="relative flex flex-col items-center gap-0.5 px-3 py-1.5 min-w-[48px] min-h-[44px] cursor-pointer rounded-xl transition-all duration-200"
-          style={{ color: notificationCount > 0 ? "#ef4444" : "var(--mq-text-muted)" }}
-          title="Уведомления"
-        >
-          <div className="relative">
-            <Bell className="w-5 h-5" />
-            {notificationCount > 0 && (
-              <span className="absolute -top-1.5 -right-2 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[8px] font-bold px-0.5"
-                style={{ backgroundColor: "#ef4444", color: "#fff" }}>
-                {notificationCount > 99 ? "99" : notificationCount}
-              </span>
-            )}
-          </div>
-          <span className="text-[10px]">Увед</span>
-        </motion.button>
       </div>
     </nav>
   );
