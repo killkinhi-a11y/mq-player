@@ -5,3 +5,4 @@ bun.lockb
 db/
 uploads/
 .env
+dist-electron/
