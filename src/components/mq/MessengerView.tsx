@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from "react";
-import { createPortal } from "react-dom";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import MessageBubble from "./MessageBubble";
@@ -2435,59 +2434,6 @@ export default function MessengerView() {
 
       {/* Notification Panel */}
       <NotificationPanel isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
-
-      {/* Context menu — rendered via Portal to body to avoid transform stacking context issues */}
-      {contextMenuMsgId && (() => {
-        const menuMsg = contactMessages.find((m: any) => m.id === contextMenuMsgId!.id);
-        if (!menuMsg) return null;
-        let menuIsVoice = false;
-        try { const parsed = JSON.parse(menuMsg.content); if (parsed.voiceUrl) menuIsVoice = true; } catch { /* */ }
-        let menuIsSticker = false;
-        try { const parsed = JSON.parse(menuMsg.content); if (parsed.type === "sticker" && parsed.sticker) menuIsSticker = true; } catch { /* */ }
-        return createPortal(
-          <Fragment>
-            {/* Transparent backdrop to catch clicks/taps outside the menu */}
-            <div className="fixed inset-0 z-[9998]" style={{ background: "transparent" }}
-              onClick={() => setContextMenuMsgId(null)}
-              onTouchStart={() => setContextMenuMsgId(null)}
-              onMouseDown={() => setContextMenuMsgId(null)} />
-            <div
-              data-context-menu="true"
-              className="fixed z-[9999] rounded-xl py-1 min-w-[190px]"
-              style={{
-                ...glassPanelSolid,
-                boxShadow: shadowDeep,
-                left: Math.min(contextMenuMsgId.x, window.innerWidth - 210),
-                top: Math.min(contextMenuMsgId.y, window.innerHeight - 220),
-              }}
-              onTouchStart={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}>
-              <button onClick={() => handleReplyMessage(menuMsg)}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-                <Reply className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Ответить
-              </button>
-              {menuMsg.senderId === userId && !menuIsVoice && !menuIsSticker && (
-                <button onClick={() => handleStartEdit(menuMsg)}
-                  className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-                  <Edit3 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Редактировать
-                </button>
-              )}
-              <button onClick={() => handleCopyMessage(menuMsg)}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-                <Copy className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Копировать
-              </button>
-              {menuMsg.senderId === userId && (
-                <button onClick={() => handleDeleteMessage(menuMsg.id)}
-                  className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "#ef4444" }}>
-                  <Trash2 className="w-4 h-4" /> Удалить
-                </button>
-              )}
-            </div>
-          </Fragment>,
-          document.body
-        );
-      })()}
     </div>
   );
 
@@ -2555,6 +2501,43 @@ export default function MessengerView() {
             )}
           </div>
         </motion.div>
+
+        {/* Context menu — fixed positioning at cursor */}
+        {contextMenuMsgId && contextMenuMsgId.id === msg.id && (
+          <div
+            data-context-menu="true"
+            className="fixed z-[9999] rounded-xl py-1 min-w-[190px]"
+            style={{
+              ...glassPanelSolid,
+              boxShadow: shadowDeep,
+              left: Math.min(contextMenuMsgId.x, window.innerWidth - 210),
+              top: Math.min(contextMenuMsgId.y, window.innerHeight - 220),
+            }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => handleReplyMessage(msg)}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+              <Reply className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Ответить
+            </button>
+            {msg.senderId === userId && !isVoice && !isSticker && (
+              <button onClick={() => handleStartEdit(msg)}
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+                <Edit3 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Редактировать
+              </button>
+            )}
+            <button onClick={() => handleCopyMessage(msg)}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+              <Copy className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Копировать
+            </button>
+            {msg.senderId === userId && (
+              <button onClick={() => handleDeleteMessage(msg.id)}
+                className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "#ef4444" }}>
+                <Trash2 className="w-4 h-4" /> Удалить
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   }

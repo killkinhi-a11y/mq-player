@@ -1,23 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-async function verifyAdmin(req: NextRequest): Promise<{ userId: string } | NextResponse> {
+async function verifyAdmin(req: NextRequest): Promise<{ userId: string; body: Record<string, unknown> } | NextResponse> {
+  let body: Record<string, unknown> = {};
   let userId: string | undefined;
-  try {
-    const body = await req.json();
-    userId = body?.userId;
-  } catch { /* body parse failed */ }
+  // Try body first (POST/PATCH), then query param (GET)
+  try { body = await req.json(); userId = body?.userId as string | undefined; } catch { /* body parse failed */ }
+  if (!userId) userId = req.nextUrl.searchParams.get("userId") || undefined;
   if (!userId) return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
   const admin = await db.user.findUnique({ where: { id: userId }, select: { role: true } });
   if (!admin || admin.role !== "admin") return NextResponse.json({ error: "Access denied" }, { status: 403 });
-  return { userId };
+  return { userId, body };
 }
 
 export async function GET(req: NextRequest) {
   try {
     const adminCheck = await verifyAdmin(req);
     if (adminCheck instanceof NextResponse) return adminCheck;
-
 
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -78,4 +77,3 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка загрузки статистики" }, { status: 500 });
   }
 }
-

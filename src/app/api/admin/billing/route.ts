@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-async function verifyAdmin(req: NextRequest): Promise<{ userId: string } | NextResponse> {
+async function verifyAdmin(req: NextRequest): Promise<{ userId: string; body: Record<string, unknown> } | NextResponse> {
+  let body: Record<string, unknown> = {};
   let userId: string | undefined;
-  try {
-    const body = await req.json();
-    userId = body?.userId;
-  } catch { /* body parse failed */ }
+  try { body = await req.json(); userId = body?.userId as string | undefined; } catch { /* body parse failed */ }
+  if (!userId) userId = req.nextUrl.searchParams.get("userId") || undefined;
   if (!userId) return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
   const admin = await db.user.findUnique({ where: { id: userId }, select: { role: true } });
   if (!admin || admin.role !== "admin") return NextResponse.json({ error: "Access denied" }, { status: 403 });
-  return { userId };
+  return { userId, body };
 }
 
 export async function GET(req: NextRequest) {
@@ -22,7 +21,6 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: "desc" },
     });
 
-    // Calculate MRR data: group subscription transactions by month
     const mrrByMonth: Record<string, number> = {};
     transactions.forEach((t) => {
       if (t.status === "completed" && (t.type === "subscription" || t.type === "promo_period")) {
@@ -32,17 +30,14 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // Current MRR: current month revenue from active subscriptions
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
     const currentMRR = mrrByMonth[currentMonth] || 0;
 
-    // Total revenue
     const totalRevenue = transactions
       .filter((t) => t.status === "completed" && t.type !== "promo_period")
       .reduce((sum, t) => sum + t.amount, 0);
 
-    // Sort months for chart
     const sortedMonths = Object.keys(mrrByMonth).sort();
     const mrrData = sortedMonths.map((month) => ({
       month,
@@ -66,9 +61,9 @@ export async function POST(req: NextRequest) {
   try {
     const adminCheck = await verifyAdmin(req);
     if (adminCheck instanceof NextResponse) return adminCheck;
+    const { body } = adminCheck;
 
-    const body = await req.json();
-    const { action, transactionId, userId, userName } = body;
+    const { action, transactionId, userId, userName } = body as Record<string, unknown>;
 
     if (action === "refund") {
       if (!transactionId) {
@@ -76,7 +71,7 @@ export async function POST(req: NextRequest) {
       }
 
       const transaction = await db.transaction.update({
-        where: { id: transactionId },
+        where: { id: transactionId as string },
         data: { status: "refunded" },
       });
 
@@ -90,8 +85,8 @@ export async function POST(req: NextRequest) {
 
       const transaction = await db.transaction.create({
         data: {
-          userId,
-          userName,
+          userId: userId as string,
+          userName: userName as string,
           amount: 0,
           currency: "USD",
           status: "completed",

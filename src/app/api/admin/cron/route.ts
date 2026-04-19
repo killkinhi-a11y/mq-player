@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 
-async function verifyAdmin(req: NextRequest): Promise<{ userId: string } | NextResponse> {
+async function verifyAdmin(req: NextRequest): Promise<{ userId: string; body: Record<string, unknown> } | NextResponse> {
+  let body: Record<string, unknown> = {};
   let userId: string | undefined;
-  try {
-    const body = await req.json();
-    userId = body?.userId;
-  } catch { /* body parse failed */ }
+  try { body = await req.json(); userId = body?.userId as string | undefined; } catch { /* body parse failed */ }
+  if (!userId) userId = req.nextUrl.searchParams.get("userId") || undefined;
   if (!userId) return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
   const admin = await db.user.findUnique({ where: { id: userId }, select: { role: true } });
   if (!admin || admin.role !== "admin") return NextResponse.json({ error: "Access denied" }, { status: 403 });
-  return { userId };
+  return { userId, body };
 }
 
 export async function GET(req: NextRequest) {
@@ -32,9 +31,9 @@ export async function POST(req: NextRequest) {
   try {
     const adminCheck = await verifyAdmin(req);
     if (adminCheck instanceof NextResponse) return adminCheck;
+    const { body } = adminCheck;
 
-    const body = await req.json();
-    const { action, jobId } = body;
+    const { action, jobId } = body as Record<string, unknown>;
 
     if (action === "trigger") {
       if (!jobId) {
@@ -42,25 +41,24 @@ export async function POST(req: NextRequest) {
       }
 
       const job = await db.cronJob.update({
-        where: { id: jobId },
+        where: { id: jobId as string },
         data: {
           status: "running",
           lastRun: new Date(),
-          log: (await db.cronJob.findUnique({ where: { id: jobId } }))?.log || "",
+          log: (await db.cronJob.findUnique({ where: { id: jobId as string } }))?.log || "",
         },
       });
 
-      // Simulate async completion
       setTimeout(async () => {
         try {
-          const existing = await db.cronJob.findUnique({ where: { id: jobId } });
+          const existing = await db.cronJob.findUnique({ where: { id: jobId as string } });
           const timestamp = new Date().toISOString();
           const newLog = existing?.log
             ? `${existing.log}\n[${timestamp}] Выполнено успешно`
             : `[${timestamp}] Выполнено успешно`;
 
           await db.cronJob.update({
-            where: { id: jobId },
+            where: { id: jobId as string },
             data: {
               status: "completed",
               log: newLog,
@@ -85,7 +83,6 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Simulate async completion
       setTimeout(async () => {
         try {
           const existing = await db.cronJob.findUnique({ where: { id: job.id } });
