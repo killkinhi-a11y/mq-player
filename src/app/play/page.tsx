@@ -4,6 +4,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { themes, applyThemeToDOM } from "@/lib/themes";
+import { simulateDecryptSync } from "@/lib/crypto";
 
 declare global {
   interface Window {
@@ -155,7 +156,7 @@ function AppShell() {
     };
   }, [isAuthenticated]);
 
-  // ── Global SSE: keep messenger badges updated on ALL tabs ──
+  // ── Global SSE: real-time messages + notifications on ALL tabs ──
   useEffect(() => {
     const s = useAppStore.getState();
     if (!s.isAuthenticated || !s.userId) return;
@@ -163,7 +164,30 @@ function AppShell() {
     let es: EventSource | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
     let destroyed = false;
+    let bc: BroadcastChannel | null = null;
+    let audioCtx: AudioContext | null = null;
     const since = new Date(Date.now() - 10000).toISOString();
+
+    // Request notification permission
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    try { bc = new BroadcastChannel("mq-notifications"); } catch { /* not supported */ }
+
+    const playNotifSound = () => {
+      try {
+        if (!audioCtx || audioCtx.state === "closed") audioCtx = new AudioContext();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.frequency.value = 880; osc.type = "sine"; gain.gain.value = 0.1;
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        osc.stop(audioCtx.currentTime + 0.3);
+      } catch { /* ignore */ }
+    };
 
     const connect = () => {
       if (destroyed) return;
@@ -194,7 +218,29 @@ function AppShell() {
             });
           }
 
-          // Update unread count for the sender if not on messenger with that chat
+          // Notification for incoming messages from OTHER users
+          if (msg.senderId !== state.userId) {
+            playNotifSound();
+
+            // Browser notification
+            if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+              try {
+                let preview = "";
+                try { preview = simulateDecryptSync(msg.content); } catch { preview = (msg.content || "").slice(0, 60); }
+                const senderName = msg.senderUsername || "Someone";
+                new Notification(`Сообщение от ${senderName}`, {
+                  body: preview.length > 60 ? preview.slice(0, 60) + "..." : preview,
+                  icon: "/icon-192.png",
+                  tag: msg.id || "",
+                });
+              } catch { /* ignore */ }
+            }
+
+            // Broadcast to other tabs
+            try { bc?.postMessage({ type: "new_message", payload: msg }); } catch { /* */ }
+          }
+
+          // Update unread count for the sender if not actively viewing that chat
           if (msg.senderId !== state.userId && state.currentView !== "messenger") {
             const counts = { ...state.unreadCounts };
             const otherId = msg.senderId;
@@ -234,6 +280,8 @@ function AppShell() {
       destroyed = true;
       if (reconnectTimer) clearTimeout(reconnectTimer);
       es?.close();
+      try { bc?.close(); } catch { /* */ }
+      if (audioCtx && audioCtx.state !== "closed") audioCtx.close().catch(() => {});
       clearInterval(pollNotifs);
     };
   }, [isAuthenticated]);
