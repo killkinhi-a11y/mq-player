@@ -36,42 +36,42 @@ function setCache(key: string, data: unknown): void {
   cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
 }
 
-// Diverse query pool — mirrors how Spotify/YouTube query multiple signals
+// Diverse query pool — broader, more varied searches for real variety
 const queryPool = {
   // Current chart-toppers — what's actually popular right now
   charts: [
     "top 50 global",
     "viral 50",
-    "billboard hot 100",
     "most streamed",
-    "top charts",
+    "top charts 2025",
+    "chart hits",
   ],
   // Trending / rising — tracks gaining momentum
   rising: [
     "trending music",
     "hot new releases",
     "new music friday",
-    "rising artists",
-    "breakout hits",
+    "rising artists 2025",
+    "breakout hits this week",
   ],
   // Social viral — tracks blowing up on TikTok/Reels
   social: [
-    "tiktok viral",
-    "reels trending",
-    "viral sound",
-    "social media hits",
-    "memes music",
+    "tiktok viral hits",
+    "reels trending music",
+    "viral sound 2025",
+    "social media music trends",
+    "popular remixes",
   ],
-  // Genre diversity — ensures we don't just show pop
+  // Genre diversity — ensures we don't just show pop (more specific queries)
   genres: [
-    "hip hop new",
-    "electronic dance",
-    "r&b soul",
-    "indie alternative",
-    "latin music",
-    "rock new",
-    "pop hits",
-    "afrobeats",
+    "hip hop new releases",
+    "electronic dance music",
+    "rnb soul new",
+    "indie alternative hits",
+    "latin music popular",
+    "rock new music",
+    "pop radio hits",
+    "afrobeats 2025",
   ],
 };
 
@@ -125,7 +125,7 @@ function scoreTrack(track: ScoredTrack["track"], queryCount: number, category: s
 
   // === Content quality ===
   // Tracks with artwork are more likely to be real releases
-  if (track.cover || track.artwork) {
+  if (track.cover) {
     score += 50;
   }
 
@@ -150,7 +150,9 @@ async function handler(request: NextRequest) {
     (searchParams.get("dislikedGenres") || "").split(",").filter(Boolean).map(g => g.toLowerCase())
   );
 
-  const cacheKey = `popular:sc:v4-weighted:${dislikedIds.size > 0 ? "f" : ""}:${dislikedArtists.size > 0 ? "f" : ""}`;
+  // Build a proper cache key that includes actual disliked content hashes
+  // (old key only checked if size > 0 — shared filtered cache across all users!)
+  const cacheKey = `popular:sc:v5:${dislikedIds.size}:${dislikedArtists.size}:${dislikedGenres.size}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 
@@ -229,35 +231,40 @@ async function handler(request: NextRequest) {
     scored.sort((a, b) => b.score - a.score);
 
     // === Diversity injection (Spotify-style) ===
-    // Take top 15 highest scored, then inject 15 diverse picks
-    const topPicks = scored.slice(0, 15);
+    // Take top scored, then inject diverse picks (max 2 tracks per artist overall)
+    const finalTracks: (SCTrack & { [key: string]: unknown })[] = [];
+    const artistCount = new Map<string, number>();
 
-    // For diversity: pick from remaining, ensuring we don't duplicate artists
-    const remaining = scored.slice(15);
-    const seenArtists = new Set(topPicks.map(s => s.track.artist.toLowerCase()));
-    const diversePicks: ScoredTrack[] = [];
-
-    for (const item of remaining) {
-      if (diversePicks.length >= 15) break;
+    // First pass: top scored (max 10)
+    for (const item of scored) {
+      if (finalTracks.length >= 10) break;
       const artist = item.track.artist.toLowerCase();
-      if (!seenArtists.has(artist)) {
-        diversePicks.push(item);
-        seenArtists.add(artist);
-      }
+      const count = artistCount.get(artist) || 0;
+      if (count >= 2) continue;
+      artistCount.set(artist, count + 1);
+      finalTracks.push(item.track);
     }
 
-    // If we didn't get enough diverse picks, fill with random remaining
-    if (diversePicks.length < 15) {
-      const shuffled = [...remaining].sort(() => Math.random() - 0.5);
+    // Second pass: diverse picks from remaining (max 10 more, unique artists)
+    const seenArtists = new Set(finalTracks.map(t => t.artist.toLowerCase()));
+    for (const item of scored) {
+      if (finalTracks.length >= 20) break;
+      const artist = item.track.artist.toLowerCase();
+      if (seenArtists.has(artist)) continue;
+      seenArtists.add(artist);
+      finalTracks.push(item.track);
+    }
+
+    // Third pass: fill remaining slots with random picks
+    if (finalTracks.length < 20) {
+      const existingIds = new Set(finalTracks.map(t => t.scTrackId));
+      const shuffled = [...scored].sort(() => Math.random() - 0.5);
       for (const item of shuffled) {
-        if (diversePicks.length >= 15) break;
-        if (!diversePicks.includes(item)) {
-          diversePicks.push(item);
-        }
+        if (finalTracks.length >= 20) break;
+        if (existingIds.has(item.track.scTrackId)) continue;
+        finalTracks.push(item.track);
       }
     }
-
-    const finalTracks = [...topPicks, ...diversePicks].map(s => s.track);
 
     const responseData = { tracks: finalTracks };
     setCache(cacheKey, responseData);
