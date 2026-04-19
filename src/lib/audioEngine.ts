@@ -161,20 +161,27 @@ export function crossfadeTo(newAudio: HTMLAudioElement, fadeIn: boolean = true):
   const oldGain = _activeAudio === "A" ? _gainA : _gainB;
   const newGain = _activeAudio === "A" ? _gainB : _gainA;
   const duration = _crossfadeDuration;
-  const startTime = _audioCtx.currentTime;
+  const now = _audioCtx.currentTime;
+
+  // Cancel ALL previously scheduled ramps on both gain nodes.
+  // Without this, a rapid track switch (crossfade during crossfade)
+  // leaves stale linearRampToValueAtTime events that override the new values,
+  // causing volume jumps.
+  _gainA.gain.cancelScheduledValues(now);
+  _gainB.gain.cancelScheduledValues(now);
 
   // Set initial gain values
-  newGain.gain.setValueAtTime(fadeIn ? 0 : 1, startTime);
-  oldGain.gain.setValueAtTime(1, startTime);
+  newGain.gain.setValueAtTime(fadeIn ? 0 : 1, now);
+  oldGain.gain.setValueAtTime(1, now);
 
   // Ramp gains
   if (fadeIn) {
-    newGain.gain.linearRampToValueAtTime(1, startTime + duration);
-    oldGain.gain.linearRampToValueAtTime(0, startTime + duration);
+    newGain.gain.linearRampToValueAtTime(1, now + duration);
+    oldGain.gain.linearRampToValueAtTime(0, now + duration);
   } else {
     // Instant switch (no fade)
-    newGain.gain.setValueAtTime(1, startTime);
-    oldGain.gain.setValueAtTime(0, startTime);
+    newGain.gain.setValueAtTime(1, now);
+    oldGain.gain.setValueAtTime(0, now);
   }
 
   // Capture old audio BEFORE the swap — it's the one fading out
@@ -203,10 +210,12 @@ export function crossfadeTo(newAudio: HTMLAudioElement, fadeIn: boolean = true):
 export function cancelCrossfade(): void {
   if (!_audioCtx || !_gainA || !_gainB) return;
   const now = _audioCtx.currentTime;
+  // Cancel on BOTH gains unconditionally (not just active/inactive)
+  // to handle cases where swap already happened but stale ramps remain
+  _gainA.gain.cancelScheduledValues(now);
+  _gainB.gain.cancelScheduledValues(now);
   const activeGain = _activeAudio === "A" ? _gainA : _gainB;
   const inactiveGain = _activeAudio === "A" ? _gainB : _gainA;
-  activeGain.gain.cancelScheduledValues(now);
-  inactiveGain.gain.cancelScheduledValues(now);
   activeGain.gain.setValueAtTime(1, now);
   inactiveGain.gain.setValueAtTime(0, now);
 }

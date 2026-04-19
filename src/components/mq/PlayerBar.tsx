@@ -519,7 +519,13 @@ export default function PlayerBar() {
 
   // ── Handle volume ───────────────────────────────────────
   useEffect(() => {
-    getAudioElement().volume = volume / 100;
+    // Set volume on BOTH audio elements so crossfade sounds consistent.
+    // The inactive element's volume defaults to 1.0; without this sync,
+    // the new track fading in would play louder than the user's setting.
+    const vol = volume / 100;
+    getAudioElement().volume = vol;
+    const secondary = getInactiveAudio();
+    if (secondary) secondary.volume = vol;
   }, [volume]);
 
   // ── Media Session API — lock screen / notification controls ──
