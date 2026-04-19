@@ -34,7 +34,7 @@ function getGreetingSubtext(): string {
 
 export default function MainView() {
   const {
-    animationsEnabled, playTrack, likedTrackIds, dislikedTrackIds, likedTracksData,
+    animationsEnabled, playTrack, likedTrackIds, dislikedTrackIds, likedTracksData, dislikedTracksData,
     history, playlists, setView, contacts, messages, userId, compactMode,
   } = useAppStore();
 
