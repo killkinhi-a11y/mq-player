@@ -36,7 +36,17 @@ function setCache(key: string, data: unknown): void {
   cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
 }
 
-// Diverse query pool — broader, more varied searches for real variety
+// Normalize genre for consistent matching (matches other APIs)
+function normalizeGenre(genre: string): string {
+  return genre.toLowerCase().trim()
+    .replace(/ & /g, " and ")
+    .replace(/r&b/g, "rnb")
+    .replace(/r 'n' b/gi, "rnb")
+    .replace(/hip hop/g, "hip-hop")
+    .replace(/drum 'n' bass/gi, "drum and bass")
+    .replace(/d 'n' b/gi, "drum and bass");
+}
+
 const queryPool = {
   // Current chart-toppers — what's actually popular right now
   charts: [
@@ -147,12 +157,14 @@ async function handler(request: NextRequest) {
     (searchParams.get("dislikedArtists") || "").split(",").filter(Boolean).map(a => a.toLowerCase())
   );
   const dislikedGenres = new Set(
-    (searchParams.get("dislikedGenres") || "").split(",").filter(Boolean).map(g => g.toLowerCase())
+    (searchParams.get("dislikedGenres") || "").split(",").filter(Boolean).map(g => normalizeGenre(g))
   );
 
-  // Build a proper cache key that includes actual disliked content hashes
-  // (old key only checked if size > 0 — shared filtered cache across all users!)
-  const cacheKey = `popular:sc:v5:${dislikedIds.size}:${dislikedArtists.size}:${dislikedGenres.size}`;
+  // Build a proper cache key that includes disliked content hashes
+  // (not just size — prevents sharing filtered cache across users with same count)
+  const dh = (s: string) => { let h = 0; for (let i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; } return h; };
+  const dislikedHash = `${dh([...dislikedIds].sort().join())}:${dh([...dislikedArtists].sort().join())}:${dh([...dislikedGenres].sort().join())}`;
+  const cacheKey = `popular:sc:v6:${dislikedHash}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 
@@ -189,7 +201,7 @@ async function handler(request: NextRequest) {
         // Filter disliked content
         if (dislikedIds.has(track.id) || dislikedIds.has(String(track.scTrackId))) continue;
         if (dislikedArtists.size > 0 && track.artist && dislikedArtists.has(track.artist.toLowerCase())) continue;
-        if (dislikedGenres.size > 0 && track.genre && dislikedGenres.has(track.genre.toLowerCase())) continue;
+        if (dislikedGenres.size > 0 && track.genre && dislikedGenres.has(normalizeGenre(track.genre))) continue;
 
         const existing = trackMap.get(track.scTrackId);
         if (existing) {

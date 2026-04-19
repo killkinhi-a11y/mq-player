@@ -872,7 +872,7 @@ export default function PlayerBar() {
           {(() => {
             const isDisliked = (Array.isArray(dislikedTrackIds) ? dislikedTrackIds : []).includes(currentTrack.id);
             return (
-              <motion.button whileTap={{ scale: 0.85 }} onClick={() => toggleDislike(currentTrack.id)}
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => toggleDislike(currentTrack.id, currentTrack)}
                 className="p-1 flex-shrink-0 hidden lg:flex items-center justify-center" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }}>
                 <ThumbsDown className={`w-4 h-4 ${isDisliked ? "fill-current" : ""}`} />
               </motion.button>

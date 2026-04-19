@@ -78,7 +78,7 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
   };
 
   const handleToggleDislike = () => {
-    toggleDislike(track.id);
+    toggleDislike(track.id, track);
     onClose();
   };
 

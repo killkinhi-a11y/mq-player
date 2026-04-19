@@ -50,8 +50,8 @@ export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
 
   const handleDislikeClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    toggleDislike(track.id);
-  }, [track.id, toggleDislike]);
+    toggleDislike(track.id, track);
+  }, [track.id, track, toggleDislike]);
 
   const motionProps = animationsEnabled
     ? { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { delay: index * 0.03 } }

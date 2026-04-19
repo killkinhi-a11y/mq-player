@@ -49,9 +49,10 @@ export default function MainView() {
 
   // Build taste profile from liked tracks + history with exponential time decay
   const tasteProfile = useMemo(() => {
-    const { likedTracksData, history, likedTrackIds, dislikedTrackIds, likedTracksData: likedData } = useAppStore.getState();
+    const { likedTracksData, history, likedTrackIds, dislikedTrackIds, dislikedTracksData } = useAppStore.getState();
     const safeLiked = Array.isArray(likedTrackIds) ? likedTrackIds : [];
     const safeDisliked = Array.isArray(dislikedTrackIds) ? dislikedTrackIds : [];
+    const safeDislikedData = Array.isArray(dislikedTracksData) ? dislikedTracksData : [];
     const safeHistory = Array.isArray(history) ? history : [];
     const now = Date.now();
 
@@ -67,7 +68,7 @@ export default function MainView() {
     const artistCounts: Record<string, number> = {};
 
     // Liked tracks: weight = 3 * decay (liked tracks are 3x stronger signal)
-    for (const track of likedData) {
+    for (const track of likedTracksData) {
       const recency = timeDecay(now - 14 * 24 * 60 * 60 * 1000); // treat likes as ~14 days old for decay
       const weight = 3 * recency;
       if (track.genre) {
@@ -99,10 +100,16 @@ export default function MainView() {
 
     const excludeIds = [...safeLiked, ...safeDisliked, ...safeHistory.slice(0, 30).map(h => h.track.id)].join(",");
 
-    // Build disliked artists/genres from disliked tracks data
+    // Build disliked artists/genres from disliked tracks data (directly stored)
     const dislikedArtistsSet = new Set<string>();
     const dislikedGenresSet = new Set<string>();
-    const allKnownTracks = [...likedData, ...safeHistory.slice(0, 100).map(h => h.track)];
+    // Primary source: dislikedTracksData (full metadata stored when disliking)
+    for (const track of safeDislikedData) {
+      if (track.artist) dislikedArtistsSet.add(track.artist);
+      if (track.genre) dislikedGenresSet.add(track.genre);
+    }
+    // Secondary source: look up disliked IDs in liked/history (fallback for legacy data)
+    const allKnownTracks = [...likedTracksData, ...safeHistory.slice(0, 100).map(h => h.track)];
     for (const track of allKnownTracks) {
       if (safeDisliked.includes(track.id)) {
         if (track.artist) dislikedArtistsSet.add(track.artist);
@@ -117,7 +124,7 @@ export default function MainView() {
       dislikedArtists: [...dislikedArtistsSet].join(","),
       dislikedGenres: [...dislikedGenresSet].join(","),
     };
-  }, [likedTrackIds, dislikedTrackIds, likedTracksData, history]);
+  }, [likedTrackIds, dislikedTrackIds, likedTracksData, dislikedTracksData, history]);
 
   // Fetch trending tracks
   useEffect(() => {

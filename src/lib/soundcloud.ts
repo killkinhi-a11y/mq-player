@@ -40,6 +40,49 @@ export function invalidateClientId(): void {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Non-music content filter                                           */
+/* ------------------------------------------------------------------ */
+
+// Title keywords that indicate non-music content (DJ sets, podcasts, audiobooks, etc.)
+const NON_MUSIC_KEYWORDS = [
+  "dj set", "dj mix", "live set", "club mix", "radio show", "radio mix",
+  "podcast", "audiobook", "audio book", "bible", "biblia", "quran", "koran",
+  "sermon", "preaching", "prayer", "church service", "mass ",
+  "meditation guide", "sleep sounds", "white noise", "rain sounds", "asmr",
+  "sound effect", "sfx ", "notification sound", "ringtone",
+  "interview", "talk show", "news broadcast", "news update",
+  "audio drama", "audio play", "radio drama", "storytime",
+  "language lesson", "learn ", "course ", "lecture", "tutorial audio",
+  "standup", "stand-up", "comedy special",
+];
+
+// Genre keywords that indicate non-music content
+const NON_MUSIC_GENRES = [
+  "podcast", "audiobook", "spoken word", "speech", "talk", "news",
+  "comedy", "education", "religion", "spiritual", "meditation",
+];
+
+function isNonMusicContent(title: string, genre: string, durationSec: number): boolean {
+  const titleLower = title.toLowerCase();
+  const genreLower = (genre || "").toLowerCase();
+
+  // Check title keywords
+  for (const kw of NON_MUSIC_KEYWORDS) {
+    if (titleLower.includes(kw)) return true;
+  }
+
+  // Check genre keywords
+  for (const ng of NON_MUSIC_GENRES) {
+    if (genreLower === ng || genreLower.includes(ng)) return true;
+  }
+
+  // Extremely long tracks (>30 min) are likely DJ sets, podcasts, or mixes
+  if (durationSec > 1800) return true;
+
+  return false;
+}
+
+/* ------------------------------------------------------------------ */
 /*  Track interface                                                     */
 /* ------------------------------------------------------------------ */
 
@@ -94,6 +137,12 @@ export async function searchSCTracks(
         const policy = (t.policy as string) || "";
         // Filter out completely blocked tracks — they have no playable media
         if (policy === "BLOCK") return false;
+        // Filter out non-music content (DJ sets, podcasts, audiobooks, bibles, etc.)
+        const title = (t.title as string) || "";
+        const genre = (t.genre as string) || "";
+        const durationMs = (t.full_duration as number) || (t.duration as number) || 0;
+        const durationSec = Math.round(durationMs / 1000);
+        if (isNonMusicContent(title, genre, durationSec)) return false;
         return true;
       })
       .map((t: Record<string, unknown>) => {

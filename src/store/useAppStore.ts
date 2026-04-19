@@ -137,6 +137,7 @@ interface AppState {
   likedTrackIds: string[];
   dislikedTrackIds: string[];
   likedTracksData: Track[];
+  dislikedTracksData: Track[];
 
   // PiP
   isPiPActive: boolean;
@@ -210,7 +211,7 @@ interface AppState {
 
   // Like/Dislike actions
   toggleLike: (trackId: string, trackData?: Track) => void;
-  toggleDislike: (trackId: string) => void;
+  toggleDislike: (trackId: string, trackData?: Track) => void;
   isTrackLiked: (trackId: string) => boolean;
   isTrackDisliked: (trackId: string) => boolean;
 
@@ -335,6 +336,7 @@ const initialState = {
   isFullTrackViewOpen: false,
   likedTrackIds: [] as string[],
   dislikedTrackIds: [] as string[],
+  dislikedTracksData: [] as Track[],
   likedTracksData: [] as Track[],
   isPiPActive: false,
   similarTracks: [] as Track[],
@@ -641,13 +643,21 @@ export const useAppStore = create<AppState>()(
         }
       },
 
-      toggleDislike: (trackId) => {
-        const { dislikedTrackIds, likedTrackIds, likedTracksData } = get();
+      toggleDislike: (trackId, trackData) => {
+        const { dislikedTrackIds, dislikedTracksData, likedTrackIds, likedTracksData } = get();
         if (dislikedTrackIds.includes(trackId)) {
-          set({ dislikedTrackIds: dislikedTrackIds.filter((id) => id !== trackId) });
+          // Un-dislike: remove from both lists
+          set({
+            dislikedTrackIds: dislikedTrackIds.filter((id) => id !== trackId),
+            dislikedTracksData: dislikedTracksData.filter((t) => t.id !== trackId),
+          });
         } else {
+          // Dislike: add to disliked, remove from liked
           set({
             dislikedTrackIds: [...dislikedTrackIds, trackId],
+            dislikedTracksData: trackData
+              ? [...dislikedTracksData.filter((t) => t.id !== trackId), trackData]
+              : dislikedTracksData,
             likedTrackIds: likedTrackIds.filter((id) => id !== trackId),
             likedTracksData: likedTracksData.filter((t) => t.id !== trackId),
           });
@@ -877,6 +887,7 @@ export const useAppStore = create<AppState>()(
               likedTracks: state.likedTrackIds,
               dislikedTracks: state.dislikedTrackIds,
               likedTracksData: state.likedTracksData,
+              dislikedTracksData: state.dislikedTracksData,
               settings: {
                 volume: state.volume,
                 compactMode: state.compactMode,
@@ -983,6 +994,17 @@ export const useAppStore = create<AppState>()(
             updates.likedTracksData = merged;
           }
 
+          // Merge disliked tracks data
+          if (Array.isArray(data.dislikedTracksData)) {
+            const local = state.dislikedTracksData || [];
+            const localIds = new Set(local.map(t => t.id));
+            const merged = [...local];
+            for (const t of data.dislikedTracksData) {
+              if (!localIds.has(t.id)) merged.push(t);
+            }
+            updates.dislikedTracksData = merged;
+          }
+
           // Apply settings from server
           if (data.settings && typeof data.settings === "object") {
             const s = data.settings;
@@ -1047,6 +1069,7 @@ export const useAppStore = create<AppState>()(
         currentView: state.currentView,
         likedTrackIds: state.likedTrackIds,
         dislikedTrackIds: state.dislikedTrackIds,
+        dislikedTracksData: state.dislikedTracksData,
         likedTracksData: state.likedTracksData,
         playlists: state.playlists,
         history: state.history,
@@ -1086,6 +1109,7 @@ export const useAppStore = create<AppState>()(
           const fixes: Record<string, unknown> = {};
           if (!Array.isArray(s.likedTrackIds)) fixes.likedTrackIds = [];
           if (!Array.isArray(s.dislikedTrackIds)) fixes.dislikedTrackIds = [];
+          if (!Array.isArray(s.dislikedTracksData)) fixes.dislikedTracksData = [];
           if (!Array.isArray(s.likedTracksData)) fixes.likedTracksData = [];
           if (!Array.isArray(s.queue)) fixes.queue = [];
           if (!Array.isArray(s.history)) fixes.history = [];

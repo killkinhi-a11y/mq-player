@@ -492,7 +492,7 @@ export default function FullTrackView() {
               }}>
               <Heart className={`w-[18px] h-[18px] ${isLiked ? "fill-current" : ""}`} />
             </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleDislike(currentTrack.id)}
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleDislike(currentTrack.id, currentTrack)}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
                 backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "var(--mq-card)",
