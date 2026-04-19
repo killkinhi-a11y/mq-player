@@ -169,12 +169,7 @@ export default function MessengerView() {
 
   // ── Responsive viewport height tracking ──
   const [isMobileView, setIsMobileView] = useState(false);
-  useEffect(() => {
-    const check = () => setIsMobileView(window.innerWidth < 1024);
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
+  /* useEffect moved to bottom of declarations */
 
   // ── Pinned chats (persisted to localStorage) ──
   const [pinnedChatIds, setPinnedChatIds] = useState<Set<string>>(() => {
@@ -292,29 +287,7 @@ export default function MessengerView() {
   const closeStoryViewer = useCallback(() => { setViewingStoryIndex(null); setStoryProgress(0); }, []);
   const viewingStory = viewingStoryIndex !== null ? stories[viewingStoryIndex] : null;
 
-  // ── Fetch stories on mount ──
-  useEffect(() => {
-    const fetchStories = async () => {
-      try {
-        const res = await fetch("/api/stories?all=true");
-        if (res.ok) {
-          const data = await res.json();
-          const mapped: Story[] = (data.stories || []).map((s: any) => {
-            let trackData: Story["trackData"] | undefined;
-            let contentType: Story["contentType"] = "text";
-            const cStr = typeof s.content === "string" ? s.content : "";
-            if (s.type === "music" || s.type === "track") {
-              contentType = "track";
-              try { const p = JSON.parse(cStr); if (p.track) trackData = p.track; } catch { /* */ }
-            } else if (s.type === "image") { contentType = "image"; }
-            return { id: s.id, userId: s.userId, username: s.user?.username || "User", avatar: "", content: cStr, contentType, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed: false, likes: s.likes?.length || 0, trackData };
-          });
-          setStories(mapped);
-        }
-      } catch { /* silent */ }
-    };
-    fetchStories();
-  }, []);
+  /* useEffect: fetch stories moved to bottom of declarations */
 
   const processIncomingMessage = useCallback((m: any) => {
     const state = useAppStore.getState();
@@ -442,13 +415,7 @@ export default function MessengerView() {
   // ── Group messages for selected group ──
   const currentGroupMessages = useMemo(() => groupMessages[selectedGroupId || ""] || [], [groupMessages, selectedGroupId]);
 
-  // ═══════════════════════════════════════════════════════════
-  //  SCROLL TO BOTTOM
-  // ═══════════════════════════════════════════════════════════
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, selectedContactId, groupMessages, selectedGroupId]);
+  /* useEffect: scroll to bottom moved to bottom of declarations */
 
   const sendMessageOptimistic = useCallback(async (content: string, extra?: Record<string, unknown>) => {
     const targetId = selectedGroupId || selectedContactId;
@@ -563,11 +530,47 @@ export default function MessengerView() {
     return heights;
   }, [duration]);
 
-
   // ═══════════════════════════════════════════════════════════
-  //  EFFECTS
+  //  EFFECTS — all useEffects placed after all useCallback/useMemo declarations
+  //  to avoid TDZ errors in SWC/Turbopack minifier
   // ═══════════════════════════════════════════════════════════
 
+  // ── Responsive viewport height tracking (moved from above useState block) ──
+  useEffect(() => {
+    const check = () => setIsMobileView(window.innerWidth < 1024);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // ── Fetch stories on mount (moved from above useCallback block) ──
+  useEffect(() => {
+    const fetchStories = async () => {
+      try {
+        const res = await fetch("/api/stories?all=true");
+        if (res.ok) {
+          const data = await res.json();
+          const mapped: Story[] = (data.stories || []).map((s: any) => {
+            let trackData: Story["trackData"] | undefined;
+            let contentType: Story["contentType"] = "text";
+            const cStr = typeof s.content === "string" ? s.content : "";
+            if (s.type === "music" || s.type === "track") {
+              contentType = "track";
+              try { const p = JSON.parse(cStr); if (p.track) trackData = p.track; } catch { /* */ }
+            } else if (s.type === "image") { contentType = "image"; }
+            return { id: s.id, userId: s.userId, username: s.user?.username || "User", avatar: "", content: cStr, contentType, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed: false, likes: s.likes?.length || 0, trackData };
+          });
+          setStories(mapped);
+        }
+      } catch { /* silent */ }
+    };
+    fetchStories();
+  }, []);
+
+  // ── Scroll to bottom (moved from above sendMessageOptimistic) ──
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [messages, selectedContactId, groupMessages, selectedGroupId]);
 
   // ── Cross-tab BroadcastChannel for notifications ──
   useEffect(() => {
