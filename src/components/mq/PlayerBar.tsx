@@ -58,6 +58,7 @@ export default function PlayerBar() {
   }, []);
   const retryCountRef = useRef(0);
   const maxRetries = 3;
+  const retryingRef = useRef(false); // prevents concurrent retry attempts
 
   const prevTrackRef = useRef(prevTrack);
   const nextTrackRef = useRef(nextTrack);
@@ -117,34 +118,53 @@ export default function PlayerBar() {
       }
     };
     const onError = () => {
+      // Prevent concurrent retries — only one retry chain at a time
+      if (retryingRef.current) return;
+
       const audioEl = getActive();
       const st = useAppStore.getState();
       const isSCTrack = !!st.currentTrack?.scTrackId;
 
-      // If loadTrack already handled this error (set loading=false and returned),
-      // the retry will be managed there — skip duplicate handling
-      if (!isLoadingTrackRef.current && isSCTrack) return;
+      // Save playback position for mid-playback recovery
+      const savedPosition = audioEl?.currentTime || 0;
+      const wasMidPlayback = savedPosition > 1 && !isLoadingTrackRef.current;
 
       // For SoundCloud tracks: re-resolve stream URL instead of reloading same (possibly expired) URL
       if (isSCTrack && st.currentTrack?.scTrackId && retryCountRef.current < maxRetries) {
         retryCountRef.current++;
-        console.warn(`[Player] Error loading SC track, re-resolving stream (attempt ${retryCountRef.current}/${maxRetries})`);
+        retryingRef.current = true;
+        console.warn(`[Player] Error on SC track${wasMidPlayback ? ' (mid-playback)' : ''}, re-resolving stream (attempt ${retryCountRef.current}/${maxRetries})`);
+
         resolveSoundCloudStream(st.currentTrack.scTrackId).then(stream => {
+          retryingRef.current = false;
+          // Check if track hasn't changed during retry
+          const currentSt = useAppStore.getState();
+          if (currentSt.currentTrack?.scTrackId !== st.currentTrack?.scTrackId) return;
+
           if (stream?.url) {
             const a = getActive();
             if (a) {
+              if (stream.url.startsWith('/api/')) {
+                a.crossOrigin = 'anonymous';
+              }
               a.src = stream.url;
               a.load();
-              a.play().catch(() => {});
-              retryCountRef.current = 0; // reset on successful re-resolve
+              a.play().then(() => {
+                // Restore position if this was a mid-playback recovery
+                if (wasMidPlayback && isFinite(savedPosition)) {
+                  a.currentTime = savedPosition;
+                }
+              }).catch(() => {});
+              // Don't reset retryCountRef here — wait for actual playback (onCanPlay)
+              // This prevents infinite retry loops for permanently broken tracks
             }
           } else {
-            // No stream available — skip
             setPlayError(true);
             setIsLoadingTrack(false);
             setTimeout(() => { nextTrackRef.current(); }, 1500);
           }
         }).catch(() => {
+          retryingRef.current = false;
           setPlayError(true);
           setIsLoadingTrack(false);
           setTimeout(() => { nextTrackRef.current(); }, 1500);
@@ -155,8 +175,10 @@ export default function PlayerBar() {
       // Non-SC tracks or max retries: try reloading same URL once more
       if (audioEl?.src && retryCountRef.current < maxRetries) {
         retryCountRef.current++;
+        retryingRef.current = true;
         console.warn(`[Player] Error loading track, retry ${retryCountRef.current}/${maxRetries}`);
         setTimeout(() => {
+          retryingRef.current = false;
           audioEl.load();
           audioEl.play().catch(() => {
             setPlayError(true);
@@ -177,6 +199,7 @@ export default function PlayerBar() {
     const onCanPlay = () => {
       setIsLoadingTrack(false);
       setPlayError(false);
+      retryCountRef.current = 0; // reset retry count on successful load
       resumeAudioContext();
       const st = useAppStore.getState();
       if (st.isPlaying) {
@@ -187,6 +210,7 @@ export default function PlayerBar() {
     const onPlaying = (e: Event) => {
       setIsLoadingTrack(false);
       setPlayError(false);
+      retryCountRef.current = 0; // reset on confirmed playback
       resumeAudioContext();
       // Only auto-resume if this event is from the currently active audio element
       // Prevents secondary crossfade element from re-triggering play after user pauses
@@ -427,7 +451,8 @@ export default function PlayerBar() {
                 audioEl.removeEventListener("canplay", onCanPlay);
                 audioEl.removeEventListener("error", onError);
                 loadFailed = true;
-                resolve(); // Let outer onError handler manage retries
+                resolve();
+                // Global onError handler will manage retries via retryingRef
               };
               audioEl.addEventListener("canplay", onCanPlay);
               audioEl.addEventListener("error", onError);
@@ -438,9 +463,13 @@ export default function PlayerBar() {
 
             if (cancelled) return;
 
-            // Skip play/crossfade if load failed — outer onError handler manages retries
+            // Skip play/crossfade if load failed — global onError manages retries
+            // Don't set isLoadingTrack=false here if global retry is in progress
             if (loadFailed) {
-              setIsLoadingTrack(false);
+              // Only set loading=false if global handler hasn't started a retry
+              if (!retryingRef.current) {
+                setIsLoadingTrack(false);
+              }
               return;
             }
 
