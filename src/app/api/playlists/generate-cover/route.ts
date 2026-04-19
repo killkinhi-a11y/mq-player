@@ -16,27 +16,39 @@ async function postHandler(req: NextRequest) {
     const userId = session.userId;
 
     const body = await req.json();
-    const { playlistId } = body;
+    const { playlistId, playlistName: inlineName, tracks: inlineTracks } = body;
 
     if (!playlistId || typeof playlistId !== "string") {
       return NextResponse.json({ error: "playlistId required" }, { status: 400 });
     }
 
-    // Load playlist and verify ownership
+    // Try to load from DB — but also support local playlists (not in DB)
+    let tracks: { title?: string; artist?: string; genre?: string }[] = [];
+    let playlistNameStr = inlineName || "Playlist";
+    let playlistExistsInDb = false;
+    let existingTags = "";
+
     const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
-    if (!playlist || playlist.userId !== userId) {
-      return NextResponse.json(
-        { error: "Плейлист не найден или нет доступа" },
-        { status: 403 }
-      );
+    if (playlist) {
+      playlistExistsInDb = true;
+      if (playlist.userId !== userId) {
+        return NextResponse.json(
+          { error: "Плейлист не найден или нет доступа" },
+          { status: 403 }
+        );
+      }
+      try {
+        tracks = JSON.parse(playlist.tracksJson || "[]");
+      } catch {
+        tracks = [];
+      }
+      if (playlist.name) playlistNameStr = playlist.name;
+      existingTags = playlist.tags ? playlist.tags.split(",").filter(Boolean).slice(0, 3).join(", ") : "";
     }
 
-    // Parse tracks to analyze genres and artists
-    let tracks: { title?: string; artist?: string; genre?: string }[] = [];
-    try {
-      tracks = JSON.parse(playlist.tracksJson || "[]");
-    } catch {
-      tracks = [];
+    // Use inline tracks if DB had none (local playlist)
+    if (tracks.length === 0 && Array.isArray(inlineTracks) && inlineTracks.length > 0) {
+      tracks = inlineTracks;
     }
 
     // Collect genres and artists
@@ -48,10 +60,9 @@ async function postHandler(req: NextRequest) {
     }
     const genres = [...genreSet].slice(0, 5).join(", ");
     const artists = [...artistSet].slice(0, 3).join(", ");
-    const existingTags = playlist.tags ? playlist.tags.split(",").filter(Boolean).slice(0, 3).join(", ") : "";
 
     // Build a concise, artistic prompt for the cover image (under 200 chars)
-    let prompt = `Abstract album cover art for music playlist "${playlist.name}"`;
+    let prompt = `Abstract album cover art for music playlist "${playlistNameStr}"`;
     if (genres) prompt += `, genres: ${genres}`;
     if (artists) prompt += `, artists like ${artists}`;
     if (existingTags) prompt += `, vibe: ${existingTags}`;
@@ -80,15 +91,15 @@ async function postHandler(req: NextRequest) {
     const imageBase64 = imageData.base64;
     const coverUrl = `data:image/png;base64,${imageBase64}`;
 
-    // Update playlist cover in DB (store data URL or a relative path)
-    // Since it's a base64 data URL, we store it as-is for local playlists
-    // For server-side DB, we also update so public playlists show the cover
-    await db.playlist.update({
-      where: { id: playlistId },
-      data: {
-        cover: coverUrl,
-      },
-    });
+    // Update playlist cover in DB only if it exists there (not for local-only playlists)
+    if (playlistExistsInDb) {
+      await db.playlist.update({
+        where: { id: playlistId },
+        data: {
+          cover: coverUrl,
+        },
+      });
+    }
 
     return NextResponse.json({
       cover: coverUrl,

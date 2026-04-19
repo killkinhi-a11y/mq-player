@@ -57,12 +57,14 @@ export default function PlaylistView() {
 
     autoGenAttemptedRef.current.add(playlist.id);
     const playlistId = playlist.id;
+    const playlistName = playlist.name;
+    const playlistTracks = playlist.tracks;
     setAiAutoGenerating(true);
 
     fetch('/api/playlists/auto-generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ playlistId }),
+      body: JSON.stringify({ playlistId, playlistName, tracks: playlistTracks }),
     })
       .then(res => res.json())
       .then(data => {
@@ -80,7 +82,7 @@ export default function PlaylistView() {
           return fetch('/api/playlists/generate-cover', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ playlistId }),
+            body: JSON.stringify({ playlistId, playlistName, tracks: playlistTracks }),
           }).then(r => r.json()).then(coverData => {
             if (coverData.cover) {
               const { playlists: pls } = useAppStore.getState();
@@ -202,10 +204,16 @@ export default function PlaylistView() {
     if (aiGeneratingCover) return;
     setAiGeneratingCover(true);
     try {
+      // Send playlist name and tracks inline so the API works for local playlists too
+      const pl = playlists.find(p => p.id === playlistId);
       const res = await fetch('/api/playlists/generate-cover', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playlistId }),
+        body: JSON.stringify({
+          playlistId,
+          playlistName: pl?.name,
+          tracks: pl?.tracks || [],
+        }),
       });
       const data = await res.json();
       if (!res.ok) {

@@ -16,37 +16,51 @@ async function postHandler(req: NextRequest) {
     const userId = session.userId;
 
     const body = await req.json();
-    const { playlistId } = body;
+    const { playlistId, playlistName, tracks: inlineTracks } = body;
 
-    if (!playlistId || typeof playlistId !== "string") {
-      return NextResponse.json({ error: "playlistId required" }, { status: 400 });
-    }
-
-    // Load playlist and verify ownership
-    const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
-    if (!playlist || playlist.userId !== userId) {
-      return NextResponse.json(
-        { error: "Плейлист не найден или нет доступа" },
-        { status: 403 }
-      );
-    }
-
-    // Parse tracks
+    // We need either tracks sent inline or a playlistId to look up from DB
     let tracks: { title?: string; artist?: string; genre?: string }[] = [];
-    try {
-      tracks = JSON.parse(playlist.tracksJson || "[]");
-    } catch {
-      tracks = [];
+    let playlistNameStr = playlistName || "Плейлист";
+    let playlistExistsInDb = false;
+
+    // Try to load from DB if playlistId provided
+    if (playlistId && typeof playlistId === "string") {
+      try {
+        const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
+        if (playlist) {
+          playlistExistsInDb = true;
+          // Verify ownership (only if playlist has a userId — published playlists)
+          if (playlist.userId && playlist.userId !== userId) {
+            return NextResponse.json(
+              { error: "Нет доступа к этому плейлисту" },
+              { status: 403 }
+            );
+          }
+          try {
+            tracks = JSON.parse(playlist.tracksJson || "[]");
+          } catch {
+            tracks = [];
+          }
+          if (playlist.name) playlistNameStr = playlist.name;
+        }
+      } catch {
+        // Table might not exist yet (DB not synced) — fall through to inline tracks
+      }
     }
 
-    if (tracks.length === 0) {
+    // Use inline tracks if DB had none
+    if (tracks.length === 0 && Array.isArray(inlineTracks) && inlineTracks.length > 0) {
+      tracks = inlineTracks;
+    }
+
+    if (tracks.length < 2) {
       return NextResponse.json(
-        { error: "Плейлист пуст — добавьте треки для генерации тегов" },
+        { error: "Нужно минимум 2 трека для генерации" },
         { status: 400 }
       );
     }
 
-    // Build track list summary for LLM (limit to first 50 tracks to avoid token overflow)
+    // Build track list summary for LLM (limit to first 50 tracks)
     const trackSummary = tracks.slice(0, 50).map((t, i) => {
       const artist = t.artist || "Unknown Artist";
       const title = t.title || "Unknown Title";
@@ -69,7 +83,7 @@ async function postHandler(req: NextRequest) {
         },
         {
           role: "user",
-          content: `Generate tags and description for a playlist named "${playlist.name}" with these tracks:\n${trackSummary}`,
+          content: `Generate tags and description for a playlist named "${playlistNameStr}" with these tracks:\n${trackSummary}`,
         },
       ],
       temperature: 0.7,
@@ -84,7 +98,6 @@ async function postHandler(req: NextRequest) {
     if (jsonMatch) {
       jsonStr = jsonMatch[1].trim();
     } else {
-      // Try to find JSON object directly
       const objMatch = raw.match(/\{[\s\S]*\}/);
       if (objMatch) {
         jsonStr = objMatch[0];
@@ -101,7 +114,6 @@ async function postHandler(req: NextRequest) {
       );
     }
 
-    // Validate result structure
     if (!Array.isArray(result.tags) || typeof result.description !== "string") {
       return NextResponse.json(
         { error: "Некорректный формат ответа ИИ. Попробуйте снова." },
@@ -109,23 +121,28 @@ async function postHandler(req: NextRequest) {
       );
     }
 
-    // Clean tags: lowercase, trim, filter empty, max 10
+    // Clean tags
     const cleanedTags = result.tags
       .map((t: string) => t.toLowerCase().trim())
       .filter(Boolean)
       .slice(0, 10);
 
-    // Clean description
     const cleanedDescription = result.description.trim().slice(0, 500);
 
-    // Update playlist in DB
-    await db.playlist.update({
-      where: { id: playlistId },
-      data: {
-        tags: cleanedTags.join(","),
-        description: cleanedDescription || playlist.description,
-      },
-    });
+    // Update playlist in DB if it exists there
+    if (playlistExistsInDb && playlistId) {
+      try {
+        await db.playlist.update({
+          where: { id: playlistId },
+          data: {
+            tags: cleanedTags.join(","),
+            description: cleanedDescription,
+          },
+        });
+      } catch {
+        // Silently fail — client will update locally anyway
+      }
+    }
 
     return NextResponse.json({
       tags: cleanedTags,

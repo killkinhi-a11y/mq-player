@@ -159,10 +159,14 @@ export default function PlayerBar() {
         if (a && !crossfadeRef.current) a.play().catch(() => {});
       }
     };
-    const onPlaying = () => {
+    const onPlaying = (e: Event) => {
       setIsLoadingTrack(false);
       setPlayError(false);
       resumeAudioContext();
+      // Only auto-resume if this event is from the currently active audio element
+      // Prevents secondary crossfade element from re-triggering play after user pauses
+      const target = e.target as HTMLAudioElement | null;
+      if (target && target !== getActive()) return;
       if (!useAppStore.getState().isPlaying) {
         useAppStore.getState().togglePlay();
       }
@@ -464,24 +468,28 @@ export default function PlayerBar() {
 
   // ── Handle play/pause ───────────────────────────────────
   useEffect(() => {
-    const audio = audioRef.current || getAudioElement();
-    if (!audio || !audio.src || audio.readyState < 2) return;
+    // Always use the current active audio element (not stale audioRef)
+    const audio = getAudioElement();
+    const secondary = getInactiveAudio();
 
     if (isPlaying) {
       resumeAudioContext();
+      if (!audio.src || audio.readyState < 2) return;
       audio.play().catch((err) => {
         // Don't flip isPlaying back for non-critical errors (e.g., was already playing)
         if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
           // For real errors, try once more
           setTimeout(() => {
-            audio.play().catch(() => useAppStore.getState().togglePlay());
+            getAudioElement().play().catch(() => useAppStore.getState().togglePlay());
           }, 500);
         } else if (err.name === 'NotAllowedError') {
           useAppStore.getState().togglePlay();
         }
       });
     } else {
-      audio.pause();
+      // Pause BOTH audio elements to handle crossfade state
+      if (audio.src) audio.pause();
+      if (secondary && secondary.src) secondary.pause();
     }
   }, [isPlaying]);
 

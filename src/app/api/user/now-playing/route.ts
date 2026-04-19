@@ -5,14 +5,18 @@ import { getSession } from "@/lib/get-session";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/user/now-playing — get own now-playing status
+// GET /api/user/now-playing — get own or another user's now-playing status
 async function getHandler(req: NextRequest) {
   try {
     const session = await getSession();
     if (!session) {
       return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
     }
-    const userId = session.userId;
+
+    // Allow fetching another user's now-playing via ?userId= param
+    const { searchParams } = new URL(req.url);
+    const targetUserId = searchParams.get("userId");
+    const userId = targetUserId && targetUserId !== session.userId ? targetUserId : session.userId;
 
     const sync = await db.userSync.findUnique({
       where: { userId_key: { userId, key: "nowPlaying" } },
