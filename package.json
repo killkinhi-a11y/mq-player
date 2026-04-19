@@ -16,6 +16,7 @@
     "db:reset": "prisma migrate reset",
     "db:seed": "tsx prisma/seed.ts",
     "electron": "electron .",
+    "dist": "electron-builder --win",
     "electron:build": "electron-builder --win --x64",
     "electron:build:mac": "electron-builder --mac",
     "electron:build:linux": "electron-builder --linux -c.linux.target=AppImage"

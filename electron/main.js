@@ -22,7 +22,7 @@ function createWindow() {
     icon: path.join(__dirname, "..", "public", "icon-512.png"),
     backgroundColor: "#0e0e0e",
     show: false,
-    autoHideMenuBar: true,
+    autoHideMenuBar: false,
     webPreferences: {
       preload: PRELOAD_PATH,
       contextIsolation: true,
@@ -32,6 +32,7 @@ function createWindow() {
   });
 
   mainWindow.loadURL(APP_URL);
+  mainWindow.setMenuBarVisibility(false);
 
   // Show window when ready to prevent flash
   mainWindow.once("ready-to-show", () => {
