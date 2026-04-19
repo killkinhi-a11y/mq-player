@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useAppStore, type UserPlaylist } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { type Track } from "@/lib/musicApi";
@@ -41,8 +41,61 @@ export default function PlaylistView() {
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [aiGeneratingTags, setAiGeneratingTags] = useState(false);
   const [aiGeneratingCover, setAiGeneratingCover] = useState(false);
+  const [aiAutoGenerating, setAiAutoGenerating] = useState(false);
 
   const selectedPlaylist = playlists.find((p) => p.id === selectedPlaylistId);
+  const autoGenAttemptedRef = useRef<Set<string>>(new Set());
+
+  // ── Auto-generate description & cover when playlist has tracks but no description ──
+  useEffect(() => {
+    const playlist = playlists.find((p) => p.id === selectedPlaylistId);
+    if (!playlist) return;
+    if (playlist.tracks.length < 2) return;
+    if (autoGenAttemptedRef.current.has(playlist.id)) return;
+    // Don't auto-gen if user already wrote a real description
+    if (playlist.description?.trim() && !playlist.description.startsWith("треков")) return;
+
+    autoGenAttemptedRef.current.add(playlist.id);
+    const playlistId = playlist.id;
+    setAiAutoGenerating(true);
+
+    fetch('/api/playlists/auto-generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playlistId }),
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.description) {
+          const { playlists: currentPlaylists } = useAppStore.getState();
+          useAppStore.setState({
+            playlists: currentPlaylists.map(p =>
+              p.id === playlistId ? { ...p, description: data.description } : p
+            ),
+          });
+        }
+        // Then auto-generate cover if none
+        const updated = useAppStore.getState().playlists.find(p => p.id === playlistId);
+        if (updated && !updated.cover) {
+          return fetch('/api/playlists/generate-cover', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ playlistId }),
+          }).then(r => r.json()).then(coverData => {
+            if (coverData.cover) {
+              const { playlists: pls } = useAppStore.getState();
+              useAppStore.setState({
+                playlists: pls.map(p =>
+                  p.id === playlistId ? { ...p, cover: coverData.cover } : p
+                ),
+              });
+            }
+          }).catch(() => {});
+        }
+      })
+      .catch(() => {})
+      .finally(() => setAiAutoGenerating(false));
+  }, [playlists, selectedPlaylistId]);
 
   // Upload playlist cover image
   const handleCoverUpload = useCallback(async (playlistId: string, file: File) => {
@@ -385,15 +438,16 @@ export default function PlaylistView() {
                   <h1 className="text-xl font-bold truncate" style={{ color: "var(--mq-text)" }}>
                     {selectedPlaylist.name}
                   </h1>
-                  {selectedPlaylist.description ? (
-                    <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                  {aiAutoGenerating ? (
+                    <p className="text-sm mt-1 flex items-center gap-2" style={{ color: "var(--mq-accent)" }}>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Генерируем описание...
+                    </p>
+                  ) : selectedPlaylist.description ? (
+                    <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)", minHeight: 20 }}>
                       {selectedPlaylist.description}
                     </p>
-                  ) : (
-                    <p className="text-sm mt-1 italic" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
-                      Без описания
-                    </p>
-                  )}
+                  ) : null}
                 </>
               )}
               <p className="text-xs mt-2" style={{ color: "var(--mq-text-muted)" }}>
@@ -435,8 +489,8 @@ export default function PlaylistView() {
           </div>
         </motion.div>
 
-        {/* AI-powered actions */}
-        {selectedPlaylist.tracks.length > 0 && (
+        {/* AI-powered actions — only show manual buttons if already has description */}
+        {selectedPlaylist.description && !aiAutoGenerating && (
           <motion.div
             initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
             animate={{ opacity: 1, y: 0 }}
@@ -444,7 +498,7 @@ export default function PlaylistView() {
             style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
           >
             <p className="text-xs font-medium mb-3" style={{ color: "var(--mq-text-muted)" }}>
-              ИИ-функции
+              Перегенерировать ИИ
             </p>
             <div className="flex items-center gap-2">
               <motion.button
@@ -468,7 +522,7 @@ export default function PlaylistView() {
                 ) : (
                   <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                 )}
-                {aiGeneratingTags ? "Генерация..." : "Сгенерировать теги"}
+                {aiGeneratingTags ? "Генерация..." : "Новые теги"}
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.03 }}
