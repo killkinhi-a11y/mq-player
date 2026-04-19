@@ -118,6 +118,10 @@ interface AppState {
   // Support chat
   supportUnreadCount: number;
 
+  // Notifications
+  notificationCount: number;
+  notifPanelOpen: boolean;
+
   // Search
   searchQuery: string;
   selectedGenre: string;
@@ -245,6 +249,10 @@ interface AppState {
   setSupportUnreadCount: (count: number) => void;
   incrementSupportUnread: () => void;
 
+  // Notification actions
+  setNotificationCount: (count: number) => void;
+  setNotifPanelOpen: (open: boolean) => void;
+
   // Liquid Glass Mobile action
   setLiquidGlassMobile: (enabled: boolean) => void;
 
@@ -295,6 +303,8 @@ const initialState = {
   selectedGenre: "",
   isLoading: false,
   supportUnreadCount: 0 as number,
+  notificationCount: 0 as number,
+  notifPanelOpen: false as boolean,
   isFullTrackViewOpen: false,
   likedTrackIds: [] as string[],
   dislikedTrackIds: [] as string[],
@@ -550,6 +560,9 @@ export const useAppStore = create<AppState>()(
       // ── Support chat actions ──
       setSupportUnreadCount: (count) => set({ supportUnreadCount: count }),
       incrementSupportUnread: () => set((s) => ({ supportUnreadCount: s.supportUnreadCount + 1 })),
+
+      setNotificationCount: (count) => set({ notificationCount: count }),
+      setNotifPanelOpen: (open) => set({ notifPanelOpen: open }),
 
       setSearchQuery: (query) => set({ searchQuery: query }),
 

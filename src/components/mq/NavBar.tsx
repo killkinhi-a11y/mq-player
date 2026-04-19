@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
-import { Home, Search, MessageCircle, Settings, Music, LogOut, User, ListMusic, Clock, Download, Monitor } from "lucide-react";
+import { Home, Search, MessageCircle, Settings, Music, LogOut, User, ListMusic, Clock, Download, Monitor, Bell } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
 const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
@@ -15,7 +15,7 @@ const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "me
 ];
 
 export default function NavBar() {
-  const { currentView, setView, logout, username, avatar, compactMode, unreadCounts, supportUnreadCount } = useAppStore();
+  const { currentView, setView, logout, username, avatar, compactMode, unreadCounts, supportUnreadCount, notificationCount, setNotifPanelOpen } = useAppStore();
 
   const getBadgeCount = (badgeKey?: string): number => {
     if (!badgeKey) return 0;
@@ -107,6 +107,28 @@ export default function NavBar() {
       </nav>
 
       <div className="flex items-center gap-3">
+        {/* Notifications */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setNotifPanelOpen(true)}
+          className="relative p-2 rounded-xl transition-all duration-200"
+          style={{
+            backgroundColor: notificationCount > 0 ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.04)",
+            border: notificationCount > 0 ? "1px solid rgba(239,68,68,0.2)" : "1px solid rgba(255,255,255,0.08)",
+            color: notificationCount > 0 ? "#ef4444" : "var(--mq-text-muted)",
+          }}
+          title="Уведомления"
+        >
+          <Bell className="w-4 h-4" />
+          {notificationCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full flex items-center justify-center text-[9px] font-bold px-1"
+              style={{ backgroundColor: "#ef4444", color: "#fff" }}>
+              {notificationCount > 99 ? "99" : notificationCount}
+            </span>
+          )}
+        </motion.button>
+
         {/* Download Desktop App */}
         <motion.a
           whileHover={{ scale: 1.05 }}

@@ -48,7 +48,7 @@ interface NotificationPanelProps {
 }
 
 export default function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
-  const { userId } = useAppStore();
+  const { userId, setNotificationCount } = useAppStore();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -72,12 +72,12 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
     if (isOpen) fetchNotifications();
   }, [isOpen, fetchNotifications]);
 
-  // Poll for new notifications every 15s
+  // Poll for new notifications every 15s (always when authenticated)
   useEffect(() => {
-    if (!userId || !isOpen) return;
+    if (!userId) return;
     const interval = setInterval(fetchNotifications, 15000);
     return () => clearInterval(interval);
-  }, [userId, isOpen, fetchNotifications]);
+  }, [userId, fetchNotifications]);
 
   const markAllRead = async () => {
     if (!userId) return;
@@ -87,6 +87,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ markAll: true }),
       });
+      setNotificationCount(0);
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
     } catch { /* silent */ }
@@ -112,13 +113,12 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
     } catch { /* silent */ }
   };
 
-  // Expose unreadCount for parent
+  // Always update global notification count (not just when open)
   useEffect(() => {
-    if (userId && isOpen) {
-      // Update parent about unread count
-      useAppStore.setState({ supportUnreadCount: unreadCount });
+    if (userId) {
+      setNotificationCount(unreadCount);
     }
-  }, [unreadCount, userId, isOpen]);
+  }, [unreadCount, userId, setNotificationCount]);
 
   return (
     <AnimatePresence>

@@ -27,6 +27,7 @@ const FullTrackView = lazy(() => import("@/components/mq/FullTrackView"));
 const PiPPlayer = lazy(() => import("@/components/mq/PiPPlayer"));
 const NavBar = lazy(() => import("@/components/mq/NavBar"));
 const MobileNav = lazy(() => import("@/components/mq/MobileNav"));
+const NotificationPanel = lazy(() => import("@/components/mq/NotificationPanel"));
 const SeasonalEffects = lazy(() => import("@/components/mq/SeasonalEffects"));
 const MaintenanceBanner = lazy(() => import("@/components/mq/MaintenanceBanner"));
 
@@ -40,6 +41,7 @@ function AppShell() {
   const {
     currentView, currentTheme, customAccent, fontSize, animationsEnabled,
     isAuthenticated, setView, searchQuery, setSearchQuery, setTheme,
+    notifPanelOpen, setNotifPanelOpen, notificationCount,
   } = useAppStore();
 
   // ── Seasonal theme auto-detection from admin flags ──
@@ -222,6 +224,7 @@ function AppShell() {
       <Suspense fallback={null}><FullTrackView /></Suspense>
       <Suspense fallback={null}><PiPPlayer /></Suspense>
       <Suspense fallback={null}>{showNav && <MobileNav />}</Suspense>
+      <Suspense fallback={null}>{isAuthenticated && <NotificationPanel isOpen={notifPanelOpen} onClose={() => setNotifPanelOpen(false)} />}</Suspense>
       <Suspense fallback={null}>{
         seasonalTheme && isAuthenticated ? (
           <SeasonalEffects theme={seasonalTheme as any} />

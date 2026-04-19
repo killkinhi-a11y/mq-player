@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import MessageBubble from "./MessageBubble";
-import NotificationPanel from "./NotificationPanel";
+// NotificationPanel is now global in play/page.tsx
 import { Input } from "@/components/ui/input";
 import {
   Lock, Shield, Send, ArrowLeft, Search, ShieldCheck, Smile, Trash2,
@@ -136,7 +136,7 @@ export default function MessengerView() {
   const {
     userId, username, email, messages, addMessage, selectedContactId, setSelectedContact,
     animationsEnabled, currentTrack, isPlaying, unreadCounts, addContact, contacts,
-    loadMessages,
+    loadMessages, notificationCount,
   } = useAppStore();
 
   // ── Core UI state ──
@@ -165,8 +165,7 @@ export default function MessengerView() {
     return false;
   });
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [notifUnreadCount, setNotifUnreadCount] = useState(0);
+  // notifUnreadCount is now global via store.notificationCount
 
   // ── Responsive viewport height tracking ──
   const [isMobileView, setIsMobileView] = useState(false);
@@ -1482,13 +1481,13 @@ export default function MessengerView() {
               <span className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>E2E</span>
             </div>
             <div className="relative">
-              <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowNotifications(true)}
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => useAppStore.getState().setNotifPanelOpen(true)}
                 className="p-2 rounded-xl cursor-pointer" style={{ ...glassPanel, color: "var(--mq-text)" }} title="Уведомления">
                 <Bell className="w-4 h-4" />
               </motion.button>
-              {notifUnreadCount > 0 && (
+              {notificationCount > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full text-[9px] flex items-center justify-center px-0.5 font-bold" style={{ backgroundColor: "#ef4444", color: "#fff" }}>
-                  {notifUnreadCount > 99 ? "99" : notifUnreadCount}
+                  {notificationCount > 99 ? "99" : notificationCount}
                 </span>
               )}
             </div>
@@ -2548,7 +2547,7 @@ export default function MessengerView() {
       </AnimatePresence>
 
       {/* Notification Panel */}
-      <NotificationPanel isOpen={showNotifications} onClose={() => setShowNotifications(false)} />
+      {/* NotificationPanel is now global — rendered in play/page.tsx */}
     </div>
   );
 
