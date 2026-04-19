@@ -743,7 +743,7 @@ export default function SettingsView() {
           <motion.a
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQ-Player-Setup.exe"
+            href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQ-Player-1.0.0-Windows-Portable.zip"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
@@ -755,7 +755,7 @@ export default function SettingsView() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold" style={{ color: "var(--mq-text)" }}>Windows</p>
-              <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>.exe установщик</p>
+              <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>.zip portable (117 MB)</p>
             </div>
             <Download className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
           </motion.a>
@@ -785,7 +785,7 @@ export default function SettingsView() {
           <motion.a
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQ-Player.AppImage"
+            href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/MQ-Player-1.0.0.AppImage"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
