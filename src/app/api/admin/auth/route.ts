@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // Admin emails — comma-separated in env var ADMIN_EMAILS, fallback hardcoded
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "killkin.hi@gmail.com")
   .split(",")
   .map((e) => e.trim().toLowerCase());
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const { email } = await req.json();
 
@@ -24,3 +25,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка проверки прав" }, { status: 500 });
   }
 }
+export const POST = withRateLimit(RATE_LIMITS.admin, handler);

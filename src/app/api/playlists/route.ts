@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // GET /api/playlists?userId=&search=&tags=&sort=&page=&limit=
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId") || "";
@@ -115,7 +116,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/playlists — create or publish a playlist
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   try {
     const body = await req.json();
     const { userId, name, description, cover, isPublic, tags, tracks } = body;
@@ -151,7 +152,7 @@ export async function POST(req: NextRequest) {
 }
 
 // PUT /api/playlists — update playlist
-export async function PUT(req: NextRequest) {
+async function putHandler(req: NextRequest) {
   try {
     const body = await req.json();
     const { id, userId, name, description, cover, isPublic, tags, tracks } = body;
@@ -193,7 +194,7 @@ export async function PUT(req: NextRequest) {
 }
 
 // DELETE /api/playlists?playlistId=&userId=
-export async function DELETE(req: NextRequest) {
+async function deleteHandler(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const playlistId = searchParams.get("playlistId");
@@ -215,6 +216,11 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ error: "Failed to delete playlist" }, { status: 500 });
   }
 }
+
+export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const POST = withRateLimit(RATE_LIMITS.write, postHandler);
+export const PUT = withRateLimit(RATE_LIMITS.write, putHandler);
+export const DELETE = withRateLimit(RATE_LIMITS.write, deleteHandler);
 
 // GET /api/playlists/[id] — handled in separate file
 

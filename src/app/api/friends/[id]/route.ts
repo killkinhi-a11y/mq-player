@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // PUT /api/friends/[id] — accept or reject a friend request
-export async function PUT(
+async function putHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
     const { action } = await req.json(); // "accept" or "reject"
 
     if (!action || !["accept", "reject"].includes(action)) {
@@ -52,12 +53,12 @@ export async function PUT(
 }
 
 // DELETE /api/friends/[id] — remove a friend
-export async function DELETE(
+async function deleteHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
 
     await db.friend.delete({ where: { id } });
 
@@ -67,3 +68,5 @@ export async function DELETE(
     return NextResponse.json({ error: "Ошибка при удалении друга" }, { status: 500 });
   }
 }
+export const PUT = withRateLimit(RATE_LIMITS.write, putHandler);
+export const DELETE = withRateLimit(RATE_LIMITS.write, deleteHandler);

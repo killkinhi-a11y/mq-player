@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks } from "@/lib/soundcloud";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
  * Genre browse API — searches SoundCloud by genre name.
@@ -9,7 +10,7 @@ import { searchSCTracks } from "@/lib/soundcloud";
 const cache = new Map<string, { data: unknown; expiry: number }>();
 const CACHE_TTL = 10 * 60 * 1000; // 10 min (genre results change slowly)
 
-export async function GET(request: NextRequest) {
+async function handler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const genre = searchParams.get("genre");
 
@@ -30,3 +31,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ tracks: [] }, { status: 200 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.read, handler);

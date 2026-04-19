@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { searchSCTracks, type SCTrack } from "@/lib/soundcloud";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
  * Popular tracks — Spotify/YouTube Music inspired ranking algorithm.
@@ -130,7 +131,7 @@ function scoreTrack(track: ScoredTrack["track"], queryCount: number, category: s
   return score;
 }
 
-export async function GET() {
+async function handler() {
   const cacheKey = "popular:sc:v4-weighted";
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
@@ -242,3 +243,4 @@ export async function GET() {
     return NextResponse.json({ tracks: [] }, { status: 200 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.read, handler);

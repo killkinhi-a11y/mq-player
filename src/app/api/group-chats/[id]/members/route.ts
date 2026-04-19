@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // POST /api/group-chats/[id]/members — add member (admin only)
-export async function POST(
+async function postHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
     const { userId, addedBy } = await req.json();
 
     if (!userId || !addedBy) {
@@ -98,12 +99,12 @@ export async function POST(
 }
 
 // DELETE /api/group-chats/[id]/members?userId=xxx&removedBy=xxx — remove member
-export async function DELETE(
+async function deleteHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
     const userId = req.nextUrl.searchParams.get("userId");
     const removedBy = req.nextUrl.searchParams.get("removedBy");
 
@@ -178,3 +179,5 @@ export async function DELETE(
     );
   }
 }
+export const POST = withRateLimit(RATE_LIMITS.write, postHandler);
+export const DELETE = withRateLimit(RATE_LIMITS.write, deleteHandler);

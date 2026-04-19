@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // GET /api/sync?userId=xxx — fetch all user data from server
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
     const userId = req.nextUrl.searchParams.get("userId");
     if (!userId) {
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/sync — save user data to server
 // Body: { userId, data: { key: value, ... } }
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   try {
     const { userId, data } = await req.json();
     if (!userId || !data || typeof data !== "object") {
@@ -68,3 +69,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to save data" }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const POST = withRateLimit(RATE_LIMITS.write, postHandler);

@@ -2,16 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile, stat } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // Allow sufficient time for serving large audio files
 export const maxDuration = 60;
 
-export async function GET(
+async function handler(
   request: NextRequest,
-  { params }: { params: Promise<{ filename: string }> }
+  ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { filename } = await params;
+    const { filename } = await ctx!.params;
     
     // Validate filename to prevent directory traversal
     if (!filename || filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
@@ -54,3 +55,4 @@ export async function GET(
     return NextResponse.json({ error: "File not found" }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.read, handler);

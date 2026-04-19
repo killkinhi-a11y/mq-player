@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
  * Public API — returns the currently active seasonal theme (if any).
  * Called by the client on app load to auto-apply seasonal themes
  * enabled by admins via Feature Flags.
  */
-export async function GET() {
+async function handler() {
   try {
     const flags = await db.featureFlag.findMany({
       where: {
@@ -38,3 +39,4 @@ export async function GET() {
     return NextResponse.json({ activeTheme: null, flags: [] });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.write, handler);

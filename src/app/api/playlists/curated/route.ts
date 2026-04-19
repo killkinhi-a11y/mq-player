@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks } from "@/lib/soundcloud";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 interface CuratedPlaylist {
   id: string;
@@ -152,7 +153,7 @@ async function searchAndBuildTracks(queries: string[], limit: number) {
   return allTracks;
 }
 
-export async function GET(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const userId = req.nextUrl.searchParams.get("userId") || "";
     const topGenres = req.nextUrl.searchParams.get("genres")?.split(",").filter(Boolean) || [];
@@ -225,3 +226,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ playlists: [] });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.write, handler);

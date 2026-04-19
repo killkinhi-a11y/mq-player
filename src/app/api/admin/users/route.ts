@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const page = Math.max(1, Number(searchParams.get("page") || 1));
@@ -45,7 +46,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function PATCH(req: NextRequest) {
+async function patchHandler(req: NextRequest) {
   try {
     const { userId, targetId, action, data } = await req.json();
 
@@ -161,3 +162,5 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка обновления пользователя" }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.admin, getHandler);
+export const PATCH = withRateLimit(RATE_LIMITS.admin, patchHandler);

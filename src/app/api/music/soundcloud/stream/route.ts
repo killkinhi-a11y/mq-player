@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSoundCloudClientId } from "@/lib/soundcloud";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
  * Resolve SoundCloud stream URL for a track.
@@ -9,7 +10,7 @@ import { getSoundCloudClientId } from "@/lib/soundcloud";
 // Cache resolved stream URLs (they expire quickly, cache 3 min)
 const streamCache = new Map<string, { url: string; expiry: number }>();
 
-export async function GET(request: NextRequest) {
+async function handler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const trackId = searchParams.get("trackId");
 
@@ -93,3 +94,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ url: null, error: "resolve_failed" });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.read, handler);

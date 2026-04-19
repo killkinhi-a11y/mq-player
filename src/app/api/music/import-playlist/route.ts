@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchSCTracks } from '@/lib/soundcloud';
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const { url, vkToken } = await req.json();
     if (!url || typeof url !== 'string') {
@@ -134,6 +135,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message || 'Ошибка при импорте' }, { status: 500 });
   }
 }
+export const POST = withRateLimit(RATE_LIMITS.heavy, handler);
 
 type Platform = 'ВКонтакте' | 'Яндекс.Музыка' | 'Spotify' | 'YouTube Music' | 'Apple Music' | 'SoundCloud' | 'Deezer' | 'Boom';
 

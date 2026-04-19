@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // GET /api/group-chats/[id]?userId=xxx — group chat details with members and last 50 messages
-export async function GET(
+async function getHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
     const userId = req.nextUrl.searchParams.get("userId");
 
     const groupChat = await db.groupChat.findUnique({
@@ -93,12 +94,12 @@ export async function GET(
 }
 
 // PATCH /api/group-chats/[id] — update group chat (admin only)
-export async function PATCH(
+async function patchHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
     const { userId, name, description, avatar } = await req.json();
 
     if (!userId) {
@@ -175,12 +176,12 @@ export async function PATCH(
 }
 
 // DELETE /api/group-chats/[id]?userId=xxx — delete group chat (creator only)
-export async function DELETE(
+async function deleteHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
     const userId = req.nextUrl.searchParams.get("userId");
 
     if (!userId) {
@@ -219,3 +220,6 @@ export async function DELETE(
     );
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const PATCH = withRateLimit(RATE_LIMITS.write, patchHandler);
+export const DELETE = withRateLimit(RATE_LIMITS.write, deleteHandler);

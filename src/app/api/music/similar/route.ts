@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks } from "@/lib/soundcloud";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
  * Similar Tracks API — finds tracks similar to a given track.
@@ -162,7 +163,7 @@ function calculateSimilarity(
   return score;
 }
 
-export async function GET(request: NextRequest) {
+async function handler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const trackTitle = searchParams.get("title") || "";
   const trackArtist = searchParams.get("artist") || "";
@@ -317,3 +318,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ tracks: [] }, { status: 200 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.read, handler);

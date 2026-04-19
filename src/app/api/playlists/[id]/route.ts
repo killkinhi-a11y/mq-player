@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // GET /api/playlists/[id]?userId= (userId optional for like status)
-export async function GET(
+async function handler(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
     const userId = new URL(req.url).searchParams.get("userId");
 
     const playlist = await db.playlist.findUnique({
@@ -67,3 +68,4 @@ export async function GET(
     return NextResponse.json({ error: "Failed to fetch playlist" }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.write, handler);

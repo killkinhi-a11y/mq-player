@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const userId = req.nextUrl.searchParams.get("userId");
     const query = req.nextUrl.searchParams.get("q");
@@ -30,3 +31,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка поиска" }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.search, handler);

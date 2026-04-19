@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 async function verifyAdmin(req: NextRequest): Promise<{ userId: string; body: Record<string, unknown> } | NextResponse> {
   let body: Record<string, unknown> = {};
@@ -13,7 +14,7 @@ async function verifyAdmin(req: NextRequest): Promise<{ userId: string; body: Re
   return { userId, body };
 }
 
-export async function GET(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const adminCheck = await verifyAdmin(req);
     if (adminCheck instanceof NextResponse) return adminCheck;
@@ -77,3 +78,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка загрузки статистики" }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.admin, handler);

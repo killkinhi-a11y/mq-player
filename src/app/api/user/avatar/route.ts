@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const { userId, avatar } = await req.json();
 
@@ -35,3 +36,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка при обновлении аватарки" }, { status: 500 });
   }
 }
+export const POST = withRateLimit(RATE_LIMITS.upload, handler);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // GET /api/playlists/recommendations?userId=&likedTags=pop,rock&dislikedTags=jazz&limit=10
 //
@@ -8,7 +9,7 @@ import { db } from "@/lib/db";
 // 2. Score each public playlist by tag overlap + recency + popularity
 // 3. Exclude playlists already liked by the user
 // 4. Return top N recommendations
-export async function GET(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId") || "";
@@ -166,3 +167,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Failed to get recommendations" }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.heavy, handler);

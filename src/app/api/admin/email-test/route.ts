@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { sendVerificationEmail, getEmailStatus, isEmailConfigured } from "@/lib/email";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
  * GET  /api/admin/email-test — returns Brevo email configuration status
  * POST /api/admin/email-test — sends a test email to verify Brevo is working
  */
-export async function GET() {
+async function getHandler() {
   const status = getEmailStatus();
   return NextResponse.json({
     configured: status.configured,
@@ -17,7 +18,7 @@ export async function GET() {
   });
 }
 
-export async function POST(req: Request) {
+async function postHandler(req: Request) {
   try {
     const body = await req.json();
     const testEmail = body.email;
@@ -64,3 +65,5 @@ export async function POST(req: Request) {
     }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.admin, getHandler);
+export const POST = withRateLimit(RATE_LIMITS.admin, postHandler);

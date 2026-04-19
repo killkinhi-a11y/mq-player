@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
-export async function DELETE(
+async function handler(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
     const { userId } = await req.json();
 
     if (!userId) {
@@ -48,3 +49,4 @@ export async function DELETE(
     return NextResponse.json({ error: "Ошибка удаления пользователя" }, { status: 500 });
   }
 }
+export const DELETE = withRateLimit(RATE_LIMITS.admin, handler);

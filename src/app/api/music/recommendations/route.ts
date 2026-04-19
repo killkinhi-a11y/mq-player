@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks } from "@/lib/soundcloud";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
  * Smart Recommendations API — generates recommendations based on user taste profile.
@@ -27,7 +28,7 @@ function setCache(key: string, data: unknown): void {
   cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
 }
 
-export async function GET(request: NextRequest) {
+async function handler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const genre = searchParams.get("genre") || "random";
   const genresParam = searchParams.get("genres");
@@ -125,3 +126,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ tracks: [] }, { status: 200 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.heavy, handler);

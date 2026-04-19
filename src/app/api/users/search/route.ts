@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
-export async function GET(request: NextRequest) {
+async function handler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q") || "";
@@ -40,3 +41,4 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ users: [] }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.search, handler);

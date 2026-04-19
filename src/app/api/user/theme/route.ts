@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // GET /api/user/theme?userId=xxx — get user's saved theme
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
     const userId = req.nextUrl.searchParams.get("userId");
     if (!userId) {
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/user/theme — save user's theme preference
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   try {
     const { userId, theme, accent } = await req.json();
 
@@ -53,3 +54,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to save theme" }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const POST = withRateLimit(RATE_LIMITS.write, postHandler);

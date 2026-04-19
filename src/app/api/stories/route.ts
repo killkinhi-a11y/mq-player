@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // GET /api/stories?userId=xxx — get stories from a specific user
 // GET /api/stories?all=true — get all active stories (feed)
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/stories — create a new story
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   try {
     const { userId, type, content, bgColor, textColor } = await req.json();
 
@@ -95,3 +96,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка при создании истории" }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const POST = withRateLimit(RATE_LIMITS.write, postHandler);

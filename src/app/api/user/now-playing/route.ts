@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/user/now-playing?userId=xxx — get someone's now-playing status
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const userId = searchParams.get("userId");
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
 }
 
 // PUT /api/user/now-playing — set own now-playing status
-export async function PUT(req: NextRequest) {
+async function putHandler(req: NextRequest) {
   try {
     const { userId, track } = await req.json();
     if (!userId) return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
@@ -70,3 +71,5 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка" }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const PUT = withRateLimit(RATE_LIMITS.write, putHandler);

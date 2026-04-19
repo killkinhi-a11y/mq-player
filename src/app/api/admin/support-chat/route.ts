@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // Bot knowledge base — auto-answers for common questions
 const botResponses: { keywords: string[]; response: string }[] = [
@@ -59,7 +60,7 @@ function findBotResponse(userMessage: string): string {
   return "Спасибо за ваше обращение! Я обработал ваш запрос. Если мой ответ не помог — администратор увидит ваше сообщение и ответит лично. Обычно это занимает несколько минут в рабочее время.";
 }
 
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const sessionsFlag = searchParams.get("sessions");
@@ -87,7 +88,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   try {
     const body = await req.json();
     const { sessionId, role, content } = body;
@@ -149,3 +150,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка отправки сообщения" }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.admin, getHandler);
+export const POST = withRateLimit(RATE_LIMITS.admin, postHandler);

@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 // 5 minutes max (Vercel Hobby plan limit)
 export const maxDuration = 300;
 
-export async function POST(request: NextRequest) {
+async function handler(request: NextRequest) {
   try {
     const contentType = request.headers.get("content-type") || "";
     if (!contentType.includes("multipart/form-data")) {
@@ -107,3 +108,4 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+export const POST = withRateLimit(RATE_LIMITS.upload, handler);

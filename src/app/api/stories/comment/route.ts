@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // POST /api/stories/comment — comment on a story
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   try {
     const { storyId, userId, content } = await req.json();
 
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
 }
 
 // GET /api/stories/comment?storyId=xxx — get comments for a story
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const storyId = searchParams.get("storyId");
@@ -59,3 +60,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка при загрузке комментариев" }, { status: 500 });
   }
 }
+export const POST = withRateLimit(RATE_LIMITS.write, postHandler);
+export const GET = withRateLimit(RATE_LIMITS.write, getHandler);

@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/group-chats/[id]/messages?cursor=xxx&limit=50&userId=xxx — paginated messages
-export async function GET(
+async function getHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
     const cursor = req.nextUrl.searchParams.get("cursor");
     const limitParam = req.nextUrl.searchParams.get("limit");
     const userId = req.nextUrl.searchParams.get("userId");
@@ -98,12 +99,12 @@ export async function GET(
 }
 
 // POST /api/group-chats/[id]/messages — send a message
-export async function POST(
+async function postHandler(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  ctx?: { params: Promise<Record<string, string>> }
 ) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
     const {
       senderId,
       content,
@@ -197,3 +198,5 @@ export async function POST(
     );
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const POST = withRateLimit(RATE_LIMITS.write, postHandler);

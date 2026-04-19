@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 // GET /api/group-chats?userId=xxx — list all group chats for a user
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
     const userId = req.nextUrl.searchParams.get("userId");
 
@@ -76,7 +77,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/group-chats — create a new group chat
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   try {
     const { name, description, createdBy, memberIds }: { name: string; description?: string; createdBy: string; memberIds?: string[] } = await req.json();
 
@@ -174,3 +175,5 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.write, getHandler);
+export const POST = withRateLimit(RATE_LIMITS.write, postHandler);

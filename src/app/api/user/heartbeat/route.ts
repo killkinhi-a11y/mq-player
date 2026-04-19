@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const { userId } = await req.json();
     if (!userId) return NextResponse.json({ error: "userId обязателен" }, { status: 400 });
@@ -16,3 +17,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка" }, { status: 500 });
   }
 }
+export const POST = withRateLimit(RATE_LIMITS.write, handler);

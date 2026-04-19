@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 async function verifyAdmin(req: NextRequest): Promise<{ userId: string; body: Record<string, unknown> } | NextResponse> {
   let body: Record<string, unknown> = {};
@@ -12,7 +13,7 @@ async function verifyAdmin(req: NextRequest): Promise<{ userId: string; body: Re
   return { userId, body };
 }
 
-export async function GET(req: NextRequest) {
+async function getHandler(req: NextRequest) {
   try {
     const adminCheck = await verifyAdmin(req);
     if (adminCheck instanceof NextResponse) return adminCheck;
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
+async function postHandler(req: NextRequest) {
   try {
     const adminCheck = await verifyAdmin(req);
     if (adminCheck instanceof NextResponse) return adminCheck;
@@ -60,7 +61,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function PATCH(req: NextRequest) {
+async function patchHandler(req: NextRequest) {
   try {
     const adminCheck = await verifyAdmin(req);
     if (adminCheck instanceof NextResponse) return adminCheck;
@@ -88,3 +89,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Ошибка обновления флага" }, { status: 500 });
   }
 }
+export const GET = withRateLimit(RATE_LIMITS.admin, getHandler);
+export const POST = withRateLimit(RATE_LIMITS.admin, postHandler);
+export const PATCH = withRateLimit(RATE_LIMITS.admin, patchHandler);

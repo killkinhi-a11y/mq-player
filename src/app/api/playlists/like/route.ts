@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 // POST /api/playlists/like — toggle like on a playlist
-export async function POST(req: NextRequest) {
+async function handler(req: NextRequest) {
   try {
     const body = await req.json();
     const { playlistId, userId } = body;
@@ -38,3 +39,4 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Failed to toggle like" }, { status: 500 });
   }
 }
+export const POST = withRateLimit(RATE_LIMITS.write, handler);

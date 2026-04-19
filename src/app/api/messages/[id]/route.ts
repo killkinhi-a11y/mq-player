@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
-export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function patchHandler(req: NextRequest, ctx?: { params: Promise<Record<string, string>> }) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
     const { content, senderId } = await req.json();
     if (!content || !senderId) return NextResponse.json({ error: "Поля обязательны" }, { status: 400 });
 
@@ -23,9 +24,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+async function deleteHandler(req: NextRequest, ctx?: { params: Promise<Record<string, string>> }) {
   try {
-    const { id } = await params;
+    const { id } = await ctx!.params;
     const { senderId } = await req.json();
     if (!senderId) return NextResponse.json({ error: "senderId обязателен" }, { status: 400 });
 
@@ -42,3 +43,5 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "Ошибка" }, { status: 500 });
   }
 }
+export const PATCH = withRateLimit(RATE_LIMITS.write, patchHandler);
+export const DELETE = withRateLimit(RATE_LIMITS.write, deleteHandler);
