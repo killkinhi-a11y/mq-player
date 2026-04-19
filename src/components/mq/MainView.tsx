@@ -47,39 +47,54 @@ export default function MainView() {
   const [curatedLoading, setCuratedLoading] = useState(true);
   const [selectedCurated, setSelectedCurated] = useState<CuratedPlaylist | null>(null);
 
-  // Build taste profile from liked tracks + history
+  // Build taste profile from liked tracks + history with exponential time decay
   const tasteProfile = useMemo(() => {
     const { likedTracksData, history, likedTrackIds, dislikedTrackIds, likedTracksData: likedData } = useAppStore.getState();
     const safeLiked = Array.isArray(likedTrackIds) ? likedTrackIds : [];
     const safeDisliked = Array.isArray(dislikedTrackIds) ? dislikedTrackIds : [];
     const safeHistory = Array.isArray(history) ? history : [];
+    const now = Date.now();
+
+    // Exponential time decay: half-life = 7 days (604800000 ms)
+    // Tracks played recently count much more than old ones
+    const HALF_LIFE = 7 * 24 * 60 * 60 * 1000;
+    function timeDecay(playedAt: number): number {
+      const age = now - playedAt;
+      return Math.exp(-0.693 * age / HALF_LIFE); // ln(2) ≈ 0.693
+    }
 
     const genreCounts: Record<string, number> = {};
     const artistCounts: Record<string, number> = {};
 
+    // Liked tracks: weight = 3 * decay (liked tracks are 3x stronger signal)
     for (const track of likedData) {
+      const recency = timeDecay(now - 14 * 24 * 60 * 60 * 1000); // treat likes as ~14 days old for decay
+      const weight = 3 * recency;
       if (track.genre) {
-        genreCounts[track.genre] = (genreCounts[track.genre] || 0) + 2;
+        genreCounts[track.genre] = (genreCounts[track.genre] || 0) + weight;
       }
-      artistCounts[track.artist] = (artistCounts[track.artist] || 0) + 2;
+      artistCounts[track.artist] = (artistCounts[track.artist] || 0) + weight;
     }
 
-    for (const entry of history.slice(0, 50)) {
+    // History: weight = 1 * decay (normal signal with recency weighting)
+    for (const entry of safeHistory.slice(0, 100)) {
       const t = entry.track;
+      const weight = timeDecay(entry.playedAt);
       if (t.genre) {
-        genreCounts[t.genre] = (genreCounts[t.genre] || 0) + 1;
+        genreCounts[t.genre] = (genreCounts[t.genre] || 0) + weight;
       }
-      artistCounts[t.artist] = (artistCounts[t.artist] || 0) + 1;
+      artistCounts[t.artist] = (artistCounts[t.artist] || 0) + weight;
     }
 
+    // Expanded: top 5 genres, top 3 artists (was top-3 genres / top-2 artists)
     const topGenres = Object.entries(genreCounts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
+      .slice(0, 5)
       .map(([genre]) => genre);
 
     const topArtists = Object.entries(artistCounts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 2)
+      .slice(0, 3)
       .map(([artist]) => artist);
 
     const excludeIds = [...safeLiked, ...safeDisliked, ...safeHistory.slice(0, 30).map(h => h.track.id)].join(",");
@@ -87,7 +102,6 @@ export default function MainView() {
     // Build disliked artists/genres from disliked tracks data
     const dislikedArtistsSet = new Set<string>();
     const dislikedGenresSet = new Set<string>();
-    // Get all track data we have (liked data and history) and check if any are in dislikedTrackIds
     const allKnownTracks = [...likedData, ...safeHistory.slice(0, 100).map(h => h.track)];
     for (const track of allKnownTracks) {
       if (safeDisliked.includes(track.id)) {
@@ -103,7 +117,7 @@ export default function MainView() {
       dislikedArtists: [...dislikedArtistsSet].join(","),
       dislikedGenres: [...dislikedGenresSet].join(","),
     };
-  }, [likedTrackIds, dislikedTrackIds, likedTracksData]);
+  }, [likedTrackIds, dislikedTrackIds, likedTracksData, history]);
 
   // Fetch trending tracks
   useEffect(() => {

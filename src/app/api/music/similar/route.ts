@@ -109,10 +109,27 @@ function normalizeGenre(genre: string): string {
     .replace(/d 'n' b/gi, "drum and bass");
 }
 
+// Extract meaningful keywords from a title (remove common noise words)
+const STOP_WORDS = new Set([
+  "the", "a", "an", "of", "in", "on", "at", "to", "for", "and", "or", "but",
+  "is", "are", "was", "were", "be", "been", "being", "with", "by", "from",
+  " remix", " mix", " edit", " version", " original", " official", " audio",
+  "video", "lyric", "lyrics", "ft", "feat", "vs", "vol", "part", "ep",
+]);
+
+function extractKeywords(title: string): Set<string> {
+  const words = title
+    .toLowerCase()
+    .replace(/[()[\]{}.,:;!?'"`~\-–—/\\]/g, " ")
+    .split(/\s+/)
+    .filter(w => w.length > 2 && !STOP_WORDS.has(w));
+  return new Set(words);
+}
+
 // Calculate similarity score between two tracks
 function calculateSimilarity(
-  seed: { artist: string; genre: string; duration: number },
-  candidate: { artist: string; genre: string; duration: number; cover: string; scIsFull?: boolean }
+  seed: { artist: string; genre: string; duration: number; title: string },
+  candidate: { artist: string; genre: string; duration: number; cover: string; scIsFull?: boolean; title: string }
 ): number {
   let score = 0;
 
@@ -146,6 +163,18 @@ function calculateSimilarity(
         break;
       }
     }
+  }
+
+  // Title keyword matching — shared meaningful words indicate similar content
+  const seedKeywords = extractKeywords(seed.title);
+  const candidateKeywords = extractKeywords(candidate.title);
+  let keywordOverlap = 0;
+  for (const kw of seedKeywords) {
+    if (candidateKeywords.has(kw)) keywordOverlap++;
+  }
+  // Award up to 12 points for keyword overlap (capped)
+  if (keywordOverlap > 0) {
+    score += Math.min(12, keywordOverlap * 4);
   }
 
   // Duration similarity
@@ -274,13 +303,14 @@ async function handler(request: NextRequest) {
 
         seenTrackIds.add(track.scTrackId);
 
-        const seedInfo = { artist: trackArtist, genre: trackGenre, duration: trackDuration };
+        const seedInfo = { artist: trackArtist, genre: trackGenre, duration: trackDuration, title: trackTitle };
         const candidateInfo = {
           artist: track.artist,
           genre: track.genre,
           duration: track.duration || 0,
           cover: track.cover,
           scIsFull: track.scIsFull || false,
+          title: track.title,
         };
         const simScore = calculateSimilarity(seedInfo, candidateInfo);
         const finalScore = simScore * queryWeight;
@@ -293,7 +323,21 @@ async function handler(request: NextRequest) {
     }
 
     scoredTracks.sort((a, b) => b.similarityScore - a.similarityScore);
-    const topTracks = scoredTracks.slice(0, limit).map(t => ({
+
+    // ── Diversity injection ──
+    // Max 2 tracks per artist in final result
+    const topTracks: typeof scoredTracks = [];
+    const artistCount = new Map<string, number>();
+    for (const track of scoredTracks) {
+      if (topTracks.length >= limit) break;
+      const artist = (track.artist || "").toLowerCase().trim();
+      const count = artistCount.get(artist) || 0;
+      if (count >= 2) continue;
+      artistCount.set(artist, count + 1);
+      topTracks.push(track);
+    }
+
+    const resultTracks = topTracks.map(t => ({
       id: t.id,
       title: t.title,
       artist: t.artist,
@@ -310,7 +354,7 @@ async function handler(request: NextRequest) {
       _similarityScore: Math.round(t.similarityScore),
     }));
 
-    const responseData = { tracks: topTracks };
+    const responseData = { tracks: resultTracks };
     setCache(cacheKey, responseData);
     return NextResponse.json(responseData);
   } catch (error) {

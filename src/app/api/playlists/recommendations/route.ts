@@ -3,13 +3,28 @@ import { db } from "@/lib/db";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
 
+// Genre normalization — ensures "hip hop" matches "hip-hop", "r&b" matches "rnb", etc.
+function normalizeGenre(genre: string): string {
+  return genre.toLowerCase().trim()
+    .replace(/ & /g, " and ")
+    .replace(/r&b/g, "rnb")
+    .replace(/r 'n' b/gi, "rnb")
+    .replace(/hip hop/g, "hip-hop")
+    .replace(/drum 'n' bass/gi, "drum and bass")
+    .replace(/d 'n' b/gi, "drum and bass")
+    .replace(/lo-fi/g, "lofi")
+    .replace(/lo fi/g, "lofi")
+    .replace(/new age/g, "newage");
+}
+
 // GET /api/playlists/recommendations?likedTags=pop,rock&dislikedTags=jazz&limit=10
 //
-// Algorithm:
+// Algorithm v2 — improved with genre normalization and better scoring:
 // 1. Extract taste profile from user's liked tracks and history (sent as likedTags, likedArtists)
-// 2. Score each public playlist by tag overlap + recency + popularity
-// 3. Exclude playlists already liked by the user
-// 4. Return top N recommendations
+// 2. Normalize all genres for fuzzy matching
+// 3. Score each public playlist by tag overlap + artist overlap + recency + popularity + track diversity
+// 4. Exclude playlists already liked by the user
+// 5. Return top N recommendations
 async function handler(req: NextRequest) {
   try {
     const session = await getSession();
@@ -59,11 +74,12 @@ async function handler(req: NextRequest) {
 
         let score = 0;
 
-        // 1. Tag overlap score (0-40 points)
-        const playlistTags = (p.tags || "").split(",").map((t) => t.trim().toLowerCase()).filter(Boolean);
-        for (const lt of likedTags) {
+        // 1. Tag overlap score (0-40 points) — with genre normalization
+        const playlistTags = (p.tags || "").split(",").map((t) => normalizeGenre(t)).filter(Boolean);
+        const normalizedLikedTags = likedTags.map(t => normalizeGenre(t));
+        for (const lt of normalizedLikedTags) {
           for (const pt of playlistTags) {
-            if (pt.includes(lt) || lt.includes(pt)) {
+            if (pt === lt || pt.includes(lt) || lt.includes(pt)) {
               score += 15;
             }
           }
@@ -76,16 +92,17 @@ async function handler(req: NextRequest) {
         const uniqueArtists = [...new Set(playlistArtists)];
         for (const la of likedArtists) {
           for (const pa of uniqueArtists) {
-            if (pa.includes(la) || la.includes(pa)) {
+            if (pa === la || pa.includes(la) || la.includes(pa)) {
               score += 20;
             }
           }
         }
 
-        // 3. Disliked tag penalty (-20 per match)
-        for (const dt of dislikedTags) {
+        // 3. Disliked tag penalty (-20 per match) — normalized
+        const normalizedDislikedTags = dislikedTags.map(t => normalizeGenre(t));
+        for (const dt of normalizedDislikedTags) {
           for (const pt of playlistTags) {
-            if (pt.includes(dt) || dt.includes(pt)) {
+            if (pt === dt || pt.includes(dt) || dt.includes(pt)) {
               score -= 20;
             }
           }
@@ -103,6 +120,13 @@ async function handler(req: NextRequest) {
         if (tracks.length >= 10) score += 5;
         else if (tracks.length >= 5) score += 3;
         else if (tracks.length >= 3) score += 1;
+
+        // 7. Artist diversity bonus (0-5 points) — more unique artists = richer playlist
+        if (uniqueArtists.length >= 8) score += 5;
+        else if (uniqueArtists.length >= 5) score += 3;
+
+        // 8. Controlled randomness for freshness (-5 to +5)
+        score += Math.random() * 10 - 5;
 
         return { ...p, tracks, _score: score, _tags: playlistTags, _artists: uniqueArtists };
       })
