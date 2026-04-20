@@ -70,7 +70,7 @@ async function postHandler(req: NextRequest) {
     const completion = await zai.chat.completions.create({
       messages: [
         {
-          role: "assistant",
+          role: "system",
           content:
             "You are a music expert. Generate playlist tags and description in Russian. " +
             'Return ONLY valid JSON in this exact format: {"tags": ["tag1","tag2","tag3"],"description": "описание плейлиста"}. ' +
@@ -84,10 +84,10 @@ async function postHandler(req: NextRequest) {
         },
       ],
       temperature: 0.7,
-      thinking: { type: 'disabled' },
     });
 
     const raw = completion.choices?.[0]?.message?.content || "";
+    console.log("[auto-generate] raw response:", raw.slice(0, 300));
 
     // Extract JSON from response (handle possible markdown code blocks)
     let jsonStr = raw;
@@ -145,10 +145,10 @@ async function postHandler(req: NextRequest) {
       tags: cleanedTags,
       description: cleanedDescription,
     });
-  } catch (error) {
-    console.error("POST /api/playlists/auto-generate error:", error);
+  } catch (error: any) {
+    console.error("POST /api/playlists/auto-generate error:", error?.message || error);
     return NextResponse.json(
-      { error: "Ошибка при генерации тегов. Попробуйте позже." },
+      { error: "Ошибка при генерации тегов. Попробуйте позже.", debug: error?.message || String(error) },
       { status: 500 }
     );
   }

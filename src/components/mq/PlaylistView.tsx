@@ -181,7 +181,8 @@ export default function PlaylistView() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast({ title: "Ошибка", description: data.error || "Не удалось сгенерировать теги" });
+        console.error("[auto-generate] API error:", data);
+        toast({ title: "Ошибка", description: data.debug || data.error || "Не удалось сгенерировать теги" });
         return;
       }
       // Update local store with new description and tags
