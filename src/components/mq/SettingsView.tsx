@@ -21,6 +21,7 @@ export default function SettingsView() {
     lastSyncAt, isSyncing, syncToServer, syncFromServer,
     favoriteArtists, removeFavoriteArtist, saveFavoriteArtistsToServer,
     dislikedTags, removeDislikedTag,
+    currentStyle, setStyle,
   } = useAppStore();
 
   const ADMIN_EMAILS = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_ADMIN_EMAILS) 
@@ -59,6 +60,10 @@ export default function SettingsView() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [showTasteSection, setShowTasteSection] = useState(false);
+  const [showStyleMenu, setShowStyleMenu] = useState(false);
+  const styleList = [
+    { id: "ipod-2001", name: "iPod 2001" },
+  ];
   const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
 
   // Push notifications state
@@ -625,6 +630,97 @@ export default function SettingsView() {
                     )}
                   </motion.button>
                 ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+
+      {/* Styles — collapsed by default */}
+      <motion.div
+        initial={anim ? { opacity: 0, y: 20 } : undefined}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.17 }}
+        className="rounded-2xl p-4"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+      >
+        <button
+          onClick={() => setShowStyleMenu(!showStyleMenu)}
+          className="w-full flex items-center gap-2"
+        >
+          <Smartphone className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+          <h2 className="font-semibold" style={{ color: "var(--mq-text)" }}>Стиль интерфейса</h2>
+          <span className="text-xs ml-auto" style={{ color: "var(--mq-text-muted)" }}>
+            {currentStyle ? styleList.find(s => s.id === currentStyle)?.name : "Стандартный"}
+          </span>
+          {showStyleMenu ? (
+            <ChevronUp className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+          ) : (
+            <ChevronDown className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+          )}
+        </button>
+
+        <AnimatePresence>
+          {showStyleMenu && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="space-y-2 mt-4">
+                {/* Standard / None option */}
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => setStyle("")}
+                  className="w-full p-3 text-left relative flex items-center gap-3"
+                  style={{
+                    backgroundColor: !currentStyle ? "var(--mq-input-bg)" : "transparent",
+                    border: !currentStyle ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
+                  }}
+                >
+                  {/* Mini preview: default MQ Player style */}
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#1a1a1a", borderRadius: 0 }}>
+                    <div className="absolute top-1 left-1 w-4 h-1" style={{ backgroundColor: "#e03131", borderRadius: 0 }} />
+                    <div className="absolute top-1 right-1 w-3 h-3" style={{ backgroundColor: "#333", borderRadius: 0 }} />
+                    <div className="absolute bottom-1 left-1 right-1 h-3" style={{ backgroundColor: "#252525", borderRadius: 0 }} />
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Стандартный</span>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Обычный вид MQ Player</p>
+                  </div>
+                  {!currentStyle && (
+                    <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+                  )}
+                </motion.button>
+
+                {/* iPod 2001 */}
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => setStyle("ipod-2001")}
+                  className="w-full p-3 text-left relative flex items-center gap-3"
+                  style={{
+                    backgroundColor: currentStyle === "ipod-2001" ? "var(--mq-input-bg)" : "transparent",
+                    border: currentStyle === "ipod-2001" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
+                  }}
+                >
+                  {/* Mini preview: iPod style */}
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#f5f5f5", borderRadius: 0, border: "1px solid #cccccc" }}>
+                    <div className="absolute top-0 left-0 right-0 h-2.5" style={{ background: "linear-gradient(to bottom, #e8e8e8, #d0d0d0)", borderBottom: "1px solid #aaaaaa" }} />
+                    <div className="absolute top-3.5 left-1 right-1 h-2" style={{ backgroundColor: "#0066cc", borderRadius: 0 }} />
+                    <div className="absolute top-3.5 left-1 w-0.5 h-2" style={{ backgroundColor: "#333" }} />
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>iPod 2001</span>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Оригинальный Apple iPod</p>
+                  </div>
+                  {currentStyle === "ipod-2001" && (
+                    <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+                  )}
+                </motion.button>
               </div>
             </motion.div>
           )}

@@ -7,6 +7,7 @@ import type { ViewType } from "@/store/useAppStore";
 import { themes, applyThemeToDOM } from "@/lib/themes";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { useListenSessionSync } from "@/hooks/useListenSessionSync";
+import "@/styles/ipod-2001.css";
 
 declare global {
   interface Window {
@@ -46,6 +47,7 @@ function AppShell() {
     currentView, currentTheme, customAccent, fontSize, animationsEnabled,
     isAuthenticated, setView, searchQuery, setSearchQuery, setTheme,
     notifPanelOpen, setNotifPanelOpen, notificationCount,
+    currentStyle,
   } = useAppStore();
 
   // ── Seasonal theme auto-detection from admin flags ──
@@ -53,6 +55,17 @@ function AppShell() {
 
   // ── All refs declared before effects ──
   const prevViewRef = useRef(currentView);
+
+  // ── Apply style class to document ──
+  useEffect(() => {
+    const html = document.documentElement;
+    // Remove all style classes
+    html.removeAttribute('data-style');
+    // Apply current style
+    if (currentStyle) {
+      html.setAttribute('data-style', currentStyle);
+    }
+  }, [currentStyle]);
 
   // ── DB sync: ensure all tables exist on first load ──
   useEffect(() => {

@@ -166,6 +166,9 @@ interface AppState {
   // Liquid Glass Mobile
   liquidGlassMobile: boolean;
 
+  // Style
+  currentStyle: string;
+
   // History
   history: HistoryEntry[];
 
@@ -318,6 +321,9 @@ interface AppState {
   // Liquid Glass Mobile action
   setLiquidGlassMobile: (enabled: boolean) => void;
 
+  // Style action
+  setStyle: (styleId: string) => void;
+
   // History actions
   addToHistory: (track: Track) => void;
   clearHistory: () => void;
@@ -402,6 +408,9 @@ const initialState = {
 
   // Collaborative listening
   listenSession: null as any,
+
+  // Style
+  currentStyle: "",
 };
 
 export const useAppStore = create<AppState>()(
@@ -1015,6 +1024,27 @@ export const useAppStore = create<AppState>()(
       // ── Liquid Glass Mobile ──
       setLiquidGlassMobile: (enabled) => set({ liquidGlassMobile: enabled }),
 
+      // ── Style ──
+      setStyle: (styleId) => {
+        set({ currentStyle: styleId });
+        // Apply/remove data-style attribute on document
+        if (typeof document !== "undefined") {
+          if (styleId) {
+            document.documentElement.setAttribute("data-style", styleId);
+          } else {
+            document.documentElement.removeAttribute("data-style");
+          }
+        }
+        // Persist to localStorage
+        try {
+          if (styleId) {
+            localStorage.setItem("mq-style", styleId);
+          } else {
+            localStorage.removeItem("mq-style");
+          }
+        } catch {}
+      },
+
       // ── History actions ──
       addToHistory: (track) => {
         set((s) => {
@@ -1239,6 +1269,7 @@ export const useAppStore = create<AppState>()(
         playlists: state.playlists,
         history: state.history,
         liquidGlassMobile: state.liquidGlassMobile,
+        currentStyle: state.currentStyle,
         shuffle: state.shuffle,
         repeat: state.repeat,
         // typingUsers is intentionally excluded — it's ephemeral real-time state
