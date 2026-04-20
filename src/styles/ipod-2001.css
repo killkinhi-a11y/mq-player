@@ -63,11 +63,11 @@
   letter-spacing: 0.02em !important;
 }
 
-/* ── Kill ALL rounded corners — iPod was razor sharp ─────────────────── */
+/* ── Rounded corners: consistent rounded look ─────────────────────────── */
 [data-style="ipod-2001"] *,
 [data-style="ipod-2001"] *::before,
 [data-style="ipod-2001"] *::after {
-  border-radius: 0 !important;
+  border-radius: 12px !important;
 }
 
 /* ── Kill ALL animations — iPod had instant state changes ─────────────── */
@@ -179,7 +179,7 @@
 [data-style="ipod-2001"] button[data-track-card],
 [data-style="ipod-2001"] div[data-track-card] {
   background: #000000 !important;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   border-bottom: 1px solid #1a1a1a !important;
   border-left: none !important;
   border-right: none !important;
@@ -222,7 +222,7 @@
 /* Track cover art in cards: keep square, no shadow */
 [data-style="ipod-2001"] button[data-track-card] img,
 [data-style="ipod-2001"] div[data-track-card] img {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   box-shadow: none !important;
 }
 
@@ -258,13 +258,13 @@
 
 /* Player cover art: square, crisp */
 [data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] img[class*="rounded"] {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   box-shadow: none !important;
 }
 
 /* Music icon placeholder */
 [data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[class*="rounded-lg"][class*="flex"][class*="justify-center"] {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   background: #111111 !important;
   opacity: 1 !important;
 }
@@ -288,7 +288,7 @@
   box-shadow: none !important;
   width: 6px !important;
   height: 6px !important;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
 }
 
 /* Time labels */
@@ -362,14 +362,14 @@
 [data-style="ipod-2001"] .rounded-2xl,
 [data-style="ipod-2001"] .rounded-xl,
 [data-style="ipod-2001"] .rounded-lg {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   background: #000000 !important;
   border: 1px solid #222222 !important;
 }
 
 /* Settings sections */
 [data-style="ipod-2001"] .rounded-2xl[class*="p-4"] {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   background: #000000 !important;
   border: 1px solid #222222 !important;
 }
@@ -388,7 +388,7 @@
 
 /* ── ═══ BUTTONS: iPod-style ═══ ─────────────────────────────────────── */
 [data-style="ipod-2001"] button {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
 }
 
 /* Accent buttons: blue fill */
@@ -396,7 +396,7 @@
 [data-style="ipod-2001"] button[style*="background-color: var(--mq-accent)"] {
   background: #2a7fff !important;
   background-color: #2a7fff !important;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   border: 1px solid #5599ff !important;
   color: #ffffff !important;
   box-shadow: none !important;
@@ -409,7 +409,7 @@
 [data-style="ipod-2001"] input[type="email"],
 [data-style="ipod-2001"] textarea,
 [data-style="ipod-2001"] select {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   border: 1px solid #333333 !important;
   background: #000000 !important;
   color: #ffffff !important;
@@ -425,18 +425,18 @@
 /* Range inputs */
 [data-style="ipod-2001"] input[type="range"] {
   accent-color: #2a7fff !important;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
 }
 
 [data-style="ipod-2001"] input[type="range"]::-webkit-slider-thumb {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   background: #2a7fff !important;
   box-shadow: none !important;
   border: none !important;
 }
 
 [data-style="ipod-2001"] input[type="range"]::-moz-range-thumb {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   background: #2a7fff !important;
   box-shadow: none !important;
   border: none !important;
@@ -444,12 +444,12 @@
 
 /* Color input */
 [data-style="ipod-2001"] input[type="color"] {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   border: 1px solid #333333 !important;
 }
 
 [data-style="ipod-2001"] input[type="color"]::-webkit-color-swatch {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
 }
 
 /* ── ═══ SCROLLBARS: Minimal dark ═══ ────────────────────────────────── */
@@ -464,7 +464,7 @@
 
 [data-style="ipod-2001"] ::-webkit-scrollbar-thumb {
   background: #333333;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
 }
 
 [data-style="ipod-2001"] ::-webkit-scrollbar-thumb:hover {
@@ -482,7 +482,7 @@
 [data-style="ipod-2001"] dialog {
   background: #000000 !important;
   border: 1px solid #333333 !important;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   box-shadow: none !important;
   color: #ffffff !important;
 }
@@ -495,13 +495,13 @@
 [data-style="ipod-2001"] [data-sonner-toaster] [data-sonner-toast] {
   background: #111111 !important;
   border: 1px solid #333333 !important;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   color: #ffffff !important;
 }
 
 /* ── ═══ BADGES / NOTIFICATION DOTS ═══ ──────────────────────────────── */
 [data-style="ipod-2001"] span[class*="rounded-full"][style*="background: #ef4444"] {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   background: #2a7fff !important;
   color: #ffffff !important;
   font-size: 9px !important;
@@ -509,7 +509,7 @@
 
 /* ── ═══ SWITCH / TOGGLE ═══ ─────────────────────────────────────────── */
 [data-style="ipod-2001"] [role="switch"] {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
 }
 
 /* ── ═══ SKELETON / LOADING ═══ ──────────────────────────────────────── */
@@ -521,7 +521,7 @@
 [data-style="ipod-2001"] [class*="bg-muted"],
 [data-style="ipod-2001"] .skeleton {
   background: #111111 !important;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
 }
 
 /* ── ═══ DIVIDER LINES ═══ ───────────────────────────────────────────── */
@@ -564,7 +564,7 @@
 
 /* ── ═══ PiP PLAYER ═══ ──────────────────────────────────────────────── */
 [data-style="ipod-2001"] div[class*="fixed"][class*="bottom-"][class*="right-"][class*="z-50"] {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   border: 1px solid #333333 !important;
   background: #000000 !important;
 }
@@ -614,20 +614,20 @@
 
 /* Tab indicators: square blue */
 [data-style="ipod-2001"] div[style*="background: var(--mq-accent)"][class*="w-1"][class*="h-1"] {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   background: #2a7fff !important;
 }
 
 /* Tooltips / overlays */
 [data-style="ipod-2001"] div[class*="absolute"][class*="rounded"][style*="background: var(--mq-accent)"] {
   background: #2a7fff !important;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
 }
 
 /* Error states */
 [data-style="ipod-2001"] span[style*="background-color: rgba(239,68,68"] {
   background-color: rgba(239, 68, 68, 0.3) !important;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
 }
 
 /* Play mode labels */
@@ -744,20 +744,20 @@
   background: #111111 !important;
   border: 1px solid #333333 !important;
   color: #888888 !important;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
 }
 
 /* Full view album art — square, sharp */
 [data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] div[class*="rounded-2xl"] img,
 [data-style="ipod-2001"] div[class*="fixed"][class*="z-50"] div[class*="rounded-2xl"] img {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   box-shadow: none !important;
 }
 
 /* Full view album art container */
 [data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] div[class*="rounded-2xl"][class*="overflow-hidden"] {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   border: 1px solid #222222 !important;
 }
 
@@ -765,7 +765,7 @@
 [data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] div[class*="relative"][class*="z-10"] button[class*="rounded-full"] {
   background: transparent !important;
   border: 1px solid #333333 !important;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
 }
 [data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] div[class*="relative"][class*="z-10"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
   background: #2a7fff !important;
@@ -775,7 +775,7 @@
 /* ── ═══ SHARE BUTTON TOOLTIP ═══ ────────────────────────────────────── */
 [data-style="ipod-2001"] span[class*="absolute"][class*="-top-"] {
   background: #2a7fff !important;
-  border-radius: 0 !important;
+  border-radius: 8px !important;
   color: #ffffff !important;
   font-size: 9px !important;
 }
@@ -783,5 +783,5 @@
 /* ── ═══ SETTINGS PREVIEW BOXES (in the style selector) ═══ ──────────── */
 /* The mini-preview boxes for style selection should also be square */
 [data-style="ipod-2001"] div[class*="w-12"][class*="h-8"] {
-  border-radius: 0 !important;
+  border-radius: 8px !important;
 }
