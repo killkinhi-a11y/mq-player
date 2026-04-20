@@ -425,8 +425,8 @@ export default function FullTrackView() {
         </div>
 
         {/* Canvas visualization (Spotify-like video background) */}
-        {canvasMode && currentTrack?.cover && (
-          <TrackCanvas coverUrl={currentTrack.cover} isActive={canvasMode} isPlaying={isPlaying} />
+        {canvasMode && (
+          <TrackCanvas isActive={canvasMode} isPlaying={isPlaying} />
         )}
 
         {/* Header */}

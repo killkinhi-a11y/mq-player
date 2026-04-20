@@ -199,7 +199,12 @@ export default function SearchView() {
     const fileArray = Array.from(files);
     let idx = 0;
 
-    const uploadNext = () => {
+    // Allowed audio extensions
+    const AUDIO_EXTENSIONS = /\.(mp3|wav|ogg|flac|aac|m4a|webm|opus|wma|aiff|alac)$/i;
+    // 20MB max
+    const MAX_SIZE = 20 * 1024 * 1024;
+
+    const processNext = () => {
       if (idx >= fileArray.length) {
         const finalStatus = failCount === 0 ? "done" : (successCount > 0 ? "done" : "error");
         setUploadProgress({
@@ -228,52 +233,98 @@ export default function SearchView() {
         fileProgress: 0,
       });
 
-      const formData = new FormData();
-      formData.append("file", file);
-      const xhr = new XMLHttpRequest();
+      // Simulate progress for immediate feedback
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress = Math.min(progress + Math.random() * 30 + 10, 90);
+        setUploadProgress(prev => prev ? { ...prev, fileProgress: Math.round(progress) } : null);
+      }, 100);
 
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          setUploadProgress(prev => prev ? { ...prev, fileProgress: Math.round((e.loaded / e.total) * 100) } : null);
+      // Use setTimeout to allow UI to update
+      setTimeout(() => {
+        clearInterval(progressInterval);
+
+        // Validate file extension
+        if (!AUDIO_EXTENSIONS.test(file.name)) {
+          console.warn(`[upload] Skipped ${file.name}: unsupported extension`);
+          failCount++;
+          idx++;
+          processNext();
+          return;
         }
-      });
 
-      xhr.addEventListener("load", () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const track: Track = JSON.parse(xhr.responseText);
-            // Create blob URL from original File for playback (server doesn't store files)
-            const blobUrl = URL.createObjectURL(file);
-            track.audioUrl = blobUrl;
-            registerLocalBlobUrl(track.id, blobUrl);
-            setSearchResults(prev => [track, ...prev]);
-            setHasSearched(true);
-            toggleLike(track.id, track);
-            successCount++;
-          } catch { failCount++; }
-        } else { failCount++; }
+        // Validate file size
+        if (file.size > MAX_SIZE) {
+          console.warn(`[upload] Skipped ${file.name}: too large (${(file.size / 1024 / 1024).toFixed(1)}MB > 20MB)`);
+          failCount++;
+          idx++;
+          processNext();
+          return;
+        }
+
+        if (file.size === 0) {
+          console.warn(`[upload] Skipped ${file.name}: empty file`);
+          failCount++;
+          idx++;
+          processNext();
+          return;
+        }
+
+        try {
+          // Generate unique ID
+          const uniqueId = `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          const title = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+
+          // Create blob URL for playback
+          const blobUrl = URL.createObjectURL(file);
+          registerLocalBlobUrl(uniqueId, blobUrl);
+
+          const track: Track = {
+            id: uniqueId,
+            title,
+            artist: "Локальный файл",
+            album: "",
+            cover: "",
+            genre: "",
+            duration: 0,
+            audioUrl: blobUrl,
+            source: "local",
+            scIsFull: true,
+          };
+
+          // Get actual duration from audio element (don't revoke — blob URL is used for playback)
+          const tempAudio = new Audio();
+          tempAudio.addEventListener("loadedmetadata", () => {
+            if (isFinite(tempAudio.duration)) {
+              track.duration = Math.round(tempAudio.duration);
+            }
+            // Update the track in search results with duration
+            setSearchResults(prev => prev.map(t => t.id === track.id ? { ...t, duration: track.duration } : t));
+          });
+          tempAudio.addEventListener("error", () => {
+            // If we can't read metadata, duration stays 0 (acceptable)
+          });
+          tempAudio.src = blobUrl;
+
+          setSearchResults(prev => [track, ...prev]);
+          setHasSearched(true);
+          // Auto-like uploaded tracks
+          try { toggleLike(track.id, track); } catch {}
+
+          setUploadProgress(prev => prev ? { ...prev, fileProgress: 100 } : null);
+          successCount++;
+          console.log(`[upload] Added: ${file.name} → ${uniqueId}`);
+        } catch (err) {
+          console.error(`[upload] Error processing ${file.name}:`, err);
+          failCount++;
+        }
+
         idx++;
-        uploadNext();
-      });
-
-      xhr.addEventListener("error", () => {
-        failCount++;
-        idx++;
-        uploadNext();
-      });
-
-      xhr.addEventListener("timeout", () => {
-        failCount++;
-        idx++;
-        uploadNext();
-      });
-
-      xhr.open("POST", "/api/music/upload");
-      xhr.timeout = 600000; // 10 minutes
-      xhr.send(formData);
+        processNext();
+      }, 200); // Small delay for UI feedback
     };
 
-    uploadNext();
+    processNext();
   }, [toggleLike]);
 
   const activeTracks = selectedGenre ? genreTracks : searchResults;

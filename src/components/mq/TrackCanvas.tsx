@@ -4,7 +4,6 @@ import { useRef, useEffect, useCallback } from "react";
 import { getAnalyser, getFrequencyData } from "@/lib/audioEngine";
 
 interface TrackCanvasProps {
-  coverUrl: string;
   isActive: boolean;
   isPlaying: boolean;
 }
@@ -94,32 +93,14 @@ function bandAverage(data: Uint8Array<ArrayBuffer>, from: number, to: number): n
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function TrackCanvas({ coverUrl, isActive, isPlaying }: TrackCanvasProps) {
+export default function TrackCanvas({ isActive, isPlaying }: TrackCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
-  const coverImgRef = useRef<HTMLImageElement | null>(null);
-  const coverLoadedRef = useRef(false);
   const freqDataRef = useRef(new Uint8Array(128));
   // Smoothed values for interpolation (avoid jitter)
   const smoothBassRef = useRef(0);
   const smoothMidRef = useRef(0);
   const smoothHighRef = useRef(0);
-
-  // Load cover image
-  useEffect(() => {
-    coverLoadedRef.current = false;
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      coverImgRef.current = img;
-      coverLoadedRef.current = true;
-    };
-    img.onerror = () => {
-      coverImgRef.current = null;
-      coverLoadedRef.current = false;
-    };
-    img.src = coverUrl;
-  }, [coverUrl]);
 
   // Read accent color from CSS — cached per frame in render
   const getAccentColor = useCallback(() => {
@@ -257,43 +238,9 @@ export default function TrackCanvas({ coverUrl, isActive, isPlaying }: TrackCanv
       ctx.fillStyle = vigGrad;
       ctx.fillRect(0, 0, w, h);
 
-      // ── Draw cover art overlay ───────────────────────────────────────
-      if (coverLoadedRef.current && coverImgRef.current) {
-        const img = coverImgRef.current;
-        // Cover size ~55% of min dimension, responsive
-        const coverSize = Math.min(w * 0.55, h * 0.45, minDim * 0.55);
-        const coverX = (w - coverSize) / 2;
-        const coverY = (h - coverSize) / 2 - h * 0.04;
-        const cornerRadius = coverSize * 0.08;
-
-        // Glow behind cover — pulses with bass
-        const glowIntensity = 0.15 + bass * 0.35;
-        const glowSpread = coverSize * 0.15 + bass * coverSize * 0.1;
-        ctx.save();
-        ctx.shadowColor = hslToRgba(accentHue, accentSat, 0.5, glowIntensity);
-        ctx.shadowBlur = glowSpread;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-
-        // Draw rounded rect clip
-        ctx.beginPath();
-        ctx.roundRect(coverX, coverY, coverSize, coverSize, cornerRadius);
-        ctx.clip();
-
-        // Draw the image
-        ctx.drawImage(img, coverX, coverY, coverSize, coverSize);
-
-        ctx.restore();
-
-        // Thin accent border around cover
-        ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(coverX, coverY, coverSize, coverSize, cornerRadius);
-        ctx.strokeStyle = hslToRgba(accentHue, accentSat, 0.6, 0.15 + bass * 0.15);
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-        ctx.restore();
-      }
+      // Cover art is intentionally NOT drawn here.
+      // When canvasMode is active, the cover <img> in FullTrackView is hidden,
+      // and only the abstract visual effects (orbs, gradients) are shown.
     };
 
     draw(performance.now());
@@ -301,7 +248,7 @@ export default function TrackCanvas({ coverUrl, isActive, isPlaying }: TrackCanv
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [isActive, isPlaying, getAccentColor]);
+  }, [isActive, isPlaying]);
 
   if (!isActive) return null;
 
