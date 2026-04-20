@@ -7,7 +7,8 @@ import { genresList, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, X, SlidersHorizontal, Music, Play, Upload, Clock, Trash2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Search, X, SlidersHorizontal, Music, Play, Upload, Clock, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
+import { storeLocalTrack } from "@/lib/localUpload";
 
 const SEARCH_HISTORY_KEY = "mq-search-history";
 const MAX_HISTORY = 15;
@@ -174,7 +175,7 @@ export default function SearchView() {
     }
   }, [searchResults, genreTracks, playTrack]);
 
-  const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setIsUploading(true);
@@ -182,26 +183,8 @@ export default function SearchView() {
     let failCount = 0;
     const total = files.length;
     const fileArray = Array.from(files);
-    let idx = 0;
 
-    const uploadNext = () => {
-      if (idx >= fileArray.length) {
-        const finalStatus = failCount === 0 ? "done" : (successCount > 0 ? "done" : "error");
-        setUploadProgress({
-          current: total,
-          total,
-          fileName: fileArray[fileArray.length - 1].name,
-          status: finalStatus,
-          successCount,
-          failCount,
-          fileProgress: 100,
-        });
-        setIsUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
-        setTimeout(() => setUploadProgress(null), 4000);
-        return;
-      }
-
+    for (let idx = 0; idx < fileArray.length; idx++) {
       const file = fileArray[idx];
       setUploadProgress({
         current: idx + 1,
@@ -213,48 +196,48 @@ export default function SearchView() {
         fileProgress: 0,
       });
 
-      const formData = new FormData();
-      formData.append("file", file);
-      const xhr = new XMLHttpRequest();
+      try {
+        // Read file to estimate progress (reading is the main work)
+        const result = await storeLocalTrack(file);
+        setUploadProgress(prev => prev ? { ...prev, fileProgress: 100 } : null);
 
-      xhr.upload.addEventListener("progress", (e) => {
-        if (e.lengthComputable) {
-          setUploadProgress(prev => prev ? { ...prev, fileProgress: Math.round((e.loaded / e.total) * 100) } : null);
-        }
-      });
-
-      xhr.addEventListener("load", () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          try {
-            const track: Track = JSON.parse(xhr.responseText);
-            setSearchResults(prev => [track, ...prev]);
-            setHasSearched(true);
-            toggleLike(track.id, track);
-            successCount++;
-          } catch { failCount++; }
-        } else { failCount++; }
-        idx++;
-        uploadNext();
-      });
-
-      xhr.addEventListener("error", () => {
+        const track: Track = {
+          id: result.id,
+          title: result.title,
+          artist: "\u041b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0439 \u0444\u0430\u0439\u043b",
+          album: "",
+          cover: "",
+          genre: "",
+          duration: 0,
+          source: "local",
+          audioUrl: result.audioUrl,
+          scTrackId: undefined,
+          scIsFull: true,
+        };
+        setSearchResults(prev => [track, ...prev]);
+        setHasSearched(true);
+        toggleLike(track.id, track);
+        successCount++;
+      } catch (err) {
+        console.error("Local upload error:", err);
         failCount++;
-        idx++;
-        uploadNext();
-      });
+        setUploadProgress(prev => prev ? { ...prev, fileProgress: 100 } : null);
+      }
+    }
 
-      xhr.addEventListener("timeout", () => {
-        failCount++;
-        idx++;
-        uploadNext();
-      });
-
-      xhr.open("POST", "/api/music/upload");
-      xhr.timeout = 600000; // 10 minutes for large/high-bitrate files
-      xhr.send(formData);
-    };
-
-    uploadNext();
+    const finalStatus = failCount === 0 ? "done" : (successCount > 0 ? "done" : "error");
+    setUploadProgress({
+      current: total,
+      total,
+      fileName: fileArray[fileArray.length - 1].name,
+      status: finalStatus,
+      successCount,
+      failCount,
+      fileProgress: 100,
+    });
+    setIsUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    setTimeout(() => setUploadProgress(null), 4000);
   }, [toggleLike]);
 
   const activeTracks = selectedGenre ? genreTracks : searchResults;
@@ -283,7 +266,7 @@ export default function SearchView() {
             {/* Header row */}
             <div className="flex items-center gap-3 mb-2">
               {uploadProgress.status === "uploading" && (
-                <Loader2 className="w-5 h-5 flex-shrink-0 animate-spin" style={{ color: "var(--mq-accent, #a78bfa)" }} />
+                <div className="w-5 h-5 flex-shrink-0 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: "var(--mq-accent, #a78bfa)", borderTopColor: "transparent" }} />
               )}
               {uploadProgress.status === "done" && (
                 <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: "#4ade80" }} />

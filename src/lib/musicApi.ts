@@ -8,7 +8,7 @@ export interface Track {
   genre: string;
   audioUrl: string;
   previewUrl?: string;
-  source: "soundcloud";
+  source: "soundcloud" | "local";
   scTrackId?: number;
   scStreamPolicy?: string;
   scIsFull?: boolean;

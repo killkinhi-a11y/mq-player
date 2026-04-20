@@ -446,18 +446,20 @@ export default function FullTrackView() {
 
         {/* Content */}
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 max-w-lg mx-auto w-full">
-          {/* Album art — no radial visualization around it */}
-          <motion.div
-            initial={animationsEnabled ? { scale: 0.8, opacity: 0 } : undefined}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 200 }}
-            className="mb-8 flex items-center justify-center"
-          >
-            <div className="w-56 h-56 sm:w-64 sm:h-64 lg:w-80 lg:h-80 rounded-2xl overflow-hidden shadow-2xl relative z-10"
-              style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
-              <img src={currentTrack.cover} alt={currentTrack.album} className="w-full h-full object-cover" />
-            </div>
-          </motion.div>
+          {/* Album art — hidden when canvas mode is active (canvas draws its own cover) */}
+          {!canvasMode && (
+            <motion.div
+              initial={animationsEnabled ? { scale: 0.8, opacity: 0 } : undefined}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 200 }}
+              className="mb-8 flex items-center justify-center"
+            >
+              <div className="w-56 h-56 sm:w-64 sm:h-64 lg:w-80 lg:h-80 rounded-2xl overflow-hidden shadow-2xl relative z-10"
+                style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+                <img src={currentTrack.cover} alt={currentTrack.album} className="w-full h-full object-cover" />
+              </div>
+            </motion.div>
+          )}
 
           {/* Track info */}
           <div className="text-center mb-6 w-full">

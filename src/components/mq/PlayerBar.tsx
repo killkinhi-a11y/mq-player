@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { formatDuration } from "@/lib/musicApi";
 import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade } from "@/lib/audioEngine";
+import { getLocalTrackUrl, isLocalTrack } from "@/lib/localUpload";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 import QueueView from "./QueueView";
 
@@ -537,11 +538,26 @@ export default function PlayerBar() {
             setIsLoadingTrack(false);
             setTimeout(() => nextTrackRef.current(), 1500);
           }
-        } else if (currentTrack.audioUrl) {
+        } else if (currentTrack.audioUrl || isLocalTrack(currentTrack.id)) {
           setPlaybackMode("soundcloud");
+
+          // For local tracks: resolve blob URL from IndexedDB (blob URLs don't survive reload)
+          let audioSrc = currentTrack.audioUrl;
+          if (isLocalTrack(currentTrack.id)) {
+            const localUrl = await getLocalTrackUrl(currentTrack.id);
+            if (cancelled) return;
+            if (!localUrl) {
+              setPlayError(true);
+              setIsLoadingTrack(false);
+              setTimeout(() => nextTrackRef.current(), 1500);
+              return;
+            }
+            audioSrc = localUrl;
+          }
+
           audioEl.crossOrigin = "anonymous";
           resetCorsState();
-          audioEl.src = currentTrack.audioUrl;
+          audioEl.src = audioSrc;
           audioEl.load();
           if (canCrossfade) {
             crossfadeRef.current = true;
