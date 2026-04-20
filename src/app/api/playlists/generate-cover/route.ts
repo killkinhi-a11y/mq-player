@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
-import { createZAI } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
+
+const ZAI_BASE = process.env.ZAI_BASE_URL || "http://172.25.136.193:8080/v1";
+const ZAI_KEY = process.env.ZAI_API_KEY || "Z.ai";
 
 async function postHandler(req: NextRequest) {
   try {
@@ -19,7 +21,6 @@ async function postHandler(req: NextRequest) {
       return NextResponse.json({ error: "playlistId required" }, { status: 400 });
     }
 
-    // Try to load from DB — but also support local playlists (not in DB)
     let tracks: { title?: string; artist?: string; genre?: string }[] = [];
     let playlistNameStr = inlineName || "Playlist";
     let playlistExistsInDb = false;
@@ -29,26 +30,17 @@ async function postHandler(req: NextRequest) {
     if (playlist) {
       playlistExistsInDb = true;
       if (playlist.userId !== userId) {
-        return NextResponse.json(
-          { error: "Плейлист не найден или нет доступа" },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
       }
-      try {
-        tracks = JSON.parse(playlist.tracksJson || "[]");
-      } catch {
-        tracks = [];
-      }
+      try { tracks = JSON.parse(playlist.tracksJson || "[]"); } catch { tracks = []; }
       if (playlist.name) playlistNameStr = playlist.name;
       existingTags = playlist.tags ? playlist.tags.split(",").filter(Boolean).slice(0, 3).join(", ") : "";
     }
 
-    // Use inline tracks if DB had none (local playlist)
     if (tracks.length === 0 && Array.isArray(inlineTracks) && inlineTracks.length > 0) {
       tracks = inlineTracks;
     }
 
-    // Collect genres and artists
     const genreSet = new Set<string>();
     const artistSet = new Set<string>();
     for (const t of tracks.slice(0, 30)) {
@@ -58,58 +50,61 @@ async function postHandler(req: NextRequest) {
     const genres = [...genreSet].slice(0, 5).join(", ");
     const artists = [...artistSet].slice(0, 3).join(", ");
 
-    // Build a concise, artistic prompt for the cover image (under 200 chars)
     let prompt = `Abstract album cover art for music playlist "${playlistNameStr}"`;
     if (genres) prompt += `, genres: ${genres}`;
     if (artists) prompt += `, artists like ${artists}`;
     if (existingTags) prompt += `, vibe: ${existingTags}`;
-    prompt += ". Modern minimalist design, vibrant colors, no text, no letters, no words, no typography";
+    prompt += ". Modern minimalist design, vibrant colors, no text";
 
-    // Ensure prompt is under 200 characters (image gen works better with concise prompts)
-    if (prompt.length > 200) {
-      prompt = prompt.slice(0, 197) + "...";
-    }
+    if (prompt.length > 200) prompt = prompt.slice(0, 197) + "...";
 
-    // Generate image using z-ai-web-dev-sdk
-    const zai = await createZAI();
-    const response = await zai.images.generations.create({
-      prompt,
-      size: "1024x1024",
+    // Direct fetch to ZAI image API (no SDK needed)
+    const imgResponse = await fetch(`${ZAI_BASE}/images/generations`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${ZAI_KEY}`,
+        "X-Z-AI-From": "Z",
+      },
+      body: JSON.stringify({ prompt, size: "1024x1024" }),
     });
 
-    const imageData = response.data?.[0];
-    if (!imageData?.base64) {
-      return NextResponse.json(
-        { error: "Не удалось сгенерировать изображение" },
-        { status: 500 }
-      );
+    if (!imgResponse.ok) {
+      const errText = await imgResponse.text();
+      console.error("[generate-cover] API error:", imgResponse.status, errText);
+      return NextResponse.json({ error: `AI API ошибка: ${imgResponse.status}` }, { status: 502 });
     }
 
-    const imageBase64 = imageData.base64;
-    const coverUrl = `data:image/png;base64,${imageBase64}`;
+    const imgData = await imgResponse.json();
 
-    // Update playlist cover in DB only if it exists there (not for local-only playlists)
+    // API returns { data: [{ url: "..." }] } — download and convert to base64
+    const imageUrl = imgData.data?.[0]?.url;
+    if (!imageUrl) {
+      return NextResponse.json({ error: "Не удалось сгенерировать изображение" }, { status: 500 });
+    }
+
+    // Download image and convert to base64
+    const imgBlob = await fetch(imageUrl);
+    if (!imgBlob.ok) {
+      return NextResponse.json({ error: "Не удалось загрузить изображение" }, { status: 500 });
+    }
+    const buffer = Buffer.from(await imgBlob.arrayBuffer());
+    const base64 = buffer.toString("base64");
+    const coverUrl = `data:image/png;base64,${base64}`;
+
     if (playlistExistsInDb) {
-      await db.playlist.update({
-        where: { id: playlistId },
-        data: {
-          cover: coverUrl,
-        },
-      });
+      await db.playlist.update({ where: { id: playlistId }, data: { cover: coverUrl } });
     }
 
-    return NextResponse.json({
-      cover: coverUrl,
-    });
-  } catch (error) {
-    console.error("POST /api/playlists/generate-cover error:", error);
+    return NextResponse.json({ cover: coverUrl });
+  } catch (error: any) {
+    console.error("[generate-cover] error:", error?.message || error);
     return NextResponse.json(
-      { error: "Ошибка при генерации обложки. Попробуйте позже." },
+      { error: "Ошибка при генерации обложки", debug: error?.message || String(error) },
       { status: 500 }
     );
   }
 }
 
-// 3 requests per minute (image generation is expensive)
 const coverGenerateLimit = { limit: 3, window: 60 };
 export const POST = withRateLimit(coverGenerateLimit, postHandler);
