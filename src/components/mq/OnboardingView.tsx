@@ -137,6 +137,8 @@ export default function OnboardingView() {
   const [loading, setLoading] = useState(false);
   const [loadingGenre, setLoadingGenre] = useState<string | null>(null);
   const [error, setError] = useState("");
+  // Track how many times "load more" was clicked per genre query
+  const [loadCounts, setLoadCounts] = useState<Record<string, number>>({});
 
   const selectedIds = new Set(favoriteArtists.map(a => a.id));
 
@@ -279,13 +281,18 @@ export default function OnboardingView() {
   const handleLoadMore = async (genreQuery: string) => {
     setLoadingGenre(genreQuery);
     try {
-      const res = await fetch(`/api/music/artists?q=${encodeURIComponent(genreQuery)}&limit=15`);
+      // Increment load count for this genre and use a progressively higher limit
+      // This ensures the API returns different results (cache key includes limit)
+      const count = (loadCounts[genreQuery] || 0) + 1;
+      setLoadCounts(prev => ({ ...prev, [genreQuery]: count }));
+      const limit = 15 + count * 20; // 35, 55, 75, ... — busts cache & gets more results
+      const res = await fetch(`/api/music/artists?q=${encodeURIComponent(genreQuery)}&limit=${limit}`);
       const data = await res.json();
       const newArtists = (data.artists || []) as SCArtistData[];
       setArtistResults(prev => {
         const existingIds = new Set(prev.map(a => a.id));
         const unique = newArtists.filter(a => !existingIds.has(a.id));
-        return [...prev, ...unique].slice(0, 40);
+        return [...prev, ...unique].slice(0, 60);
       });
     } catch {} finally {
       setLoadingGenre(null);
@@ -510,14 +517,14 @@ export default function OnboardingView() {
               key={g}
               onClick={() => handleLoadMore(cat.query)}
               disabled={loadingGenre === cat.query}
-              className="text-xs px-3 py-1.5 rounded-lg border"
+              className="text-xs px-3 py-1.5 rounded-lg border cursor-pointer transition-colors duration-150 hover:opacity-80"
               style={{
-                borderColor: "var(--mq-border, #2a2a2a)",
-                color: loadingGenre === cat.query ? "#555" : "var(--mq-text, #aaa)",
-                backgroundColor: "var(--mq-surface, #1a1a1a)",
+                borderColor: loadingGenre === cat.query ? "var(--mq-accent, #e03131)" : "var(--mq-border, #2a2a2a)",
+                color: loadingGenre === cat.query ? "var(--mq-accent, #e03131)" : "var(--mq-text, #ccc)",
+                backgroundColor: loadingGenre === cat.query ? "rgba(224,49,49,0.08)" : "var(--mq-surface, #1a1a1a)",
               }}
             >
-              {loadingGenre === cat.query ? "..." : `+ Ещё ${g}`}
+              {loadingGenre === cat.query ? "Загрузка..." : `+ Ещё ${g}`}
             </button>
           ) : null;
         })}
