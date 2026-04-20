@@ -374,47 +374,39 @@ export default function FullTrackView() {
       }
 
       // ═══════════════════════════════════════════════════════════════════
-      // Swag wave: purple-pink horizontal EQ lines + rising chrome/purple particles
+      // Swag wave: minimal silver lines + floating dots
       // ═══════════════════════════════════════════════════════════════════
       if (style === "swag") {
-        // Purple-pink center glow pulse
-        const swPulse = 0.03 + 0.025 * Math.sin(0.5 * t);
-        const swGrad = ctx.createRadialGradient(w * 0.5, h * 0.55, 0, w * 0.5, h * 0.55, Math.max(w, h) * 0.4);
-        swGrad.addColorStop(0, `rgba(139,92,246,${swPulse})`);
-        swGrad.addColorStop(0.5, `rgba(236,72,153,${swPulse * 0.5})`);
-        swGrad.addColorStop(1, "rgba(139,92,246,0)");
+        // Subtle silver glow pulse
+        const swPulse = 0.015 + 0.01 * Math.sin(0.4 * t);
+        const swGrad = ctx.createRadialGradient(w * 0.5, h * 0.55, 0, w * 0.5, h * 0.55, Math.max(w, h) * 0.35);
+        swGrad.addColorStop(0, `rgba(161,161,170,${swPulse})`);
+        swGrad.addColorStop(1, "rgba(161,161,170,0)");
         ctx.beginPath();
-        ctx.arc(w * 0.5, h * 0.55, Math.max(w, h) * 0.4, 0, Math.PI * 2);
+        ctx.arc(w * 0.5, h * 0.55, Math.max(w, h) * 0.35, 0, Math.PI * 2);
         ctx.fillStyle = swGrad;
         ctx.fill();
 
-        // Purple-to-pink EQ lines (horizontal bars from center)
-        const lineCount = 16;
+        // Clean silver horizontal lines
+        const lineCount = 12;
         for (let i = 0; i < lineCount; i++) {
           const dist = Math.abs(i - lineCount / 2) / (lineCount / 2);
-          const y = h * 0.15 + (h * 0.7) * (i / lineCount);
-          const xAmp = w * 0.4 * (1 - dist * 0.5);
+          const y = h * 0.2 + (h * 0.6) * (i / lineCount);
+          const xAmp = w * 0.35 * (1 - dist * 0.5);
           const xCenter = w * 0.5;
-
-          // Interpolate purple → pink
-          const ratio = i / lineCount;
-          const lr = Math.floor(139 + (236 - 139) * ratio);
-          const lg = Math.floor(92 + (72 - 92) * ratio);
-          const lb = Math.floor(246 + (153 - 246) * ratio);
 
           ctx.beginPath();
           for (let x = -1; x <= 1; x += 0.02) {
             const px = xCenter + x * xAmp;
-            const wave = Math.sin(t * (2 + i * 0.15) + x * 6 + i) * 8 * (1 - dist * 0.4);
+            const wave = Math.sin(t * (1.5 + i * 0.12) + x * 5 + i) * 5 * (1 - dist * 0.4);
             if (x <= -0.99) ctx.moveTo(px, y + wave); else ctx.lineTo(px, y + wave);
           }
-          const lineAlpha = 0.06 + (1 - dist) * 0.08;
-          ctx.strokeStyle = `rgba(${lr},${lg},${lb},${lineAlpha})`;
+          ctx.strokeStyle = `rgba(161,161,170,${0.04 + (1 - dist) * 0.05})`;
           ctx.lineWidth = 1;
           ctx.stroke();
         }
 
-        // Rising chrome/purple particles
+        // Subtle floating silver dots
         for (const p of swagGoldParticles) {
           p.x += p.vx;
           p.y += p.vy;
@@ -423,26 +415,16 @@ export default function FullTrackView() {
             p.x = Math.random() * w;
             p.y = h + 10;
             p.life = 0;
-            p.maxLife = 60 + Math.random() * 100;
-            p.vy = -(0.5 + Math.random() * 2);
-            p.vx = (Math.random() - 0.5) * 2;
+            p.maxLife = 80 + Math.random() * 120;
+            p.vy = -(0.3 + Math.random() * 1);
+            p.vx = (Math.random() - 0.5) * 0.8;
           }
           const lifeRatio = 1 - p.life / p.maxLife;
           const alpha = lifeRatio < 0.2 ? lifeRatio / 0.2 : (lifeRatio > 0.7 ? (1 - lifeRatio) / 0.3 : 1);
-          // Mix chrome silver and purple-pink
-          const mixT = (Math.sin(p.x * 0.01 + t) + 1) * 0.5;
-          const pr = Math.floor(192 + (168 - 192) * mixT);
-          const pg = Math.floor(192 + (85 - 192) * mixT);
-          const pb = Math.floor(200 + (247 - 200) * mixT);
-          ctx.fillStyle = `rgba(${pr},${pg},${pb},${alpha * 0.4})`;
-          ctx.fillRect(p.x, p.y, p.size, p.size);
-          // Glow
-          if (alpha > 0.5) {
-            ctx.fillStyle = `rgba(${pr},${pg},${pb},${alpha * 0.1})`;
-            ctx.beginPath();
-            ctx.arc(p.x + p.size / 2, p.y + p.size / 2, p.size * 3, 0, Math.PI * 2);
-            ctx.fill();
-          }
+          ctx.fillStyle = `rgba(161,161,170,${alpha * 0.25})`;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * 0.8, 0, Math.PI * 2);
+          ctx.fill();
         }
 
         return;

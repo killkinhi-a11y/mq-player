@@ -64,7 +64,7 @@ export default function SettingsView() {
   const styleList = [
     { id: "ipod-2001", name: "iPod 2001" },
     { id: "japan", name: "Japan" },
-    { id: "swag", name: "Swag" },
+    { id: "swag", name: "Silver" },
   ];
   const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
 
@@ -766,17 +766,16 @@ export default function SettingsView() {
                     border: currentStyle === "swag" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
                   }}
                 >
-                  {/* Mini preview: Swag chrome + purple streetwear */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#0a0a0a", borderRadius: 6, border: "1px solid #1e1e1e" }}>
-                    <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, #a0a0a0, #e8e8e8, #c0c0c0, #a0a0a0)", opacity: 0.5 }} />
-                    <div className="absolute top-1.5 left-1.5" style={{ color: "#c8c8c8", fontSize: 5, fontFamily: "Impact, Arial Black, sans-serif", textTransform: "uppercase", lineHeight: 1, letterSpacing: "0.1em" }}>Song</div>
-                    <div className="absolute top-3 left-1.5" style={{ color: "#555555", fontSize: 3.5, lineHeight: 1 }}>Artist</div>
-                    <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5" style={{ backgroundColor: "#1a1a1a", borderRadius: 1 }} />
-                    <div className="absolute bottom-1 left-1.5 w-3 h-0.5" style={{ background: "linear-gradient(90deg, #8b5cf6, #ec4899)", borderRadius: 1 }} />
+                  {/* Mini preview: Silver minimal */}
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#09090b", borderRadius: 6, border: "1px solid #27272a" }}>
+                    <div className="absolute top-1.5 left-1.5" style={{ color: "#e4e4e7", fontSize: 5, fontFamily: "Inter, system-ui, sans-serif", fontWeight: 600, lineHeight: 1, letterSpacing: "-0.01em" }}>Song</div>
+                    <div className="absolute top-3 left-1.5" style={{ color: "#71717a", fontSize: 3.5, lineHeight: 1, fontWeight: 400 }}>Artist</div>
+                    <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5" style={{ backgroundColor: "#18181b", borderRadius: 1 }} />
+                    <div className="absolute bottom-1 left-1.5 w-3 h-0.5" style={{ backgroundColor: "#a1a1aa", borderRadius: 1 }} />
                   </div>
                   <div>
-                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Swag</span>
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Хром, пурпур, стритвир</p>
+                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Silver</span>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Минимал, чистый, серебро</p>
                   </div>
                   {currentStyle === "swag" && (
                     <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
