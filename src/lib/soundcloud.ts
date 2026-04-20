@@ -152,7 +152,7 @@ export async function searchSCArtists(
         // Skip users with very few followers or tracks (likely spam)
         const followers = (u.followers_count as number) || 0;
         const trackCount = (u.track_count as number) || 0;
-        if (followers < 500 || trackCount < 3) return false;
+        if (followers < 100 || trackCount < 1) return false;
         return true;
       })
       .map((u: Record<string, unknown>) => {

@@ -5,6 +5,7 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 /**
  * GET /api/music/artists?q=hip-hop&limit=20
  * Search SoundCloud artists by query.
+ * Falls back to extracting artists from track search if user search fails.
  *
  * GET /api/music/artists?similar=ArtistName&limit=20
  * Find artists similar to a given artist by searching their top tracks' genres.
@@ -30,6 +31,62 @@ function setCache(key: string, data: unknown): void {
   cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
 }
 
+/**
+ * Fallback: extract unique artists from track search results.
+ * Used when searchSCArtists returns empty (e.g. all client IDs invalid).
+ */
+async function extractArtistsFromTracks(query: string, limit: number) {
+  const tracks = await searchSCTracks(query, 50);
+  if (tracks.length === 0) return [];
+
+  // Group by artist, count occurrences, take most popular
+  const artistMap = new Map<string, {
+    username: string;
+    avatar: string;
+    genre: string;
+    followers: number;
+    trackCount: number;
+    occurrences: number;
+  }>();
+
+  for (const t of tracks) {
+    const name = t.artist;
+    if (!name) continue;
+    const key = name.toLowerCase();
+    const existing = artistMap.get(key);
+    if (existing) {
+      existing.occurrences++;
+      // Use the best genre (non-empty)
+      if (!existing.genre && t.genre) existing.genre = t.genre;
+      // Use the first avatar we find
+      if (!existing.avatar && t.cover) existing.avatar = t.cover;
+    } else {
+      artistMap.set(key, {
+        username: name,
+        avatar: t.cover || "",
+        genre: t.genre || "",
+        followers: t.scIsFull ? 1000 : 100, // heuristic
+        trackCount: 1,
+        occurrences: 1,
+      });
+    }
+  }
+
+  // Sort by occurrence count (most frequent = most relevant), then by followers
+  const sorted = [...artistMap.values()]
+    .sort((a, b) => b.occurrences - a.occurrences || b.followers - a.followers)
+    .slice(0, limit);
+
+  return sorted.map((a, i) => ({
+    id: -(i + 1), // negative IDs to distinguish from real SC IDs
+    username: a.username,
+    avatar: a.avatar,
+    followers: a.followers * a.occurrences,
+    genre: a.genre,
+    trackCount: a.occurrences,
+  }));
+}
+
 async function handler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
@@ -43,7 +100,14 @@ async function handler(request: NextRequest) {
     const cached = getFromCache(cacheKey);
     if (cached) return NextResponse.json(cached);
 
-    const artists = await searchSCArtists(query.trim(), limit);
+    // Try direct artist search first
+    let artists = await searchSCArtists(query.trim(), limit);
+
+    // Fallback: extract from tracks if artist search returned nothing
+    if (artists.length === 0) {
+      artists = await extractArtistsFromTracks(query.trim(), limit);
+    }
+
     setCache(cacheKey, { artists });
     return NextResponse.json({ artists });
   }
@@ -54,44 +118,48 @@ async function handler(request: NextRequest) {
     const cached = getFromCache(cacheKey);
     if (cached) return NextResponse.json(cached);
 
-    // Search for the artist's tracks to discover their genre
-    const artistTracks = await searchSCTracks(similar.trim(), 5);
-    if (artistTracks.length === 0) {
-      // Fallback: just search by artist name + "related"
-      const artists = await searchSCArtists(`${similar.trim()} new`, limit);
-      const filtered = artists.filter(a => a.username.toLowerCase() !== similar.trim().toLowerCase());
-      setCache(cacheKey, { artists: filtered });
-      return NextResponse.json({ artists: filtered });
-    }
-
-    // Collect genres from the artist's tracks
-    const genres = new Set<string>();
-    for (const t of artistTracks) {
-      if (t.genre && t.genre.length > 0) genres.add(t.genre);
-    }
-    const genreList = [...genres].slice(0, 3);
-
-    // Search for artists in those genres
-    const allArtists: Awaited<ReturnType<typeof searchSCArtists>> = [];
+    const allArtists: { id: number; username: string; avatar: string; followers: number; genre: string; trackCount: number }[] = [];
     const seenNames = new Set<string>([similar.trim().toLowerCase()]);
 
-    // Search by each genre
-    for (const genre of genreList) {
-      const results = await searchSCArtists(genre, limit);
-      for (const a of results) {
-        if (!seenNames.has(a.username.toLowerCase())) {
-          seenNames.add(a.username.toLowerCase());
-          allArtists.push(a);
-        }
-      }
-    }
-
-    // Also search by artist name + "similar" as a fallback
-    const simResults = await searchSCArtists(`${similar.trim()}`, limit);
-    for (const a of simResults) {
+    // Try direct artist search by artist name
+    let artists = await searchSCArtists(similar.trim(), limit);
+    for (const a of artists) {
       if (!seenNames.has(a.username.toLowerCase())) {
         seenNames.add(a.username.toLowerCase());
         allArtists.push(a);
+      }
+    }
+
+    // Search for the artist's tracks to discover their genre
+    const artistTracks = await searchSCTracks(similar.trim(), 10);
+    if (artistTracks.length > 0) {
+      // Collect genres from the artist's tracks
+      const genres = new Set<string>();
+      for (const t of artistTracks) {
+        if (t.genre && t.genre.length > 0) genres.add(t.genre);
+      }
+      const genreList = [...genres].slice(0, 3);
+
+      // Search by each genre
+      for (const genre of genreList) {
+        const results = await searchSCArtists(genre, limit);
+        for (const a of results) {
+          if (!seenNames.has(a.username.toLowerCase())) {
+            seenNames.add(a.username.toLowerCase());
+            allArtists.push(a);
+          }
+        }
+      }
+
+      // Also extract artists from track results as fallback
+      if (allArtists.length < 5) {
+        const trackArtists = await extractArtistsFromTracks(similar.trim(), limit);
+        for (const a of trackArtists) {
+          if (!seenNames.has(a.username.toLowerCase())) {
+            seenNames.add(a.username.toLowerCase());
+            allArtists.push(a);
+          }
+        }
       }
     }
 
