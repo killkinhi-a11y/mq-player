@@ -12,7 +12,7 @@ const USERNAME_RULES = "Буквы, цифры, _ и -. 2-20 символов.";
 export default function ProfileView() {
   const {
     username, email, avatar, likedTrackIds, dislikedTrackIds,
-    messages, setView, logout, userId,
+    messages, setView, logout, userId, compactMode,
   } = useAppStore();
   const safeLiked = Array.isArray(likedTrackIds) ? likedTrackIds : [];
   const safeDisliked = Array.isArray(dislikedTrackIds) ? dislikedTrackIds : [];
@@ -187,7 +187,7 @@ export default function ProfileView() {
   };
 
   return (
-    <div className="p-4 lg:p-6 pb-40 lg:pb-28 space-y-6 max-w-2xl mx-auto">
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-2xl mx-auto`}>
       {/* Profile header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

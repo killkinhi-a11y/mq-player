@@ -66,6 +66,9 @@ export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
         className={`flex items-center ${compactMode ? "gap-1 sm:gap-2 p-1.5 sm:p-2" : "gap-2 sm:gap-3 p-2 sm:p-3"} rounded-xl cursor-pointer transition-all duration-200 group`}
         style={{
           backgroundColor: isActive ? "var(--mq-accent)" : "var(--mq-card)",
+          border: isActive
+            ? "1px solid var(--mq-accent)"
+            : "1px solid var(--mq-border)",
         }}
         whileHover={animationsEnabled ? { scale: 1.01 } : undefined}
         whileTap={animationsEnabled ? { scale: 0.98 } : undefined}
@@ -87,10 +90,10 @@ export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
 
         {/* Track info — always take remaining space */}
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-xs sm:text-sm truncate" style={{ color: "var(--mq-text)" }}>
+          <p className="font-medium text-xs sm:text-sm truncate" style={{ color: isActive ? "var(--mq-text)" : "var(--mq-text)" }}>
             {track.title}
           </p>
-          <p className="text-[10px] sm:text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="text-[10px] sm:text-xs truncate" style={{ color: isActive ? "rgba(255,255,255,0.75)" : "var(--mq-text-muted)" }}>
             {track.artist}
           </p>
         </div>

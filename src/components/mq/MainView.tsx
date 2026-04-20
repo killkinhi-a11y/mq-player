@@ -328,7 +328,7 @@ export default function MainView() {
   // ── Curated playlist detail view ──
   if (selectedCurated) {
     return (
-      <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24" : "p-4 lg:p-6 pb-40 lg:pb-28"}`}>
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24" : "p-4 lg:p-6 pb-40 lg:pb-28"} max-w-4xl mx-auto`}>
         {/* Back button */}
         <motion.button
           initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
@@ -439,7 +439,7 @@ export default function MainView() {
   }
 
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"}`}>
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-4xl mx-auto`}>
       {/* Hero */}
       <motion.div
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}

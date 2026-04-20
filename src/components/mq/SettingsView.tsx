@@ -370,7 +370,7 @@ export default function SettingsView() {
   const presetAccents = ["#e03131", "#8b5cf6", "#4ade80", "#f59e0b", "#ec4899", "#06b6d4", "#f97316"];
 
   return (
-    <div className="p-4 lg:p-6 pb-40 lg:pb-28 space-y-6 max-w-2xl mx-auto">
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-2xl mx-auto`}>
       <motion.div
         initial={anim ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}

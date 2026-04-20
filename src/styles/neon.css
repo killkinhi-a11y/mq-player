@@ -21,6 +21,33 @@
   --mq-chrome: #00ff88;
   --mq-purple-pink: #ff0066;
   --mq-gold: #00ff88;
+  /* ── Tailwind / shadcn UI variable overrides ───────────────────── */
+  --background: #0a0a14;
+  --foreground: #e0e0f0;
+  --card: #12121e;
+  --card-foreground: #e0e0f0;
+  --popover: #12121e;
+  --popover-foreground: #e0e0f0;
+  --primary: #00ff88;
+  --primary-foreground: #0a0a14;
+  --secondary: #1a1a2e;
+  --secondary-foreground: #e0e0f0;
+  --muted: #1a1a2e;
+  --muted-foreground: #555577;
+  --accent: #1a1a2e;
+  --accent-foreground: #e0e0f0;
+  --destructive: #ef4444;
+  --border: #1e1e33;
+  --input: #1e1e33;
+  --ring: #00ff88;
+  --sidebar: #12121e;
+  --sidebar-foreground: #e0e0f0;
+  --sidebar-primary: #00ff88;
+  --sidebar-primary-foreground: #0a0a14;
+  --sidebar-accent: #1a1a2e;
+  --sidebar-accent-foreground: #e0e0f0;
+  --sidebar-border: #1e1e33;
+  --sidebar-ring: #00ff88;
 }
 
 /* ── Root / Body: Deep dark blue-black ──────────────────────────────── */

@@ -9,7 +9,7 @@ import { Trash2, Clock, Music, Play } from "lucide-react";
 
 export default function HistoryView() {
   const {
-    history, clearHistory, playTrack, animationsEnabled,
+    history, clearHistory, playTrack, animationsEnabled, compactMode,
   } = useAppStore();
 
   const handlePlayAll = useCallback(() => {
@@ -53,7 +53,7 @@ export default function HistoryView() {
   }, []);
 
   return (
-    <div className="p-4 lg:p-6 pb-40 lg:pb-28 space-y-6 max-w-2xl mx-auto">
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-2xl mx-auto`}>
       <motion.div
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}

@@ -17,7 +17,7 @@ export default function PlaylistView() {
     playlists, selectedPlaylistId, setSelectedPlaylistId,
     createPlaylist, deletePlaylist, renamePlaylist,
     removeFromPlaylist, animationsEnabled, playTrack, likedTrackIds,
-    addToPlaylist, setView,
+    addToPlaylist, setView, compactMode,
   } = useAppStore();
 
   const [showCreate, setShowCreate] = useState(false);
@@ -355,7 +355,7 @@ export default function PlaylistView() {
   // ── Detail view for selected playlist ──
   if (selectedPlaylist) {
     return (
-      <div className="p-4 lg:p-6 pb-40 lg:pb-28 space-y-4 max-w-2xl mx-auto">
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-2xl mx-auto`}>
         {/* Back button */}
         <motion.button
           whileTap={{ scale: 0.9 }}
@@ -616,7 +616,7 @@ export default function PlaylistView() {
 
   // ── All playlists grid ──
   return (
-    <div className="p-4 lg:p-6 pb-40 lg:pb-28 space-y-6 max-w-2xl mx-auto">
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-2xl mx-auto`}>
       <motion.div
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}

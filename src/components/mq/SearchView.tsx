@@ -39,7 +39,7 @@ function saveSearchHistory(items: string[]) {
 }
 
 export default function SearchView() {
-  const { searchQuery, setSearchQuery, selectedGenre, setSelectedGenre, animationsEnabled, playTrack, toggleLike, currentView } = useAppStore();
+  const { searchQuery, setSearchQuery, selectedGenre, setSelectedGenre, animationsEnabled, playTrack, toggleLike, currentView, compactMode } = useAppStore();
   const [showFilters, setShowFilters] = useState(false);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -332,7 +332,7 @@ export default function SearchView() {
   const activeHasSearched = selectedGenre || hasSearched;
 
   return (
-    <div className="p-4 lg:p-6 pb-40 lg:pb-28 space-y-4 relative">
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-4xl mx-auto relative`}>
       {/* Upload progress floating notification */}
       {uploadProgress && (
         <motion.div
