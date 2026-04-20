@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
-import ZAI from "z-ai-web-dev-sdk";
+import { createZAI } from "@/lib/ai";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -66,7 +66,7 @@ async function postHandler(req: NextRequest) {
     }).join("\n");
 
     // Use AI to generate tags and description
-    const zai = await ZAI.create();
+    const zai = await createZAI();
     const completion = await zai.chat.completions.create({
       messages: [
         {
