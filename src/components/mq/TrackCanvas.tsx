@@ -314,12 +314,13 @@ function drawJapanCanvas(
   ctx.restore();
 }
 
-// ── Swag: Gold particle burst + aggressive EQ ─────────────────────────────
+// ── Swag: Chrome/Purple particle burst + aggressive EQ ────────────────────
 
 interface GoldBurst {
   x: number; y: number; vx: number; vy: number;
   size: number; life: number; maxLife: number;
   type: "diamond" | "circle" | "line";
+  hue: number;
 }
 
 function drawSwagCanvas(
@@ -331,19 +332,19 @@ function drawSwagCanvas(
   particles: GoldBurst[],
   lastBassHit: { value: number }
 ) {
-  // Deep black with subtle gold gradient
+  // Deep black base
   ctx.fillStyle = "#0a0a0a";
   ctx.fillRect(0, 0, w, h);
 
-  // Background: subtle gold radial glow
+  // Background: purple-pink radial glow reactive to bass
   const glowGrad = ctx.createRadialGradient(w * 0.5, h * 0.6, 0, w * 0.5, h * 0.6, Math.max(w, h) * 0.5);
-  glowGrad.addColorStop(0, `rgba(212,175,55,${0.03 + bass * 0.08})`);
-  glowGrad.addColorStop(0.5, `rgba(212,175,55,${0.01 + bass * 0.03})`);
+  glowGrad.addColorStop(0, `rgba(139,92,246,${0.04 + bass * 0.1})`);
+  glowGrad.addColorStop(0.4, `rgba(236,72,153,${0.02 + bass * 0.05})`);
   glowGrad.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = glowGrad;
   ctx.fillRect(0, 0, w, h);
 
-  // Symmetric EQ bars from center — aggressive, thick
+  // Symmetric EQ bars from center — purple-to-pink gradient
   const barCount = 48;
   const totalBarW = w * 0.85;
   const barW = totalBarW / barCount * 0.65;
@@ -359,35 +360,47 @@ function drawSwagCanvas(
     const barH = Math.max(2, raw * h * 0.7 * (1 - dist * 0.3));
     const x = startX + i * (barW + barGap);
 
-    // Gold gradient: bright core, dark edges
+    // Color interpolation: purple (left) → pink (right)
+    const ratio = i / barCount;
+    const r = Math.floor(139 + (236 - 139) * ratio);
+    const g = Math.floor(92 + (72 - 92) * ratio);
+    const b = Math.floor(246 + (153 - 246) * ratio);
+
+    // Gradient: bright top, fade to center
     const gradUp = ctx.createLinearGradient(x, centerY, x, centerY - barH);
-    gradUp.addColorStop(0, `rgba(184,151,46,${0.5 + raw * 0.4})`);
-    gradUp.addColorStop(0.4, `rgba(212,175,55,${0.3 + raw * 0.5})`);
-    gradUp.addColorStop(1, `rgba(255,215,0,${0.05 + raw * 0.2})`);
+    gradUp.addColorStop(0, `rgba(${r},${g},${b},${0.5 + raw * 0.4})`);
+    gradUp.addColorStop(0.4, `rgba(${r},${g},${b},${0.3 + raw * 0.5})`);
+    gradUp.addColorStop(1, `rgba(${r},${g},${b},${0.05 + raw * 0.2})`);
     ctx.fillStyle = gradUp;
     ctx.fillRect(x, centerY - barH, barW, barH);
 
-    // Mirror downward
+    // Mirror downward (faded)
     const gradDown = ctx.createLinearGradient(x, centerY, x, centerY + barH);
-    gradDown.addColorStop(0, `rgba(184,151,46,${0.3 + raw * 0.3})`);
-    gradDown.addColorStop(0.5, `rgba(212,175,55,${0.15 + raw * 0.2})`);
-    gradDown.addColorStop(1, `rgba(212,175,55,0)`);
+    gradDown.addColorStop(0, `rgba(${r},${g},${b},${0.3 + raw * 0.3})`);
+    gradDown.addColorStop(0.5, `rgba(${r},${g},${b},${0.15 + raw * 0.2})`);
+    gradDown.addColorStop(1, `rgba(${r},${g},${b},0)`);
     ctx.fillStyle = gradDown;
     ctx.fillRect(x, centerY, barW, barH);
 
     // Glow on tall bars
     if (raw > 0.5) {
-      ctx.fillStyle = `rgba(255,215,0,${(raw - 0.5) * 0.2})`;
+      ctx.fillStyle = `rgba(${r},${g},${b},${(raw - 0.5) * 0.25})`;
       ctx.fillRect(x - 1, centerY - barH - 3, barW + 2, 4);
     }
   }
   ctx.restore();
 
-  // Center line
-  ctx.fillStyle = `rgba(212,175,55,${0.1 + bass * 0.15})`;
+  // Center line: chrome
+  const chromeGrad = ctx.createLinearGradient(startX, 0, startX + totalBarW, 0);
+  chromeGrad.addColorStop(0, "rgba(160,160,160,0)");
+  chromeGrad.addColorStop(0.2, `rgba(192,192,192,${0.1 + bass * 0.15})`);
+  chromeGrad.addColorStop(0.5, `rgba(232,232,232,${0.15 + bass * 0.2})`);
+  chromeGrad.addColorStop(0.8, `rgba(192,192,192,${0.1 + bass * 0.15})`);
+  chromeGrad.addColorStop(1, "rgba(160,160,160,0)");
+  ctx.fillStyle = chromeGrad;
   ctx.fillRect(startX, centerY - 0.5, totalBarW, 1);
 
-  // Bass hit detection → spawn gold burst
+  // Bass hit detection → spawn chrome/purple burst
   if (bass > 0.55 && bass - lastBassHit.value > 0.1) {
     const burstCount = Math.floor(3 + bass * 8);
     for (let j = 0; j < burstCount; j++) {
@@ -402,17 +415,18 @@ function drawSwagCanvas(
         life: 0,
         maxLife: 40 + Math.random() * 60,
         type: (["diamond", "circle", "line"] as const)[Math.floor(Math.random() * 3)],
+        hue: Math.random(), // 0=chrome, 1=purple
       });
     }
   }
   lastBassHit.value = bass;
 
-  // Update & draw particles
+  // Update & draw particles — mix of chrome silver and purple-pink
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.x += p.vx;
     p.y += p.vy;
-    p.vy += 0.03; // gravity
+    p.vy += 0.03;
     p.life++;
     if (p.life > p.maxLife) {
       particles.splice(i, 1);
@@ -422,15 +436,20 @@ function drawSwagCanvas(
     const alpha = lifeRatio < 0.2 ? lifeRatio / 0.2 : (lifeRatio > 0.6 ? (1 - lifeRatio) / 0.4 : 1);
     const bright = alpha * (0.6 + Math.random() * 0.4);
 
+    // Interpolate between chrome (0) and purple-pink (1)
+    const cr = Math.floor(200 + (200 - 200) * p.hue);
+    const cg = Math.floor(200 + (120 - 200) * p.hue);
+    const cb = Math.floor(210 + (255 - 210) * p.hue);
+
     ctx.save();
     ctx.globalAlpha = bright;
-    ctx.fillStyle = `rgba(255,215,0,${bright})`;
+    ctx.fillStyle = `rgba(${cr},${cg},${cb},${bright})`;
     if (p.type === "diamond") {
       ctx.translate(p.x, p.y);
       ctx.rotate(Math.PI / 4);
       ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
     } else if (p.type === "line") {
-      ctx.strokeStyle = `rgba(212,175,55,${bright})`;
+      ctx.strokeStyle = `rgba(${cr},${cg},${cb},${bright})`;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
@@ -440,8 +459,7 @@ function drawSwagCanvas(
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
       ctx.fill();
-      // Glow
-      ctx.fillStyle = `rgba(255,215,0,${bright * 0.3})`;
+      ctx.fillStyle = `rgba(${cr},${cg},${cb},${bright * 0.3})`;
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * 2.5, 0, Math.PI * 2);
       ctx.fill();
@@ -451,10 +469,16 @@ function drawSwagCanvas(
   }
   if (particles.length > 200) particles.splice(0, particles.length - 200);
 
-  // Top text: "$WAG"
+  // Top text: "$WAG" — chrome metallic
   ctx.save();
   ctx.globalAlpha = 0.06 + bass * 0.08;
-  ctx.fillStyle = "#d4af37";
+  const textGrad = ctx.createLinearGradient(w * 0.3, h * 0.12, w * 0.7, h * 0.12);
+  textGrad.addColorStop(0, "#a0a0a0");
+  textGrad.addColorStop(0.3, "#e8e8e8");
+  textGrad.addColorStop(0.5, "#ffffff");
+  textGrad.addColorStop(0.7, "#c0c0c0");
+  textGrad.addColorStop(1, "#a0a0a0");
+  ctx.fillStyle = textGrad;
   ctx.font = `900 ${Math.floor(h * 0.25)}px 'Impact', 'Arial Black', system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
