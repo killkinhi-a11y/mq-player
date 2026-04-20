@@ -52,9 +52,9 @@ async function postHandler(req: NextRequest) {
     if (genres) prompt += `, genres: ${genres}`;
     if (artists) prompt += `, artists like ${artists}`;
     if (existingTags) prompt += `, vibe: ${existingTags}`;
-    prompt += ". Modern minimalist design, vibrant colors, no text";
+    prompt += ". Pure abstract art, NO text, NO letters, NO words, NO numbers, NO typography, NO symbols, ONLY shapes colors gradients and textures";
 
-    if (prompt.length > 200) prompt = prompt.slice(0, 197) + "...";
+    if (prompt.length > 250) prompt = prompt.slice(0, 247) + "...";
 
     const ZAI_BASE = await getZaiBaseUrl();
 
