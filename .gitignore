@@ -6,3 +6,12 @@ db/
 uploads/
 .env
 dist-electron/
+
+# OpenNext
+.open-next
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example

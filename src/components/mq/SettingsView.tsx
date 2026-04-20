@@ -684,7 +684,7 @@ export default function SettingsView() {
                   }}
                 >
                   {/* Mini preview: default MQ Player style */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#1a1a1a", borderRadius: 0 }}>
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#1a1a1a", borderRadius: 6 }}>
                     <div className="absolute top-1 left-1 w-4 h-1" style={{ backgroundColor: "#e03131", borderRadius: 0 }} />
                     <div className="absolute top-1 right-1 w-3 h-3" style={{ backgroundColor: "#333", borderRadius: 0 }} />
                     <div className="absolute bottom-1 left-1 right-1 h-3" style={{ backgroundColor: "#252525", borderRadius: 0 }} />
@@ -710,7 +710,7 @@ export default function SettingsView() {
                   }}
                 >
                   {/* Mini preview: iPod 2001 dark LCD screen */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#000000", borderRadius: 0, border: "1px solid #333333" }}>
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#000000", borderRadius: 6, border: "1px solid #333333" }}>
                     <div className="absolute top-0.5 left-1.5 right-1.5 h-2.5" style={{ backgroundColor: "#2a7fff", borderRadius: 0 }} />
                     <div className="absolute top-0.5 left-2.5 h-2.5" style={{ backgroundColor: "#ffffff", borderRadius: 0, opacity: 0.9, width: 14 }} />
                     <div className="absolute top-3.5 left-1.5" style={{ color: "#ffffff", fontSize: 6, lineHeight: 1 }}>Song</div>
@@ -766,14 +766,13 @@ export default function SettingsView() {
                     border: currentStyle === "swag" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
                   }}
                 >
-                  {/* Mini preview: Swag black & gold */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#0a0a0a", borderRadius: 0, border: "1px solid #2a2520" }}>
-                    <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, transparent, #d4af37, transparent)", opacity: 0.3 }} />
+                  {/* Mini preview: Swag black & gold — rounded luxury */}
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#0a0a0a", borderRadius: 6, border: "1px solid #2a2520" }}>
+                    <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, transparent, #d4af37, #ffd700, #d4af37, transparent)", opacity: 0.4 }} />
                     <div className="absolute top-1.5 left-1.5" style={{ color: "#d4af37", fontSize: 5, fontFamily: "Impact, Arial Black, sans-serif", textTransform: "uppercase", lineHeight: 1, letterSpacing: "0.1em" }}>Song</div>
                     <div className="absolute top-3 left-1.5" style={{ color: "#555555", fontSize: 3.5, lineHeight: 1 }}>Artist</div>
-                    <div className="absolute top-1.5 left-0 w-0.5 h-5" style={{ backgroundColor: "#d4af37" }} />
-                    <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5" style={{ backgroundColor: "#1a1a1a" }} />
-                    <div className="absolute bottom-1 left-1.5 w-3 h-0.5" style={{ backgroundColor: "#d4af37" }} />
+                    <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5" style={{ backgroundColor: "#1a1a1a", borderRadius: 1 }} />
+                    <div className="absolute bottom-1 left-1.5 w-3 h-0.5" style={{ backgroundColor: "#d4af37", borderRadius: 1 }} />
                   </div>
                   <div>
                     <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Swag</span>

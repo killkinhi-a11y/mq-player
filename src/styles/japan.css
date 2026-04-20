@@ -27,6 +27,13 @@
   background: #f0ebe3 !important;
 }
 
+/* ── Global border-radius: soft zen rounded corners ───────────────────── */
+[data-style="japan"] *,
+[data-style="japan"] *::before,
+[data-style="japan"] *::after {
+  border-radius: 8px !important;
+}
+
 /* ── Typography: Clean serif-leaning ──────────────────────────────────── */
 [data-style="japan"],
 [data-style="japan"] body,
