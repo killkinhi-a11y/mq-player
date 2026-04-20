@@ -3,24 +3,25 @@ import { searchSCTracks, type SCTrack } from "@/lib/soundcloud";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
- * Smart Recommendations API v3 — improved relevance with noise-content filtering.
+ * Smart Recommendations API v4 — aggressive noise filtering + discovery gating.
  *
  * Algorithm overview (Spotify/Яндекс.Музыка inspired):
  * 1. Generate intelligent search queries from taste profile (genres + artists + modifiers)
- * 2. Fetch results from multiple queries in parallel (cross-query signal)
- * 3. Score each track by multi-factor relevance:
- *    - Cross-query frequency: appearing in multiple searches = strong relevance signal (+60/query)
- *    - Genre match: exact match with user's top genres (+50), partial (+25), related (+15)
- *    - Artist match: exact artist match (+50), partial/contains (+20)
+ * 2. SPAM-PRONE GENRES FILTER: genres like "deep house" that SoundCloud returns
+ *    mostly spam/low-quality results for are excluded from discovery queries
+ *    UNLESS the user explicitly has them in their top genres
+ * 3. Fetch results from multiple queries in parallel (cross-query signal)
+ * 4. Score each track by multi-factor relevance:
+ *    - Cross-query frequency: +60/query (reduced to prevent discovery noise)
+ *    - Genre match: exact (+50), partial (+25), related (+15)
+ *    - Artist match: exact (+50), partial (+20)
  *    - Quality signals: full track (+40), has artwork (+20), good duration (+15)
- *    - Discovery boost: slight bonus for tracks from adjacent genres (+8)
- *    - Random variance: controlled noise to keep recommendations fresh (-10 to +15)
- *    - NOISE PENALTY: tracks with irrelevant content keywords (bible, gospel, etc.)
- *      that don't match user's taste get -150 penalty to prevent spam in recommendations
- * 4. Diversity injection: max 2 tracks per artist in final list
- * 5. Discovery picks: 2-3 tracks from genres adjacent to user's top genres
- *      (only if they match at least partially with user's taste profile)
- * 6. Filter: disliked IDs/artists/genres, short tracks, no-artwork tracks, noise content
+ *    - NOISE PENALTY: religious keywords (-150) if not matching user taste
+ *    - HASHTAG GENRE PENALTY: genre hashtags in title (#DeepHouse) that don't
+ *      match user taste profile get -60 penalty
+ *    - Discovery gate: discovery tracks with no genre match get -80 penalty
+ * 5. Hard filter: noise content, tracks with mismatched hashtag genres
+ * 6. Diversity injection: max 2 tracks per artist in final list
  */
 
 const cache = new Map<string, { data: unknown; expiry: number }>();
@@ -82,6 +83,22 @@ const genreRelations: Record<string, string[]> = {
   "acoustic": ["folk", "indie", "singer-songwriter", "bossa nova"],
   "k-pop": ["pop", "electropop", "dance pop", "k-r&b"],
 };
+
+// ── Spam-prone genres ──
+// These genres return mostly low-quality/spammy results on SoundCloud.
+// They are EXCLUDED from discovery queries unless the user explicitly has them
+// in their top genres. E.g. searching "deep house" on SC returns tons of
+// "Bible Deep House" and other irrelevant content.
+const SPAM_PRONE_GENRES = [
+  "deep house", "soulful house",
+];
+
+function isSpamProneGenre(genre: string): boolean {
+  const lower = genre.toLowerCase().trim();
+  return SPAM_PRONE_GENRES.some(sp =>
+    lower === sp || lower.includes(sp) || sp.includes(lower)
+  );
+}
 
 function getRelatedGenres(genre: string): string[] {
   const lower = genre.toLowerCase().trim();
@@ -145,6 +162,45 @@ function userWantsReligiousContent(topGenres: string[]): boolean {
   });
 }
 
+// ── Hashtag genre extraction ──
+// Detect genre hashtags in track titles (e.g. "#DeepHouse", "#TechHouse")
+// Many SoundCloud tracks spam genre hashtags in titles.
+// If the hashtagged genre doesn't match user's taste, penalize the track.
+const HASHTAG_GENRE_PATTERN = /#(\w+(\s+\w+)*)/g;
+const KNOWN_GENRE_HASHTAGS = [
+  "deephouse", "deep house", "tech house", "techhouse",
+  "soulful house", "club house", "progressive house",
+  "tropical house", "future house", "afro house",
+  "melodic house", "jackin house", "acid house",
+];
+
+function extractTitleHashtagGenres(title: string): string[] {
+  const hashtags: string[] = [];
+  const matches = title.matchAll(HASHTAG_GENRE_PATTERN);
+  for (const match of matches) {
+    const tag = match[1].toLowerCase().trim();
+    if (KNOWN_GENRE_HASHTAGS.includes(tag)) {
+      hashtags.push(tag);
+    }
+  }
+  return hashtags;
+}
+
+function titleHashtagGenreMismatch(title: string, topGenres: string[]): boolean {
+  const hashtagGenres = extractTitleHashtagGenres(title);
+  if (hashtagGenres.length === 0) return false;
+  const topLower = topGenres.map(g => normalizeGenre(g));
+  // Check if ANY hashtag genre matches user's taste
+  for (const hg of hashtagGenres) {
+    const hgNorm = normalizeGenre(hg);
+    const matches = topLower.some(tg =>
+      tg === hgNorm || tg.includes(hgNorm) || hgNorm.includes(tg)
+    );
+    if (!matches) return true; // Mismatch found
+  }
+  return false;
+}
+
 function scoreTrack(
   track: SCTrack,
   queryCount: number,
@@ -156,18 +212,21 @@ function scoreTrack(
   let score = 0;
 
   // ── Noise content penalty ──
-  // If track title or artist contains religious/noise keywords AND
-  // user's taste profile doesn't include religious genres → heavy penalty
   const titleAndArtist = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
   const trackHasNoise = hasNoiseKeywords(titleAndArtist);
   const wantsReligious = userWantsReligiousContent(topGenres);
   if (trackHasNoise && !wantsReligious) {
-    score -= 150; // Strong penalty for irrelevant religious content
+    score -= 150;
+  }
+
+  // ── Hashtag genre mismatch penalty ──
+  // If track title has genre hashtags (#DeepHouse, #TechHouse) that don't
+  // match user's taste profile → penalize (likely spam/irrelevant content)
+  if (titleHashtagGenreMismatch(track.title || "", topGenres)) {
+    score -= 60;
   }
 
   // ── Cross-query frequency (strong signal, but not overpowering) ──
-  // Track appearing in multiple independent searches = high relevance
-  // Reduced from 100 to 60 so discovery noise doesn't overpower taste signals
   score += queryCount * 60;
 
   // ── Genre matching (strengthened) ──
@@ -177,19 +236,18 @@ function scoreTrack(
     for (const g of topGenres) {
       const normalized = normalizeGenre(g);
       if (trackGenre === normalized) {
-        score += 50; // Exact genre match (was 35)
+        score += 50;
         hasGenreMatch = true;
       } else if (trackGenre.includes(normalized) || normalized.includes(trackGenre)) {
-        score += 25; // Partial genre match (was 15)
+        score += 25;
         hasGenreMatch = true;
       }
     }
 
-    // Related genre bonus — user's adjacent genres
     for (const rg of relatedGenres) {
       const rgNorm = normalizeGenre(rg);
       if (trackGenre === rgNorm) {
-        score += 15; // Related genre match (was 10)
+        score += 15;
         hasGenreMatch = true;
         break;
       }
@@ -197,10 +255,8 @@ function scoreTrack(
   }
 
   // ── Discovery relevance gate ──
-  // Discovery tracks with NO genre match at all get extra penalty
-  // This prevents random tracks from discovery queries from dominating
   if (isDiscovery && !hasGenreMatch) {
-    score -= 80; // Strong penalty for irrelevant discovery content
+    score -= 80;
   }
 
   // ── Artist matching ──
@@ -209,32 +265,30 @@ function scoreTrack(
     for (const a of topArtists) {
       const aLower = a.toLowerCase().trim();
       if (trackArtist === aLower) {
-        score += 50; // Exact artist match
+        score += 50;
       } else if (trackArtist.includes(aLower) || aLower.includes(trackArtist)) {
-        score += 20; // Partial artist match
+        score += 20;
       }
     }
   }
 
   // ── Quality signals ──
   if (track.scIsFull) {
-    score += 40; // Full track dramatically preferred
+    score += 40;
   }
   if (track.cover) {
-    score += 20; // Has artwork = real release
+    score += 20;
   }
 
-  // Duration quality
   const dur = track.duration || 0;
   if (dur >= 120 && dur <= 360) {
-    score += 15; // Standard song length
-    if (dur >= 180 && dur <= 240) score += 5; // Optimal ~3-4 min
+    score += 15;
+    if (dur >= 180 && dur <= 240) score += 5;
   } else if (dur >= 60 && dur < 120) {
-    score += 5; // Acceptable short
+    score += 5;
   }
 
-  // ── Controlled randomness for freshness ──
-  score += Math.random() * 25 - 10; // -10 to +15
+  score += Math.random() * 25 - 10;
 
   return score;
 }
@@ -290,10 +344,19 @@ async function handler(request: NextRequest) {
         queries.push({ query: `${a} ${currentYear}`, type: "artist_new", weight: 1.8 });
       }
 
-      // Discovery: related genres
+      // Discovery: related genres (FILTERED)
+      // Exclude spam-prone genres unless user explicitly likes them
+      const normalizedTopGenres = new Set(genres.map(g => normalizeGenre(g)));
       const allRelated = new Set<string>();
       for (const g of genres.slice(0, 3)) {
         for (const rg of getRelatedGenres(g)) {
+          // Skip spam-prone genres unless user explicitly has them in top genres
+          if (isSpamProneGenre(rg)) {
+            const rgNorm = normalizeGenre(rg);
+            const userWants = normalizedTopGenres.has(rgNorm) ||
+              [...normalizedTopGenres].some(tg => tg.includes(rgNorm) || rgNorm.includes(tg));
+            if (!userWants) continue;
+          }
           allRelated.add(rg);
         }
       }
@@ -394,6 +457,9 @@ async function handler(request: NextRequest) {
         // Hard filter: skip noise content (e.g. Bible Deep House) unless user wants it
         const titleArtistNoise = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
         if (hasNoiseKeywords(titleArtistNoise) && !userWantsReligiousContent(genres)) continue;
+        // Hard filter: skip tracks with hashtag genres that don't match user taste
+        // (e.g. "One Life #DeepHouse #club house" when user doesn't like deep house)
+        if (titleHashtagGenreMismatch(track.title || "", genres)) continue;
         if (seenIds.has(track.scTrackId)) continue;
 
         seenIds.add(track.scTrackId);

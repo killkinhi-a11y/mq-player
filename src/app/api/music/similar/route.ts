@@ -134,6 +134,39 @@ function isReligiousContext(genre: string): boolean {
   return RELIGIOUS_GENRE_KEYWORDS.some(rg => lower.includes(rg) || rg.includes(lower));
 }
 
+// ── Hashtag genre extraction ──
+const HASHTAG_GENRE_PATTERN = /#(\w+(\s+\w+)*)/g;
+const KNOWN_GENRE_HASHTAGS = [
+  "deephouse", "deep house", "tech house", "techhouse",
+  "soulful house", "club house", "progressive house",
+  "tropical house", "future house", "afro house",
+  "melodic house", "jackin house", "acid house",
+];
+
+function extractTitleHashtagGenres(title: string): string[] {
+  const hashtags: string[] = [];
+  const matches = title.matchAll(HASHTAG_GENRE_PATTERN);
+  for (const match of matches) {
+    const tag = match[1].toLowerCase().trim();
+    if (KNOWN_GENRE_HASHTAGS.includes(tag)) {
+      hashtags.push(tag);
+    }
+  }
+  return hashtags;
+}
+
+function titleHashtagGenreMismatch(title: string, contextGenre: string): boolean {
+  const hashtagGenres = extractTitleHashtagGenres(title);
+  if (hashtagGenres.length === 0) return false;
+  const contextLower = contextGenre.toLowerCase().trim();
+  for (const hg of hashtagGenres) {
+    const hgNorm = hg.replace(/\s+/g, " ").trim();
+    const matches = contextLower.includes(hgNorm) || hgNorm.includes(contextLower);
+    if (!matches) return true;
+  }
+  return false;
+}
+
 // Extract meaningful keywords from a title (remove common noise words)
 const STOP_WORDS = new Set([
   "the", "a", "an", "of", "in", "on", "at", "to", "for", "and", "or", "but",
@@ -335,6 +368,8 @@ async function handler(request: NextRequest) {
         // Hard filter: skip noise content (e.g. Bible Deep House) unless context is religious
         const titleArtistNoise = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
         if (hasNoiseKeywords(titleArtistNoise) && !isReligiousContext(trackGenre)) continue;
+        // Hard filter: skip tracks with hashtag genres that don't match seed track genre
+        if (titleHashtagGenreMismatch(track.title || "", trackGenre)) continue;
 
         seenTrackIds.add(track.scTrackId);
 
