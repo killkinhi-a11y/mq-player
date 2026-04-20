@@ -130,7 +130,7 @@ async function handler(req: NextRequest) {
 
         return { ...p, tracks, _score: score, _tags: playlistTags, _artists: uniqueArtists };
       })
-      .filter((p) => p._score > 0)
+      .filter((p) => p._score > 10) // Require at least one real tag/artist match
       .sort((a, b) => b._score - a._score);
 
     const result = scored.slice(offset, offset + limit).map((p) => {
@@ -153,10 +153,29 @@ async function handler(req: NextRequest) {
     });
 
     // If not enough recommendations, add popular playlists as fallback
+    // IMPORTANT: still filter by dislikedTags — never show disliked content as fallback
     if (result.length < limit) {
       const existingIds = new Set(result.map((r) => r.id));
       const fallback = playlists
-        .filter((p) => !existingIds.has(p.id) && JSON.parse(p.tracksJson || "[]").length > 0)
+        .filter((p) => {
+          if (existingIds.has(p.id)) return false;
+          let tracks: any[] = [];
+          try { tracks = JSON.parse(p.tracksJson || "[]"); } catch { return false; }
+          if (tracks.length === 0) return false;
+          // Filter by dislikedTags — check playlist tags
+          if (dislikedTags.length > 0) {
+            const playlistTags = (p.tags || "").split(",").map((t) => normalizeGenre(t)).filter(Boolean);
+            const normalizedDisliked = dislikedTags.map(t => normalizeGenre(t));
+            for (const dt of normalizedDisliked) {
+              for (const pt of playlistTags) {
+                if (pt === dt || pt.includes(dt) || dt.includes(pt)) {
+                  return false; // Skip this playlist entirely
+                }
+              }
+            }
+          }
+          return true;
+        })
         .sort((a, b) => {
           const scoreA = (a._count?.likes || 0) * 3 + a.playCount;
           const scoreB = (b._count?.likes || 0) * 3 + b.playCount;

@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Globe, TrendingUp, Heart, Play, Users, Search, RefreshCw,
-  ChevronLeft, Loader2, X, Music, Clock, Tag, Check, Send,
+  ChevronLeft, Loader2, X, Music, Clock, Tag, Check, Send, ThumbsDown,
 } from "lucide-react";
 import TrackCard from "./TrackCard";
 import { Input } from "@/components/ui/input";
@@ -29,6 +29,8 @@ export default function PublicPlaylistsView() {
     fetchPublicPlaylists,
     fetchPlaylistRecommendations,
     togglePlaylistLike,
+    addDislikedTags,
+    dislikedTags,
     publishPlaylist,
     playTrack,
     animationsEnabled,
@@ -79,6 +81,11 @@ export default function PublicPlaylistsView() {
       fetchPlaylistRecommendations();
     }
   }, [tab, search, sort, fetchPublicPlaylists, fetchPlaylistRecommendations]);
+
+  const handleDislikeTags = useCallback((tags: string[]) => {
+    addDislikedTags(tags);
+    setTimeout(() => fetchPlaylistRecommendations(), 100);
+  }, [addDislikedTags, fetchPlaylistRecommendations]);
 
   const handlePublish = async () => {
     if (!publishPlaylistId) return;
@@ -285,7 +292,8 @@ export default function PublicPlaylistsView() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {recommendedPlaylists.map((pl, i) => (
                 <PlaylistCard key={pl.id} playlist={pl} index={i} onClick={() => setSelectedPlaylist(pl)}
-                  onLike={() => togglePlaylistLike(pl.id)} animationsEnabled={animationsEnabled} showScore />
+                  onLike={() => togglePlaylistLike(pl.id)} onDislikeTags={() => handleDislikeTags(pl.tags)}
+                  animationsEnabled={animationsEnabled} showScore />
               ))}
             </div>
           ) : (
@@ -361,11 +369,12 @@ export default function PublicPlaylistsView() {
 
 // ── Sub-components ──
 
-function PlaylistCard({ playlist, index, onClick, onLike, animationsEnabled, showScore }: {
+function PlaylistCard({ playlist, index, onClick, onLike, onDislikeTags, animationsEnabled, showScore }: {
   playlist: PublicPlaylist;
   index: number;
   onClick: () => void;
   onLike: () => void;
+  onDislikeTags?: () => void;
   animationsEnabled: boolean;
   showScore?: boolean;
 }) {
@@ -413,6 +422,15 @@ function PlaylistCard({ playlist, index, onClick, onLike, animationsEnabled, sho
             style={{ color: playlist.isLiked ? "#ef4444" : "var(--mq-text-muted)" }}>
             <Heart className={`w-4 h-4 ${playlist.isLiked ? "fill-current" : ""}`} />
           </motion.button>
+          {onDislikeTags && playlist.tags.length > 0 && (
+            <motion.button whileTap={{ scale: 0.8 }}
+              onClick={(e) => { e.stopPropagation(); onDislikeTags(); }}
+              className="p-1 cursor-pointer"
+              style={{ color: "var(--mq-text-muted)" }}
+              title="Не интересует">
+              <ThumbsDown className="w-3.5 h-3.5" />
+            </motion.button>
+          )}
         </div>
         {playlist.tags.length > 0 && (
           <div className="flex gap-1 mt-1.5 overflow-hidden">

@@ -240,6 +240,11 @@ interface AppState {
   togglePlaylistLike: (playlistId: string) => Promise<boolean>;
   fetchPublicPlaylists: (params?: { search?: string; sort?: string; page?: number }) => Promise<void>;
   fetchPlaylistRecommendations: (likedTags?: string[], likedArtists?: string[]) => Promise<void>;
+  addDislikedTags: (tags: string[]) => void;
+  removeDislikedTag: (tag: string) => void;
+
+  // Disliked playlist tags (for recommendations filtering)
+  dislikedTags: string[];
 
   // Group chat
   selectedGroupId: string | null;
@@ -271,6 +276,7 @@ interface AppState {
   publicPlaylistsLoading: boolean;
   recommendedPlaylistsLoading: boolean;
   publicPlaylistsTotal: number;
+  dislikedTags: string[];
 
   // Support chat actions
   setSupportUnreadCount: (count: number) => void;
@@ -359,6 +365,7 @@ const initialState = {
   publicPlaylistsSearch: "",
   publicPlaylistsSort: "popular",
   recommendedPlaylistsLoading: false,
+  dislikedTags: [] as string[],
   selectedGroupId: null as string | null,
 
   // Collaborative listening
@@ -823,7 +830,7 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchPlaylistRecommendations: async (likedTags = [], likedArtists = []) => {
-        const { userId, likedTracksData, history } = get();
+        const { userId, likedTracksData, history, dislikedTags } = get();
         set({ recommendedPlaylistsLoading: true });
 
         // Build taste profile from store if not provided
@@ -845,6 +852,7 @@ export const useAppStore = create<AppState>()(
           const sp = new URLSearchParams({ limit: '10' });
           if (tags.length > 0) sp.set('likedTags', tags.join(','));
           if (artists.length > 0) sp.set('likedArtists', artists.join(','));
+          if (dislikedTags.length > 0) sp.set('dislikedTags', dislikedTags.join(','));
           const res = await fetch(`/api/playlists/recommendations?${sp}`);
           if (res.ok) {
             const data = await res.json();
@@ -855,6 +863,18 @@ export const useAppStore = create<AppState>()(
         } catch {
           set({ recommendedPlaylistsLoading: false });
         }
+      },
+
+      addDislikedTags: (tags) => {
+        set((s) => ({
+          dislikedTags: [...new Set([...s.dislikedTags, ...tags.map(t => t.toLowerCase().trim())])],
+        }));
+      },
+
+      removeDislikedTag: (tag) => {
+        set((s) => ({
+          dislikedTags: s.dislikedTags.filter(t => t !== tag.toLowerCase().trim()),
+        }));
       },
 
       // ── Liquid Glass Mobile ──
@@ -1071,6 +1091,7 @@ export const useAppStore = create<AppState>()(
         dislikedTrackIds: state.dislikedTrackIds,
         dislikedTracksData: state.dislikedTracksData,
         likedTracksData: state.likedTracksData,
+        dislikedTags: state.dislikedTags,
         playlists: state.playlists,
         history: state.history,
         liquidGlassMobile: state.liquidGlassMobile,
@@ -1119,6 +1140,7 @@ export const useAppStore = create<AppState>()(
           if (!Array.isArray(s.similarTracks)) fixes.similarTracks = [];
           if (!Array.isArray(s.publicPlaylists)) fixes.publicPlaylists = [];
           if (!Array.isArray(s.recommendedPlaylists)) fixes.recommendedPlaylists = [];
+          if (!Array.isArray(s.dislikedTags)) fixes.dislikedTags = [];
           if (typeof s.publicPlaylistsLoading !== "boolean") fixes.publicPlaylistsLoading = false;
           if (typeof s.recommendedPlaylistsLoading !== "boolean") fixes.recommendedPlaylistsLoading = false;
           if (typeof s.publicPlaylistsPage !== "number") fixes.publicPlaylistsPage = 1;
