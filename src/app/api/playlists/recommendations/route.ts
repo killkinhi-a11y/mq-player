@@ -194,7 +194,12 @@ async function handler(req: NextRequest) {
         if (playlistArtists.length >= 8) score += 5;
         else if (playlistArtists.length >= 5) score += 3;
 
-        // 10. Randomness for freshness
+        // 10. Exploration bonus — playlists with no tag/artist overlap get a small bonus for diversity
+        const hasOverlap = normalizedLikedTags.some(lt => playlistTags.some(pt => pt.includes(lt) || lt.includes(pt)))
+          || likedArtists.some(la => playlistArtists.some(pa => pa.includes(la) || la.includes(pa)));
+        if (!hasOverlap && playlistTags.length > 0) score += 8; // small nudge for novel genres
+
+        // 11. Randomness for freshness
         score += Math.random() * 10 - 5;
 
         return { ...p, tracks, _score: score, _tags: playlistTags, _artists: playlistArtists, _isCollaborative: collaborativePlaylistIds.has(p.id) };
@@ -202,7 +207,19 @@ async function handler(req: NextRequest) {
       .filter((p) => p._score > 5)
       .sort((a, b) => b._score - a._score);
 
-    const result = scored.slice(offset, offset + limit).map((p) => ({
+    // 70/30 exploitation vs exploration split
+    const exploitableCount = Math.ceil(limit * 0.7);
+    const explorationCount = limit - exploitableCount;
+    const exploitation = scored.filter(p => p._tags.some(t =>
+      normalizedLikedTags.some(lt => t.includes(lt) || lt.includes(t))
+    )).slice(offset, offset + exploitableCount);
+    const exploration = scored.filter(p => !exploitation.some(e => e.id === p.id))
+      .sort(() => Math.random() - 0.5) // randomize exploration pool
+      .slice(0, explorationCount);
+
+    const merged = [...exploitation, ...exploration];
+
+    const result = merged.map((p) => ({
       id: p.id,
       userId: p.userId,
       username: p.user?.username || "Unknown",

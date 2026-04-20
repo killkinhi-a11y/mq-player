@@ -200,20 +200,55 @@ function titleHashtagGenreMismatch(title: string, topGenres: string[]): boolean 
   return false;
 }
 
-// ── BPM estimation from duration/title ──
-// Rough heuristic: short titles with "remix"/"edit" → likely faster
-function estimateIsHighEnergy(track: SCTrack): boolean {
+// ── Energy estimation from genre + title keywords + duration ──
+// Returns 0 (low) → 1 (high) for finer-grained scoring
+function estimateEnergy(track: SCTrack): number {
   const title = (track.title || "").toLowerCase();
+  const genre = normalizeGenre(track.genre || "");
   const dur = track.duration || 0;
-  // Fast genres
-  const fastGenre = ["edm", "techno", "dubstep", "drum and bass", "hardstyle", "trap", "reggaeton", "dance pop"];
-  if (track.genre && fastGenre.some(fg => normalizeGenre(track.genre).includes(normalizeGenre(fg)))) return true;
-  // Slow genres
-  const slowGenre = ["ambient", "classical", "lo-fi", "lofi", "piano", "bossa nova", "downtempo"];
-  if (track.genre && slowGenre.some(sg => normalizeGenre(track.genre).includes(normalizeGenre(sg)))) return false;
-  // Heuristic from duration
-  if (dur > 0 && dur < 180) return true; // short tracks tend to be faster
-  return false;
+
+  // ── Title keyword signals ──
+  const highKeywords = ["remix", "edit", "mix", "club", "bass boosted", "radio edit", "extended",
+    "hard", "rush", "hype", "banger", "drop", "festival", "rave", "workout", "gym",
+    "bootleg", "vip", "original mix", "club mix"];
+  const lowKeywords = ["acoustic", "live", "unplugged", "piano", "lullaby", "reprise",
+    "ambient", "sleep", "meditation", "relax", "chill", "lo-fi", "lofi", "slow",
+    "ballad", "orchestral", "strings", "reverb", "demo", "piano version"];
+
+  let titleScore = 0;
+  for (const kw of highKeywords) { if (title.includes(kw)) { titleScore += 1; break; } }
+  for (const kw of lowKeywords) { if (title.includes(kw)) { titleScore -= 1; break; } }
+
+  // ── Genre-based energy ──
+  const highGenres = ["edm", "techno", "dubstep", "drum and bass", "hardstyle", "trap",
+    "reggaeton", "dance pop", "hardcore", "gabber", "electro", "big room",
+    "trance", "psytrance", "garage", "grime", "footwork", "juke"];
+  const midGenres = ["house", "deep house", "future house", "progressive house",
+    "pop", "hip hop", "rap", "indie", "rock", "alternative", "synthwave", "retrowave"];
+  const lowGenres = ["ambient", "classical", "lo-fi", "lofi", "piano", "bossa nova",
+    "downtempo", "chillout", "jazz", "blues", "soul", "r&b", "neo soul",
+    "new age", "meditation", "sleep", "study"];
+
+  if (highGenres.some(g => genre.includes(g))) titleScore += 2;
+  else if (midGenres.some(g => genre.includes(g))) titleScore += 1;
+  if (lowGenres.some(g => genre.includes(g))) titleScore -= 2;
+
+  // ── Duration heuristic ──
+  if (dur > 0) {
+    if (dur < 150) titleScore += 1;    // <2:30 → likely high energy
+    else if (dur > 360) titleScore -= 1; // >6min → likely chill/ambient
+  }
+
+  // Clamp to 0..1
+  if (titleScore >= 2) return 1;
+  if (titleScore <= -2) return 0;
+  if (titleScore >= 1) return 0.75;
+  if (titleScore <= -1) return 0.25;
+  return 0.5;
+}
+
+function estimateIsHighEnergy(track: SCTrack): boolean {
+  return estimateEnergy(track) >= 0.6;
 }
 
 function scoreTrack(
@@ -229,24 +264,26 @@ function scoreTrack(
 ): number {
   let score = 0;
 
-  // ── 1. TIME-OF-DAY BONUS (±20 points) ──
+  // ── 1. TIME-OF-DAY BONUS (±25 points) ──
   const timeGenres = TIME_GENRE_BOOSTS[timeContext] || [];
   const trackGenre = normalizeGenre(track.genre || "");
-  const isHighEnergy = estimateIsHighEnergy(track);
+  const energy = estimateEnergy(track);
 
   for (const tg of timeGenres) {
     if (trackGenre === normalizeGenre(tg) || trackGenre.includes(normalizeGenre(tg))) {
-      score += 20;
+      score += 25;
       break;
     }
   }
-  // Morning/afternoon → prefer high energy; evening/night → prefer low energy
+  // Energy-time alignment: morning/day rewards high energy, night rewards low energy
+  const wantHigh = ["morning", "afternoon", "weekend", "friday_evening"].includes(timeContext);
+  const wantLow = ["evening", "night"].includes(timeContext);
+  if (wantHigh) score += Math.round(energy * 15);        // up to +15 for high energy tracks
+  if (wantLow) score += Math.round((1 - energy) * 15);   // up to +15 for low energy tracks
+  // Session continuity: if we know current track energy, prefer similar
   if (currentTrackHighEnergy !== null) {
-    if (timeContext === "morning" || timeContext === "afternoon" || timeContext === "weekend" || timeContext === "friday_evening") {
-      if (isHighEnergy === currentTrackHighEnergy) score += 10;
-    } else if (timeContext === "evening" || timeContext === "night") {
-      if (isHighEnergy === currentTrackHighEnergy) score += 10;
-    }
+    const match = (currentTrackHighEnergy && energy >= 0.6) || (!currentTrackHighEnergy && energy < 0.4);
+    if (match) score += 12;
   }
 
   // ── 2. NOISE CONTENT PENALTY ──
