@@ -276,7 +276,6 @@ interface AppState {
   publicPlaylistsLoading: boolean;
   recommendedPlaylistsLoading: boolean;
   publicPlaylistsTotal: number;
-  dislikedTags: string[];
 
   // Support chat actions
   setSupportUnreadCount: (count: number) => void;

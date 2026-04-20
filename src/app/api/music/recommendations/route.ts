@@ -25,7 +25,7 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
  */
 
 const cache = new Map<string, { data: unknown; expiry: number }>();
-const CACHE_TTL = 8 * 60 * 1000;
+const CACHE_TTL = 0;
 
 function getFromCache(key: string): unknown | null {
   const entry = cache.get(key);
@@ -57,8 +57,8 @@ const genreRelations: Record<string, string[]> = {
   "alternative": ["rock", "indie", "grunge", "post-punk"],
   "indie": ["alternative", "rock", "lo-fi", "dream pop"],
   "metal": ["rock", "hard rock", "punk", "alternative"],
-  "electronic": ["house", "techno", "edm", "synthwave", "ambient", "trance"],
-  "house": ["electronic", "deep house", "tech house", "disco"],
+  "electronic": ["house", "techno", "edm", "synthwave", "ambient", "trance", "melodic house"],
+  "house": ["electronic", "tech house", "progressive house", "future house", "disco"],
   "techno": ["electronic", "house", "industrial", "minimal"],
   "edm": ["electronic", "house", "dubstep", "trap"],
   "synthwave": ["electronic", "retrowave", "vaporwave", "ambient"],
@@ -77,7 +77,7 @@ const genreRelations: Record<string, string[]> = {
   "punk": ["rock", "alternative", "hardcore", "post-punk"],
   "dubstep": ["electronic", "edm", "drum and bass", "grime"],
   "trance": ["electronic", "edm", "progressive", "techno"],
-  "deep house": ["house", "electronic", "tech house", "soulful house"],
+  "deep house": ["tech house", "soulful house"],
   "bossa nova": ["jazz", "latin", "acoustic", "samba"],
   "disco": ["funk", "house", "dance pop", "soul"],
   "acoustic": ["folk", "indie", "singer-songwriter", "bossa nova"],
@@ -452,6 +452,16 @@ async function handler(request: NextRequest) {
         if (dislikedIds.has(track.id)) continue;
         if (dislikedArtists.size > 0 && track.artist && dislikedArtists.has(track.artist.toLowerCase())) continue;
         if (dislikedGenres.size > 0 && track.genre && dislikedGenres.has(normalizeGenre(track.genre))) continue;
+        // Hard filter: skip deep house tracks unless user explicitly listens to deep house
+        if (!userWantsReligiousContent(genres)) {
+          const genreLower = (track.genre || "").toLowerCase();
+          const titleLower = (track.title || "").toLowerCase();
+          const normalizedTopGenres = genres.map(g => normalizeGenre(g));
+          const userWantsDeepHouse = normalizedTopGenres.some(tg =>
+            tg === "deep house" || tg.includes("deep house")
+          );
+          if (!userWantsDeepHouse && (genreLower.includes("deep house") || titleLower.includes("deep house"))) continue;
+        }
         if (!track.cover) continue;
         if (track.duration && track.duration < 30) continue;
         // Hard filter: skip noise content (e.g. Bible Deep House) unless user wants it
