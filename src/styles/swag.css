@@ -557,12 +557,113 @@
 }
 
 /* ── ═══ FULL TRACK VIEW ═══ ─────────────────────────────────────────── */
+[data-style="swag"] div[class*="fixed"][class*="z-100"],
 [data-style="swag"] div[class*="fixed"][class*="z-50"][class*="flex"][class*="items-center"][class*="justify-center"] {
   background: rgba(10, 10, 10, 0.98) !important;
 }
 
 [data-style="swag"] div[class*="fixed"][class*="z-50"] div[style*="background: var(--mq-border)"] {
   background: #2a2520 !important;
+}
+
+/* Full view track title — gold, uppercase, Impact */
+[data-style="swag"] div[class*="fixed"][class*="z-100"] h2,
+[data-style="swag"] div[class*="fixed"][class*="z-50"] h2 {
+  color: #f0f0f0 !important;
+  font-family: 'Impact', 'Arial Black', system-ui, sans-serif !important;
+  font-weight: 900 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+}
+
+/* Full view artist text */
+[data-style="swag"] div[class*="fixed"][class*="z-100"] p[class*="text-sm"] {
+  color: #777777 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+  font-family: 'Impact', 'Arial Black', system-ui, sans-serif !important;
+  font-size: 0.9em !important;
+}
+
+[data-style="swag"] div[class*="fixed"][class*="z-100"] p[class*="text-xs"] {
+  color: #555555 !important;
+}
+
+/* Full view play button — gold square */
+[data-style="swag"] div[class*="fixed"][class*="z-100"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
+  background: #d4af37 !important;
+  border-radius: 0 !important;
+  border: 2px solid #b8972e !important;
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.3) !important;
+  color: #0a0a0a !important;
+}
+
+/* Full view controls */
+[data-style="swag"] div[class*="fixed"][class*="z-100"] button[style*="color: var(--mq-text)"] {
+  color: #f0f0f0 !important;
+}
+[data-style="swag"] div[class*="fixed"][class*="z-100"] button[style*="color: var(--mq-text-muted)"] {
+  color: #555555 !important;
+}
+
+/* Full view progress — gold with glow */
+[data-style="swag"] div[class*="fixed"][class*="z-100"] div[style*="background: var(--mq-accent)"] {
+  background: #d4af37 !important;
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.3) !important;
+}
+[data-style="swag"] div[class*="fixed"][class*="z-100"] div[style*="background: var(--mq-border)"] {
+  background: #1a1a1a !important;
+}
+
+/* Full view volume slider */
+[data-style="swag"] div[class*="fixed"][class*="z-100"] input[type="range"] {
+  accent-color: #d4af37 !important;
+}
+
+/* Full view badge */
+[data-style="swag"] div[class*="fixed"][class*="z-100"] span[class*="rounded-full"][style*="background: var(--mq-card)"] {
+  background: #141414 !important;
+  border: 1px solid #2a2520 !important;
+  color: #777777 !important;
+  border-radius: 0 !important;
+  font-family: 'Impact', 'Arial Black', system-ui, sans-serif !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
+}
+
+/* Full view album art — sharp */
+[data-style="swag"] div[class*="fixed"][class*="z-100"] div[class*="rounded-2xl"][class*="overflow-hidden"] {
+  border-radius: 0 !important;
+  border: 2px solid #2a2520 !important;
+}
+
+/* Full view header buttons */
+[data-style="swag"] div[class*="fixed"][class*="z-100"] div[class*="relative"][class*="z-10"] button[class*="rounded-full"] {
+  background: #141414 !important;
+  border: 1px solid #2a2520 !important;
+  border-radius: 0 !important;
+}
+[data-style="swag"] div[class*="fixed"][class*="z-100"] div[class*="relative"][class*="z-10"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
+  background: #d4af37 !important;
+  border: 1px solid #d4af37 !important;
+  border-radius: 0 !important;
+}
+
+/* Full view volume section */
+[data-style="swag"] div[class*="fixed"][class*="z-100"] div[class*="h-1.5"][class*="rounded-full"] {
+  background: #1a1a1a !important;
+  border-radius: 0 !important;
+}
+[data-style="swag"] div[class*="fixed"][class*="z-100"] div[style*="background: var(--mq-accent)"][class*="h-1.5"] {
+  background: #d4af37 !important;
+}
+
+/* Full view time labels */
+[data-style="swag"] div[class*="fixed"][class*="z-100"] div[style*="color: var(--mq-text-muted)"] {
+  color: #555555 !important;
+  font-family: 'Impact', 'Arial Black', system-ui, sans-serif !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.1em !important;
 }
 
 /* PiP */

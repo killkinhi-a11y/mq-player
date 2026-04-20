@@ -682,6 +682,7 @@
 
 /* ── ═══ FULL TRACK VIEW OVERLAY: iPod Now Playing ═══ ───────────────── */
 /* When full track view is open, make it look like the iPod now playing screen */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"],
 [data-style="ipod-2001"] div[class*="fixed"][class*="z-50"][class*="flex"][class*="items-center"][class*="justify-center"] {
   background: #000000 !important;
 }
@@ -689,6 +690,86 @@
 /* Progress bar in full view */
 [data-style="ipod-2001"] div[class*="fixed"][class*="z-50"] div[style*="background: var(--mq-border)"] {
   background: #1a1a1a !important;
+}
+
+/* Full view track title — larger, centered */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] h2,
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-50"] h2 {
+  color: #ffffff !important;
+  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em !important;
+}
+
+/* Full view artist text */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] p[class*="text-sm"],
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-50"] p[class*="text-sm"] {
+  color: #888888 !important;
+}
+
+/* Full view play button */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] button[class*="rounded-full"][style*="background: var(--mq-accent)"],
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-50"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
+  background: #2a7fff !important;
+  border: 1px solid #5599ff !important;
+  box-shadow: none !important;
+}
+
+/* Full view control buttons */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] button[style*="color: var(--mq-text)"],
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] button[style*="color: var(--mq-text-muted)"] {
+  color: #ffffff !important;
+}
+
+/* Full view progress scrubber */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] div[style*="background: var(--mq-accent)"],
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-50"] div[style*="background: var(--mq-accent)"] {
+  background: #2a7fff !important;
+  box-shadow: none !important;
+}
+
+/* Full view volume slider */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] input[type="range"],
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-50"] input[type="range"] {
+  accent-color: #2a7fff !important;
+}
+
+/* Full view back button / header */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] div[class*="relative"][class*="z-10"] button[style*="color: var(--mq-text)"] {
+  color: #ffffff !important;
+}
+
+/* Full view badge */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] span[class*="rounded-full"][style*="background: var(--mq-card)"] {
+  background: #111111 !important;
+  border: 1px solid #333333 !important;
+  color: #888888 !important;
+  border-radius: 0 !important;
+  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
+}
+
+/* Full view album art — square, sharp */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] div[class*="rounded-2xl"] img,
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-50"] div[class*="rounded-2xl"] img {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Full view album art container */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] div[class*="rounded-2xl"][class*="overflow-hidden"] {
+  border-radius: 0 !important;
+  border: 1px solid #222222 !important;
+}
+
+/* Full view header buttons (sparkles, volume, etc) */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] div[class*="relative"][class*="z-10"] button[class*="rounded-full"] {
+  background: transparent !important;
+  border: 1px solid #333333 !important;
+  border-radius: 0 !important;
+}
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] div[class*="relative"][class*="z-10"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
+  background: #2a7fff !important;
+  border: 1px solid #5599ff !important;
 }
 
 /* ── ═══ SHARE BUTTON TOOLTIP ═══ ────────────────────────────────────── */
