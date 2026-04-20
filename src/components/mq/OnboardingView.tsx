@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore, type FavoriteArtist } from "@/store/useAppStore";
 
@@ -13,23 +13,102 @@ interface SCArtistData {
   trackCount: number;
 }
 
-const GENRE_CATEGORIES = [
-  { name: "Hip-Hop", query: "hip-hop" },
-  { name: "R&B", query: "r&b soul" },
-  { name: "Electronic", query: "electronic music" },
-  { name: "Rock", query: "rock music" },
-  { name: "Pop", query: "pop music" },
-  { name: "Indie", query: "indie alternative" },
-  { name: "Jazz", query: "jazz" },
-  { name: "Lo-Fi", query: "lofi chillhop" },
-  { name: "Latin", query: "reggaeton latin" },
-  { name: "K-Pop", query: "k-pop" },
-  { name: "Techno", query: "techno minimal" },
-  { name: "Afrobeats", query: "afrobeats" },
-  { name: "Drum & Bass", query: "drum and bass" },
-  { name: "Synthwave", query: "synthwave retrowave" },
-  { name: "Classical", query: "classical piano" },
-  { name: "Metal", query: "metal rock" },
+interface SimilarBranch {
+  parentId: number;
+  artists: SCArtistData[];
+  loading: boolean;
+}
+
+// ── Genre tree with sub-genres ──
+const GENRE_TREE: { category: string; genres: { name: string; query: string }[] }[] = [
+  {
+    category: "Hip-Hop & R&B",
+    genres: [
+      { name: "Hip-Hop", query: "hip-hop" },
+      { name: "Rap", query: "rap" },
+      { name: "Trap", query: "trap music" },
+      { name: "R&B", query: "r&b soul" },
+      { name: "Drill", query: "drill rap" },
+      { name: "Boom Bap", query: "boom bap hip hop" },
+    ],
+  },
+  {
+    category: "Electronic",
+    genres: [
+      { name: "House", query: "house music" },
+      { name: "Techno", query: "techno minimal" },
+      { name: "Trance", query: "trance progressive" },
+      { name: "Drum & Bass", query: "drum and bass" },
+      { name: "Dubstep", query: "dubstep edm" },
+      { name: "Hardstyle", query: "hardstyle" },
+      { name: "Ambient", query: "ambient electronic" },
+    ],
+  },
+  {
+    category: "Pop",
+    genres: [
+      { name: "Pop", query: "pop music" },
+      { name: "K-Pop", query: "k-pop" },
+      { name: "Dance Pop", query: "dance pop" },
+      { name: "Indie Pop", query: "indie pop" },
+      { name: "Synthpop", query: "synthpop" },
+      { name: "Electropop", query: "electropop" },
+    ],
+  },
+  {
+    category: "Rock & Metal",
+    genres: [
+      { name: "Rock", query: "rock music" },
+      { name: "Indie Rock", query: "indie rock" },
+      { name: "Alternative", query: "alternative rock" },
+      { name: "Metal", query: "metal rock" },
+      { name: "Punk", query: "punk rock" },
+      { name: "Post-Punk", query: "post-punk" },
+      { name: "Grunge", query: "grunge" },
+    ],
+  },
+  {
+    category: "Jazz, Soul & Blues",
+    genres: [
+      { name: "Jazz", query: "jazz" },
+      { name: "Lo-Fi Jazz", query: "lofi jazz" },
+      { name: "Soul", query: "soul music" },
+      { name: "Blues", query: "blues" },
+      { name: "Bossa Nova", query: "bossa nova" },
+      { name: "Funk", query: "funk" },
+    ],
+  },
+  {
+    category: "Chill & Lounge",
+    genres: [
+      { name: "Lo-Fi", query: "lofi chillhop" },
+      { name: "Chill", query: "chill music" },
+      { name: "Downtempo", query: "downtempo" },
+      { name: "Synthwave", query: "synthwave retrowave" },
+      { name: "Acoustic", query: "acoustic" },
+      { name: "Piano", query: "piano music" },
+    ],
+  },
+  {
+    category: "Latin & World",
+    genres: [
+      { name: "Reggaeton", query: "reggaeton latin" },
+      { name: "Afrobeats", query: "afrobeats" },
+      { name: "Latin Pop", query: "latin pop" },
+      { name: "Salsa", query: "salsa" },
+      { name: "Bachata", query: "bachata" },
+      { name: "Arabic", query: "arabic music" },
+    ],
+  },
+  {
+    category: "Classical & Orchestral",
+    genres: [
+      { name: "Classical", query: "classical piano" },
+      { name: "Neo-Classical", query: "neo classical" },
+      { name: "Orchestral", query: "orchestral cinematic" },
+      { name: "Soundtrack", query: "movie soundtrack" },
+    ],
+  },
 ];
 
 const MIN_ARTISTS = 3;
@@ -43,7 +122,6 @@ function formatFollowers(n: number): string {
 export default function OnboardingView() {
   const {
     favoriteArtists,
-    setFavoriteArtists,
     addFavoriteArtist,
     removeFavoriteArtist,
     setOnboardingComplete,
@@ -54,7 +132,8 @@ export default function OnboardingView() {
   const [step, setStep] = useState<"genres" | "artists" | "discover">("genres");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [artistResults, setArtistResults] = useState<SCArtistData[]>([]);
-  const [discoverResults, setDiscoverResults] = useState<SCArtistData[]>([]);
+  const [similarBranches, setSimilarBranches] = useState<SimilarBranch[]>([]);
+  const [expandedArtist, setExpandedArtist] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingGenre, setLoadingGenre] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -73,8 +152,7 @@ export default function OnboardingView() {
       const allArtists: SCArtistData[] = [];
       const seenIds = new Set<number>();
 
-      // Load artists for up to 3 selected genres in parallel
-      const genresToFetch = genres.slice(0, 3);
+      const genresToFetch = genres.slice(0, 5);
       const results = await Promise.allSettled(
         genresToFetch.map(g =>
           fetch(`/api/music/artists?q=${encodeURIComponent(g)}&limit=15`)
@@ -94,9 +172,8 @@ export default function OnboardingView() {
         }
       }
 
-      // Sort by followers
       allArtists.sort((a, b) => b.followers - a.followers);
-      setArtistResults(allArtists.slice(0, 24));
+      setArtistResults(allArtists.slice(0, 30));
     } catch {
       setError("Не удалось загрузить артистов");
     } finally {
@@ -104,7 +181,6 @@ export default function OnboardingView() {
     }
   }, []);
 
-  // When user proceeds from genres to artists step
   const handleGenresNext = () => {
     if (selectedGenres.length === 0) {
       setError("Выберите хотя бы один жанр");
@@ -115,54 +191,91 @@ export default function OnboardingView() {
     loadArtistsForGenres(selectedGenres);
   };
 
-  // Load similar artists for discovery step
   const handleArtistsNext = () => {
     if (favoriteArtists.length < MIN_ARTISTS) {
       setError(`Выберите хотя бы ${MIN_ARTISTS} артистов`);
       return;
     }
     setError("");
-    loadDiscoverArtists();
+    // Pre-load similar artists for all selected favorites
+    loadAllSimilarBranches();
     setStep("discover");
   };
 
-  const loadDiscoverArtists = async () => {
-    setLoading(true);
-    try {
-      // Get similar artists for each favorite
-      const topFavs = favoriteArtists.slice(0, 3);
-      const allArtists: SCArtistData[] = [];
-      const seenIds = new Set<number>(favoriteArtists.map(a => a.id));
+  // Load similar artists for all selected favorite artists
+  const loadAllSimilarBranches = async () => {
+    const favs = favoriteArtists.slice(0, 5); // max 5 branches
+    const branches: SimilarBranch[] = favs.map(f => ({
+      parentId: f.id,
+      artists: [],
+      loading: true,
+    }));
+    setSimilarBranches(branches);
 
-      const results = await Promise.allSettled(
-        topFavs.map(a =>
-          fetch(`/api/music/artists?similar=${encodeURIComponent(a.username)}&limit=10`)
-            .then(r => r.json())
-            .then(d => d.artists || [])
+    // Load similar for each in parallel
+    await Promise.allSettled(
+      favs.map(async (fav, idx) => {
+        try {
+          const res = await fetch(
+            `/api/music/artists?similar=${encodeURIComponent(fav.username)}&limit=6`
+          );
+          const data = await res.json();
+          const artists = (data.artists || []) as SCArtistData[];
+          setSimilarBranches(prev =>
+            prev.map((b, i) =>
+              i === idx ? { ...b, artists, loading: false } : b
+            )
+          );
+        } catch {
+          setSimilarBranches(prev =>
+            prev.map((b, i) =>
+              i === idx ? { ...b, loading: false } : b
+            )
+          );
+        }
+      })
+    );
+  };
+
+  // Load similar artists for a single artist (expand/collapse)
+  const toggleSimilarForArtist = async (artistId: number, artistName: string) => {
+    if (expandedArtist === artistId) {
+      setExpandedArtist(null);
+      return;
+    }
+
+    setExpandedArtist(artistId);
+
+    // Check if we already have similar for this artist
+    const existing = similarBranches.find(b => b.parentId === artistId);
+    if (existing && existing.artists.length > 0) return;
+
+    // Add loading state
+    setSimilarBranches(prev => [
+      ...prev.filter(b => b.parentId !== artistId),
+      { parentId: artistId, artists: [], loading: true },
+    ]);
+
+    try {
+      const res = await fetch(
+        `/api/music/artists?similar=${encodeURIComponent(artistName)}&limit=6`
+      );
+      const data = await res.json();
+      const artists = (data.artists || []) as SCArtistData[];
+      setSimilarBranches(prev =>
+        prev.map(b =>
+          b.parentId === artistId ? { ...b, artists, loading: false } : b
         )
       );
-
-      for (const result of results) {
-        if (result.status === "fulfilled") {
-          for (const a of result.value) {
-            if (!seenIds.has(a.id)) {
-              seenIds.add(a.id);
-              allArtists.push(a);
-            }
-          }
-        }
-      }
-
-      allArtists.sort((a, b) => b.followers - a.followers);
-      setDiscoverResults(allArtists.slice(0, 18));
     } catch {
-      // Discovery is optional, no error needed
-    } finally {
-      setLoading(false);
+      setSimilarBranches(prev =>
+        prev.map(b =>
+          b.parentId === artistId ? { ...b, loading: false } : b
+        )
+      );
     }
   };
 
-  // Load more artists for a specific genre on the artists step
   const handleLoadMore = async (genreQuery: string) => {
     setLoadingGenre(genreQuery);
     try {
@@ -172,7 +285,7 @@ export default function OnboardingView() {
       setArtistResults(prev => {
         const existingIds = new Set(prev.map(a => a.id));
         const unique = newArtists.filter(a => !existingIds.has(a.id));
-        return [...prev, ...unique].slice(0, 30);
+        return [...prev, ...unique].slice(0, 40);
       });
     } catch {} finally {
       setLoadingGenre(null);
@@ -188,11 +301,8 @@ export default function OnboardingView() {
   };
 
   const handleFinish = async () => {
-    // Save to server
     setOnboardingComplete(true);
     await saveFavoriteArtistsToServer();
-
-    // Also call the API to mark onboarding complete in DB
     try {
       await fetch("/api/user/favorite-artists", {
         method: "POST",
@@ -203,7 +313,6 @@ export default function OnboardingView() {
         }),
       });
     } catch {}
-
     setView("main");
   };
 
@@ -219,148 +328,192 @@ export default function OnboardingView() {
     setView("main");
   };
 
-  // Step 1: Genre selection
-  const renderGenresStep = () => (
-    <div className="flex flex-col items-center gap-6 w-full max-w-2xl mx-auto px-4">
-      <div className="text-center">
-        <h1
-          className="text-2xl font-bold mb-2"
-          style={{ color: "var(--mq-text, #fff)" }}
+  // ── Artist card component (reused across steps) ──
+  const ArtistCard = ({ artist, size = "md" }: { artist: SCArtistData; size?: "sm" | "md" }) => {
+    const isSelected = selectedIds.has(artist.id);
+    const isSmall = size === "sm";
+    return (
+      <motion.button
+        whileTap={{ scale: 0.95 }}
+        onClick={() => toggleArtist(artist)}
+        className="flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all relative"
+        style={{
+          backgroundColor: isSelected ? "rgba(224, 49, 49, 0.1)" : "transparent",
+        }}
+      >
+        {isSelected && (
+          <div
+            className="absolute top-0 right-0 w-5 h-5 rounded-full flex items-center justify-center z-10"
+            style={{ backgroundColor: "var(--mq-accent, #e03131)" }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+              <path d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        )}
+
+        <div
+          className={`${isSmall ? "w-12 h-12" : "w-16 h-16 sm:w-20 sm:h-20"} rounded-full overflow-hidden flex-shrink-0`}
+          style={{
+            border: isSelected
+              ? "3px solid var(--mq-accent, #e03131)"
+              : "3px solid var(--mq-border, #2a2a2a)",
+          }}
         >
+          {artist.avatar ? (
+            <img src={artist.avatar} alt={artist.username} className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <div
+              className={`w-full h-full flex items-center justify-center ${isSmall ? "text-sm" : "text-lg"} font-bold`}
+              style={{ backgroundColor: "var(--mq-surface, #1a1a1a)", color: "var(--mq-text-secondary, #555)" }}
+            >
+              {artist.username[0]?.toUpperCase()}
+            </div>
+          )}
+        </div>
+        <p
+          className={`${isSmall ? "text-[10px]" : "text-xs"} font-medium text-center leading-tight w-full truncate px-1`}
+          style={{ color: isSelected ? "var(--mq-text, #fff)" : "var(--mq-text-secondary, #999)" }}
+        >
+          {artist.username}
+        </p>
+        {artist.genre && (
+          <p className={`${isSmall ? "text-[8px]" : "text-[10px]"} w-full truncate px-1`} style={{ color: "var(--mq-text-secondary, #666)" }}>
+            {artist.genre}
+          </p>
+        )}
+        {!isSmall && (
+          <p className="text-[10px]" style={{ color: "#555" }}>
+            {formatFollowers(artist.followers)}
+          </p>
+        )}
+      </motion.button>
+    );
+  };
+
+  // ── Step 1: Genre tree selection ──
+  const renderGenresStep = () => (
+    <div className="flex flex-col items-center gap-6 w-full max-w-3xl mx-auto px-4">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--mq-text, #fff)" }}>
           Какую музыку вы слушаете?
         </h1>
         <p className="text-sm" style={{ color: "var(--mq-text-secondary, #888)" }}>
-          Выберите жанры, которые вам нравятся
+          Выберите жанры и поджанры
         </p>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full">
-        {GENRE_CATEGORIES.map(cat => {
-          const isSelected = selectedGenres.includes(cat.name);
-          return (
-            <motion.button
-              key={cat.name}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => {
-                setSelectedGenres(prev =>
-                  isSelected
-                    ? prev.filter(g => g !== cat.name)
-                    : [...prev, cat.name]
-                );
-                setError("");
-              }}
-              className="px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 border text-left"
-              style={{
-                backgroundColor: isSelected
-                  ? "var(--mq-accent, #e03131)"
-                  : "var(--mq-surface, #1a1a1a)",
-                borderColor: isSelected
-                  ? "var(--mq-accent, #e03131)"
-                  : "var(--mq-border, #2a2a2a)",
-                color: isSelected ? "#fff" : "var(--mq-text, #ccc)",
-              }}
+      <div className="w-full space-y-5">
+        {GENRE_TREE.map(cat => (
+          <div key={cat.category}>
+            <p
+              className="text-xs font-semibold uppercase tracking-wider mb-2 px-1"
+              style={{ color: "var(--mq-text-secondary, #666)" }}
             >
-              {cat.name}
-            </motion.button>
-          );
-        })}
+              {cat.category}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {cat.genres.map(g => {
+                const isSelected = selectedGenres.includes(g.name);
+                return (
+                  <motion.button
+                    key={g.name}
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => {
+                      setSelectedGenres(prev =>
+                        isSelected
+                          ? prev.filter(n => n !== g.name)
+                          : [...prev, g.name]
+                      );
+                      setError("");
+                    }}
+                    className="px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border"
+                    style={{
+                      backgroundColor: isSelected
+                        ? "var(--mq-accent, #e03131)"
+                        : "var(--mq-surface, #1a1a1a)",
+                      borderColor: isSelected
+                        ? "var(--mq-accent, #e03131)"
+                        : "var(--mq-border, #2a2a2a)",
+                      color: isSelected ? "#fff" : "var(--mq-text, #ccc)",
+                    }}
+                  >
+                    {g.name}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {error && (
-        <p className="text-sm" style={{ color: "#ff6b6b" }}>{error}</p>
-      )}
+      {error && <p className="text-sm" style={{ color: "#ff6b6b" }}>{error}</p>}
 
       <div className="flex gap-3 mt-2">
         <button
           onClick={handleSkip}
-          className="px-6 py-2.5 rounded-xl text-sm font-medium transition-all"
-          style={{
-            color: "var(--mq-text-secondary, #888)",
-            backgroundColor: "transparent",
-          }}
+          className="px-6 py-2.5 rounded-xl text-sm font-medium"
+          style={{ color: "var(--mq-text-secondary, #888)" }}
         >
           Пропустить
         </button>
         <button
           onClick={handleGenresNext}
           className="px-8 py-2.5 rounded-xl text-sm font-bold text-white transition-all"
-          style={{
-            backgroundColor: "var(--mq-accent, #e03131)",
-            opacity: selectedGenres.length > 0 ? 1 : 0.5,
-          }}
+          style={{ backgroundColor: "var(--mq-accent, #e03131)", opacity: selectedGenres.length > 0 ? 1 : 0.5 }}
         >
-          Далее
+          Далее ({selectedGenres.length})
         </button>
       </div>
     </div>
   );
 
-  // Step 2: Artist selection from genres
+  // ── Step 2: Artist selection ──
   const renderArtistsStep = () => (
-    <div className="flex flex-col items-center gap-6 w-full max-w-3xl mx-auto px-4">
+    <div className="flex flex-col items-center gap-5 w-full max-w-3xl mx-auto px-4">
       <div className="text-center">
-        <h1
-          className="text-2xl font-bold mb-2"
-          style={{ color: "var(--mq-text, #fff)" }}
-        >
+        <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--mq-text, #fff)" }}>
           Выберите любимых артистов
         </h1>
         <p className="text-sm" style={{ color: "var(--mq-text-secondary, #888)" }}>
-          Минимум {MIN_ARTISTS}, чтобы мы могли подобрать рекомендации
+          Минимум {MIN_ARTISTS} — нажмите на артиста чтобы выбрать
         </p>
-        <div className="flex items-center justify-center gap-2 mt-3">
-          <span
-            className="text-xs px-3 py-1 rounded-full"
-            style={{
-              backgroundColor: "var(--mq-surface, #1a1a1a)",
-              color: favoriteArtists.length >= MIN_ARTISTS
-                ? "#4ade80"
-                : "var(--mq-accent, #e03131)",
-            }}
-          >
-            {favoriteArtists.length} / {MIN_ARTISTS} выбрано
-          </span>
-        </div>
+        <span
+          className="inline-block text-xs px-3 py-1 rounded-full mt-2"
+          style={{
+            backgroundColor: "var(--mq-surface, #1a1a1a)",
+            color: favoriteArtists.length >= MIN_ARTISTS ? "#4ade80" : "var(--mq-accent, #e03131)",
+          }}
+        >
+          {favoriteArtists.length} / {MIN_ARTISTS} выбрано
+        </span>
       </div>
 
-      {/* Selected genres tags */}
-      <div className="flex flex-wrap gap-2 justify-center">
+      {/* Selected genres */}
+      <div className="flex flex-wrap gap-1.5 justify-center">
         {selectedGenres.map(g => (
-          <span
-            key={g}
-            className="text-xs px-3 py-1 rounded-full"
-            style={{
-              backgroundColor: "var(--mq-surface, #1a1a1a)",
-              color: "var(--mq-text-secondary, #888)",
-            }}
-          >
+          <span key={g} className="text-xs px-3 py-1 rounded-full" style={{ backgroundColor: "var(--mq-surface, #1a1a1a)", color: "var(--mq-text-secondary, #888)" }}>
             {g}
           </span>
         ))}
-        <button
-          onClick={() => setStep("genres")}
-          className="text-xs px-3 py-1 rounded-full transition-colors"
-          style={{ color: "var(--mq-accent, #e03131)" }}
-        >
+        <button onClick={() => setStep("genres")} className="text-xs px-3 py-1 rounded-full" style={{ color: "var(--mq-accent, #e03131)" }}>
           Изменить
         </button>
       </div>
 
-      {/* Load more buttons for each genre */}
+      {/* Load more */}
       <div className="flex flex-wrap gap-2 justify-center">
-        {selectedGenres.slice(0, 3).map((g) => {
-          const cat = GENRE_CATEGORIES.find(c => c.name === g);
+        {selectedGenres.slice(0, 5).map((g) => {
+          const cat = GENRE_TREE.flatMap(c => c.genres).find(c => c.name === g);
           return cat ? (
             <button
               key={g}
               onClick={() => handleLoadMore(cat.query)}
               disabled={loadingGenre === cat.query}
-              className="text-xs px-3 py-1.5 rounded-lg transition-all border"
+              className="text-xs px-3 py-1.5 rounded-lg border"
               style={{
                 borderColor: "var(--mq-border, #2a2a2a)",
-                color: loadingGenre === cat.query
-                  ? "var(--mq-text-secondary, #555)"
-                  : "var(--mq-text, #aaa)",
+                color: loadingGenre === cat.query ? "#555" : "var(--mq-text, #aaa)",
                 backgroundColor: "var(--mq-surface, #1a1a1a)",
               }}
             >
@@ -373,126 +526,26 @@ export default function OnboardingView() {
       {/* Artist grid */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
-          <div
-            className="w-8 h-8 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--mq-accent, #e03131)",
-              borderTopColor: "transparent",
-            }}
-          />
+          <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: "var(--mq-accent, #e03131)", borderTopColor: "transparent" }} />
         </div>
       ) : artistResults.length > 0 ? (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 w-full">
-          {artistResults.map((artist) => {
-            const isSelected = selectedIds.has(artist.id);
-            return (
-              <motion.button
-                key={artist.id}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => toggleArtist(artist)}
-                className="flex flex-col items-center gap-2 p-2 rounded-xl transition-all relative"
-                style={{
-                  backgroundColor: isSelected
-                    ? "rgba(224, 49, 49, 0.1)"
-                    : "transparent",
-                }}
-              >
-                {/* Checkmark overlay */}
-                {isSelected && (
-                  <div
-                    className="absolute top-0 right-0 w-5 h-5 rounded-full flex items-center justify-center z-10"
-                    style={{ backgroundColor: "var(--mq-accent, #e03131)" }}
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="3"
-                    >
-                      <path d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                )}
-
-                <div
-                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden flex-shrink-0"
-                  style={{
-                    border: isSelected
-                      ? "3px solid var(--mq-accent, #e03131)"
-                      : "3px solid var(--mq-border, #2a2a2a)",
-                  }}
-                >
-                  {artist.avatar ? (
-                    <img
-                      src={artist.avatar}
-                      alt={artist.username}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div
-                      className="w-full h-full flex items-center justify-center text-lg font-bold"
-                      style={{
-                        backgroundColor: "var(--mq-surface, #1a1a1a)",
-                        color: "var(--mq-text-secondary, #555)",
-                      }}
-                    >
-                      {artist.username[0]?.toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <p
-                  className="text-xs font-medium text-center leading-tight w-full truncate px-1"
-                  style={{
-                    color: isSelected
-                      ? "var(--mq-text, #fff)"
-                      : "var(--mq-text-secondary, #999)",
-                  }}
-                >
-                  {artist.username}
-                </p>
-                {artist.genre && (
-                  <p
-                    className="text-[10px] w-full truncate px-1"
-                    style={{ color: "var(--mq-text-secondary, #666)" }}
-                  >
-                    {artist.genre}
-                  </p>
-                )}
-                <p className="text-[10px]" style={{ color: "#555" }}>
-                  {formatFollowers(artist.followers)}
-                </p>
-              </motion.button>
-            );
-          })}
+          {artistResults.map(a => <ArtistCard key={a.id} artist={a} />)}
         </div>
       ) : (
-        <p className="text-sm" style={{ color: "var(--mq-text-secondary, #888)" }}>
-          Артисты не найдены. Попробуйте другие жанры.
-        </p>
+        <p className="text-sm" style={{ color: "var(--mq-text-secondary, #888)" }}>Артисты не найдены. Попробуйте другие жанры.</p>
       )}
 
-      {error && (
-        <p className="text-sm" style={{ color: "#ff6b6b" }}>{error}</p>
-      )}
+      {error && <p className="text-sm" style={{ color: "#ff6b6b" }}>{error}</p>}
 
       <div className="flex gap-3 mt-2">
-        <button
-          onClick={() => setStep("genres")}
-          className="px-6 py-2.5 rounded-xl text-sm font-medium transition-all"
-          style={{ color: "var(--mq-text-secondary, #888)" }}
-        >
+        <button onClick={() => setStep("genres")} className="px-6 py-2.5 rounded-xl text-sm font-medium" style={{ color: "var(--mq-text-secondary, #888)" }}>
           Назад
         </button>
         <button
           onClick={handleArtistsNext}
           className="px-8 py-2.5 rounded-xl text-sm font-bold text-white transition-all"
-          style={{
-            backgroundColor: "var(--mq-accent, #e03131)",
-            opacity: favoriteArtists.length >= MIN_ARTISTS ? 1 : 0.5,
-          }}
+          style={{ backgroundColor: "var(--mq-accent, #e03131)", opacity: favoriteArtists.length >= MIN_ARTISTS ? 1 : 0.5 }}
         >
           Далее
         </button>
@@ -500,166 +553,120 @@ export default function OnboardingView() {
     </div>
   );
 
-  // Step 3: Discover similar artists
+  // ── Step 3: Discover — tree of similar artists from selected ──
   const renderDiscoverStep = () => (
-    <div className="flex flex-col items-center gap-6 w-full max-w-3xl mx-auto px-4">
+    <div className="flex flex-col items-center gap-6 w-full max-w-4xl mx-auto px-4">
       <div className="text-center">
-        <h1
-          className="text-2xl font-bold mb-2"
-          style={{ color: "var(--mq-text, #fff)" }}
-        >
-          Вам также может понравиться
+        <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--mq-text, #fff)" }}>
+          Откройте похожих артистов
         </h1>
         <p className="text-sm" style={{ color: "var(--mq-text-secondary, #888)" }}>
-          Похожие артисты на основе ваших выборов. Выберите дополнительных.
+          Нажмите на выбранного артиста чтобы увидеть похожих. Добавьте тех что нравятся.
         </p>
+        <span
+          className="inline-block text-xs px-3 py-1 rounded-full mt-2"
+          style={{
+            backgroundColor: "var(--mq-surface, #1a1a1a)",
+            color: "var(--mq-text-secondary, #888)",
+          }}
+        >
+          {favoriteArtists.length} артистов выбрано
+        </span>
       </div>
 
-      {/* Already selected artists */}
-      <div className="flex gap-2 overflow-x-auto max-w-full pb-1 px-2">
-        {favoriteArtists.map(a => (
-          <div
-            key={a.id}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full flex-shrink-0"
-            style={{
-              backgroundColor: "rgba(224, 49, 49, 0.15)",
-              border: "1px solid var(--mq-accent, #e03131)",
-            }}
-          >
-            {a.avatar ? (
-              <img
-                src={a.avatar}
-                alt={a.username}
-                className="w-5 h-5 rounded-full object-cover"
-              />
-            ) : null}
-            <span
-              className="text-xs font-medium"
-              style={{ color: "var(--mq-text, #ddd)" }}
-            >
-              {a.username}
-            </span>
-            <button
-              onClick={() => removeFavoriteArtist(a.id)}
-              className="text-xs ml-1 opacity-60 hover:opacity-100"
-              style={{ color: "var(--mq-text, #fff)" }}
-            >
-              x
-            </button>
-          </div>
-        ))}
-      </div>
+      {/* Tree: selected artists as roots, similar artists as branches */}
+      <div className="w-full space-y-6">
+        {favoriteArtists.map(fav => {
+          const branch = similarBranches.find(b => b.parentId === fav.id);
+          const isExpanded = expandedArtist === fav.id;
+          const branchArtists = branch?.artists || [];
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div
-            className="w-8 h-8 border-2 rounded-full animate-spin"
-            style={{
-              borderColor: "var(--mq-accent, #e03131)",
-              borderTopColor: "transparent",
-            }}
-          />
-        </div>
-      ) : discoverResults.length > 0 ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-4 w-full">
-          {discoverResults.map((artist) => {
-            const isSelected = selectedIds.has(artist.id);
-            return (
-              <motion.button
-                key={artist.id}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => toggleArtist(artist)}
-                className="flex flex-col items-center gap-2 p-2 rounded-xl transition-all relative"
+          return (
+            <div key={fav.id} className="w-full">
+              {/* Root artist — clickable to expand */}
+              <button
+                onClick={() => toggleSimilarForArtist(fav.id, fav.username)}
+                className="flex items-center gap-3 w-full p-3 rounded-xl transition-all"
                 style={{
-                  backgroundColor: isSelected
-                    ? "rgba(224, 49, 49, 0.1)"
-                    : "transparent",
+                  backgroundColor: isExpanded ? "rgba(224, 49, 49, 0.08)" : "var(--mq-card, #1a1a1a)",
+                  border: `1px solid ${isExpanded ? "var(--mq-accent, #e03131)" : "var(--mq-border, #2a2a2a)"}`,
                 }}
               >
-                {isSelected && (
-                  <div
-                    className="absolute top-0 right-0 w-5 h-5 rounded-full flex items-center justify-center z-10"
-                    style={{ backgroundColor: "var(--mq-accent, #e03131)" }}
-                  >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="white"
-                      strokeWidth="3"
-                    >
-                      <path d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                )}
-
+                {/* Avatar */}
                 <div
-                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden flex-shrink-0"
-                  style={{
-                    border: isSelected
-                      ? "3px solid var(--mq-accent, #e03131)"
-                      : "3px solid var(--mq-border, #2a2a2a)",
-                  }}
+                  className="w-12 h-12 rounded-full overflow-hidden flex-shrink-0"
+                  style={{ border: "2px solid var(--mq-accent, #e03131)" }}
                 >
-                  {artist.avatar ? (
-                    <img
-                      src={artist.avatar}
-                      alt={artist.username}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
+                  {fav.avatar ? (
+                    <img src={fav.avatar} alt={fav.username} className="w-full h-full object-cover" />
                   ) : (
-                    <div
-                      className="w-full h-full flex items-center justify-center text-lg font-bold"
-                      style={{
-                        backgroundColor: "var(--mq-surface, #1a1a1a)",
-                        color: "var(--mq-text-secondary, #555)",
-                      }}
-                    >
-                      {artist.username[0]?.toUpperCase()}
+                    <div className="w-full h-full flex items-center justify-center font-bold" style={{ backgroundColor: "var(--mq-surface, #1a1a1a)", color: "var(--mq-text-secondary, #555)" }}>
+                      {fav.username[0]?.toUpperCase()}
                     </div>
                   )}
                 </div>
-                <p
-                  className="text-xs font-medium text-center leading-tight w-full truncate px-1"
-                  style={{
-                    color: isSelected
-                      ? "var(--mq-text, #fff)"
-                      : "var(--mq-text-secondary, #999)",
-                  }}
-                >
-                  {artist.username}
-                </p>
-                {artist.genre && (
-                  <p
-                    className="text-[10px] w-full truncate px-1"
-                    style={{ color: "var(--mq-text-secondary, #666)" }}
-                  >
-                    {artist.genre}
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text, #fff)" }}>
+                    {fav.username}
                   </p>
+                  {fav.genre && (
+                    <p className="text-xs truncate" style={{ color: "var(--mq-text-secondary, #666)" }}>
+                      {fav.genre}
+                    </p>
+                  )}
+                </div>
+                {/* Expand arrow */}
+                <svg
+                  width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="var(--mq-text-secondary, #888)" strokeWidth="2"
+                  className={`flex-shrink-0 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                >
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+
+              {/* Branch: similar artists */}
+              <AnimatePresence>
+                {isExpanded && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    {/* Connecting line */}
+                    <div className="ml-6 pl-6 border-l-2 py-3" style={{ borderColor: "var(--mq-accent, #e03131)" }}>
+                      {branch?.loading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: "var(--mq-accent, #e03131)", borderTopColor: "transparent" }} />
+                        </div>
+                      ) : branchArtists.length > 0 ? (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+                          {branchArtists.map(a => (
+                            <ArtistCard key={a.id} artist={a} size="sm" />
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs py-2" style={{ color: "var(--mq-text-secondary, #555)" }}>
+                          Похожие артисты не найдены
+                        </p>
+                      )}
+                    </div>
+                  </motion.div>
                 )}
-              </motion.button>
-            );
-          })}
-        </div>
-      ) : (
-        <p className="text-sm" style={{ color: "var(--mq-text-secondary, #888)" }}>
-          Не удалось найти похожих артистов. Это нормально — можно продолжить.
-        </p>
-      )}
+              </AnimatePresence>
+            </div>
+          );
+        })}
+      </div>
 
       <div className="flex gap-3 mt-2">
-        <button
-          onClick={() => setStep("artists")}
-          className="px-6 py-2.5 rounded-xl text-sm font-medium transition-all"
-          style={{ color: "var(--mq-text-secondary, #888)" }}
-        >
+        <button onClick={() => setStep("artists")} className="px-6 py-2.5 rounded-xl text-sm font-medium" style={{ color: "var(--mq-text-secondary, #888)" }}>
           Назад
         </button>
         <button
           onClick={handleFinish}
-          className="px-8 py-2.5 rounded-xl text-sm font-bold text-white transition-all"
+          className="px-8 py-2.5 rounded-xl text-sm font-bold text-white"
           style={{ backgroundColor: "var(--mq-accent, #e03131)" }}
         >
           Начать слушать
@@ -670,73 +677,41 @@ export default function OnboardingView() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center py-12 px-4"
+      className="min-h-screen flex flex-col items-center py-10 px-4 overflow-y-auto"
       style={{ backgroundColor: "var(--mq-bg, #0e0e0e)" }}
     >
-      {/* MQ Logo */}
+      {/* Logo */}
       <motion.div
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-col items-center gap-2 mb-8"
+        className="flex flex-col items-center gap-2 mb-6"
       >
         <div
           className="w-14 h-14 rounded-2xl flex items-center justify-center"
-          style={{
-            backgroundColor: "var(--mq-accent, #e03131)",
-            boxShadow: "0 0 30px rgba(224, 49, 49, 0.3)",
-          }}
+          style={{ backgroundColor: "var(--mq-accent, #e03131)", boxShadow: "0 0 30px rgba(224,49,49,0.3)" }}
         >
           <span className="text-2xl font-black text-white">mq</span>
         </div>
-        <p className="text-xs" style={{ color: "var(--mq-text-secondary, #555)" }}>
-          MQ Player
-        </p>
       </motion.div>
 
-      {/* Progress indicator */}
-      <div className="flex items-center gap-2 mb-8">
+      {/* Progress */}
+      <div className="flex items-center gap-2 mb-6">
         {["genres", "artists", "discover"].map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all"
               style={{
-                backgroundColor:
-                  step === s
-                    ? "var(--mq-accent, #e03131)"
-                    : ["genres", "artists", "discover"].indexOf(step) > i
-                      ? "rgba(224, 49, 49, 0.3)"
-                      : "var(--mq-surface, #1a1a1a)",
-                color:
-                  step === s
-                    ? "#fff"
-                    : ["genres", "artists", "discover"].indexOf(step) > i
-                      ? "var(--mq-accent, #e03131)"
-                      : "var(--mq-text-secondary, #555)",
-                border:
-                  step !== s
-                    ? "1px solid var(--mq-border, #2a2a2a)"
-                    : "1px solid transparent",
+                backgroundColor: step === s ? "var(--mq-accent, #e03131)" : ["genres","artists","discover"].indexOf(step) > i ? "rgba(224,49,49,0.3)" : "var(--mq-surface, #1a1a1a)",
+                color: step === s ? "#fff" : ["genres","artists","discover"].indexOf(step) > i ? "var(--mq-accent, #e03131)" : "var(--mq-text-secondary, #555)",
+                border: step !== s ? "1px solid var(--mq-border, #2a2a2a)" : "1px solid transparent",
               }}
             >
-              {["genres", "artists", "discover"].indexOf(step) > i ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
-                  <path d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                i + 1
-              )}
+              {["genres","artists","discover"].indexOf(step) > i ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 13l4 4L19 7" /></svg>
+              ) : (i + 1)}
             </div>
             {i < 2 && (
-              <div
-                className="w-8 h-0.5 rounded-full transition-all duration-300"
-                style={{
-                  backgroundColor:
-                    ["genres", "artists", "discover"].indexOf(step) > i
-                      ? "var(--mq-accent, #e03131)"
-                      : "var(--mq-border, #2a2a2a)",
-                }}
-              />
+              <div className="w-8 h-0.5 rounded-full transition-all" style={{ backgroundColor: ["genres","artists","discover"].indexOf(step) > i ? "var(--mq-accent, #e03131)" : "var(--mq-border, #2a2a2a)" }} />
             )}
           </div>
         ))}
@@ -758,13 +733,8 @@ export default function OnboardingView() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Skip all */}
       {step !== "discover" && (
-        <button
-          onClick={handleSkip}
-          className="mt-6 text-xs transition-colors"
-          style={{ color: "var(--mq-text-secondary, #555)" }}
-        >
+        <button onClick={handleSkip} className="mt-6 text-xs" style={{ color: "var(--mq-text-secondary, #555)" }}>
           Пропустить настройку
         </button>
       )}
