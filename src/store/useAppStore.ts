@@ -168,6 +168,7 @@ interface AppState {
 
   // Style
   currentStyle: string;
+  styleVariant: string;
 
   // History
   history: HistoryEntry[];
@@ -323,6 +324,7 @@ interface AppState {
 
   // Style action
   setStyle: (styleId: string) => void;
+  setStyleVariant: (variant: string) => void;
 
   // History actions
   addToHistory: (track: Track) => void;
@@ -411,6 +413,7 @@ const initialState = {
 
   // Style
   currentStyle: "",
+  styleVariant: "dark" as string,
 };
 
 export const useAppStore = create<AppState>()(
@@ -1033,6 +1036,8 @@ export const useAppStore = create<AppState>()(
             document.documentElement.setAttribute("data-style", styleId);
           } else {
             document.documentElement.removeAttribute("data-style");
+            // Also clear variant when style is deactivated
+            document.documentElement.removeAttribute("data-style-variant");
           }
         }
         // Persist to localStorage
@@ -1041,6 +1046,25 @@ export const useAppStore = create<AppState>()(
             localStorage.setItem("mq-style", styleId);
           } else {
             localStorage.removeItem("mq-style");
+ }
+        } catch {}
+      },
+
+      // ── Style Variant (Light/Dark) ──
+      setStyleVariant: (styleVariant) => {
+        set({ styleVariant });
+        if (typeof document !== "undefined") {
+          if (styleVariant) {
+            document.documentElement.setAttribute("data-style-variant", styleVariant);
+          } else {
+            document.documentElement.removeAttribute("data-style-variant");
+          }
+        }
+        try {
+          if (styleVariant) {
+            localStorage.setItem("mq-style-variant", styleVariant);
+          } else {
+            localStorage.removeItem("mq-style-variant");
           }
         } catch {}
       },

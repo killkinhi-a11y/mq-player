@@ -7,6 +7,7 @@ interface TrackCanvasProps {
   isActive: boolean;
   isPlaying: boolean;
   currentStyle?: string | null;
+  styleVariant?: string | null;
 }
 
 // ── Color helpers ──────────────────────────────────────────────────────────
@@ -383,7 +384,7 @@ function drawJapanCanvas(
   ctx.restore();
 }
 
-// ── Swag: Holographic plasma field — chrome ribbons + orb + particles ──
+// ── Swag: Liquid Mercury — morphing blob + ripple rings + metallic threads ──
 
 interface SwagParticle {
   x: number; y: number; vx: number; vy: number;
@@ -391,8 +392,13 @@ interface SwagParticle {
   alpha: number; angle: number;
 }
 
-// Smoothed values for ribbon fluidity
+// Ripple rings expanding from center
+interface MercuryRipple {
+  radius: number; maxRadius: number; alpha: number; speed: number;
+}
+
 const swagPlasmaSmooth = new Float32Array(32);
+const mercuryRipples: MercuryRipple[] = [];
 
 function drawSwagCanvas(
   ctx: CanvasRenderingContext2D,
@@ -401,188 +407,205 @@ function drawSwagCanvas(
   bass: number, mid: number, high: number,
   t: number,
   particles: SwagParticle[],
-  lastBassHit: { value: number }
+  lastBassHit: { value: number },
+  isLight = false
 ) {
-  // Deep black background
-  ctx.fillStyle = "#07070a";
+  // Background
+  const bg = isLight ? "#f2f2f5" : "#07070a";
+  const silverR = isLight ? 90 : 176;
+  const silverG = isLight ? 90 : 176;
+  const silverB = isLight ? 100 : 184;
+  const brightR = isLight ? 60 : 208;
+  const brightG = isLight ? 60 : 208;
+  const brightB = isLight ? 70 : 216;
+  const dimR = isLight ? 140 : 107;
+  const dimG = isLight ? 140 : 107;
+  const dimB = isLight ? 150 : 120;
+
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
   const cx = w * 0.5;
   const cy = h * 0.5;
   const minDim = Math.min(w, h);
 
-  // ── Subtle chrome radial glow pulsing with bass ────────────────────
-  const glowR = minDim * 0.55;
+  // ── Ambient mercury glow pulsing with bass ──────────────────────
+  const glowR = minDim * 0.5;
   const glowGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
-  glowGrad.addColorStop(0, `rgba(176,176,184,${0.03 + bass * 0.05})`);
-  glowGrad.addColorStop(0.4, `rgba(176,176,184,${0.012 + bass * 0.02})`);
-  glowGrad.addColorStop(1, "rgba(0,0,0,0)");
+  const glowAlpha = isLight ? (0.03 + bass * 0.04) : (0.04 + bass * 0.06);
+  glowGrad.addColorStop(0, `rgba(${silverR},${silverG},${silverB},${glowAlpha})`);
+  glowGrad.addColorStop(0.5, `rgba(${silverR},${silverG},${silverB},${glowAlpha * 0.3})`);
+  glowGrad.addColorStop(1, `rgba(${silverR},${silverG},${silverB},0)`);
   ctx.fillStyle = glowGrad;
   ctx.fillRect(0, 0, w, h);
 
-  // ── Center chrome orb / diamond shape ──────────────────────────────
-  const orbBaseSize = minDim * 0.06;
-  const orbBreath = 1 + bass * 0.4 + 0.08 * Math.sin(t * 1.8);
-  const orbSize = orbBaseSize * orbBreath;
-  const orbRotation = t * (0.2 + mid * 1.2);
+  // ── Mercury blob — morphing circle with wobble ────────────────────
+  const blobBaseR = minDim * (0.12 + bass * 0.06);
+  const blobPoints = 64;
+  const blobLayers = 3;
 
-  // Diamond orientation: rotate a square 45deg
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate(orbRotation);
-
-  // Outer shimmer glow (high = shimmer intensity)
-  const shimmerAlpha = 0.02 + high * 0.12;
-  const shimmerGrad = ctx.createRadialGradient(0, 0, orbSize * 0.3, 0, 0, orbSize * 2.5);
-  shimmerGrad.addColorStop(0, `rgba(208,208,216,${shimmerAlpha})`);
-  shimmerGrad.addColorStop(1, "rgba(208,208,216,0)");
-  ctx.beginPath();
-  ctx.arc(0, 0, orbSize * 2.5, 0, Math.PI * 2);
-  ctx.fillStyle = shimmerGrad;
-  ctx.fill();
-
-  // Diamond body
-  ctx.beginPath();
-  ctx.moveTo(0, -orbSize);
-  ctx.lineTo(orbSize * 0.7, 0);
-  ctx.lineTo(0, orbSize);
-  ctx.lineTo(-orbSize * 0.7, 0);
-  ctx.closePath();
-
-  const diamGrad = ctx.createLinearGradient(-orbSize, -orbSize, orbSize, orbSize);
-  diamGrad.addColorStop(0, `rgba(176,176,184,${0.15 + bass * 0.2})`);
-  diamGrad.addColorStop(0.5, `rgba(208,208,216,${0.25 + bass * 0.25})`);
-  diamGrad.addColorStop(1, `rgba(160,160,168,${0.12 + bass * 0.15})`);
-  ctx.fillStyle = diamGrad;
-  ctx.fill();
-
-  // Diamond edge highlight
-  ctx.strokeStyle = `rgba(208,208,216,${0.08 + high * 0.15})`;
-  ctx.lineWidth = 1;
-  ctx.stroke();
-
-  // Inner shimmer cross
-  ctx.beginPath();
-  ctx.moveTo(0, -orbSize * 0.5);
-  ctx.lineTo(0, orbSize * 0.5);
-  ctx.moveTo(-orbSize * 0.35, 0);
-  ctx.lineTo(orbSize * 0.35, 0);
-  ctx.strokeStyle = `rgba(220,220,228,${0.06 + high * 0.1})`;
-  ctx.lineWidth = 0.5;
-  ctx.stroke();
-
-  ctx.restore();
-
-  // ── 16 frequency ribbons — flowing sine-wave from center outward ──
-  const ribbonCount = 16;
-  const ribbonInnerR = orbSize * 1.6;
-  const ribbonOuterR = minDim * 0.42;
-  const stepsPerRibbon = 48;
-
-  for (let i = 0; i < ribbonCount; i++) {
-    const freqIdx = Math.floor((i / ribbonCount) * freqData.length * 0.75);
-    const raw = freqData[freqIdx] / 255;
-    swagPlasmaSmooth[i] += (raw - swagPlasmaSmooth[i]) * 0.15;
-    const val = swagPlasmaSmooth[i];
-
-    const baseAngle = (i / ribbonCount) * Math.PI * 2 + t * 0.05;
-    const ribbonAlpha = 0.04 + val * 0.45;
-
-    // Color interpolation: #b0b0b8 to #d0d0d8 based on frequency intensity
-    const r = Math.round(176 + val * 32);
-    const g = Math.round(176 + val * 32);
-    const b = Math.round(184 + val * 32);
+  for (let layer = 0; layer < blobLayers; layer++) {
+    const layerScale = 1 - layer * 0.25;
+    const layerAlpha = isLight
+      ? (0.06 - layer * 0.015 + bass * 0.04)
+      : (0.08 - layer * 0.02 + bass * 0.06);
+    const layerBright = 1 + layer * 0.15;
 
     ctx.beginPath();
-    for (let s = 0; s <= stepsPerRibbon; s++) {
-      const sNorm = s / stepsPerRibbon; // 0 to 1 along ribbon
-      const radius = ribbonInnerR + sNorm * (ribbonOuterR - ribbonInnerR);
+    for (let i = 0; i <= blobPoints; i++) {
+      const angle = (i / blobPoints) * Math.PI * 2;
+      const freqIdx = Math.floor((i / blobPoints) * freqData.length * 0.6);
+      const raw = freqData[freqIdx] / 255;
+      swagPlasmaSmooth[i % 32] += (raw - swagPlasmaSmooth[i % 32]) * 0.12;
+      const val = swagPlasmaSmooth[i % 32];
 
-      // Sine-wave weave: amplitude increases with frequency intensity
-      const weaveAmp = 4 + val * 18;
-      const weaveFreq = 3 + i * 0.3;
-      const weave = Math.sin(sNorm * weaveFreq * Math.PI * 2 + t * (0.8 + val * 1.5) + i * 0.7) * weaveAmp * sNorm;
+      // Wobble: multi-frequency deformation
+      const wobble1 = Math.sin(angle * 3 + t * (1.2 + layer * 0.3) + layer) * (4 + val * 14 + bass * 8) * layerScale;
+      const wobble2 = Math.sin(angle * 5 - t * 0.8 + layer * 2) * (2 + mid * 8) * layerScale;
+      const wobble3 = Math.cos(angle * 7 + t * 1.5) * (1 + high * 5) * layerScale;
+      const r = blobBaseR * layerScale + wobble1 + wobble2 + wobble3;
 
-      const angle = baseAngle + weave * 0.003;
-      const px = cx + Math.cos(angle) * radius;
-      const py = cy + Math.sin(angle) * radius;
-
-      if (s === 0) ctx.moveTo(px, py);
+      const px = cx + Math.cos(angle) * r;
+      const py = cy + Math.sin(angle) * r;
+      if (i === 0) ctx.moveTo(px, py);
       else ctx.lineTo(px, py);
     }
+    ctx.closePath();
 
-    ctx.strokeStyle = `rgba(${r},${g},${b},${ribbonAlpha})`;
-    ctx.lineWidth = 1 + val * 1;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
+    // Mercury gradient fill
+    const blobGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, blobBaseR * layerScale * 1.2);
+    const br = Math.min(255, Math.round(brightR * layerBright));
+    const bg2 = Math.min(255, Math.round(brightG * layerBright));
+    const bb = Math.min(255, Math.round(brightB * layerBright));
+    blobGrad.addColorStop(0, `rgba(${br},${bg2},${bb},${layerAlpha})`);
+    blobGrad.addColorStop(0.6, `rgba(${silverR},${silverG},${silverB},${layerAlpha * 0.5})`);
+    blobGrad.addColorStop(1, `rgba(${silverR},${silverG},${silverB},0)`);
+    ctx.fillStyle = blobGrad;
+    ctx.fill();
+
+    // Thin edge stroke
+    ctx.strokeStyle = `rgba(${brightR},${brightG},${brightB},${layerAlpha * 0.6})`;
+    ctx.lineWidth = 0.6;
     ctx.stroke();
   }
 
-  // ── Outer ring — thin circular outline pulsing with bass ──────────
-  const outerRingR = ribbonOuterR + 4;
-  const outerRingPulse = outerRingR * (1 + bass * 0.04);
+  // ── Center specular highlight ─────────────────────────────────────
+  const specSize = minDim * 0.03;
+  const specGrad = ctx.createRadialGradient(cx - specSize * 0.3, cy - specSize * 0.3, 0, cx, cy, specSize);
+  specGrad.addColorStop(0, `rgba(${brightR},${brightG},${brightB},${0.08 + high * 0.15})`);
+  specGrad.addColorStop(1, `rgba(${brightR},${brightG},${brightB},0)`);
   ctx.beginPath();
-  ctx.arc(cx, cy, outerRingPulse, 0, Math.PI * 2);
-  ctx.strokeStyle = `rgba(176,176,184,${0.04 + bass * 0.1})`;
-  ctx.lineWidth = 0.8;
+  ctx.arc(cx, cy, specSize, 0, Math.PI * 2);
+  ctx.fillStyle = specGrad;
+  ctx.fill();
+
+  // ── Expanding ripple rings on bass hits ─────────────────────────────
+  if (bass > 0.5 && bass - lastBassHit.value > 0.1) {
+    mercuryRipples.push({
+      radius: blobBaseR * 0.8,
+      maxRadius: minDim * (0.35 + bass * 0.15),
+      alpha: 0.15 + bass * 0.12,
+      speed: 0.8 + bass * 1.2,
+    });
+  }
+  lastBassHit.value = bass;
+
+  for (let i = mercuryRipples.length - 1; i >= 0; i--) {
+    const rp = mercuryRipples[i];
+    rp.radius += rp.speed;
+    rp.alpha *= 0.985;
+    if (rp.alpha < 0.005 || rp.radius > rp.maxRadius) {
+      mercuryRipples.splice(i, 1);
+      continue;
+    }
+    ctx.beginPath();
+    ctx.arc(cx, cy, rp.radius, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(${silverR},${silverG},${silverB},${rp.alpha})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+  if (mercuryRipples.length > 8) mercuryRipples.splice(0, mercuryRipples.length - 8);
+
+  // ── Metallic threads: 24 thin lines from blob surface to outer ring ─
+  const threadCount = 24;
+  const outerR = minDim * 0.38;
+
+  for (let i = 0; i < threadCount; i++) {
+    const angle = (i / threadCount) * Math.PI * 2 + t * 0.03;
+    const freqIdx = Math.floor((i / threadCount) * freqData.length * 0.7);
+    const raw = freqData[freqIdx] / 255;
+    const val = raw;
+
+    // Inner point on blob surface (wobbles)
+    const innerR = blobBaseR * (0.9 + val * 0.3 + Math.sin(angle * 3 + t * 1.2) * 0.08);
+    const x1 = cx + Math.cos(angle) * innerR;
+    const y1 = cy + Math.sin(angle) * innerR;
+
+    // Outer point
+    const outerWobble = Math.sin(t * 0.4 + i * 1.3) * 6 * (1 + val);
+    const outerDist = outerR + outerWobble;
+    const x2 = cx + Math.cos(angle) * outerDist;
+    const y2 = cy + Math.sin(angle) * outerDist;
+
+    // Control point for curve
+    const midR = (innerR + outerDist) * 0.55;
+    const curveOffset = Math.sin(t * 0.6 + i * 0.9) * 15 * (0.5 + val);
+    const cpx = cx + Math.cos(angle + 0.05) * midR + Math.cos(angle + Math.PI * 0.5) * curveOffset;
+    const cpy = cy + Math.sin(angle + 0.05) * midR + Math.sin(angle + Math.PI * 0.5) * curveOffset;
+
+    const threadAlpha = isLight ? (0.03 + val * 0.06) : (0.03 + val * 0.1);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.quadraticCurveTo(cpx, cpy, x2, y2);
+    ctx.strokeStyle = `rgba(${silverR},${silverG},${silverB},${threadAlpha})`;
+    ctx.lineWidth = 0.5 + val * 0.5;
+    ctx.stroke();
+
+    // Tiny dot at outer end
+    if (val > 0.3) {
+      ctx.beginPath();
+      ctx.arc(x2, y2, 1 + val, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${brightR},${brightG},${brightB},${threadAlpha * 0.8})`;
+      ctx.fill();
+    }
+  }
+
+  // ── Outer containment ring ────────────────────────────────────────
+  const ringPulse = outerR * (1 + bass * 0.02);
+  ctx.beginPath();
+  ctx.arc(cx, cy, ringPulse, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(${silverR},${silverG},${silverB},${isLight ? 0.06 : 0.04 + bass * 0.06})`;
+  ctx.lineWidth = 0.6;
   ctx.stroke();
 
-  // Second faint outer ring
-  ctx.beginPath();
-  ctx.arc(cx, cy, outerRingPulse + minDim * 0.03, 0, Math.PI * 2);
-  ctx.strokeStyle = "rgba(176,176,184,0.018)";
-  ctx.lineWidth = 0.5;
-  ctx.stroke();
-
-  // ── Bass hit — spawn 2-3 chrome particles ─────────────────────────
-  if (bass > 0.5 && bass - lastBassHit.value > 0.08) {
-    const count = 2 + Math.floor(bass * 1.5);
+  // ── Bass hit — spawn mercury droplets ─────────────────────────────
+  if (bass > 0.55 && bass - lastBassHit.value > 0.08) {
+    const count = 1 + Math.floor(bass * 2);
     for (let j = 0; j < count; j++) {
       const angle = Math.random() * Math.PI * 2;
-      const dist = orbSize * 1.5 + Math.random() * ribbonOuterR * 0.3;
+      const dist = blobBaseR + Math.random() * outerR * 0.4;
       particles.push({
         x: cx + Math.cos(angle) * dist,
         y: cy + Math.sin(angle) * dist,
-        vx: Math.cos(angle) * (0.15 + Math.random() * 0.5),
-        vy: Math.sin(angle) * (0.15 + Math.random() * 0.5),
-        size: 1 + Math.random() * 2,
+        vx: Math.cos(angle) * (0.1 + Math.random() * 0.4),
+        vy: Math.sin(angle) * (0.1 + Math.random() * 0.4),
+        size: 0.8 + Math.random() * 1.5,
         life: 0,
-        maxLife: 80 + Math.random() * 80,
-        alpha: 0.15 + Math.random() * 0.25,
+        maxLife: 60 + Math.random() * 80,
+        alpha: 0.1 + Math.random() * 0.2,
         angle: Math.random() * Math.PI * 2,
       });
     }
   }
-  lastBassHit.value = bass;
 
-  // ── Draw lines between nearby particles (<80px) ───────────────────
-  for (let i = 0; i < particles.length; i++) {
-    for (let j = i + 1; j < particles.length; j++) {
-      const dx = particles[i].x - particles[j].x;
-      const dy = particles[i].y - particles[j].y;
-      const distSq = dx * dx + dy * dy;
-      const maxDist = 80;
-      if (distSq < maxDist * maxDist) {
-        const dist = Math.sqrt(distSq);
-        const lineAlpha = (1 - dist / maxDist) * 0.06 * Math.min(particles[i].alpha, particles[j].alpha);
-        ctx.beginPath();
-        ctx.moveTo(particles[i].x, particles[i].y);
-        ctx.lineTo(particles[j].x, particles[j].y);
-        ctx.strokeStyle = `rgba(176,176,184,${lineAlpha})`;
-        ctx.lineWidth = 0.4;
-        ctx.stroke();
-      }
-    }
-  }
-
-  // ── Update & draw particles — diamond-shaped, max 60 ──────────────
+  // ── Update & draw particles — small mercury drops ──────────────────
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.x += p.vx;
     p.y += p.vy;
-    p.vx *= 0.997;
-    p.vy *= 0.997;
-    p.angle += 0.015;
+    p.vx *= 0.995;
+    p.vy *= 0.995;
+    p.angle += 0.01;
     p.life++;
     if (p.life > p.maxLife) {
       particles.splice(i, 1);
@@ -592,19 +615,11 @@ function drawSwagCanvas(
     const fade = lifeRatio < 0.15 ? lifeRatio / 0.15 : (lifeRatio > 0.7 ? (1 - lifeRatio) / 0.3 : 1);
     const a = fade * p.alpha;
 
-    // Diamond shape
-    ctx.save();
-    ctx.translate(p.x, p.y);
-    ctx.rotate(p.angle);
-    ctx.fillStyle = `rgba(208,208,216,${a})`;
+    // Small circle (mercury drop)
     ctx.beginPath();
-    ctx.moveTo(0, -p.size);
-    ctx.lineTo(p.size * 0.6, 0);
-    ctx.lineTo(0, p.size);
-    ctx.lineTo(-p.size * 0.6, 0);
-    ctx.closePath();
+    ctx.arc(p.x, p.y, p.size * fade, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${brightR},${brightG},${brightB},${a})`;
     ctx.fill();
-    ctx.restore();
   }
   if (particles.length > 60) particles.splice(0, particles.length - 60);
 }
@@ -624,55 +639,60 @@ function drawNeonCanvas(
   bass: number, mid: number, high: number,
   t: number,
   particles: NeonParticle[],
-  lastBassHit: { value: number }
+  lastBassHit: { value: number },
+  isLight = false
 ) {
-  // Deep dark blue-black background
-  ctx.fillStyle = "#0a0a14";
+  const bgColor = isLight ? "#f0f8f4" : "#0a0a14";
+  const gR = isLight ? 0 : 0, gG = isLight ? 170 : 255, gB = isLight ? 102 : 136;
+  const pR = isLight ? 200 : 255, pG = isLight ? 0 : 0, pB = isLight ? 80 : 102;
+  ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, w, h);
 
   const cx = w * 0.5;
   const cy = h * 0.5;
   const minDim = Math.min(w, h);
 
-  // ── Subtle green perspective grid (Tron-like) ─────────────────────
+  // ── Rotating hexagonal grid pulsing with bass ───────────────────
   ctx.save();
-  ctx.globalAlpha = 0.03 + bass * 0.02;
-  ctx.strokeStyle = "#00ff88";
+  const hexAlpha = isLight ? (0.04 + bass * 0.03) : (0.025 + bass * 0.02);
+  ctx.globalAlpha = hexAlpha;
+  ctx.strokeStyle = `rgb(${gR},${gG},${gB})`;
   ctx.lineWidth = 0.5;
 
-  // Horizontal grid lines with perspective
-  const gridLines = 12;
-  for (let i = 0; i < gridLines; i++) {
-    const yNorm = (i + 1) / (gridLines + 1);
-    const y = h * 0.3 + yNorm * h * 0.6;
-    const spread = 0.2 + yNorm * 0.8;
+  const hexR = minDim * 0.35;
+  const hexRot = t * 0.08;
+  const hexSides = 6;
+  for (let ring = 0; ring < 3; ring++) {
+    const r = hexR * (0.5 + ring * 0.25) * (1 + bass * 0.05);
     ctx.beginPath();
-    ctx.moveTo(w * (0.5 - spread * 0.6), y);
-    ctx.lineTo(w * (0.5 + spread * 0.6), y);
+    for (let s = 0; s <= hexSides; s++) {
+      const angle = (s / hexSides) * Math.PI * 2 + hexRot + ring * 0.3;
+      const px = cx + Math.cos(angle) * r;
+      const py = cy + Math.sin(angle) * r;
+      if (s === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
     ctx.stroke();
-  }
-
-  // Vertical converging lines
-  const vLines = 10;
-  for (let i = 0; i < vLines; i++) {
-    const xNorm = (i + 0.5) / vLines;
-    const topX = w * (0.35 + xNorm * 0.3);
-    const botX = w * (0.05 + xNorm * 0.9);
-    ctx.beginPath();
-    ctx.moveTo(topX, h * 0.3);
-    ctx.lineTo(botX, h);
-    ctx.stroke();
+    // Radial spokes
+    for (let s = 0; s < hexSides; s++) {
+      const angle = (s / hexSides) * Math.PI * 2 + hexRot + ring * 0.3;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+      ctx.stroke();
+    }
   }
   ctx.restore();
 
-  // ── Circular frequency spectrum (32 segments, outward bars) ──────
+  // ── Circular frequency spectrum (32 segments) with neon glow ────
   const specR = minDim * 0.18;
   const barCount = 32;
 
   // Outer ring
   ctx.beginPath();
-  ctx.arc(cx, cy, specR + minDim * 0.12, 0, Math.PI * 2);
-  ctx.strokeStyle = `rgba(0,255,136,${0.04 + bass * 0.06})`;
+  ctx.arc(cx, cy, specR + minDim * 0.13, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(${gR},${gG},${gB},${0.04 + bass * 0.06})`;
   ctx.lineWidth = 0.8;
   ctx.stroke();
 
@@ -683,7 +703,7 @@ function drawNeonCanvas(
     const val = neonSmoothed[i];
 
     const angle = (i / barCount) * Math.PI * 2 - Math.PI * 0.5;
-    const maxBarH = minDim * 0.15;
+    const maxBarH = minDim * 0.16;
     const barH = val * maxBarH;
 
     const x1 = cx + Math.cos(angle) * specR;
@@ -691,32 +711,49 @@ function drawNeonCanvas(
     const x2 = cx + Math.cos(angle) * (specR + barH);
     const y2 = cy + Math.sin(angle) * (specR + barH);
 
-    // Bar color: neon green, tips hot pink on high values
-    const tipThreshold = 0.7;
-    const isTip = val > tipThreshold;
+    const isTip = val > 0.7;
 
+    // Soft outer glow pass
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
-
     if (isTip) {
-      // Hot pink tip
-      ctx.strokeStyle = `rgba(255,0,102,${0.3 + val * 0.5})`;
+      ctx.strokeStyle = `rgba(${pR},${pG},${pB},${val * 0.15})`;
+    } else {
+      ctx.strokeStyle = `rgba(${gR},${gG},${gB},${val * 0.12})`;
+    }
+    ctx.lineWidth = 5;
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    // Bright core pass
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    if (isTip) {
+      ctx.strokeStyle = `rgba(${pR},${pG},${pB},${0.35 + val * 0.5})`;
       ctx.lineWidth = 2.5;
     } else {
-      ctx.strokeStyle = `rgba(0,255,136,${0.15 + val * 0.5})`;
+      ctx.strokeStyle = `rgba(${gR},${gG},${gB},${0.2 + val * 0.5})`;
       ctx.lineWidth = 2;
     }
     ctx.lineCap = "round";
     ctx.stroke();
 
-    // Glow dot at bar tip for loud bars
+    // Glow dot at bar tip
     if (val > 0.5) {
+      const dotR = 2 + val;
+      const dotGrad = ctx.createRadialGradient(x2, y2, 0, x2, y2, dotR * 2);
+      if (isTip) {
+        dotGrad.addColorStop(0, `rgba(${pR},${pG},${pB},${val * 0.25})`);
+        dotGrad.addColorStop(1, `rgba(${pR},${pG},${pB},0)`);
+      } else {
+        dotGrad.addColorStop(0, `rgba(${gR},${gG},${gB},${val * 0.2})`);
+        dotGrad.addColorStop(1, `rgba(${gR},${gG},${gB},0)`);
+      }
+      ctx.fillStyle = dotGrad;
       ctx.beginPath();
-      ctx.arc(x2, y2, 1.5 + val, 0, Math.PI * 2);
-      ctx.fillStyle = isTip
-        ? `rgba(255,0,102,${val * 0.3})`
-        : `rgba(0,255,136,${val * 0.2})`;
+      ctx.arc(x2, y2, dotR * 2, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -724,26 +761,26 @@ function drawNeonCanvas(
   // Inner ring
   ctx.beginPath();
   ctx.arc(cx, cy, specR, 0, Math.PI * 2);
-  ctx.strokeStyle = `rgba(0,255,136,${0.06 + mid * 0.08})`;
+  ctx.strokeStyle = `rgba(${gR},${gG},${gB},${0.06 + mid * 0.08})`;
   ctx.lineWidth = 1;
   ctx.stroke();
 
-  // ── Center subtle glow ───────────────────────────────────────────
+  // Center glow
   const glowGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, specR);
-  glowGrad.addColorStop(0, `rgba(0,255,136,${0.02 + bass * 0.04})`);
-  glowGrad.addColorStop(1, "rgba(0,255,136,0)");
+  glowGrad.addColorStop(0, `rgba(${gR},${gG},${gB},${0.02 + bass * 0.04})`);
+  glowGrad.addColorStop(1, `rgba(${gR},${gG},${gB},0)`);
   ctx.fillStyle = glowGrad;
   ctx.beginPath();
   ctx.arc(cx, cy, specR, 0, Math.PI * 2);
   ctx.fill();
 
-  // ── Bass hit — spawn 1-2 neon particles ─────────────────────────
+  // ── Bass hit — spawn neon particles ─────────────────────────────
   if (bass > 0.5 && bass - lastBassHit.value > 0.08) {
     const count = 1 + Math.floor(Math.random() * 2);
     for (let j = 0; j < count; j++) {
       const angle = Math.random() * Math.PI * 2;
       const dist = specR * 0.8 + Math.random() * minDim * 0.15;
-      const color = Math.random() > 0.5 ? "#00ff88" : "#ff0066";
+      const isPink = Math.random() > 0.5;
       particles.push({
         x: cx + Math.cos(angle) * dist,
         y: cy + Math.sin(angle) * dist,
@@ -753,7 +790,7 @@ function drawNeonCanvas(
         life: 0,
         maxLife: 60 + Math.random() * 80,
         alpha: 0.3 + Math.random() * 0.4,
-        color,
+        color: isPink ? "pink" : "green",
       });
     }
   }
@@ -762,49 +799,34 @@ function drawNeonCanvas(
   // ── Update & draw neon particles (max 40) ───────────────────────
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx;
-    p.y += p.vy;
-    p.vx *= 0.995;
-    p.vy *= 0.995;
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.995; p.vy *= 0.995;
     p.life++;
-    if (p.life > p.maxLife) {
-      particles.splice(i, 1);
-      continue;
-    }
+    if (p.life > p.maxLife) { particles.splice(i, 1); continue; }
     const lifeRatio = 1 - p.life / p.maxLife;
     const fade = lifeRatio < 0.15 ? lifeRatio / 0.15 : (lifeRatio > 0.7 ? (1 - lifeRatio) / 0.3 : 1);
     const a = fade * p.alpha;
+    const isPink = p.color === "pink";
+    const gr = isPink ? pR : gR, gg = isPink ? pG : gG, gb = isPink ? pB : gB;
 
-    // Glow
-    const glowR = p.size * 3;
-    const gGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowR);
-    if (p.color === "#00ff88") {
-      gGrad.addColorStop(0, `rgba(0,255,136,${a * 0.4})`);
-      gGrad.addColorStop(1, "rgba(0,255,136,0)");
-    } else {
-      gGrad.addColorStop(0, `rgba(255,0,102,${a * 0.4})`);
-      gGrad.addColorStop(1, "rgba(255,0,102,0)");
-    }
-    ctx.fillStyle = gGrad;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, glowR, 0, Math.PI * 2);
-    ctx.fill();
+    // Larger glow
+    const glowR = p.size * 4;
+    const gd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowR);
+    gd.addColorStop(0, `rgba(${gr},${gg},${gb},${a * 0.4})`);
+    gd.addColorStop(1, `rgba(${gr},${gg},${gb},0)`);
+    ctx.fillStyle = gd;
+    ctx.beginPath(); ctx.arc(p.x, p.y, glowR, 0, Math.PI * 2); ctx.fill();
 
-    // Core dot
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size * fade, 0, Math.PI * 2);
-    ctx.fillStyle = p.color === "#00ff88"
-      ? `rgba(0,255,136,${a})`
-      : `rgba(255,0,102,${a})`;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size * fade, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${gr},${gg},${gb},${a})`;
     ctx.fill();
   }
   if (particles.length > 40) particles.splice(0, particles.length - 40);
 
-  // ── Outer ring — thin neon circle pulsing with bass ─────────────
-  const outerR = (specR + minDim * 0.12) * (1 + bass * 0.03);
-  ctx.beginPath();
-  ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
-  ctx.strokeStyle = `rgba(0,255,136,${0.03 + bass * 0.06})`;
+  // Outer ring
+  const outerR = (specR + minDim * 0.13) * (1 + bass * 0.03);
+  ctx.beginPath(); ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(${gR},${gG},${gB},${0.03 + bass * 0.06})`;
   ctx.lineWidth = 0.6;
   ctx.stroke();
 }
@@ -818,58 +840,97 @@ function drawMinimalCanvas(
   freqData: Uint8Array<ArrayBuffer>,
   bass: number, mid: number, high: number,
   t: number,
+  isLight = false,
 ) {
-  // Light background
-  ctx.fillStyle = "#fafafa";
+  // Background
+  const bg = isLight ? "#ffffff" : "#fafafa";
+  const lineR = isLight ? 200 : 17, lineG = isLight ? 200 : 17, lineB = isLight ? 210 : 17;
+  const dotR = isLight ? 180 : 17, dotG = isLight ? 180 : 17, dotB = isLight ? 190 : 17;
+  const gridDotR = isLight ? 210 : 17, gridDotG = isLight ? 210 : 17, gridDotB = isLight ? 220 : 17;
+  ctx.fillStyle = bg;
   ctx.fillRect(0, 0, w, h);
 
   const cx = w * 0.5;
   const cy = h * 0.5;
 
-  // ── 3 thin horizontal lines that undulate with audio ────────────
-  const lineYs = [h * 0.35, h * 0.5, h * 0.65];
-  const lineSpeeds = [0.3, 0.5, 0.25];
-  const lineFreqs = [2.0, 3.0, 1.5];
+  // ── Subtle dot grid pattern ──────────────────────────────────────
+  const dotSpacing = 28;
+  const gridDotSize = 0.8;
+  ctx.fillStyle = `rgba(${gridDotR},${gridDotG},${gridDotB},0.06)`;
+  for (let x = dotSpacing; x < w; x += dotSpacing) {
+    for (let y = dotSpacing; y < h; y += dotSpacing) {
+      ctx.beginPath();
+      ctx.arc(x, y, gridDotSize, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
 
-  for (let li = 0; li < 3; li++) {
-    // Sample frequency for this line
-    const freqIdx = Math.floor(((li + 1) / 4) * freqData.length * 0.6);
+  // ── 5-7 undulating lines with varying opacities ────────────────
+  const lines = [
+    { yFrac: 0.2, speed: 0.25, freq: 1.8, alphaBase: 0.04, freqIdx: 0.1 },
+    { yFrac: 0.33, speed: 0.4, freq: 2.5, alphaBase: 0.06, freqIdx: 0.2 },
+    { yFrac: 0.46, speed: 0.5, freq: 3.0, alphaBase: 0.08, freqIdx: 0.35 },
+    { yFrac: 0.58, speed: 0.35, freq: 2.2, alphaBase: 0.06, freqIdx: 0.5 },
+    { yFrac: 0.7, speed: 0.3, freq: 1.5, alphaBase: 0.05, freqIdx: 0.65 },
+    { yFrac: 0.82, speed: 0.45, freq: 2.8, alphaBase: 0.04, freqIdx: 0.8 },
+  ];
+
+  for (let li = 0; li < lines.length; li++) {
+    const freqIdx = Math.floor(lines[li].freqIdx * freqData.length * 0.6);
     const raw = freqData[freqIdx] / 255;
-    minimalSmoothed[li] += (raw - minimalSmoothed[li]) * 0.2;
+    if (li < 8) minimalSmoothed[li] += (raw - minimalSmoothed[li]) * 0.18;
     const val = minimalSmoothed[li];
 
-    const baseY = lineYs[li];
-    const speed = lineSpeeds[li];
-    const freq = lineFreqs[li];
-    const alpha = 0.08 + val * 0.07;
+    const baseY = h * lines[li].yFrac;
+    const speed = lines[li].speed;
+    const freq = lines[li].freq;
+    // Slight warm gray tone variation per line
+    const warmth = li * 3;
+    const lr = Math.min(255, lineR + warmth);
+    const lg = Math.min(255, lineG + warmth);
+    const lb = Math.min(255, lineB - warmth);
+    const alpha = lines[li].alphaBase + val * 0.08;
 
     ctx.beginPath();
     for (let x = 0; x <= w; x += 3) {
       const xn = x / w;
       const y = baseY
-        + Math.sin(t * speed + xn * freq * Math.PI) * (3 + val * 12)
-        + Math.sin(t * speed * 1.7 + xn * freq * 1.5 * Math.PI) * (1 + val * 5);
+        + Math.sin(t * speed + xn * freq * Math.PI) * (3 + val * 14)
+        + Math.sin(t * speed * 1.7 + xn * freq * 1.5 * Math.PI) * (1 + val * 6)
+        + Math.cos(t * speed * 0.5 + xn * freq * 0.7 * Math.PI) * (0.5 + val * 3);
       if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
-    ctx.strokeStyle = `rgba(17,17,17,${alpha})`;
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = `rgba(${lr},${lg},${lb},${alpha})`;
+    ctx.lineWidth = 0.8 + val * 0.3;
     ctx.lineCap = "round";
     ctx.stroke();
   }
 
-  // ── Center dot: small black circle, opacity reacts to bass ──────
+  // ── Center dot with pulse ring ──────────────────────────────────
   const bassFreqIdx = Math.floor(0.06 * freqData.length);
   const rawBass = freqData[bassFreqIdx] / 255;
-  minimalSmoothed[4] += (rawBass - minimalSmoothed[4]) * 0.2;
-  const bassVal = minimalSmoothed[4];
+  if (minimalSmoothed.length < 16) { /* already big enough */ }
+  minimalSmoothed[8] += (rawBass - minimalSmoothed[8]) * 0.2;
+  const bassVal = minimalSmoothed[8];
 
-  const dotSize = 3 + bassVal * 2;
-  const dotAlpha = 0.1 + bassVal * 0.3;
+  const dotSize = 3 + bassVal * 2.5;
+  const dotAlpha = 0.1 + bassVal * 0.35;
 
   ctx.beginPath();
   ctx.arc(cx, cy, dotSize, 0, Math.PI * 2);
-  ctx.fillStyle = `rgba(17,17,17,${dotAlpha})`;
+  ctx.fillStyle = `rgba(${dotR},${dotG},${dotB},${dotAlpha})`;
   ctx.fill();
+
+  // Pulse ring on bass hits
+  if (bassVal > 0.35) {
+    const pulseR = dotSize + 8 + bassVal * 15;
+    const pulseAlpha = bassVal * 0.12;;
+    ctx.beginPath();
+    ctx.arc(cx, cy, pulseR, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(${dotR},${dotG},${dotB},${pulseAlpha})`;
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+  }
 }
 
 // ── Default: Enhanced gradient orbs + frequency ring + particles ───────────
@@ -989,7 +1050,8 @@ function drawDefaultOrbs(
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function TrackCanvas({ isActive, isPlaying, currentStyle }: TrackCanvasProps) {
+export default function TrackCanvas({ isActive, isPlaying, currentStyle, styleVariant }: TrackCanvasProps) {
+  const isLight = styleVariant === "light";
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const freqDataRef = useRef(new Uint8Array(128));
@@ -1081,15 +1143,15 @@ export default function TrackCanvas({ isActive, isPlaying, currentStyle }: Track
           break;
 
         case "swag":
-          drawSwagCanvas(ctx, w, h, freqData, bass, mid, high, t, swagParticlesRef.current, swagBassHitRef.current);
+          drawSwagCanvas(ctx, w, h, freqData, bass, mid, high, t, swagParticlesRef.current, swagBassHitRef.current, isLight);
           break;
 
         case "neon":
-          drawNeonCanvas(ctx, w, h, freqData, bass, mid, high, t, neonParticlesRef.current, neonBassHitRef.current);
+          drawNeonCanvas(ctx, w, h, freqData, bass, mid, high, t, neonParticlesRef.current, neonBassHitRef.current, isLight);
           break;
 
         case "minimal":
-          drawMinimalCanvas(ctx, w, h, freqData, bass, mid, high, t);
+          drawMinimalCanvas(ctx, w, h, freqData, bass, mid, high, t, isLight);
           break;
 
         default: {
@@ -1115,7 +1177,7 @@ export default function TrackCanvas({ isActive, isPlaying, currentStyle }: Track
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [isActive, isPlaying, currentStyle, getAccentColor]);
+  }, [isActive, isPlaying, currentStyle, styleVariant, getAccentColor]);
 
   if (!isActive) return null;
 

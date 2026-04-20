@@ -642,6 +642,22 @@
   }
 }
 
+/* ── LIGHT VARIANT ─────────────────────────────────────────────────── */
+[data-style="ipod-2001"][data-style-variant="light"] {
+  --mq-bg: #f0f2f5;
+  --mq-card: #ffffff;
+  --mq-card-hover: #e8eaee;
+  --mq-accent: #2a7fff;
+  --mq-text: #1a1a2a;
+  --mq-text-muted: #6a6a7a;
+  --mq-border: #d0d2d8;
+  --mq-input-bg: #ffffff;
+  --mq-player-bg: #f5f7fa;
+  --mq-nav-bg: #f0f2f5ee;
+}
+[data-style="ipod-2001"][data-style-variant="light"], [data-style="ipod-2001"][data-style-variant="light"] body, [data-style="ipod-2001"][data-style-variant="light"] main { background: #f0f2f5 !important; }
+[data-style="ipod-2001"][data-style-variant="light"] .rounded-2xl, [data-style="ipod-2001"][data-style-variant="light"] .rounded-xl { background: #ffffff !important; border-color: #d0d2d8 !important; }
+
 /* ── ═══ SPECIAL: iPod screen scanline effect (very subtle) ═══ ──────── */
 /* Optional: adds a very faint LCD scanline texture to the main area.
    This is the real difference between "dark mode" and "iPod screen". */

@@ -850,3 +850,19 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/* ── LIGHT VARIANT ─────────────────────────────────────────────────── */
+[data-style="minimal"][data-style-variant="light"] {
+  --mq-bg: #fafafa;
+  --mq-card: #ffffff;
+  --mq-card-hover: #f0f0f0;
+  --mq-accent: #333333;
+  --mq-text: #111111;
+  --mq-text-muted: #888888;
+  --mq-border: #e0e0e0;
+  --mq-input-bg: #ffffff;
+  --mq-player-bg: #fafafa;
+  --mq-nav-bg: #fafafaee;
+}
+[data-style="minimal"][data-style-variant="light"], [data-style="minimal"][data-style-variant="light"] body, [data-style="minimal"][data-style-variant="light"] main { background: #fafafa !important; }
+[data-style="minimal"][data-style-variant="light"] .rounded-2xl, [data-style="minimal"][data-style-variant="light"] .rounded-xl { background: #ffffff !important; border-color: #e0e0e0 !important; }

@@ -850,3 +850,19 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/* ── LIGHT VARIANT ─────────────────────────────────────────────────── */
+[data-style="neon"][data-style-variant="light"] {
+  --mq-bg: #f0f8f4;
+  --mq-card: #ffffff;
+  --mq-card-hover: #e8f5ee;
+  --mq-accent: #00aa66;
+  --mq-text: #0a1a14;
+  --mq-text-muted: #5a8a70;
+  --mq-border: #d0e8da;
+  --mq-input-bg: #ffffff;
+  --mq-player-bg: #f0f8f4;
+  --mq-nav-bg: #f0f8f4ee;
+}
+[data-style="neon"][data-style-variant="light"], [data-style="neon"][data-style-variant="light"] body, [data-style="neon"][data-style-variant="light"] main { background: #f0f8f4 !important; }
+[data-style="neon"][data-style-variant="light"] .rounded-2xl, [data-style="neon"][data-style-variant="light"] .rounded-xl { background: #ffffff !important; border-color: #d0e8da !important; }

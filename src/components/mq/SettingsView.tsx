@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download, Sun
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
@@ -21,7 +21,7 @@ export default function SettingsView() {
     lastSyncAt, isSyncing, syncToServer, syncFromServer,
     favoriteArtists, removeFavoriteArtist, saveFavoriteArtistsToServer,
     dislikedTags, removeDislikedTag,
-    currentStyle, setStyle,
+    currentStyle, setStyle, styleVariant, setStyleVariant,
   } = useAppStore();
 
   const ADMIN_EMAILS = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_ADMIN_EMAILS) 
@@ -674,6 +674,33 @@ export default function SettingsView() {
               className="overflow-hidden"
             >
               <div className="space-y-2 mt-4">
+                {/* Light/Dark variant toggle — shown when a style is active */}
+                {currentStyle && (
+                  <div className="flex items-center justify-between p-2.5 rounded-xl" style={{ backgroundColor: "var(--mq-input-bg, #1a1a1a)", border: "1px solid var(--mq-border)" }}>
+                    <div className="flex items-center gap-2">
+                      <Sun className="w-4 h-4" style={{ color: styleVariant === "light" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                      <Moon className="w-4 h-4" style={{ color: !styleVariant ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                      <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                        {!styleVariant ? "Тёмная" : "Светлая"}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setStyleVariant(styleVariant === "light" ? "" : "light")}
+                      className="relative w-10 h-5 rounded-full transition-colors duration-200"
+                      style={{ backgroundColor: styleVariant === "light" ? "var(--mq-accent)" : "var(--mq-border)" }}
+                    >
+                      <div
+                        className="absolute top-0.5 w-4 h-4 rounded-full transition-transform duration-200"
+                        style={{
+                          backgroundColor: "#fff",
+                          transform: styleVariant === "light" ? "translateX(20px)" : "translateX(2px)",
+                          boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                        }}
+                      />
+                    </button>
+                  </div>
+                )}
+
                 {/* Standard / None option */}
                 <motion.button
                   whileHover={{ scale: 1.01 }}

@@ -603,3 +603,20 @@
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
+
+/* ── LIGHT VARIANT ─────────────────────────────────────────────────── */
+[data-style="japan"][data-style-variant="light"] {
+  --mq-bg: #faf6f0;
+  --mq-card: #ffffff;
+  --mq-card-hover: #f5f0e8;
+  --mq-accent: #c45070;
+  --mq-text: #2a2028;
+  --mq-text-muted: #8a7a72;
+  --mq-border: #e8e0d4;
+  --mq-input-bg: #ffffff;
+  --mq-player-bg: #faf6f0;
+  --mq-nav-bg: #faf6f0ee;
+}
+[data-style="japan"][data-style-variant="light"], [data-style="japan"][data-style-variant="light"] body, [data-style="japan"][data-style-variant="light"] main { background: #faf6f0 !important; }
+[data-style="japan"][data-style-variant="light"] .rounded-2xl, [data-style="japan"][data-style-variant="light"] .rounded-xl { background: #ffffff !important; border-color: #e8e0d4 !important; }
+[data-style="japan"][data-style-variant="light"] [role="dialog"], [data-style="japan"][data-style-variant="light"] dialog { background: #ffffff !important; border-color: #e8e0d4 !important; }

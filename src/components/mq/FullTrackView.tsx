@@ -24,7 +24,7 @@ export default function FullTrackView() {
     playTrack, queue, showSimilarRequested, clearShowSimilarRequest,
     showLyricsRequested, clearShowLyricsRequest,
     sleepTimerActive, sleepTimerRemaining, startSleepTimer, stopSleepTimer, updateSleepTimer,
-    currentStyle,
+    currentStyle, styleVariant,
   } = useAppStore();
 
   const progressRef = useRef<HTMLDivElement>(null);
@@ -866,7 +866,7 @@ export default function FullTrackView() {
 
         {/* Canvas visualization (Spotify-like video background) */}
         {canvasMode && (
-          <TrackCanvas isActive={canvasMode} isPlaying={isPlaying} currentStyle={currentStyle} />
+          <TrackCanvas isActive={canvasMode} isPlaying={isPlaying} currentStyle={currentStyle} styleVariant={styleVariant} />
         )}
 
         {/* Header */}
