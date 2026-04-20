@@ -109,7 +109,7 @@ const SEARCH_QUERIES: Record<string, string[]> = {
   chill: ["chill beats", "relaxing music", "lo-fi hip hop", "ambient chill", "downtempo"],
   energy: ["workout music", "energy boost", "party mix", "gym motivation", "bass drop"],
   "hip-hop": ["hip hop new", "rap hits", "trap music", "drill beats"],
-  electronic: ["electronic music", "edm mix", "deep house", "techno set"],
+  electronic: ["electronic music", "melodic house", "techno set", "indie electronic"],
   "rnb-soul": ["rnb soul", "neo soul", "rnb new", "soulful music", "rnb hits"],
   "rock": ["rock music", "alternative rock", "indie rock", "rock hits"],
   "jazz": ["jazz music", "lo-fi jazz", "jazz fusion", "smooth jazz"],

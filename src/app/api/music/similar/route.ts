@@ -109,6 +109,31 @@ function normalizeGenre(genre: string): string {
     .replace(/d 'n' b/gi, "drum and bass");
 }
 
+// ── Noise content keywords ──
+// Tracks whose titles/artists contain these keywords are considered noise content
+// when they don't match the user's (seed track's) genre context.
+const NOISE_KEYWORDS = [
+  "bible", "christian", "gospel", "worship", "praise", "sermon",
+  "jesus", "lord", "hymn", "church", "scripture", "psalm",
+  "devotional", "prayer song", "faith", "religious", "spiritual music",
+];
+
+function hasNoiseKeywords(text: string): boolean {
+  const lower = text.toLowerCase();
+  return NOISE_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+// Religious genre keywords — used to check if context actually involves religious content
+const RELIGIOUS_GENRE_KEYWORDS = [
+  "gospel", "christian", "worship", "religious", "spiritual",
+  "church", "hymn", "ccm", "contemporary christian",
+];
+
+function isReligiousContext(genre: string): boolean {
+  const lower = genre.toLowerCase();
+  return RELIGIOUS_GENRE_KEYWORDS.some(rg => lower.includes(rg) || rg.includes(lower));
+}
+
 // Extract meaningful keywords from a title (remove common noise words)
 const STOP_WORDS = new Set([
   "the", "a", "an", "of", "in", "on", "at", "to", "for", "and", "or", "but",
@@ -137,6 +162,13 @@ function calculateSimilarity(
   const seedGenre = normalizeGenre(seed.genre);
   const candidateGenre = normalizeGenre(candidate.genre);
   const candidateArtist = candidate.artist.toLowerCase().trim();
+
+  // ── Noise content penalty ──
+  // If track title/artist has religious keywords but seed context is NOT religious → penalize
+  const candidateTitleArtist = `${candidate.title} ${candidate.artist}`.toLowerCase();
+  if (hasNoiseKeywords(candidateTitleArtist) && !isReligiousContext(seed.genre)) {
+    score -= 100; // Strong penalty for irrelevant religious content in non-religious context
+  }
 
   // Artist match — highest weight
   if (seedArtist === candidateArtist) {
@@ -300,6 +332,9 @@ async function handler(request: NextRequest) {
 
         if (!track.cover) continue;
         if (track.duration && track.duration < 30) continue;
+        // Hard filter: skip noise content (e.g. Bible Deep House) unless context is religious
+        const titleArtistNoise = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
+        if (hasNoiseKeywords(titleArtistNoise) && !isReligiousContext(trackGenre)) continue;
 
         seenTrackIds.add(track.scTrackId);
 

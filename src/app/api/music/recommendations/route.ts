@@ -3,21 +3,24 @@ import { searchSCTracks, type SCTrack } from "@/lib/soundcloud";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
- * Smart Recommendations API v2 — significantly improved relevance scoring.
+ * Smart Recommendations API v3 — improved relevance with noise-content filtering.
  *
  * Algorithm overview (Spotify/Яндекс.Музыка inspired):
  * 1. Generate intelligent search queries from taste profile (genres + artists + modifiers)
  * 2. Fetch results from multiple queries in parallel (cross-query signal)
  * 3. Score each track by multi-factor relevance:
- *    - Cross-query frequency: appearing in multiple searches = strong relevance signal (+100/query)
- *    - Genre match: exact match with user's top genres (+35), partial (+15), related (+10)
+ *    - Cross-query frequency: appearing in multiple searches = strong relevance signal (+60/query)
+ *    - Genre match: exact match with user's top genres (+50), partial (+25), related (+15)
  *    - Artist match: exact artist match (+50), partial/contains (+20)
  *    - Quality signals: full track (+40), has artwork (+20), good duration (+15)
  *    - Discovery boost: slight bonus for tracks from adjacent genres (+8)
  *    - Random variance: controlled noise to keep recommendations fresh (-10 to +15)
+ *    - NOISE PENALTY: tracks with irrelevant content keywords (bible, gospel, etc.)
+ *      that don't match user's taste get -150 penalty to prevent spam in recommendations
  * 4. Diversity injection: max 2 tracks per artist in final list
  * 5. Discovery picks: 2-3 tracks from genres adjacent to user's top genres
- * 6. Filter: disliked IDs/artists/genres, short tracks, no-artwork tracks
+ *      (only if they match at least partially with user's taste profile)
+ * 6. Filter: disliked IDs/artists/genres, short tracks, no-artwork tracks, noise content
  */
 
 const cache = new Map<string, { data: unknown; expiry: number }>();
@@ -114,28 +117,71 @@ interface ScoredTrack extends SCTrack {
   _isDiscovery: boolean;
 }
 
+// ── Noise content keywords ──
+// Tracks whose titles/artists contain these keywords but don't match user's
+// taste profile are considered noise content (e.g. "Bible Deep House" appearing
+// in generic electronic recommendations).
+const NOISE_KEYWORDS = [
+  "bible", "christian", "gospel", "worship", "praise", "sermon",
+  "jesus", "lord", "hymn", "church", "scripture", "psalm",
+  "devotional", "prayer song", "faith", "religious", "spiritual music",
+];
+
+function hasNoiseKeywords(text: string): boolean {
+  const lower = text.toLowerCase();
+  return NOISE_KEYWORDS.some(kw => lower.includes(kw));
+}
+
+// Religious genre keywords — used to check if user actually wants this content
+const RELIGIOUS_GENRE_KEYWORDS = [
+  "gospel", "christian", "worship", "religious", "spiritual",
+  "church", "hymn", "ccm", "contemporary christian",
+];
+
+function userWantsReligiousContent(topGenres: string[]): boolean {
+  return topGenres.some(g => {
+    const lower = g.toLowerCase();
+    return RELIGIOUS_GENRE_KEYWORDS.some(rg => lower.includes(rg) || rg.includes(lower));
+  });
+}
+
 function scoreTrack(
   track: SCTrack,
   queryCount: number,
   topGenres: string[],
   topArtists: string[],
-  relatedGenres: string[]
+  relatedGenres: string[],
+  isDiscovery: boolean
 ): number {
   let score = 0;
 
-  // ── Cross-query frequency (strongest signal) ──
-  // Track appearing in multiple independent searches = high relevance
-  score += queryCount * 100;
+  // ── Noise content penalty ──
+  // If track title or artist contains religious/noise keywords AND
+  // user's taste profile doesn't include religious genres → heavy penalty
+  const titleAndArtist = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
+  const trackHasNoise = hasNoiseKeywords(titleAndArtist);
+  const wantsReligious = userWantsReligiousContent(topGenres);
+  if (trackHasNoise && !wantsReligious) {
+    score -= 150; // Strong penalty for irrelevant religious content
+  }
 
-  // ── Genre matching ──
+  // ── Cross-query frequency (strong signal, but not overpowering) ──
+  // Track appearing in multiple independent searches = high relevance
+  // Reduced from 100 to 60 so discovery noise doesn't overpower taste signals
+  score += queryCount * 60;
+
+  // ── Genre matching (strengthened) ──
+  let hasGenreMatch = false;
   const trackGenre = normalizeGenre(track.genre || "");
   if (trackGenre) {
     for (const g of topGenres) {
       const normalized = normalizeGenre(g);
       if (trackGenre === normalized) {
-        score += 35; // Exact genre match
+        score += 50; // Exact genre match (was 35)
+        hasGenreMatch = true;
       } else if (trackGenre.includes(normalized) || normalized.includes(trackGenre)) {
-        score += 15; // Partial genre match
+        score += 25; // Partial genre match (was 15)
+        hasGenreMatch = true;
       }
     }
 
@@ -143,10 +189,18 @@ function scoreTrack(
     for (const rg of relatedGenres) {
       const rgNorm = normalizeGenre(rg);
       if (trackGenre === rgNorm) {
-        score += 10;
+        score += 15; // Related genre match (was 10)
+        hasGenreMatch = true;
         break;
       }
     }
+  }
+
+  // ── Discovery relevance gate ──
+  // Discovery tracks with NO genre match at all get extra penalty
+  // This prevents random tracks from discovery queries from dominating
+  if (isDiscovery && !hasGenreMatch) {
+    score -= 80; // Strong penalty for irrelevant discovery content
   }
 
   // ── Artist matching ──
@@ -268,10 +322,13 @@ async function handler(request: NextRequest) {
       queries.push({ query: `top ${genre}`, type: "genre_top", weight: 1.2 });
     } else {
       // Fallback: diverse popular searches
+      // Note: "deep house" removed — SoundCloud returns low-quality religious
+      // "Bible Deep House" content for this generic query.
+      // "melodic house" and "tech house" are better alternatives.
       const fallbacks = [
         "new music", "trending", "popular", "chill", "lofi",
         "electronic", "indie", "hip hop", "rock", "jazz",
-        "ambient", "deep house", "synthwave", "r&b soul",
+        "ambient", "melodic house", "synthwave", "r&b soul",
         "drum and bass", "techno", "acoustic", "piano",
         "afrobeats", "k-pop", "reggaeton", "bossa nova"
       ];
@@ -334,6 +391,9 @@ async function handler(request: NextRequest) {
         if (dislikedGenres.size > 0 && track.genre && dislikedGenres.has(normalizeGenre(track.genre))) continue;
         if (!track.cover) continue;
         if (track.duration && track.duration < 30) continue;
+        // Hard filter: skip noise content (e.g. Bible Deep House) unless user wants it
+        const titleArtistNoise = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
+        if (hasNoiseKeywords(titleArtistNoise) && !userWantsReligiousContent(genres)) continue;
         if (seenIds.has(track.scTrackId)) continue;
 
         seenIds.add(track.scTrackId);
@@ -356,7 +416,7 @@ async function handler(request: NextRequest) {
     // Score all collected tracks
     const scoredTracks: ScoredTrack[] = [];
     for (const { track, queryCount, isDiscovery } of trackMap.values()) {
-      const baseScore = scoreTrack(track, queryCount, genres, artists, relatedArr);
+      const baseScore = scoreTrack(track, queryCount, genres, artists, relatedArr, isDiscovery);
       scoredTracks.push({
         ...track,
         _score: baseScore,
