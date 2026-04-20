@@ -70,6 +70,7 @@ export interface PublicPlaylist {
 export interface HistoryEntry {
   track: Track;
   playedAt: number;
+  playCount: number; // how many times this track was played
 }
 
 export interface SelectedPlaylist {
@@ -953,11 +954,18 @@ export const useAppStore = create<AppState>()(
       // ── History actions ──
       addToHistory: (track) => {
         set((s) => {
-          // Remove existing entry for same track
-          const filtered = s.history.filter((h) => h.track.id !== track.id);
-          // Add to front, keep max 200 entries
+          // Check if track already in history — increment playCount
+          const existing = s.history.find((h) => h.track.id === track.id);
+          if (existing) {
+            // Move to front with incremented playCount
+            const filtered = s.history.filter((h) => h.track.id !== track.id);
+            return {
+              history: [{ track, playedAt: Date.now(), playCount: (existing.playCount || 0) + 1 }, ...filtered].slice(0, 200),
+            };
+          }
+          // New entry
           return {
-            history: [{ track, playedAt: Date.now() }, ...filtered].slice(0, 200),
+            history: [{ track, playedAt: Date.now(), playCount: 1 }, ...s.history].slice(0, 200),
           };
         });
       },

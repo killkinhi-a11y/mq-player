@@ -77,10 +77,11 @@ export default function MainView() {
       artistCounts[track.artist] = (artistCounts[track.artist] || 0) + weight;
     }
 
-    // History: weight = 1 * decay (normal signal with recency weighting)
+    // History: weight = 1 * decay * playCount (normal signal with recency + frequency)
     for (const entry of safeHistory.slice(0, 100)) {
       const t = entry.track;
-      const weight = timeDecay(entry.playedAt);
+      const count = (entry as any).playCount || 1;
+      const weight = timeDecay(entry.playedAt) * Math.min(count, 10); // cap at 10x to prevent domination
       if (t.genre) {
         genreCounts[t.genre] = (genreCounts[t.genre] || 0) + weight;
       }
@@ -189,6 +190,7 @@ export default function MainView() {
       const { topGenres, topArtists, excludeIds, dislikedArtists, dislikedGenres } = tasteProfile;
       const disliked = useAppStore.getState().dislikedTrackIds || [];
       const favoriteArtists = useAppStore.getState().favoriteArtists || [];
+      const currentTrack = useAppStore.getState().currentTrack;
       const params = new URLSearchParams();
 
       // Use favoriteArtists as primary signal if available
@@ -205,6 +207,14 @@ export default function MainView() {
       if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
       if (dislikedArtists) params.set("dislikedArtists", dislikedArtists);
       if (dislikedGenres) params.set("dislikedGenres", dislikedGenres);
+
+      // Session context: pass current track's genre and energy level
+      if (currentTrack?.genre) params.set("currentGenre", currentTrack.genre);
+      if (currentTrack?.duration) {
+        // Short tracks tend to be high energy, long tracks tend to be low energy
+        const energy = currentTrack.duration < 180 ? "high" : currentTrack.duration > 300 ? "low" : null;
+        if (energy) params.set("currentEnergy", energy);
+      }
 
       const res = await fetch(`/api/music/recommendations?${params}`);
       const data = await res.json();
