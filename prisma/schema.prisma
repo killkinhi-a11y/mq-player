@@ -43,6 +43,7 @@ model User {
   joinedSessions         ListenSession[] @relation("JoinedSessions")
   typingEventsFrom       TypingEvent[] @relation("TypingFrom")
   typingEventsTo         TypingEvent[] @relation("TypingTo")
+  trackComments          TrackComment[] @relation("TrackComments")
 }
 
 model AuditLog {
@@ -349,4 +350,21 @@ model Notification {
 
   @@index([userId, read])
   @@index([userId, createdAt])
+}
+
+// Track comments — SoundCloud-style timestamped comments on tracks
+model TrackComment {
+  id        String   @id @default(cuid())
+  trackId   String   // SoundCloud track ID as string
+  userId    String
+  username  String
+  avatar    String   @default("")
+  content   String
+  timestamp Float    // seconds into the track where comment was placed
+  likes     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user      User     @relation("TrackComments", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([trackId, createdAt])
 }

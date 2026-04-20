@@ -61,6 +61,111 @@ export default function SettingsView() {
   const [showTasteSection, setShowTasteSection] = useState(false);
   const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
 
+  // Push notifications state
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | "default">("default");
+  const [pushLoading, setPushLoading] = useState(false);
+
+  // Offline / service worker state
+  const [swActive, setSwActive] = useState(false);
+  const [cachedTracks, setCachedTracks] = useState(0);
+
+  // Detect push permission & service worker on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Notification permission
+    if ("Notification" in window) {
+      setPushPermission(Notification.permission as NotificationPermission);
+    }
+    // Check if push subscription already exists
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready.then(async (reg) => {
+        setSwActive(true);
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) setPushEnabled(true);
+      });
+    }
+  }, []);
+
+  // Count cached audio tracks periodically
+  useEffect(() => {
+    if (typeof window === "undefined" || !("caches" in window)) return;
+    const countAudio = async () => {
+      try {
+        const cache = await caches.open("mq-audio-v1");
+        const keys = await cache.keys();
+        setCachedTracks(keys.length);
+      } catch {
+        setCachedTracks(0);
+      }
+    };
+    countAudio();
+    const interval = setInterval(countAudio, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Toggle push notifications
+  const handlePushToggle = useCallback(async (enabled: boolean) => {
+    if (pushLoading) return;
+    setPushLoading(true);
+    try {
+      if (enabled) {
+        // Request permission
+        if (!("Notification" in window)) {
+          alert("Уведомления не поддерживаются этим браузером");
+          setPushLoading(false);
+          return;
+        }
+        const perm = await Notification.requestPermission();
+        setPushPermission(perm);
+        if (perm !== "granted") {
+          setPushLoading(false);
+          return;
+        }
+        // Register push subscription
+        const reg = await navigator.serviceWorker.ready;
+        // Dummy VAPID key — replace with real VAPID applicationServerKey before production use
+        const applicationServerKey = "B" + "A".repeat(87);
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(applicationServerKey),
+        });
+        await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription: sub.toJSON() }),
+        });
+        setPushEnabled(true);
+      } else {
+        // Unsubscribe
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        if (sub) {
+          await sub.unsubscribe();
+          await fetch("/api/push/unsubscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        setPushEnabled(false);
+      }
+    } catch (err) {
+      console.error("[push] Toggle error:", err);
+    } finally {
+      setPushLoading(false);
+    }
+  }, [pushLoading]);
+
+  // Clear all caches
+  const handleClearCache = useCallback(async () => {
+    if (typeof window === "undefined" || !("caches" in window)) return;
+    try {
+      const names = await caches.keys();
+      await Promise.all(names.map((name) => caches.delete(name)));
+      setCachedTracks(0);
+    } catch {}
+  }, []);
+
   // Mouse wheel volume control on the volume section — native listener to allow preventDefault
   useEffect(() => {
     const el = volumeSectionRef.current;
@@ -242,6 +347,16 @@ export default function SettingsView() {
       supportScrollRef.current.scrollTop = supportScrollRef.current.scrollHeight;
     }
   }, [supportMessages]);
+
+  // Helper: convert base64 VAPID key to Uint8Array for pushManager.subscribe
+  const urlBase64ToUint8Array = (base64String: string) => {
+    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/\-/g, "+").replace(/_/g, "/");
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+    return outputArray;
+  };
 
   const presetAccents = ["#e03131", "#8b5cf6", "#4ade80", "#f59e0b", "#ec4899", "#06b6d4", "#f97316"];
 
@@ -652,6 +767,112 @@ export default function SettingsView() {
             }}
           />
         </div>
+      </motion.div>
+
+      {/* Notifications — Push */}
+      <motion.div
+        initial={anim ? { opacity: 0, y: 20 } : undefined}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-2xl p-4 space-y-4"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <MessageCircle className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+          <h2 className="font-semibold" style={{ color: "var(--mq-text)" }}>Уведомления</h2>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {pushLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
+            ) : (
+              <CloudOff className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+            )}
+            <div>
+              <p className="text-sm" style={{ color: "var(--mq-text)" }}>Push-уведомления</p>
+              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                Получать уведомления о новых сообщениях, даже когда вкладка закрыта
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={pushEnabled}
+            onCheckedChange={handlePushToggle}
+            disabled={pushLoading}
+          />
+        </div>
+
+        {pushPermission && (
+          <div className="flex items-center gap-2 ml-7">
+            <div
+              className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{
+                backgroundColor:
+                  pushPermission === "granted"
+                    ? "#4ade80"
+                    : pushPermission === "denied"
+                    ? "#ef4444"
+                    : "#f59e0b",
+              }}
+            />
+            <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+              Статус:{" "}
+              {pushPermission === "granted"
+                ? "разрешено"
+                : pushPermission === "denied"
+                ? "заблокировано"
+                : "не запрошено"}
+            </span>
+          </div>
+        )}
+      </motion.div>
+
+      {/* Offline — Service Worker */}
+      <motion.div
+        initial={anim ? { opacity: 0, y: 20 } : undefined}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-2xl p-4 space-y-3"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <CloudOff className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+            <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Офлайн</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: swActive ? "#4ade80" : "#ef4444" }}
+            />
+            <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+              Service Worker {swActive ? "активен" : "неактивен"}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+            Треков кэшировано офлайн
+          </span>
+          <span className="text-xs font-mono" style={{ color: "var(--mq-accent)" }}>
+            {cachedTracks} / 20
+          </span>
+        </div>
+
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleClearCache}
+          className="w-full py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5"
+          style={{
+            backgroundColor: "var(--mq-input-bg)",
+            color: "var(--mq-text)",
+            border: "1px solid var(--mq-border)",
+          }}
+        >
+          <Trash2 className="w-3 h-3" />
+          Очистить кэш
+        </motion.button>
       </motion.div>
 
       {/* Font size */}

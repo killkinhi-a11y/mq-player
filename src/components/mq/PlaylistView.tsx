@@ -6,10 +6,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { type Track } from "@/lib/musicApi";
 import {
   Plus, Trash2, Play, Music, ListMusic, ChevronRight,
-  Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle, Image, Camera, Sparkles, ImagePlus
+  Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle, Image, Camera, Sparkles, ImagePlus, Share2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import TrackCard from "./TrackCard";
+import PlaylistExportView from "./PlaylistExportView";
 
 export default function PlaylistView() {
   const {
@@ -42,6 +43,7 @@ export default function PlaylistView() {
   const [aiGeneratingTags, setAiGeneratingTags] = useState(false);
   const [aiGeneratingCover, setAiGeneratingCover] = useState(false);
   const [aiAutoGenerating, setAiAutoGenerating] = useState(false);
+  const [showExport, setShowExport] = useState(false);
 
   const selectedPlaylist = playlists.find((p) => p.id === selectedPlaylistId);
   const autoGenAttemptedRef = useRef<Set<string>>(new Set());
@@ -464,15 +466,26 @@ export default function PlaylistView() {
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {editingId !== selectedPlaylist.id && (
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => { setEditingId(selectedPlaylist.id); setEditName(selectedPlaylist.name); setEditDesc(selectedPlaylist.description); }}
-                  className="p-2 rounded-lg"
-                  style={{ color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}
-                  title="Редактировать"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </motion.button>
+                <>
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => { setEditingId(selectedPlaylist.id); setEditName(selectedPlaylist.name); setEditDesc(selectedPlaylist.description); }}
+                    className="p-2 rounded-lg"
+                    style={{ color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}
+                    title="Редактировать"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => setShowExport(true)}
+                    className="p-2 rounded-lg"
+                    style={{ color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}
+                    title="Экспорт"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </motion.button>
+                </>
               )}
               {selectedPlaylist.tracks.length > 0 && (
                 <motion.button
@@ -586,6 +599,15 @@ export default function PlaylistView() {
             </p>
           </div>
         )}
+
+        {/* Export modal */}
+        <PlaylistExportView
+          isOpen={showExport}
+          onClose={() => setShowExport(false)}
+          playlistName={selectedPlaylist.name}
+          tracks={selectedPlaylist.tracks}
+          cover={selectedPlaylist.cover}
+        />
       </div>
     );
   }

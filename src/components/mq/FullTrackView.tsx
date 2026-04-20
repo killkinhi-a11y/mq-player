@@ -5,11 +5,13 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
-  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock
+  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles
 } from "lucide-react";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { getAudioElement, resumeAudioContext } from "@/lib/audioEngine";
+import TrackCommentsPanel from "./TrackCommentsPanel";
+import TrackCanvas from "./TrackCanvas";
 
 export default function FullTrackView() {
   const {
@@ -33,6 +35,8 @@ export default function FullTrackView() {
   const [showSimilar, setShowSimilar] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [showSleepTimer, setShowSleepTimer] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [canvasMode, setCanvasMode] = useState(false);
   const [lyricsLines, setLyricsLines] = useState<{ time: number; text: string }[]>([]);
   const [lyricsPlainText, setLyricsPlainText] = useState("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
@@ -420,9 +424,14 @@ export default function FullTrackView() {
           <div className="absolute inset-0" style={{ backgroundColor: "var(--mq-bg)", opacity: 0.85 }} />
         </div>
 
+        {/* Canvas visualization (Spotify-like video background) */}
+        {canvasMode && currentTrack?.cover && (
+          <TrackCanvas coverUrl={currentTrack.cover} isActive={canvasMode} isPlaying={isPlaying} />
+        )}
+
         {/* Header */}
         <div className="relative z-10 flex items-center justify-between p-4">
-          <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setFullTrackViewOpen(false); setShowSimilar(false); }}
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setFullTrackViewOpen(false); setShowSimilar(false); setShowComments(false); }}
             className="p-2" style={{ color: "var(--mq-text)" }}>
             <ChevronLeft className="w-6 h-6" />
           </motion.button>
@@ -510,7 +519,7 @@ export default function FullTrackView() {
               }}>
               <ListMusic className="w-[18px] h-[18px]" />
             </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); }}
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); }}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
                 backgroundColor: showLyrics ? "var(--mq-accent)" : "var(--mq-card)",
@@ -518,6 +527,24 @@ export default function FullTrackView() {
                 color: showLyrics ? "var(--mq-text)" : "var(--mq-text-muted)",
               }}>
               <FileText className="w-[18px] h-[18px]" />
+            </motion.button>
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowComments(!showComments); setShowSimilar(false); setShowLyrics(false); }}
+              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: showComments ? "var(--mq-accent)" : "var(--mq-card)",
+                border: "1px solid var(--mq-border)",
+                color: showComments ? "var(--mq-text)" : "var(--mq-text-muted)",
+              }}>
+              <MessageSquare className="w-[18px] h-[18px]" />
+            </motion.button>
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCanvasMode(!canvasMode)}
+              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: canvasMode ? "var(--mq-accent)" : "var(--mq-card)",
+                border: "1px solid var(--mq-border)",
+                color: canvasMode ? "var(--mq-text)" : "var(--mq-text-muted)",
+              }}>
+              <Sparkles className="w-[18px] h-[18px]" />
             </motion.button>
             <button onClick={() => setVolume(volume > 0 ? 0 : 70)}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
@@ -696,6 +723,21 @@ export default function FullTrackView() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Track comments panel */}
+        {currentTrack.scTrackId && (
+          <TrackCommentsPanel
+            trackId={currentTrack.scTrackId}
+            currentProgress={progress}
+            onSeek={(time) => {
+              setProgress(time);
+              const audio = getAudioElement();
+              if (audio) audio.currentTime = time;
+            }}
+            isOpen={showComments}
+            onClose={() => setShowComments(false)}
+          />
+        )}
 
         {/* Similar tracks panel */}
         <AnimatePresence>

@@ -105,6 +105,7 @@ interface AppState {
   currentTrack: Track | null;
   queue: Track[];
   queueIndex: number;
+  upNext: Track[];
   isPlaying: boolean;
   volume: number;
   progress: number;
@@ -183,6 +184,13 @@ interface AppState {
   setCompactMode: (compact: boolean) => void;
   setFontSize: (size: number) => void;
   setLiquidGlassEnabled: (enabled: boolean) => void;
+
+  // UpNext actions
+  addToUpNext: (track: Track) => void;
+  addToUpNextMultiple: (tracks: Track[]) => void;
+  removeFromUpNext: (index: number) => void;
+  moveInUpNext: (fromIndex: number, toIndex: number) => void;
+  clearUpNext: () => void;
 
   // Player actions
   playTrack: (track: Track, queue?: Track[]) => void;
@@ -338,6 +346,7 @@ const initialState = {
   currentTrack: null as Track | null,
   queue: [] as Track[],
   queueIndex: 0,
+  upNext: [] as Track[],
   isPlaying: false,
   volume: 70,
   progress: 0,
@@ -479,6 +488,24 @@ export const useAppStore = create<AppState>()(
 
       setLiquidGlassEnabled: (enabled) => set({ liquidGlassEnabled: enabled }),
 
+      // ── UpNext actions ──
+      addToUpNext: (track) => set((s) => ({ upNext: [...s.upNext, track] })),
+
+      addToUpNextMultiple: (tracks) => set((s) => ({ upNext: [...s.upNext, ...tracks] })),
+
+      removeFromUpNext: (index) => set((s) => ({
+        upNext: s.upNext.filter((_, i) => i !== index),
+      })),
+
+      moveInUpNext: (fromIndex, toIndex) => set((s) => {
+        const updated = [...s.upNext];
+        const [moved] = updated.splice(fromIndex, 1);
+        updated.splice(toIndex, 0, moved);
+        return { upNext: updated };
+      }),
+
+      clearUpNext: () => set({ upNext: [] as Track[] }),
+
       playTrack: (track, queue) => {
         const state = get();
         const newQueue = queue || state.queue;
@@ -490,6 +517,8 @@ export const useAppStore = create<AppState>()(
           isPlaying: true,
           progress: 0,
           duration: track.duration,
+          // Clear upNext when a new queue is explicitly set
+          ...(queue ? { upNext: [] as Track[] } : {}),
         });
         // Auto-add to history
         get().addToHistory(track);
@@ -504,12 +533,47 @@ export const useAppStore = create<AppState>()(
       setDuration: (duration) => set({ duration }),
 
       nextTrack: () => {
-        const { queue, queueIndex, shuffle, repeat } = get();
+        const { queue, queueIndex, shuffle, repeat, upNext, currentTrack } = get();
+
+        // ── UpNext priority: play from upNext first (FIFO) ──
+        if (upNext.length > 0) {
+          const [next, ...remaining] = upNext;
+          const newQueue = [next, ...remaining, ...queue];
+          set({
+            currentTrack: next,
+            queue: newQueue,
+            queueIndex: 0,
+            upNext: [],
+            progress: 0,
+            duration: next.duration,
+            isPlaying: true,
+          });
+          get().addToHistory(next);
+          return;
+        }
+
         let nextIdx: number;
         if (shuffle) {
-          if (queue.length <= 1) { nextIdx = 0; }
-          else {
-            do { nextIdx = Math.floor(Math.random() * queue.length); } while (nextIdx === queueIndex);
+          // ── Smart shuffle: avoid consecutive same artist ──
+          const currentArtist = currentTrack?.artist;
+          if (queue.length <= 1) {
+            nextIdx = 0;
+          } else {
+            nextIdx = queueIndex; // fallback
+            for (let attempt = 0; attempt < 10; attempt++) {
+              const candidate = Math.floor(Math.random() * queue.length);
+              if (candidate !== queueIndex) {
+                const candidateTrack = queue[candidate];
+                if (!currentArtist || candidateTrack?.artist !== currentArtist) {
+                  nextIdx = candidate;
+                  break;
+                }
+              }
+            }
+            // If all attempts failed (all same artist), pick any different index
+            if (nextIdx === queueIndex) {
+              do { nextIdx = Math.floor(Math.random() * queue.length); } while (nextIdx === queueIndex);
+            }
           }
         } else {
           nextIdx = queueIndex + 1;

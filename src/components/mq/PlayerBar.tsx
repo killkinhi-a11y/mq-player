@@ -6,10 +6,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
   Shuffle, Music, Loader2, PictureInPicture2, ListMusic,
-  Heart, ThumbsDown, FileText, Download
+  Heart, ThumbsDown, FileText, Download, ListEnd, Share2
 } from "lucide-react";
 import { formatDuration } from "@/lib/musicApi";
 import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade } from "@/lib/audioEngine";
+import TrackCommentsPanel from "./TrackCommentsPanel";
+import QueueView from "./QueueView";
 
 async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string; isPreview: boolean; duration: number; fullDuration: number } | null> {
   try {
@@ -23,6 +25,35 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string
   }
 }
 
+function ShareButton({ scTrackId }: { scTrackId: number }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = useCallback(() => {
+    const url = `${window.location.origin}/track/${scTrackId}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {});
+  }, [scTrackId]);
+
+  return (
+    <div className="relative p-1 flex-shrink-0 hidden lg:flex items-center justify-center">
+      <motion.button whileTap={{ scale: 0.85 }} onClick={handleShare}
+        style={{ color: "var(--mq-text-muted)" }} title="Поделиться">
+        <Share2 className="w-4 h-4" />
+      </motion.button>
+      {copied && (
+        <span
+          className="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] px-2 py-0.5 rounded whitespace-nowrap"
+          style={{ background: "var(--mq-accent)", color: "#fff" }}
+        >
+          Скопировано!
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function PlayerBar() {
   const {
     currentTrack, isPlaying, volume, progress, duration,
@@ -32,7 +63,10 @@ export default function PlayerBar() {
     setFullTrackViewOpen, setPiPActive, isPiPActive,
     setPlaybackMode, requestShowSimilar, requestShowLyrics,
     toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
+    upNext,
   } = useAppStore();
+
+  const [showQueue, setShowQueue] = useState(false);
 
   const progressRef = useRef<HTMLDivElement>(null);
   const volumeRef = useRef<HTMLDivElement>(null);
@@ -886,6 +920,17 @@ export default function PlayerBar() {
             <ListMusic className="w-4 h-4" />
           </motion.button>
 
+          {/* Queue — desktop only */}
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowQueue(true)}
+            className="p-1 flex-shrink-0 items-center justify-center hidden lg:flex relative"
+            style={{ color: upNext.length > 0 ? "var(--mq-accent)" : "var(--mq-text-muted)" }} title="Очередь">
+            <ListEnd className="w-4 h-4" />
+            {upNext.length > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[8px] font-bold"
+                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>{upNext.length}</span>
+            )}
+          </motion.button>
+
           {/* Lyrics — desktop only (moved to full player on mobile) */}
           <motion.button whileTap={{ scale: 0.9 }}
             onClick={() => { setFullTrackViewOpen(true); requestShowLyrics(); }}
@@ -927,6 +972,11 @@ export default function PlayerBar() {
             <Download className="w-4 h-4" />
           </motion.button>
 
+          {/* Share — desktop only */}
+          {currentTrack.scTrackId && (
+            <ShareButton scTrackId={currentTrack.scTrackId} />
+          )}
+
           {/* PiP — desktop only */}
           <motion.button whileTap={{ scale: 0.9 }} onClick={() => setPiPActive(!isPiPActive)}
             className="p-1 flex-shrink-0 items-center justify-center hidden lg:flex"
@@ -958,6 +1008,9 @@ export default function PlayerBar() {
         className="w-full pointer-events-none block"
         style={{ height: compactMode ? 20 : 28, opacity: isPlaying ? 0.7 : 0.1, transition: "opacity 0.3s", minHeight: compactMode ? 20 : 28 }}
       />
+
+      {/* Queue View */}
+      <QueueView isOpen={showQueue} onClose={() => setShowQueue(false)} />
 
     </motion.div>
   );
