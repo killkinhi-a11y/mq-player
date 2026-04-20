@@ -70,9 +70,9 @@ async function handler(request: NextRequest) {
       );
     }
 
-    // Validate file size (200MB max)
-    if (file.size > 200 * 1024 * 1024) {
-      return NextResponse.json({ error: "File too large. Maximum size is 200MB." }, { status: 400 });
+    // Validate file size (20MB max)
+    if (file.size > 20 * 1024 * 1024) {
+      return NextResponse.json({ error: "Файл слишком большой. Максимальный размер — 20 МБ." }, { status: 400 });
     }
 
     // Reject empty files
