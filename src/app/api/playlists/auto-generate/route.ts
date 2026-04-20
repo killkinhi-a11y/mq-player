@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
+import { getZaiBaseUrl } from "@/lib/ai-proxy";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
-
-const ZAI_BASE = process.env.ZAI_BASE_URL || "http://172.25.136.193:8080/v1";
-const ZAI_KEY = process.env.ZAI_API_KEY || "Z.ai";
 
 async function postHandler(req: NextRequest) {
   try {
@@ -50,16 +48,12 @@ async function postHandler(req: NextRequest) {
       return `${i + 1}. ${artist} — ${title}${genre}`;
     }).join("\n");
 
-    // Direct fetch to ZAI API (no SDK, no config file needed)
+    const ZAI_BASE = await getZaiBaseUrl();
+
     const completion = await fetch(`${ZAI_BASE}/chat/completions`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${ZAI_KEY}`,
-        "X-Z-AI-From": "Z",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "default",
         messages: [
           {
             role: "system",
@@ -85,7 +79,6 @@ async function postHandler(req: NextRequest) {
 
     const data = await completion.json();
     const raw = data.choices?.[0]?.message?.content || "";
-    console.log("[auto-generate] raw response:", raw.slice(0, 300));
 
     let jsonStr = raw;
     const jsonMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);

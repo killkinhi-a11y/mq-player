@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
+import { getZaiBaseUrl } from "@/lib/ai-proxy";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-const ZAI_BASE = process.env.ZAI_BASE_URL || "http://172.25.136.193:8080/v1";
-const ZAI_KEY = process.env.ZAI_API_KEY || "Z.ai";
 
 async function postHandler(req: NextRequest) {
   try {
@@ -58,14 +56,11 @@ async function postHandler(req: NextRequest) {
 
     if (prompt.length > 200) prompt = prompt.slice(0, 197) + "...";
 
-    // Direct fetch to ZAI image API (no SDK needed)
+    const ZAI_BASE = await getZaiBaseUrl();
+
     const imgResponse = await fetch(`${ZAI_BASE}/images/generations`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${ZAI_KEY}`,
-        "X-Z-AI-From": "Z",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, size: "1024x1024" }),
     });
 
@@ -76,8 +71,6 @@ async function postHandler(req: NextRequest) {
     }
 
     const imgData = await imgResponse.json();
-
-    // API returns { data: [{ url: "..." }] } — download and convert to base64
     const imageUrl = imgData.data?.[0]?.url;
     if (!imageUrl) {
       return NextResponse.json({ error: "Не удалось сгенерировать изображение" }, { status: 500 });
