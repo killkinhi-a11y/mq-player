@@ -63,6 +63,8 @@ export default function SettingsView() {
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const styleList = [
     { id: "ipod-2001", name: "iPod 2001" },
+    { id: "japan", name: "Japan" },
+    { id: "swag", name: "Swag" },
   ];
   const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
 
@@ -721,6 +723,63 @@ export default function SettingsView() {
                     <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Оригинальный Apple iPod</p>
                   </div>
                   {currentStyle === "ipod-2001" && (
+                    <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+                  )}
+                </motion.button>
+
+                {/* Japan */}
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => setStyle("japan")}
+                  className="w-full p-3 text-left relative flex items-center gap-3"
+                  style={{
+                    backgroundColor: currentStyle === "japan" ? "var(--mq-input-bg)" : "transparent",
+                    border: currentStyle === "japan" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
+                  }}
+                >
+                  {/* Mini preview: Japan zen style */}
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#f0ebe3", borderRadius: 6, border: "1px solid #d9d2c7" }}>
+                    <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, transparent, #e8b4bc, #c41e3a, #e8b4bc, transparent)", opacity: 0.5 }} />
+                    <div className="absolute top-1.5 left-1.5" style={{ color: "#1a1a1a", fontSize: 5, fontFamily: "serif", lineHeight: 1 }}>Song</div>
+                    <div className="absolute top-3 left-1.5" style={{ color: "#8a8278", fontSize: 3.5, fontFamily: "serif", lineHeight: 1 }}>Artist</div>
+                    <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5" style={{ backgroundColor: "#d9d2c7", borderRadius: 1 }} />
+                    <div className="absolute bottom-1 left-1.5 w-2 h-0.5" style={{ backgroundColor: "#c41e3a", borderRadius: 1 }} />
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Japan</span>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Дзен, бумага, киноварь</p>
+                  </div>
+                  {currentStyle === "japan" && (
+                    <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+                  )}
+                </motion.button>
+
+                {/* Swag */}
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => setStyle("swag")}
+                  className="w-full p-3 text-left relative flex items-center gap-3"
+                  style={{
+                    backgroundColor: currentStyle === "swag" ? "var(--mq-input-bg)" : "transparent",
+                    border: currentStyle === "swag" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
+                  }}
+                >
+                  {/* Mini preview: Swag black & gold */}
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#0a0a0a", borderRadius: 0, border: "1px solid #2a2520" }}>
+                    <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, transparent, #d4af37, transparent)", opacity: 0.3 }} />
+                    <div className="absolute top-1.5 left-1.5" style={{ color: "#d4af37", fontSize: 5, fontFamily: "Impact, Arial Black, sans-serif", textTransform: "uppercase", lineHeight: 1, letterSpacing: "0.1em" }}>Song</div>
+                    <div className="absolute top-3 left-1.5" style={{ color: "#555555", fontSize: 3.5, lineHeight: 1 }}>Artist</div>
+                    <div className="absolute top-1.5 left-0 w-0.5 h-5" style={{ backgroundColor: "#d4af37" }} />
+                    <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5" style={{ backgroundColor: "#1a1a1a" }} />
+                    <div className="absolute bottom-1 left-1.5 w-3 h-0.5" style={{ backgroundColor: "#d4af37" }} />
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Swag</span>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Хип-хоп, золото, улицы</p>
+                  </div>
+                  {currentStyle === "swag" && (
                     <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                   )}
                 </motion.button>

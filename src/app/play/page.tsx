@@ -8,6 +8,8 @@ import { themes, applyThemeToDOM } from "@/lib/themes";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { useListenSessionSync } from "@/hooks/useListenSessionSync";
 import "@/styles/ipod-2001.css";
+import "@/styles/japan.css";
+import "@/styles/swag.css";
 
 declare global {
   interface Window {
@@ -128,6 +130,9 @@ function AppShell() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    // When a style is active, skip applying theme variables/styles
+    // — the style's CSS overrides everything, and inline theme vars break it
+    if (currentStyle) return;
     const theme = themes[currentTheme];
     if (!theme) {
       useAppStore.getState().setTheme("default");
@@ -135,7 +140,7 @@ function AppShell() {
     } else {
       applyThemeToDOM(theme, customAccent || undefined);
     }
-  }, [currentTheme, customAccent]);
+  }, [currentTheme, customAccent, currentStyle]);
 
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}px`;
