@@ -1,0 +1,852 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Neon Style — Cyberpunk Neon Glow
+   Electric green neon on deep dark blue-black. Tron-inspired.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── CSS Variable Overrides: Cyberpunk Neon ─────────────────────────── */
+[data-style="neon"] {
+  --mq-bg: #0a0a14;
+  --mq-card: #12121e;
+  --mq-card-hover: #1a1a2e;
+  --mq-accent: #00ff88;
+  --mq-accent-alt: #ff0066;
+  --mq-text: #e0e0f0;
+  --mq-text-muted: #555577;
+  --mq-border: #1e1e33;
+  --mq-input-bg: #12121e;
+  --mq-player-bg: #0a0a14;
+  --mq-nav-bg: #0a0a14ee;
+  --mq-gradient: radial-gradient(ellipse at 50% 0%, rgba(0,255,136,0.03) 0%, transparent 60%);
+  --mq-glow: rgba(0,255,136,0.15);
+  --mq-chrome: #00ff88;
+  --mq-purple-pink: #ff0066;
+  --mq-gold: #00ff88;
+}
+
+/* ── Root / Body: Deep dark blue-black ──────────────────────────────── */
+[data-style="neon"],
+[data-style="neon"] body,
+[data-style="neon"] main {
+  background: #0a0a14 !important;
+}
+
+/* ── Global border-radius ────────────────────────────────────────────── */
+[data-style="neon"] *,
+[data-style="neon"] *::before,
+[data-style="neon"] *::after {
+  border-radius: 10px !important;
+}
+
+/* ── Typography: System UI — clean, cyberpunk-ready ─────────────────── */
+[data-style="neon"],
+[data-style="neon"] body,
+[data-style="neon"] button,
+[data-style="neon"] input,
+[data-style="neon"] select,
+[data-style="neon"] textarea,
+[data-style="neon"] span,
+[data-style="neon"] p,
+[data-style="neon"] h1,
+[data-style="neon"] h2,
+[data-style="neon"] h3,
+[data-style="neon"] div,
+[data-style="neon"] a,
+[data-style="neon"] label {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  font-weight: 400 !important;
+}
+
+/* Headings: bright neon, bold */
+[data-style="neon"] h1,
+[data-style="neon"] h2,
+[data-style="neon"] h3,
+[data-style="neon"] .font-bold,
+[data-style="neon"] .font-semibold,
+[data-style="neon"] .font-extrabold {
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  color: #e0e0f0 !important;
+  -webkit-text-fill-color: #e0e0f0 !important;
+  background: none !important;
+  filter: none !important;
+}
+
+/* Body text */
+[data-style="neon"] p,
+[data-style="neon"] span,
+[data-style="neon"] label,
+[data-style="neon"] input,
+[data-style="neon"] textarea,
+[data-style="neon"] select {
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  filter: none !important;
+}
+
+/* Small text / labels */
+[data-style="neon"] p[class*="text-xs"],
+[data-style="neon"] p[class*="text-[10px]"],
+[data-style="neon"] p[class*="text-[9px]"],
+[data-style="neon"] span[class*="text-xs"],
+[data-style="neon"] span[class*="text-[10px]"],
+[data-style="neon"] span[class*="text-[9px]"],
+[data-style="neon"] span[class*="text-[8px]"] {
+  font-weight: 500 !important;
+  letter-spacing: 0.04em !important;
+  text-transform: none !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  filter: none !important;
+}
+
+/* ── Kill all theme effects ──────────────────────────────────────────── */
+[data-style="neon"] * {
+  text-shadow: none !important;
+  box-shadow: none !important;
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Kill glass pseudo-elements */
+[data-style="neon"] .liquid-glass::before,
+[data-style="neon"] .liquid-glass-nav::before,
+[data-style="neon"] .liquid-glass::after,
+[data-style="neon"] .liquid-glass-nav::after {
+  display: none !important;
+}
+
+[data-style="neon"] .liquid-glass,
+[data-style="neon"] .liquid-glass-nav {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Theme overrides — kill everything */
+[data-style="neon"].cyberpunk-theme *,
+[data-style="neon"].synthwave-theme *,
+[data-style="neon"].phantom-theme *,
+[data-style="neon"].liquid-glass-theme * {
+  text-shadow: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  animation: none !important;
+}
+
+/* Kill decorative glows */
+[data-style="neon"] div[class*="rounded-full"][style*="opacity"] {
+  display: none !important;
+}
+
+/* Kill decorative patterns */
+[data-style="neon"] div[style*="repeating-linear-gradient"] {
+  display: none !important;
+}
+
+[data-style="neon"] div[style*="backgroundImage"] {
+  background-image: none !important;
+}
+
+/* Re-enable only minimal transitions for interactivity */
+[data-style="neon"] button,
+[data-style="neon"] a,
+[data-style="neon"] input,
+[data-style="neon"] select,
+[data-style="neon"] textarea {
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease !important;
+}
+
+/* ── ═══ DESKTOP NAV BAR ═══ ───────────────────────────────────────── */
+[data-style="neon"] header {
+  background: #0a0a14 !important;
+  border-bottom: 1px solid #1e1e33 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  position: relative !important;
+}
+
+/* NO decorative gradient line on header */
+[data-style="neon"] header::after {
+  display: none !important;
+}
+
+[data-style="neon"] header nav,
+[data-style="neon"] header .rounded-2xl {
+  background: transparent !important;
+  border: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Nav buttons */
+[data-style="neon"] header nav button {
+  color: #555577 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  border-radius: 8px !important;
+}
+
+[data-style="neon"] header nav button:hover {
+  color: #e0e0f0 !important;
+  background: rgba(0,255,136,0.05) !important;
+}
+
+/* Active nav: subtle neon green bg */
+[data-style="neon"] header nav button[style*="rgba(255,255,255,0.1)"],
+[data-style="neon"] header nav button[style*="rgba(255,255,255,0.08)"] {
+  background: rgba(0,255,136,0.08) !important;
+  color: #00ff88 !important;
+}
+
+[data-style="neon"] header nav button div[style*="rgba(255,255,255,0.1)"],
+[data-style="neon"] header nav button div[style*="rgba(255,255,255,0.08)"],
+[data-style="neon"] header nav button [class*="absolute"][class*="rounded"] {
+  display: none !important;
+}
+
+/* Logo — bright neon green */
+[data-style="neon"] header div[class*="gap-2"][class*="cursor-pointer"] span {
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 20px !important;
+  letter-spacing: 0 !important;
+  color: #00ff88 !important;
+  -webkit-text-fill-color: #00ff88 !important;
+  background: none !important;
+  filter: none !important;
+}
+
+[data-style="neon"] header div[style*="box-shadow"] {
+  box-shadow: none !important;
+}
+
+/* User profile */
+[data-style="neon"] header button[class*="rounded-xl"] {
+  background: transparent !important;
+  border: 1px solid #1e1e33 !important;
+}
+
+[data-style="neon"] header button[class*="rounded-xl"]:hover {
+  border-color: #00ff8833 !important;
+}
+
+[data-style="neon"] header button[class*="rounded-xl"] span {
+  color: #e0e0f0 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  -webkit-text-fill-color: #e0e0f0 !important;
+  background: none !important;
+}
+
+/* ── ═══ TRACK CARDS ═══ ───────────────────────────────────────────── */
+/* Card base */
+[data-style="neon"] button[data-track-card],
+[data-style="neon"] div[data-track-card] {
+  background: #12121e !important;
+  border-radius: 10px !important;
+  border: 1px solid #1e1e33 !important;
+  border-bottom: 1px solid #1e1e33 !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+[data-style="neon"] button[data-track-card]::before,
+[data-style="neon"] div[data-track-card]::before {
+  display: none !important;
+}
+
+[data-style="neon"] button[data-track-card]:hover,
+[data-style="neon"] div[data-track-card]:hover {
+  background: #1a1a2e !important;
+  border-color: #00ff8833 !important;
+}
+
+/* Active track: neon green left border */
+[data-style="neon"] button[data-track-card][style*="var(--mq-accent)"],
+[data-style="neon"] div[data-track-card].active {
+  background: #12121e !important;
+  border-left: 2px solid #00ff88 !important;
+  border-image: none !important;
+  box-shadow: none !important;
+}
+
+/* Track card text */
+[data-style="neon"] button[data-track-card] p[class*="truncate"],
+[data-style="neon"] div[data-track-card] p[class*="truncate"] {
+  color: #e0e0f0 !important;
+  font-weight: 500 !important;
+  -webkit-text-fill-color: #e0e0f0 !important;
+  background: none !important;
+  filter: none !important;
+}
+
+[data-style="neon"] button[data-track-card] p[class*="text-xs"],
+[data-style="neon"] div[data-track-card] p[class*="text-xs"] {
+  color: #555577 !important;
+  -webkit-text-fill-color: #555577 !important;
+  background: none !important;
+  filter: none !important;
+}
+
+[data-style="neon"] button[data-track-card] img,
+[data-style="neon"] div[data-track-card] img {
+  border-radius: 8px !important;
+}
+
+[data-style="neon"] button[data-track-card] span[class*="text-xs"][class*="w-"],
+[data-style="neon"] div[data-track-card] span[class*="text-xs"][class*="w-"] {
+  color: #555577 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
+  -webkit-text-fill-color: #555577 !important;
+  background: none !important;
+}
+
+/* ── ═══ PLAYER BAR ═══ ────────────────────────────────────────────── */
+[data-style="neon"] div[class*="fixed"][class*="z-40"] {
+  background: #0a0a14 !important;
+  border-top: 1px solid #1e1e33 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Track title */
+[data-style="neon"] div[class*="fixed"][class*="z-40"] p[class*="font-medium"] {
+  color: #e0e0f0 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  -webkit-text-fill-color: #e0e0f0 !important;
+  background: none !important;
+  filter: none !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-40"] p[class*="text-xs"] {
+  color: #555577 !important;
+  -webkit-text-fill-color: #555577 !important;
+  background: none !important;
+}
+
+/* Progress bar: electric green gradient with neon glow */
+[data-style="neon"] div[class*="fixed"][class*="z-40"] div[style*="width:"][style*="background: var(--mq-accent)"],
+[data-style="neon"] div[class*="fixed"][class*="z-40"] div[style*="width:"][style*="background:playError"] {
+  background: linear-gradient(90deg, #00cc6a, #00ff88, #00cc6a) !important;
+  box-shadow: 0 0 8px rgba(0,255,136,0.25) !important;
+  border-radius: 4px !important;
+}
+
+/* Progress track bg */
+[data-style="neon"] div[class*="fixed"][class*="z-40"] div[class*="w-full"][class*="cursor-pointer"],
+[data-style="neon"] div[class*="fixed"][class*="z-40"] div[class*="h-1"],
+[data-style="neon"] div[class*="fixed"][class*="z-40"] div[class*="h-2"] {
+  background: #1e1e33 !important;
+}
+
+/* Progress scrubber: neon green dot */
+[data-style="neon"] div[class*="fixed"][class*="z-40"] div[style*="left:"][style*="border-radius"] {
+  background: #00ff88 !important;
+  box-shadow: 0 0 10px rgba(0,255,136,0.4) !important;
+  border-radius: 50% !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* Time labels */
+[data-style="neon"] div[class*="fixed"][class*="z-40"] div[style*="color: var(--mq-text-muted)"] {
+  color: #555577 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0.04em !important;
+  font-weight: 400 !important;
+  -webkit-text-fill-color: #555577 !important;
+  background: none !important;
+}
+
+/* Play button: dark circle with neon green glow */
+[data-style="neon"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
+  background: #12121e !important;
+  border: 1px solid #00ff88 !important;
+  box-shadow: 0 0 15px rgba(0,255,136,0.3) !important;
+  color: #00ff88 !important;
+}
+
+/* Player controls */
+[data-style="neon"] div[class*="fixed"][class*="z-40"] button[class*="min-w-"] {
+  color: #555577 !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-40"] button[style*="var(--mq-accent)"] {
+  color: #00ff88 !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-40"] img[class*="rounded"] {
+  border-radius: 10px !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-40"] input[type="range"] {
+  accent-color: #00ff88 !important;
+}
+
+/* ── ═══ MOBILE NAV ═══ ────────────────────────────────────────────── */
+[data-style="neon"] nav[class*="fixed"][class*="bottom"] {
+  background: #0a0a14 !important;
+  border-top: 1px solid #1e1e33 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+[data-style="neon"] nav[class*="fixed"][class*="bottom"] button {
+  color: #3a3a55 !important;
+  background: transparent !important;
+}
+
+[data-style="neon"] nav[class*="fixed"][class*="bottom"] button:hover {
+  color: #00ff88 !important;
+}
+
+[data-style="neon"] nav[class*="fixed"][class*="bottom"] button[style*="var(--mq-accent)"],
+[data-style="neon"] nav[class*="fixed"][class*="bottom"] button[style*="var(--mq-card)"] {
+  color: #00ff88 !important;
+  background: transparent !important;
+}
+
+[data-style="neon"] nav[class*="fixed"][class*="bottom"] button div[class*="absolute"][class*="rounded"] {
+  display: none !important;
+}
+
+[data-style="neon"] nav[class*="fixed"][class*="bottom"] div[style*="var(--mq-accent)"] {
+  background: #00ff88 !important;
+  border-radius: 50% !important;
+  width: 4px !important;
+  height: 4px !important;
+  box-shadow: 0 0 6px rgba(0,255,136,0.5) !important;
+}
+
+[data-style="neon"] nav[class*="fixed"][class*="bottom"] button span {
+  color: inherit !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  -webkit-text-fill-color: inherit !important;
+  background: none !important;
+}
+
+/* ── ═══ CARDS & SECTIONS ═══ ──────────────────────────────────────── */
+[data-style="neon"] .rounded-2xl,
+[data-style="neon"] .rounded-xl {
+  border-radius: 14px !important;
+  background: #12121e !important;
+  border: 1px solid #1e1e33 !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+[data-style="neon"] .rounded-2xl::before,
+[data-style="neon"] .rounded-xl::before {
+  display: none !important;
+}
+
+[data-style="neon"] .rounded-2xl:hover,
+[data-style="neon"] .rounded-xl:hover {
+  border-color: #00ff8833 !important;
+}
+
+[data-style="neon"] .rounded-lg {
+  border-radius: 10px !important;
+}
+
+[data-style="neon"] div[class*="rounded-2xl"][class*="overflow-hidden"][class*="relative"] {
+  background: #12121e !important;
+  border: 1px solid #1e1e33 !important;
+}
+
+/* ── ═══ BUTTONS ═══ ───────────────────────────────────────────────── */
+[data-style="neon"] button[style*="background: var(--mq-accent)"],
+[data-style="neon"] button[style*="background-color: var(--mq-accent)"] {
+  background: #00ff88 !important;
+  background-color: #00ff88 !important;
+  border-radius: 10px !important;
+  color: #0a0a14 !important;
+  box-shadow: 0 0 15px rgba(0,255,136,0.3) !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  border: none !important;
+}
+
+[data-style="neon"] button[style*="background: var(--mq-accent)"]:hover,
+[data-style="neon"] button[style*="background-color: var(--mq-accent)"]:hover {
+  background: #00dd77 !important;
+  background-color: #00dd77 !important;
+  box-shadow: 0 0 20px rgba(0,255,136,0.4) !important;
+}
+
+[data-style="neon"] button[style*="background: #d4af37"],
+[data-style="neon"] button[style*="background: #ffd700"] {
+  background: #00ff88 !important;
+  border-radius: 10px !important;
+  color: #0a0a14 !important;
+  box-shadow: 0 0 15px rgba(0,255,136,0.3) !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  border: none !important;
+}
+
+/* ── ═══ INPUTS ═══ ────────────────────────────────────────────────── */
+[data-style="neon"] input[type="text"],
+[data-style="neon"] input[type="search"],
+[data-style="neon"] input[type="password"],
+[data-style="neon"] input[type="email"],
+[data-style="neon"] textarea,
+[data-style="neon"] select {
+  border-radius: 10px !important;
+  border: 1px solid #1e1e33 !important;
+  background: #12121e !important;
+  color: #e0e0f0 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+}
+
+[data-style="neon"] input[type="text"]:focus,
+[data-style="neon"] input[type="search"]:focus,
+[data-style="neon"] input[type="password"]:focus,
+[data-style="neon"] input[type="email"]:focus,
+[data-style="neon"] textarea:focus,
+[data-style="neon"] select:focus {
+  border-color: #00ff88 !important;
+  box-shadow: 0 0 0 2px rgba(0,255,136,0.08) !important;
+  outline: none !important;
+}
+
+[data-style="neon"] input::placeholder,
+[data-style="neon"] textarea::placeholder {
+  color: #3a3a55 !important;
+}
+
+[data-style="neon"] input[type="range"] {
+  accent-color: #00ff88 !important;
+}
+
+[data-style="neon"] input[type="range"]::-webkit-slider-thumb {
+  border-radius: 50% !important;
+  background: #00ff88 !important;
+  box-shadow: 0 0 8px rgba(0,255,136,0.4) !important;
+  border: 2px solid #00cc6a !important;
+}
+
+[data-style="neon"] input[type="range"]::-moz-range-thumb {
+  border-radius: 50% !important;
+  background: #00ff88 !important;
+  box-shadow: 0 0 8px rgba(0,255,136,0.4) !important;
+  border: 2px solid #00cc6a !important;
+}
+
+[data-style="neon"] input[type="color"] {
+  border-radius: 10px !important;
+  border: 1px solid #1e1e33 !important;
+}
+
+[data-style="neon"] input[type="color"]::-webkit-color-swatch {
+  border-radius: 6px !important;
+}
+
+/* ── ═══ SCROLLBARS ═══ ────────────────────────────────────────────── */
+[data-style="neon"] ::-webkit-scrollbar {
+  width: 3px;
+}
+
+[data-style="neon"] ::-webkit-scrollbar-track {
+  background: #12121e;
+}
+
+[data-style="neon"] ::-webkit-scrollbar-thumb {
+  background: #1e1e33;
+  border-radius: 3px !important;
+}
+
+[data-style="neon"] ::-webkit-scrollbar-thumb:hover {
+  background: #00ff8844;
+}
+
+/* ── ═══ SELECTION ═══ ─────────────────────────────────────────────── */
+[data-style="neon"] ::selection {
+  background: #00ff88;
+  color: #0a0a14;
+}
+
+/* ── ═══ DIALOGS ═══ ───────────────────────────────────────────────── */
+[data-style="neon"] [role="dialog"],
+[data-style="neon"] dialog {
+  background: #12121e !important;
+  border: 1px solid #1e1e33 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ── ═══ BADGES ═══ ────────────────────────────────────────────────── */
+[data-style="neon"] span[class*="rounded-full"][style*="background: #ef4444"] {
+  background: #00ff88 !important;
+  color: #0a0a14 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ── ═══ TOASTS ═══ ────────────────────────────────────────────────── */
+[data-style="neon"] [data-sonner-toaster] [data-sonner-toast] {
+  background: #12121e !important;
+  border: 1px solid #1e1e33 !important;
+  border-radius: 10px !important;
+  color: #e0e0f0 !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+}
+
+[data-style="neon"] [data-sonner-toaster] [data-sonner-toast]:hover {
+  border-color: #00ff8833 !important;
+}
+
+/* ── ═══ SKELETON / LOADING ═══ ────────────────────────────────────── */
+[data-style="neon"] .animate-pulse {
+  animation: none !important;
+  background: #1a1a2e !important;
+}
+
+[data-style="neon"] [class*="bg-muted"],
+[data-style="neon"] .skeleton {
+  background: #1a1a2e !important;
+  border-radius: 8px !important;
+}
+
+/* ── ═══ PLAYER GLOW ═══ ───────────────────────────────────────────── */
+[data-style="neon"] .player-glow {
+  animation: none !important;
+  box-shadow: none !important;
+}
+
+/* ── ═══ DIVIDERS ═══ ──────────────────────────────────────────────── */
+[data-style="neon"] div[style*="border-bottom"],
+[data-style="neon"] hr {
+  border-bottom-color: #1e1e33 !important;
+}
+
+/* ── ═══ MISC ═══ ──────────────────────────────────────────────────── */
+[data-style="neon"] [style*="color: var(--mq-text)"] {
+  color: #e0e0f0 !important;
+}
+
+[data-style="neon"] [style*="color: var(--mq-text-muted)"] {
+  color: #555577 !important;
+}
+
+[data-style="neon"] [style*="color: var(--mq-accent)"] {
+  color: #00ff88 !important;
+}
+
+[data-style="neon"] [style*="background: var(--mq-card)"],
+[data-style="neon"] [style*="background-color: var(--mq-card)"] {
+  background: #12121e !important;
+  background-color: #12121e !important;
+}
+
+[data-style="neon"] [style*="background: var(--mq-card-hover)"] {
+  background: #1a1a2e !important;
+}
+
+[data-style="neon"] [style*="background: var(--mq-input-bg)"] {
+  background: #12121e !important;
+}
+
+[data-style="neon"] span[style*="color: #ff5500"] {
+  color: #00ff88 !important;
+}
+
+[data-style="neon"] span[style*="background-color: rgba(239,68,68"] {
+  background-color: rgba(0,255,136,0.12) !important;
+  color: #00ff88 !important;
+  border-radius: 8px !important;
+}
+
+/* Tooltip */
+[data-style="neon"] span[class*="absolute"][class*="-top-"] {
+  background: #1e1e33 !important;
+  border-radius: 6px !important;
+  color: #e0e0f0 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Tab indicators */
+[data-style="neon"] div[style*="background: var(--mq-accent)"][class*="w-1"][class*="h-1"] {
+  background: #00ff88 !important;
+  border-radius: 4px !important;
+}
+
+/* ── ═══ FULL TRACK VIEW ═══ ───────────────────────────────────────── */
+[data-style="neon"] div[class*="fixed"][class*="z-100"],
+[data-style="neon"] div[class*="fixed"][class*="z-50"][class*="flex"][class*="items-center"][class*="justify-center"] {
+  background: rgba(10, 10, 20, 0.98) !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-50"] div[style*="background: var(--mq-border)"] {
+  background: #1e1e33 !important;
+}
+
+/* Full view track title */
+[data-style="neon"] div[class*="fixed"][class*="z-100"] h2,
+[data-style="neon"] div[class*="fixed"][class*="z-50"] h2 {
+  color: #e0e0f0 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+  -webkit-text-fill-color: #e0e0f0 !important;
+  background: none !important;
+  filter: none !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-100"] p[class*="text-sm"] {
+  color: #555577 !important;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 400 !important;
+  -webkit-text-fill-color: #555577 !important;
+  background: none !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-100"] p[class*="text-xs"] {
+  color: #3a3a55 !important;
+  -webkit-text-fill-color: #3a3a55 !important;
+  background: none !important;
+}
+
+/* Full view play button */
+[data-style="neon"] div[class*="fixed"][class*="z-100"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
+  background: #12121e !important;
+  border: 1px solid #00ff88 !important;
+  box-shadow: 0 0 15px rgba(0,255,136,0.3) !important;
+  color: #00ff88 !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-100"] button[style*="color: var(--mq-text)"] {
+  color: #e0e0f0 !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-100"] button[style*="color: var(--mq-text-muted)"] {
+  color: #555577 !important;
+}
+
+/* Full view progress — neon green gradient */
+[data-style="neon"] div[class*="fixed"][class*="z-100"] div[style*="background: var(--mq-accent)"] {
+  background: linear-gradient(90deg, #00cc6a, #00ff88, #00cc6a) !important;
+  box-shadow: 0 0 8px rgba(0,255,136,0.25) !important;
+  border-radius: 4px !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-100"] div[style*="background: var(--mq-border)"] {
+  background: #1e1e33 !important;
+}
+
+/* Full view progress scrubber */
+[data-style="neon"] div[class*="fixed"][class*="z-100"] div[style*="left:"][style*="border-radius"] {
+  background: #00ff88 !important;
+  box-shadow: 0 0 10px rgba(0,255,136,0.4) !important;
+  border-radius: 50% !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-100"] input[type="range"] {
+  accent-color: #00ff88 !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-100"] span[class*="rounded-full"][style*="background: var(--mq-card)"] {
+  background: #1a1a2e !important;
+  border: 1px solid #1e1e33 !important;
+  color: #555577 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* Full view album art */
+[data-style="neon"] div[class*="fixed"][class*="z-100"] div[class*="rounded-2xl"][class*="overflow-hidden"] {
+  border-radius: 14px !important;
+  border: 1px solid #1e1e33 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 30px rgba(0,255,136,0.05) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-100"] div[class*="rounded-2xl"][class*="overflow-hidden"]::before {
+  display: none !important;
+}
+
+/* Full view header buttons */
+[data-style="neon"] div[class*="fixed"][class*="z-100"] div[class*="relative"][class*="z-10"] button[class*="rounded-full"] {
+  background: #1a1a2e !important;
+  border: 1px solid #1e1e33 !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-100"] div[class*="relative"][class*="z-10"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
+  background: #00ff88 !important;
+  border: 1px solid #00ff88 !important;
+  box-shadow: 0 0 15px rgba(0,255,136,0.3) !important;
+  color: #0a0a14 !important;
+}
+
+/* Full view volume */
+[data-style="neon"] div[class*="fixed"][class*="z-100"] div[class*="h-1.5"][class*="rounded-full"] {
+  background: #1e1e33 !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-100"] div[style*="background: var(--mq-accent)"][class*="h-1.5"] {
+  background: linear-gradient(90deg, #00cc6a, #00ff88) !important;
+  box-shadow: none !important;
+}
+
+[data-style="neon"] div[class*="fixed"][class*="z-100"] div[style*="color: var(--mq-text-muted)"] {
+  color: #555577 !important;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0.04em !important;
+  font-weight: 400 !important;
+  -webkit-text-fill-color: #555577 !important;
+  background: none !important;
+}
+
+/* ── ═══ PiP ═══ ───────────────────────────────────────────────────── */
+[data-style="neon"] div[class*="fixed"][class*="bottom-"][class*="right-"][class*="z-50"] {
+  border-radius: 14px !important;
+  border: 1px solid #1e1e33 !important;
+  background: #12121e !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ── ═══ RESPONSIVE ═══ ────────────────────────────────────────────── */
+@media (max-width: 1023px) {
+  [data-style="neon"] nav[class*="fixed"][class*="bottom"] {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}

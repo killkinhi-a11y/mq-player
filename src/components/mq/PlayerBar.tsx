@@ -420,8 +420,8 @@ export default function PlayerBar() {
       ctx.lineTo(w, h);
       ctx.closePath();
       const waveGrad = ctx.createLinearGradient(0, h * 0.5, 0, h);
-      waveGrad.addColorStop(0, "rgba(196,30,58,0.04)");
-      waveGrad.addColorStop(1, "rgba(196,30,58,0.01)");
+      waveGrad.addColorStop(0, "rgba(139,34,82,0.04)");
+      waveGrad.addColorStop(1, "rgba(139,34,82,0.01)");
       ctx.fillStyle = waveGrad;
       ctx.fill();
 
@@ -433,7 +433,7 @@ export default function PlayerBar() {
         if (x === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = "rgba(196,30,58,0.2)";
+      ctx.strokeStyle = "rgba(139,34,82,0.2)";
       ctx.lineWidth = 0.8;
       ctx.stroke();
 

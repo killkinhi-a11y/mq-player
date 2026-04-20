@@ -65,6 +65,8 @@ export default function SettingsView() {
     { id: "ipod-2001", name: "iPod 2001" },
     { id: "japan", name: "Japan" },
     { id: "swag", name: "Silver" },
+    { id: "neon", name: "Neon" },
+    { id: "minimal", name: "Minimal" },
   ];
   const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
 
@@ -739,12 +741,12 @@ export default function SettingsView() {
                   }}
                 >
                   {/* Mini preview: Japan zen style */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#f0ebe3", borderRadius: 6, border: "1px solid #d9d2c7" }}>
-                    <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, transparent, #e8b4bc, #c41e3a, #e8b4bc, transparent)", opacity: 0.5 }} />
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#f0ebe3", borderRadius: 6, border: "1px solid #ddd5c8" }}>
+                    <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, transparent, #e8b4bc, #8b2252, #e8b4bc, transparent)", opacity: 0.5 }} />
                     <div className="absolute top-1.5 left-1.5" style={{ color: "#1a1a1a", fontSize: 5, fontFamily: "serif", lineHeight: 1 }}>Song</div>
-                    <div className="absolute top-3 left-1.5" style={{ color: "#8a8278", fontSize: 3.5, fontFamily: "serif", lineHeight: 1 }}>Artist</div>
-                    <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5" style={{ backgroundColor: "#d9d2c7", borderRadius: 1 }} />
-                    <div className="absolute bottom-1 left-1.5 w-2 h-0.5" style={{ backgroundColor: "#c41e3a", borderRadius: 1 }} />
+                    <div className="absolute top-3 left-1.5" style={{ color: "#8a7e72", fontSize: 3.5, fontFamily: "serif", lineHeight: 1 }}>Artist</div>
+                    <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5" style={{ backgroundColor: "#ddd5c8", borderRadius: 1 }} />
+                    <div className="absolute bottom-1 left-1.5 w-2 h-0.5" style={{ backgroundColor: "#8b2252", borderRadius: 1 }} />
                   </div>
                   <div>
                     <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Japan</span>
@@ -786,6 +788,62 @@ export default function SettingsView() {
                     <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Хром, созвездие, геометрия</p>
                   </div>
                   {currentStyle === "swag" && (
+                    <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+                  )}
+                </motion.button>
+
+                {/* Neon */}
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => setStyle("neon")}
+                  className="w-full p-3 text-left relative flex items-center gap-3"
+                  style={{
+                    backgroundColor: currentStyle === "neon" ? "var(--mq-input-bg)" : "transparent",
+                    border: currentStyle === "neon" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
+                  }}
+                >
+                  {/* Mini preview: Cyberpunk neon glow */}
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#0a0a14", borderRadius: 6, border: "1px solid #1e1e33" }}>
+                    {/* Thin neon green line */}
+                    <div className="absolute" style={{ top: "50%", left: 1.5, right: 1.5, height: 1, marginTop: -0.5, background: "linear-gradient(90deg, transparent, #00ff88, transparent)", opacity: 0.6 }} />
+                    {/* Small green dot */}
+                    <div className="absolute" style={{ top: 3.5, left: 5, width: 3, height: 3, backgroundColor: "#00ff88", borderRadius: "50%", boxShadow: "0 0 4px rgba(0,255,136,0.6)" }} />
+                    {/* Faint pink dot */}
+                    <div className="absolute" style={{ bottom: 2.5, right: 3, width: 2, height: 2, backgroundColor: "#ff0066", borderRadius: "50%", boxShadow: "0 0 3px rgba(255,0,102,0.4)" }} />
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Neon</span>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Киберпанк, неон, пульс</p>
+                  </div>
+                  {currentStyle === "neon" && (
+                    <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+                  )}
+                </motion.button>
+
+                {/* Minimal */}
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => setStyle("minimal")}
+                  className="w-full p-3 text-left relative flex items-center gap-3"
+                  style={{
+                    backgroundColor: currentStyle === "minimal" ? "var(--mq-input-bg)" : "transparent",
+                    border: currentStyle === "minimal" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
+                  }}
+                >
+                  {/* Mini preview: Ultra-clean stark white */}
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#ffffff", borderRadius: 6, border: "1px solid #e5e5e5" }}>
+                    {/* Thin black line */}
+                    <div className="absolute" style={{ top: "50%", left: 2, right: 2, height: 1, marginTop: -0.5, backgroundColor: "#111111", opacity: 0.3 }} />
+                    {/* Small black dot */}
+                    <div className="absolute" style={{ top: "50%", left: "50%", width: 3, height: 3, marginTop: -1.5, marginLeft: -1.5, backgroundColor: "#111111", borderRadius: "50%" }} />
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Minimal</span>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Минимализм, чистота, шрифт</p>
+                  </div>
+                  {currentStyle === "minimal" && (
                     <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                   )}
                 </motion.button>

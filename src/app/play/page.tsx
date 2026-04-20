@@ -10,6 +10,8 @@ import { useListenSessionSync } from "@/hooks/useListenSessionSync";
 import "@/styles/ipod-2001.css";
 import "@/styles/japan.css";
 import "@/styles/swag.css";
+import "@/styles/neon.css";
+import "@/styles/minimal.css";
 
 declare global {
   interface Window {

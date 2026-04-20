@@ -226,12 +226,7 @@ export default function FullTrackView() {
       pulsePhase: Math.random() * Math.PI * 2,
     }));
 
-    // iPod scanline particles
-    interface ScanDot { x: number; y: number; targetAlpha: number; alpha: number; }
-    const ipodScanDots: ScanDot[] = Array.from({ length: 80 }, () => ({
-      x: Math.random() * 2000, y: Math.random() * 1200,
-      targetAlpha: 0.1 + Math.random() * 0.3, alpha: 0,
-    }));
+    // iPod scan dots removed for performance (CSS handles LCD effect)
 
     const draw = () => {
       waveAnimRef.current = requestAnimationFrame(draw);
@@ -253,15 +248,7 @@ export default function FullTrackView() {
       // iPod 2001 wave: LCD grid + signal waveform + scanlines
       // ═══════════════════════════════════════════════════════════════════
       if (style === "ipod-2001") {
-        // LCD pixel grid
-        ctx.fillStyle = "rgba(30,30,50,0.15)";
-        for (let gx = 0; gx < w; gx += 4) {
-          for (let gy = 0; gy < h; gy += 4) {
-            ctx.fillRect(gx, gy, 2, 2);
-          }
-        }
-
-        // Blue backlight pulse
+        // Blue backlight pulse (CSS handles LCD pixel grid)
         const pulseAlpha = 0.02 + 0.015 * Math.sin(0.8 * t);
         const glowGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.4);
         glowGrad.addColorStop(0, `rgba(42,127,255,${pulseAlpha})`);
@@ -272,7 +259,7 @@ export default function FullTrackView() {
         ctx.fill();
 
         // Audio waveform lines (horizontal, different frequencies)
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 4; i++) {
           const yBase = h * (0.15 + i * 0.1);
           const amplitude = h * (0.02 + i * 0.005) * (1 + 0.5 * Math.sin(t * 0.3 + i));
           ctx.beginPath();
@@ -284,7 +271,7 @@ export default function FullTrackView() {
               + Math.sin(t * 2 + xn * 10) * amplitude * 0.2;
             if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
           }
-          ctx.strokeStyle = `rgba(42,127,255,${0.06 + (1 - i / 8) * 0.06})`;
+          ctx.strokeStyle = `rgba(42,127,255,${0.06 + (1 - i / 4) * 0.08})`;
           ctx.lineWidth = 1;
           ctx.stroke();
         }
@@ -293,14 +280,6 @@ export default function FullTrackView() {
         const sweepX = (t * 0.08 % 1) * w;
         ctx.fillStyle = "rgba(42,127,255,0.03)";
         ctx.fillRect(sweepX - 2, 0, 4, h);
-
-        // Flickering scanline dots
-        for (const dot of ipodScanDots) {
-          dot.alpha += (dot.targetAlpha - dot.alpha) * 0.05;
-          if (Math.random() > 0.98) dot.targetAlpha = Math.random() > 0.5 ? 0.15 + Math.random() * 0.25 : 0;
-          ctx.fillStyle = `rgba(42,127,255,${dot.alpha})`;
-          ctx.fillRect(dot.x % w, dot.y % h, 2, 2);
-        }
 
         // Bottom progress indicator
         const timeProgress = (t * 0.1) % 1;
@@ -319,8 +298,8 @@ export default function FullTrackView() {
         // Subtle vermillion radial glow
         const jpPulse = 0.02 + 0.015 * Math.sin(0.4 * t);
         const jpGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.3);
-        jpGrad.addColorStop(0, `rgba(196,30,58,${jpPulse})`);
-        jpGrad.addColorStop(1, "rgba(196,30,58,0)");
+        jpGrad.addColorStop(0, `rgba(139,34,82,${jpPulse})`);
+        jpGrad.addColorStop(1, "rgba(139,34,82,0)");
         ctx.beginPath();
         ctx.arc(w * 0.5, h * 0.5, Math.max(w, h) * 0.3, 0, Math.PI * 2);
         ctx.fillStyle = jpGrad;
@@ -344,8 +323,8 @@ export default function FullTrackView() {
           ctx.lineTo(w, h);
           ctx.closePath();
           const waveGrad = ctx.createLinearGradient(0, yBase - h * 0.1, 0, h);
-          waveGrad.addColorStop(0, `rgba(196,30,58,${alpha})`);
-          waveGrad.addColorStop(1, `rgba(196,30,58,${alpha * 0.2})`);
+          waveGrad.addColorStop(0, `rgba(139,34,82,${alpha})`);
+          waveGrad.addColorStop(1, `rgba(139,34,82,${alpha * 0.2})`);
           ctx.fillStyle = waveGrad;
           ctx.fill();
         }
@@ -357,7 +336,7 @@ export default function FullTrackView() {
             + Math.sin(t * 0.8 + x * 0.012) * h * 0.05;
           if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
-        ctx.strokeStyle = "rgba(196,30,58,0.15)";
+        ctx.strokeStyle = "rgba(139,34,82,0.15)";
         ctx.lineWidth = 1;
         ctx.stroke();
 
@@ -372,7 +351,7 @@ export default function FullTrackView() {
           ctx.translate(kx, ky);
           ctx.rotate(kAngle);
           ctx.globalAlpha = 0.06 + k * 0.02;
-          ctx.fillStyle = k === 0 ? "rgba(196,30,58,0.4)" : "rgba(255,120,100,0.3)";
+          ctx.fillStyle = k === 0 ? "rgba(139,34,82,0.4)" : "rgba(255,120,100,0.3)";
 
           // Fish body (ellipse)
           ctx.beginPath();
@@ -435,10 +414,10 @@ export default function FullTrackView() {
       }
 
       // ═══════════════════════════════════════════════════════════════════
-      // Swag wave: geometric constellation mesh + pulsing rings
+      // Swag wave: Plasma Drift — flowing waves + chrome orbs + energy lines
       // ═══════════════════════════════════════════════════════════════════
       if (style === "swag") {
-        // Deep black bg with subtle silver pulse
+        // Deep black bg with subtle silver radial pulse
         const swPulse = 0.012 + 0.008 * Math.sin(0.35 * t);
         const swGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.4);
         swGrad.addColorStop(0, `rgba(176,176,184,${swPulse})`);
@@ -448,20 +427,64 @@ export default function FullTrackView() {
         ctx.fillStyle = swGrad;
         ctx.fill();
 
-        // Pulsing concentric rings (audio-reactive illusion)
-        const ringCount = 4;
-        for (let r = 0; r < ringCount; r++) {
-          const baseR = w * (0.1 + r * 0.12);
-          const pulse = Math.sin(t * 0.6 + r * 1.5) * w * 0.02;
-          const radius = baseR + pulse;
+        // 6 flowing horizontal sine-composite wave lines
+        const plasmaWaves = [
+          { speed: 0.3, ampBase: 0.015, yOff: 0.15, alpha: 0.02, freq1: 2.5, freq2: 5.2 },
+          { speed: 0.45, ampBase: 0.02, yOff: 0.3, alpha: 0.03, freq1: 3.0, freq2: 6.0 },
+          { speed: 0.2, ampBase: 0.012, yOff: 0.45, alpha: 0.025, freq1: 2.0, freq2: 4.5 },
+          { speed: 0.55, ampBase: 0.025, yOff: 0.58, alpha: 0.04, freq1: 3.5, freq2: 7.0 },
+          { speed: 0.35, ampBase: 0.018, yOff: 0.72, alpha: 0.03, freq1: 2.8, freq2: 5.8 },
+          { speed: 0.5, ampBase: 0.022, yOff: 0.88, alpha: 0.035, freq1: 3.2, freq2: 6.5 },
+        ];
+        for (const pw of plasmaWaves) {
+          const ampMul = isPlaying ? 2.5 : 1;
+          const amp = h * pw.ampBase * ampMul;
           ctx.beginPath();
-          ctx.arc(w * 0.5, h * 0.5, radius, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(176,176,184,${0.015 + (1 - r / ringCount) * 0.02})`;
-          ctx.lineWidth = 0.5;
+          for (let x = 0; x <= w; x += 3) {
+            const xn = x / w;
+            const y = pw.yOff * h
+              + Math.sin(t * pw.speed + xn * pw.freq1 * Math.PI) * amp
+              + Math.sin(t * pw.speed * 1.6 + xn * pw.freq2 * Math.PI) * amp * 0.4
+              + Math.cos(t * pw.speed * 0.7 + xn * 2) * amp * 0.2;
+            if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = `rgba(176,176,184,${pw.alpha})`;
+          ctx.lineWidth = 1;
           ctx.stroke();
         }
 
-        // Constellation nodes — hexagonal wireframe shapes
+        // 15 floating chrome orbs drifting slowly upward
+        const orbCount = 15;
+        for (let oi = 0; oi < orbCount; oi++) {
+          const orbX = w * ((oi * 0.618 + t * 0.008 * (0.3 + oi * 0.04)) % 1);
+          const orbY = h - ((t * (0.02 + oi * 0.005) + oi * 0.07) % 1) * h;
+          const orbR = 2 + (oi % 4);
+          const orbAlpha = 0.03 + 0.05 * Math.sin(t * 0.5 + oi * 1.7);
+          const orbGrad = ctx.createRadialGradient(orbX, orbY, 0, orbX, orbY, orbR);
+          orbGrad.addColorStop(0, `rgba(208,208,216,${orbAlpha})`);
+          orbGrad.addColorStop(1, `rgba(176,176,184,0)`);
+          ctx.beginPath();
+          ctx.arc(orbX, orbY, orbR, 0, Math.PI * 2);
+          ctx.fillStyle = orbGrad;
+          ctx.fill();
+        }
+
+        // 8 thin vertical gradient energy lines drifting horizontally
+        for (let ei = 0; ei < 8; ei++) {
+          const eX = w * ((ei * 0.125 + t * 0.006 * (0.5 + ei * 0.1)) % 1);
+          const eY = h * (0.15 + ei * 0.1);
+          const eH = 40 + (ei % 3) * 20;
+          const eAlpha = 0.015 + 0.015 * Math.sin(t * 0.4 + ei * 2);
+          const eGrad = ctx.createLinearGradient(eX, eY, eX, eY + eH);
+          eGrad.addColorStop(0, `rgba(176,176,184,0)`);
+          eGrad.addColorStop(0.3, `rgba(176,176,184,${eAlpha})`);
+          eGrad.addColorStop(0.7, `rgba(176,176,184,${eAlpha})`);
+          eGrad.addColorStop(1, `rgba(176,176,184,0)`);
+          ctx.fillStyle = eGrad;
+          ctx.fillRect(eX - 0.5, eY, 1, eH);
+        }
+
+        // Constellation nodes — simple circles (cheaper than hexagons)
         for (const node of swagConstellation) {
           node.x += node.vx;
           node.y += node.vy;
@@ -475,44 +498,26 @@ export default function FullTrackView() {
           const pulse = 0.7 + 0.3 * Math.sin(t * 1.2 + node.pulsePhase);
           const a = node.alpha * pulse;
 
-          // Draw hexagon
-          ctx.save();
-          ctx.translate(node.x, node.y);
-          ctx.rotate(node.angle);
+          // Simple circle node
           ctx.beginPath();
-          for (let v = 0; v < 6; v++) {
-            const ang = (Math.PI * 2 / 6) * v;
-            const px = Math.cos(ang) * node.size * 2;
-            const py = Math.sin(ang) * node.size * 2;
-            if (v === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-          }
-          ctx.closePath();
+          ctx.arc(node.x, node.y, node.size, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(208,208,216,${a * 0.5})`;
+          ctx.fill();
           ctx.strokeStyle = `rgba(176,176,184,${a})`;
           ctx.lineWidth = 0.5;
           ctx.stroke();
-
-          // Inner diamond
-          ctx.beginPath();
-          ctx.moveTo(0, -node.size);
-          ctx.lineTo(node.size * 0.6, 0);
-          ctx.lineTo(0, node.size);
-          ctx.lineTo(-node.size * 0.6, 0);
-          ctx.closePath();
-          ctx.fillStyle = `rgba(208,208,216,${a * 0.4})`;
-          ctx.fill();
-          ctx.restore();
         }
 
-        // Constellation lines between nearby nodes
+        // Constellation lines between nearby nodes (<100px)
         for (let i = 0; i < swagConstellation.length; i++) {
           for (let j = i + 1; j < swagConstellation.length; j++) {
             const dx = swagConstellation[i].x - swagConstellation[j].x;
             const dy = swagConstellation[i].y - swagConstellation[j].y;
             const distSq = dx * dx + dy * dy;
-            const maxDist = 120;
+            const maxDist = 100;
             if (distSq < maxDist * maxDist) {
               const dist = Math.sqrt(distSq);
-              const lineAlpha = (1 - dist / maxDist) * 0.04;
+              const lineAlpha = (1 - dist / maxDist) * 0.03;
               ctx.beginPath();
               ctx.moveTo(swagConstellation[i].x, swagConstellation[i].y);
               ctx.lineTo(swagConstellation[j].x, swagConstellation[j].y);
@@ -521,6 +526,119 @@ export default function FullTrackView() {
               ctx.stroke();
             }
           }
+        }
+
+        return;
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // Neon wave: Neon Pulse — green radial pulse + neon wave lines + dots + scan
+      // ═══════════════════════════════════════════════════════════════════
+      if (style === "neon") {
+        // Subtle green radial pulse
+        const neonPulse = 0.015 + 0.01 * Math.sin(0.4 * t);
+        const neonGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.35);
+        neonGrad.addColorStop(0, `rgba(0,255,136,${neonPulse})`);
+        neonGrad.addColorStop(1, "rgba(0,255,136,0)");
+        ctx.beginPath();
+        ctx.arc(w * 0.5, h * 0.5, Math.max(w, h) * 0.35, 0, Math.PI * 2);
+        ctx.fillStyle = neonGrad;
+        ctx.fill();
+
+        // 4 horizontal neon wave lines at low alpha
+        const neonWaves = [
+          { speed: 0.25, ampBase: 0.012, yOff: 0.2, alpha: 0.03, freq: 2.5 },
+          { speed: 0.4, ampBase: 0.018, yOff: 0.38, alpha: 0.05, freq: 3.2 },
+          { speed: 0.3, ampBase: 0.014, yOff: 0.6, alpha: 0.04, freq: 2.8 },
+          { speed: 0.5, ampBase: 0.02, yOff: 0.8, alpha: 0.06, freq: 3.8 },
+        ];
+        for (const nw of neonWaves) {
+          const ampMul = isPlaying ? 2 : 1;
+          const amp = h * nw.ampBase * ampMul;
+          ctx.beginPath();
+          for (let x = 0; x <= w; x += 3) {
+            const xn = x / w;
+            const y = nw.yOff * h
+              + Math.sin(t * nw.speed + xn * nw.freq * Math.PI) * amp
+              + Math.sin(t * nw.speed * 1.6 + xn * nw.freq * 1.5 * Math.PI) * amp * 0.3;
+            if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = `rgba(0,255,136,${nw.alpha})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        // 12 floating neon dots that drift slowly
+        for (let di = 0; di < 12; di++) {
+          const dx = w * ((di * 0.618 + t * 0.006 * (0.3 + di * 0.04)) % 1);
+          const dy = h * (0.1 + ((di * 0.381 + t * 0.004 * (0.2 + di * 0.03)) % 0.8));
+          const dSize = 2 + (di % 3);
+          const dAlpha = 0.02 + 0.03 * Math.sin(t * 0.5 + di * 1.7);
+          const color = di % 3 === 0 ? `rgba(255,0,102,${dAlpha})` : `rgba(0,255,136,${dAlpha})`;
+          const gGrad = ctx.createRadialGradient(dx, dy, 0, dx, dy, dSize * 2);
+          if (di % 3 === 0) {
+            gGrad.addColorStop(0, `rgba(255,0,102,${dAlpha})`);
+            gGrad.addColorStop(1, "rgba(255,0,102,0)");
+          } else {
+            gGrad.addColorStop(0, `rgba(0,255,136,${dAlpha})`);
+            gGrad.addColorStop(1, "rgba(0,255,136,0)");
+          }
+          ctx.fillStyle = gGrad;
+          ctx.beginPath();
+          ctx.arc(dx, dy, dSize * 2, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(dx, dy, dSize * 0.5, 0, Math.PI * 2);
+          ctx.fillStyle = color;
+          ctx.fill();
+        }
+
+        // Occasional vertical scan line that sweeps across
+        const sweepX = ((t * 0.06) % 1) * w;
+        const scanGrad = ctx.createLinearGradient(sweepX - 2, 0, sweepX + 2, 0);
+        scanGrad.addColorStop(0, "rgba(0,255,136,0)");
+        scanGrad.addColorStop(0.5, "rgba(0,255,136,0.04)");
+        scanGrad.addColorStop(1, "rgba(0,255,136,0)");
+        ctx.fillStyle = scanGrad;
+        ctx.fillRect(sweepX - 3, 0, 6, h);
+
+        return;
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // Minimal wave: Minimal Drift — light bg + 2 sine waves + 6 dots
+      // ═══════════════════════════════════════════════════════════════════
+      if (style === "minimal") {
+        // 2 horizontal sine wave lines at very low alpha
+        const minWaves = [
+          { speed: 0.2, ampBase: 0.008, yOff: 0.35, alpha: 0.04, freq: 1.8 },
+          { speed: 0.35, ampBase: 0.01, yOff: 0.65, alpha: 0.05, freq: 2.5 },
+        ];
+        for (const mw of minWaves) {
+          const amp = h * mw.ampBase;
+          ctx.beginPath();
+          for (let x = 0; x <= w; x += 4) {
+            const xn = x / w;
+            const y = mw.yOff * h
+              + Math.sin(t * mw.speed + xn * mw.freq * Math.PI) * amp;
+            if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = `rgba(17,17,17,${mw.alpha})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        // 6 small dots that drift slowly
+        for (let mi = 0; mi < 6; mi++) {
+          const mx = w * ((mi * 0.618 + t * 0.005 * (0.2 + mi * 0.03)) % 1);
+          const my = h * (0.15 + ((mi * 0.381 + t * 0.003 * (0.15 + mi * 0.02)) % 0.7));
+          const mSize = 1.5 + (mi % 2);
+          const mAlpha = 0.06 + 0.04 * Math.sin(t * 0.4 + mi * 1.5);
+          ctx.beginPath();
+          ctx.arc(mx, my, mSize, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(17,17,17,${mAlpha})`;
+          ctx.fill();
         }
 
         return;
