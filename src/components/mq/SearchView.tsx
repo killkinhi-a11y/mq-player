@@ -12,6 +12,21 @@ import { Search, X, SlidersHorizontal, Music, Play, Upload, Clock, Trash2, Check
 const SEARCH_HISTORY_KEY = "mq-search-history";
 const MAX_HISTORY = 15;
 
+// ── Global blob URL registry for local tracks ──
+// On Vercel serverless, /tmp is ephemeral — files are unavailable between invocations.
+// Instead, we store audio blob URLs client-side. The server only validates the file.
+const localBlobUrls = new Map<string, string>();
+
+/** Register a blob URL for a local track id */
+export function registerLocalBlobUrl(trackId: string, blobUrl: string) {
+  localBlobUrls.set(trackId, blobUrl);
+}
+
+/** Get the blob URL for a local track id */
+export function getLocalBlobUrl(trackId: string): string | null {
+  return localBlobUrls.get(trackId) || null;
+}
+
 function getSearchHistory(): string[] {
   try {
     const raw = localStorage.getItem(SEARCH_HISTORY_KEY);
@@ -227,6 +242,10 @@ export default function SearchView() {
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
             const track: Track = JSON.parse(xhr.responseText);
+            // Create blob URL from original File for playback (server doesn't store files)
+            const blobUrl = URL.createObjectURL(file);
+            track.audioUrl = blobUrl;
+            registerLocalBlobUrl(track.id, blobUrl);
             setSearchResults(prev => [track, ...prev]);
             setHasSearched(true);
             toggleLike(track.id, track);

@@ -460,6 +460,8 @@ export default function FullTrackView() {
               </div>
             </motion.div>
           )}
+          {/* Invisible spacer to keep layout stable when canvas hides album art */}
+          {canvasMode && <div className="mb-8" style={{ height: "clamp(14rem, 40vh, 20rem)" }} />}
 
           {/* Track info */}
           <div className="text-center mb-6 w-full">
