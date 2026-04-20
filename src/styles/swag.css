@@ -298,10 +298,7 @@
   accent-color: #d4af37 !important;
 }
 
-/* ── Canvas visualization: subtle gold ────────────────────────────────── */
-[data-style="swag"] canvas {
-  opacity: 0.3 !important;
-}
+/* ── Canvas visualization: handled by JS (gold particles) ─────────────── */
 
 /* ── ═══ MOBILE NAV ═══ ──────────────────────────────────────────────── */
 [data-style="swag"] nav[class*="fixed"][class*="bottom"] {

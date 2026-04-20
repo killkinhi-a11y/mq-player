@@ -68,7 +68,7 @@ export default function PlayerBar() {
     setFullTrackViewOpen, setPiPActive, isPiPActive,
     setPlaybackMode, requestShowSimilar, requestShowLyrics,
     toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
-    upNext,
+    upNext, currentStyle,
   } = useAppStore();
 
   const [showQueue, setShowQueue] = useState(false);
@@ -316,7 +316,7 @@ export default function PlayerBar() {
     };
   }, []);
 
-  // ── Decorative Visualization — composite sinusoidal waves, not tied to audio ──────────────
+  // ── Style-Aware Canvas Visualization ──────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -324,15 +324,253 @@ export default function PlayerBar() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Wave configs: segments, speed, amplitude, phase, yOff, alpha, lineWidth
+    // Helper: resize canvas to match display
+    const resize = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      }
+    };
+
+    // Helper: get accent color RGB
+    const getAccent = () => {
+      const c = getComputedStyle(document.documentElement).getPropertyValue("--mq-accent").trim() || "#e03131";
+      if (c.startsWith("#") && c.length >= 7) {
+        return { r: parseInt(c.slice(1, 3), 16), g: parseInt(c.slice(3, 5), 16), b: parseInt(c.slice(5, 7), 16) };
+      }
+      return { r: 224, g: 49, b: 49 };
+    };
+
+    // ═══════════════════════════════════════════════════════════════════
+    // iPod 2001 — Monochrome Equalizer Bars
+    // Like the classic iPod battery/signal meter: thin vertical bars
+    // ═══════════════════════════════════════════════════════════════════
+    const drawIpod = () => {
+      animFrameRef.current = requestAnimationFrame(drawIpod);
+      resize();
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      const t = performance.now() / 1000;
+      const barCount = Math.floor(w / 4);
+      const barW = 2;
+      const gap = (w - barCount * barW) / (barCount + 1);
+
+      for (let i = 0; i < barCount; i++) {
+        const x = gap + i * (barW + gap);
+        // Pseudo-random height based on sine waves
+        const freq1 = Math.sin(t * 2.0 + i * 0.3) * 0.3;
+        const freq2 = Math.sin(t * 3.5 + i * 0.15) * 0.2;
+        const freq3 = Math.cos(t * 1.5 + i * 0.5) * 0.15;
+        const norm = 0.5 + freq1 + freq2 + freq3;
+        const barH = Math.max(2, Math.min(h * 0.9, norm * h));
+
+        // Blue gradient from bottom: bright to dim
+        const grad = ctx.createLinearGradient(x, h, x, h - barH);
+        grad.addColorStop(0, "rgba(42,127,255,0.8)");
+        grad.addColorStop(0.5, "rgba(42,127,255,0.4)");
+        grad.addColorStop(1, "rgba(42,127,255,0.1)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, h - barH, barW, barH);
+      }
+    };
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Japan — Cherry Blossom Petals Falling
+    // Soft pink petals drifting down with gentle sway + ripple circles
+    // ═══════════════════════════════════════════════════════════════════
+    interface Petal {
+      x: number; y: number; size: number; speed: number; sway: number;
+      phase: number; rot: number; rotSpeed: number; opacity: number;
+    }
+    const petals: Petal[] = Array.from({ length: 25 }, () => ({
+      x: Math.random() * 1200,
+      y: Math.random() * 60 - 60,
+      size: 2 + Math.random() * 4,
+      speed: 0.3 + Math.random() * 0.5,
+      sway: 0.3 + Math.random() * 0.6,
+      phase: Math.random() * Math.PI * 2,
+      rot: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.03,
+      opacity: 0.2 + Math.random() * 0.5,
+    }));
+
+    const drawJapan = () => {
+      animFrameRef.current = requestAnimationFrame(drawJapan);
+      resize();
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      const t = performance.now() / 1000;
+
+      // Subtle ink wash wave at bottom
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let x = 0; x <= w; x += 3) {
+        const y = h * 0.7 + Math.sin(t * 0.8 + x * 0.008) * h * 0.12
+          + Math.sin(t * 1.3 + x * 0.015) * h * 0.06;
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(w, h);
+      ctx.closePath();
+      const waveGrad = ctx.createLinearGradient(0, h * 0.5, 0, h);
+      waveGrad.addColorStop(0, "rgba(196,30,58,0.04)");
+      waveGrad.addColorStop(1, "rgba(196,30,58,0.01)");
+      ctx.fillStyle = waveGrad;
+      ctx.fill();
+
+      // Thin red accent line
+      ctx.beginPath();
+      for (let x = 0; x <= w; x += 3) {
+        const y = h * 0.55 + Math.sin(t * 0.8 + x * 0.008) * h * 0.12
+          + Math.sin(t * 1.3 + x * 0.015) * h * 0.06;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = "rgba(196,30,58,0.2)";
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      // Falling petals
+      for (const p of petals) {
+        p.y += p.speed;
+        p.x += Math.sin(t * p.sway + p.phase) * 0.4;
+        p.rot += p.rotSpeed;
+
+        if (p.y > h + 10) {
+          p.y = -10;
+          p.x = Math.random() * w;
+        }
+        if (p.x < -20) p.x = w + 10;
+        if (p.x > w + 20) p.x = -10;
+
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.globalAlpha = p.opacity;
+
+        // Petal shape: two overlapping ellipses
+        ctx.fillStyle = "rgba(232,180,188,0.6)";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, p.size, p.size * 0.55, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "rgba(245,210,215,0.4)";
+        ctx.beginPath();
+        ctx.ellipse(p.size * 0.3, 0, p.size * 0.6, p.size * 0.35, 0.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+    };
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Swag — Gold Particle Storm + EQ Bars
+    // Bold gold particles shooting up, thick EQ bars, street energy
+    // ═══════════════════════════════════════════════════════════════════
+    interface GoldParticle {
+      x: number; y: number; vx: number; vy: number; size: number;
+      life: number; maxLife: number; bright: boolean;
+    }
+    const goldParticles: GoldParticle[] = Array.from({ length: 35 }, () => ({
+      x: Math.random() * 1200,
+      y: 60 + Math.random() * 20,
+      vx: (Math.random() - 0.5) * 1.5,
+      vy: -(0.5 + Math.random() * 1.5),
+      size: 1 + Math.random() * 2.5,
+      life: Math.random() * 100,
+      maxLife: 60 + Math.random() * 80,
+      bright: Math.random() > 0.7,
+    }));
+
+    const drawSwag = () => {
+      animFrameRef.current = requestAnimationFrame(drawSwag);
+      resize();
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      const t = performance.now() / 1000;
+
+      // Thick EQ bars from center, spreading outward
+      const barCount = 32;
+      const totalBarW = w * 0.8;
+      const barW = totalBarW / barCount * 0.7;
+      const barGap = totalBarW / barCount * 0.3;
+      const startX = (w - totalBarW) / 2;
+
+      for (let i = 0; i < barCount; i++) {
+        // Symmetric from center
+        const dist = Math.abs(i - barCount / 2) / (barCount / 2);
+        const f1 = Math.sin(t * 3.0 + i * 0.4) * 0.35;
+        const f2 = Math.sin(t * 5.0 + i * 0.2) * 0.2;
+        const f3 = Math.cos(t * 2.0 + i * 0.6) * 0.15;
+        const norm = Math.max(0.05, 0.5 + f1 + f2 + f3);
+        const barH = Math.max(1, norm * h * (1 - dist * 0.4));
+
+        const x = startX + i * (barW + barGap);
+
+        // Gold gradient: bright core, dark edges
+        const grad = ctx.createLinearGradient(x, h, x, h - barH);
+        grad.addColorStop(0, "rgba(184,151,46,0.9)");
+        grad.addColorStop(0.4, "rgba(212,175,55,0.7)");
+        grad.addColorStop(1, "rgba(212,175,55,0.2)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(x, h - barH, barW, barH);
+
+        // Glow on top of tall bars
+        if (norm > 0.6) {
+          ctx.fillStyle = "rgba(255,215,0,0.15)";
+          ctx.fillRect(x - 1, h - barH - 2, barW + 2, 4);
+        }
+      }
+
+      // Gold particles rising up
+      for (const p of goldParticles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life++;
+
+        if (p.life > p.maxLife || p.y < -10) {
+          p.x = Math.random() * w;
+          p.y = h + 5;
+          p.life = 0;
+          p.maxLife = 60 + Math.random() * 80;
+          p.vy = -(0.5 + Math.random() * 1.5);
+          p.vx = (Math.random() - 0.5) * 1.5;
+        }
+
+        const lifeRatio = 1 - p.life / p.maxLife;
+        const alpha = lifeRatio < 0.3 ? lifeRatio / 0.3 : (lifeRatio > 0.7 ? (1 - lifeRatio) / 0.3 : 1);
+
+        if (p.bright) {
+          ctx.fillStyle = `rgba(255,215,0,${alpha * 0.8})`;
+          ctx.shadowColor = "rgba(212,175,55,0.5)";
+          ctx.shadowBlur = 4;
+        } else {
+          ctx.fillStyle = `rgba(212,175,55,${alpha * 0.5})`;
+          ctx.shadowBlur = 0;
+        }
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+        ctx.shadowBlur = 0;
+      }
+    };
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Default — Composite sinusoidal waves (original)
+    // ═══════════════════════════════════════════════════════════════════
     const waves = [
       { segs: 40, speed: 0.6, amp: 0.35, phase: 0, yOff: 0.5, alpha: 0.5, lw: 1.5 },
       { segs: 55, speed: 0.9, amp: 0.25, phase: 1.2, yOff: 0.5, alpha: 0.3, lw: 1.0 },
       { segs: 30, speed: 0.4, amp: 0.45, phase: 2.5, yOff: 0.5, alpha: 0.2, lw: 1.0 },
       { segs: 70, speed: 1.2, amp: 0.15, phase: 3.8, yOff: 0.5, alpha: 0.15, lw: 0.8 },
     ];
-
-    // Sparkle particles on wave paths
     const particles = Array.from({ length: 20 }, () => ({
       waveIdx: Math.floor(Math.random() * waves.length),
       xFrac: Math.random(),
@@ -341,96 +579,68 @@ export default function PlayerBar() {
       twinkle: 0.8 + Math.random() * 2.0,
     }));
 
-    const draw = () => {
-      animFrameRef.current = requestAnimationFrame(draw);
+    const drawDefault = () => {
+      animFrameRef.current = requestAnimationFrame(drawDefault);
+      resize();
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
 
-      const dpr = window.devicePixelRatio || 1;
-      const displayWidth = canvas.clientWidth;
-      const displayHeight = canvas.clientHeight;
-      if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
-        canvas.width = displayWidth * dpr;
-        canvas.height = displayHeight * dpr;
-        ctx.scale(dpr, dpr);
-      }
-
-      ctx.clearRect(0, 0, displayWidth, displayHeight);
-
-      const accentColor = getComputedStyle(document.documentElement).getPropertyValue("--mq-accent").trim() || "#e03131";
-      let r = 224, g = 49, b = 49;
-      if (accentColor.startsWith("#") && accentColor.length >= 7) {
-        r = parseInt(accentColor.slice(1, 3), 16);
-        g = parseInt(accentColor.slice(3, 5), 16);
-        b = parseInt(accentColor.slice(5, 7), 16);
-      }
-
+      const { r, g, b } = getAccent();
       const t = performance.now() / 1000;
 
-      // Compute and render each wave
       for (const wave of waves) {
         const points: { x: number; y: number }[] = [];
         for (let i = 0; i < wave.segs; i++) {
-          const x = (i / (wave.segs - 1)) * displayWidth;
-          const xn = i / (wave.segs - 1); // normalized 0..1
+          const x = (i / (wave.segs - 1)) * w;
+          const xn = i / (wave.segs - 1);
           const yNorm = 0.6 * Math.sin(t * wave.speed + wave.phase + 0.7 * xn * Math.PI * 2)
             + 0.3 * Math.sin(t * wave.speed * 1.7 + 0.5 * wave.phase + 1.3 * xn * Math.PI * 2)
             + 0.1 * Math.cos(t * wave.speed * 0.5 + 2.1 * xn * Math.PI * 2);
-          const y = wave.yOff * displayHeight - yNorm * wave.amp * displayHeight;
+          const y = wave.yOff * h - yNorm * wave.amp * h;
           points.push({ x, y });
         }
 
-        // Glow stroke (wider, semi-transparent)
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length; i++) {
-          ctx.lineTo(points[i].x, points[i].y);
-        }
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
         ctx.strokeStyle = `rgba(${r},${g},${b},${wave.alpha * 0.3})`;
         ctx.lineWidth = wave.lw + 4;
         ctx.lineJoin = "bevel";
         ctx.lineCap = "round";
         ctx.stroke();
 
-        // Main stroke
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length; i++) {
-          ctx.lineTo(points[i].x, points[i].y);
-        }
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
         ctx.strokeStyle = `rgba(${r},${g},${b},${wave.alpha})`;
         ctx.lineWidth = wave.lw;
-        ctx.lineJoin = "bevel";
-        ctx.lineCap = "round";
         ctx.stroke();
 
-        // Gradient fill below wave
-        const gradient = ctx.createLinearGradient(0, wave.yOff * displayHeight - wave.amp * displayHeight, 0, displayHeight);
+        const gradient = ctx.createLinearGradient(0, wave.yOff * h - wave.amp * h, 0, h);
         gradient.addColorStop(0, `rgba(${r},${g},${b},${wave.alpha * 0.12})`);
         gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length; i++) {
-          ctx.lineTo(points[i].x, points[i].y);
-        }
-        ctx.lineTo(displayWidth, displayHeight);
-        ctx.lineTo(0, displayHeight);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+        ctx.lineTo(w, h);
+        ctx.lineTo(0, h);
         ctx.closePath();
         ctx.fillStyle = gradient;
         ctx.fill();
       }
 
-      // Sparkle particles placed on wave paths
       for (const p of particles) {
         const wave = waves[p.waveIdx];
         const xn = p.xFrac;
         const yNorm = 0.6 * Math.sin(t * wave.speed + wave.phase + 0.7 * xn * Math.PI * 2)
           + 0.3 * Math.sin(t * wave.speed * 1.7 + 0.5 * wave.phase + 1.3 * xn * Math.PI * 2)
           + 0.1 * Math.cos(t * wave.speed * 0.5 + 2.1 * xn * Math.PI * 2);
-        const px = xn * displayWidth;
-        const py = wave.yOff * displayHeight - yNorm * wave.amp * displayHeight;
+        const px = xn * w;
+        const py = wave.yOff * h - yNorm * wave.amp * h;
         const tw = 0.3 + 0.7 * Math.pow(Math.sin(t * p.twinkle + p.phase), 2);
         const alpha = tw * (0.3 + wave.alpha * 0.5);
         const size = p.size * (0.5 + tw * 0.5);
-
         ctx.beginPath();
         ctx.arc(px, py, size, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
@@ -438,11 +648,18 @@ export default function PlayerBar() {
       }
     };
 
-    draw();
+    // ── Choose renderer based on style ──
+    switch (currentStyle) {
+      case "ipod-2001": drawIpod(); break;
+      case "japan": drawJapan(); break;
+      case "swag": drawSwag(); break;
+      default: drawDefault(); break;
+    }
+
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [currentTrack?.id]);
+  }, [currentTrack?.id, currentStyle]);
 
   // ── Handle track change ─────────────────────────────────
   const prevTrackIdRef = useRef<string | null>(null);

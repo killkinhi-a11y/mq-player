@@ -249,10 +249,7 @@
   accent-color: #c41e3a !important;
 }
 
-/* ── Canvas visualization ─────────────────────────────────────────────── */
-[data-style="japan"] canvas {
-  opacity: 0.15 !important;
-}
+/* ── Canvas visualization: handled by JS (cherry blossoms) ───────────── */
 
 /* ── ═══ MOBILE NAV ═══ ──────────────────────────────────────────────── */
 [data-style="japan"] nav[class*="fixed"][class*="bottom"] {

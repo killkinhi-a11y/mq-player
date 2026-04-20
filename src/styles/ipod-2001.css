@@ -320,10 +320,7 @@
   accent-color: #2a7fff !important;
 }
 
-/* ── Canvas visualization: hidden on iPod style (no fancy effects) ───── */
-[data-style="ipod-2001"] canvas {
-  display: none !important;
-}
+/* ── Canvas visualization: handled by JS (mono EQ bars) ─────────────── */
 
 /* ── ═══ MOBILE NAV: iPod Click Wheel ═══ ────────────────────────────── */
 [data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] {
