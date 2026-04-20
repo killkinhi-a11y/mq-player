@@ -44,6 +44,7 @@ async function handler(request: NextRequest) {
 
     // Prefer progressive (MP3) over HLS
     let streamUrl: string | null = null;
+    let isHls = false;
     for (const t of transcodings) {
       if (t.format?.protocol === "progressive") {
         streamUrl = t.url;
@@ -51,7 +52,18 @@ async function handler(request: NextRequest) {
       }
     }
     if (!streamUrl && transcodings.length > 0) {
-      streamUrl = transcodings[0].url;
+      // Use HLS if no progressive available
+      for (const t of transcodings) {
+        if (t.format?.protocol === "hls") {
+          streamUrl = t.url;
+          isHls = true;
+          break;
+        }
+      }
+      if (!streamUrl) {
+        streamUrl = transcodings[0].url;
+        isHls = transcodings[0].format?.protocol === "hls";
+      }
     }
     if (!streamUrl) {
       return NextResponse.json({ url: null, error: "no_transcodings" });
@@ -82,12 +94,19 @@ async function handler(request: NextRequest) {
       expiry: Date.now() + 60 * 1000,
     });
 
-    // Return URL through our server proxy to bypass client-side blocks
-    const proxyUrl = `/api/music/soundcloud/proxy?url=${encodeURIComponent(directUrl)}`;
+    // For HLS streams, pass the direct URL to the client (client uses hls.js)
+    // For progressive streams, use our proxy
+    let playUrl: string;
+    if (isHls) {
+      playUrl = directUrl; // HLS playlist URL — client handles via hls.js
+    } else {
+      playUrl = `/api/music/soundcloud/proxy?url=${encodeURIComponent(directUrl)}`;
+    }
 
     return NextResponse.json({
-      url: proxyUrl,
-      directUrl: directUrl, // keep original for download feature
+      url: playUrl,
+      directUrl: directUrl,
+      isHls: isHls,
       isPreview: track.policy === "SNIP",
       duration: Math.round((track.duration || 0) / 1000),
       fullDuration: Math.round((track.full_duration || 0) / 1000),

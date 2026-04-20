@@ -10,6 +10,7 @@
 /*  Client ID pool — rotated on 401 errors                            */
 /* ------------------------------------------------------------------ */
 const CLIENT_IDS = [
+  "qYUIEFbSZdXPABQbuHA2Tv8C9ndesHim",
   "S3TPtG5i3yzBs1BPd50h1N5TW2kNTo5k",
   "gYfbOmxjDgPKEbOlXIBOAOvFpWkf8SbA",
   "nDSHHx4FpO2gOGKmGqLaWbDXEmwo4RAC",

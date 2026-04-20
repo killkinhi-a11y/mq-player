@@ -13,8 +13,9 @@ import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, rese
 import { getLocalBlobUrl } from "./SearchView";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 import QueueView from "./QueueView";
+import Hls from "hls.js";
 
-async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string; isPreview: boolean; duration: number; fullDuration: number } | null> {
+async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string; isPreview: boolean; duration: number; fullDuration: number; directUrl?: string; isHls?: boolean } | null> {
   try {
     const res = await fetch(`/api/music/soundcloud/stream?trackId=${scTrackId}`, {
       signal: AbortSignal.timeout(15000),
@@ -25,6 +26,9 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string
     return null;
   }
 }
+
+// Track whether we've already tried the direct URL fallback for a track
+const directUrlTried = new Set<number>();
 
 function ShareButton({ scTrackId }: { scTrackId: number }) {
   const [copied, setCopied] = useState(false);
@@ -168,21 +172,37 @@ export default function PlayerBar() {
       if (isSCTrack && st.currentTrack?.scTrackId && retryCountRef.current < maxRetries) {
         retryCountRef.current++;
         retryingRef.current = true;
+        const scId = st.currentTrack.scTrackId;
         console.warn(`[Player] Error on SC track${wasMidPlayback ? ' (mid-playback)' : ''}, re-resolving stream (attempt ${retryCountRef.current}/${maxRetries})`);
 
-        resolveSoundCloudStream(st.currentTrack.scTrackId).then(stream => {
+        resolveSoundCloudStream(scId).then(stream => {
           retryingRef.current = false;
           // Check if track hasn't changed during retry
           const currentSt = useAppStore.getState();
-          if (currentSt.currentTrack?.scTrackId !== st.currentTrack?.scTrackId) return;
+          if (currentSt.currentTrack?.scTrackId !== scId) return;
 
-          if (stream?.url) {
+          let finalUrl: string | null = stream?.url || null;
+
+          // On last retry: if proxy URL failed, try direct URL (bypasses server proxy)
+          if (!finalUrl && retryCountRef.current >= maxRetries && stream?.directUrl && !directUrlTried.has(scId)) {
+            directUrlTried.add(scId);
+            console.warn(`[Player] Proxy failed, trying direct URL for track ${scId}`);
+            finalUrl = stream.directUrl;
+          }
+
+          if (finalUrl) {
             const a = getActive();
             if (a) {
-              if (stream.url.startsWith('/api/')) {
+              // Clean up any previous HLS instance before switching source
+              const prevHls = (a as any)._hlsInstance;
+              if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
+
+              if (finalUrl.startsWith('/api/')) {
                 a.crossOrigin = 'anonymous';
+              } else {
+                a.crossOrigin = '';
               }
-              a.src = stream.url;
+              a.src = finalUrl;
               a.load();
               a.play().then(() => {
                 // Restore position if this was a mid-playback recovery
@@ -190,8 +210,6 @@ export default function PlayerBar() {
                   a.currentTime = savedPosition;
                 }
               }).catch(() => {});
-              // Don't reset retryCountRef here — wait for actual playback (onCanPlay)
-              // This prevents infinite retry loops for permanently broken tracks
             }
           } else {
             setPlayError(true);
@@ -284,6 +302,13 @@ export default function PlayerBar() {
     return () => {
       removeListeners(audio);
       if (secondary) removeListeners(secondary);
+      // Clean up HLS instances
+      const destroyHls = (el: HTMLAudioElement) => {
+        const hls = (el as any)._hlsInstance;
+        if (hls) { try { hls.destroy(); } catch {} delete (el as any)._hlsInstance; }
+      };
+      destroyHls(audio);
+      if (secondary) destroyHls(secondary);
       audio.pause();
       audio.src = "";
       if (secondary) { secondary.pause(); secondary.src = ""; }
@@ -432,6 +457,7 @@ export default function PlayerBar() {
       prevTrackIdRef.current = currentTrack.id;
       setProgress(0);
       retryCountRef.current = 0;
+      directUrlTried.clear();
     }
 
     // Cancellation flag — prevents race conditions from rapid track switching
@@ -455,6 +481,10 @@ export default function PlayerBar() {
         if (!audioEl) return;
         audioEl.pause();
 
+        // Clean up any previous HLS instance on this audio element
+        const prevHls = (audioEl as any)._hlsInstance;
+        if (prevHls) { try { prevHls.destroy(); } catch {} delete (audioEl as any)._hlsInstance; }
+
         if (cancelled) return;
 
         if (currentTrack.source === "soundcloud" && currentTrack.scTrackId) {
@@ -466,59 +496,97 @@ export default function PlayerBar() {
           if (cancelled) return;
 
           if (stream && stream.url) {
-            // If using our proxy (same-origin), set crossOrigin for real frequency data
-            if (stream.url.startsWith('/api/')) {
+            const isHlsStream = stream.isHls && Hls.isSupported();
+
+            if (isHlsStream) {
+              // Use HLS.js for HLS streams (some tracks only have HLS, no progressive MP3)
               audioEl.crossOrigin = "anonymous";
-            } else {
-              audioEl.crossOrigin = "";
-            }
-            audioEl.src = stream.url;
-
-            // Wait for audio to be ready before playing/crossfading
-            let loadFailed = false;
-            await new Promise<void>((resolve) => {
-              const onCanPlay = () => {
-                audioEl.removeEventListener("canplay", onCanPlay);
-                audioEl.removeEventListener("error", onError);
-                resolve();
-              };
-              const onError = () => {
-                audioEl.removeEventListener("canplay", onCanPlay);
-                audioEl.removeEventListener("error", onError);
-                loadFailed = true;
-                resolve();
-                // Global onError handler will manage retries via retryingRef
-              };
-              audioEl.addEventListener("canplay", onCanPlay);
-              audioEl.addEventListener("error", onError);
-              audioEl.load();
-              // Timeout fallback
-              setTimeout(resolve, 5000);
-            });
-
-            if (cancelled) return;
-
-            // Skip play/crossfade if load failed — global onError manages retries
-            // Don't set isLoadingTrack=false here if global retry is in progress
-            if (loadFailed) {
-              // Only set loading=false if global handler hasn't started a retry
-              if (!retryingRef.current) {
-                setIsLoadingTrack(false);
+              const hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: false,
+                maxBufferLength: 30,
+                maxMaxBufferLength: 60,
+              });
+              hls.loadSource(stream.url);
+              hls.attachMedia(audioEl);
+              hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                if (!cancelled) {
+                  if (canCrossfade) {
+                    crossfadeRef.current = true;
+                    audioEl.play().catch(() => {});
+                    crossfadeTo(audioEl);
+                  } else {
+                    cancelCrossfade();
+                    audioEl.play().catch(() => {});
+                  }
+                  prevTrackIdForCrossfade.current = currentTrack.id;
+                }
+              });
+              hls.on(Hls.Events.ERROR, (_event, data) => {
+                if (data.fatal) {
+                  console.error(`[Player] HLS fatal error:`, data.type, data.details);
+                  hls.destroy();
+                  // Let the global onError handler retry
+                }
+              });
+              // Store hls instance for cleanup
+              (audioEl as any)._hlsInstance = hls;
+              // Don't wait for canplay — HLS.js handles its own loading
+              if (canCrossfade) {
+                // Wait for MANIFEST_PARSED event above
+              } else {
+                // Wait for MANIFEST_PARSED event above
               }
-              return;
-            }
-
-            if (canCrossfade) {
-              // Crossfade: start new audio and fade between elements
-              crossfadeRef.current = true;
-              audioEl.play().catch(() => {});
-              crossfadeTo(audioEl);
-              prevTrackIdForCrossfade.current = currentTrack.id;
             } else {
-              // No crossfade: direct play on active element
-              cancelCrossfade();
-              audioEl.play().catch(() => {});
-              prevTrackIdForCrossfade.current = currentTrack.id;
+              // Standard progressive stream or native HLS (Safari)
+              // If using our proxy (same-origin), set crossOrigin for real frequency data
+              if (stream.url.startsWith('/api/')) {
+                audioEl.crossOrigin = "anonymous";
+              } else {
+                audioEl.crossOrigin = "";
+              }
+              audioEl.src = stream.url;
+
+              // Wait for audio to be ready before playing/crossfading
+              let loadFailed = false;
+              await new Promise<void>((resolve) => {
+                const onCanPlay = () => {
+                  audioEl.removeEventListener("canplay", onCanPlay);
+                  audioEl.removeEventListener("error", onError);
+                  resolve();
+                };
+                const onError = () => {
+                  audioEl.removeEventListener("canplay", onCanPlay);
+                  audioEl.removeEventListener("error", onError);
+                  loadFailed = true;
+                  resolve();
+                };
+                audioEl.addEventListener("canplay", onCanPlay);
+                audioEl.addEventListener("error", onError);
+                audioEl.load();
+                // Timeout fallback
+                setTimeout(resolve, 5000);
+              });
+
+              if (cancelled) return;
+
+              if (loadFailed) {
+                if (!retryingRef.current) {
+                  setIsLoadingTrack(false);
+                }
+                return;
+              }
+
+              if (canCrossfade) {
+                crossfadeRef.current = true;
+                audioEl.play().catch(() => {});
+                crossfadeTo(audioEl);
+                prevTrackIdForCrossfade.current = currentTrack.id;
+              } else {
+                cancelCrossfade();
+                audioEl.play().catch(() => {});
+                prevTrackIdForCrossfade.current = currentTrack.id;
+              }
             }
           } else if (currentTrack.audioUrl) {
             resetCorsState();
