@@ -7,6 +7,63 @@ import { getZaiBaseUrl } from "@/lib/ai-proxy";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+// Map genres to visual themes (no text, no artist names)
+const GENRE_VISUAL: Record<string, string> = {
+  "hip-hop": "dark urban graffiti aesthetics, street culture, bold geometric shapes, neon accents on black",
+  "hip hop": "dark urban graffiti aesthetics, street culture, bold geometric shapes, neon accents on black",
+  "rap": "dark urban graffiti aesthetics, street culture, bold geometric shapes, neon accents on black",
+  "pop": "vibrant pastel gradients, soft pink purple blue, bubbly abstract shapes, dreamy light",
+  "rock": "rough textured surfaces, fire red and black, cracked marble, electric energy, sharp angles",
+  "electronic": "digital circuit patterns, glowing neon lines on dark background, futuristic grid, synthwave",
+  "edm": "digital circuit patterns, glowing neon lines on dark background, futuristic grid, synthwave",
+  "techno": "minimal dark geometric patterns, deep blue and black, repetitive angular shapes, industrial",
+  "house": "warm sunset gradients, orange and purple, smooth flowing curves, disco ball reflections",
+  "jazz": "warm amber and brown tones, saxophone curves abstracted, smoke wisps, vintage vinyl texture",
+  "classical": "elegant gold swirls on cream background, ornate baroque patterns, soft marble texture",
+  "r&b": "smooth velvety textures, deep purple and rose gold, sensual flowing curves, warm glow",
+  "rnb": "smooth velvety textures, deep purple and rose gold, sensual flowing curves, warm glow",
+  "indie": "vintage film grain aesthetic, muted earth tones, retro sunsets, polaroid color palette",
+  "metal": "dark metallic textures, silver and crimson, jagged shards, thunder and lightning motifs",
+  "punk": "ripped paper collage aesthetic, black and red, chaotic splashes, distressed textures",
+  "lo-fi": "cozy rainy window aesthetic, soft blue and grey, watercolor blur, warm lamplight glow",
+  "lofi": "cozy rainy window aesthetic, soft blue and grey, watercolor blur, warm lamplight glow",
+  "chill": "calm ocean waves, soft teal and lavender, gentle gradients, floating bokeh lights",
+  "ambient": "ethereal cosmic nebula, deep space colors, aurora borealis, floating particles",
+  "soul": "golden hour warmth, rich amber and brown, flowing silk textures, vintage soul vibe",
+  "reggae": "tropical green yellow red gradients, palm leaf patterns, warm sunshine, island vibes",
+  "folk": "earthy green and brown watercolor, forest landscape abstracted, natural organic shapes",
+  "country": "golden wheat fields at sunset, warm brown and orange, rustic wood texture, wide open sky",
+  "blues": "deep midnight blue and gold, rain on window abstracted, melancholic flowing lines",
+  "funk": "retro disco ball, rainbow prismatic reflections, 70s groove aesthetic, bold color blocks",
+  "drill": "dark moody atmosphere, deep purple and black, sharp crystalline shapes, underground",
+  "trap": "dark purple and teal neon, metallic textures, sharp geometric patterns, bass-heavy energy",
+  "phonk": "vintage VHS aesthetic, purple and red, retro car silhouettes abstracted, grainy texture",
+  "alternative": "surreal dreamlike landscape, unexpected color combinations, flowing organic forms",
+  "anime": "cherry blossom pink and sky blue, soft anime sky gradients, sparkles, ethereal light",
+};
+
+function getVisualTheme(genres: string[], artists: string[]): string {
+  const parts: string[] = [];
+  const matched = new Set<string>();
+
+  for (const genre of genres) {
+    const g = genre.toLowerCase().trim();
+    for (const [key, visual] of Object.entries(GENRE_VISUAL)) {
+      if (g.includes(key) && !matched.has(key)) {
+        parts.push(visual);
+        matched.add(key);
+      }
+    }
+  }
+
+  // Default if no genres matched
+  if (parts.length === 0) {
+    parts.push("abstract geometric art, vibrant color gradients, modern album art style");
+  }
+
+  return parts.slice(0, 3).join(", ");
+}
+
 async function postHandler(req: NextRequest) {
   try {
     const session = await getSession();
@@ -45,18 +102,21 @@ async function postHandler(req: NextRequest) {
       if (t.genre) genreSet.add(t.genre);
       if (t.artist) artistSet.add(t.artist);
     }
-    const genres = [...genreSet].slice(0, 5).join(", ");
-    const artists = [...artistSet].slice(0, 3).join(", ");
+    const genres = [...genreSet].slice(0, 5);
+    const artists = [...artistSet].slice(0, 3);
 
-    let prompt = `Abstract album cover art for music playlist "${playlistNameStr}"`;
-    if (genres) prompt += `, genres: ${genres}`;
-    if (artists) prompt += `, artists like ${artists}`;
-    if (existingTags) prompt += `, vibe: ${existingTags}`;
-    prompt += ". Pure abstract art, NO text, NO letters, NO words, NO numbers, NO typography, NO symbols, ONLY shapes colors gradients and textures";
+    const visualTheme = getVisualTheme(genres, artists);
 
-    if (prompt.length > 250) prompt = prompt.slice(0, 247) + "...";
+    // Build prompt with ONLY visual descriptions — no text, no words, no names
+    let prompt = visualTheme;
+    prompt += ". Abstract album cover artwork";
+    prompt += ". Absolutely no text, no letters, no numbers, no words, no typography, no writing, no symbols, no logos";
+    prompt += ". Pure visual art with shapes, colors, gradients, textures, light and shadow only";
+    prompt += ". High quality, professional album art, square format";
 
-    const ZAI_BASE = await getZaiBaseUrl();
+    const ZAI_BASE = getZaiBaseUrl();
+
+    console.log("[generate-cover] prompt:", prompt);
 
     const imgResponse = await fetch(`${ZAI_BASE}/images/generations`, {
       method: "POST",
@@ -76,7 +136,6 @@ async function postHandler(req: NextRequest) {
       return NextResponse.json({ error: "Не удалось сгенерировать изображение" }, { status: 500 });
     }
 
-    // Download image and convert to base64
     const imgBlob = await fetch(imageUrl);
     if (!imgBlob.ok) {
       return NextResponse.json({ error: "Не удалось загрузить изображение" }, { status: 500 });
