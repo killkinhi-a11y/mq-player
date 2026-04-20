@@ -20,6 +20,8 @@ model User {
   avatar         String    @default("")
   theme          String    @default("default")
   accent         String    @default("#e03131")
+  favoriteArtists String   @default("[]")  // JSON array of {id, username, avatar, genre}
+  onboardingComplete Boolean @default(false)
   lastSeen       DateTime?
   createdAt      DateTime  @default(now())
   sentMessages   Message[] @relation("SentMessages")

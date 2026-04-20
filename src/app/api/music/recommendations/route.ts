@@ -25,7 +25,7 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
  */
 
 const cache = new Map<string, { data: unknown; expiry: number }>();
-const CACHE_TTL = 0;
+const CACHE_TTL = 8 * 60 * 1000;
 
 function getFromCache(key: string): unknown | null {
   const entry = cache.get(key);

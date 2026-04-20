@@ -27,7 +27,16 @@ if (typeof window !== "undefined") {
   }
 }
 
-export type ViewType = "auth" | "main" | "search" | "messenger" | "settings" | "profile" | "playlists" | "public-playlists" | "history" | "stories";
+export type ViewType = "auth" | "main" | "search" | "messenger" | "settings" | "profile" | "playlists" | "public-playlists" | "history" | "stories" | "onboarding";
+
+export interface FavoriteArtist {
+  id: number;
+  username: string;
+  avatar: string;
+  genre: string;
+  followers: number;
+  trackCount: number;
+}
 export type AuthStep = "login" | "register" | "confirm" | "confirmed" | "forgot-password";
 
 export interface UserPlaylist {
@@ -243,8 +252,20 @@ interface AppState {
   addDislikedTags: (tags: string[]) => void;
   removeDislikedTag: (tag: string) => void;
 
+  // Favorite artists
+  setFavoriteArtists: (artists: FavoriteArtist[]) => void;
+  addFavoriteArtist: (artist: FavoriteArtist) => void;
+  removeFavoriteArtist: (artistId: number) => void;
+  setOnboardingComplete: (complete: boolean) => void;
+  saveFavoriteArtistsToServer: () => Promise<void>;
+  loadFavoriteArtistsFromServer: () => Promise<void>;
+
   // Disliked playlist tags (for recommendations filtering)
   dislikedTags: string[];
+
+  // Favorite artists (onboarding + taste profile)
+  favoriteArtists: FavoriteArtist[];
+  onboardingComplete: boolean;
 
   // Group chat
   selectedGroupId: string | null;
@@ -365,6 +386,8 @@ const initialState = {
   publicPlaylistsSort: "popular",
   recommendedPlaylistsLoading: false,
   dislikedTags: [] as string[],
+  favoriteArtists: [] as FavoriteArtist[],
+  onboardingComplete: false as boolean,
   selectedGroupId: null as string | null,
 
   // Collaborative listening
@@ -394,6 +417,13 @@ export const useAppStore = create<AppState>()(
         // Sync data from server after a short delay (let localStorage hydrate first)
         setTimeout(() => {
           get().syncFromServer();
+          // Load favorite artists and check onboarding
+          get().loadFavoriteArtistsFromServer().then(() => {
+            const state = useAppStore.getState();
+            if (!state.onboardingComplete) {
+              set({ currentView: "onboarding" });
+            }
+          });
         }, 1500);
       },
 
@@ -876,6 +906,47 @@ export const useAppStore = create<AppState>()(
         }));
       },
 
+      // ── Favorite artists ──
+      setFavoriteArtists: (artists) => set({ favoriteArtists: artists }),
+      addFavoriteArtist: (artist) => {
+        set((s) => {
+          if (s.favoriteArtists.some(a => a.id === artist.id)) return s;
+          return { favoriteArtists: [...s.favoriteArtists, artist] };
+        });
+      },
+      removeFavoriteArtist: (artistId) => {
+        set((s) => ({
+          favoriteArtists: s.favoriteArtists.filter(a => a.id !== artistId),
+        }));
+      },
+      setOnboardingComplete: (complete) => set({ onboardingComplete: complete }),
+      saveFavoriteArtistsToServer: async () => {
+        const { userId, favoriteArtists } = get();
+        if (!userId) return;
+        try {
+          await fetch('/api/user/favorite-artists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ artists: favoriteArtists }),
+          });
+        } catch {}
+      },
+      loadFavoriteArtistsFromServer: async () => {
+        const { userId } = get();
+        if (!userId) return;
+        try {
+          const res = await fetch('/api/user/favorite-artists');
+          if (!res.ok) return;
+          const data = await res.json();
+          if (Array.isArray(data.artists)) {
+            set({ favoriteArtists: data.artists });
+          }
+          if (typeof data.onboardingComplete === 'boolean') {
+            set({ onboardingComplete: data.onboardingComplete });
+          }
+        } catch {}
+      },
+
       // ── Liquid Glass Mobile ──
       setLiquidGlassMobile: (enabled) => set({ liquidGlassMobile: enabled }),
 
@@ -1091,6 +1162,8 @@ export const useAppStore = create<AppState>()(
         dislikedTracksData: state.dislikedTracksData,
         likedTracksData: state.likedTracksData,
         dislikedTags: state.dislikedTags,
+        favoriteArtists: state.favoriteArtists,
+        onboardingComplete: state.onboardingComplete,
         playlists: state.playlists,
         history: state.history,
         liquidGlassMobile: state.liquidGlassMobile,
@@ -1140,6 +1213,8 @@ export const useAppStore = create<AppState>()(
           if (!Array.isArray(s.publicPlaylists)) fixes.publicPlaylists = [];
           if (!Array.isArray(s.recommendedPlaylists)) fixes.recommendedPlaylists = [];
           if (!Array.isArray(s.dislikedTags)) fixes.dislikedTags = [];
+          if (!Array.isArray(s.favoriteArtists)) fixes.favoriteArtists = [];
+          if (typeof s.onboardingComplete !== "boolean") fixes.onboardingComplete = false;
           if (typeof s.publicPlaylistsLoading !== "boolean") fixes.publicPlaylistsLoading = false;
           if (typeof s.recommendedPlaylistsLoading !== "boolean") fixes.recommendedPlaylistsLoading = false;
           if (typeof s.publicPlaylistsPage !== "number") fixes.publicPlaylistsPage = 1;

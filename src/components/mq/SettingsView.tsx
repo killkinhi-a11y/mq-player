@@ -19,6 +19,8 @@ export default function SettingsView() {
     fontSize, setFontSize, volume, setVolume, logout, username, animationsEnabled: anim, setView,
     liquidGlassMobile, setLiquidGlassMobile, email, avatar,
     lastSyncAt, isSyncing, syncToServer, syncFromServer,
+    favoriteArtists, removeFavoriteArtist, saveFavoriteArtistsToServer,
+    dislikedTags, removeDislikedTag,
   } = useAppStore();
 
   const ADMIN_EMAILS = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_ADMIN_EMAILS) 
@@ -56,6 +58,7 @@ export default function SettingsView() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [showTasteSection, setShowTasteSection] = useState(false);
   const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
 
   // Mouse wheel volume control on the volume section — native listener to allow preventDefault
@@ -324,6 +327,123 @@ export default function SettingsView() {
           Панель администратора
         </motion.a>
       )}
+
+      {/* Taste Profile — Favorite Artists */}
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setShowTasteSection(!showTasteSection)}
+        className="w-full p-3 rounded-xl text-left text-sm font-medium flex items-center gap-3"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+      >
+        <Headphones className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+        Музыкальные вкусы
+        <span className="text-xs ml-auto" style={{ color: "var(--mq-text-muted)" }}>
+          {favoriteArtists.length} артистов
+        </span>
+        {showTasteSection ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </motion.button>
+
+      <AnimatePresence>
+        {showTasteSection && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div
+              className="rounded-2xl p-4 space-y-4"
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
+                  Любимые артисты
+                </p>
+                <button
+                  onClick={() => setView("onboarding")}
+                  className="text-xs px-3 py-1 rounded-lg transition-all"
+                  style={{
+                    backgroundColor: "var(--mq-accent)",
+                    color: "#fff",
+                  }}
+                >
+                  Настроить
+                </button>
+              </div>
+
+              {favoriteArtists.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {favoriteArtists.map(a => (
+                    <div
+                      key={a.id}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+                      style={{
+                        backgroundColor: "var(--mq-surface, #1a1a1a)",
+                        border: "1px solid var(--mq-border, #2a2a2a)",
+                      }}
+                    >
+                      {a.avatar ? (
+                        <img
+                          src={a.avatar}
+                          alt={a.username}
+                          className="w-5 h-5 rounded-full object-cover"
+                        />
+                      ) : null}
+                      <span className="text-xs" style={{ color: "var(--mq-text, #ddd)" }}>
+                        {a.username}
+                      </span>
+                      <button
+                        onClick={() => {
+                          removeFavoriteArtist(a.id);
+                          saveFavoriteArtistsToServer();
+                        }}
+                        className="text-xs opacity-60 hover:opacity-100 ml-1"
+                        style={{ color: "var(--mq-text, #fff)" }}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                  Вы ещё не выбрали любимых артистов. Настройте, чтобы получать лучшие рекомендации.
+                </p>
+              )}
+
+              {dislikedTags.length > 0 && (
+                <>
+                  <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
+                    Исключённые жанры
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {dislikedTags.map(tag => (
+                      <div
+                        key={tag}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-full"
+                        style={{
+                          backgroundColor: "rgba(255, 75, 75, 0.1)",
+                          border: "1px solid rgba(255, 75, 75, 0.3)",
+                        }}
+                      >
+                        <span className="text-xs" style={{ color: "#ff6b6b" }}>{tag}</span>
+                        <button
+                          onClick={() => removeDislikedTag(tag)}
+                          className="text-xs opacity-60 hover:opacity-100"
+                          style={{ color: "#ff6b6b" }}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Themes — collapsed by default */}
       <motion.div

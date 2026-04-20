@@ -106,6 +106,78 @@ export interface SCTrack {
 /*  Search                                                              */
 /* ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ */
+/*  Artist interface & search                                          */
+/* ------------------------------------------------------------------ */
+
+export interface SCArtist {
+  id: number;
+  username: string;
+  avatar: string;
+  followers: number;
+  genre: string;
+  trackCount: number;
+}
+
+export async function searchSCArtists(
+  query: string,
+  limit = 20
+): Promise<SCArtist[]> {
+  try {
+    const clientId = await getSoundCloudClientId();
+    if (!clientId) return [];
+
+    const url = `https://api-v2.soundcloud.com/search/users?q=${encodeURIComponent(
+      query
+    )}&client_id=${clientId}&limit=${limit}&facet=genre`;
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(12000),
+    });
+
+    if (res.status === 401) {
+      invalidateClientId();
+      return [];
+    }
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const users = data.collection || [];
+    if (users.length === 0) return [];
+
+    return users
+      .filter((u: Record<string, unknown>) => {
+        const kind = (u.kind as string) || "";
+        if (kind !== "user") return false;
+        // Skip users with very few followers or tracks (likely spam)
+        const followers = (u.followers_count as number) || 0;
+        const trackCount = (u.track_count as number) || 0;
+        if (followers < 500 || trackCount < 3) return false;
+        return true;
+      })
+      .map((u: Record<string, unknown>) => {
+        const rawAvatar = (u.avatar_url as string) || "";
+        const avatar = rawAvatar
+          ? `/api/music/soundcloud/image-proxy?url=${encodeURIComponent(rawAvatar.replace("-large.", "-t500x500."))}`
+          : "";
+        return {
+          id: u.id as number,
+          username: (u.username as string) || "Unknown",
+          avatar,
+          followers: (u.followers_count as number) || 0,
+          genre: (u.genre as string) || "",
+          trackCount: (u.track_count as number) || 0,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Track search (existing)                                            */
+/* ------------------------------------------------------------------ */
+
 export async function searchSCTracks(
   query: string,
   limit = 20

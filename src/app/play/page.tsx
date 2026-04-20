@@ -25,6 +25,7 @@ const PlaylistView = lazy(() => import("@/components/mq/PlaylistView"));
 const PublicPlaylistsView = lazy(() => import("@/components/mq/PublicPlaylistsView"));
 const HistoryView = lazy(() => import("@/components/mq/HistoryView"));
 const StoriesView = lazy(() => import("@/components/mq/StoriesView"));
+const OnboardingView = lazy(() => import("@/components/mq/OnboardingView"));
 const PlayerBar = lazy(() => import("@/components/mq/PlayerBar"));
 const FullTrackView = lazy(() => import("@/components/mq/FullTrackView"));
 const PiPPlayer = lazy(() => import("@/components/mq/PiPPlayer"));
@@ -214,11 +215,12 @@ function AppShell() {
       case "public-playlists": return <PublicPlaylistsView />;
       case "history": return <HistoryView />;
       case "stories": return <StoriesView />;
+      case "onboarding": return <OnboardingView />;
       default: return <MainView />;
     }
   };
 
-  const showNav = currentView !== "auth";
+  const showNav = currentView !== "auth" && currentView !== "onboarding";
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--mq-bg)" }}>

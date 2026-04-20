@@ -188,11 +188,16 @@ export default function MainView() {
     try {
       const { topGenres, topArtists, excludeIds, dislikedArtists, dislikedGenres } = tasteProfile;
       const disliked = useAppStore.getState().dislikedTrackIds || [];
+      const favoriteArtists = useAppStore.getState().favoriteArtists || [];
       const params = new URLSearchParams();
 
-      if (topGenres.length > 0 || topArtists.length > 0) {
+      // Use favoriteArtists as primary signal if available
+      const favArtistNames = favoriteArtists.map(a => a.username);
+      const allArtists = [...new Set([...favArtistNames, ...topArtists])];
+
+      if (allArtists.length > 0 || topGenres.length > 0) {
         if (topGenres.length > 0) params.set("genres", topGenres.join(","));
-        if (topArtists.length > 0) params.set("artists", topArtists.join(","));
+        if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
         if (excludeIds) params.set("excludeIds", excludeIds);
       } else {
         params.set("genre", "random");
