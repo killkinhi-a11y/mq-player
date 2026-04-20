@@ -1,389 +1,709 @@
-/* ═══════════════════════════════════════════════════════════
-   iPod 2001 Style — Original Apple iPod Visual Paradigm
-   ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════════════
+   iPod 2001 Style — Authentic Apple iPod (1st Generation) Aesthetic
+   Dark monochrome LCD screen, white text, blue selection bars,
+   Chicago-like typography, zero animations, zero effects.
+   ═══════════════════════════════════════════════════════════════════════ */
 
-/* ── CSS Variable Overrides ── */
+/* ── CSS Variable Overrides: Dark LCD Screen ──────────────────────────── */
 [data-style="ipod-2001"] {
-  --mq-bg: #f5f5f5;
-  --mq-card: #ffffff;
-  --mq-card-hover: #e8e8e8;
-  --mq-accent: #0066cc;
-  --mq-text: #000000;
-  --mq-text-muted: #888888;
-  --mq-border: #cccccc;
-  --mq-input-bg: #ffffff;
-  --mq-player-bg: #ffffff;
-  --mq-nav-bg: #f5f5f5ee;
+  --mq-bg: #000000;
+  --mq-card: #000000;
+  --mq-card-hover: #0a0a0a;
+  --mq-accent: #2a7fff;
+  --mq-text: #ffffff;
+  --mq-text-muted: #666666;
+  --mq-border: #333333;
+  --mq-input-bg: #111111;
+  --mq-player-bg: #000000;
+  --mq-nav-bg: #000000;
   --mq-gradient: none;
   --mq-glow: transparent;
 }
 
-/* ── Sharp Corners Everywhere ── */
-[data-style="ipod-2001"] .rounded-2xl,
-[data-style="ipod-2001"] .rounded-xl,
-[data-style="ipod-2001"] .rounded-lg,
-[data-style="ipod-2001"] .rounded-md,
-[data-style="ipod-2001"] .rounded-sm,
-[data-style="ipod-2001"] .rounded-full {
-  border-radius: 0 !important;
-}
-
-[data-style="ipod-2001"] .rounded-3xl {
-  border-radius: 0 !important;
-}
-
-/* ── Body / Root Background ── */
+/* ── Body / Root: Pure black LCD ──────────────────────────────────────── */
 [data-style="ipod-2001"],
 [data-style="ipod-2001"] body,
 [data-style="ipod-2001"] main {
-  background: #f5f5f5 !important;
+  background: #000000 !important;
 }
 
-/* ── Nav Bar: Chrome Silver Gradient (Desktop) ── */
-[data-style="ipod-2001"] header {
-  background: linear-gradient(to bottom, #e8e8e8, #d0d0d0) !important;
-  border-bottom: 1px solid #aaaaaa !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-[data-style="ipod-2001"] header nav,
-[data-style="ipod-2001"] header .rounded-2xl {
-  background: transparent !important;
-  border: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* Nav buttons: iPod menu style */
-[data-style="ipod-2001"] header nav button {
-  border-radius: 0 !important;
+/* ── Typography: Chicago-like bitmap feel ─────────────────────────────── */
+/* Chicago was a 12px bold bitmap font on the original iPod.
+   We approximate with system fonts + crisp rendering. */
+[data-style="ipod-2001"],
+[data-style="ipod-2001"] body,
+[data-style="ipod-2001"] button,
+[data-style="ipod-2001"] input,
+[data-style="ipod-2001"] select,
+[data-style="ipod-2001"] textarea,
+[data-style="ipod-2001"] span,
+[data-style="ipod-2001"] p,
+[data-style="ipod-2001"] h1,
+[data-style="ipod-2001"] h2,
+[data-style="ipod-2001"] h3,
+[data-style="ipod-2001"] div,
+[data-style="ipod-2001"] a,
+[data-style="ipod-2001"] label {
+  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', 'Lucida Grande', system-ui, sans-serif !important;
+  -webkit-font-smoothing: none !important;
+  -moz-osx-font-smoothing: unset !important;
+  text-rendering: optimizeSpeed !important;
+  letter-spacing: 0.01em !important;
   font-weight: 400 !important;
-  font-family: system-ui, -apple-system, sans-serif;
 }
 
-[data-style="ipod-2001"] header nav button[class*="rounded"] {
-  border-radius: 0 !important;
-}
-
-/* Active nav item */
-[data-style="ipod-2001"] header nav button div[style*="rgba(255,255,255,0.1)"],
-[data-style="ipod-2001"] header nav button div[style*="rgba(255,255,255,0.08)"] {
-  display: none !important;
-}
-
-[data-style="ipod-2001"] header nav button[style*="rgba(255,255,255,0.1)"] {
-  background: #0066cc !important;
-  color: #ffffff !important;
-  border-radius: 0 !important;
-  border: 1px solid #0055aa !important;
-}
-
-/* Nav logo text */
-[data-style="ipod-2001"] header span[style*="color: var(--mq-text)"] {
-  color: #333333 !important;
-  font-family: system-ui, -apple-system, "Helvetica Neue", sans-serif !important;
-  font-weight: 500 !important;
-  letter-spacing: -0.02em;
-}
-
-/* User profile button in nav */
-[data-style="ipod-2001"] header button[class*="rounded-xl"] {
-  background: transparent !important;
-  border: 1px solid #aaaaaa !important;
-  border-radius: 0 !important;
-  backdrop-filter: none !important;
-}
-
-/* ── Track Cards: iPod List Style ── */
-[data-style="ipod-2001"] button[data-track-card],
-[data-style="ipod-2001"] div[data-track-card] {
-  background: #ffffff !important;
-  border-radius: 0 !important;
-  border-bottom: 1px solid #e0e0e0 !important;
-  border-left: none !important;
-  border-right: none !important;
-  border-top: none !important;
-}
-
-/* Active track: blue highlight row */
-[data-style="ipod-2001"] button[data-track-card][style*="var(--mq-accent)"],
-[data-style="ipod-2001"] div[data-track-card].active {
-  background: #e0ecff !important;
-}
-
-/* ── Player Bar: Clean White iPod Now Playing ── */
-[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] {
-  background: #ffffff !important;
-  border-top: 1px solid #cccccc !important;
-  border-radius: 0 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* Progress bar: iPod blue */
-[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] input[type="range"],
-[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[class*="cursor-pointer"][style*="background"] {
-  accent-color: #0066cc !important;
-}
-
-[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[style*="width:"][style*="background: var(--mq-accent)"],
-[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[style*="width:"][style*="background:playError"] {
-  background: #0066cc !important;
-  box-shadow: none !important;
-}
-
-/* Progress thumb */
-[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[style*="left:"][style*="border-radius: 50%"] {
-  background: #0066cc !important;
-  box-shadow: none !important;
-}
-
-/* Play button: iPod square style */
-[data-style="ipod-2001"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
-  background: #0066cc !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-/* Player bar track cover */
-[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] img[class*="rounded"] {
-  border-radius: 0 !important;
-}
-
-/* Player bar controls */
-[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] button[class*="min-w-"] {
-  color: #333333 !important;
-}
-
-/* Time labels */
-[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[style*="color: var(--mq-text-muted)"] {
-  color: #888888 !important;
-}
-
-/* ── Mobile Nav: iPod Dock Style ── */
-[data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] {
-  background: linear-gradient(to top, #e0e0e0, #d0d0d0) !important;
-  border-top: 1px solid #aaaaaa !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border-radius: 0 !important;
-}
-
-[data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] button {
-  border-radius: 0 !important;
-  color: #333333 !important;
-  background: transparent !important;
-}
-
-[data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] button div[style*="background"] {
-  display: none !important;
-}
-
-[data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] button[class*="cursor-pointer"][style*="var(--mq-accent)"] {
-  color: #0066cc !important;
-  background: rgba(0, 102, 204, 0.08) !important;
-}
-
-/* Mobile nav dot indicator */
-[data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] div[class*="w-1"][class*="h-1"][style*="var(--mq-accent)"] {
-  background: #0066cc !important;
-  border-radius: 0 !important;
-}
-
-/* ── Buttons: Sharp, iPod-Style ── */
-[data-style="ipod-2001"] button {
-  border-radius: 0 !important;
-}
-
-/* ── Search Input ── */
-[data-style="ipod-2001"] input[type="text"],
-[data-style="ipod-2001"] input[type="search"] {
-  border-radius: 0 !important;
-  border: 1px solid #cccccc !important;
-  background: #ffffff !important;
-  font-family: system-ui, -apple-system, sans-serif !important;
-}
-
-/* ── Range Inputs ── */
-[data-style="ipod-2001"] input[type="range"] {
-  border-radius: 0 !important;
-  accent-color: #0066cc !important;
-}
-
-[data-style="ipod-2001"] input[type="range"]::-webkit-slider-thumb {
-  border-radius: 0 !important;
-  background: #0066cc !important;
-  box-shadow: none !important;
-}
-
-[data-style="ipod-2001"] input[type="range"]::-moz-range-thumb {
-  border-radius: 0 !important;
-  background: #0066cc !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-
-/* ── Color Input ── */
-[data-style="ipod-2001"] input[type="color"] {
-  border-radius: 0 !important;
-  border: 1px solid #cccccc !important;
-}
-
-[data-style="ipod-2001"] input[type="color"]::-webkit-color-swatch {
-  border-radius: 0 !important;
-}
-
-/* ── Cards and Sections ── */
-[data-style="ipod-2001"] .rounded-2xl {
-  border-radius: 0 !important;
-  background: #ffffff !important;
-  border: 1px solid #cccccc !important;
-}
-
-/* ── Scrollbar: Light ── */
-[data-style="ipod-2001"] ::-webkit-scrollbar {
-  width: 6px;
-}
-
-[data-style="ipod-2001"] ::-webkit-scrollbar-track {
-  background: #f0f0f0;
-}
-
-[data-style="ipod-2001"] ::-webkit-scrollbar-thumb {
-  background: #cccccc;
-  border-radius: 0 !important;
-}
-
-[data-style="ipod-2001"] ::-webkit-scrollbar-thumb:hover {
-  background: #aaaaaa;
-}
-
-/* ── Remove All Glow Effects ── */
-[data-style="ipod-2001"] * {
-  text-shadow: none !important;
-  box-shadow: none !important;
-}
-
-/* ── Title / Heading Typography: iPod Font ── */
+/* Headings: bolder, like Chicago's bold bitmap */
 [data-style="ipod-2001"] h1,
 [data-style="ipod-2001"] h2,
 [data-style="ipod-2001"] h3,
 [data-style="ipod-2001"] .font-bold,
-[data-style="ipod-2001"] .font-extrabold,
-[data-style="ipod-2001"] .font-black,
-[data-style="ipod-2001"] .font-semibold {
-  font-family: system-ui, -apple-system, "Helvetica Neue", sans-serif !important;
-  font-weight: 500 !important;
-  letter-spacing: -0.01em;
+[data-style="ipod-2001"] .font-semibold,
+[data-style="ipod-2001"] .font-extrabold {
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
 }
 
-/* ── Selection Color ── */
-[data-style="ipod-2001"] ::selection {
-  background: #0066cc;
-  color: #ffffff;
+/* ── Kill ALL rounded corners — iPod was razor sharp ─────────────────── */
+[data-style="ipod-2001"] *,
+[data-style="ipod-2001"] *::before,
+[data-style="ipod-2001"] *::after {
+  border-radius: 0 !important;
 }
 
-/* ── Animations: Minimal iPod Transitions ── */
+/* ── Kill ALL animations — iPod had instant state changes ─────────────── */
 [data-style="ipod-2001"] * {
+  animation: none !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition: none !important;
+  transition-duration: 0s !important;
+}
+
+/* Keep framer-motion mount/unmount but make them instant */
+[data-style="ipod-2001"] [data-framer-motion-id] {
   transition: none !important;
 }
 
-/* Keep framer-motion animations but make them faster */
-[data-style="ipod-2001"] [data-framer-motion-id],
-[data-style="ipod-2001"] [data-framer-motion-id] * {
-  transition: none !important;
-}
-
-/* ── Settings View Specific ── */
-[data-style="ipod-2001"] .player-glow {
-  animation: none !important;
-}
-
-/* Badge / notification dots */
-[data-style="ipod-2001"] span[class*="rounded-full"][style*="background: #ef4444"] {
-  border-radius: 0 !important;
-}
-
-/* ── Avatar Circles: Keep as circles but subtle ── */
-[data-style="ipod-2001"] img[class*="rounded-full"].object-cover,
-[data-style="ipod-2001"] div[class*="rounded-full"] {
-  border-radius: 0 !important;
-}
-
-/* ── Dialog / Modal ── */
-[data-style="ipod-2001"] [role="dialog"],
-[data-style="ipod-2001"] dialog {
-  border-radius: 0 !important;
-  border: 1px solid #cccccc !important;
+/* ── Kill ALL glow, blur, glass effects ───────────────────────────────── */
+[data-style="ipod-2001"] * {
+  text-shadow: none !important;
   box-shadow: none !important;
-}
-
-/* ── Toast Notifications ── */
-[data-style="ipod-2001"] [data-sonner-toaster] {
-  font-family: system-ui, -apple-system, sans-serif !important;
-}
-
-/* ── Switch / Toggle ── */
-[data-style="ipod-2001"] [role="switch"] {
-  border-radius: 0 !important;
-}
-
-/* ── Skeleton / Loading ── */
-[data-style="ipod-2001"] .animate-pulse {
-  animation: none !important;
-}
-
-/* ── Tab Indicators ── */
-[data-style="ipod-2001"] div[style*="background: var(--mq-accent)"][class*="w-1"][class*="h-1"] {
-  border-radius: 0 !important;
-  background: #0066cc !important;
-}
-
-/* ── Accent Buttons ── */
-[data-style="ipod-2001"] button[style*="background: var(--mq-accent)"] {
-  background: #0066cc !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-[data-style="ipod-2001"] button[style*="background-color: var(--mq-accent)"] {
-  background-color: #0066cc !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-/* ── Backdrop / Overlay: Remove blur ── */
-[data-style="ipod-2001"] .liquid-glass,
-[data-style="ipod-2001"] .liquid-glass-nav {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
 }
 
+/* Kill liquid glass pseudo-elements */
 [data-style="ipod-2001"] .liquid-glass::before,
-[data-style="ipod-2001"] .liquid-glass-nav::before {
+[data-style="ipod-2001"] .liquid-glass-nav::before,
+[data-style="ipod-2001"] .liquid-glass::after,
+[data-style="ipod-2001"] .liquid-glass-nav::after {
   display: none !important;
 }
 
-/* ── Theme-specific overrides: Remove all theme visual effects ── */
 [data-style="ipod-2001"].cyberpunk-theme *,
 [data-style="ipod-2001"].synthwave-theme *,
 [data-style="ipod-2001"].phantom-theme *,
 [data-style="ipod-2001"].liquid-glass-theme * {
   text-shadow: none !important;
   box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
-/* ── Divider Lines ── */
-[data-style="ipod-2001"] div[style*="border-bottom"] {
-  border-bottom-color: #e0e0e0 !important;
+/* ── ═══ DESKTOP NAV BAR: iPod Title Bar ═══ ─────────────────────────── */
+/* iPod title bar: black, centered title, thin bottom border */
+[data-style="ipod-2001"] header {
+  background: #000000 !important;
+  border-bottom: 1px solid #333333 !important;
 }
 
-/* ── Responsive Adjustments ── */
+/* Nav container: transparent, no glass */
+[data-style="ipod-2001"] header nav,
+[data-style="ipod-2001"] header .rounded-2xl {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Logo area */
+[data-style="ipod-2001"] header span[style*="color: var(--mq-text)"],
+[data-style="ipod-2001"] header div[class*="gap-2"][class*="cursor-pointer"] span {
+  color: #ffffff !important;
+  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 18px !important;
+  letter-spacing: 0.05em !important;
+}
+
+/* Nav buttons: iPod menu items in title bar */
+[data-style="ipod-2001"] header nav button {
+  background: transparent !important;
+  border: none !important;
+  color: #ffffff !important;
+  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  padding: 4px 10px !important;
+}
+
+/* Active nav: blue highlight — iPod selection bar */
+[data-style="ipod-2001"] header nav button[style*="rgba(255,255,255,0.1)"],
+[data-style="ipod-2001"] header nav button[style*="rgba(255,255,255,0.08)"] {
+  background: rgba(42, 127, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+
+/* Remove the nav active glow gradient overlay */
+[data-style="ipod-2001"] header nav button div[style*="rgba(255,255,255,0.1)"],
+[data-style="ipod-2001"] header nav button div[style*="rgba(255,255,255,0.08)"],
+[data-style="ipod-2001"] header nav button [class*="absolute"][class*="rounded"] {
+  display: none !important;
+}
+
+/* User profile button */
+[data-style="ipod-2001"] header button[class*="rounded-xl"] {
+  background: transparent !important;
+  border: 1px solid #333333 !important;
+}
+[data-style="ipod-2001"] header button[class*="rounded-xl"] span {
+  color: #ffffff !important;
+  font-size: 11px !important;
+}
+
+/* Logo glow */
+[data-style="ipod-2001"] header div[style*="box-shadow"] {
+  box-shadow: none !important;
+}
+
+/* ── ═══ TRACK CARDS: iPod Menu Items ═══ ────────────────────────────── */
+/* iPod list items: black bg, white text, thin divider, no radius */
+[data-style="ipod-2001"] button[data-track-card],
+[data-style="ipod-2001"] div[data-track-card] {
+  background: #000000 !important;
+  border-radius: 0 !important;
+  border-bottom: 1px solid #1a1a1a !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-top: none !important;
+  padding: 6px 12px !important;
+}
+
+/* Active/playing track: blue highlight bar — the signature iPod look */
+[data-style="ipod-2001"] button[data-track-card][style*="var(--mq-accent)"],
+[data-style="ipod-2001"] div[data-track-card].active {
+  background: #2a7fff !important;
+}
+
+/* Active track text */
+[data-style="ipod-2001"] button[data-track-card][style*="var(--mq-accent)"] p,
+[data-style="ipod-2001"] button[data-track-card][style*="var(--mq-accent)"] span,
+[data-style="ipod-2001"] div[data-track-card].active p,
+[data-style="ipod-2001"] div[data-track-card].active span {
+  color: #ffffff !important;
+}
+
+/* Track card hover */
+[data-style="ipod-2001"] button[data-track-card]:hover,
+[data-style="ipod-2001"] div[data-track-card]:hover {
+  background: #111111 !important;
+}
+
+/* Track card text styling */
+[data-style="ipod-2001"] button[data-track-card] p[class*="truncate"],
+[data-style="ipod-2001"] div[data-track-card] p[class*="truncate"] {
+  font-size: 13px !important;
+  color: #ffffff !important;
+}
+
+[data-style="ipod-2001"] button[data-track-card] p[class*="text-xs"],
+[data-style="ipod-2001"] div[data-track-card] p[class*="text-xs"] {
+  color: #888888 !important;
+}
+
+/* Track cover art in cards: keep square, no shadow */
+[data-style="ipod-2001"] button[data-track-card] img,
+[data-style="ipod-2001"] div[data-track-card] img {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Track card index numbers */
+[data-style="ipod-2001"] button[data-track-card] span[class*="text-xs"][class*="w-"],
+[data-style="ipod-2001"] div[data-track-card] span[class*="text-xs"][class*="w-"] {
+  color: #666666 !important;
+  font-size: 11px !important;
+}
+
+/* ── ═══ PLAYER BAR: iPod "Now Playing" Screen ═══ ───────────────────── */
+/* The player bar IS the Now Playing screen */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] {
+  background: #000000 !important;
+  border-top: 1px solid #333333 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Track title in player: larger, bolder */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] p[class*="font-medium"] {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  letter-spacing: 0.01em !important;
+}
+
+/* Artist/subtitle text */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] p[class*="text-xs"] {
+  color: #888888 !important;
+  font-size: 11px !important;
+}
+
+/* Player cover art: square, crisp */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] img[class*="rounded"] {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Music icon placeholder */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[class*="rounded-lg"][class*="flex"][class*="justify-center"] {
+  border-radius: 0 !important;
+  background: #111111 !important;
+  opacity: 1 !important;
+}
+
+/* ── Progress bar: iPod-style thin line ───────────────────────────────── */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[class*="w-full"][class*="cursor-pointer"],
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[class*="h-1"] {
+  background: #1a1a1a !important;
+}
+
+/* Progress fill: blue */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[style*="width:"][style*="background: var(--mq-accent)"],
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[style*="width:"][style*="background:playError"] {
+  background: #2a7fff !important;
+  box-shadow: none !important;
+}
+
+/* Progress scrubber: square, small */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[style*="left:"][style*="border-radius"] {
+  background: #ffffff !important;
+  box-shadow: none !important;
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 0 !important;
+}
+
+/* Time labels */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] div[style*="color: var(--mq-text-muted)"] {
+  color: #666666 !important;
+  font-size: 9px !important;
+}
+
+/* ── Play/Pause button: iPod center button style ──────────────────────── */
+[data-style="ipod-2001"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
+  background: #2a7fff !important;
+  border-radius: 50% !important;  /* Play button stays circular like iPod click wheel center */
+  box-shadow: none !important;
+  border: 1px solid #5599ff !important;
+}
+
+/* Player control buttons */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] button[class*="min-w-"] {
+  color: #ffffff !important;
+}
+
+/* Active control buttons (shuffle/repeat) */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] button[style*="var(--mq-accent)"] {
+  color: #2a7fff !important;
+}
+
+/* Volume section */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-40"] input[type="range"] {
+  accent-color: #2a7fff !important;
+}
+
+/* ── Canvas visualization: hidden on iPod style (no fancy effects) ───── */
+[data-style="ipod-2001"] canvas {
+  display: none !important;
+}
+
+/* ── ═══ MOBILE NAV: iPod Click Wheel ═══ ────────────────────────────── */
+[data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] {
+  background: #000000 !important;
+  border-top: 1px solid #333333 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+[data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] button {
+  color: #666666 !important;
+  background: transparent !important;
+}
+
+/* Active mobile nav: white text (not blue) */
+[data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] button[style*="var(--mq-accent)"],
+[data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] button[style*="var(--mq-card)"] {
+  color: #ffffff !important;
+  background: transparent !important;
+}
+
+/* Remove active nav dot indicator */
+[data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] div[style*="var(--mq-accent)"] {
+  display: none !important;
+}
+
+/* Remove glass overlay on active nav */
+[data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] button div[class*="absolute"][class*="rounded"] {
+  display: none !important;
+}
+
+/* Mobile nav labels */
+[data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] button span {
+  color: inherit !important;
+  font-size: 9px !important;
+}
+
+/* ── ═══ CARDS & SECTIONS: iPod-style blocks ═══ ─────────────────────── */
+[data-style="ipod-2001"] .rounded-2xl,
+[data-style="ipod-2001"] .rounded-xl,
+[data-style="ipod-2001"] .rounded-lg {
+  border-radius: 0 !important;
+  background: #000000 !important;
+  border: 1px solid #222222 !important;
+}
+
+/* Settings sections */
+[data-style="ipod-2001"] .rounded-2xl[class*="p-4"] {
+  border-radius: 0 !important;
+  background: #000000 !important;
+  border: 1px solid #222222 !important;
+}
+
+/* Stat cards (Избранное, Друзья, etc) */
+[data-style="ipod-2001"] div[class*="rounded-xl"][class*="p-4"][class*="cursor-pointer"] {
+  background: #000000 !important;
+  border: 1px solid #222222 !important;
+}
+
+/* Curated playlist cards */
+[data-style="ipod-2001"] div[class*="rounded-2xl"][class*="w-36"] {
+  background: #000000 !important;
+  border: 1px solid #222222 !important;
+}
+
+/* ── ═══ BUTTONS: iPod-style ═══ ─────────────────────────────────────── */
+[data-style="ipod-2001"] button {
+  border-radius: 0 !important;
+}
+
+/* Accent buttons: blue fill */
+[data-style="ipod-2001"] button[style*="background: var(--mq-accent)"],
+[data-style="ipod-2001"] button[style*="background-color: var(--mq-accent)"] {
+  background: #2a7fff !important;
+  background-color: #2a7fff !important;
+  border-radius: 0 !important;
+  border: 1px solid #5599ff !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+/* ── ═══ INPUTS ═══ ──────────────────────────────────────────────────── */
+[data-style="ipod-2001"] input[type="text"],
+[data-style="ipod-2001"] input[type="search"],
+[data-style="ipod-2001"] input[type="password"],
+[data-style="ipod-2001"] input[type="email"],
+[data-style="ipod-2001"] textarea,
+[data-style="ipod-2001"] select {
+  border-radius: 0 !important;
+  border: 1px solid #333333 !important;
+  background: #000000 !important;
+  color: #ffffff !important;
+  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
+  font-size: 13px !important;
+}
+
+[data-style="ipod-2001"] input::placeholder,
+[data-style="ipod-2001"] textarea::placeholder {
+  color: #555555 !important;
+}
+
+/* Range inputs */
+[data-style="ipod-2001"] input[type="range"] {
+  accent-color: #2a7fff !important;
+  border-radius: 0 !important;
+}
+
+[data-style="ipod-2001"] input[type="range"]::-webkit-slider-thumb {
+  border-radius: 0 !important;
+  background: #2a7fff !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+[data-style="ipod-2001"] input[type="range"]::-moz-range-thumb {
+  border-radius: 0 !important;
+  background: #2a7fff !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Color input */
+[data-style="ipod-2001"] input[type="color"] {
+  border-radius: 0 !important;
+  border: 1px solid #333333 !important;
+}
+
+[data-style="ipod-2001"] input[type="color"]::-webkit-color-swatch {
+  border-radius: 0 !important;
+}
+
+/* ── ═══ SCROLLBARS: Minimal dark ═══ ────────────────────────────────── */
+[data-style="ipod-2001"] ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+[data-style="ipod-2001"] ::-webkit-scrollbar-track {
+  background: #000000;
+}
+
+[data-style="ipod-2001"] ::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 0 !important;
+}
+
+[data-style="ipod-2001"] ::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+}
+
+/* ── ═══ SELECTION COLOR ═══ ─────────────────────────────────────────── */
+[data-style="ipod-2001"] ::selection {
+  background: #2a7fff;
+  color: #ffffff;
+}
+
+/* ── ═══ DIALOGS / MODALS ═══ ────────────────────────────────────────── */
+[data-style="ipod-2001"] [role="dialog"],
+[data-style="ipod-2001"] dialog {
+  background: #000000 !important;
+  border: 1px solid #333333 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  color: #ffffff !important;
+}
+
+/* ── ═══ TOAST NOTIFICATIONS ═══ ─────────────────────────────────────── */
+[data-style="ipod-2001"] [data-sonner-toaster] {
+  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
+}
+
+[data-style="ipod-2001"] [data-sonner-toaster] [data-sonner-toast] {
+  background: #111111 !important;
+  border: 1px solid #333333 !important;
+  border-radius: 0 !important;
+  color: #ffffff !important;
+}
+
+/* ── ═══ BADGES / NOTIFICATION DOTS ═══ ──────────────────────────────── */
+[data-style="ipod-2001"] span[class*="rounded-full"][style*="background: #ef4444"] {
+  border-radius: 0 !important;
+  background: #2a7fff !important;
+  color: #ffffff !important;
+  font-size: 9px !important;
+}
+
+/* ── ═══ SWITCH / TOGGLE ═══ ─────────────────────────────────────────── */
+[data-style="ipod-2001"] [role="switch"] {
+  border-radius: 0 !important;
+}
+
+/* ── ═══ SKELETON / LOADING ═══ ──────────────────────────────────────── */
+[data-style="ipod-2001"] .animate-pulse {
+  animation: none !important;
+  background: #111111 !important;
+}
+
+[data-style="ipod-2001"] [class*="bg-muted"],
+[data-style="ipod-2001"] .skeleton {
+  background: #111111 !important;
+  border-radius: 0 !important;
+}
+
+/* ── ═══ DIVIDER LINES ═══ ───────────────────────────────────────────── */
+[data-style="ipod-2001"] div[style*="border-bottom"],
+[data-style="ipod-2001"] hr {
+  border-bottom-color: #222222 !important;
+  border-top-color: #222222 !important;
+}
+
+/* ── ═══ PLAYER GLOW ═══ ─────────────────────────────────────────────── */
+[data-style="ipod-2001"] .player-glow {
+  animation: none !important;
+}
+
+/* ── ═══ HERO / GREETING AREA ═══ ────────────────────────────────────── */
+[data-style="ipod-2001"] div[class*="rounded-2xl"][class*="overflow-hidden"][class*="relative"] {
+  background: #000000 !important;
+  border: 1px solid #222222 !important;
+}
+
+/* Kill decorative gradients inside hero sections */
+[data-style="ipod-2001"] div[class*="rounded-full"][style*="opacity"] {
+  display: none !important;
+}
+
+/* Kill decorative pattern overlays */
+[data-style="ipod-2001"] div[style*="repeating-linear-gradient"] {
+  display: none !important;
+}
+
+/* Kill decorative bg patterns */
+[data-style="ipod-2001"] div[style*="backgroundImage"] {
+  background-image: none !important;
+}
+
+/* ── ═══ FULL TRACK VIEW (Modal Overlay) ═══ ─────────────────────────── */
+[data-style="ipod-2001"] div[class*="fixed"][class*="inset-0"][class*="z-50"] {
+  background: #000000 !important;
+}
+
+/* ── ═══ PiP PLAYER ═══ ──────────────────────────────────────────────── */
+[data-style="ipod-2001"] div[class*="fixed"][class*="bottom-"][class*="right-"][class*="z-50"] {
+  border-radius: 0 !important;
+  border: 1px solid #333333 !important;
+  background: #000000 !important;
+}
+
+/* ── ═══ MAINTENANCE BANNER ═══ ──────────────────────────────────────── */
+[data-style="ipod-2001"] div[class*="maintenance"] {
+  background: #111111 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid #333333 !important;
+}
+
+/* ── ═══ MISC ELEMENTS ═══ ───────────────────────────────────────────── */
+/* All text is white unless explicitly muted */
+[data-style="ipod-2001"] [style*="color: var(--mq-text)"] {
+  color: #ffffff !important;
+}
+
+[data-style="ipod-2001"] [style*="color: var(--mq-text-muted)"] {
+  color: #666666 !important;
+}
+
+/* Accents are blue */
+[data-style="ipod-2001"] [style*="color: var(--mq-accent)"] {
+  color: #2a7fff !important;
+}
+
+/* Card backgrounds */
+[data-style="ipod-2001"] [style*="background-color: var(--mq-card)"] {
+  background-color: #000000 !important;
+}
+
+[data-style="ipod-2001"] [style*="background: var(--mq-card)"],
+[data-style="ipod-2001"] [style*="background-color: var(--mq-card)"] {
+  background: #000000 !important;
+  background-color: #000000 !important;
+}
+
+/* Card hover */
+[data-style="ipod-2001"] [style*="background: var(--mq-card-hover)"] {
+  background: #0a0a0a !important;
+}
+
+/* Input backgrounds */
+[data-style="ipod-2001"] [style*="background: var(--mq-input-bg)"] {
+  background: #111111 !important;
+}
+
+/* Tab indicators: square blue */
+[data-style="ipod-2001"] div[style*="background: var(--mq-accent)"][class*="w-1"][class*="h-1"] {
+  border-radius: 0 !important;
+  background: #2a7fff !important;
+}
+
+/* Tooltips / overlays */
+[data-style="ipod-2001"] div[class*="absolute"][class*="rounded"][style*="background: var(--mq-accent)"] {
+  background: #2a7fff !important;
+  border-radius: 0 !important;
+}
+
+/* Error states */
+[data-style="ipod-2001"] span[style*="background-color: rgba(239,68,68"] {
+  background-color: rgba(239, 68, 68, 0.3) !important;
+  border-radius: 0 !important;
+}
+
+/* Play mode labels */
+[data-style="ipod-2001"] span[style*="color: #ff5500"] {
+  color: #2a7fff !important;
+}
+
+/* ── ═══ RESPONSIVE ═══ ──────────────────────────────────────────────── */
 @media (max-width: 1023px) {
   [data-style="ipod-2001"] nav[class*="fixed"][class*="bottom"] {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+}
+
+/* ── ═══ SPECIAL: iPod screen scanline effect (very subtle) ═══ ──────── */
+/* Optional: adds a very faint LCD scanline texture to the main area.
+   This is the real difference between "dark mode" and "iPod screen". */
+[data-style="ipod-2001"] main::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.01) 0px,
+    rgba(255, 255, 255, 0.01) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* iPod screen subtle vignette */
+[data-style="ipod-2001"] main::after {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 9998;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 60%,
+    rgba(0, 0, 0, 0.15) 100%
+  );
+}
+
+/* ── ═══ FULL TRACK VIEW OVERLAY: iPod Now Playing ═══ ───────────────── */
+/* When full track view is open, make it look like the iPod now playing screen */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-50"][class*="flex"][class*="items-center"][class*="justify-center"] {
+  background: #000000 !important;
+}
+
+/* Progress bar in full view */
+[data-style="ipod-2001"] div[class*="fixed"][class*="z-50"] div[style*="background: var(--mq-border)"] {
+  background: #1a1a1a !important;
+}
+
+/* ── ═══ SHARE BUTTON TOOLTIP ═══ ────────────────────────────────────── */
+[data-style="ipod-2001"] span[class*="absolute"][class*="-top-"] {
+  background: #2a7fff !important;
+  border-radius: 0 !important;
+  color: #ffffff !important;
+  font-size: 9px !important;
+}
+
+/* ── ═══ SETTINGS PREVIEW BOXES (in the style selector) ═══ ──────────── */
+/* The mini-preview boxes for style selection should also be square */
+[data-style="ipod-2001"] div[class*="w-12"][class*="h-8"] {
+  border-radius: 0 !important;
 }

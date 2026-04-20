@@ -707,11 +707,14 @@ export default function SettingsView() {
                     border: currentStyle === "ipod-2001" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
                   }}
                 >
-                  {/* Mini preview: iPod style */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#f5f5f5", borderRadius: 0, border: "1px solid #cccccc" }}>
-                    <div className="absolute top-0 left-0 right-0 h-2.5" style={{ background: "linear-gradient(to bottom, #e8e8e8, #d0d0d0)", borderBottom: "1px solid #aaaaaa" }} />
-                    <div className="absolute top-3.5 left-1 right-1 h-2" style={{ backgroundColor: "#0066cc", borderRadius: 0 }} />
-                    <div className="absolute top-3.5 left-1 w-0.5 h-2" style={{ backgroundColor: "#333" }} />
+                  {/* Mini preview: iPod 2001 dark LCD screen */}
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#000000", borderRadius: 0, border: "1px solid #333333" }}>
+                    <div className="absolute top-0.5 left-1.5 right-1.5 h-2.5" style={{ backgroundColor: "#2a7fff", borderRadius: 0 }} />
+                    <div className="absolute top-0.5 left-2.5 h-2.5" style={{ backgroundColor: "#ffffff", borderRadius: 0, opacity: 0.9, width: 14 }} />
+                    <div className="absolute top-3.5 left-1.5" style={{ color: "#ffffff", fontSize: 6, lineHeight: 1 }}>Song</div>
+                    <div className="absolute top-4.5 left-1.5" style={{ color: "#666666", fontSize: 4, lineHeight: 1 }}>Artist</div>
+                    <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5" style={{ backgroundColor: "#1a1a1a", borderRadius: 0 }} />
+                    <div className="absolute bottom-1 left-1.5 w-3 h-0.5" style={{ backgroundColor: "#2a7fff", borderRadius: 0 }} />
                   </div>
                   <div>
                     <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>iPod 2001</span>
