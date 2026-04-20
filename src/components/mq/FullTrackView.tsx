@@ -250,85 +250,110 @@ export default function FullTrackView() {
       const style = currentStyle || "default";
 
       // ═══════════════════════════════════════════════════════════════════
-      // iPod 2001 wave: monochrome blue signal bars + scanline dots
+      // iPod 2001 wave: LCD grid + signal waveform + scanlines
       // ═══════════════════════════════════════════════════════════════════
       if (style === "ipod-2001") {
-        // Subtle pulsing blue glow center
+        // LCD pixel grid
+        ctx.fillStyle = "rgba(30,30,50,0.15)";
+        for (let gx = 0; gx < w; gx += 4) {
+          for (let gy = 0; gy < h; gy += 4) {
+            ctx.fillRect(gx, gy, 2, 2);
+          }
+        }
+
+        // Blue backlight pulse
         const pulseAlpha = 0.02 + 0.015 * Math.sin(0.8 * t);
-        const glowGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.35);
+        const glowGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.4);
         glowGrad.addColorStop(0, `rgba(42,127,255,${pulseAlpha})`);
         glowGrad.addColorStop(1, "rgba(42,127,255,0)");
         ctx.beginPath();
-        ctx.arc(w * 0.5, h * 0.5, Math.max(w, h) * 0.35, 0, Math.PI * 2);
+        ctx.arc(w * 0.5, h * 0.5, Math.max(w, h) * 0.4, 0, Math.PI * 2);
         ctx.fillStyle = glowGrad;
         ctx.fill();
 
-        // Thin horizontal signal lines
-        for (let i = 0; i < 5; i++) {
-          const yBase = h * (0.2 + i * 0.15);
+        // Audio waveform lines (horizontal, different frequencies)
+        for (let i = 0; i < 8; i++) {
+          const yBase = h * (0.15 + i * 0.1);
+          const amplitude = h * (0.02 + i * 0.005) * (1 + 0.5 * Math.sin(t * 0.3 + i));
           ctx.beginPath();
-          for (let x = 0; x <= w; x += 4) {
+          for (let x = 0; x <= w; x += 3) {
             const xn = x / w;
-            const y = yBase + Math.sin(t * (1.5 + i * 0.3) + xn * 8 + i * 2) * h * 0.04
-              + Math.cos(t * (0.7 + i * 0.2) + xn * 5) * h * 0.02;
+            const y = yBase
+              + Math.sin(t * (1.2 + i * 0.25) + xn * 6 + i * 1.5) * amplitude
+              + Math.cos(t * (0.6 + i * 0.15) + xn * 4) * amplitude * 0.5
+              + Math.sin(t * 2 + xn * 10) * amplitude * 0.2;
             if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
           }
-          ctx.strokeStyle = `rgba(42,127,255,${0.08 + i * 0.02})`;
+          ctx.strokeStyle = `rgba(42,127,255,${0.06 + (1 - i / 8) * 0.06})`;
           ctx.lineWidth = 1;
           ctx.stroke();
         }
 
-        // Scanline dots flickering
+        // Vertical scanline sweep
+        const sweepX = (t * 0.08 % 1) * w;
+        ctx.fillStyle = "rgba(42,127,255,0.03)";
+        ctx.fillRect(sweepX - 2, 0, 4, h);
+
+        // Flickering scanline dots
         for (const dot of ipodScanDots) {
           dot.alpha += (dot.targetAlpha - dot.alpha) * 0.05;
-          if (Math.random() > 0.98) dot.targetAlpha = Math.random() > 0.5 ? 0.2 + Math.random() * 0.3 : 0;
+          if (Math.random() > 0.98) dot.targetAlpha = Math.random() > 0.5 ? 0.15 + Math.random() * 0.25 : 0;
           ctx.fillStyle = `rgba(42,127,255,${dot.alpha})`;
           ctx.fillRect(dot.x % w, dot.y % h, 2, 2);
         }
+
+        // Bottom progress indicator
+        const timeProgress = (t * 0.1) % 1;
+        ctx.fillStyle = "rgba(42,127,255,0.06)";
+        ctx.fillRect(w * 0.1, h * 0.94, w * 0.8, 2);
+        ctx.fillStyle = "rgba(42,127,255,0.2)";
+        ctx.fillRect(w * 0.1, h * 0.94, w * 0.8 * timeProgress, 2);
 
         return;
       }
 
       // ═══════════════════════════════════════════════════════════════════
-      // Japan wave: ink wash waves + cherry blossom petals
+      // Japan wave: ink wash waves + cherry blossom petals + koi
       // ═══════════════════════════════════════════════════════════════════
       if (style === "japan") {
-        // Ink wash wave at bottom
+        // Subtle vermillion radial glow
+        const jpPulse = 0.02 + 0.015 * Math.sin(0.4 * t);
+        const jpGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.3);
+        jpGrad.addColorStop(0, `rgba(196,30,58,${jpPulse})`);
+        jpGrad.addColorStop(1, "rgba(196,30,58,0)");
         ctx.beginPath();
-        ctx.moveTo(0, h);
-        for (let x = 0; x <= w; x += 4) {
-          const y = h * 0.75 + Math.sin(t * 0.5 + x * 0.005) * h * 0.1
-            + Math.sin(t * 0.8 + x * 0.012) * h * 0.05;
-          ctx.lineTo(x, y);
-        }
-        ctx.lineTo(w, h);
-        ctx.closePath();
-        const waveGrad = ctx.createLinearGradient(0, h * 0.6, 0, h);
-        waveGrad.addColorStop(0, "rgba(196,30,58,0.04)");
-        waveGrad.addColorStop(1, "rgba(196,30,58,0.01)");
-        ctx.fillStyle = waveGrad;
+        ctx.arc(w * 0.5, h * 0.5, Math.max(w, h) * 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = jpGrad;
         ctx.fill();
 
-        // Second ink wave (lighter, higher)
-        ctx.beginPath();
-        ctx.moveTo(0, h);
-        for (let x = 0; x <= w; x += 4) {
-          const y = h * 0.6 + Math.sin(t * 0.3 + x * 0.007 + 1) * h * 0.08
-            + Math.cos(t * 0.6 + x * 0.01) * h * 0.04;
-          ctx.lineTo(x, y);
-        }
-        ctx.lineTo(w, h);
-        ctx.closePath();
-        const waveGrad2 = ctx.createLinearGradient(0, h * 0.5, 0, h);
-        waveGrad2.addColorStop(0, "rgba(196,30,58,0.02)");
-        waveGrad2.addColorStop(1, "rgba(196,30,58,0.005)");
-        ctx.fillStyle = waveGrad2;
-        ctx.fill();
+        // Three-layered ink wash waves
+        for (let layer = 0; layer < 3; layer++) {
+          const yBase = h * (0.55 + layer * 0.12);
+          const speed = 0.3 + layer * 0.15;
+          const freq = 0.004 + layer * 0.002;
+          const alpha = 0.04 - layer * 0.01;
 
-        // Red accent wave line
+          ctx.beginPath();
+          ctx.moveTo(0, h);
+          for (let x = 0; x <= w; x += 3) {
+            const y = yBase
+              + Math.sin(t * speed + x * freq + layer) * h * 0.08
+              + Math.sin(t * speed * 1.5 + x * freq * 2.5) * h * 0.03;
+            ctx.lineTo(x, y);
+          }
+          ctx.lineTo(w, h);
+          ctx.closePath();
+          const waveGrad = ctx.createLinearGradient(0, yBase - h * 0.1, 0, h);
+          waveGrad.addColorStop(0, `rgba(196,30,58,${alpha})`);
+          waveGrad.addColorStop(1, `rgba(196,30,58,${alpha * 0.2})`);
+          ctx.fillStyle = waveGrad;
+          ctx.fill();
+        }
+
+        // Red accent wave line (crisp)
         ctx.beginPath();
         for (let x = 0; x <= w; x += 3) {
-          const y = h * 0.55 + Math.sin(t * 0.5 + x * 0.005) * h * 0.1
+          const y = h * 0.5 + Math.sin(t * 0.5 + x * 0.005) * h * 0.1
             + Math.sin(t * 0.8 + x * 0.012) * h * 0.05;
           if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
@@ -336,7 +361,37 @@ export default function FullTrackView() {
         ctx.lineWidth = 1;
         ctx.stroke();
 
-        // Cherry blossom petals
+        // Koi fish silhouettes (2 fish)
+        for (let k = 0; k < 2; k++) {
+          const kx = w * (0.3 + k * 0.4) + Math.sin(t * 0.2 + k * 3) * w * 0.1;
+          const ky = h * (0.4 + k * 0.15) + Math.sin(t * 0.15 + k * 2) * h * 0.08;
+          const kAngle = Math.sin(t * 0.2 + k * 3) * 0.3;
+          const kSize = 12 + k * 4;
+
+          ctx.save();
+          ctx.translate(kx, ky);
+          ctx.rotate(kAngle);
+          ctx.globalAlpha = 0.06 + k * 0.02;
+          ctx.fillStyle = k === 0 ? "rgba(196,30,58,0.4)" : "rgba(255,120,100,0.3)";
+
+          // Fish body (ellipse)
+          ctx.beginPath();
+          ctx.ellipse(0, 0, kSize * 1.5, kSize * 0.6, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Tail
+          ctx.beginPath();
+          ctx.moveTo(-kSize * 1.3, 0);
+          ctx.lineTo(-kSize * 2.2, -kSize * 0.6);
+          ctx.lineTo(-kSize * 2.2, kSize * 0.6);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.globalAlpha = 1;
+          ctx.restore();
+        }
+
+        // Cherry blossom petals (more varied)
         for (const p of japanPetals) {
           p.y += p.speed;
           p.x += Math.sin(t * p.sway + p.phase) * 0.5;
@@ -349,6 +404,7 @@ export default function FullTrackView() {
           ctx.translate(p.x, p.y);
           ctx.rotate(p.rot);
           ctx.globalAlpha = p.opacity;
+
           ctx.fillStyle = "rgba(232,180,188,0.5)";
           ctx.beginPath();
           ctx.ellipse(0, 0, p.size, p.size * 0.5, 0, 0, Math.PI * 2);
@@ -361,15 +417,19 @@ export default function FullTrackView() {
           ctx.restore();
         }
 
-        // Subtle vermillion radial glow
-        const jpPulse = 0.02 + 0.015 * Math.sin(0.4 * t);
-        const jpGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.3);
-        jpGrad.addColorStop(0, `rgba(196,30,58,${jpPulse})`);
-        jpGrad.addColorStop(1, "rgba(196,30,58,0)");
-        ctx.beginPath();
-        ctx.arc(w * 0.5, h * 0.5, Math.max(w, h) * 0.3, 0, Math.PI * 2);
-        ctx.fillStyle = jpGrad;
-        ctx.fill();
+        // Floating kanji (right side, vertical)
+        ctx.save();
+        ctx.globalAlpha = 0.04;
+        ctx.fillStyle = "#1a1a1a";
+        ctx.font = "16px serif";
+        ctx.textAlign = "center";
+        const chars = ["\u97f3", "\u697d", "\u98a8", "\u6708"];
+        chars.forEach((ch, i) => {
+          const cy = h * 0.2 + i * 28 + Math.sin(t * 0.3 + i) * 3;
+          ctx.fillText(ch, w - 20, cy);
+        });
+        ctx.globalAlpha = 1;
+        ctx.restore();
 
         return;
       }
@@ -467,7 +527,7 @@ export default function FullTrackView() {
       }
 
       // ═══════════════════════════════════════════════════════════════════
-      // Default: original accent-colored waves + sparkles
+      // Default: aurora/nebula waves + floating sparkles + energy trails
       // ═══════════════════════════════════════════════════════════════════
       const accentColor = getComputedStyle(document.documentElement).getPropertyValue("--mq-accent").trim() || "#e03131";
       let r = 224, g = 49, b = 49;
@@ -477,16 +537,18 @@ export default function FullTrackView() {
         b = parseInt(accentColor.slice(5, 7), 16);
       }
 
-      // Central radial glow pulse
-      const pulseAlpha = 0.04 + 0.03 * Math.sin(0.6 * t);
-      const glowGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.35);
+      // Central radial glow pulse — larger, more nebula-like
+      const pulseAlpha = 0.05 + 0.04 * Math.sin(0.6 * t);
+      const glowGrad = ctx.createRadialGradient(w * 0.5, h * 0.45, 0, w * 0.5, h * 0.45, Math.max(w, h) * 0.45);
       glowGrad.addColorStop(0, `rgba(${r},${g},${b},${pulseAlpha})`);
+      glowGrad.addColorStop(0.5, `rgba(${r},${g},${b},${pulseAlpha * 0.3})`);
       glowGrad.addColorStop(1, `rgba(${r},${g},${b},0)`);
       ctx.beginPath();
-      ctx.arc(w * 0.5, h * 0.5, Math.max(w, h) * 0.35, 0, Math.PI * 2);
+      ctx.arc(w * 0.5, h * 0.45, Math.max(w, h) * 0.45, 0, Math.PI * 2);
       ctx.fillStyle = glowGrad;
       ctx.fill();
 
+      // Aurora-style gradient waves (thicker, more layered)
       for (const wave of waves) {
         const points: { x: number; y: number }[] = [];
         for (let i = 0; i < wave.segs; i++) {
@@ -499,15 +561,17 @@ export default function FullTrackView() {
           points.push({ x, y });
         }
 
+        // Thick glow layer
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
-        ctx.strokeStyle = `rgba(${r},${g},${b},${wave.alpha * 0.25})`;
-        ctx.lineWidth = wave.lw + 5;
+        ctx.strokeStyle = `rgba(${r},${g},${b},${wave.alpha * 0.2})`;
+        ctx.lineWidth = wave.lw + 8;
         ctx.lineJoin = "bevel";
         ctx.lineCap = "round";
         ctx.stroke();
 
+        // Main line
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
@@ -517,8 +581,9 @@ export default function FullTrackView() {
         ctx.lineCap = "round";
         ctx.stroke();
 
+        // Gradient fill below wave
         const gradient = ctx.createLinearGradient(0, (wave.yOff - wave.amp) * h, 0, h);
-        gradient.addColorStop(0, `rgba(${r},${g},${b},${wave.alpha * 0.08})`);
+        gradient.addColorStop(0, `rgba(${r},${g},${b},${wave.alpha * 0.06})`);
         gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
@@ -530,6 +595,22 @@ export default function FullTrackView() {
         ctx.fill();
       }
 
+      // Energy trails — flowing vertical particles
+      const trailCount = 15;
+      for (let i = 0; i < trailCount; i++) {
+        const tx = w * ((i * 0.618 + t * 0.01) % 1);
+        const trailLen = h * 0.15 + h * 0.1 * Math.sin(t * 0.5 + i * 2);
+        const ty = h * 0.2 + Math.sin(t * 0.3 + i) * h * 0.3;
+        const trailAlpha = 0.03 + 0.02 * Math.sin(t + i * 1.5);
+
+        const trailGrad = ctx.createLinearGradient(tx, ty, tx, ty + trailLen);
+        trailGrad.addColorStop(0, `rgba(${r},${g},${b},${trailAlpha})`);
+        trailGrad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+        ctx.fillStyle = trailGrad;
+        ctx.fillRect(tx - 0.5, ty, 1, trailLen);
+      }
+
+      // Floating sparkles on waves
       for (const sp of sparkles) {
         const wave = waves[sp.waveIdx];
         const xn = sp.xFrac;
