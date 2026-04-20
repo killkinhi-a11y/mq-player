@@ -173,10 +173,11 @@ export default function PlaylistView() {
     if (aiGeneratingTags) return;
     setAiGeneratingTags(true);
     try {
+      const pl = playlists.find(p => p.id === playlistId);
       const res = await fetch('/api/playlists/auto-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ playlistId }),
+        body: JSON.stringify({ playlistId, playlistName: pl?.name, tracks: pl?.tracks || [] }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -510,8 +511,8 @@ export default function PlaylistView() {
           </div>
         </motion.div>
 
-        {/* AI-powered actions — only show manual buttons if already has description */}
-        {selectedPlaylist.description && !aiAutoGenerating && (
+        {/* AI-powered actions — show when playlist has tracks */}
+        {selectedPlaylist.tracks.length >= 2 && !aiAutoGenerating && (
           <motion.div
             initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
             animate={{ opacity: 1, y: 0 }}

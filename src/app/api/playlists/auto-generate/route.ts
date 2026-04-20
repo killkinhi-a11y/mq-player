@@ -10,10 +10,7 @@ export const maxDuration = 30;
 async function postHandler(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
-    }
-    const userId = session.userId;
+    const userId = session?.userId;
 
     const body = await req.json();
     const { playlistId, playlistName, tracks: inlineTracks } = body;
@@ -24,7 +21,7 @@ async function postHandler(req: NextRequest) {
     let playlistExistsInDb = false;
 
     // Try to load from DB if playlistId provided
-    if (playlistId && typeof playlistId === "string") {
+    if (playlistId && typeof playlistId === "string" && userId) {
       try {
         const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
         if (playlist) {
