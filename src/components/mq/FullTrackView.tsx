@@ -216,13 +216,14 @@ export default function FullTrackView() {
       opacity: 0.15 + Math.random() * 0.35,
     }));
 
-    // Swag gold particles for wave canvas
-    interface WaveGoldParticle { x: number; y: number; vx: number; vy: number; size: number; life: number; maxLife: number; }
-    const swagGoldParticles: WaveGoldParticle[] = Array.from({ length: 40 }, () => ({
-      x: Math.random() * 2000, y: 600 + Math.random() * 600,
-      vx: (Math.random() - 0.5) * 2, vy: -(0.5 + Math.random() * 2),
-      size: 1 + Math.random() * 3, life: Math.random() * 100,
-      maxLife: 60 + Math.random() * 100,
+    // Swag constellation particles for wave canvas
+    interface ConstellationNode { x: number; y: number; vx: number; vy: number; size: number; angle: number; rotSpeed: number; alpha: number; pulsePhase: number; }
+    const swagConstellation: ConstellationNode[] = Array.from({ length: 35 }, () => ({
+      x: Math.random() * 2000, y: Math.random() * 1200,
+      vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.2,
+      size: 1.5 + Math.random() * 3, angle: Math.random() * Math.PI * 2,
+      rotSpeed: (Math.random() - 0.5) * 0.01, alpha: 0.08 + Math.random() * 0.2,
+      pulsePhase: Math.random() * Math.PI * 2,
     }));
 
     // iPod scanline particles
@@ -374,57 +375,92 @@ export default function FullTrackView() {
       }
 
       // ═══════════════════════════════════════════════════════════════════
-      // Swag wave: minimal silver lines + floating dots
+      // Swag wave: geometric constellation mesh + pulsing rings
       // ═══════════════════════════════════════════════════════════════════
       if (style === "swag") {
-        // Subtle silver glow pulse
-        const swPulse = 0.015 + 0.01 * Math.sin(0.4 * t);
-        const swGrad = ctx.createRadialGradient(w * 0.5, h * 0.55, 0, w * 0.5, h * 0.55, Math.max(w, h) * 0.35);
-        swGrad.addColorStop(0, `rgba(161,161,170,${swPulse})`);
-        swGrad.addColorStop(1, "rgba(161,161,170,0)");
+        // Deep black bg with subtle silver pulse
+        const swPulse = 0.012 + 0.008 * Math.sin(0.35 * t);
+        const swGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 0, w * 0.5, h * 0.5, Math.max(w, h) * 0.4);
+        swGrad.addColorStop(0, `rgba(176,176,184,${swPulse})`);
+        swGrad.addColorStop(1, "rgba(176,176,184,0)");
         ctx.beginPath();
-        ctx.arc(w * 0.5, h * 0.55, Math.max(w, h) * 0.35, 0, Math.PI * 2);
+        ctx.arc(w * 0.5, h * 0.5, Math.max(w, h) * 0.4, 0, Math.PI * 2);
         ctx.fillStyle = swGrad;
         ctx.fill();
 
-        // Clean silver horizontal lines
-        const lineCount = 12;
-        for (let i = 0; i < lineCount; i++) {
-          const dist = Math.abs(i - lineCount / 2) / (lineCount / 2);
-          const y = h * 0.2 + (h * 0.6) * (i / lineCount);
-          const xAmp = w * 0.35 * (1 - dist * 0.5);
-          const xCenter = w * 0.5;
-
+        // Pulsing concentric rings (audio-reactive illusion)
+        const ringCount = 4;
+        for (let r = 0; r < ringCount; r++) {
+          const baseR = w * (0.1 + r * 0.12);
+          const pulse = Math.sin(t * 0.6 + r * 1.5) * w * 0.02;
+          const radius = baseR + pulse;
           ctx.beginPath();
-          for (let x = -1; x <= 1; x += 0.02) {
-            const px = xCenter + x * xAmp;
-            const wave = Math.sin(t * (1.5 + i * 0.12) + x * 5 + i) * 5 * (1 - dist * 0.4);
-            if (x <= -0.99) ctx.moveTo(px, y + wave); else ctx.lineTo(px, y + wave);
-          }
-          ctx.strokeStyle = `rgba(161,161,170,${0.04 + (1 - dist) * 0.05})`;
-          ctx.lineWidth = 1;
+          ctx.arc(w * 0.5, h * 0.5, radius, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(176,176,184,${0.015 + (1 - r / ringCount) * 0.02})`;
+          ctx.lineWidth = 0.5;
           ctx.stroke();
         }
 
-        // Subtle floating silver dots
-        for (const p of swagGoldParticles) {
-          p.x += p.vx;
-          p.y += p.vy;
-          p.life++;
-          if (p.life > p.maxLife || p.y < -20) {
-            p.x = Math.random() * w;
-            p.y = h + 10;
-            p.life = 0;
-            p.maxLife = 80 + Math.random() * 120;
-            p.vy = -(0.3 + Math.random() * 1);
-            p.vx = (Math.random() - 0.5) * 0.8;
-          }
-          const lifeRatio = 1 - p.life / p.maxLife;
-          const alpha = lifeRatio < 0.2 ? lifeRatio / 0.2 : (lifeRatio > 0.7 ? (1 - lifeRatio) / 0.3 : 1);
-          ctx.fillStyle = `rgba(161,161,170,${alpha * 0.25})`;
+        // Constellation nodes — hexagonal wireframe shapes
+        for (const node of swagConstellation) {
+          node.x += node.vx;
+          node.y += node.vy;
+          node.angle += node.rotSpeed;
+          // Wrap around
+          if (node.x < -20) node.x = w + 20;
+          if (node.x > w + 20) node.x = -20;
+          if (node.y < -20) node.y = h + 20;
+          if (node.y > h + 20) node.y = -20;
+
+          const pulse = 0.7 + 0.3 * Math.sin(t * 1.2 + node.pulsePhase);
+          const a = node.alpha * pulse;
+
+          // Draw hexagon
+          ctx.save();
+          ctx.translate(node.x, node.y);
+          ctx.rotate(node.angle);
           ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size * 0.8, 0, Math.PI * 2);
+          for (let v = 0; v < 6; v++) {
+            const ang = (Math.PI * 2 / 6) * v;
+            const px = Math.cos(ang) * node.size * 2;
+            const py = Math.sin(ang) * node.size * 2;
+            if (v === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+          ctx.strokeStyle = `rgba(176,176,184,${a})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+
+          // Inner diamond
+          ctx.beginPath();
+          ctx.moveTo(0, -node.size);
+          ctx.lineTo(node.size * 0.6, 0);
+          ctx.lineTo(0, node.size);
+          ctx.lineTo(-node.size * 0.6, 0);
+          ctx.closePath();
+          ctx.fillStyle = `rgba(208,208,216,${a * 0.4})`;
           ctx.fill();
+          ctx.restore();
+        }
+
+        // Constellation lines between nearby nodes
+        for (let i = 0; i < swagConstellation.length; i++) {
+          for (let j = i + 1; j < swagConstellation.length; j++) {
+            const dx = swagConstellation[i].x - swagConstellation[j].x;
+            const dy = swagConstellation[i].y - swagConstellation[j].y;
+            const distSq = dx * dx + dy * dy;
+            const maxDist = 120;
+            if (distSq < maxDist * maxDist) {
+              const dist = Math.sqrt(distSq);
+              const lineAlpha = (1 - dist / maxDist) * 0.04;
+              ctx.beginPath();
+              ctx.moveTo(swagConstellation[i].x, swagConstellation[i].y);
+              ctx.lineTo(swagConstellation[j].x, swagConstellation[j].y);
+              ctx.strokeStyle = `rgba(176,176,184,${lineAlpha})`;
+              ctx.lineWidth = 0.3;
+              ctx.stroke();
+            }
+          }
         }
 
         return;

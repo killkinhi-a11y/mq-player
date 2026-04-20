@@ -766,16 +766,24 @@ export default function SettingsView() {
                     border: currentStyle === "swag" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
                   }}
                 >
-                  {/* Mini preview: Silver minimal */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#09090b", borderRadius: 6, border: "1px solid #27272a" }}>
-                    <div className="absolute top-1.5 left-1.5" style={{ color: "#e4e4e7", fontSize: 5, fontFamily: "Inter, system-ui, sans-serif", fontWeight: 600, lineHeight: 1, letterSpacing: "-0.01em" }}>Song</div>
-                    <div className="absolute top-3 left-1.5" style={{ color: "#71717a", fontSize: 3.5, lineHeight: 1, fontWeight: 400 }}>Artist</div>
-                    <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5" style={{ backgroundColor: "#18181b", borderRadius: 1 }} />
-                    <div className="absolute bottom-1 left-1.5 w-3 h-0.5" style={{ backgroundColor: "#a1a1aa", borderRadius: 1 }} />
+                  {/* Mini preview: Silver chromium — radial ring + geometric shapes */}
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#07070a", borderRadius: 6, border: "1px solid #222229" }}>
+                    {/* Center ring */}
+                    <div className="absolute" style={{ top: "50%", left: "50%", width: 18, height: 18, marginTop: -9, marginLeft: -9, border: "0.5px solid rgba(176,176,184,0.2)", borderRadius: "50%" }} />
+                    {/* Radial bars (decorative) */}
+                    <div className="absolute" style={{ top: "50%", left: "50%", width: 1, height: 4, marginTop: -10, marginLeft: -0.5, backgroundColor: "rgba(176,176,184,0.35)", transform: "rotate(0deg)", transformOrigin: "center 10px" }} />
+                    <div className="absolute" style={{ top: "50%", left: "50%", width: 1, height: 3, marginTop: -9, marginLeft: -0.5, backgroundColor: "rgba(176,176,184,0.25)", transform: "rotate(60deg)", transformOrigin: "center 9px" }} />
+                    <div className="absolute" style={{ top: "50%", left: "50%", width: 1, height: 5, marginTop: -11, marginLeft: -0.5, backgroundColor: "rgba(176,176,184,0.3)", transform: "rotate(120deg)", transformOrigin: "center 11px" }} />
+                    <div className="absolute" style={{ top: "50%", left: "50%", width: 1, height: 3, marginTop: -9, marginLeft: -0.5, backgroundColor: "rgba(176,176,184,0.2)", transform: "rotate(180deg)", transformOrigin: "center 9px" }} />
+                    <div className="absolute" style={{ top: "50%", left: "50%", width: 1, height: 4, marginTop: -10, marginLeft: -0.5, backgroundColor: "rgba(176,176,184,0.3)", transform: "rotate(240deg)", transformOrigin: "center 10px" }} />
+                    <div className="absolute" style={{ top: "50%", left: "50%", width: 1, height: 2, marginTop: -8, marginLeft: -0.5, backgroundColor: "rgba(176,176,184,0.2)", transform: "rotate(300deg)", transformOrigin: "center 8px" }} />
+                    {/* Song text */}
+                    <div className="absolute top-0.5 left-1" style={{ color: "#e8e8ec", fontSize: 4.5, fontFamily: "var(--font-space-grotesk), system-ui, sans-serif", fontWeight: 600, lineHeight: 1, letterSpacing: "-0.02em" }}>S</div>
+                    <div className="absolute bottom-0.5 right-0.5" style={{ color: "#4a4a56", fontSize: 3, lineHeight: 1 }}>A</div>
                   </div>
                   <div>
                     <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Silver</span>
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Минимал, чистый, серебро</p>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Хром, созвездие, геометрия</p>
                   </div>
                   {currentStyle === "swag" && (
                     <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
