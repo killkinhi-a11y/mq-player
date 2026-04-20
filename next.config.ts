@@ -59,4 +59,7 @@ const nextConfig: NextConfig = {
 
 export default nextConfig;
 
-import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
+// Only init Cloudflare workerd during local dev (not during Vercel/CI builds — workerd needs GLIBC_2.35)
+if (process.env.NODE_ENV !== 'production') {
+  import('@opennextjs/cloudflare').then(m => m.initOpenNextCloudflareForDev());
+}
