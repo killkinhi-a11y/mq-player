@@ -20,7 +20,6 @@ const PIP_HEIGHT = 210;
 // ── Module-level state (survives outside React lifecycle) ──────
 
 let pipWindow: Window | null = null;
-let blobUrl: string | null = null;
 let unsubStore: (() => void) | null = null;
 let progressInterval: ReturnType<typeof setInterval> | null = null;
 let checkInterval: ReturnType<typeof setInterval> | null = null;
@@ -39,24 +38,26 @@ export function openPiPPopup(): boolean {
 
   try {
     const html = buildPiPHTML();
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    blobUrl = url;
 
+    // Use '' URL with doc.write() — works in ALL browsers including Firefox.
+    // blob: URLs are blocked by Firefox's popup blocker.
     const win = window.open(
-      url,
+      '',
       "mq-pip-player",
       `width=${PIP_WIDTH},height=${PIP_HEIGHT},resizable=no,scrollbars=no,location=no,menubar=no,toolbar=no,status=no`
     );
 
     if (!win) {
-      URL.revokeObjectURL(url);
-      blobUrl = null;
       console.warn("[PiP] Popup blocked by browser — falling back to overlay");
       return false;
     }
 
     pipWindow = win;
+
+    // Write HTML synchronously (same-origin, no React involved)
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
 
     // Wire up after popup DOM is ready
     const setup = () => {
@@ -64,11 +65,11 @@ export function openPiPPopup(): boolean {
       try {
         const doc = pipWindow.document;
         if (!doc.getElementById("pip-play")) {
-          setTimeout(setup, 100);
+          setTimeout(setup, 50);
           return;
         }
       } catch {
-        setTimeout(setup, 100);
+        setTimeout(setup, 50);
         return;
       }
 
@@ -152,7 +153,6 @@ function onPopupClosed() {
   if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
   if (unsubStore) { unsubStore(); unsubStore = null; }
   if (mainUnloadHandler) { window.removeEventListener("beforeunload", mainUnloadHandler); mainUnloadHandler = null; }
-  if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
   pipWindow = null;
   // Tell store to deactivate
   useAppStore.getState().setPiPActive(false);
