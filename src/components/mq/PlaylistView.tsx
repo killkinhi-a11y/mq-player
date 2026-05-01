@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { type Track } from "@/lib/musicApi";
 import {
   Plus, Trash2, Play, Music, ListMusic, ChevronRight,
-  Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle, Image, Camera, Sparkles, ImagePlus, Share2, Shuffle
+  Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle, Image, Camera, Sparkles, ImagePlus, Share2, Shuffle, Wand2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import TrackCard from "./TrackCard";
@@ -46,6 +46,7 @@ export default function PlaylistView() {
   const [showExport, setShowExport] = useState(false);
   const [playlistRecs, setPlaylistRecs] = useState<Track[]>([]);
   const [playlistRecsLoading, setPlaylistRecsLoading] = useState(false);
+  const [autoFilling, setAutoFilling] = useState(false);
 
   const selectedPlaylist = playlists.find((p) => p.id === selectedPlaylistId);
   const autoGenAttemptedRef = useRef<Set<string>>(new Set());
@@ -644,7 +645,7 @@ export default function PlaylistView() {
           </div>
         )}
 
-        {/* Similar tracks recommendations for this playlist */}
+        {/* Smart recommendations for this playlist */}
         {selectedPlaylist.tracks.length >= 3 && (
           <div className="mt-4">
             <div className="flex items-center justify-between mb-3">
@@ -654,19 +655,54 @@ export default function PlaylistView() {
                   Похожие треки
                 </h3>
               </div>
-              {playlistRecs.length > 0 && (
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    if (playlistRecs.length > 0) playTrack(playlistRecs[0], [...selectedPlaylist.tracks, ...playlistRecs]);
-                  }}
-                  className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium"
-                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
-                >
-                  <Play className="w-2.5 h-2.5" style={{ marginLeft: 1 }} />
-                  Слушать все
-                </motion.button>
-              )}
+              <div className="flex items-center gap-1.5">
+                {playlistRecs.length > 0 && (
+                  <>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.05 }}
+                      onClick={async () => {
+                        if (!selectedPlaylist || autoFilling) return;
+                        setAutoFilling(true);
+                        // Add top 5 recommended tracks to playlist
+                        const topRecs = playlistRecs.slice(0, 5);
+                        const { playlists: currentPlaylists } = useAppStore.getState();
+                        const updatedTracks = [...selectedPlaylist.tracks, ...topRecs];
+                        useAppStore.setState({
+                          playlists: currentPlaylists.map(p =>
+                            p.id === selectedPlaylist.id ? { ...p, tracks: updatedTracks } : p
+                          ),
+                        });
+                        // Remove added tracks from recs
+                        const addedIds = new Set(topRecs.map(t => t.id));
+                        setPlaylistRecs(prev => prev.filter(t => !addedIds.has(t.id)));
+                        toast({ title: "Добавлено", description: `${topRecs.length} треков добавлено в плейлист` });
+                        setTimeout(() => setAutoFilling(false), 500);
+                      }}
+                      disabled={autoFilling || playlistRecs.length === 0}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer"
+                      style={{
+                        backgroundColor: autoFilling ? "var(--mq-border)" : "var(--mq-accent)",
+                        color: "var(--mq-text)",
+                      }}
+                    >
+                      {autoFilling ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                      {autoFilling ? "Добавление..." : "Автозаполнить"}
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        if (playlistRecs.length > 0) playTrack(playlistRecs[0], [...selectedPlaylist.tracks, ...playlistRecs]);
+                      }}
+                      className="flex items-center gap-1 px-2 py-1.5 rounded-md text-[10px] font-medium"
+                      style={{ backgroundColor: "var(--mq-card-hover)", color: "var(--mq-text)", border: "1px solid var(--mq-border)" }}
+                    >
+                      <Play className="w-2.5 h-2.5" style={{ marginLeft: 1 }} />
+                      Все
+                    </motion.button>
+                  </>
+                )}
+              </div>
             </div>
             {playlistRecsLoading && (
               <div className="space-y-2">
@@ -680,7 +716,7 @@ export default function PlaylistView() {
             )}
             {!playlistRecsLoading && playlistRecs.length > 0 && (
               <div className="space-y-2">
-                {playlistRecs.slice(0, 6).map((track, i) => (
+                {playlistRecs.slice(0, 8).map((track, i) => (
                   <div key={track.id} className="relative group">
                     <TrackCard track={track} index={i} queue={[...selectedPlaylist.tracks, ...playlistRecs]} />
                     <motion.button
@@ -694,9 +730,11 @@ export default function PlaylistView() {
                               : p
                           ),
                         });
+                        setPlaylistRecs(prev => prev.filter(t => t.id !== track.id));
+                        toast({ title: "Добавлено", description: `${track.artist} — ${track.title}` });
                       }}
-                      className="absolute top-3 right-3 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ color: "var(--mq-accent)", backgroundColor: "var(--mq-card)" }}
+                      className="absolute top-3 right-3 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
+                      style={{ color: "var(--mq-accent)", backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
                       title="Добавить в плейлист"
                     >
                       <Plus className="w-3.5 h-3.5" />

@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3 } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
 
 interface CuratedPlaylist {
@@ -15,6 +15,90 @@ interface CuratedPlaylist {
   subtitle: string;
   gradient: string;
   tracks: Track[];
+}
+
+// ── Spotify-style horizontal recommendation row ──
+const ICON_MAP: Record<string, React.ReactNode> = {
+  Sparkles: <Sparkles className="w-4 h-4" />,
+  Mic2: <Mic2 className="w-4 h-4" />,
+  Waves: <Waves className="w-4 h-4" />,
+  Compass: <Compass className="w-4 h-4" />,
+  Music: <Music className="w-4 h-4" />,
+};
+
+function RecCategoryRow({ category, index, playTrack, animationsEnabled, compactMode }: {
+  category: { id: string; title: string; icon: string; tracks: Track[] };
+  index: number;
+  playTrack: (track: Track, queue?: Track[]) => void;
+  animationsEnabled: boolean;
+  compactMode: boolean;
+}) {
+  const Icon = ICON_MAP[category.icon] || <Sparkles className="w-4 h-4" />;
+  const tracks = category.tracks;
+
+  return (
+    <motion.div
+      initial={animationsEnabled ? { opacity: 0, y: 15 } : undefined}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.08 }}
+    >
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-6 h-6 rounded-md flex items-center justify-center"
+          style={{ backgroundColor: "var(--mq-accent)", opacity: 0.85 }}>
+          <span style={{ color: "var(--mq-text)" }}>{Icon}</span>
+        </div>
+        <h2 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>
+          {category.title}
+        </h2>
+        <span className="text-xs ml-auto" style={{ color: "var(--mq-text-muted)" }}>
+          {tracks.length} треков
+        </span>
+      </div>
+      <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        {tracks.map((track, i) => (
+          <motion.button
+            key={track.id}
+            initial={animationsEnabled ? { opacity: 0, x: 20 } : undefined}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.03 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => playTrack(track, tracks)}
+            className="flex-shrink-0 w-[148px] rounded-xl overflow-hidden text-left cursor-pointer group relative"
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+          >
+            {/* Cover */}
+            <div className="aspect-square relative overflow-hidden">
+              {track.cover ? (
+                <img src={track.cover} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.6 }}>
+                  <Music className="w-8 h-8" style={{ color: "var(--mq-text)" }} />
+                </div>
+              )}
+              {/* Play overlay */}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:scale-100 scale-75"
+                  style={{ background: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                  <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                </div>
+              </div>
+            </div>
+            {/* Info */}
+            <div className="p-2.5 min-h-[52px]">
+              <p className="text-xs font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>
+                {track.title}
+              </p>
+              <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
+                {track.artist}
+              </p>
+            </div>
+          </motion.button>
+        ))}
+      </div>
+    </motion.div>
+  );
 }
 
 function getGreeting(): string {
@@ -41,6 +125,7 @@ export default function MainView() {
 
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
   const [recommendations, setRecommendations] = useState<Track[]>([]);
+  const [recCategories, setRecCategories] = useState<{ id: string; title: string; icon: string; tracks: Track[] }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRecLoading, setIsRecLoading] = useState(true);
   const [allUsersCount, setAllUsersCount] = useState(0);
@@ -270,6 +355,14 @@ export default function MainView() {
       const dislikedSet = new Set(disliked);
       const filtered = (data.tracks || []).filter((t: Track) => !dislikedSet.has(t.id));
       setRecommendations(filtered);
+      // v8: parse categorized recommendations
+      if (data.categories && Array.isArray(data.categories)) {
+        const catFiltered = data.categories.map((cat: { id: string; title: string; icon: string; tracks: Track[] }) => ({
+          ...cat,
+          tracks: cat.tracks.filter((t: Track) => !dislikedSet.has(t.id)),
+        })).filter((cat: { tracks: Track[] }) => cat.tracks.length >= 3);
+        setRecCategories(catFiltered);
+      }
     } catch {
       setRecommendations([]);
     } finally {
@@ -620,66 +713,70 @@ export default function MainView() {
         </div>
       )}
 
-      {/* Smart Recommendations */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-            <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
-              {hasTasteData ? "Рекомендации для вас" : "Откройте для себя"}
-            </h2>
-
-          </div>
-          <div className="flex items-center gap-2">
-            {recommendations.length > 0 && (
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={handlePlayRecAll}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium"
-                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
-              >
-                <Play className="w-2.5 h-2.5" style={{ marginLeft: 1 }} />
-                Все
-              </motion.button>
-            )}
+      {/* Smart Recommendations — Categorized Rows (Spotify-style) */}
+      {!isRecLoading && recCategories.length > 0 ? (
+        recCategories.slice(0, 4).map((cat, catIdx) => (
+          <RecCategoryRow key={cat.id} category={cat} index={catIdx} playTrack={playTrack} animationsEnabled={animationsEnabled} compactMode={compactMode} />
+        ))
+      ) : (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+              <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
+                {hasTasteData ? "Рекомендации для вас" : "Откройте для себя"}
+              </h2>
+            </div>
             <motion.button whileTap={{ scale: 0.9 }} onClick={loadRecommendations} disabled={isRecLoading}
               className="p-1.5 rounded-lg" style={{ color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}>
               <RefreshCw className={`w-3.5 h-3.5 ${isRecLoading ? "animate-spin" : ""}`} />
             </motion.button>
           </div>
-        </div>
-
-        {isRecLoading && (
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-xl" style={{ backgroundColor: "var(--mq-card)" }}>
-                <Skeleton className="w-12 h-12 rounded-lg flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
+          {isRecLoading && (
+            <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex-shrink-0 w-36 rounded-xl" style={{ background: "var(--mq-card)" }}>
+                  <Skeleton className="w-full h-36 rounded-t-xl" />
+                  <div className="p-2 space-y-1.5">
+                    <Skeleton className="h-3.5 w-4/5" />
+                    <Skeleton className="h-3 w-3/5" />
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {!isRecLoading && recommendations.length > 0 && (
-          <div className="space-y-2">
-            {recommendations.slice(0, 8).map((track, i) => (
-              <TrackCard key={track.id} track={track} index={i} queue={recommendations} />
-            ))}
-          </div>
-        )}
-
-        {!isRecLoading && recommendations.length === 0 && (
-          <div className="text-center py-8">
-            <Music className="w-10 h-10 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-            <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-              {hasTasteData ? "Не удалось загрузить рекомендации по вашему вкусу" : "Лайкайте треки и слушайте музыку, чтобы получить персональные рекомендации"}
-            </p>
-          </div>
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+          {!isRecLoading && recommendations.length > 0 && recCategories.length === 0 && (
+            <div className="space-y-2">
+              {recommendations.slice(0, 8).map((track, i) => (
+                <TrackCard key={track.id} track={track} index={i} queue={recommendations} />
+              ))}
+            </div>
+          )}
+          {!isRecLoading && recommendations.length === 0 && (
+            <div className="text-center py-8">
+              <Music className="w-10 h-10 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+              <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                {hasTasteData ? "Не удалось загрузить рекомендации по вашему вкусу" : "Лайкайте треки и слушайте музыку, чтобы получить персональные рекомендации"}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+      {/* Refresh + play-all for categories */}
+      {recCategories.length > 0 && (
+        <div className="flex items-center justify-end gap-2 -mt-1">
+          <motion.button whileTap={{ scale: 0.95 }} onClick={handlePlayRecAll}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+            style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+            <Play className="w-3 h-3" style={{ marginLeft: 1 }} />
+            Слушать всё
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={loadRecommendations} disabled={isRecLoading}
+            className="p-1.5 rounded-lg" style={{ color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}>
+            <RefreshCw className={`w-3.5 h-3.5 ${isRecLoading ? "animate-spin" : ""}`} />
+          </motion.button>
+        </div>
+      )}
 
       {/* Trending tracks */}
       <div>

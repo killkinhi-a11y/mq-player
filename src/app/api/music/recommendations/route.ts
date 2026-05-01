@@ -918,14 +918,86 @@ async function handler(request: NextRequest) {
       }
     }
 
+    // ── v8: Categorize tracks for Spotify-like rows ──
+    const mapTrack = (t: ScoredTrack) => ({
+      id: t.id, title: t.title, artist: t.artist, album: t.album,
+      cover: t.cover, duration: t.duration, genre: t.genre,
+      audioUrl: t.audioUrl, previewUrl: t.previewUrl, source: t.source,
+      scTrackId: t.scTrackId, scStreamPolicy: t.scStreamPolicy, scIsFull: t.scIsFull,
+      _score: Math.round(t._score),
+    });
+
+    // Helper: build "Похожие на [artist]" rows for top artists
+    const artistRows: { id: string; title: string; icon: string; tracks: ReturnType<typeof mapTrack>[] }[] = [];
+    const usedForArtistRows = new Set<number>();
+    for (const artist of artists.slice(0, 3)) {
+      const aLower = artist.toLowerCase().trim();
+      const artistTracks = scoredTracks.filter(t => {
+        const tArtist = (t.artist || "").toLowerCase().trim();
+        return (tArtist === aLower || tArtist.includes(aLower) || aLower.includes(tArtist)) && !usedForArtistRows.has(t.scTrackId);
+      }).slice(0, 8);
+      if (artistTracks.length >= 3) {
+        for (const t of artistTracks) usedForArtistRows.add(t.scTrackId);
+        artistRows.push({
+          id: `artist_${aLower.replace(/\s+/g, '_')}`,
+          title: `Похожие на ${artist}`,
+          icon: "Mic2",
+          tracks: artistTracks.map(mapTrack),
+        });
+      }
+    }
+
+    // "Для вас" — top picks that match user's taste (not exploration)
+    const forYou = scoredTracks.filter(t => !t._isExploration)
+      .sort((a, b) => b._score - a._score)
+      .slice(0, 12)
+      .map(mapTrack);
+
+    // "Открытия" — exploration tracks (bridge genres)
+    const discover = scoredTracks.filter(t => t._isExploration)
+      .sort((a, b) => b._score - a._score)
+      .slice(0, 10)
+      .map(mapTrack);
+
+    // "В ритме сессии" — tracks with energy close to session average
+    const sessionFlow = sessionMood.dominantMoods.length > 0 || sessionMood.dominantGenres.length > 0
+      ? [...scoredTracks]
+          .sort((a, b) => b._score - a._score)
+          .filter(t => {
+            const energy = estimateEnergy(t);
+            return Math.abs(energy - sessionMood.avgEnergy) < 0.3;
+          })
+          .slice(0, 10)
+          .map(mapTrack)
+      : [];
+
+    // Build categories array
+    const categories: { id: string; title: string; icon: string; tracks: ReturnType<typeof mapTrack>[] }[] = [];
+
+    // Artist-based rows first (most specific)
+    categories.push(...artistRows);
+
+    // Session flow (if available)
+    if (sessionFlow.length >= 4) {
+      const moodLabel = sessionMood.dominantMoods[0]
+        ? { chill: 'Расслабление', bassy: 'Басы', melodic: 'Мелодия', dark: 'Тёмная сторона', upbeat: 'Энергия', romantic: 'Настроение', aggressive: 'Драйв', dreamy: 'Атмосфера' }[sessionMood.dominantMoods[0]] || 'Настроение'
+        : 'Настроение';
+      categories.push({ id: "session_flow", title: moodLabel, icon: "Waves", tracks: sessionFlow });
+    }
+
+    // "Для вас"
+    if (forYou.length >= 4) {
+      categories.push({ id: "for_you", title: "Для вас", icon: "Sparkles", tracks: forYou });
+    }
+
+    // "Открытия"
+    if (discover.length >= 3) {
+      categories.push({ id: "discover", title: "Открытия", icon: "Compass", tracks: discover });
+    }
+
     const responseData = {
-      tracks: finalTracks.map(t => ({
-        id: t.id, title: t.title, artist: t.artist, album: t.album,
-        cover: t.cover, duration: t.duration, genre: t.genre,
-        audioUrl: t.audioUrl, previewUrl: t.previewUrl, source: t.source,
-        scTrackId: t.scTrackId, scStreamPolicy: t.scStreamPolicy, scIsFull: t.scIsFull,
-        _score: Math.round(t._score),
-      })),
+      tracks: finalTracks.map(mapTrack),
+      categories,
       _meta: { 
         timeContext, 
         moods: userMoods, 
