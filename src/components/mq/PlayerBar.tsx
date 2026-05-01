@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
   Shuffle, Music, Loader2, PictureInPicture2, ListMusic,
-  Heart, ThumbsDown, FileText, Download, ListEnd, Share2, Radio, Brain
+  Heart, ThumbsDown, FileText, Download, ListEnd, Share2, Waves, Brain
 } from "lucide-react";
 import { formatDuration } from "@/lib/musicApi";
 import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade } from "@/lib/audioEngine";
@@ -1198,7 +1198,7 @@ export default function PlayerBar() {
             style={{ color: repeat !== "off" ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
             {repeat === "one" ? <Repeat1 className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Repeat className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
           </motion.button>
-          {/* Radio Mode Toggle */}
+          {/* Wave Mode Toggle */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => {
@@ -1209,12 +1209,12 @@ export default function PlayerBar() {
             style={{
               color: radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)",
             }}
-            title={radioMode ? "Выключить радио" : "Радио-режим"}
+            title={radioMode ? "Выключить волну" : "Волна"}
           >
-            <Radio className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <Waves className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             {radioMode && (
               <motion.div
-                layoutId="radio-indicator"
+                layoutId="wave-indicator"
                 className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
                 style={{ backgroundColor: "var(--mq-accent)" }}
                 animate={{ scale: [1, 1.2, 1] }}

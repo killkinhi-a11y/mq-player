@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
-  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, PictureInPicture2, Radio
+  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, PictureInPicture2, Waves
 } from "lucide-react";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
@@ -1040,20 +1040,19 @@ export default function FullTrackView() {
               }}>
               <Sparkles className="w-[18px] h-[18px]" />
             </motion.button>
-            {/* Radio Mode Button — "Моя волна" */}
+            {/* Wave Mode Button */}
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.85 }}
               onClick={() => toggleRadioMode()}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
+              title={radioMode ? "Выключить волну" : "Волна"}
+              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
                 backgroundColor: radioMode ? "var(--mq-accent)" : "var(--mq-card)",
-                color: radioMode ? "var(--mq-text)" : "var(--mq-text)",
-                border: radioMode ? "none" : "1px solid var(--mq-border)",
+                border: radioMode ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
+                color: radioMode ? "var(--mq-text)" : "var(--mq-text-muted)",
               }}
             >
-              <Radio className="w-4 h-4" />
-              {radioMode ? "Радио включено" : "Радио"}
+              <Waves className="w-[18px] h-[18px]" />
             </motion.button>
             <button onClick={() => setVolume(volume > 0 ? 0 : 70)}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
