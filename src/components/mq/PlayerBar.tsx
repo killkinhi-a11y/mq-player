@@ -1281,12 +1281,12 @@ export default function PlayerBar() {
           )}
 
           {/* PiP */}
-          <motion.button whileTap={{ scale: 0.9 }} onClick={() => {
+          <motion.button whileTap={{ scale: 0.9 }} onClick={async () => {
             if (isPiPActive) {
-              if (pipMode === 'popup') { closePiPPopup(); }
+              closePiPPopup();
               setPiPActive(false);
             } else {
-              const opened = openPiPPopup();
+              const opened = await openPiPPopup();
               setPiPActive(true, opened ? 'popup' : 'overlay');
             }
           }}

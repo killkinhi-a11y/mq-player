@@ -897,12 +897,12 @@ export default function FullTrackView() {
           <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}>
             Сейчас играет
           </span>
-          <motion.button whileTap={{ scale: 0.9 }} onClick={() => {
+          <motion.button whileTap={{ scale: 0.9 }} onClick={async () => {
             if (isPiPActive) {
-              if (pipMode === 'popup') { closePiPPopup(); }
+              closePiPPopup();
               setPiPActive(false);
             } else {
-              const opened = openPiPPopup();
+              const opened = await openPiPPopup();
               setPiPActive(true, opened ? 'popup' : 'overlay');
             }
           }}
