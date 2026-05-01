@@ -1279,9 +1279,9 @@ export default function PlayerBar() {
             <ShareButton scTrackId={currentTrack.scTrackId} />
           )}
 
-          {/* PiP — desktop only */}
+          {/* PiP */}
           <motion.button whileTap={{ scale: 0.9 }} onClick={() => setPiPActive(!isPiPActive)}
-            className="p-1 flex-shrink-0 items-center justify-center hidden lg:flex"
+            className="p-1 flex-shrink-0 flex items-center justify-center"
             style={{ color: isPiPActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
             <PictureInPicture2 className="w-4 h-4" />
           </motion.button>

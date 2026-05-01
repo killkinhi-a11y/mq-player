@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
-  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles
+  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, PictureInPicture2
 } from "lucide-react";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
@@ -26,6 +26,7 @@ export default function FullTrackView() {
     showLyricsRequested, clearShowLyricsRequest,
     sleepTimerActive, sleepTimerRemaining, startSleepTimer, stopSleepTimer, updateSleepTimer,
     currentStyle, styleVariant, currentPlaylistId,
+    isPiPActive, setPiPActive,
   } = useAppStore();
 
   const progressRef = useRef<HTMLDivElement>(null);
@@ -895,6 +896,10 @@ export default function FullTrackView() {
           <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}>
             Сейчас играет
           </span>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setPiPActive(!isPiPActive)}
+            className="p-2" style={{ color: isPiPActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} title="Мини-плеер">
+            <PictureInPicture2 className="w-5 h-5" />
+          </motion.button>
           <motion.button whileTap={{ scale: 0.9 }} onClick={handleDownload}
             className="p-2" style={{ color: "var(--mq-text-muted)" }} title="Скачать">
             <Download className="w-5 h-5" />
