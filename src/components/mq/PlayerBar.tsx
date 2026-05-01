@@ -1010,19 +1010,10 @@ export default function PlayerBar() {
     const el = playerBarRef.current;
     if (!el) return;
     const handler = (e: WheelEvent) => {
-      // Check if wheel is over volume section or any part of player bar
-      const volEl = volumeSectionRef.current;
-      if (volEl) {
-        const rect = volEl.getBoundingClientRect();
-        // Expand detection area: include the whole right side of player bar
-        const playerRect = el.getBoundingClientRect();
-        if (e.clientX > playerRect.width * 0.5) {
-          e.preventDefault();
-          e.stopPropagation();
-          const delta = e.deltaY > 0 ? -2 : 2;
-          useAppStore.getState().setVolume(Math.round(Math.max(0, Math.min(100, useAppStore.getState().volume + delta))));
-        }
-      }
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY > 0 ? -2 : 2;
+      useAppStore.getState().setVolume(Math.round(Math.max(0, Math.min(100, useAppStore.getState().volume + delta))));
     };
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
