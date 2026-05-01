@@ -356,15 +356,18 @@ async function openNativeVideoPiP(): Promise<boolean> {
 
     nativeVideo.srcObject = combinedStream;
 
-    // Start playing the video
-    try {
-      await nativeVideo.play();
-    } catch {
-      // Ignore play errors — PiP can still work
-    }
+    // ── CRITICAL: requestPictureInPicture() MUST be called synchronously
+    // ── from user gesture, before any await. Firefox expires user
+    // ── activation after the first microtask/macrotask boundary.
+    // ── So we request PiP FIRST, then start playing.
 
-    // Request Picture-in-Picture (requires user gesture)
+    // Request Picture-in-Picture immediately (requires user gesture)
     await nativeVideo.requestPictureInPicture();
+
+    // Start playing the video AFTER PiP is active (fire-and-forget)
+    nativeVideo.play().catch(() => {
+      // Video play is not critical — canvas stream still renders in PiP
+    });
 
     isNativeActive = true;
     startAnimation();
