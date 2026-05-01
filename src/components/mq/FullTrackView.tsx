@@ -10,6 +10,7 @@ import {
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { getAudioElement, resumeAudioContext } from "@/lib/audioEngine";
+import { openPiPPopup, closePiPPopup } from "@/lib/pipManager";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 import TrackCanvas from "./TrackCanvas";
 import PlaylistArtwork from "./PlaylistArtwork";
@@ -898,19 +899,11 @@ export default function FullTrackView() {
           </span>
           <motion.button whileTap={{ scale: 0.9 }} onClick={() => {
             if (isPiPActive) {
-              if (pipMode === 'popup') {
-                const { closePiPPopup } = require('@/lib/pipManager');
-                closePiPPopup();
-              }
+              if (pipMode === 'popup') { closePiPPopup(); }
               setPiPActive(false);
             } else {
-              try {
-                const { openPiPPopup } = require('@/lib/pipManager');
-                const opened = openPiPPopup();
-                setPiPActive(true, opened ? 'popup' : 'overlay');
-              } catch {
-                setPiPActive(true, 'overlay');
-              }
+              const opened = openPiPPopup();
+              setPiPActive(true, opened ? 'popup' : 'overlay');
             }
           }}
             className="p-2" style={{ color: isPiPActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} title="Мини-плеер">

@@ -11,6 +11,7 @@ import {
 import { formatDuration } from "@/lib/musicApi";
 import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade } from "@/lib/audioEngine";
 import { getLocalBlobUrl } from "./SearchView";
+import { openPiPPopup, closePiPPopup } from "@/lib/pipManager";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 import QueueView from "./QueueView";
 import Hls from "hls.js";
@@ -1282,19 +1283,11 @@ export default function PlayerBar() {
           {/* PiP */}
           <motion.button whileTap={{ scale: 0.9 }} onClick={() => {
             if (isPiPActive) {
-              if (pipMode === 'popup') {
-                const { closePiPPopup } = require('@/lib/pipManager');
-                closePiPPopup();
-              }
+              if (pipMode === 'popup') { closePiPPopup(); }
               setPiPActive(false);
             } else {
-              try {
-                const { openPiPPopup } = require('@/lib/pipManager');
-                const opened = openPiPPopup();
-                setPiPActive(true, opened ? 'popup' : 'overlay');
-              } catch {
-                setPiPActive(true, 'overlay');
-              }
+              const opened = openPiPPopup();
+              setPiPActive(true, opened ? 'popup' : 'overlay');
             }
           }}
             className="p-1 flex-shrink-0 flex items-center justify-center"
