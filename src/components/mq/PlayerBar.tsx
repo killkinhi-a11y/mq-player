@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
   Shuffle, Music, Loader2, PictureInPicture2, ListMusic,
-  Heart, ThumbsDown, FileText, Download, ListEnd, Share2
+  Heart, ThumbsDown, FileText, Download, ListEnd, Share2, Radio, Brain
 } from "lucide-react";
 import { formatDuration } from "@/lib/musicApi";
 import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade } from "@/lib/audioEngine";
@@ -69,7 +69,7 @@ export default function PlayerBar() {
     setFullTrackViewOpen, setPiPActive, isPiPActive, pipMode,
     setPlaybackMode, requestShowSimilar, requestShowLyrics,
     toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
-    upNext, currentStyle,
+    upNext, currentStyle, radioMode, smartShuffle, toggleRadioMode,
   } = useAppStore();
 
   const [showQueue, setShowQueue] = useState(false);
@@ -146,6 +146,11 @@ export default function PlayerBar() {
       setPlayError(false);
       crossfadeRef.current = false;
       const st = useAppStore.getState();
+      // Record track completion for feedback
+      const currentTrackId = st.currentTrack?.id;
+      if (currentTrackId) {
+        useAppStore.getState().recordComplete(currentTrackId, st.progress || 0);
+      }
       if (st.repeat === "one") {
         const a = getActive();
         if (a) {
@@ -154,6 +159,10 @@ export default function PlayerBar() {
           setProgressRef.current(0);
         }
       } else {
+        const st2 = useAppStore.getState();
+        if (st2.currentTrack?.id && st2.progress > 0) {
+          st2.recordComplete(st2.currentTrack.id, st2.progress);
+        }
         nextTrackRef.current();
       }
     };
@@ -1142,10 +1151,18 @@ export default function PlayerBar() {
 
         {/* Controls */}
         <div className="flex items-center gap-0.5 sm:gap-2 lg:gap-4 mx-0.5 sm:mx-2 lg:mx-4">
-          <motion.button whileTap={{ scale: 0.9 }} onClick={toggleShuffle} className="p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center"
-            style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-            <Shuffle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-          </motion.button>
+          <div className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center">
+            <motion.button whileTap={{ scale: 0.9 }} onClick={toggleShuffle} className="flex items-center justify-center"
+              style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+              <Shuffle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            </motion.button>
+            {shuffle && smartShuffle && (
+              <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--mq-accent)", fontSize: "6px", color: "var(--mq-text)" }}>
+                AI
+              </div>
+            )}
+          </div>
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={handlePrevTrack}
             className="p-1.5 sm:p-2 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center" style={{ color: "var(--mq-text)" }}>
             <SkipBack className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -1169,13 +1186,41 @@ export default function PlayerBar() {
               )}
             </AnimatePresence>
           </motion.button>
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={nextTrack}
+          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => {
+            const st = useAppStore.getState();
+            if (st.currentTrack?.id) st.recordSkip(st.currentTrack.id);
+            nextTrack();
+          }}
             className="p-1.5 sm:p-2 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center" style={{ color: "var(--mq-text)" }}>
             <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
           </motion.button>
           <motion.button whileTap={{ scale: 0.9 }} onClick={toggleRepeat} className="p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center"
             style={{ color: repeat !== "off" ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
             {repeat === "one" ? <Repeat1 className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Repeat className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
+          </motion.button>
+          {/* Radio Mode Toggle */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => {
+              const st = useAppStore.getState();
+              st.toggleRadioMode();
+            }}
+            className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center"
+            style={{
+              color: radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)",
+            }}
+            title={radioMode ? "Выключить радио" : "Радио-режим"}
+          >
+            <Radio className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            {radioMode && (
+              <motion.div
+                layoutId="radio-indicator"
+                className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+                style={{ backgroundColor: "var(--mq-accent)" }}
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ repeat: Infinity, duration: 2 }}
+              />
+            )}
           </motion.button>
         </div>
 

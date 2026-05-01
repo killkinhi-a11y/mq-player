@@ -175,6 +175,21 @@ interface AppState {
   // History
   history: HistoryEntry[];
 
+  // Radio mode — "Моя волна" (Yandex Music style)
+  radioMode: boolean;
+  radioSeedTrack: Track | null;
+  radioSkipCount: number;
+
+  // Smart Shuffle (Spotify style)
+  smartShuffle: boolean;
+
+  // Feedback signals (Apple Music / Yandex style)
+  trackFeedback: Record<string, { skips: number; completes: number; listenTime: number; lastPlayedAt: number }>;
+
+  // Release Radar state
+  releaseRadarTracks: Track[];
+  releaseRadarLoading: boolean;
+
   // Actions
   setAuth: (userId: string, username: string, email: string, role?: string, avatar?: string | null) => void;
   logout: () => void;
@@ -332,6 +347,19 @@ interface AppState {
   addToHistory: (track: Track) => void;
   clearHistory: () => void;
 
+  // Radio mode actions
+  toggleRadioMode: () => void;
+
+  // Smart Shuffle actions
+  toggleSmartShuffle: () => void;
+
+  // Feedback actions
+  recordSkip: (trackId: string) => void;
+  recordComplete: (trackId: string, listenTime: number) => void;
+
+  // Release Radar actions
+  fetchReleaseRadar: () => Promise<void>;
+
   // Reset
   reset: () => void;
 }
@@ -415,10 +443,53 @@ const initialState = {
   // Collaborative listening
   listenSession: null as any,
 
+  // Radio mode
+  radioMode: false,
+  radioSeedTrack: null as Track | null,
+  radioSkipCount: 0,
+
+  // Smart Shuffle
+  smartShuffle: true,
+
+  // Feedback signals
+  trackFeedback: {} as Record<string, { skips: number; completes: number; listenTime: number; lastPlayedAt: number }>,
+
+  // Release Radar
+  releaseRadarTracks: [] as Track[],
+  releaseRadarLoading: false,
+
   // Style
   currentStyle: "",
   styleVariant: "dark" as string,
 };
+
+// Simple energy estimation for smart shuffle
+function estimateTrackEnergy(track: Track): number {
+  if (!track) return 0.5;
+  const title = (track.title || "").toLowerCase();
+  const genre = (track.genre || "").toLowerCase();
+  const dur = track.duration || 0;
+
+  const highKw = ["remix", "edit", "mix", "club", "bass boosted", "extended", "hard", "banger", "drop", "festival", "rave", "workout", "bootleg"];
+  const lowKw = ["acoustic", "live", "unplugged", "piano", "ambient", "sleep", "meditation", "relax", "chill", "lo-fi", "lofi", "slow", "ballad"];
+
+  let s = 0;
+  if (highKw.some(kw => title.includes(kw))) s += 1;
+  if (lowKw.some(kw => title.includes(kw))) s -= 1;
+
+  const highG = ["edm", "techno", "dubstep", "drum and bass", "hardstyle", "trap", "reggaeton", "dance pop", "trance", "drill"];
+  const lowG = ["ambient", "classical", "lo-fi", "lofi", "piano", "bossa nova", "downtempo", "jazz", "blues"];
+
+  if (highG.some(g => genre.includes(g))) s += 2;
+  else if (lowG.some(g => genre.includes(g))) s -= 2;
+  if (dur > 0) { if (dur < 150) s += 1; else if (dur > 360) s -= 1; }
+
+  if (s >= 2) return 1;
+  if (s <= -2) return 0;
+  if (s >= 1) return 0.75;
+  if (s <= -1) return 0.25;
+  return 0.5;
+}
 
 export const useAppStore = create<AppState>()(
   persist(
@@ -550,7 +621,7 @@ export const useAppStore = create<AppState>()(
       setDuration: (duration) => set({ duration }),
 
       nextTrack: () => {
-        const { queue, queueIndex, shuffle, repeat, upNext, currentTrack } = get();
+        const { queue, queueIndex, shuffle, repeat, upNext, currentTrack, smartShuffle, radioMode } = get();
 
         // ── UpNext priority: play from upNext first (FIFO) ──
         if (upNext.length > 0) {
@@ -571,32 +642,119 @@ export const useAppStore = create<AppState>()(
 
         let nextIdx: number;
         if (shuffle) {
-          // ── Smart shuffle: avoid consecutive same artist ──
-          const currentArtist = currentTrack?.artist;
-          if (queue.length <= 1) {
-            nextIdx = 0;
-          } else {
-            nextIdx = queueIndex; // fallback
-            for (let attempt = 0; attempt < 10; attempt++) {
-              const candidate = Math.floor(Math.random() * queue.length);
-              if (candidate !== queueIndex) {
-                const candidateTrack = queue[candidate];
-                if (!currentArtist || candidateTrack?.artist !== currentArtist) {
-                  nextIdx = candidate;
-                  break;
-                }
+          if (queue.length <= 1) { nextIdx = 0; }
+          else if (smartShuffle && currentTrack) {
+            // Smart Shuffle: score each candidate by transition smoothness
+            const currentEnergy = estimateTrackEnergy(currentTrack);
+            const currentGenre = (currentTrack.genre || "").toLowerCase();
+
+            let bestIdx = -1;
+            let bestScore = -Infinity;
+
+            const candidates = Array.from({ length: Math.min(queue.length, 20) }, () =>
+              Math.floor(Math.random() * queue.length)
+            ).filter(i => i !== queueIndex);
+
+            for (const candidateIdx of candidates) {
+              const candidate = queue[candidateIdx];
+              if (!candidate) continue;
+
+              let score = Math.random() * 10; // base randomness
+
+              // Energy transition penalty (Spotify: smooth transitions)
+              const candidateEnergy = estimateTrackEnergy(candidate);
+              const energyDiff = Math.abs(candidateEnergy - currentEnergy);
+              score -= energyDiff * 20; // penalize jarring energy jumps
+
+              // Same artist penalty (but not as harsh — allow occasionally)
+              if (candidate.artist === currentTrack.artist) score -= 15;
+
+              // Genre match bonus
+              if (candidate.genre && currentGenre &&
+                  candidate.genre.toLowerCase() === currentGenre) score += 5;
+
+              if (score > bestScore) {
+                bestScore = score;
+                bestIdx = candidateIdx;
               }
             }
-            // If all attempts failed (all same artist), pick any different index
-            if (nextIdx === queueIndex) {
-              do { nextIdx = Math.floor(Math.random() * queue.length); } while (nextIdx === queueIndex);
+
+            nextIdx = bestIdx >= 0 ? bestIdx : Math.floor(Math.random() * queue.length);
+          } else {
+            // Original random shuffle as fallback
+            const currentArtist = currentTrack?.artist;
+            if (queue.length <= 1) { nextIdx = 0; }
+            else {
+              nextIdx = queueIndex;
+              for (let attempt = 0; attempt < 10; attempt++) {
+                const candidate = Math.floor(Math.random() * queue.length);
+                if (candidate !== queueIndex) {
+                  if (!currentArtist || queue[candidate]?.artist !== currentArtist) {
+                    nextIdx = candidate; break;
+                  }
+                }
+              }
+              if (nextIdx === queueIndex) {
+                do { nextIdx = Math.floor(Math.random() * queue.length); } while (nextIdx === queueIndex);
+              }
             }
           }
         } else {
           nextIdx = queueIndex + 1;
           if (nextIdx >= queue.length) {
             if (repeat === "all") nextIdx = 0;
-            else { set({ isPlaying: false }); return; }
+            // Radio mode — "Моя волна" (Яндекс Music style): auto-fill queue via radio API
+            else if (radioMode) {
+              const currentT = get().currentTrack;
+              const st = get();
+              if (currentT?.scTrackId) {
+                // Build history of recently played SC IDs for the radio API
+                const recentHistory = st.history.slice(0, 5).map(h => h.track.scTrackId).filter((id): id is number => !!id).join(",");
+                // Build skipped genres/artists from feedback data
+                const fb = st.trackFeedback;
+                const skippedIds = Object.entries(fb)
+                  .filter(([, v]) => v.skips > v.completes && v.skips >= 2)
+                  .map(([id]) => id);
+                const skippedArtists = skippedIds.map(id => {
+                  const entry = st.history.find(h => h.track.id === id);
+                  return entry?.track.artist;
+                }).filter(Boolean).slice(0, 5).join(",");
+                
+                const params = new URLSearchParams();
+                params.set("scTrackId", String(currentT.scTrackId));
+                if (recentHistory) params.set("historyScIds", recentHistory);
+                if (skippedArtists) params.set("skippedArtists", skippedArtists);
+                
+                // Detect language from history
+                const langCounts: Record<string, number> = { russian: 0, english: 0 };
+                for (const h of st.history.slice(0, 20)) {
+                  const text = `${h.track.title || ""} ${h.track.artist || ""}`;
+                  const cyrillic = (text.match(/[\u0400-\u04FF]/g) || []).length;
+                  const latin = (text.match(/[a-zA-Z]/g) || []).length;
+                  if (cyrillic / (cyrillic + latin + 1) > 0.4) langCounts.russian++;
+                  else if (latin / (cyrillic + latin + 1) > 0.6) langCounts.english++;
+                }
+                const topLang = Object.entries(langCounts).sort((a, b) => b[1] - a[1]);
+                if (topLang[0]?.[1] > 5) params.set("lang", topLang[0][0]);
+
+                fetch(`/api/music/radio?${params}`)
+                  .then(res => res.ok ? res.json() : null)
+                  .then(data => {
+                    if (!data || !data.tracks || data.tracks.length === 0) return;
+                    const newTracks = data.tracks.slice(0, 8);
+                    const state = get();
+                    const existingIds = new Set(state.queue.map(t => t.id));
+                    const fresh = newTracks.filter(t => !existingIds.has(t.id));
+                    if (fresh.length === 0) return;
+                    set({ queue: [...state.queue, ...fresh] });
+                  })
+                  .catch(() => {});
+              }
+              // Wrap to start while new tracks load
+              nextIdx = 0;
+            } else {
+              set({ isPlaying: false }); return;
+            }
           }
         }
         const track = queue[nextIdx];
@@ -1136,6 +1294,86 @@ export const useAppStore = create<AppState>()(
       },
 
       clearHistory: () => set({ history: [] }),
+
+      // ── Radio mode actions ──
+      toggleRadioMode: () => {
+        const { currentTrack, radioMode } = get();
+        if (radioMode) {
+          // Stop radio
+          set({ radioMode: false, radioSeedTrack: null, radioSkipCount: 0 });
+        } else if (currentTrack) {
+          // Start radio from current track
+          set({ radioMode: true, radioSeedTrack: currentTrack, radioSkipCount: 0 });
+        }
+      },
+
+      // ── Smart Shuffle actions ──
+      toggleSmartShuffle: () => set((s) => ({ smartShuffle: !s.smartShuffle })),
+
+      // ── Feedback actions ──
+      recordSkip: (trackId: string) => {
+        set((s) => {
+          const fb = { ...s.trackFeedback };
+          const existing = fb[trackId] || { skips: 0, completes: 0, listenTime: 0, lastPlayedAt: 0 };
+          fb[trackId] = { ...existing, skips: existing.skips + 1, lastPlayedAt: Date.now() };
+          return { trackFeedback: fb, radioSkipCount: s.radioMode ? s.radioSkipCount + 1 : 0 };
+        });
+      },
+
+      recordComplete: (trackId: string, listenTime: number) => {
+        set((s) => {
+          const fb = { ...s.trackFeedback };
+          const existing = fb[trackId] || { skips: 0, completes: 0, listenTime: 0, lastPlayedAt: 0 };
+          fb[trackId] = { ...existing, completes: existing.completes + 1, listenTime: existing.listenTime + listenTime, lastPlayedAt: Date.now() };
+          return { trackFeedback: fb };
+        });
+      },
+
+      // ── Release Radar actions ──
+      fetchReleaseRadar: async () => {
+        const { likedTracksData } = get();
+        set({ releaseRadarLoading: true });
+        try {
+          // Extract top artists from liked tracks
+          const artistCounts: Record<string, number> = {};
+          for (const t of likedTracksData) {
+            if (t.artist) artistCounts[t.artist] = (artistCounts[t.artist] || 0) + 1;
+          }
+          const topArtists = Object.entries(artistCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([a]) => a);
+
+          if (topArtists.length === 0) {
+            set({ releaseRadarTracks: [], releaseRadarLoading: false });
+            return;
+          }
+
+          // Search for recent tracks from top artists
+          const allTracks: Track[] = [];
+          const seen = new Set<string>();
+
+          for (const artist of topArtists.slice(0, 3)) {
+            try {
+              const res = await fetch(`/api/music/search?q=${encodeURIComponent(artist + " 2025 2026")}&limit=10`);
+              if (res.ok) {
+                const data = await res.json();
+                const tracks: Track[] = data.tracks || [];
+                for (const t of tracks) {
+                  if (!seen.has(t.id)) {
+                    seen.add(t.id);
+                    allTracks.push(t);
+                  }
+                }
+              }
+            } catch {}
+          }
+
+          set({ releaseRadarTracks: allTracks.slice(0, 20), releaseRadarLoading: false });
+        } catch {
+          set({ releaseRadarTracks: [], releaseRadarLoading: false });
+        }
+      },
 
       // ── Server sync actions ──
       syncToServer: async () => {

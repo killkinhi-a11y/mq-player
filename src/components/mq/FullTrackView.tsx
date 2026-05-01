@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
-  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, PictureInPicture2
+  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, PictureInPicture2, Radio
 } from "lucide-react";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
@@ -28,6 +28,7 @@ export default function FullTrackView() {
     sleepTimerActive, sleepTimerRemaining, startSleepTimer, stopSleepTimer, updateSleepTimer,
     currentStyle, styleVariant, currentPlaylistId,
     isPiPActive, setPiPActive, pipMode,
+    radioMode, toggleRadioMode, releaseRadarTracks, fetchReleaseRadar, likedTracksData,
   } = useAppStore();
 
   const progressRef = useRef<HTMLDivElement>(null);
@@ -753,6 +754,13 @@ export default function FullTrackView() {
     return () => { if (waveAnimRef.current) cancelAnimationFrame(waveAnimRef.current); };
   }, [isFullTrackViewOpen, currentTrack?.id, currentStyle]);
 
+  // Fetch release radar when component mounts and liked tracks are available
+  useEffect(() => {
+    if (likedTracksData.length > 0 && releaseRadarTracks.length === 0) {
+      fetchReleaseRadar();
+    }
+  }, [likedTracksData.length]);
+
   // ── Sleep timer ──────────────────────────────────────────
   useEffect(() => {
     if (!sleepTimerActive) return;
@@ -1032,6 +1040,21 @@ export default function FullTrackView() {
               }}>
               <Sparkles className="w-[18px] h-[18px]" />
             </motion.button>
+            {/* Radio Mode Button — "Моя волна" */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => toggleRadioMode()}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
+              style={{
+                backgroundColor: radioMode ? "var(--mq-accent)" : "var(--mq-card)",
+                color: radioMode ? "var(--mq-text)" : "var(--mq-text)",
+                border: radioMode ? "none" : "1px solid var(--mq-border)",
+              }}
+            >
+              <Radio className="w-4 h-4" />
+              {radioMode ? "Радио включено" : "Радио"}
+            </motion.button>
             <button onClick={() => setVolume(volume > 0 ? 0 : 70)}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
@@ -1258,6 +1281,23 @@ export default function FullTrackView() {
                   <p className="text-xs text-center py-4" style={{ color: "var(--mq-text-muted)" }}>Не удалось загрузить похожие треки</p>
                 )}
               </div>
+
+              {/* Release Radar — New releases from liked artists */}
+              {releaseRadarTracks.length > 0 && (
+                <div className="mt-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+                    <h3 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>
+                      Новые релизы
+                    </h3>
+                  </div>
+                  <div className="space-y-2">
+                    {releaseRadarTracks.slice(0, 6).map((track, i) => (
+                      <TrackCard key={track.id} track={track} index={i} queue={releaseRadarTracks} />
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
