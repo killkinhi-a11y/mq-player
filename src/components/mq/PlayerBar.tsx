@@ -924,10 +924,10 @@ export default function PlayerBar() {
 
   // ── Handle volume ───────────────────────────────────────
   useEffect(() => {
-    // Set volume on BOTH audio elements so crossfade sounds consistent.
-    // The inactive element's volume defaults to 1.0; without this sync,
-    // the new track fading in would play louder than the user's setting.
-    const vol = volume / 100;
+    // Quadratic curve: human hearing is logarithmic.
+    // volume=10% → 1% actual, volume=30% → 9%, volume=100% → 100%
+    // This makes low volumes MUCH quieter, like a real audio player.
+    const vol = Math.pow(volume / 100, 2);
     getAudioElement().volume = vol;
     const secondary = getInactiveAudio();
     if (secondary) secondary.volume = vol;
