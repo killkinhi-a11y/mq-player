@@ -6,7 +6,8 @@ import { motion } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3 } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle } from "lucide-react";
+import PlaylistArtwork from "./PlaylistArtwork";
 
 interface CuratedPlaylist {
   id: string;
@@ -349,26 +350,16 @@ export default function MainView() {
           className="rounded-2xl overflow-hidden relative"
           style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
         >
-          {/* Accent glow — themed */}
-          <div className="absolute -top-16 -left-16 w-48 h-48 rounded-full opacity-[0.15]"
-            style={{ background: "var(--mq-accent)" }}
-          />
-          <div className="absolute -bottom-12 -right-12 w-40 h-40 rounded-full opacity-[0.08]"
-            style={{ background: "var(--mq-accent)" }}
-          />
-          {/* Decorative pattern — themed */}
-          <div className="absolute inset-0 opacity-[0.03]"
-            style={{
-              backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 6px, var(--mq-accent) 6px, var(--mq-accent) 7px)",
-            }}
+          {/* Themed gradient overlay from playlist identity */}
+          <div className="absolute inset-0 opacity-[0.08]"
+            style={{ background: selectedCurated.gradient }}
           />
 
           <div className="relative z-10 p-5 lg:p-8">
             <div className="flex items-start gap-5">
-              {/* Playlist icon */}
-              <div className="w-24 h-24 lg:w-32 lg:h-32 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center"
-                style={{ backgroundColor: "var(--mq-accent)", opacity: 0.9 }}>
-                <Disc3 className="w-10 h-10 lg:w-14 lg:h-14" style={{ color: "var(--mq-text)" }} />
+              {/* Playlist artwork */}
+              <div className="w-28 h-28 lg:w-36 lg:h-36 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg shadow-black/20">
+                <PlaylistArtwork playlistId={selectedCurated.id} size={200} rounded="rounded-none" className="!w-full !h-full" />
               </div>
 
               {/* Playlist info */}
@@ -483,7 +474,7 @@ export default function MainView() {
         ))}
       </div>
 
-      {/* Curated playlists — horizontal gradient cards */}
+      {/* Curated playlists — stylized gradient artwork cards */}
       <div>
         <h2 className="text-lg font-bold mb-4" style={{ color: "var(--mq-text)" }}>
           Плейлисты для вас
@@ -491,60 +482,44 @@ export default function MainView() {
         {curatedLoading ? (
           <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex-shrink-0 w-36 h-48 rounded-2xl" style={{ background: "var(--mq-card)" }}>
-                <Skeleton className="w-full h-full rounded-2xl" />
+              <div key={i} className="flex-shrink-0 w-40">
+                <div className="w-40 h-40 rounded-2xl mb-2" style={{ background: "var(--mq-card)" }}>
+                  <Skeleton className="w-full h-full rounded-2xl" />
+                </div>
+                <Skeleton className="h-4 w-24 mb-1" />
+                <Skeleton className="h-3 w-16" />
               </div>
             ))}
           </div>
         ) : curatedPlaylists.length > 0 ? (
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
             {curatedPlaylists.map((pl, i) => (
               <motion.button
                 key={pl.id}
-                initial={animationsEnabled ? { opacity: 0, x: 30 } : undefined}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                whileHover={{ scale: 1.04 }}
+                initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }}
+                whileHover={{ scale: 1.04, y: -4 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => {
                   setSelectedCurated(pl);
                 }}
-                className="flex-shrink-0 w-36 h-48 rounded-2xl relative overflow-hidden cursor-pointer group"
-                style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+                className="flex-shrink-0 w-40 cursor-pointer group"
               >
-                {/* Accent glow at top-left — subtle themed tint */}
-                <div className="absolute -top-8 -left-8 w-24 h-24 rounded-full opacity-[0.12] group-hover:opacity-[0.18] transition-opacity duration-300"
-                  style={{ background: "var(--mq-accent)" }}
-                />
-                <div className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full opacity-[0.06] group-hover:opacity-[0.10] transition-opacity duration-300"
-                  style={{ background: "var(--mq-accent)" }}
-                />
-                {/* Decorative pattern — themed */}
-                <div className="absolute inset-0 opacity-[0.04]"
-                  style={{
-                    backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 6px, var(--mq-accent) 6px, var(--mq-accent) 7px)",
-                  }}
-                />
-                {/* Content */}
-                <div className="relative z-10 h-full flex flex-col justify-between p-3">
-                  <div className="mt-1">
-                    <p className="text-sm font-bold leading-tight" style={{ color: "var(--mq-text)" }}>
-                      {pl.name}
-                    </p>
-                    <p className="text-[11px] mt-1 leading-tight truncate" style={{ color: "var(--mq-text-muted)" }}>
-                      {pl.subtitle}
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
-                      {pl.tracks.length} треков
-                    </p>
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-200"
-                      style={{ backgroundColor: "var(--mq-accent)", opacity: 0.8 }}>
-                      <Music2 className="w-3.5 h-3.5" style={{ color: "var(--mq-text)" }} />
-                    </div>
-                  </div>
+                {/* Artwork cover */}
+                <div className="w-40 h-40 rounded-2xl overflow-hidden mb-2.5 shadow-lg shadow-black/15 group-hover:shadow-xl group-hover:shadow-black/25 transition-shadow duration-300">
+                  <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className="!w-full !h-full group-hover:scale-105 transition-transform duration-500" />
                 </div>
+                {/* Text below */}
+                <p className="text-sm font-semibold leading-tight truncate text-left" style={{ color: "var(--mq-text)" }}>
+                  {pl.name}
+                </p>
+                <p className="text-[11px] mt-0.5 leading-tight truncate text-left" style={{ color: "var(--mq-text-muted)" }}>
+                  {pl.subtitle}
+                </p>
+                <p className="text-[10px] mt-0.5 text-left" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                  {pl.tracks.length} треков
+                </p>
               </motion.button>
             ))}
           </div>
