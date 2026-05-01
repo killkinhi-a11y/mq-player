@@ -63,10 +63,7 @@ export default function PiPPlayer() {
   // ── If popup PiP window is open, don't render the overlay ──
   const popupOpen = isPiPOpen();
 
-  // If popup PiP is active, render nothing (the window handles itself)
-  if (popupOpen) return null;
-
-  // ── Below: fallback overlay-based PiP ──
+  // ── ALL hooks MUST be called before any conditional return ──
 
   // Auto-minimize when FullTrackView opens, restore when it closes
   useEffect(() => {
@@ -159,6 +156,11 @@ export default function PiPPlayer() {
 
   const w = minimized ? minimizedSize : expandedW;
   const h = minimized ? minimizedSize : expandedH;
+
+  // ── Conditional returns AFTER all hooks ──
+
+  // If popup PiP is active, render nothing (the window handles itself)
+  if (popupOpen) return null;
 
   if (!isPiPActive || !currentTrack) return null;
 
