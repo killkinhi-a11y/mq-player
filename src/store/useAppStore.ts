@@ -359,7 +359,7 @@ const initialState = {
   queueIndex: 0,
   upNext: [] as Track[],
   isPlaying: false,
-  volume: 70,
+  volume: 30,
   progress: 0,
   duration: 0,
   shuffle: false,

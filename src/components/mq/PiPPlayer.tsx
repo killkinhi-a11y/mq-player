@@ -272,7 +272,7 @@ export default function PiPPlayer() {
               {/* Volume */}
               <div style={{ position: "relative" }}
                 onMouseEnter={() => setShowVolume(true)} onMouseLeave={() => setShowVolume(false)}>
-                <button onClick={(e) => { e.stopPropagation(); setVolume(volume > 0 ? 0 : 70); }}
+                <button onClick={(e) => { e.stopPropagation(); setVolume(volume > 0 ? 0 : 30); }}
                   style={{ width: 28, height: 28, borderRadius: "50%", border: "none", backgroundColor: "transparent", color: "var(--mq-text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {volume === 0 ? <VolumeX size={13} /> : <Volume2 size={13} />}
                 </button>

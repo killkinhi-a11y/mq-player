@@ -1019,7 +1019,7 @@ export default function PlayerBar() {
         if (e.clientX > playerRect.width * 0.5) {
           e.preventDefault();
           e.stopPropagation();
-          const delta = e.deltaY > 0 ? -5 : 5;
+          const delta = e.deltaY > 0 ? -2 : 2;
           useAppStore.getState().setVolume(Math.round(Math.max(0, Math.min(100, useAppStore.getState().volume + delta))));
         }
       }
@@ -1297,7 +1297,7 @@ export default function PlayerBar() {
 
           {/* Volume — mute button always visible, slider & percentage hidden on mobile */}
           <div ref={volumeSectionRef} className="flex items-center gap-1 flex-shrink-0">
-            <button onClick={() => setVolume(volume > 0 ? 0 : 70)}
+            <button onClick={() => setVolume(volume > 0 ? 0 : 30)}
               className="p-1 flex-shrink-0"
               style={{ color: "var(--mq-text-muted)" }}>
               {volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}

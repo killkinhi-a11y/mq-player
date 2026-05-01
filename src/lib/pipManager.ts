@@ -524,7 +524,7 @@ function exposeStoreAPI() {
         }
         break;
       }
-      case "toggleMute": st.setVolume(st.volume > 0 ? 0 : 70); break;
+      case "toggleMute": st.setVolume(st.volume > 0 ? 0 : 30); break;
       case "seek": {
         const newTime = (value || 0) * (st.duration || 1);
         st.setProgress(newTime);
