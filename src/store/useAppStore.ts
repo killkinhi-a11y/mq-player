@@ -103,6 +103,7 @@ interface AppState {
 
   // Player
   currentTrack: Track | null;
+  currentPlaylistId: string | null;
   queue: Track[];
   queueIndex: number;
   upNext: Track[];
@@ -197,7 +198,7 @@ interface AppState {
   clearUpNext: () => void;
 
   // Player actions
-  playTrack: (track: Track, queue?: Track[]) => void;
+  playTrack: (track: Track, queue?: Track[], playlistId?: string | null) => void;
   togglePlay: () => void;
   setVolume: (volume: number) => void;
   setProgress: (progress: number) => void;
@@ -352,6 +353,7 @@ const initialState = {
   fontSize: 16,
   liquidGlassEnabled: false,
   currentTrack: null as Track | null,
+  currentPlaylistId: null as string | null,
   queue: [] as Track[],
   queueIndex: 0,
   upNext: [] as Track[],
@@ -518,12 +520,13 @@ export const useAppStore = create<AppState>()(
 
       clearUpNext: () => set({ upNext: [] as Track[] }),
 
-      playTrack: (track, queue) => {
+      playTrack: (track, queue, playlistId) => {
         const state = get();
         const newQueue = queue || state.queue;
         const index = newQueue.findIndex((t) => t.id === track.id);
         set({
           currentTrack: track,
+          currentPlaylistId: playlistId ?? (queue ? state.currentPlaylistId : null),
           queue: newQueue,
           queueIndex: index >= 0 ? index : 0,
           isPlaying: true,

@@ -12,6 +12,7 @@ import TrackCard from "./TrackCard";
 import { getAudioElement, resumeAudioContext } from "@/lib/audioEngine";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 import TrackCanvas from "./TrackCanvas";
+import PlaylistArtwork from "./PlaylistArtwork";
 
 export default function FullTrackView() {
   const {
@@ -24,7 +25,7 @@ export default function FullTrackView() {
     playTrack, queue, showSimilarRequested, clearShowSimilarRequest,
     showLyricsRequested, clearShowLyricsRequest,
     sleepTimerActive, sleepTimerRemaining, startSleepTimer, stopSleepTimer, updateSleepTimer,
-    currentStyle, styleVariant,
+    currentStyle, styleVariant, currentPlaylistId,
   } = useAppStore();
 
   const progressRef = useRef<HTMLDivElement>(null);
@@ -858,10 +859,26 @@ export default function FullTrackView() {
 
         {/* Blurred background */}
         <div className="absolute inset-0 z-0" style={{ pointerEvents: "none" }}>
-          {currentTrack.cover && (
-            <img src={currentTrack.cover} alt="" className="w-full h-full object-cover blur-3xl opacity-20 scale-110" />
+          {currentPlaylistId ? (
+            <>
+              <PlaylistArtwork
+                playlistId={currentPlaylistId}
+                size={400}
+                rounded="rounded-none"
+                className="!w-[150%] !h-[150%] !-top-[25%] !-left-[25%]"
+                animated={true}
+                isPlaying={isPlaying}
+              />
+              <div className="absolute inset-0" style={{ backgroundColor: "var(--mq-bg)", opacity: 0.7 }} />
+            </>
+          ) : (
+            <>
+              {currentTrack.cover && (
+                <img src={currentTrack.cover} alt="" className="w-full h-full object-cover blur-3xl opacity-20 scale-110" />
+              )}
+              <div className="absolute inset-0" style={{ backgroundColor: "var(--mq-bg)", opacity: 0.85 }} />
+            </>
           )}
-          <div className="absolute inset-0" style={{ backgroundColor: "var(--mq-bg)", opacity: 0.85 }} />
         </div>
 
         {/* Canvas visualization (Spotify-like video background) */}
@@ -896,7 +913,18 @@ export default function FullTrackView() {
             >
               <div className="w-56 h-56 sm:w-64 sm:h-64 lg:w-80 lg:h-80 rounded-2xl overflow-hidden shadow-2xl relative z-10"
                 style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
-                <img src={currentTrack.cover} alt={currentTrack.album} className="w-full h-full object-cover" />
+                {currentPlaylistId ? (
+                  <PlaylistArtwork
+                    playlistId={currentPlaylistId}
+                    size={320}
+                    rounded="rounded-none"
+                    className="!w-full !h-full"
+                    animated={true}
+                    isPlaying={isPlaying}
+                  />
+                ) : (
+                  <img src={currentTrack.cover} alt={currentTrack.album} className="w-full h-full object-cover" />
+                )}
               </div>
             </motion.div>
           )}

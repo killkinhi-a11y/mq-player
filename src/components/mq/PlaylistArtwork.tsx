@@ -5,6 +5,8 @@ interface PlaylistArtworkProps {
   size?: number;
   rounded?: string;
   className?: string;
+  animated?: boolean;
+  isPlaying?: boolean;
 }
 
 // Each playlist = unique arrangement of soft glowing orbs
@@ -27,7 +29,7 @@ const PLAYLIST_VISUALS: Record<string, {
     bg: "#181820",
     orbs: [
       { x: "60%", y: "-10%", size: "70%", hueRotate: 40,  brightness: 1.1, saturation: 1.2 },
-      { x: "10%", y: "60%", size: "65%", hueRotate: -15, brightness: 1.0,  saturation: 1.0 },
+      { x: "10%", y: "60%", size: "65%", hueRotate: -15, brightness: 1.0, saturation: 1.0 },
     ],
   },
   "new-releases": {
@@ -115,7 +117,14 @@ const FALLBACK = {
   ],
 };
 
-export default function PlaylistArtwork({ playlistId, size, rounded = "rounded-2xl", className = "" }: PlaylistArtworkProps) {
+// Unique animation timings per orb index for organic feel
+const ORB_ANIMATIONS = [
+  { dur: "12s", delay: "0s", moveX: "-8%", moveY: "12%", scaleRange: [1, 1.12] },
+  { dur: "16s", delay: "-4s", moveX: "10%", moveY: "-8%", scaleRange: [1, 1.08] },
+  { dur: "14s", delay: "-8s", moveX: "-5%", moveY: "-10%", scaleRange: [1, 1.15] },
+];
+
+export default function PlaylistArtwork({ playlistId, size, rounded = "rounded-2xl", className = "", animated = false, isPlaying = false }: PlaylistArtworkProps) {
   const vis = PLAYLIST_VISUALS[playlistId] || FALLBACK;
 
   return (
@@ -128,42 +137,90 @@ export default function PlaylistArtwork({ playlistId, size, rounded = "rounded-2
         background: vis.bg,
       }}
     >
-      {vis.orbs.map((orb, i) => (
-        <div
-          key={i}
-          className="absolute"
-          style={{
-            left: orb.x,
-            top: orb.y,
-            width: orb.size,
-            height: orb.size,
-            borderRadius: "50%",
-            background: "var(--mq-accent)",
-            filter: `blur(28px) hue-rotate(${orb.hueRotate}deg) brightness(${orb.brightness}) saturate(${orb.saturation})`,
-            opacity: 0.85,
-            transform: "translate(-50%, -50%)",
-          }}
-        />
-      ))}
+      {/* CSS keyframes */}
+      <style>{`
+        @keyframes mq-orb-float {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.85; }
+          25% { transform: translate(calc(-50% + var(--mx)), calc(-50% + var(--my))) scale(1.12); opacity: 0.95; }
+          50% { transform: translate(calc(-50% + var(--mx2)), calc(-50% + var(--my2))) scale(1.05); opacity: 0.80; }
+          75% { transform: translate(calc(-50% + var(--mx3)), calc(-50% + var(--my3))) scale(1.10); opacity: 0.90; }
+        }
+        @keyframes mq-orb-core-float {
+          0%, 100% { transform: translate(-50%, -50%); opacity: 0.7; }
+          33% { transform: translate(calc(-50% + var(--mx)), calc(-50% + var(--my))) scale(1.1); opacity: 0.85; }
+          66% { transform: translate(calc(-50% + var(--mx2)), calc(-50% + var(--my2))) scale(0.9); opacity: 0.60; }
+        }
+        @keyframes mq-orb-enter {
+          from { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+          to { opacity: 0.85; transform: translate(-50%, -50%) scale(1); }
+        }
+        @keyframes mq-orb-pause {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.85; }
+        }
+      `}</style>
 
-      {/* Subtle inner light — white core on each orb position */}
-      {vis.orbs.map((orb, i) => (
-        <div
-          key={`c-${i}`}
-          className="absolute"
-          style={{
-            left: orb.x,
-            top: orb.y,
-            width: `calc(${orb.size} * 0.35)`,
-            height: `calc(${orb.size} * 0.35)`,
-            borderRadius: "50%",
-            background: "rgba(255,255,255,0.25)",
-            filter: "blur(12px)",
-            opacity: 0.7,
-            transform: "translate(-50%, -50%)",
-          }}
-        />
-      ))}
+      {vis.orbs.map((orb, i) => {
+        const anim = ORB_ANIMATIONS[i % ORB_ANIMATIONS.length];
+        const useFloat = animated && isPlaying;
+        const useEnter = animated && !isPlaying;
+
+        return (
+          <>
+            {/* Main orb */}
+            <div
+              key={`o-${i}`}
+              className="absolute"
+              style={{
+                left: orb.x,
+                top: orb.y,
+                width: orb.size,
+                height: orb.size,
+                borderRadius: "50%",
+                background: "var(--mq-accent)",
+                filter: `blur(28px) hue-rotate(${orb.hueRotate}deg) brightness(${orb.brightness}) saturate(${orb.saturation})`,
+                opacity: useFloat ? undefined : 0.85,
+                transform: "translate(-50%, -50%)",
+                animation: useFloat
+                  ? `mq-orb-float ${anim.dur} ease-in-out ${anim.delay} infinite`
+                  : useEnter
+                    ? `mq-orb-enter 0.8s ease-out ${i * 0.15}s both, mq-orb-pause 3s ease-in-out 0.8s infinite`
+                    : "none",
+                ["--mx" as string]: anim.moveX,
+                ["--my" as string]: anim.moveY,
+                ["--mx2" as string]: `calc(${anim.moveX} * -0.6)`,
+                ["--my2" as string]: `calc(${anim.moveY} * -0.8)`,
+                ["--mx3" as string]: `calc(${anim.moveX} * 0.4)`,
+                ["--my3" as string]: `calc(${anim.moveY} * -0.3)`,
+                transition: useFloat ? "none" : "opacity 0.5s",
+              }}
+            />
+
+            {/* White core glow */}
+            <div
+              key={`c-${i}`}
+              className="absolute"
+              style={{
+                left: orb.x,
+                top: orb.y,
+                width: `calc(${orb.size} * 0.35)`,
+                height: `calc(${orb.size} * 0.35)`,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.25)",
+                filter: "blur(12px)",
+                opacity: useFloat ? undefined : 0.7,
+                transform: "translate(-50%, -50%)",
+                animation: useFloat
+                  ? `mq-orb-core-float ${anim.dur} ease-in-out ${anim.delay} infinite`
+                  : "none",
+                ["--mx" as string]: anim.moveX,
+                ["--my" as string]: anim.moveY,
+                ["--mx2" as string]: `calc(${anim.moveX} * -0.6)`,
+                ["--my2" as string]: `calc(${anim.moveY} * -0.8)`,
+              }}
+            />
+          </>
+        );
+      })}
     </div>
   );
 }
