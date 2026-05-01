@@ -4,153 +4,168 @@ import { Music2, Compass, Sparkles, Sun, Waves, Zap, Mic2, Radio, Heart, Guitar,
 
 interface PlaylistArtworkProps {
   playlistId: string;
-  size?: number;        // CSS width/height in px
-  rounded?: string;     // border-radius class
+  size?: number;
+  rounded?: string;
   className?: string;
-  showLabel?: boolean;
 }
 
 // ── Per-playlist visual identity ──
+// All colours derive from var(--mq-accent) — overlays create unique moods per playlist
+type ShapeType = "circle" | "ring" | "blob";
+
 const PLAYLIST_VISUALS: Record<string, {
-  gradient: string;
+  angle: number;                          // gradient direction (deg)
+  tint: string;                           // white/black overlay for color shift
   icon: React.ElementType;
-  iconColor: string;
-  shapes: { type: "circle" | "ring" | "blob"; x: string; y: string; size: string; opacity: string; color?: string }[];
-  pattern: string;
+  shapes: { type: ShapeType; x: string; y: string; size: string; opacity: string; white?: boolean }[];
+  glow: string;                           // radial glow position
+  iconBg: string;                         // icon backdrop opacity
 }> = {
   "for-you": {
-    gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    angle: 135,
+    tint: "linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(0,0,0,0.45) 100%)",
     icon: Sparkles,
-    iconColor: "rgba(255,255,255,0.95)",
     shapes: [
-      { type: "circle", x: "10%", y: "15%", size: "40%", opacity: "0.15", color: "#fff" },
-      { type: "ring", x: "60%", y: "55%", size: "35%", opacity: "0.10" },
-      { type: "blob", x: "30%", y: "65%", size: "25%", opacity: "0.08" },
+      { type: "circle", x: "10%", y: "15%", size: "40%", opacity: "0.15", white: true },
+      { type: "ring", x: "60%", y: "55%", size: "35%", opacity: "0.10", white: true },
+      { type: "blob", x: "30%", y: "65%", size: "25%", opacity: "0.08", white: true },
     ],
-    pattern: "radial-gradient(circle at 30% 40%, rgba(255,255,255,0.06) 0%, transparent 60%)",
+    glow: "circle at 30% 40%",
+    iconBg: "0.14",
   },
   discoveries: {
-    gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+    angle: 120,
+    tint: "linear-gradient(135deg, rgba(255,255,255,0.28) 0%, rgba(0,0,0,0.15) 100%)",
     icon: Compass,
-    iconColor: "rgba(255,255,255,0.95)",
     shapes: [
-      { type: "circle", x: "70%", y: "10%", size: "30%", opacity: "0.12", color: "#fff" },
-      { type: "ring", x: "15%", y: "60%", size: "40%", opacity: "0.08" },
+      { type: "circle", x: "70%", y: "10%", size: "30%", opacity: "0.12", white: true },
+      { type: "ring", x: "15%", y: "60%", size: "40%", opacity: "0.10", white: true },
     ],
-    pattern: "radial-gradient(circle at 70% 30%, rgba(255,255,255,0.08) 0%, transparent 50%)",
+    glow: "circle at 70% 30%",
+    iconBg: "0.18",
   },
   "new-releases": {
-    gradient: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+    angle: 160,
+    tint: "linear-gradient(180deg, rgba(0,0,0,0.05) 0%, rgba(0,0,0,0.55) 100%)",
     icon: Music2,
-    iconColor: "rgba(255,255,255,0.95)",
     shapes: [
-      { type: "circle", x: "5%", y: "70%", size: "35%", opacity: "0.12", color: "#fff" },
-      { type: "ring", x: "65%", y: "20%", size: "30%", opacity: "0.10" },
+      { type: "circle", x: "5%", y: "70%", size: "35%", opacity: "0.12", white: true },
+      { type: "ring", x: "65%", y: "20%", size: "30%", opacity: "0.10", white: true },
     ],
-    pattern: "radial-gradient(circle at 50% 80%, rgba(255,255,255,0.06) 0%, transparent 50%)",
+    glow: "circle at 50% 80%",
+    iconBg: "0.12",
   },
   "daily-1": {
-    gradient: "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
+    angle: 145,
+    tint: "linear-gradient(135deg, rgba(255,255,255,0.22) 0%, rgba(0,0,0,0.25) 100%)",
     icon: Sun,
-    iconColor: "rgba(255,255,255,0.95)",
     shapes: [
-      { type: "circle", x: "65%", y: "65%", size: "35%", opacity: "0.12", color: "#fff" },
-      { type: "ring", x: "10%", y: "10%", size: "45%", opacity: "0.08" },
+      { type: "circle", x: "65%", y: "65%", size: "35%", opacity: "0.12", white: true },
+      { type: "ring", x: "10%", y: "10%", size: "45%", opacity: "0.08", white: true },
     ],
-    pattern: "radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 40%)",
+    glow: "circle at 80% 20%",
+    iconBg: "0.20",
   },
   chill: {
-    gradient: "linear-gradient(135deg, #89f7fe 0%, #66a6ff 100%)",
+    angle: 200,
+    tint: "linear-gradient(135deg, rgba(255,255,255,0.20) 0%, rgba(0,0,0,0.30) 100%)",
     icon: Waves,
-    iconColor: "rgba(255,255,255,0.95)",
     shapes: [
-      { type: "blob", x: "20%", y: "50%", size: "50%", opacity: "0.10" },
-      { type: "ring", x: "70%", y: "70%", size: "30%", opacity: "0.08" },
+      { type: "blob", x: "20%", y: "50%", size: "50%", opacity: "0.10", white: true },
+      { type: "ring", x: "70%", y: "70%", size: "30%", opacity: "0.08", white: true },
     ],
-    pattern: "radial-gradient(circle at 20% 80%, rgba(255,255,255,0.08) 0%, transparent 50%)",
+    glow: "circle at 20% 80%",
+    iconBg: "0.16",
   },
   energy: {
-    gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)",
+    angle: 45,
+    tint: "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.50) 100%)",
     icon: Zap,
-    iconColor: "rgba(255,255,255,0.95)",
     shapes: [
-      { type: "circle", x: "75%", y: "15%", size: "25%", opacity: "0.15", color: "#fff" },
-      { type: "ring", x: "5%", y: "5%", size: "50%", opacity: "0.06" },
-      { type: "circle", x: "20%", y: "80%", size: "20%", opacity: "0.10", color: "#fff" },
+      { type: "circle", x: "75%", y: "15%", size: "25%", opacity: "0.15", white: true },
+      { type: "ring", x: "5%", y: "5%", size: "50%", opacity: "0.06", white: true },
+      { type: "circle", x: "20%", y: "80%", size: "20%", opacity: "0.10", white: true },
     ],
-    pattern: "radial-gradient(circle at 80% 80%, rgba(255,255,255,0.1) 0%, transparent 40%)",
+    glow: "circle at 80% 80%",
+    iconBg: "0.10",
   },
   "hip-hop": {
-    gradient: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+    angle: 170,
+    tint: "linear-gradient(160deg, rgba(255,255,255,0.18) 0%, rgba(0,0,0,0.50) 100%)",
     icon: Mic2,
-    iconColor: "rgba(255,255,255,0.95)",
     shapes: [
-      { type: "circle", x: "60%", y: "70%", size: "30%", opacity: "0.12", color: "#fff" },
-      { type: "ring", x: "10%", y: "20%", size: "35%", opacity: "0.08" },
+      { type: "circle", x: "60%", y: "70%", size: "30%", opacity: "0.12", white: true },
+      { type: "ring", x: "10%", y: "20%", size: "35%", opacity: "0.08", white: true },
     ],
-    pattern: "radial-gradient(circle at 30% 20%, rgba(255,255,255,0.08) 0%, transparent 50%)",
+    glow: "circle at 30% 20%",
+    iconBg: "0.10",
   },
   electronic: {
-    gradient: "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
+    angle: 225,
+    tint: "linear-gradient(135deg, rgba(255,255,255,0.25) 0%, rgba(0,0,0,0.10) 100%)",
     icon: Radio,
-    iconColor: "rgba(255,255,255,0.95)",
     shapes: [
-      { type: "ring", x: "50%", y: "50%", size: "60%", opacity: "0.08" },
-      { type: "circle", x: "10%", y: "80%", size: "25%", opacity: "0.10", color: "#fff" },
+      { type: "ring", x: "50%", y: "50%", size: "60%", opacity: "0.08", white: true },
+      { type: "circle", x: "10%", y: "80%", size: "25%", opacity: "0.10", white: true },
     ],
-    pattern: "radial-gradient(circle at 50% 50%, rgba(255,255,255,0.06) 0%, transparent 50%)",
+    glow: "circle at 50% 50%",
+    iconBg: "0.22",
   },
   "rnb-soul": {
-    gradient: "linear-gradient(135deg, #c471f5 0%, #fa71cd 100%)",
+    angle: 130,
+    tint: "linear-gradient(135deg, rgba(255,255,255,0.18) 0%, rgba(0,0,0,0.35) 100%)",
     icon: Heart,
-    iconColor: "rgba(255,255,255,0.95)",
     shapes: [
-      { type: "circle", x: "70%", y: "25%", size: "30%", opacity: "0.10", color: "#fff" },
-      { type: "blob", x: "10%", y: "60%", size: "40%", opacity: "0.06" },
+      { type: "circle", x: "70%", y: "25%", size: "30%", opacity: "0.10", white: true },
+      { type: "blob", x: "10%", y: "60%", size: "40%", opacity: "0.06", white: true },
     ],
-    pattern: "radial-gradient(circle at 70% 70%, rgba(255,255,255,0.08) 0%, transparent 50%)",
+    glow: "circle at 70% 70%",
+    iconBg: "0.14",
   },
   rock: {
-    gradient: "linear-gradient(135deg, #f5576c 0%, #ff6a00 100%)",
+    angle: 180,
+    tint: "linear-gradient(180deg, rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.55) 100%)",
     icon: Guitar,
-    iconColor: "rgba(255,255,255,0.95)",
     shapes: [
-      { type: "circle", x: "15%", y: "15%", size: "35%", opacity: "0.12", color: "#fff" },
-      { type: "ring", x: "65%", y: "65%", size: "30%", opacity: "0.08" },
+      { type: "circle", x: "15%", y: "15%", size: "35%", opacity: "0.12", white: true },
+      { type: "ring", x: "65%", y: "65%", size: "30%", opacity: "0.08", white: true },
     ],
-    pattern: "radial-gradient(circle at 20% 70%, rgba(255,255,255,0.08) 0%, transparent 50%)",
+    glow: "circle at 20% 70%",
+    iconBg: "0.08",
   },
   jazz: {
-    gradient: "linear-gradient(135deg, #ffd89b 0%, #19547b 100%)",
+    angle: 150,
+    tint: "linear-gradient(135deg, rgba(255,255,255,0.20) 0%, rgba(0,0,0,0.40) 100%)",
     icon: Piano,
-    iconColor: "rgba(255,255,255,0.95)",
     shapes: [
-      { type: "blob", x: "60%", y: "20%", size: "45%", opacity: "0.08" },
-      { type: "ring", x: "10%", y: "70%", size: "30%", opacity: "0.10" },
+      { type: "blob", x: "60%", y: "20%", size: "45%", opacity: "0.08", white: true },
+      { type: "ring", x: "10%", y: "70%", size: "30%", opacity: "0.10", white: true },
     ],
-    pattern: "radial-gradient(circle at 80% 50%, rgba(255,255,255,0.06) 0%, transparent 40%)",
+    glow: "circle at 80% 50%",
+    iconBg: "0.16",
   },
   classical: {
-    gradient: "linear-gradient(135deg, #bdc3c7 0%, #2c3e50 100%)",
+    angle: 190,
+    tint: "linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(0,0,0,0.55) 100%)",
     icon: Music4,
-    iconColor: "rgba(255,255,255,0.95)",
     shapes: [
-      { type: "ring", x: "50%", y: "50%", size: "50%", opacity: "0.08" },
-      { type: "circle", x: "15%", y: "15%", size: "20%", opacity: "0.06", color: "#fff" },
+      { type: "ring", x: "50%", y: "50%", size: "50%", opacity: "0.08", white: true },
+      { type: "circle", x: "15%", y: "15%", size: "20%", opacity: "0.06", white: true },
     ],
-    pattern: "radial-gradient(circle at 50% 30%, rgba(255,255,255,0.05) 0%, transparent 50%)",
+    glow: "circle at 50% 30%",
+    iconBg: "0.08",
   },
 };
 
-// Fallback for unknown playlists
 const FALLBACK_VISUAL = {
-  gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+  angle: 135,
+  tint: "linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(0,0,0,0.45) 100%)",
   icon: Music2,
-  iconColor: "rgba(255,255,255,0.95)",
   shapes: [
-    { type: "circle" as const, x: "50%", y: "50%", size: "40%", opacity: "0.10", color: "#fff" },
+    { type: "circle" as ShapeType, x: "50%", y: "50%", size: "40%", opacity: "0.10", white: true },
   ],
-  pattern: "radial-gradient(circle at 50% 50%, rgba(255,255,255,0.06) 0%, transparent 50%)",
+  glow: "circle at 50% 50%",
+  iconBg: "0.14",
 };
 
 export default function PlaylistArtwork({ playlistId, size, rounded = "rounded-2xl", className = "" }: PlaylistArtworkProps) {
@@ -163,24 +178,29 @@ export default function PlaylistArtwork({ playlistId, size, rounded = "rounded-2
       style={{
         width: size || "100%",
         height: size || "100%",
-        background: vis.gradient,
         aspectRatio: "1/1",
       }}
     >
-      {/* Background pattern overlay */}
-      <div className="absolute inset-0" style={{ background: vis.pattern }} />
+      {/* Layer 1: Base accent color */}
+      <div className="absolute inset-0" style={{ background: "var(--mq-accent)" }} />
 
-      {/* Noise texture overlay for depth */}
+      {/* Layer 2: Color tint overlay — creates unique shade per playlist */}
+      <div className="absolute inset-0" style={{ background: vis.tint }} />
+
+      {/* Layer 3: Radial glow for depth */}
+      <div className="absolute inset-0" style={{ background: `radial-gradient(${vis.glow}, rgba(255,255,255,0.08) 0%, transparent 55%)` }} />
+
+      {/* Layer 4: Noise texture */}
       <div
         className="absolute inset-0"
         style={{
-          opacity: 0.03,
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+          opacity: 0.04,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
           backgroundSize: "128px 128px",
         }}
       />
 
-      {/* Decorative shapes */}
+      {/* Layer 5: Decorative shapes */}
       {vis.shapes.map((shape, i) => (
         <div
           key={i}
@@ -191,30 +211,36 @@ export default function PlaylistArtwork({ playlistId, size, rounded = "rounded-2
             width: shape.size,
             height: shape.size,
             opacity: shape.opacity,
-            borderRadius: shape.type === "blob" ? "60% 40% 30% 70% / 60% 30% 70% 40%" : shape.type === "ring" ? "50%" : "50%",
+            borderRadius: shape.type === "blob"
+              ? "60% 40% 30% 70% / 60% 30% 70% 40%"
+              : "50%",
             background: shape.type === "ring"
               ? "transparent"
-              : (shape.color || "rgba(255,255,255,0.8)"),
+              : "rgba(255,255,255,0.85)",
             border: shape.type === "ring" ? "2px solid rgba(255,255,255,0.3)" : "none",
             transform: shape.type === "blob" ? "rotate(-15deg)" : "none",
           }}
         />
       ))}
 
-      {/* Center icon with soft glow */}
+      {/* Layer 6: Center icon with glass backdrop */}
       <div
         className="relative z-10 flex items-center justify-center"
         style={{
-          width: "40%",
-          height: "40%",
+          width: "38%",
+          height: "38%",
           borderRadius: "50%",
-          background: "rgba(255,255,255,0.12)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          boxShadow: "0 4px 24px rgba(0,0,0,0.15)",
+          background: `rgba(255,255,255,${vis.iconBg})`,
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
         }}
       >
-        <Icon className="w-1/2 h-1/2" style={{ color: vis.iconColor }} strokeWidth={1.8} />
+        <Icon
+          className="w-1/2 h-1/2"
+          style={{ color: "rgba(255,255,255,0.95)" }}
+          strokeWidth={1.8}
+        />
       </div>
     </div>
   );

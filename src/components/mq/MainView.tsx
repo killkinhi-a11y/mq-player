@@ -350,16 +350,16 @@ export default function MainView() {
           className="rounded-2xl overflow-hidden relative"
           style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
         >
-          {/* Themed gradient overlay from playlist identity */}
-          <div className="absolute inset-0 opacity-[0.10]"
-            style={{ background: selectedCurated.gradient }}
+          {/* Themed gradient overlay from user accent */}
+          <div className="absolute inset-0 opacity-[0.08]"
+            style={{ background: "var(--mq-accent)" }}
           />
           {/* Accent glow */}
           <div className="absolute -top-16 -left-16 w-48 h-48 rounded-full opacity-[0.10]"
-            style={{ background: selectedCurated.gradient }}
+            style={{ background: "var(--mq-accent)" }}
           />
           <div className="absolute -bottom-12 -right-12 w-40 h-40 rounded-full opacity-[0.06]"
-            style={{ background: selectedCurated.gradient }}
+            style={{ background: "var(--mq-accent)" }}
           />
           {/* Decorative pattern */}
           <div className="absolute inset-0 opacity-[0.03]"
