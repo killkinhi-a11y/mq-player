@@ -3,23 +3,27 @@ import { searchSCTracks, getSoundCloudClientId, type SCTrack } from "@/lib/sound
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
- * Smart Recommendations API v7 — "Mood Flow" Edition.
+ * Smart Recommendations API v8 — "Taste DNA" Edition.
  *
- * Major improvements over v6:
- * 1. SESSION MOOD FLOW — analyzes last 5 played tracks to build a session mood profile,
- *    ensuring smooth transitions between tracks (no jarring mood jumps)
- * 2. LANGUAGE PREFERENCE — detects user's preferred language from listening history,
- *    prioritizing tracks in that language
- * 3. BRIDGE GENRE EXPLORATION — instead of random genres for exploration, uses
- *    "bridge genres" that are 1-2 hops away from user's taste (e.g., hip-hop → r&b → soul)
- * 4. MULTIPLE SESSION TRACKS — client sends last 5 track genres/artists/energy,
- *    not just the current one, for much better context
- * 5. POPULARITY AWARENESS — uses SoundCloud playback_count when available to
- *    differentiate between viral tracks and genuine quality
- * 6. IMPROVED ANTI-REPETITION — larger recent window (100 tracks) + artist-level memory
- * 7. SMARTER QUERY GENERATION — artist + genre combos, year + mood combos
+ * Fundamental shift from v7: instead of generic genre queries returning random music,
+ * this version is built around what the user ACTUALLY listened to and liked.
+ *
+ * Key changes from v7:
+ * 1. SOUNDCloud RELATED API IS PRIMARY — For each liked/recent track, calls
+ *    /tracks/{scTrackId}/related to get genuinely similar music from SoundCloud.
+ * 2. ARTIST SEARCH IS SECONDARY — Searches for user's top artists with smart queries.
+ * 3. GENRE QUERIES ARE FALLBACK ONLY — Only used when we lack history/likes data.
+ * 4. SIMPLER, MORE EFFECTIVE SCORING — Tracks from SC related are scored highest,
+ *    followed by artist matches, then genre matches.
+ * 5. CATEGORIZED OUTPUT — Returns tracks in rows like "Похожие на {artist}",
+ *    "Для вас", "Открытия".
+ *
+ * New parameters from client:
+ * - likedScIds: comma-separated SoundCloud track IDs from user's liked tracks
+ * - historyScIds: comma-separated SoundCloud track IDs from recent history
  */
 
+// ── Cache (6 min TTL) ──
 const cache = new Map<string, { data: unknown; expiry: number }>();
 const CACHE_TTL = 6 * 60 * 1000; // 6 min
 
@@ -55,7 +59,7 @@ function getTimeContext(): TimeContext {
   return "night";
 }
 
-// ── Genre-specific query templates ──
+// ── Genre-specific query templates (used as FALLBACK only) ──
 const GENRE_QUERIES: Record<string, string[]> = {
   "hip-hop": ["hip-hop new release", "underground hip-hop", "hip-hop 2025", "boom bap 2025", "hip-hop instrumental", "conscious hip-hop", "hip-hop hits"],
   "rap": ["rap new 2025", "underground rap", "rap freestyle", "real rap", "lyrical rap", "rap hits"],
@@ -121,7 +125,7 @@ function extractMoods(title: string, genre: string): Mood[] {
   return moods;
 }
 
-// ── Genre relationship graph (enriched with bridge distances) ──
+// ── Genre relationship graph ──
 const genreRelations: Record<string, string[]> = {
   "hip-hop": ["rap", "trap", "r&b", "soul", "funk", "boom bap", "lo-fi hip hop", "drill", "afrobeats"],
   "rap": ["hip-hop", "trap", "r&b", "boom bap", "conscious hip-hop", "drill"],
@@ -180,12 +184,10 @@ function getRelatedGenres(genre: string): string[] {
 }
 
 // ── Bridge genre calculation ──
-// Returns genres that are 1-2 hops away from user's taste — perfect for smooth exploration
 function getBridgeGenres(userGenres: string[]): string[] {
   const userSet = new Set(userGenres.map(g => g.toLowerCase().trim()));
   const firstHop = new Set<string>();
-  
-  // Collect all genres directly related to user's genres
+
   for (const ug of userGenres) {
     for (const rg of getRelatedGenres(ug)) {
       const rgNorm = rg.toLowerCase().trim();
@@ -194,8 +196,7 @@ function getBridgeGenres(userGenres: string[]): string[] {
       }
     }
   }
-  
-  // Second hop: genres related to first-hop genres
+
   const secondHop = new Set<string>();
   for (const fh of [...firstHop].sort(() => Math.random() - 0.5).slice(0, 5)) {
     for (const rg of getRelatedGenres(fh)) {
@@ -205,8 +206,7 @@ function getBridgeGenres(userGenres: string[]): string[] {
       }
     }
   }
-  
-  // Return mix of 70% first-hop + 30% second-hop
+
   const firstArr = [...firstHop].sort(() => Math.random() - 0.5);
   const secondArr = [...secondHop].sort(() => Math.random() - 0.5);
   return [...firstArr.slice(0, 4), ...secondArr.slice(0, 2)];
@@ -219,12 +219,21 @@ function normalizeGenre(genre: string): string {
     .replace(/drum 'n' bass/gi, "drum and bass").replace(/d 'n' b/gi, "drum and bass");
 }
 
-interface ScoredTrack extends SCTrack {
-  _score: number;
-  _queryCount: number;
-  _isDiscovery: boolean;
-  _isExploration: boolean;
-  _isRelated: boolean;
+// ── Internal track metadata for scoring ──
+interface InternalTrack {
+  track: SCTrack;
+  /** True if came from fetchSCTrackRelated for a liked track */
+  isFromLikedRelated: boolean;
+  /** True if came from fetchSCTrackRelated for a history track */
+  isFromHistoryRelated: boolean;
+  /** True if came from an artist search */
+  isFromArtistSearch: boolean;
+  /** True if came from a genre fallback search */
+  isFromGenreFallback: boolean;
+  /** True if came from bridge genre exploration */
+  isFromBridgeGenre: boolean;
+  /** The source query that found this track */
+  sourceQuery: string;
 }
 
 const NOISE_KEYWORDS = [
@@ -296,7 +305,6 @@ function estimateEnergy(track: SCTrack): number {
 }
 
 // ── Language detection ──
-// Detects if text is primarily Russian/Cyrillic, English/Latin, or mixed
 function detectLanguage(text: string): "russian" | "english" | "latin" | "other" {
   if (!text) return "other";
   const cyrillic = (text.match(/[\u0400-\u04FF]/g) || []).length;
@@ -305,10 +313,10 @@ function detectLanguage(text: string): "russian" | "english" | "latin" | "other"
   if (total === 0) return "other";
   if (cyrillic / total > 0.4) return "russian";
   if (latin / total > 0.6) return "english";
-  return "latin"; // Spanish, French, etc. — still Latin script
+  return "latin";
 }
 
-// ── Fetch SoundCloud related tracks ──
+// ── Fetch SoundCloud related tracks (PRIMARY data source in v8) ──
 async function fetchSCTrackRelated(scTrackId: number): Promise<SCTrack[]> {
   try {
     const clientId = await getSoundCloudClientId();
@@ -360,11 +368,10 @@ function buildSessionMood(sessionTracks: SessionTrack[]): {
   if (sessionTracks.length === 0) {
     return { avgEnergy: 0.5, dominantMoods: [], dominantGenres: [], languagePreference: "mixed" };
   }
-  
+
   const energies = sessionTracks.map(t => t.energy);
   const avgEnergy = energies.reduce((a, b) => a + b, 0) / energies.length;
-  
-  // Count moods across session
+
   const moodCounts: Record<string, number> = {};
   for (const t of sessionTracks) {
     for (const m of t.moods) {
@@ -375,8 +382,7 @@ function buildSessionMood(sessionTracks: SessionTrack[]): {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([mood]) => mood as Mood);
-  
-  // Count genres across session
+
   const genreCounts: Record<string, number> = {};
   for (const t of sessionTracks) {
     if (t.genre) {
@@ -388,8 +394,7 @@ function buildSessionMood(sessionTracks: SessionTrack[]): {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
     .map(([genre]) => genre);
-  
-  // Language preference
+
   const langCounts: Record<string, number> = {};
   for (const t of sessionTracks) {
     langCounts[t.language] = (langCounts[t.language] || 0) + 1;
@@ -398,168 +403,164 @@ function buildSessionMood(sessionTracks: SessionTrack[]): {
   const languagePreference = topLang.length > 0 && topLang[0][1] >= sessionTracks.length * 0.5
     ? topLang[0][0] as "russian" | "english" | "latin"
     : "mixed";
-  
+
   return { avgEnergy, dominantMoods, dominantGenres, languagePreference };
 }
 
-function scoreTrack(
+// ── v8 Scoring: simpler, focused on actual taste signals ──
+function scoreTrackV8(
   track: SCTrack,
-  queryCount: number,
+  meta: InternalTrack,
   topGenres: string[],
   topArtists: string[],
-  relatedGenres: string[],
-  isDiscovery: boolean,
-  isExploration: boolean,
-  isRelated: boolean,
-  timeContext: TimeContext,
-  sessionMood: ReturnType<typeof buildSessionMood>,
-  userMoods: Mood[],
   languagePreference: "russian" | "english" | "latin" | "mixed",
 ): number {
   let score = 0;
-
   const trackGenre = normalizeGenre(track.genre || "");
-  const energy = estimateEnergy(track);
-
-  // ── 1. SESSION MOOD FLOW BONUS (up to +35) ──
-  // Strongly reward tracks that match the session's current mood
-  // This creates smooth transitions between tracks
-  if (sessionMood.dominantMoods.length > 0) {
-    const trackMoods = extractMoods(track.title || "", track.genre || "");
-    let moodMatchCount = 0;
-    for (const mood of sessionMood.dominantMoods) {
-      if (trackMoods.includes(mood)) moodMatchCount++;
-    }
-    // Each session mood match is worth 12 points (high priority)
-    score += Math.min(35, moodMatchCount * 12);
-  }
-  
-  // Energy alignment with session — penalize jarring jumps
-  if (sessionMood.avgEnergy > 0) {
-    const energyDiff = Math.abs(energy - sessionMood.avgEnergy);
-    if (energyDiff < 0.15) score += 15;       // Very close — smooth transition
-    else if (energyDiff < 0.3) score += 8;    // Somewhat close
-    else if (energyDiff > 0.5) score -= 12;   // Jarring jump — penalize
-  }
-
-  // ── 2. LANGUAGE PREFERENCE (up to +20) ──
-  // Reward tracks in the user's preferred language
-  if (languagePreference !== "mixed") {
-    const trackText = `${track.title || ""} ${track.artist || ""}`;
-    const trackLang = detectLanguage(trackText);
-    if (trackLang === languagePreference) score += 20;
-    // Don't penalize other languages — just boost preferred ones
-  }
-
-  // ── 3. HIDDEN GEM BONUS (up to +40) ──
-  if (track.cover && !track.scIsFull) score += 15;
-  if (track.scIsFull) score += 30;
-
-  // ── 4. TIME-OF-DAY BONUS ──
-  const TIME_GENRE_BOOSTS: Record<string, string[]> = {
-    morning: ["pop", "indie pop", "dance pop", "funk", "soul", "rock", "hip-hop"],
-    afternoon: ["electronic", "house", "techno", "lo-fi", "ambient", "indie"],
-    evening: ["jazz", "lo-fi", "chill", "r&b", "soul", "bossa nova", "acoustic"],
-    night: ["ambient", "lo-fi", "piano", "classical", "downtempo", "chill"],
-    weekend: ["edm", "house", "hip-hop", "reggaeton", "dance pop", "rock", "pop"],
-    friday_evening: ["edm", "house", "hip-hop", "trap", "dance pop", "techno"],
-  };
-  const timeGenres = TIME_GENRE_BOOSTS[timeContext] || [];
-  for (const tg of timeGenres) {
-    if (trackGenre === normalizeGenre(tg) || trackGenre.includes(normalizeGenre(tg))) {
-      score += 20;
-      break;
-    }
-  }
-  const wantHigh = ["morning", "afternoon", "weekend", "friday_evening"].includes(timeContext);
-  const wantLow = ["evening", "night"].includes(timeContext);
-  if (wantHigh) score += Math.round(energy * 12);
-  if (wantLow) score += Math.round((1 - energy) * 12);
-
-  // ── 5. MOOD MATCHING (up to +25) ──
-  if (userMoods.length > 0) {
-    const trackMoods = extractMoods(track.title || "", track.genre || "");
-    let moodMatches = 0;
-    for (const mood of userMoods) {
-      if (trackMoods.includes(mood)) moodMatches++;
-    }
-    if (moodMatches > 0) score += Math.min(25, moodMatches * 12);
-  }
-
-  // ── 6. NOISE CONTENT PENALTY ──
-  const titleAndArtist = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
-  if (hasNoiseKeywords(titleAndArtist) && !userWantsReligiousContent(topGenres)) score -= 150;
-  if (titleHashtagGenreMismatch(track.title || "", topGenres)) score -= 60;
-
-  // ── 7. CROSS-QUERY FREQUENCY ──
-  score += queryCount * 50;
-
-  // ── 8. RELATED TRACKS BONUS ──
-  if (isRelated) score += 35;
-
-  // ── 9. GENRE MATCHING ──
-  let hasGenreMatch = false;
-  if (trackGenre) {
-    for (const g of topGenres) {
-      const normalized = normalizeGenre(g);
-      if (trackGenre === normalized) { score += 45; hasGenreMatch = true; }
-      else if (trackGenre.includes(normalized) || normalized.includes(trackGenre)) { score += 22; hasGenreMatch = true; }
-    }
-    // Session genre bonus — tracks matching the current session's genres
-    for (const sg of sessionMood.dominantGenres) {
-      if (trackGenre === sg) { score += 15; hasGenreMatch = true; break; }
-      else if (trackGenre.includes(sg) || sg.includes(trackGenre)) { score += 8; hasGenreMatch = true; break; }
-    }
-    for (const rg of relatedGenres) {
-      if (trackGenre === normalizeGenre(rg)) { score += 12; hasGenreMatch = true; break; }
-    }
-  }
-
-  // ── 10. DISCOVERY GATE ──
-  if (isDiscovery && !hasGenreMatch) score -= 60;
-
-  // ── 11. EXPLORATION BONUS ──
-  if (isExploration && !hasGenreMatch) score += 5;
-
-  // ── 12. ARTIST MATCHING ──
   const trackArtist = (track.artist || "").toLowerCase().trim();
+
+  // ── PHASE ORIGIN BONUS (the most important signal) ──
+  // +100: Related to a liked track (highest confidence)
+  if (meta.isFromLikedRelated) score += 100;
+  // +70: Related to a recently played track
+  else if (meta.isFromHistoryRelated) score += 70;
+
+  // ── ARTIST MATCH ──
+  // +50: Exact artist match from user's top artists
+  // +40: Same artist as a liked/played track
+  let hasArtistMatch = false;
   if (trackArtist) {
     for (const a of topArtists) {
       const aLower = a.toLowerCase().trim();
-      if (trackArtist === aLower) score += 45;
-      else if (trackArtist.includes(aLower) || aLower.includes(trackArtist)) score += 18;
+      if (trackArtist === aLower) { score += 50; hasArtistMatch = true; break; }
+      else if (trackArtist.includes(aLower) || aLower.includes(trackArtist)) {
+        score += 40; hasArtistMatch = true; break;
+      }
     }
   }
 
-  // ── 13. QUALITY SIGNALS ──
+  // ── GENRE MATCH ──
+  // +30: Matches user's top genre
+  if (trackGenre) {
+    for (const g of topGenres) {
+      const normalized = normalizeGenre(g);
+      if (trackGenre === normalized) { score += 30; break; }
+      else if (trackGenre.includes(normalized) || normalized.includes(trackGenre)) { score += 20; break; }
+    }
+  }
+
+  // ── LANGUAGE PREFERENCE ──
+  // +25: Matches user's language preference
+  if (languagePreference !== "mixed") {
+    const trackText = `${track.title || ""} ${track.artist || ""}`;
+    const trackLang = detectLanguage(trackText);
+    if (trackLang === languagePreference) score += 25;
+  }
+
+  // ── PLAYABILITY ──
+  // +20: Full playable track
+  if (track.scIsFull) score += 20;
+
+  // ── COVER ART ──
+  // +15: Has cover art
   if (track.cover) score += 15;
-  const dur = track.duration || 0;
-  if (dur >= 120 && dur <= 360) { score += 12; if (dur >= 180 && dur <= 300) score += 5; }
-  else if (dur >= 60 && dur < 120) score += 3;
+
+  // ── HARD PENALTIES ──
+  // -200: Disliked artist
+  // (handled before scoring via hard filter, but also here for safety)
+  // -200: Disliked genre
+  // (handled before scoring via hard filter)
+
+  // -100: Noise/spam keywords
+  const titleAndArtist = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
+  if (hasNoiseKeywords(titleAndArtist) && !userWantsReligiousContent(topGenres)) score -= 100;
+  if (titleHashtagGenreMismatch(track.title || "", topGenres)) score -= 50;
 
   // ── Random jitter for freshness ──
-  score += Math.random() * 20 - 10;
+  score += Math.random() * 16 - 8; // ±8
 
   return score;
 }
 
+// ── Hard filter: should this track be excluded entirely? ──
+function shouldExcludeTrack(
+  track: SCTrack,
+  allGenres: string[],
+  excludeIds: Set<string>,
+  dislikedIds: Set<string>,
+  recentIds: Set<string>,
+  dislikedArtists: Set<string>,
+  dislikedGenres: Set<string>,
+): boolean {
+  // Already excluded / disliked / recently played
+  if (excludeIds.has(track.id) || excludeIds.has(String(track.scTrackId))) return true;
+  if (dislikedIds.has(track.id)) return true;
+  if (recentIds.has(track.id) || recentIds.has(String(track.scTrackId))) return true;
+
+  // Disliked artist
+  if (dislikedArtists.size > 0 && track.artist && dislikedArtists.has(track.artist.toLowerCase())) return true;
+
+  // Disliked genre
+  if (dislikedGenres.size > 0 && track.genre && dislikedGenres.has(normalizeGenre(track.genre))) return true;
+
+  // Religious content filter
+  if (!userWantsReligiousContent(allGenres)) {
+    const genreLower = (track.genre || "").toLowerCase();
+    const titleLower = (track.title || "").toLowerCase();
+    const userWantsDeepHouse = allGenres.some(g => {
+      const n = normalizeGenre(g);
+      return n === "deep house" || n.includes("deep house");
+    });
+    if (!userWantsDeepHouse && (genreLower.includes("deep house") || titleLower.includes("deep house"))) return true;
+  }
+
+  // Must have cover art
+  if (!track.cover) return true;
+
+  // Duration filter (too short = likely not a real track)
+  if (track.duration && track.duration < 30) return true;
+
+  // Noise content
+  const titleArtistNoise = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
+  if (hasNoiseKeywords(titleArtistNoise) && !userWantsReligiousContent(allGenres)) return true;
+
+  // Hashtag genre mismatch
+  if (titleHashtagGenreMismatch(track.title || "", allGenres)) return true;
+
+  return false;
+}
+
+// ── Mapped track for output ──
+function mapTrack(track: SCTrack, score: number) {
+  return {
+    id: track.id, title: track.title, artist: track.artist, album: track.album,
+    cover: track.cover, duration: track.duration, genre: track.genre,
+    audioUrl: track.audioUrl, previewUrl: track.previewUrl, source: track.source,
+    scTrackId: track.scTrackId, scStreamPolicy: track.scStreamPolicy, scIsFull: track.scIsFull,
+    _score: Math.round(score),
+  };
+}
+
+// ══════════════════════════════════════════════════════════════
+// MAIN HANDLER
+// ══════════════════════════════════════════════════════════════
 async function handler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const genre = searchParams.get("genre") || "random";
+
+  // ── Parse parameters ──
   const genresParam = searchParams.get("genres");
   const artistsParam = searchParams.get("artists");
   const excludeParam = searchParams.get("excludeIds");
   const dislikedParam = searchParams.get("dislikedIds");
   const dislikedArtistsParam = searchParams.get("dislikedArtists");
   const dislikedGenresParam = searchParams.get("dislikedGenres");
-  const currentGenreParam = searchParams.get("currentGenre");
-  const currentEnergyParam = searchParams.get("currentEnergy");
   const recentIdsParam = searchParams.get("recentIds") || "";
-  
-  // v7: session tracks — comma-separated JSON objects with genre, artist, energy
   const sessionParam = searchParams.get("session");
-  // v7: language preference
   const langParam = searchParams.get("lang") || "mixed";
+
+  // v8 NEW parameters
+  const likedScIdsParam = searchParams.get("likedScIds") || "";
+  const historyScIdsParam = searchParams.get("historyScIds") || "";
 
   const excludeIds = new Set((excludeParam || "").split(",").filter(Boolean));
   const dislikedIds = new Set((dislikedParam || "").split(",").filter(Boolean));
@@ -570,452 +571,331 @@ async function handler(request: NextRequest) {
   const genres: string[] = genresParam ? genresParam.split(",").filter(Boolean) : [];
   const artists: string[] = artistsParam ? artistsParam.split(",").filter(Boolean).slice(0, 5) : [];
 
-  const timeContext = getTimeContext();
-  const currentTrackHighEnergy: boolean | null = currentEnergyParam === "high" ? true
-    : currentEnergyParam === "low" ? false : null;
-  const currentGenre = currentGenreParam || null;
+  // Parse liked SoundCloud track IDs (most recent first — client sends them in order)
+  const likedScIds: number[] = likedScIdsParam
+    .split(",")
+    .filter(Boolean)
+    .map(Number)
+    .filter(n => !isNaN(n) && n > 0);
 
-  // Parse session tracks
+  // Parse history SoundCloud track IDs (most recent first)
+  const historyScIds: number[] = historyScIdsParam
+    .split(",")
+    .filter(Boolean)
+    .map(Number)
+    .filter(n => !isNaN(n) && n > 0);
+
+  const timeContext = getTimeContext();
+
+  // Parse session tracks (kept for language/mood context)
   let sessionTracks: SessionTrack[] = [];
   if (sessionParam) {
     try {
       sessionTracks = JSON.parse(sessionParam);
     } catch { /* ignore */ }
   }
-  
-  // If no session sent, build from current genre/energy
-  if (sessionTracks.length === 0 && currentGenre) {
-    sessionTracks = [{
-      genre: currentGenre,
-      artist: "",
-      energy: currentTrackHighEnergy === true ? 0.8 : currentTrackHighEnergy === false ? 0.3 : 0.5,
-      moods: extractMoods(currentGenre, ""),
-      language: langParam as SessionTrack["language"],
-    }];
-  }
 
-  const cacheKey = `rec:v7:${timeContext}:${genresParam || ""}:${artistsParam || ""}:${currentGenre || ""}:${dislikedParam || ""}:${dislikedArtistsParam || ""}:${dislikedGenresParam || ""}:${recentIdsParam || ""}:${sessionParam || ""}`;
+  // Build session mood profile (used for language preference + bridge genres)
+  const sessionMood = buildSessionMood(sessionTracks);
+
+  // Merge session genres into user genres
+  const allGenres = [...new Set([...genres, ...sessionMood.dominantGenres])].slice(0, 6);
+
+  // Language preference: explicit param > session analysis > mixed
+  const languagePreference: "russian" | "english" | "latin" | "mixed" =
+    (langParam !== "mixed" ? langParam : null) as "russian" | "english" | "latin" | null
+    || sessionMood.languagePreference;
+
+  // ── Cache check ──
+  const cacheKey = `rec:v8:${likedScIdsParam}:${historyScIdsParam}:${genresParam || ""}:${artistsParam || ""}:${dislikedParam || ""}:${dislikedArtistsParam || ""}:${dislikedGenresParam || ""}:${recentIdsParam}:${langParam}:${sessionParam || ""}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 
   try {
-    const queries: { query: string; type: string }[] = [];
-    const discoveryQueries: string[] = [];
-    const explorationQueries: string[] = [];
-    const currentYear = new Date().getFullYear();
+    // ════════════════════════════════════════════════
+    // PHASE 1: RELATED TRACKS (highest priority, ~60%)
+    // ════════════════════════════════════════════════
+    const relatedPromises: { promise: Promise<SCTrack[]>; fromLiked: boolean }[] = [];
 
-    // Build session mood profile
-    const sessionMood = buildSessionMood(sessionTracks);
-    
-    // Merge session genres into user genres for richer context
-    const allGenres = [...new Set([...genres, ...sessionMood.dominantGenres])].slice(0, 6);
-
-    // ── Build user mood profile from genres + session ──
-    const userMoods: Mood[] = [...sessionMood.dominantMoods]; // Start with session moods
-    const genreMoodMap: Record<string, Mood[]> = {
-      "lo-fi": ["chill", "dreamy"], "chill": ["chill", "dreamy"], "ambient": ["chill", "dreamy"],
-      "hip-hop": ["bassy", "aggressive"], "trap": ["bassy", "dark", "aggressive"],
-      "r&b": ["romantic", "chill"], "rnb": ["romantic", "chill"], "soul": ["romantic", "melodic"],
-      "house": ["upbeat", "dreamy"], "techno": ["dark", "aggressive"],
-      "edm": ["upbeat", "bassy"], "dubstep": ["bassy", "aggressive", "dark"],
-      "jazz": ["melodic", "chill"], "classical": ["melodic", "dreamy"],
-      "pop": ["upbeat", "romantic"], "indie": ["dreamy", "melodic"],
-      "rock": ["aggressive", "upbeat"], "metal": ["aggressive", "dark"],
-      "synthwave": ["dreamy", "dark"], "punk": ["aggressive", "upbeat"],
-      "folk": ["melodic", "chill"], "bossa nova": ["chill", "romantic"],
-      "drill": ["aggressive", "dark", "bassy"],
-      "afrobeats": ["upbeat", "bassy"], "k-pop": ["upbeat", "romantic"],
-      "reggae": ["chill", "upbeat"], "blues": ["melodic", "dark"],
-    };
-    for (const g of allGenres.slice(0, 3)) {
-      const moods = genreMoodMap[normalizeGenre(g)] || genreMoodMap[g.toLowerCase()] || [];
-      for (const m of moods) if (!userMoods.includes(m)) userMoods.push(m);
+    // Take up to 5 liked track IDs
+    for (const scId of likedScIds.slice(0, 5)) {
+      relatedPromises.push({ promise: fetchSCTrackRelated(scId), fromLiked: true });
     }
-    // Cap moods at 4
-    userMoods.splice(4);
+    // Take up to 3 history track IDs
+    for (const scId of historyScIds.slice(0, 3)) {
+      relatedPromises.push({ promise: fetchSCTrackRelated(scId), fromLiked: false });
+    }
 
-    // Language preference
-    const languagePreference = langParam as "russian" | "english" | "latin" | "mixed" || sessionMood.languagePreference;
+    // Also exclude the source IDs themselves from results
+    const sourceScIds = new Set<number>([...likedScIds, ...historyScIds]);
 
-    if (allGenres.length > 0 || artists.length > 0) {
-      // ── Primary: genre-specific queries ──
-      for (const g of allGenres.slice(0, 4)) {
-        const gNorm = g.toLowerCase().trim();
-        const templates = GENRE_QUERIES[gNorm] || GENRE_QUERIES[normalizeGenre(g)];
-        if (templates) {
-          const shuffled = templates.sort(() => Math.random() - 0.5);
-          for (const tmpl of shuffled.slice(0, 2)) {
-            queries.push({ query: tmpl, type: "genre_template" });
-          }
-        }
-        queries.push({ query: `${g} ${currentYear}`, type: "genre_new" });
+    // ════════════════════════════════════════════════
+    // PHASE 2: ARTIST SEARCH (medium priority, ~25%)
+    // ════════════════════════════════════════════════
+    const artistSearchPromises: Promise<SCTrack[]>[] = [];
+    for (const artist of artists.slice(0, 3)) {
+      // Search for artist name (quoted for exact match)
+      artistSearchPromises.push(searchSCTracks(`"${artist}"`, 15));
+      // Combine with top genre if available
+      if (allGenres.length > 0) {
+        artistSearchPromises.push(searchSCTracks(`${artist} ${allGenres[0]}`, 10));
       }
+    }
 
-      // ── Session-aligned queries: mood + genre combos ──
-      if (sessionMood.dominantMoods.length > 0 && sessionMood.dominantGenres.length > 0) {
-        const moodQueryMap: Record<Mood, string> = {
-          chill: "chill", bassy: "bass", melodic: "melodic", dark: "dark",
-          upbeat: "upbeat", romantic: "romantic", aggressive: "hard", dreamy: "dreamy",
-        };
-        // Combine session mood with session genre for highly targeted queries
-        const topSessionGenre = sessionMood.dominantGenres[0];
-        const topSessionMood = sessionMood.dominantMoods[0];
-        if (topSessionGenre && topSessionMood) {
-          queries.push({ query: `${moodQueryMap[topSessionMood]} ${topSessionGenre} ${currentYear}`, type: "session_mood_genre" });
-        }
-      }
+    // ════════════════════════════════════════════════
+    // PHASE 3: GENRE FALLBACK (low priority, ~15%)
+    // Only used if we don't have enough data from phases 1-2
+    // ════════════════════════════════════════════════
+    const needGenreFallback = likedScIds.length < 3 && historyScIds.length < 5;
 
-      // ── Artist + genre combo queries (much better than artist alone) ──
-      for (const a of artists.slice(0, 3)) {
-        queries.push({ query: a, type: "artist" });
-        // Combine artist with their top genre for better results
-        if (allGenres.length > 0) {
-          queries.push({ query: `${a} ${allGenres[0]}`, type: "artist_genre" });
+    const genreSearchPromises: Promise<SCTrack[]>[] = [];
+    if (needGenreFallback && allGenres.length > 0) {
+      // Pick 1-2 specific genre queries from user's top genre
+      const topGenre = normalizeGenre(allGenres[0]);
+      const templates = GENRE_QUERIES[topGenre] || GENRE_QUERIES[allGenres[0]?.toLowerCase().trim() || ""];
+      if (templates) {
+        const shuffled = templates.sort(() => Math.random() - 0.5);
+        for (const tmpl of shuffled.slice(0, 2)) {
+          genreSearchPromises.push(searchSCTracks(tmpl, 10));
         }
       }
-      for (const a of artists.slice(3, 5)) {
-        queries.push({ query: a, type: "artist" });
-      }
-
-      // ── Mood-based queries ──
-      if (userMoods.length > 0) {
-        const moodQueryMap: Record<Mood, string[]> = {
-          chill: ["chill vibes 2025", "chill electronic", "chill beats"],
-          bassy: ["bass music 2025", "bass boosted", "heavy bass"],
-          melodic: ["melodic 2025", "melodic electronic", "melodic vibes"],
-          dark: ["dark electronic", "dark ambient", "dark vibes"],
-          upbeat: ["feel good 2025", "upbeat vibes", "positive energy"],
-          romantic: ["love songs 2025", "romantic vibes", "slow jam"],
-          aggressive: ["intense music", "high energy 2025", "hard hitting"],
-          dreamy: ["dreamy vibes", "ethereal music", "atmospheric 2025"],
-        };
-        for (const mood of userMoods.slice(0, 2)) {
-          const mq = moodQueryMap[mood];
-          if (mq) {
-            const shuffled = mq.sort(() => Math.random() - 0.5);
-            queries.push({ query: shuffled[0], type: "mood" });
-          }
+      // Second genre if available
+      if (allGenres.length > 1) {
+        const secondGenre = normalizeGenre(allGenres[1]);
+        const secondTemplates = GENRE_QUERIES[secondGenre] || GENRE_QUERIES[allGenres[1]?.toLowerCase().trim() || ""];
+        if (secondTemplates) {
+          const shuffled = secondTemplates.sort(() => Math.random() - 0.5);
+          genreSearchPromises.push(searchSCTracks(shuffled[0], 10));
         }
       }
+    }
 
-      // ── Related genres (familiar discovery) ──
-      const normalizedTopGenres = new Set(allGenres.map(g => normalizeGenre(g)));
-      const allRelated = new Set<string>();
-      for (const g of allGenres.slice(0, 3)) {
-        for (const rg of getRelatedGenres(g)) {
-          if (isSpamProneGenre(rg)) {
-            const rgNorm = normalizeGenre(rg);
-            const userWants = normalizedTopGenres.has(rgNorm) || [...normalizedTopGenres].some(tg => tg.includes(rgNorm) || rgNorm.includes(tg));
-            if (!userWants) continue;
-          }
-          allRelated.add(rg);
-        }
-      }
-      const relatedArr = [...allRelated].sort(() => Math.random() - 0.5).slice(0, 3);
-      for (const rg of relatedArr) {
-        queries.push({ query: rg, type: "related_genre" });
-        discoveryQueries.push(`best ${rg}`);
-      }
-
-      // ── BRIDGE GENRE EXPLORATION (v7 key improvement) ──
-      // Instead of random genres, use genres 1-2 hops away from user taste
+    // Bridge genre exploration queries (used for "Открытия" category)
+    const bridgeSearchPromises: Promise<SCTrack[]>[] = [];
+    if (allGenres.length > 0) {
       const bridgeGenres = getBridgeGenres(allGenres.slice(0, 3));
       for (const bg of bridgeGenres.slice(0, 3)) {
         const templates = GENRE_QUERIES[bg];
         if (templates) {
-          explorationQueries.push(templates.sort(() => Math.random() - 0.5)[0]);
+          bridgeSearchPromises.push(searchSCTracks(templates.sort(() => Math.random() - 0.5)[0], 8));
         } else {
-          explorationQueries.push(bg);
+          bridgeSearchPromises.push(searchSCTracks(bg, 8));
         }
       }
-
-      // ── Session context ──
-      if (currentGenre && currentGenre.length > 0) {
-        queries.push({ query: currentGenre, type: "session_context" });
-      }
-    } else if (genre !== "random") {
-      const templates = GENRE_QUERIES[genre.toLowerCase().trim()] || GENRE_QUERIES[normalizeGenre(genre)];
-      if (templates) {
-        for (const tmpl of templates.sort(() => Math.random() - 0.5).slice(0, 3)) {
-          queries.push({ query: tmpl, type: "genre_template" });
-        }
-      }
-      queries.push({ query: `${genre} ${currentYear}`, type: "genre_new" });
-    } else {
-      // Fallback: time-aware + diverse
-      const timeFallbacks: Record<TimeContext, string[]> = {
-        morning: ["feel good morning", "acoustic morning", "upbeat indie pop"],
-        afternoon: ["focus electronic", "productivity beats", "indie electronic"],
-        evening: ["chill evening", "jazz evening", "soul dinner"],
-        night: ["lofi night", "ambient sleep", "piano calm"],
-        weekend: ["party vibes", "dance electronic", "summer hits"],
-        friday_evening: ["pre game", "friday energy", "weekend starter"],
-      };
-      const fallbacks = [...(timeFallbacks[timeContext] || []), "new music 2025", "hidden gems", "emerging artists", "indie discovery"];
-      for (const f of fallbacks.sort(() => Math.random() - 0.5).slice(0, 5)) {
-        queries.push({ query: f, type: "fallback" });
-      }
     }
 
-    // Deduplicate queries
-    const seenQ = new Set<string>();
-    const uniqueQueries = queries.filter(q => {
-      const key = q.query.toLowerCase();
-      if (seenQ.has(key)) return false;
-      seenQ.add(key);
-      return true;
-    }).slice(0, 12); // Up to 12 main queries (was 10)
-
-    const uniqueDiscovery = [...new Set(discoveryQueries.map(q => q.toLowerCase()))]
-      .map(q => ({ query: q, type: "discovery" })).slice(0, 2);
-
-    const uniqueExploration = [...new Set(explorationQueries.map(q => q.toLowerCase()))]
-      .map(q => ({ query: q, type: "exploration" })).slice(0, 3); // Was 2, now 3
-
-    const allQueries = [...uniqueQueries, ...uniqueDiscovery, ...uniqueExploration];
-
-    // Fetch all searches + artist-based related searches
-    const searchPromises = allQueries.map(q => searchSCTracks(q.query, 12));
-    const relatedPromises: Promise<SCTrack[]>[] = [];
-    for (const a of artists.slice(0, 2)) {
-      relatedPromises.push(searchSCTracks(`${a} new`, 8));
-    }
-
-    // Fetch SC related tracks for recent session tracks (genuine similar music)
-    const scRelatedPromises: Promise<SCTrack[]>[] = [];
-    for (const st of sessionTracks.slice(0, 2)) {
-      // We need scTrackId which isn't in session data, skip for now
-    }
-
-    const [searchResults, relatedResults] = await Promise.allSettled([
-      Promise.all(searchPromises),
-      Promise.all(relatedPromises),
+    // ── Execute all fetches in parallel ──
+    const [relatedResults, artistResults, genreResults, bridgeResults] = await Promise.allSettled([
+      Promise.all(relatedPromises.map(r => r.promise)),
+      Promise.all(artistSearchPromises),
+      Promise.all(genreSearchPromises),
+      Promise.all(bridgeSearchPromises),
     ]);
 
-    // Related genres for scoring
-    const relatedGenresForScoring = new Set<string>();
-    for (const g of allGenres.slice(0, 3)) {
-      for (const rg of getRelatedGenres(g)) relatedGenresForScoring.add(rg);
-    }
-    const relatedArr = [...relatedGenresForScoring];
+    // ── Aggregate all tracks with metadata ──
+    const trackMap = new Map<number, InternalTrack>();
 
-    // Aggregate all tracks
-    const trackMap = new Map<number, {
-      track: SCTrack;
-      queryCount: number;
-      isDiscovery: boolean;
-      isExploration: boolean;
-      isRelated: boolean;
-    }>();
-    const seenIds = new Set<number>();
+    const addTrack = (
+      track: SCTrack,
+      isFromLikedRelated: boolean,
+      isFromHistoryRelated: boolean,
+      isFromArtistSearch: boolean,
+      isFromGenreFallback: boolean,
+      isFromBridgeGenre: boolean,
+      sourceQuery: string,
+    ) => {
+      // Skip source tracks themselves
+      if (sourceScIds.has(track.scTrackId)) return;
 
-    function processTrack(track: SCTrack, isDiscovery: boolean, isExploration: boolean, isRelated: boolean) {
       // Hard filters
-      if (excludeIds.has(track.id) || excludeIds.has(String(track.scTrackId))) return;
-      if (dislikedIds.has(track.id)) return;
-      if (recentIds.has(track.id) || recentIds.has(String(track.scTrackId))) return;
-      if (dislikedArtists.size > 0 && track.artist && dislikedArtists.has(track.artist.toLowerCase())) return;
-      if (dislikedGenres.size > 0 && track.genre && dislikedGenres.has(normalizeGenre(track.genre))) return;
-      if (!userWantsReligiousContent(allGenres)) {
-        const genreLower = (track.genre || "").toLowerCase();
-        const titleLower = (track.title || "").toLowerCase();
-        const userWantsDeepHouse = allGenres.some(g => {
-          const n = normalizeGenre(g);
-          return n === "deep house" || n.includes("deep house");
-        });
-        if (!userWantsDeepHouse && (genreLower.includes("deep house") || titleLower.includes("deep house"))) return;
+      if (shouldExcludeTrack(track, allGenres, excludeIds, dislikedIds, recentIds, dislikedArtists, dislikedGenres)) {
+        return;
       }
-      if (!track.cover) return;
-      if (track.duration && track.duration < 30) return;
-      const titleArtistNoise = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
-      if (hasNoiseKeywords(titleArtistNoise) && !userWantsReligiousContent(allGenres)) return;
-      if (titleHashtagGenreMismatch(track.title || "", allGenres)) return;
-      if (seenIds.has(track.scTrackId)) return;
-      seenIds.add(track.scTrackId);
 
       const existing = trackMap.get(track.scTrackId);
       if (existing) {
-        existing.queryCount++;
+        // Upgrade source priority: if a track was found by a higher-priority source, upgrade it
+        if (isFromLikedRelated && !existing.isFromLikedRelated) {
+          existing.isFromLikedRelated = true;
+          existing.isFromHistoryRelated = false;
+          existing.sourceQuery = sourceQuery;
+        } else if (isFromHistoryRelated && !existing.isFromHistoryRelated && !existing.isFromLikedRelated) {
+          existing.isFromHistoryRelated = true;
+          existing.sourceQuery = sourceQuery;
+        } else if (isFromArtistSearch && !existing.isFromArtistSearch && !existing.isFromLikedRelated && !existing.isFromHistoryRelated) {
+          existing.isFromArtistSearch = true;
+        }
       } else {
-        trackMap.set(track.scTrackId, { track, queryCount: 1, isDiscovery, isExploration, isRelated });
+        trackMap.set(track.scTrackId, {
+          track,
+          isFromLikedRelated,
+          isFromHistoryRelated,
+          isFromArtistSearch,
+          isFromGenreFallback,
+          isFromBridgeGenre,
+          sourceQuery,
+        });
+      }
+    };
+
+    // Process PHASE 1 results (Related tracks)
+    if (relatedResults.status === "fulfilled") {
+      for (let i = 0; i < relatedResults.value.length; i++) {
+        const tracks = relatedResults.value[i];
+        if (!tracks) continue;
+        const fromLiked = relatedPromises[i].fromLiked;
+        for (const track of tracks) {
+          addTrack(track, fromLiked, !fromLiked, false, false, false, `related:${track.scTrackId}`);
+        }
       }
     }
 
-    // Process search results
-    const searchBatches = searchResults.status === "fulfilled" ? searchResults.value : [];
-    for (let i = 0; i < searchBatches.length; i++) {
-      const tracks = searchBatches[i];
-      if (!tracks) continue;
-      const queryMeta = allQueries[i];
-      const isDiscovery = queryMeta?.type === "discovery" || queryMeta?.type === "related_genre";
-      const isExploration = queryMeta?.type === "exploration";
-      for (const track of tracks) {
-        processTrack(track, isDiscovery, isExploration, false);
+    // Process PHASE 2 results (Artist search)
+    if (artistResults.status === "fulfilled") {
+      for (let i = 0; i < artistResults.value.length; i++) {
+        const tracks = artistResults.value[i];
+        if (!tracks) continue;
+        const artistIdx = Math.floor(i / 2); // Each artist gets 2 queries
+        const artistName = artists[artistIdx] || "";
+        for (const track of tracks) {
+          addTrack(track, false, false, true, false, false, `artist:${artistName}`);
+        }
       }
     }
 
-    // Process related results (from artist searches)
-    const relatedBatches = relatedResults.status === "fulfilled" ? relatedResults.value : [];
-    for (const batch of relatedBatches) {
-      for (const track of batch) {
-        processTrack(track, true, false, true);
+    // Process PHASE 3 results (Genre fallback)
+    if (genreResults.status === "fulfilled") {
+      for (let i = 0; i < genreResults.value.length; i++) {
+        const tracks = genreResults.value[i];
+        if (!tracks) continue;
+        for (const track of tracks) {
+          addTrack(track, false, false, false, true, false, `genre:${allGenres[i] || "fallback"}`);
+        }
       }
     }
 
-    // Score all tracks
-    const scoredTracks: ScoredTrack[] = [];
-    for (const { track, queryCount, isDiscovery, isExploration, isRelated } of trackMap.values()) {
-      const baseScore = scoreTrack(track, queryCount, allGenres, artists, relatedArr, isDiscovery, isExploration, isRelated, timeContext, sessionMood, userMoods, languagePreference);
-      scoredTracks.push({ ...track, _score: baseScore, _queryCount: queryCount, _isDiscovery: isDiscovery, _isExploration: isExploration, _isRelated: isRelated });
-    }
-
-    scoredTracks.sort((a, b) => b._score - a._score);
-
-    // ── FINAL SELECTION: 65% familiar, 35% exploration (was 70/30) ──
-    const FAMILIAR_COUNT = 10;
-    const EXPLORATION_COUNT = 5;
-    const TOTAL = 15;
-
-    const finalTracks: ScoredTrack[] = [];
-    const artistCount = new Map<string, number>();
-
-    // Pass 1: Familiar (highest scoring non-exploration tracks)
-    for (const track of scoredTracks.filter(t => !t._isExploration)) {
-      if (finalTracks.length >= FAMILIAR_COUNT) break;
-      const artist = (track.artist || "").toLowerCase().trim();
-      if ((artistCount.get(artist) || 0) >= 2) continue;
-      artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
-      finalTracks.push(track);
-    }
-
-    // Pass 2: Exploration (bridge genre tracks)
-    for (const track of scoredTracks.filter(t => t._isExploration)) {
-      if (finalTracks.length >= FAMILIAR_COUNT + EXPLORATION_COUNT) break;
-      const artist = (track.artist || "").toLowerCase().trim();
-      if ((artistCount.get(artist) || 0) >= 2) continue;
-      if (finalTracks.some(f => f.scTrackId === track.scTrackId)) continue;
-      artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
-      finalTracks.push(track);
-    }
-
-    // Pass 3: Fill from discovery/related
-    if (finalTracks.length < TOTAL) {
-      for (const track of scoredTracks.filter(t => (t._isDiscovery || t._isRelated) && !finalTracks.some(f => f.scTrackId === t.scTrackId))) {
-        if (finalTracks.length >= TOTAL) break;
-        const artist = (track.artist || "").toLowerCase().trim();
-        if ((artistCount.get(artist) || 0) >= 2) continue;
-        artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
-        finalTracks.push(track);
+    // Process bridge genre results
+    if (bridgeResults.status === "fulfilled") {
+      for (const batch of bridgeResults.value) {
+        if (!batch) continue;
+        for (const track of batch) {
+          addTrack(track, false, false, false, false, true, "bridge");
+        }
       }
     }
 
-    // Pass 4: Fill remaining
-    if (finalTracks.length < TOTAL) {
-      const finalIds = new Set(finalTracks.map(t => t.scTrackId));
-      for (const track of scoredTracks.filter(t => !finalIds.has(t.scTrackId)).sort(() => Math.random() - 0.5)) {
-        if (finalTracks.length >= TOTAL) break;
-        finalTracks.push(track);
-      }
+    // ── Score all tracks ──
+    const scoredTracks: { track: SCTrack; score: number; meta: InternalTrack }[] = [];
+    for (const [scTrackId, meta] of trackMap.entries()) {
+      const score = scoreTrackV8(meta.track, meta, allGenres, artists, languagePreference);
+      scoredTracks.push({ track: meta.track, score, meta });
     }
 
-    // ── v8: Categorize tracks for Spotify-like rows ──
-    const mapTrack = (t: ScoredTrack) => ({
-      id: t.id, title: t.title, artist: t.artist, album: t.album,
-      cover: t.cover, duration: t.duration, genre: t.genre,
-      audioUrl: t.audioUrl, previewUrl: t.previewUrl, source: t.source,
-      scTrackId: t.scTrackId, scStreamPolicy: t.scStreamPolicy, scIsFull: t.scIsFull,
-      _score: Math.round(t._score),
-    });
+    // Sort by score descending
+    scoredTracks.sort((a, b) => b.score - a.score);
 
-    // Helper: build "Похожие на [artist]" rows for top artists
+    // ════════════════════════════════════════════════
+    // CATEGORIZED OUTPUT
+    // ════════════════════════════════════════════════
+
+    // Track IDs already placed in categories (to avoid duplication)
+    const usedInCategory = new Set<number>();
+
+    // ── "Похожие на {artist}" — up to 3 rows, one per top artist ──
     const artistRows: { id: string; title: string; icon: string; tracks: ReturnType<typeof mapTrack>[] }[] = [];
-    const usedForArtistRows = new Set<number>();
+
     for (const artist of artists.slice(0, 3)) {
       const aLower = artist.toLowerCase().trim();
-      const artistTracks = scoredTracks.filter(t => {
-        const tArtist = (t.artist || "").toLowerCase().trim();
-        return (tArtist === aLower || tArtist.includes(aLower) || aLower.includes(tArtist)) && !usedForArtistRows.has(t.scTrackId);
-      }).slice(0, 8);
+      const artistTracks = scoredTracks.filter(({ track }) => {
+        const tArtist = (track.artist || "").toLowerCase().trim();
+        return (tArtist === aLower || tArtist.includes(aLower) || aLower.includes(tArtist))
+          && !usedInCategory.has(track.scTrackId);
+      });
+
       if (artistTracks.length >= 3) {
-        for (const t of artistTracks) usedForArtistRows.add(t.scTrackId);
+        const selected = artistTracks.slice(0, 8);
+        for (const { track } of selected) usedInCategory.add(track.scTrackId);
         artistRows.push({
           id: `artist_${aLower.replace(/\s+/g, '_')}`,
           title: `Похожие на ${artist}`,
           icon: "Mic2",
-          tracks: artistTracks.map(mapTrack),
+          tracks: selected.map(({ track, score }) => mapTrack(track, score)),
         });
       }
     }
 
-    // "Для вас" — top picks that match user's taste (not exploration)
-    const forYou = scoredTracks.filter(t => !t._isExploration)
-      .sort((a, b) => b._score - a._score)
-      .slice(0, 12)
-      .map(mapTrack);
+    // ── "Для вас" — the best overall scored tracks ──
+    const forYouTracks = scoredTracks
+      .filter(({ track, meta }) => !usedInCategory.has(track.scTrackId) && !meta.isFromBridgeGenre)
+      .slice(0, 15);
+    for (const { track } of forYouTracks) usedInCategory.add(track.scTrackId);
 
-    // "Открытия" — exploration tracks (bridge genres)
-    const discover = scoredTracks.filter(t => t._isExploration)
-      .sort((a, b) => b._score - a._score)
-      .slice(0, 10)
-      .map(mapTrack);
+    // ── "Открытия" — bridge genre exploration tracks ──
+    const discoveryTracks = scoredTracks
+      .filter(({ track, meta }) => meta.isFromBridgeGenre && !usedInCategory.has(track.scTrackId))
+      .slice(0, 10);
+    for (const { track } of discoveryTracks) usedInCategory.add(track.scTrackId);
 
-    // "В ритме сессии" — tracks with energy close to session average
-    const sessionFlow = sessionMood.dominantMoods.length > 0 || sessionMood.dominantGenres.length > 0
-      ? [...scoredTracks]
-          .sort((a, b) => b._score - a._score)
-          .filter(t => {
-            const energy = estimateEnergy(t);
-            return Math.abs(energy - sessionMood.avgEnergy) < 0.3;
-          })
-          .slice(0, 10)
-          .map(mapTrack)
-      : [];
+    // ── Build flat track list (for backward compat — top 30) ──
+    const artistLimit = 3; // max per artist in flat list
+    const flatTracks: ReturnType<typeof mapTrack>[] = [];
+    const artistCount = new Map<string, number>();
 
-    // Build categories array
-    const categories: { id: string; title: string; icon: string; tracks: ReturnType<typeof mapTrack>[] }[] = [];
-
-    // Artist-based rows first (most specific)
-    categories.push(...artistRows);
-
-    // Session flow (if available)
-    if (sessionFlow.length >= 4) {
-      const moodLabel = sessionMood.dominantMoods[0]
-        ? { chill: 'Расслабление', bassy: 'Басы', melodic: 'Мелодия', dark: 'Тёмная сторона', upbeat: 'Энергия', romantic: 'Настроение', aggressive: 'Драйв', dreamy: 'Атмосфера' }[sessionMood.dominantMoods[0]] || 'Настроение'
-        : 'Настроение';
-      categories.push({ id: "session_flow", title: moodLabel, icon: "Waves", tracks: sessionFlow });
+    for (const { track, score } of scoredTracks) {
+      if (flatTracks.length >= 30) break;
+      const artist = (track.artist || "").toLowerCase().trim();
+      if ((artistCount.get(artist) || 0) >= artistLimit) continue;
+      artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
+      flatTracks.push(mapTrack(track, score));
     }
 
+    // ── Build categories array ──
+    const categories: { id: string; title: string; icon: string; tracks: ReturnType<typeof mapTrack>[] }[] = [];
+
+    // Artist-based rows first (most personalized)
+    categories.push(...artistRows);
+
     // "Для вас"
-    if (forYou.length >= 4) {
-      categories.push({ id: "for_you", title: "Для вас", icon: "Sparkles", tracks: forYou });
+    if (forYouTracks.length >= 4) {
+      categories.push({
+        id: "for_you",
+        title: "Для вас",
+        icon: "Sparkles",
+        tracks: forYouTracks.map(({ track, score }) => mapTrack(track, score)),
+      });
     }
 
     // "Открытия"
-    if (discover.length >= 3) {
-      categories.push({ id: "discover", title: "Открытия", icon: "Compass", tracks: discover });
+    if (discoveryTracks.length >= 3) {
+      categories.push({
+        id: "discover",
+        title: "Открытия",
+        icon: "Compass",
+        tracks: discoveryTracks.map(({ track, score }) => mapTrack(track, score)),
+      });
     }
 
     const responseData = {
-      tracks: finalTracks.map(mapTrack),
+      tracks: flatTracks,
       categories,
-      _meta: { 
-        timeContext, 
-        moods: userMoods, 
-        sessionMood: {
-          avgEnergy: Math.round(sessionMood.avgEnergy * 100) / 100,
-          dominantMoods: sessionMood.dominantMoods,
-          dominantGenres: sessionMood.dominantGenres,
-        },
+      _meta: {
+        version: 8,
+        timeContext,
+        phase1Count: scoredTracks.filter(({ meta }) => meta.isFromLikedRelated || meta.isFromHistoryRelated).length,
+        phase2Count: scoredTracks.filter(({ meta }) => meta.isFromArtistSearch).length,
+        phase3Count: scoredTracks.filter(({ meta }) => meta.isFromGenreFallback).length,
+        bridgeCount: scoredTracks.filter(({ meta }) => meta.isFromBridgeGenre).length,
+        likedScIdsUsed: likedScIds.slice(0, 5).length,
+        historyScIdsUsed: historyScIds.slice(0, 3).length,
         languagePreference,
-        familiarCount: finalTracks.filter(t => !t._isExploration).length, 
-        explorationCount: finalTracks.filter(t => t._isExploration).length,
       },
     };
 
     setCache(cacheKey, responseData);
     return NextResponse.json(responseData);
   } catch {
-    return NextResponse.json({ tracks: [] }, { status: 200 });
+    return NextResponse.json({ tracks: [], categories: [] }, { status: 200 });
   }
 }
+
 export const GET = withRateLimit(RATE_LIMITS.heavy, handler);

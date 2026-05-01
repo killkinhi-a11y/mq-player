@@ -117,6 +117,18 @@ function getGreetingSubtext(): string {
   return "Ночная музыка для уютного вечера";
 }
 
+// Detect language from text (used in multiple places)
+function detectLang(text: string): "russian" | "english" | "latin" | "other" {
+  if (!text) return "other";
+  const cyrillic = (text.match(/[\u0400-\u04FF]/g) || []).length;
+  const latin = (text.match(/[a-zA-Z]/g) || []).length;
+  const total = cyrillic + latin;
+  if (total === 0) return "other";
+  if (cyrillic / total > 0.4) return "russian";
+  if (latin / total > 0.6) return "english";
+  return "latin";
+}
+
 export default function MainView() {
   const {
     animationsEnabled, playTrack, likedTrackIds, dislikedTrackIds, likedTracksData, dislikedTracksData,
@@ -258,6 +270,15 @@ export default function MainView() {
         if (userId) sp.set("userId", userId);
         if (topGenres.length > 0) sp.set("genres", topGenres.join(","));
         if (topArtists.length > 0) sp.set("artists", topArtists.join(","));
+        // Pass liked track SC IDs for "Похожее" playlist via SoundCloud related API
+        const likedSc = useAppStore.getState().likedTracksData
+          .map((t: any) => t.scTrackId)
+          .filter((id: any): id is number => !!id)
+          .slice(0, 3)
+          .join(",");
+        if (likedSc) sp.set("likedScIds", likedSc);
+        // Pass language preference
+        if (languagePreference !== "mixed") sp.set("lang", languagePreference);
         const res = await fetch(`/api/playlists/curated?${sp}`);
         if (!cancelled && res.ok) {
           const data = await res.json();
@@ -278,17 +299,6 @@ export default function MainView() {
     const { likedTracksData, history } = useAppStore.getState();
     const safeHistory = Array.isArray(history) ? history : [];
     const langCounts: Record<string, number> = { russian: 0, english: 0, latin: 0 };
-    
-    function detectLang(text: string): string {
-      if (!text) return "other";
-      const cyrillic = (text.match(/[\u0400-\u04FF]/g) || []).length;
-      const latin = (text.match(/[a-zA-Z]/g) || []).length;
-      const total = cyrillic + latin;
-      if (total === 0) return "other";
-      if (cyrillic / total > 0.4) return "russian";
-      if (latin / total > 0.6) return "english";
-      return "latin";
-    }
     
     // Weight liked tracks 3x
     for (const track of likedTracksData) {
@@ -333,13 +343,30 @@ export default function MainView() {
       if (dislikedGenres) params.set("dislikedGenres", dislikedGenres);
       if (recentIds) params.set("recentIds", recentIds);
 
+      // Extract SoundCloud track IDs from liked tracks
+      const likedScIds = likedTracksData
+        .map(t => t.scTrackId)
+        .filter((id): id is number => !!id)
+        .slice(0, 5)
+        .join(",");
+      if (likedScIds) params.set("likedScIds", likedScIds);
+
+      // Extract SoundCloud track IDs from recent history
+      const historyScIds = currentHistory.slice(0, 10)
+        .map(h => h.track.scTrackId)
+        .filter((id): id is number => !!id)
+        .join(",");
+      if (historyScIds) params.set("historyScIds", historyScIds);
+
       // Session context: pass last 5 played tracks for mood flow
       const sessionTracks = currentHistory.slice(0, 5).map(entry => ({
         genre: entry.track.genre || "",
         artist: entry.track.artist || "",
-        energy: entry.track.duration < 180 ? 0.8 : entry.track.duration > 300 ? 0.3 : 0.5,
+        energy: entry.track.duration ? (entry.track.duration < 180 ? 0.8 : entry.track.duration > 300 ? 0.3 : 0.5) : 0.5,
         moods: [],
-      }));
+        scTrackId: entry.track.scTrackId || null,
+        language: detectLang(`${entry.track.title || ""} ${entry.track.artist || ""}`) as "russian" | "english" | "latin" | "other",
+      }))
       if (sessionTracks.length > 0) {
         params.set("session", JSON.stringify(sessionTracks));
       }
