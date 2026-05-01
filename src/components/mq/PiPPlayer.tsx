@@ -5,6 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { Play, Pause, Music, X, Minimize2, SkipBack, SkipForward, Volume2, VolumeX, Heart, ThumbsDown } from "lucide-react";
 import { formatDuration } from "@/lib/musicApi";
 import { getAudioElement } from "@/lib/audioEngine";
+import { useNativePiP } from "@/hooks/useNativePiP";
 
 export default function PiPPlayer() {
   const {
@@ -13,10 +14,13 @@ export default function PiPPlayer() {
     isFullTrackViewOpen, toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
   } = useAppStore();
 
+  const { isSupported, openPiP, closePiP, isPiPOpen } = useNativePiP();
+
   const containerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const prevFullViewRef = useRef(false);
+  const prevPiPActiveRef = useRef(false);
 
   const progressPct = duration > 0 ? (progress / duration) * 100 : 0;
   const safeProgressPct = isNaN(progressPct) ? 0 : Math.max(0, Math.min(100, progressPct));
@@ -41,6 +45,33 @@ export default function PiPPlayer() {
   const [pos, setPos] = useState(getInitialPos);
   const [minimized, setMinimized] = useState(false);
   const [showVolume, setShowVolume] = useState(false);
+
+  // ── Native PiP: open when isPiPActive toggles on ──
+  useEffect(() => {
+    if (isPiPActive && !prevPiPActiveRef.current && isSupported && currentTrack) {
+      openPiP().then((success) => {
+        if (success) {
+          // Native PiP window opened — hide overlay
+        } else {
+          // Native PiP failed — will fall through to overlay
+        }
+      });
+    }
+    if (!isPiPActive && prevPiPActiveRef.current) {
+      // User deactivated PiP — close native window if open
+      closePiP();
+    }
+    prevPiPActiveRef.current = isPiPActive;
+  }, [isPiPActive, isSupported, currentTrack, openPiP, closePiP]);
+
+  // ── If native PiP window is open, don't render the overlay ──
+  const nativePiPOpen = isPiPOpen();
+  const useNativeMode = isSupported && nativePiPOpen;
+
+  // If native PiP is active, render nothing (the window handles itself)
+  if (useNativeMode) return null;
+
+  // ── Below: fallback overlay-based PiP ──
 
   // Auto-minimize when FullTrackView opens, restore when it closes
   useEffect(() => {
@@ -121,7 +152,7 @@ export default function PiPPlayer() {
 
   // Update progress from audio element for smooth playback
   useEffect(() => {
-    if (!isPiPActive || !isPlaying) return;
+    if (!isPiPActive || !isPlaying || useNativeMode) return;
     const interval = setInterval(() => {
       const audio = getAudioElement();
       if (audio && !audio.paused && audio.duration) {
@@ -129,7 +160,7 @@ export default function PiPPlayer() {
       }
     }, 250);
     return () => clearInterval(interval);
-  }, [isPiPActive, isPlaying]);
+  }, [isPiPActive, isPlaying, useNativeMode]);
 
   const w = minimized ? minimizedSize : expandedW;
   const h = minimized ? minimizedSize : expandedH;
