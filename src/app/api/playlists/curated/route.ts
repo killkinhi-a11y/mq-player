@@ -100,38 +100,94 @@ const CURATED_CONFIGS = [
   },
 ];
 
-// Search queries for each playlist
+// Search queries for each playlist (primary queries + extra fallbacks for padding to 50)
 const SEARCH_QUERIES: Record<string, string[]> = {
   "for-you": [], // filled dynamically from user data
-  discoveries: ["indie alternative", "lo-fi new artists", "experimental music", "indie pop discovery"],
-  "new-releases": ["new music", "popular this week", "top hits", "new releases this month"],
+  discoveries: [
+    "indie alternative", "lo-fi new artists", "experimental music", "indie pop discovery",
+    "indie folk", "bedroom pop", "underground artists", "indie rock new",
+    "alt pop 2024", "emerging artists",
+  ],
+  "new-releases": [
+    "new music 2024", "popular this week", "top hits 2024", "new releases this month",
+    "latest songs", "chart toppers", "new singles", "trending now",
+    "fresh releases", "hot new music",
+  ],
   "daily-1": [], // filled dynamically
-  chill: ["chill beats", "relaxing music", "lo-fi hip hop", "ambient chill", "downtempo"],
-  energy: ["workout music", "energy boost", "party mix", "gym motivation", "bass drop"],
-  "hip-hop": ["hip hop new", "rap hits", "trap music", "drill beats"],
-  electronic: ["electronic music", "melodic house", "techno set", "indie electronic"],
-  "rnb-soul": ["rnb soul", "neo soul", "rnb new", "soulful music", "rnb hits"],
-  "rock": ["rock music", "alternative rock", "indie rock", "rock hits"],
-  "jazz": ["jazz music", "lo-fi jazz", "jazz fusion", "smooth jazz"],
-  "classical": ["classical music", "piano instrumental", "orchestral", "neoclassical"],
+  chill: [
+    "chill beats", "relaxing music", "lo-fi hip hop", "ambient chill", "downtempo",
+    "chillhop", "study beats", "relaxing instrumental", "mellow vibe",
+    "chill lounge", "peaceful music",
+  ],
+  energy: [
+    "workout music", "energy boost", "party mix", "gym motivation", "bass drop",
+    "high energy songs", "adrenaline music", "pump up", "power workout",
+    "intense workout music", "gym bangers",
+  ],
+  "hip-hop": [
+    "hip hop new", "rap hits", "trap music", "drill beats",
+    "hip hop 2024", "rap new releases", "trap bangers", "conscious hip hop",
+    "underground rap", "hip hop mix",
+  ],
+  electronic: [
+    "electronic music", "melodic house", "techno set", "indie electronic",
+    "deep house", "future bass", "synthwave", "edm hits",
+    "tech house", "electronic dance",
+  ],
+  "rnb-soul": [
+    "rnb soul", "neo soul", "rnb new", "soulful music", "rnb hits",
+    "rnb 2024", "soul music", "contemporary rnb", "afrobeats rnb",
+    "smooth rnb", "rnb slow jams",
+  ],
+  rock: [
+    "rock music", "alternative rock", "indie rock", "rock hits",
+    "modern rock", "classic rock hits", "garage rock", "post punk",
+    "hard rock", "progressive rock",
+  ],
+  jazz: [
+    "jazz music", "lo-fi jazz", "jazz fusion", "smooth jazz",
+    "jazz piano", "bossa nova", "jazz guitar", "contemporary jazz",
+    "jazz instrumental", "swing jazz",
+  ],
+  classical: [
+    "classical music", "piano instrumental", "orchestral", "neoclassical",
+    "cello music", "violin classical", "symphony", "piano sonata",
+    "string quartet", "film score classical",
+  ],
 };
+
+// Universal fallback queries used when playlist-specific queries don't yield enough tracks
+const UNIVERSAL_FALLBACK_QUERIES = [
+  "popular music 2024",
+  "top hits this week",
+  "best songs",
+  "chart music",
+  "viral hits",
+  "mainstream hits",
+  "radio hits 2024",
+  "music mix",
+];
 
 // Keep a cache to avoid re-searching on every request
 const cache = new Map<string, { playlists: CuratedPlaylist[]; timestamp: number }>();
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
-async function searchAndBuildTracks(queries: string[], limit: number) {
+async function searchAndBuildTracks(queries: string[], limit: number, playlistId?: string) {
   const allTracks: CuratedPlaylist["tracks"] = [];
   const seen = new Set<string>();
 
-  for (const query of queries.slice(0, 5)) {
+  const addTrack = (t: CuratedPlaylist["tracks"][0]) => {
+    if (!seen.has(String(t.scTrackId))) {
+      seen.add(String(t.scTrackId));
+      allTracks.push(t);
+    }
+  };
+
+  const processResults = async (query: string, fetchLimit: number) => {
     try {
-      const perQuery = Math.min(20, Math.ceil((limit - allTracks.length) / Math.max(1, queries.slice(0, 5).length - queries.indexOf(query))));
-      const results = await searchSCTracks(query, Math.max(10, perQuery));
+      const results = await searchSCTracks(query, fetchLimit);
       for (const t of results) {
-        if (seen.has(String(t.scTrackId))) continue;
-        seen.add(String(t.scTrackId));
-        allTracks.push({
+        addTrack({
           id: `sc_${t.scTrackId}`,
           title: t.title,
           artist: t.artist,
@@ -149,8 +205,40 @@ async function searchAndBuildTracks(queries: string[], limit: number) {
         if (allTracks.length >= limit) break;
       }
     } catch {}
+  };
+
+  // --- Pass 1: Primary queries (up to 8 queries, fetch up to 50 per query) ---
+  const primaryQueries = queries.slice(0, 8);
+  for (const query of primaryQueries) {
     if (allTracks.length >= limit) break;
+    const remaining = limit - allTracks.length;
+    const fetchLimit = Math.min(50, Math.max(15, remaining));
+    await processResults(query, fetchLimit);
   }
+
+  if (allTracks.length >= limit) return allTracks;
+
+  // --- Pass 2: Extra fallback queries specific to the playlist from SEARCH_QUERIES ---
+  if (playlistId && SEARCH_QUERIES[playlistId]) {
+    const fallbackQueries = SEARCH_QUERIES[playlistId].filter(q => !primaryQueries.includes(q));
+    for (const query of fallbackQueries.slice(0, 6)) {
+      if (allTracks.length >= limit) break;
+      const remaining = limit - allTracks.length;
+      const fetchLimit = Math.min(50, Math.max(15, remaining));
+      await processResults(query, fetchLimit);
+    }
+  }
+
+  if (allTracks.length >= limit) return allTracks;
+
+  // --- Pass 3: Universal fallback queries (broad popular music searches) ---
+  for (const query of UNIVERSAL_FALLBACK_QUERIES) {
+    if (allTracks.length >= limit) break;
+    const remaining = limit - allTracks.length;
+    const fetchLimit = Math.min(50, Math.max(15, remaining));
+    await processResults(query, fetchLimit);
+  }
+
   return allTracks;
 }
 
@@ -168,22 +256,45 @@ async function handler(req: NextRequest) {
       return NextResponse.json({ playlists: cached.playlists });
     }
 
-    // Build "for-you" queries from user data
+    // Build "for-you" queries from user data — expanded for guaranteed 50 tracks
     const forYouQueries: string[] = [];
     if (topArtists.length > 0) {
+      // Individual artist searches yield more results than combined
+      forYouQueries.push(topArtists[0]);
+      if (topArtists.length > 1) forYouQueries.push(topArtists[1]);
+      // Combined artist search
       forYouQueries.push(topArtists.slice(0, 2).join(" "));
     }
     if (topGenres.length > 0) {
-      forYouQueries.push(topGenres.slice(0, 2).join(" music"));
+      // Individual genre searches
+      forYouQueries.push(`${topGenres[0]} music`);
+      if (topGenres.length > 1) forYouQueries.push(`${topGenres[1]} music`);
+      // Combined genres
+      forYouQueries.push(topGenres.slice(0, 2).join(" "));
     }
+    // Cross genre-artist queries for diversity
+    if (topArtists.length > 0 && topGenres.length > 0) {
+      forYouQueries.push(`${topArtists[0]} ${topGenres[0]}`);
+    }
+    // Year-based popular queries as filler
+    forYouQueries.push("popular hits", "top songs 2024");
     if (forYouQueries.length === 0) {
-      forYouQueries.push("popular music", "top hits mix");
+      forYouQueries.push("popular music", "top hits mix", "best songs 2024", "trending music");
     }
 
-    // Build "daily" queries
-    const dailyQueries = topArtists.length > 0
-      ? topArtists.slice(0, 1).map(a => `${a} mix`)
-      : ["daily mix", "today hits"];
+    // Build "daily" queries — expanded for guaranteed 50 tracks
+    const dailyQueries: string[] = [];
+    if (topArtists.length > 0) {
+      dailyQueries.push(`${topArtists[0]} mix`);
+      dailyQueries.push(topArtists[0]);
+      dailyQueries.push(`${topArtists[0]} songs`);
+      if (topArtists.length > 1) {
+        dailyQueries.push(`${topArtists[1]} mix`);
+        dailyQueries.push(`${topArtists[0]} ${topArtists[1]}`);
+      }
+    }
+    // Always add filler queries for daily mix
+    dailyQueries.push("daily mix", "today hits", "popular mix 2024");
 
     // Search for playlists in parallel (batch of 3 at a time)
     const playlists: CuratedPlaylist[] = [];
@@ -197,7 +308,7 @@ async function handler(req: NextRequest) {
           if (config.id === "for-you") queries = forYouQueries;
           if (config.id === "daily-1") queries = dailyQueries;
 
-          const tracks = await searchAndBuildTracks(queries, 50);
+          const tracks = await searchAndBuildTracks(queries, 50, config.id);
           return {
             ...config,
             tracks,

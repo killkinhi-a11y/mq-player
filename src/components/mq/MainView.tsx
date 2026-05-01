@@ -531,7 +531,7 @@ export default function MainView() {
                     <p className="text-sm font-bold leading-tight" style={{ color: "var(--mq-text)" }}>
                       {pl.name}
                     </p>
-                    <p className="text-[11px] mt-1 leading-tight" style={{ color: "var(--mq-text-muted)" }}>
+                    <p className="text-[11px] mt-1 leading-tight truncate" style={{ color: "var(--mq-text-muted)" }}>
                       {pl.subtitle}
                     </p>
                   </div>
