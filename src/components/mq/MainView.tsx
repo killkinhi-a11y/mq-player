@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3 } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
 
 interface CuratedPlaylist {
@@ -351,14 +351,27 @@ export default function MainView() {
           style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
         >
           {/* Themed gradient overlay from playlist identity */}
-          <div className="absolute inset-0 opacity-[0.08]"
+          <div className="absolute inset-0 opacity-[0.10]"
             style={{ background: selectedCurated.gradient }}
+          />
+          {/* Accent glow */}
+          <div className="absolute -top-16 -left-16 w-48 h-48 rounded-full opacity-[0.10]"
+            style={{ background: selectedCurated.gradient }}
+          />
+          <div className="absolute -bottom-12 -right-12 w-40 h-40 rounded-full opacity-[0.06]"
+            style={{ background: selectedCurated.gradient }}
+          />
+          {/* Decorative pattern */}
+          <div className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 6px, rgba(255,255,255,0.15) 6px, rgba(255,255,255,0.15) 7px)",
+            }}
           />
 
           <div className="relative z-10 p-5 lg:p-8">
             <div className="flex items-start gap-5">
               {/* Playlist artwork */}
-              <div className="w-28 h-28 lg:w-36 lg:h-36 rounded-2xl overflow-hidden flex-shrink-0 shadow-lg shadow-black/20">
+              <div className="w-28 h-28 lg:w-36 lg:h-36 rounded-2xl overflow-hidden flex-shrink-0 shadow-xl shadow-black/30">
                 <PlaylistArtwork playlistId={selectedCurated.id} size={200} rounded="rounded-none" className="!w-full !h-full" />
               </div>
 
@@ -482,44 +495,54 @@ export default function MainView() {
         {curatedLoading ? (
           <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="flex-shrink-0 w-40">
-                <div className="w-40 h-40 rounded-2xl mb-2" style={{ background: "var(--mq-card)" }}>
-                  <Skeleton className="w-full h-full rounded-2xl" />
-                </div>
-                <Skeleton className="h-4 w-24 mb-1" />
-                <Skeleton className="h-3 w-16" />
+              <div key={i} className="flex-shrink-0 w-40 h-52 rounded-2xl" style={{ background: "var(--mq-card)" }}>
+                <Skeleton className="w-full h-full rounded-2xl" />
               </div>
             ))}
           </div>
         ) : curatedPlaylists.length > 0 ? (
-          <div className="flex gap-4 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
             {curatedPlaylists.map((pl, i) => (
               <motion.button
                 key={pl.id}
-                initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}
-                whileHover={{ scale: 1.04, y: -4 }}
+                initial={animationsEnabled ? { opacity: 0, x: 30 } : undefined}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.05 }}
+                whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => {
                   setSelectedCurated(pl);
                 }}
-                className="flex-shrink-0 w-40 cursor-pointer group"
+                className="flex-shrink-0 w-40 h-52 rounded-2xl relative overflow-hidden cursor-pointer group"
               >
-                {/* Artwork cover */}
-                <div className="w-40 h-40 rounded-2xl overflow-hidden mb-2.5 shadow-lg shadow-black/15 group-hover:shadow-xl group-hover:shadow-black/25 transition-shadow duration-300">
-                  <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className="!w-full !h-full group-hover:scale-105 transition-transform duration-500" />
+                {/* Playlist artwork as background */}
+                <div className="absolute inset-0">
+                  <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className="!w-full !h-full group-hover:scale-110 transition-transform duration-700" />
                 </div>
-                {/* Text below */}
-                <p className="text-sm font-semibold leading-tight truncate text-left" style={{ color: "var(--mq-text)" }}>
-                  {pl.name}
-                </p>
-                <p className="text-[11px] mt-0.5 leading-tight truncate text-left" style={{ color: "var(--mq-text-muted)" }}>
-                  {pl.subtitle}
-                </p>
-                <p className="text-[10px] mt-0.5 text-left" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
-                  {pl.tracks.length} треков
-                </p>
+
+                {/* Dark gradient overlay for text readability */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+                {/* Content */}
+                <div className="relative z-10 h-full flex flex-col justify-between p-3.5">
+                  <div className="mt-1">
+                    <p className="text-sm font-bold leading-tight drop-shadow-md" style={{ color: "#fff" }}>
+                      {pl.name}
+                    </p>
+                    <p className="text-[11px] mt-1 leading-tight truncate drop-shadow-sm" style={{ color: "rgba(255,255,255,0.75)" }}>
+                      {pl.subtitle}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] drop-shadow-sm" style={{ color: "rgba(255,255,255,0.65)" }}>
+                      {pl.tracks.length} треков
+                    </p>
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center shadow-lg shadow-black/30 transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:shadow-black/40"
+                      style={{ background: "rgba(255,255,255,0.95)" }}>
+                      <Play className="w-4 h-4 ml-0.5" style={{ color: "#1a1a2e" }} fill="currentColor" />
+                    </div>
+                  </div>
+                </div>
               </motion.button>
             ))}
           </div>
