@@ -14,13 +14,14 @@ export default function PiPPlayer() {
     isFullTrackViewOpen, toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
   } = useAppStore();
 
-  const { isSupported, openPiP, closePiP, isPiPOpen } = useNativePiP();
+  const { openPiP, closePiP, isPiPOpen } = useNativePiP();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const prevFullViewRef = useRef(false);
   const prevPiPActiveRef = useRef(false);
+  const pipOpenedRef = useRef(false);
 
   const progressPct = duration > 0 ? (progress / duration) * 100 : 0;
   const safeProgressPct = isNaN(progressPct) ? 0 : Math.max(0, Math.min(100, progressPct));
@@ -46,30 +47,24 @@ export default function PiPPlayer() {
   const [minimized, setMinimized] = useState(false);
   const [showVolume, setShowVolume] = useState(false);
 
-  // ── Native PiP: open when isPiPActive toggles on ──
+  // ── Popup PiP: open when isPiPActive toggles on ──
   useEffect(() => {
-    if (isPiPActive && !prevPiPActiveRef.current && isSupported && currentTrack) {
-      openPiP().then((success) => {
-        if (success) {
-          // Native PiP window opened — hide overlay
-        } else {
-          // Native PiP failed — will fall through to overlay
-        }
-      });
+    if (isPiPActive && !prevPiPActiveRef.current && currentTrack) {
+      const success = openPiP();
+      pipOpenedRef.current = success;
     }
     if (!isPiPActive && prevPiPActiveRef.current) {
-      // User deactivated PiP — close native window if open
       closePiP();
+      pipOpenedRef.current = false;
     }
     prevPiPActiveRef.current = isPiPActive;
-  }, [isPiPActive, isSupported, currentTrack, openPiP, closePiP]);
+  }, [isPiPActive, currentTrack, openPiP, closePiP]);
 
-  // ── If native PiP window is open, don't render the overlay ──
-  const nativePiPOpen = isPiPOpen();
-  const useNativeMode = isSupported && nativePiPOpen;
+  // ── If popup PiP window is open, don't render the overlay ──
+  const popupOpen = isPiPOpen();
 
-  // If native PiP is active, render nothing (the window handles itself)
-  if (useNativeMode) return null;
+  // If popup PiP is active, render nothing (the window handles itself)
+  if (popupOpen) return null;
 
   // ── Below: fallback overlay-based PiP ──
 
@@ -152,7 +147,7 @@ export default function PiPPlayer() {
 
   // Update progress from audio element for smooth playback
   useEffect(() => {
-    if (!isPiPActive || !isPlaying || useNativeMode) return;
+    if (!isPiPActive || !isPlaying || popupOpen) return;
     const interval = setInterval(() => {
       const audio = getAudioElement();
       if (audio && !audio.paused && audio.duration) {
@@ -160,7 +155,7 @@ export default function PiPPlayer() {
       }
     }, 250);
     return () => clearInterval(interval);
-  }, [isPiPActive, isPlaying, useNativeMode]);
+  }, [isPiPActive, isPlaying, popupOpen]);
 
   const w = minimized ? minimizedSize : expandedW;
   const h = minimized ? minimizedSize : expandedH;
