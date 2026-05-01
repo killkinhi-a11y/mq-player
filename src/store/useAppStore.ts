@@ -949,16 +949,16 @@ export const useAppStore = create<AppState>()(
       },
 
       fetchPlaylistRecommendations: async (likedTags = [], likedArtists = []) => {
-        const { userId, likedTracksData, history, dislikedTags } = get();
+        const { userId, likedTracksData, history, dislikedTags, dislikedTracksData } = get();
         set({ recommendedPlaylistsLoading: true });
 
         // Build taste profile from store if not provided
         let tags = likedTags;
         let artists = likedArtists;
+        const genreCount: Record<string, number> = {};
+        const artistCount: Record<string, number> = {};
         if (tags.length === 0 && artists.length === 0) {
           const allTracks = [...likedTracksData, ...history.slice(0, 50).map((h) => h.track)];
-          const genreCount: Record<string, number> = {};
-          const artistCount: Record<string, number> = {};
           for (const t of allTracks) {
             if (t.genre) genreCount[t.genre] = (genreCount[t.genre] || 0) + 2;
             if (t.artist) artistCount[t.artist] = (artistCount[t.artist] || 0) + 1;
@@ -967,11 +967,45 @@ export const useAppStore = create<AppState>()(
           artists = Object.entries(artistCount).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([a]) => a);
         }
 
+        // Build disliked genres from disliked tracks
+        const dislikedGenresSet = new Set<string>();
+        for (const track of (dislikedTracksData || [])) {
+          if (track.genre) dislikedGenresSet.add(track.genre.toLowerCase());
+        }
+
+        // Detect language preference
+        const langCounts: Record<string, number> = { russian: 0, english: 0, latin: 0 };
+        function detectLang(text: string): string {
+          if (!text) return "other";
+          const cyrillic = (text.match(/[\u0400-\u04FF]/g) || []).length;
+          const latin = (text.match(/[a-zA-Z]/g) || []).length;
+          const total = cyrillic + latin;
+          if (total === 0) return "other";
+          if (cyrillic / total > 0.4) return "russian";
+          if (latin / total > 0.6) return "english";
+          return "latin";
+        }
+        for (const t of likedTracksData) {
+          const l = detectLang(`${t.title} ${t.artist}`);
+          if (l in langCounts) langCounts[l] += 3;
+        }
+        for (const h of history.slice(0, 30)) {
+          const l = detectLang(`${h.track.title} ${h.track.artist}`);
+          if (l in langCounts) langCounts[l] += 1;
+        }
+        const sortedLang = Object.entries(langCounts).sort((a, b) => b[1] - a[1]);
+        const totalLang = sortedLang.reduce((s, e) => s + e[1], 0);
+        const languagePref = totalLang > 0 && sortedLang[0][1] >= totalLang * 0.4 ? sortedLang[0][0] : "mixed";
+
         try {
           const sp = new URLSearchParams({ limit: '10' });
           if (tags.length > 0) sp.set('likedTags', tags.join(','));
           if (artists.length > 0) sp.set('likedArtists', artists.join(','));
           if (dislikedTags.length > 0) sp.set('dislikedTags', dislikedTags.join(','));
+          // v4: send richer signals
+          if (tags.length > 0) sp.set('topGenres', tags.join(','));
+          if (dislikedGenresSet.size > 0) sp.set('dislikedGenres', [...dislikedGenresSet].join(','));
+          if (languagePref !== 'mixed') sp.set('lang', languagePref);
           const res = await fetch(`/api/playlists/recommendations?${sp}`);
           if (res.ok) {
             const data = await res.json();

@@ -188,6 +188,39 @@ export default function MainView() {
     return () => { cancelled = true; };
   }, [tasteProfile, userId]);
 
+  // Detect language preference from listening history
+  const languagePreference = useMemo(() => {
+    const { likedTracksData, history } = useAppStore.getState();
+    const safeHistory = Array.isArray(history) ? history : [];
+    const langCounts: Record<string, number> = { russian: 0, english: 0, latin: 0 };
+    
+    function detectLang(text: string): string {
+      if (!text) return "other";
+      const cyrillic = (text.match(/[\u0400-\u04FF]/g) || []).length;
+      const latin = (text.match(/[a-zA-Z]/g) || []).length;
+      const total = cyrillic + latin;
+      if (total === 0) return "other";
+      if (cyrillic / total > 0.4) return "russian";
+      if (latin / total > 0.6) return "english";
+      return "latin";
+    }
+    
+    // Weight liked tracks 3x
+    for (const track of likedTracksData) {
+      const lang = detectLang(`${track.title} ${track.artist}`);
+      if (lang in langCounts) langCounts[lang] += 3;
+    }
+    for (const entry of safeHistory.slice(0, 50)) {
+      const lang = detectLang(`${entry.track.title} ${entry.track.artist}`);
+      if (lang in langCounts) langCounts[lang] += 1;
+    }
+    
+    const sorted = Object.entries(langCounts).sort((a, b) => b[1] - a[1]);
+    const total = sorted.reduce((s, e) => s + e[1], 0);
+    if (total === 0 || sorted[0][1] < total * 0.4) return "mixed";
+    return sorted[0][0] as "russian" | "english" | "latin";
+  }, [likedTracksData, history]);
+
   // Fetch smart recommendations based on taste
   const loadRecommendations = useCallback(async () => {
     setIsRecLoading(true);
@@ -196,6 +229,7 @@ export default function MainView() {
       const disliked = useAppStore.getState().dislikedTrackIds || [];
       const favoriteArtists = useAppStore.getState().favoriteArtists || [];
       const currentTrack = useAppStore.getState().currentTrack;
+      const currentHistory = useAppStore.getState().history || [];
       const params = new URLSearchParams();
 
       // Use favoriteArtists as primary signal if available
@@ -214,12 +248,20 @@ export default function MainView() {
       if (dislikedGenres) params.set("dislikedGenres", dislikedGenres);
       if (recentIds) params.set("recentIds", recentIds);
 
-      // Session context: pass current track's genre and energy level
-      if (currentTrack?.genre) params.set("currentGenre", currentTrack.genre);
-      if (currentTrack?.duration) {
-        // Short tracks tend to be high energy, long tracks tend to be low energy
-        const energy = currentTrack.duration < 180 ? "high" : currentTrack.duration > 300 ? "low" : null;
-        if (energy) params.set("currentEnergy", energy);
+      // Session context: pass last 5 played tracks for mood flow
+      const sessionTracks = currentHistory.slice(0, 5).map(entry => ({
+        genre: entry.track.genre || "",
+        artist: entry.track.artist || "",
+        energy: entry.track.duration < 180 ? 0.8 : entry.track.duration > 300 ? 0.3 : 0.5,
+        moods: [],
+      }));
+      if (sessionTracks.length > 0) {
+        params.set("session", JSON.stringify(sessionTracks));
+      }
+      
+      // Language preference
+      if (languagePreference !== "mixed") {
+        params.set("lang", languagePreference);
       }
 
       const res = await fetch(`/api/music/recommendations?${params}`);
@@ -233,7 +275,7 @@ export default function MainView() {
     } finally {
       setIsRecLoading(false);
     }
-  }, [tasteProfile]);
+  }, [tasteProfile, languagePreference]);
 
   useEffect(() => {
     loadRecommendations();

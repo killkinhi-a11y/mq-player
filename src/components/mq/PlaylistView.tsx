@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { type Track } from "@/lib/musicApi";
 import {
   Plus, Trash2, Play, Music, ListMusic, ChevronRight,
-  Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle, Image, Camera, Sparkles, ImagePlus, Share2
+  Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle, Image, Camera, Sparkles, ImagePlus, Share2, Shuffle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import TrackCard from "./TrackCard";
@@ -44,9 +44,51 @@ export default function PlaylistView() {
   const [aiGeneratingCover, setAiGeneratingCover] = useState(false);
   const [aiAutoGenerating, setAiAutoGenerating] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [playlistRecs, setPlaylistRecs] = useState<Track[]>([]);
+  const [playlistRecsLoading, setPlaylistRecsLoading] = useState(false);
 
   const selectedPlaylist = playlists.find((p) => p.id === selectedPlaylistId);
   const autoGenAttemptedRef = useRef<Set<string>>(new Set());
+  const recsLoadedRef = useRef<Set<string>>(new Set());
+
+  // ── Load similar tracks for playlist ──
+  useEffect(() => {
+    const playlist = playlists.find((p) => p.id === selectedPlaylistId);
+    if (!playlist || playlist.tracks.length < 3) return;
+    if (recsLoadedRef.current.has(playlist.id)) return;
+    recsLoadedRef.current.add(playlist.id);
+
+    const tracks = playlist.tracks;
+    // Build genre + artist profile from playlist tracks
+    const genreCounts: Record<string, number> = {};
+    const artistCounts: Record<string, number> = {};
+    for (const t of tracks) {
+      if (t.genre) genreCounts[t.genre] = (genreCounts[t.genre] || 0) + 1;
+      if (t.artist) artistCounts[t.artist] = (artistCounts[t.artist] || 0) + 1;
+    }
+    const topGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([g]) => g);
+    const topArtists = Object.entries(artistCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([a]) => a);
+    const excludeIds = tracks.map(t => t.id).join(",");
+
+    if (topGenres.length === 0 && topArtists.length === 0) return;
+
+    setPlaylistRecsLoading(true);
+    const params = new URLSearchParams();
+    if (topGenres.length > 0) params.set("genres", topGenres.join(","));
+    if (topArtists.length > 0) params.set("artists", topArtists.join(","));
+    if (excludeIds) params.set("excludeIds", excludeIds);
+
+    fetch(`/api/music/recommendations?${params}`)
+      .then(res => res.json())
+      .then(data => {
+        const recTracks = (data.tracks || []).filter(
+          (t: Track) => !tracks.some(pt => pt.id === t.id)
+        );
+        setPlaylistRecs(recTracks.slice(0, 8));
+      })
+      .catch(() => setPlaylistRecs([]))
+      .finally(() => setPlaylistRecsLoading(false));
+  }, [playlists, selectedPlaylistId]);
 
   // ── Auto-generate description & cover when playlist has tracks but no description ──
   useEffect(() => {
@@ -599,6 +641,75 @@ export default function PlaylistView() {
             <p className="text-xs mt-2" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
               Нажмите правой кнопкой на трек и выберите «Добавить в плейлист»
             </p>
+          </div>
+        )}
+
+        {/* Similar tracks recommendations for this playlist */}
+        {selectedPlaylist.tracks.length >= 3 && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Shuffle className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+                <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>
+                  Похожие треки
+                </h3>
+              </div>
+              {playlistRecs.length > 0 && (
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    if (playlistRecs.length > 0) playTrack(playlistRecs[0], [...selectedPlaylist.tracks, ...playlistRecs]);
+                  }}
+                  className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium"
+                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+                >
+                  <Play className="w-2.5 h-2.5" style={{ marginLeft: 1 }} />
+                  Слушать все
+                </motion.button>
+              )}
+            </div>
+            {playlistRecsLoading && (
+              <div className="space-y-2">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl" style={{ backgroundColor: "var(--mq-card)" }}>
+                    <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
+                    <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск похожих треков...</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!playlistRecsLoading && playlistRecs.length > 0 && (
+              <div className="space-y-2">
+                {playlistRecs.slice(0, 6).map((track, i) => (
+                  <div key={track.id} className="relative group">
+                    <TrackCard track={track} index={i} queue={[...selectedPlaylist.tracks, ...playlistRecs]} />
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => {
+                        const { playlists: currentPlaylists } = useAppStore.getState();
+                        useAppStore.setState({
+                          playlists: currentPlaylists.map(p =>
+                            p.id === selectedPlaylist.id
+                              ? { ...p, tracks: [...p.tracks, track] }
+                              : p
+                          ),
+                        });
+                      }}
+                      className="absolute top-3 right-3 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ color: "var(--mq-accent)", backgroundColor: "var(--mq-card)" }}
+                      title="Добавить в плейлист"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </motion.button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {!playlistRecsLoading && playlistRecs.length === 0 && selectedPlaylist.tracks.length >= 3 && (
+              <p className="text-xs text-center py-4" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
+                Не удалось найти похожие треки
+              </p>
+            )}
           </div>
         )}
 
