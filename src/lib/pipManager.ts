@@ -75,15 +75,8 @@ function drawFrame() {
   const state = useAppStore.getState();
   const { currentTrack, isPlaying, progress, duration, volume } = state;
 
-  // ── Background ──
-  ctx.fillStyle = "#0e0e0e";
-  ctx.fillRect(0, 0, w, h);
-
-  // Subtle radial gradient
-  const rg = ctx.createRadialGradient(w * 0.3, h * 0.4, 20, w * 0.5, h * 0.5, w * 0.7);
-  rg.addColorStop(0, "rgba(224,49,49,0.07)");
-  rg.addColorStop(1, "rgba(0,0,0,0)");
-  ctx.fillStyle = rg;
+  // ── Background — clean, no glow ──
+  ctx.fillStyle = "#111";
   ctx.fillRect(0, 0, w, h);
 
   if (!currentTrack) {
@@ -104,27 +97,17 @@ function drawFrame() {
   const cy = 55;
   const cs = 200;
 
-  // Cover shadow
-  ctx.save();
-  ctx.shadowColor = "rgba(224,49,49,0.25)";
-  ctx.shadowBlur = 24;
-  ctx.shadowOffsetY = 6;
-  roundRect(ctx, cx, cy, cs, cs, 18);
-  ctx.fillStyle = "#1a1a1a";
-  ctx.fill();
-  ctx.restore();
-
-  // Cover image or default
+  // Cover — no shadow, no border
   ctx.save();
   if (currentTrack.cover && coverImg && coverImg.complete && coverImg.naturalWidth > 0) {
-    roundRect(ctx, cx, cy, cs, cs, 18);
+    roundRect(ctx, cx, cy, cs, cs, 14);
     ctx.clip();
     ctx.drawImage(coverImg, cx, cy, cs, cs);
   } else {
-    roundRect(ctx, cx, cy, cs, cs, 18);
-    ctx.fillStyle = "rgba(224,49,49,0.25)";
+    roundRect(ctx, cx, cy, cs, cs, 14);
+    ctx.fillStyle = "rgba(224,49,49,0.2)";
     ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
     ctx.font = '64px sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
@@ -202,30 +185,27 @@ function drawFrame() {
     ctx.fill();
   }
 
-  // Dot
+  // Dot — no stroke border
   ctx.beginPath();
-  ctx.arc(barX + barW * pct, barY + barH / 2, 7, 0, Math.PI * 2);
+  ctx.arc(barX + barW * pct, barY + barH / 2, 6, 0, Math.PI * 2);
   ctx.fillStyle = "#e03131";
   ctx.fill();
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 2.5;
-  ctx.stroke();
 
   // Time
-  ctx.fillStyle = "#777";
-  ctx.font = '14px -apple-system, BlinkMacSystemFont, sans-serif';
+  ctx.fillStyle = "#666";
+  ctx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.textAlign = "left";
   ctx.textBaseline = "top";
-  ctx.fillText(fmt(Math.floor(progress)), barX, barY + 18);
+  ctx.fillText(fmt(Math.floor(progress)), barX, barY + 16);
   ctx.textAlign = "right";
-  ctx.fillText(fmt(Math.floor(duration)), barX + barW, barY + 18);
+  ctx.fillText(fmt(Math.floor(duration)), barX + barW, barY + 16);
 
-  // ── Branding ──
-  ctx.fillStyle = "rgba(224,49,49,0.3)";
-  ctx.font = '11px -apple-system, BlinkMacSystemFont, sans-serif';
+  // ── Branding — subtle ──
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
   ctx.textAlign = "center";
   ctx.textBaseline = "bottom";
-  ctx.fillText("MQ Player \u2022 Picture-in-Picture", w / 2, h - 10);
+  ctx.fillText("MQ", w / 2, h - 8);
 }
 
 // ── Animation loop ────────────────────────────────────────────
