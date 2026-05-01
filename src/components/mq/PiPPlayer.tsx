@@ -2,31 +2,36 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { Play, Pause, Music, X, Minimize2, SkipBack, SkipForward, Volume2, VolumeX, Heart, ThumbsDown } from "lucide-react";
+import { Play, Pause, Music, X, Minimize2, SkipBack, SkipForward, Volume2, VolumeX, Heart } from "lucide-react";
 import { formatDuration } from "@/lib/musicApi";
 import { getAudioElement } from "@/lib/audioEngine";
-import { useNativePiP } from "@/hooks/useNativePiP";
 
+/**
+ * PiPPlayer — overlay-based mini player (fallback).
+ *
+ * When pipMode === 'popup', this component renders nothing (the popup
+ * window handles itself via pipManager.ts).
+ *
+ * When pipMode === 'overlay', it renders the draggable overlay mini-player.
+ *
+ * The popup is opened directly from click handlers in PlayerBar/FullTrackView
+ * (preserving user-gesture context for Firefox popup blocking).
+ */
 export default function PiPPlayer() {
   const {
-    currentTrack, isPlaying, togglePlay, isPiPActive, setPiPActive,
+    currentTrack, isPlaying, togglePlay, isPiPActive, setPiPActive, pipMode,
     progress, duration, nextTrack, prevTrack, volume, setVolume,
-    isFullTrackViewOpen, toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
+    isFullTrackViewOpen, toggleLike, likedTrackIds,
   } = useAppStore();
-
-  const { openPiP, closePiP, isPiPOpen } = useNativePiP();
 
   const containerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const prevFullViewRef = useRef(false);
-  const prevPiPActiveRef = useRef(false);
-  const pipOpenedRef = useRef(false);
 
   const progressPct = duration > 0 ? (progress / duration) * 100 : 0;
   const safeProgressPct = isNaN(progressPct) ? 0 : Math.max(0, Math.min(100, progressPct));
   const isLiked = currentTrack ? (likedTrackIds || []).includes(currentTrack.id) : false;
-  const isDisliked = currentTrack ? (dislikedTrackIds || []).includes(currentTrack.id) : false;
 
   // Responsive sizing
   const isMobile = typeof window !== "undefined" && window.innerWidth < 640;
@@ -47,25 +52,9 @@ export default function PiPPlayer() {
   const [minimized, setMinimized] = useState(false);
   const [showVolume, setShowVolume] = useState(false);
 
-  // ── Popup PiP: open when isPiPActive toggles on ──
-  useEffect(() => {
-    if (isPiPActive && !prevPiPActiveRef.current && currentTrack) {
-      const success = openPiP();
-      pipOpenedRef.current = success;
-    }
-    if (!isPiPActive && prevPiPActiveRef.current) {
-      closePiP();
-      pipOpenedRef.current = false;
-    }
-    prevPiPActiveRef.current = isPiPActive;
-  }, [isPiPActive, currentTrack, openPiP, closePiP]);
+  // ── ALL hooks called before any conditional return ──
 
-  // ── If popup PiP window is open, don't render the overlay ──
-  const popupOpen = isPiPOpen();
-
-  // ── ALL hooks MUST be called before any conditional return ──
-
-  // Auto-minimize when FullTrackView opens, restore when it closes
+  // Auto-minimize when FullTrackView opens
   useEffect(() => {
     if (isFullTrackViewOpen && !prevFullViewRef.current && isPiPActive) {
       setMinimized(true);
@@ -128,23 +117,19 @@ export default function PiPPlayer() {
     if (audio) audio.currentTime = newTime;
   }, [duration]);
 
-  // Reset position only on fresh activation (not on tab switch)
+  // Reset position on fresh activation if off-screen
   useEffect(() => {
-    if (isPiPActive && !currentTrack) return;
-    if (isPiPActive) {
-      // Only reset if position is NaN or way off screen
-      const maxX = typeof window !== "undefined" ? window.innerWidth : 1920;
-      const maxY = typeof window !== "undefined" ? window.innerHeight : 1080;
-      if (isNaN(pos.x) || isNaN(pos.y) || pos.x > maxX || pos.y > maxY) {
-        setPos(getInitialPos());
-      }
-      // Don't reset minimized state on re-activation — let user keep their choice
+    if (!isPiPActive || pipMode !== 'overlay' || !currentTrack) return;
+    const maxX = typeof window !== "undefined" ? window.innerWidth : 1920;
+    const maxY = typeof window !== "undefined" ? window.innerHeight : 1080;
+    if (isNaN(pos.x) || isNaN(pos.y) || pos.x > maxX || pos.y > maxY) {
+      setPos(getInitialPos());
     }
-  }, [isPiPActive, getInitialPos, currentTrack, pos.x, pos.y]);
+  }, [isPiPActive, pipMode, getInitialPos, currentTrack, pos.x, pos.y]);
 
   // Update progress from audio element for smooth playback
   useEffect(() => {
-    if (!isPiPActive || !isPlaying || popupOpen) return;
+    if (!isPiPActive || pipMode !== 'overlay' || !isPlaying) return;
     const interval = setInterval(() => {
       const audio = getAudioElement();
       if (audio && !audio.paused && audio.duration) {
@@ -152,17 +137,15 @@ export default function PiPPlayer() {
       }
     }, 250);
     return () => clearInterval(interval);
-  }, [isPiPActive, isPlaying, popupOpen]);
+  }, [isPiPActive, pipMode, isPlaying]);
 
   const w = minimized ? minimizedSize : expandedW;
   const h = minimized ? minimizedSize : expandedH;
 
   // ── Conditional returns AFTER all hooks ──
 
-  // If popup PiP is active, render nothing (the window handles itself)
-  if (popupOpen) return null;
-
-  if (!isPiPActive || !currentTrack) return null;
+  // Popup mode: the popup window handles itself — render nothing
+  if (pipMode === 'popup' || !isPiPActive || !currentTrack) return null;
 
   return (
     <div
@@ -174,7 +157,7 @@ export default function PiPPlayer() {
         zIndex: isFullTrackViewOpen ? 10001 : 9999,
         width: w,
         height: h,
-        borderRadius: minimized ? 16 : 16,
+        borderRadius: 16,
         overflow: "visible",
         userSelect: "none",
         transition: isDraggingRef.current ? "none" : "width 0.2s ease, height 0.2s ease",
@@ -209,7 +192,6 @@ export default function PiPPlayer() {
                 <Music size={20} style={{ color: "var(--mq-text)" }} />
               </div>
             )}
-            {/* Playing indicator — EQ bars */}
             {isPlaying && (
               <div style={{
                 position: "absolute", bottom: 4, left: "50%", transform: "translateX(-50%)",
@@ -223,7 +205,6 @@ export default function PiPPlayer() {
                 ))}
               </div>
             )}
-            {/* Close button */}
             <button onClick={(e) => { e.stopPropagation(); setPiPActive(false); }}
               style={{
                 position: "absolute", top: -4, right: -4, width: 20, height: 20,
@@ -233,7 +214,6 @@ export default function PiPPlayer() {
               }}>
               <X size={10} />
             </button>
-            {/* Click to expand / open full view */}
             <button
               onClick={(e) => { e.stopPropagation(); setMinimized(false); }}
               onDoubleClick={(e) => { e.stopPropagation(); openFullView(); }}
@@ -269,7 +249,6 @@ export default function PiPPlayer() {
                   {currentTrack.artist}
                 </p>
               </div>
-              {/* Like / Dislike */}
               <button onClick={(e) => { e.stopPropagation(); if (currentTrack) toggleLike(currentTrack.id, currentTrack); }}
                 style={{ width: 24, height: 24, borderRadius: "50%", border: "none", backgroundColor: "transparent", color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <Heart size={13} fill={isLiked ? "currentColor" : "none"} />
@@ -332,7 +311,7 @@ export default function PiPPlayer() {
                 <X size={12} />
               </button>
             </div>
-            {/* Progress bar — click + touch seek */}
+            {/* Progress bar */}
             <div
               onClick={handleSeek}
               onTouchStart={handleSeek}

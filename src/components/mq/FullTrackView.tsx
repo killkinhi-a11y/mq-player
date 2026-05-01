@@ -26,7 +26,7 @@ export default function FullTrackView() {
     showLyricsRequested, clearShowLyricsRequest,
     sleepTimerActive, sleepTimerRemaining, startSleepTimer, stopSleepTimer, updateSleepTimer,
     currentStyle, styleVariant, currentPlaylistId,
-    isPiPActive, setPiPActive,
+    isPiPActive, setPiPActive, pipMode,
   } = useAppStore();
 
   const progressRef = useRef<HTMLDivElement>(null);
@@ -896,7 +896,23 @@ export default function FullTrackView() {
           <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}>
             Сейчас играет
           </span>
-          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setPiPActive(!isPiPActive)}
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => {
+            if (isPiPActive) {
+              if (pipMode === 'popup') {
+                const { closePiPPopup } = require('@/lib/pipManager');
+                closePiPPopup();
+              }
+              setPiPActive(false);
+            } else {
+              try {
+                const { openPiPPopup } = require('@/lib/pipManager');
+                const opened = openPiPPopup();
+                setPiPActive(true, opened ? 'popup' : 'overlay');
+              } catch {
+                setPiPActive(true, 'overlay');
+              }
+            }
+          }}
             className="p-2" style={{ color: isPiPActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} title="Мини-плеер">
             <PictureInPicture2 className="w-5 h-5" />
           </motion.button>

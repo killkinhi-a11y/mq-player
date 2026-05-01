@@ -153,6 +153,7 @@ interface AppState {
 
   // PiP
   isPiPActive: boolean;
+  pipMode: 'off' | 'popup' | 'overlay';
 
   // Similar tracks panel
   similarTracks: Track[];
@@ -239,7 +240,7 @@ interface AppState {
   isTrackDisliked: (trackId: string) => boolean;
 
   // PiP actions
-  setPiPActive: (active: boolean) => void;
+  setPiPActive: (active: boolean, mode?: 'popup' | 'overlay') => void;
 
   // Similar tracks actions
   setSimilarTracks: (tracks: Track[]) => void;
@@ -385,6 +386,7 @@ const initialState = {
   dislikedTracksData: [] as Track[],
   likedTracksData: [] as Track[],
   isPiPActive: false,
+  pipMode: 'off' as const,
   similarTracks: [] as Track[],
   similarTracksLoading: false,
   showSimilarRequested: false,
@@ -784,7 +786,15 @@ export const useAppStore = create<AppState>()(
 
       isTrackDisliked: (trackId) => get().dislikedTrackIds.includes(trackId),
 
-      setPiPActive: (active) => set({ isPiPActive: active }),
+      setPiPActive: (active, mode?) => {
+        if (!active) {
+          set({ isPiPActive: false, pipMode: 'off' });
+        } else if (mode) {
+          set({ isPiPActive: true, pipMode: mode });
+        } else {
+          set({ isPiPActive: true, pipMode: 'overlay' });
+        }
+      },
 
       setSimilarTracks: (tracks) => set({ similarTracks: tracks }),
       setSimilarTracksLoading: (loading) => set({ similarTracksLoading: loading }),
