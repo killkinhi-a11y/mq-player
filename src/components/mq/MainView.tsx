@@ -102,6 +102,9 @@ export default function MainView() {
 
     const excludeIds = [...safeLiked, ...safeDisliked, ...safeHistory.slice(0, 30).map(h => h.track.id)].join(",");
 
+    // Recently played IDs (last 50) — sent to recommendation API for anti-repetition
+    const recentIds = safeHistory.slice(0, 50).map(h => h.track.id).join(",");
+
     // Build disliked artists/genres from disliked tracks data (directly stored)
     const dislikedArtistsSet = new Set<string>();
     const dislikedGenresSet = new Set<string>();
@@ -123,6 +126,7 @@ export default function MainView() {
       topGenres,
       topArtists,
       excludeIds,
+      recentIds,
       dislikedArtists: [...dislikedArtistsSet].join(","),
       dislikedGenres: [...dislikedGenresSet].join(","),
     };
@@ -188,7 +192,7 @@ export default function MainView() {
   const loadRecommendations = useCallback(async () => {
     setIsRecLoading(true);
     try {
-      const { topGenres, topArtists, excludeIds, dislikedArtists, dislikedGenres } = tasteProfile;
+      const { topGenres, topArtists, excludeIds, recentIds, dislikedArtists, dislikedGenres } = tasteProfile;
       const disliked = useAppStore.getState().dislikedTrackIds || [];
       const favoriteArtists = useAppStore.getState().favoriteArtists || [];
       const currentTrack = useAppStore.getState().currentTrack;
@@ -208,6 +212,7 @@ export default function MainView() {
       if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
       if (dislikedArtists) params.set("dislikedArtists", dislikedArtists);
       if (dislikedGenres) params.set("dislikedGenres", dislikedGenres);
+      if (recentIds) params.set("recentIds", recentIds);
 
       // Session context: pass current track's genre and energy level
       if (currentTrack?.genre) params.set("currentGenre", currentTrack.genre);

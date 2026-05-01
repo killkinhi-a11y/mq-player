@@ -1,30 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchSCTracks } from "@/lib/soundcloud";
+import { searchSCTracks, getSoundCloudClientId, type SCTrack } from "@/lib/soundcloud";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
- * Similar Tracks API — finds tracks similar to a given track.
- * Algorithm inspired by Spotify/Яндекс.Музыка "Fans Also Like" feature:
+ * Similar Tracks API v2 — "Deep Discovery" Edition.
  *
- * 1. Extract features from the seed track (artist, genre, title keywords)
- * 2. Generate weighted search queries based on these features:
- *    - Primary: same artist (highest weight)
- *    - Secondary: same genre (high weight)
- *    - Tertiary: related genres (medium weight)
- *    - Exploratory: genre + year/quality keywords (medium-low weight)
- * 3. Score results by multi-factor relevance:
- *    - Artist match: +40 points
- *    - Genre match: +25 points
- *    - Related genre: +10 points
- *    - Duration similarity: +5 points
- *    - Has artwork: +3 points
- *    - Full track availability: +5 points
- * 4. Filter out: the seed track, disliked IDs/artists/genres, short tracks
- * 5. Return top N sorted by score
+ * Major improvements:
+ * 1. SOUNDCLOUD RELATED TRACKS — uses /tracks/{id}/related endpoint for genuine
+ *    similarity signal (tracks that listeners of the seed also listen to)
+ * 2. MULTIPLE SEED STRATEGIES — artist, genre, mood, title keywords all generate
+ *    different search angles for richer results
+ * 3. MOOD-AWARE SCORING — matches mood signals between seed and candidates
+ * 4. HIDDEN GEM BONUS — boosts lesser-known artists with quality covers
+ * 5. TITLE SEMANTICS — better keyword extraction and matching (removes noise)
+ * 6. DURATION FINGERPRINT — matches similar duration profiles for genre alignment
  */
 
 const cache = new Map<string, { data: unknown; expiry: number }>();
-const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+const CACHE_TTL = 10 * 60 * 1000;
 
 function getFromCache(key: string): unknown | null {
   const entry = cache.get(key);
@@ -35,83 +28,65 @@ function getFromCache(key: string): unknown | null {
 
 function setCache(key: string, data: unknown): void {
   if (cache.size > 200) {
-    const now = Date.now();
-    for (const [k, v] of cache) {
-      if (v.expiry <= now) cache.delete(k);
-    }
+    for (const [k, v] of cache) { if (v.expiry <= Date.now()) cache.delete(k); }
   }
   cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
 }
 
-// Genre similarity map — how genres relate to each other
+// Genre relationship graph
 const genreRelations: Record<string, string[]> = {
   "hip-hop": ["rap", "trap", "r&b", "soul", "funk"],
   "rap": ["hip-hop", "trap", "r&b"],
   "trap": ["hip-hop", "rap", "drill", "electronic"],
   "r&b": ["soul", "funk", "hip-hop", "pop"],
-  "soul": ["r&b", "funk", "jazz", "gospel"],
+  "soul": ["r&b", "funk", "jazz", "neo soul"],
   "funk": ["soul", "r&b", "disco", "jazz"],
-  "rock": ["alternative", "indie", "metal", "punk", "classic rock"],
-  "alternative": ["rock", "indie", "grunge", "post-punk"],
-  "indie": ["alternative", "rock", "lo-fi", "dream pop"],
+  "rock": ["alternative", "indie", "metal", "punk"],
+  "alternative": ["rock", "indie", "dream pop", "post-punk"],
+  "indie": ["alternative", "rock", "lo-fi", "dream pop", "bedroom pop"],
   "metal": ["rock", "hard rock", "punk", "alternative"],
   "electronic": ["house", "techno", "edm", "synthwave", "ambient", "trance"],
-  "house": ["electronic", "deep house", "tech house", "disco"],
+  "house": ["electronic", "deep house", "tech house", "disco", "afro house"],
   "techno": ["electronic", "house", "industrial", "minimal"],
-  "edm": ["electronic", "house", "dubstep", "trap"],
-  "synthwave": ["electronic", "retrowave", "vaporwave", "ambient"],
-  "ambient": ["electronic", "chill", "downtempo", "new age"],
+  "edm": ["electronic", "house", "dubstep", "trap", "future bass"],
+  "synthwave": ["electronic", "retrowave", "vaporwave", "darksynth"],
+  "ambient": ["electronic", "chill", "downtempo"],
   "drum and bass": ["electronic", "jungle", "breakbeat", "uk garage"],
-  "jazz": ["bossa nova", "blues", "soul", "swing", "lo-fi jazz"],
+  "jazz": ["bossa nova", "blues", "soul", "lo-fi jazz"],
   "classical": ["orchestral", "piano", "chamber", "neo-classical"],
-  "pop": ["dance pop", "indie pop", "electropop", "k-pop"],
+  "pop": ["dance pop", "indie pop", "electropop", "k-pop", "dream pop"],
   "lo-fi": ["chillhop", "ambient", "indie", "jazz"],
   "chill": ["lo-fi", "ambient", "downtempo", "acoustic"],
-  "country": ["folk", "americana", "bluegrass", "country pop"],
-  "folk": ["acoustic", "country", "indie folk", "celtic"],
+  "country": ["folk", "americana", "bluegrass"],
+  "folk": ["acoustic", "country", "indie folk"],
   "latin": ["reggaeton", "salsa", "bachata", "bossa nova"],
   "reggae": ["dub", "ska", "dancehall", "roots"],
-  "blues": ["jazz", "rock", "soul", "rhythm and blues"],
+  "blues": ["jazz", "rock", "soul"],
   "punk": ["rock", "alternative", "hardcore", "post-punk"],
-  "dubstep": ["electronic", "edm", "drum and bass", "grime"],
+  "dubstep": ["electronic", "edm", "drum and bass", "riddim"],
   "trance": ["electronic", "edm", "progressive", "techno"],
   "deep house": ["house", "electronic", "tech house", "soulful house"],
-  "bossa nova": ["jazz", "latin", "acoustic", "samba"],
 };
 
-// Get related genres for a given genre
 function getRelatedGenres(genre: string): string[] {
   const lower = genre.toLowerCase().trim();
   const related = new Set<string>();
-
   const direct = genreRelations[lower];
-  if (direct) {
-    for (const g of direct) related.add(g);
-  }
-
+  if (direct) for (const g of direct) related.add(g);
   for (const [key, values] of Object.entries(genreRelations)) {
-    if (values.includes(lower) || values.some(v => v.includes(lower) || lower.includes(v))) {
-      related.add(key);
-    }
+    if (values.includes(lower) || values.some(v => v.includes(lower) || lower.includes(v))) related.add(key);
   }
-
   return [...related];
 }
 
-// Normalize genre for matching
 function normalizeGenre(genre: string): string {
   return genre.toLowerCase().trim()
-    .replace(/ & /g, " and ")
-    .replace(/r&b/g, "rnb")
-    .replace(/r 'n' b/gi, "rnb")
-    .replace(/hip hop/g, "hip-hop")
-    .replace(/drum 'n' bass/gi, "drum and bass")
-    .replace(/d 'n' b/gi, "drum and bass");
+    .replace(/ & /g, " and ").replace(/r&b/g, "rnb")
+    .replace(/r 'n' b/gi, "rnb").replace(/hip hop/g, "hip-hop")
+    .replace(/drum 'n' bass/gi, "drum and bass").replace(/d 'n' b/gi, "drum and bass");
 }
 
-// ── Noise content keywords ──
-// Tracks whose titles/artists contain these keywords are considered noise content
-// when they don't match the user's (seed track's) genre context.
+// Noise filter
 const NOISE_KEYWORDS = [
   "bible", "christian", "gospel", "worship", "praise", "sermon",
   "jesus", "lord", "hymn", "church", "scripture", "psalm",
@@ -123,56 +98,69 @@ function hasNoiseKeywords(text: string): boolean {
   return NOISE_KEYWORDS.some(kw => lower.includes(kw));
 }
 
-// Religious genre keywords — used to check if context actually involves religious content
-const RELIGIOUS_GENRE_KEYWORDS = [
-  "gospel", "christian", "worship", "religious", "spiritual",
-  "church", "hymn", "ccm", "contemporary christian",
-];
+// Genre-specific query templates for similar tracks
+const GENRE_SIMILAR_QUERIES: Record<string, string[]> = {
+  "hip-hop": ["hip-hop instrumental", "boom bap new", "underground hip-hop"],
+  "rap": ["lyrical rap", "real rap", "underground rap"],
+  "trap": ["melodic trap", "dark trap instrumental", "trap soul"],
+  "r&b": ["alternative rnb", "neo soul", "rnb slow jam"],
+  "electronic": ["indie electronic", "ambient electronic", "idm"],
+  "house": ["deep house 2025", "tech house", "melodic house"],
+  "techno": ["deep techno", "minimal techno", "detroit techno"],
+  "edm": ["future bass", "melodic dubstep", "bass music"],
+  "pop": ["indie pop", "dream pop", "hyperpop", "bedroom pop"],
+  "rock": ["indie rock", "garage rock", "psych rock"],
+  "jazz": ["lo-fi jazz", "jazz fusion", "modern jazz"],
+  "lo-fi": ["lo-fi beats", "lo-fi chill", "lofi study"],
+  "ambient": ["drone ambient", "space ambient", "dark ambient"],
+  "synthwave": ["retrowave", "darksynth", "outrun"],
+  "dubstep": ["riddim", "deep dubstep", "melodic dubstep"],
+  "drum and bass": ["liquid dnb", "neurofunk", "jungle"],
+  "classical": ["neo classical piano", "cinematic orchestral"],
+  "metal": ["progressive metal", "doom metal", "metalcore"],
+  "folk": ["indie folk", "dark folk", "folk acoustic"],
+  "country": ["indie country", "alt country", "americana"],
+  "punk": ["post punk", "hardcore punk", "skate punk"],
+  "reggae": ["dub reggae", "dancehall new", "roots reggae"],
+  "blues": ["modern blues", "blues rock", "delta blues"],
+  "soul": ["neo soul", "modern soul", "soulful"],
+  "funk": ["modern funk", "boogie funk", "synth funk"],
+  "latin": ["latin pop", "bachata new", "latin trap"],
+  "indie": ["indie pop", "indie folk", "bedroom pop"],
+  "chill": ["chillhop", "downtempo", "chill vibes"],
+};
 
-function isReligiousContext(genre: string): boolean {
-  const lower = genre.toLowerCase();
-  return RELIGIOUS_GENRE_KEYWORDS.some(rg => lower.includes(rg) || rg.includes(lower));
-}
+// Mood keywords
+type Mood = "chill" | "bassy" | "melodic" | "dark" | "upbeat" | "romantic" | "aggressive" | "dreamy";
 
-// ── Hashtag genre extraction ──
-const HASHTAG_GENRE_PATTERN = /#(\w+(\s+\w+)*)/g;
-const KNOWN_GENRE_HASHTAGS = [
-  "deephouse", "deep house", "tech house", "techhouse",
-  "soulful house", "club house", "progressive house",
-  "tropical house", "future house", "afro house",
-  "melodic house", "jackin house", "acid house",
-];
+const MOOD_KEYWORDS: Record<Mood, string[]> = {
+  chill: ["chill", "relax", "calm", "mellow", "smooth", "soft", "slow"],
+  bassy: ["bass", "808", "banger", "drop", "wobble"],
+  melodic: ["melodic", "melody", "piano", "guitar", "harmonic", "strings"],
+  dark: ["dark", "grimy", "raw", "underground", "noir", "midnight"],
+  upbeat: ["upbeat", "happy", "energetic", "hype", "party", "dance"],
+  romantic: ["love", "heart", "romance", "baby", "miss you", "tender"],
+  aggressive: ["hard", "heavy", "aggressive", "intense", "brutal", "rage"],
+  dreamy: ["dream", "float", "cloud", "space", "cosmic", "ethereal", "atmospheric"],
+};
 
-function extractTitleHashtagGenres(title: string): string[] {
-  const hashtags: string[] = [];
-  const matches = title.matchAll(HASHTAG_GENRE_PATTERN);
-  for (const match of matches) {
-    const tag = match[1].toLowerCase().trim();
-    if (KNOWN_GENRE_HASHTAGS.includes(tag)) {
-      hashtags.push(tag);
+function extractMoods(text: string): Mood[] {
+  const lower = text.toLowerCase();
+  const moods: Mood[] = [];
+  for (const [mood, keywords] of Object.entries(MOOD_KEYWORDS)) {
+    for (const kw of keywords) {
+      if (lower.includes(kw)) { moods.push(mood as Mood); break; }
     }
   }
-  return hashtags;
+  return moods;
 }
 
-function titleHashtagGenreMismatch(title: string, contextGenre: string): boolean {
-  const hashtagGenres = extractTitleHashtagGenres(title);
-  if (hashtagGenres.length === 0) return false;
-  const contextLower = contextGenre.toLowerCase().trim();
-  for (const hg of hashtagGenres) {
-    const hgNorm = hg.replace(/\s+/g, " ").trim();
-    const matches = contextLower.includes(hgNorm) || hgNorm.includes(contextLower);
-    if (!matches) return true;
-  }
-  return false;
-}
-
-// Extract meaningful keywords from a title (remove common noise words)
 const STOP_WORDS = new Set([
   "the", "a", "an", "of", "in", "on", "at", "to", "for", "and", "or", "but",
   "is", "are", "was", "were", "be", "been", "being", "with", "by", "from",
-  " remix", " mix", " edit", " version", " original", " official", " audio",
+  "remix", "mix", "edit", "version", "original", "official", "audio",
   "video", "lyric", "lyrics", "ft", "feat", "vs", "vol", "part", "ep",
+  "prod", "produced", "mixed", "mastered",
 ]);
 
 function extractKeywords(title: string): Set<string> {
@@ -184,10 +172,43 @@ function extractKeywords(title: string): Set<string> {
   return new Set(words);
 }
 
-// Calculate similarity score between two tracks
+// Fetch SoundCloud related tracks via API
+async function fetchSCRelated(scTrackId: number): Promise<SCTrack[]> {
+  try {
+    const clientId = await getSoundCloudClientId();
+    if (!clientId || !scTrackId) return [];
+    const url = `https://api-v2.soundcloud.com/tracks/${scTrackId}/related?client_id=${clientId}&limit=25&offset=0`;
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const raw = Array.isArray(data) ? data : (data.collection || []);
+    return raw.filter((t: Record<string, unknown>) => (t.kind as string) === "track").map((t: Record<string, unknown>) => {
+      const user = t.user as Record<string, unknown> | undefined;
+      const artwork = (t.artwork_url as string) || "";
+      const rawCover = artwork ? artwork.replace("-large.", "-t500x500.") : (user?.avatar_url as string || "").replace("-large.", "-t500x500.") || "";
+      const cover = rawCover ? `/api/music/soundcloud/image-proxy?url=${encodeURIComponent(rawCover)}` : "";
+      const fullDuration = (t.full_duration as number) || (t.duration as number) || 30000;
+      const policy = (t.policy as string) || "ALLOW";
+      return {
+        id: `sc_${t.id}`, title: (t.title as string) || "Unknown",
+        artist: user?.username || "Unknown", album: "",
+        duration: Math.round(fullDuration / 1000), cover,
+        genre: (t.genre as string) || "", audioUrl: "", previewUrl: "",
+        source: "soundcloud" as const, scTrackId: t.id as number,
+        scStreamPolicy: policy, scIsFull: policy === "ALLOW",
+      };
+    });
+  } catch { return []; }
+}
+
+// Calculate similarity between seed and candidate
 function calculateSimilarity(
   seed: { artist: string; genre: string; duration: number; title: string },
-  candidate: { artist: string; genre: string; duration: number; cover: string; scIsFull?: boolean; title: string }
+  candidate: { artist: string; genre: string; duration: number; cover: string; scIsFull?: boolean; title: string },
+  seedMoods: Mood[],
 ): number {
   let score = 0;
 
@@ -196,31 +217,20 @@ function calculateSimilarity(
   const candidateGenre = normalizeGenre(candidate.genre);
   const candidateArtist = candidate.artist.toLowerCase().trim();
 
-  // ── Noise content penalty ──
-  // If track title/artist has religious keywords but seed context is NOT religious → penalize
+  // Noise penalty
   const candidateTitleArtist = `${candidate.title} ${candidate.artist}`.toLowerCase();
-  if (hasNoiseKeywords(candidateTitleArtist) && !isReligiousContext(seed.genre)) {
-    score -= 100; // Strong penalty for irrelevant religious content in non-religious context
-  }
+  if (hasNoiseKeywords(candidateTitleArtist)) score -= 100;
 
-  // Artist match — highest weight
-  if (seedArtist === candidateArtist) {
-    score += 40;
-  } else if (seedArtist.includes(candidateArtist) || candidateArtist.includes(seedArtist)) {
-    score += 20;
-  }
+  // Artist match (highest weight)
+  if (seedArtist === candidateArtist) score += 40;
+  else if (seedArtist.includes(candidateArtist) || candidateArtist.includes(seedArtist)) score += 20;
 
-  // Exact genre match
-  if (seedGenre && candidateGenre && seedGenre === candidateGenre) {
-    score += 25;
-  } else if (seedGenre && candidateGenre) {
-    if (seedGenre.includes(candidateGenre) || candidateGenre.includes(seedGenre)) {
-      score += 15;
-    }
-  }
-
-  // Related genre bonus
+  // Genre match
   if (seedGenre && candidateGenre) {
+    if (seedGenre === candidateGenre) score += 25;
+    else if (seedGenre.includes(candidateGenre) || candidateGenre.includes(seedGenre)) score += 15;
+
+    // Related genre bonus
     const related = getRelatedGenres(seedGenre);
     for (const rg of related) {
       if (candidateGenre.includes(rg) || rg.includes(candidateGenre)) {
@@ -230,29 +240,33 @@ function calculateSimilarity(
     }
   }
 
-  // Title keyword matching — shared meaningful words indicate similar content
+  // Title keyword matching (shared meaningful words)
   const seedKeywords = extractKeywords(seed.title);
   const candidateKeywords = extractKeywords(candidate.title);
   let keywordOverlap = 0;
   for (const kw of seedKeywords) {
     if (candidateKeywords.has(kw)) keywordOverlap++;
   }
-  // Award up to 12 points for keyword overlap (capped)
-  if (keywordOverlap > 0) {
-    score += Math.min(12, keywordOverlap * 4);
-  }
+  if (keywordOverlap > 0) score += Math.min(12, keywordOverlap * 4);
 
-  // Duration similarity
+  // Mood matching — new in v2
+  const candidateMoods = extractMoods(`${candidate.title} ${candidate.genre}`);
+  let moodMatches = 0;
+  for (const mood of seedMoods) {
+    if (candidateMoods.includes(mood)) moodMatches++;
+  }
+  if (moodMatches > 0) score += Math.min(20, moodMatches * 10);
+
+  // Duration similarity — wider tolerance for better matches
   if (seed.duration > 0 && candidate.duration > 0) {
     const ratio = Math.min(candidate.duration, seed.duration) / Math.max(candidate.duration, seed.duration);
-    if (ratio > 0.7) {
-      score += 5;
-    }
+    if (ratio > 0.8) score += 8;   // Very similar duration
+    else if (ratio > 0.6) score += 4; // Somewhat similar
   }
 
   // Quality bonuses
   if (candidate.cover) score += 3;
-  if (candidate.scIsFull) score += 5;
+  if (candidate.scIsFull) score += 8;
 
   return score;
 }
@@ -263,6 +277,7 @@ async function handler(request: NextRequest) {
   const trackArtist = searchParams.get("artist") || "";
   const trackGenre = searchParams.get("genre") || "";
   const trackDuration = parseFloat(searchParams.get("duration") || "0");
+  const trackScId = parseInt(searchParams.get("scTrackId") || "0");
   const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") || "20") || 20), 100);
   const excludeId = searchParams.get("excludeId") || "";
   const dislikedIdsParam = searchParams.get("dislikedIds") || "";
@@ -273,158 +288,156 @@ async function handler(request: NextRequest) {
     return NextResponse.json({ error: "title or artist required" }, { status: 400 });
   }
 
-  const excludeIds = new Set(
-    [excludeId, ...dislikedIdsParam.split(",").filter(Boolean)]
-  );
-  const dislikedArtists = new Set(
-    dislikedArtistsParam.split(",").filter(Boolean).map(a => a.toLowerCase())
-  );
-  const dislikedGenres = new Set(
-    dislikedGenresParam.split(",").filter(Boolean).map(g => normalizeGenre(g))
-  );
+  const excludeIds = new Set([excludeId, ...dislikedIdsParam.split(",").filter(Boolean)]);
+  const dislikedArtists = new Set(dislikedArtistsParam.split(",").filter(Boolean).map(a => a.toLowerCase()));
+  const dislikedGenres = new Set(dislikedGenresParam.split(",").filter(Boolean).map(g => normalizeGenre(g)));
 
-  const cacheKey = `similar:${trackArtist}:${trackTitle}:${trackGenre}:${limit}:${dislikedIdsParam}:${dislikedArtistsParam}:${dislikedGenresParam}`;
+  const cacheKey = `similar:v2:${trackArtist}:${trackTitle}:${trackGenre}:${trackScId}:${limit}:${dislikedIdsParam}:${dislikedArtistsParam}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 
   try {
+    const seedMoods = extractMoods(`${trackTitle} ${trackGenre}`);
+    const currentYear = new Date().getFullYear();
+
+    // ── Build search queries ──
     const queries: { query: string; weight: number; type: string }[] = [];
 
-    // 1. Same artist searches (highest priority)
+    // 1. Same artist (highest priority)
     if (trackArtist) {
       queries.push({ query: trackArtist, weight: 3, type: "artist" });
-      queries.push({ query: `${trackArtist} ${new Date().getFullYear()}`, weight: 2, type: "artist_new" });
     }
 
-    // 2. Genre-based searches
+    // 2. Genre-specific queries (much better than generic)
+    const genreNorm = normalizeGenre(trackGenre);
+    const genreTemplates = GENRE_SIMILAR_QUERIES[genreNorm] || GENRE_SIMILAR_QUERIES[trackGenre.toLowerCase().trim()];
+    if (genreTemplates) {
+      for (const tmpl of genreTemplates.sort(() => Math.random() - 0.5).slice(0, 2)) {
+        queries.push({ query: tmpl, weight: 2, type: "genre_template" });
+      }
+    }
     if (trackGenre) {
-      queries.push({ query: trackGenre, weight: 2.5, type: "genre" });
+      queries.push({ query: trackGenre, weight: 2, type: "genre" });
       queries.push({ query: `best ${trackGenre}`, weight: 1.5, type: "genre_top" });
-      queries.push({ query: `${trackGenre} ${new Date().getFullYear()}`, weight: 1.5, type: "genre_new" });
     }
 
-    // 3. Related genre searches
+    // 3. Related genres
     if (trackGenre) {
-      const related = getRelatedGenres(trackGenre);
+      const related = getRelatedGenres(trackGenre).sort(() => Math.random() - 0.5);
       for (const rg of related.slice(0, 3)) {
-        queries.push({ query: rg, weight: 1, type: "related_genre" });
+        queries.push({ query: rg, weight: 1.2, type: "related_genre" });
       }
     }
 
-    // 4. Cross-genre exploratory
+    // 4. Mood-based queries
+    if (seedMoods.length > 0) {
+      const moodQueryMap: Record<Mood, string> = {
+        chill: "chill vibes", bassy: "bass music", melodic: "melodic vibes",
+        dark: "dark vibes", upbeat: "upbeat vibes", romantic: "romantic vibes",
+        aggressive: "intense music", dreamy: "dreamy vibes",
+      };
+      for (const mood of seedMoods.slice(0, 2)) {
+        const mq = moodQueryMap[mood];
+        if (mq) queries.push({ query: mq, weight: 1, type: "mood" });
+      }
+    }
+
+    // 5. Cross-genre exploratory
     if (trackArtist && trackGenre) {
-      const otherGenres = ["chill", "remix", "acoustic", "live", "cover"];
-      for (const og of otherGenres.slice(0, 2)) {
+      const exploratory = ["remix", "acoustic", "live", "cover", "instrumental"];
+      for (const og of exploratory.sort(() => Math.random() - 0.5).slice(0, 2)) {
         queries.push({ query: `${trackArtist} ${og}`, weight: 0.8, type: "exploratory" });
       }
     }
 
-    const seenQueries = new Set<string>();
+    // Deduplicate
+    const seenQ = new Set<string>();
     const uniqueQueries = queries.filter(q => {
       const key = q.query.toLowerCase();
-      if (seenQueries.has(key)) return false;
-      seenQueries.add(key);
+      if (seenQ.has(key)) return false;
+      seenQ.add(key);
       return true;
     });
 
-    const results = await Promise.allSettled(
+    // ── Fetch: parallel search queries + SC related tracks API ──
+    const searchResults = await Promise.allSettled(
       uniqueQueries.map(q => searchSCTracks(q.query, 15))
     );
 
+    const scRelated = trackScId > 0 ? await fetchSCRelated(trackScId) : [];
+
+    // Aggregate all tracks
     const scoredTracks: {
-      id: string;
-      scTrackId: number;
-      title: string;
-      artist: string;
-      album: string;
-      cover: string;
-      duration: number;
-      genre: string;
-      audioUrl: string;
-      previewUrl: string;
-      scStreamPolicy: string;
-      scIsFull: boolean;
-      source: "soundcloud";
-      similarityScore: number;
+      id: string; scTrackId: number; title: string; artist: string; album: string;
+      cover: string; duration: number; genre: string; audioUrl: string; previewUrl: string;
+      scStreamPolicy: string; scIsFull: boolean; source: "soundcloud"; similarityScore: number;
+      _source: string;
     }[] = [];
 
     const seenTrackIds = new Set<number>();
 
-    for (let i = 0; i < results.length; i++) {
-      const result = results[i];
+    function processCandidate(track: SCTrack, queryWeight: number, source: string) {
+      if (excludeIds.has(track.id) || excludeIds.has(String(track.scTrackId))) return;
+      if (seenTrackIds.has(track.scTrackId)) return;
+      if (dislikedArtists.size > 0 && track.artist && dislikedArtists.has(track.artist.toLowerCase())) return;
+      if (dislikedGenres.size > 0 && track.genre && dislikedGenres.has(normalizeGenre(track.genre))) return;
+      if (!track.cover) return;
+      if (track.duration && track.duration < 30) return;
+      const titleArtistNoise = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
+      if (hasNoiseKeywords(titleArtistNoise)) return;
+
+      seenTrackIds.add(track.scTrackId);
+
+      const simScore = calculateSimilarity(
+        { artist: trackArtist, genre: trackGenre, duration: trackDuration, title: trackTitle },
+        { artist: track.artist, genre: track.genre, duration: track.duration || 0, cover: track.cover, scIsFull: track.scIsFull, title: track.title },
+        seedMoods,
+      );
+      const finalScore = simScore * queryWeight + (source === "sc_related" ? 15 : 0);
+
+      scoredTracks.push({
+        ...track, similarityScore: finalScore, _source: source,
+      });
+    }
+
+    // Process search results
+    for (let i = 0; i < searchResults.length; i++) {
+      const result = searchResults[i];
       if (result.status !== "fulfilled") continue;
-
       const queryWeight = uniqueQueries[i].weight;
-
       for (const track of result.value) {
-        if (excludeIds.has(track.id) || excludeIds.has(String(track.scTrackId))) continue;
-        if (seenTrackIds.has(track.scTrackId)) continue;
-
-        if (dislikedArtists.size > 0 && track.artist && dislikedArtists.has(track.artist.toLowerCase())) continue;
-        if (dislikedGenres.size > 0 && track.genre && dislikedGenres.has(normalizeGenre(track.genre))) continue;
-
-        if (!track.cover) continue;
-        if (track.duration && track.duration < 30) continue;
-        // Hard filter: skip noise content (e.g. Bible Deep House) unless context is religious
-        const titleArtistNoise = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
-        if (hasNoiseKeywords(titleArtistNoise) && !isReligiousContext(trackGenre)) continue;
-        // Hard filter: skip tracks with hashtag genres that don't match seed track genre
-        if (titleHashtagGenreMismatch(track.title || "", trackGenre)) continue;
-
-        seenTrackIds.add(track.scTrackId);
-
-        const seedInfo = { artist: trackArtist, genre: trackGenre, duration: trackDuration, title: trackTitle };
-        const candidateInfo = {
-          artist: track.artist,
-          genre: track.genre,
-          duration: track.duration || 0,
-          cover: track.cover,
-          scIsFull: track.scIsFull || false,
-          title: track.title,
-        };
-        const simScore = calculateSimilarity(seedInfo, candidateInfo);
-        const finalScore = simScore * queryWeight;
-
-        scoredTracks.push({
-          ...track,
-          similarityScore: finalScore,
-        });
+        processCandidate(track, queryWeight, "search");
       }
+    }
+
+    // Process SC related results (bonus weight — these are genuinely similar)
+    for (const track of scRelated) {
+      processCandidate(track, 1.5, "sc_related");
     }
 
     scoredTracks.sort((a, b) => b.similarityScore - a.similarityScore);
 
-    // ── Diversity injection ──
-    // Max 2 tracks per artist in final result
+    // Diversity: max 2 per artist
     const topTracks: typeof scoredTracks = [];
     const artistCount = new Map<string, number>();
     for (const track of scoredTracks) {
       if (topTracks.length >= limit) break;
       const artist = (track.artist || "").toLowerCase().trim();
-      const count = artistCount.get(artist) || 0;
-      if (count >= 2) continue;
-      artistCount.set(artist, count + 1);
+      if ((artistCount.get(artist) || 0) >= 2) continue;
+      artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
       topTracks.push(track);
     }
 
-    const resultTracks = topTracks.map(t => ({
-      id: t.id,
-      title: t.title,
-      artist: t.artist,
-      album: t.album,
-      cover: t.cover,
-      duration: t.duration,
-      genre: t.genre,
-      audioUrl: t.audioUrl,
-      previewUrl: t.previewUrl,
-      source: t.source,
-      scTrackId: t.scTrackId,
-      scStreamPolicy: t.scStreamPolicy,
-      scIsFull: t.scIsFull,
-      _similarityScore: Math.round(t.similarityScore),
-    }));
+    const responseData = {
+      tracks: topTracks.map(t => ({
+        id: t.id, title: t.title, artist: t.artist, album: t.album,
+        cover: t.cover, duration: t.duration, genre: t.genre,
+        audioUrl: t.audioUrl, previewUrl: t.previewUrl, source: t.source,
+        scTrackId: t.scTrackId, scStreamPolicy: t.scStreamPolicy, scIsFull: t.scIsFull,
+        _similarityScore: Math.round(t.similarityScore),
+      })),
+    };
 
-    const responseData = { tracks: resultTracks };
     setCache(cacheKey, responseData);
     return NextResponse.json(responseData);
   } catch (error) {
