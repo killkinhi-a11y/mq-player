@@ -52,7 +52,7 @@ export default function RootLayout({
             __html: `(function(){
               try{
                 // === CACHE-BUST v7 (safe) ===
-                var BUILD_ID="mq-build-v49";
+                var BUILD_ID="mq-build-v50";
                 var prevBuild=localStorage.getItem('mq-build-id');
                 if(prevBuild && prevBuild!==BUILD_ID){
                   // Stale build — clear old data and reload once

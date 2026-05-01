@@ -130,9 +130,11 @@ export function openPiPPopup(): boolean {
       `width=${PIP_WIDTH},height=${PIP_HEIGHT},resizable=yes,scrollbars=no,location=no,menubar=no,toolbar=no,status=no`
     );
 
-    // If popup blocked, open as regular tab (works in Firefox)
+    // If popup blocked by browser (Firefox blocks popups with features):
+    // Use _blank to open as a NEW TAB — Firefox NEVER blocks _blank
     if (!win) {
-      win = window.open(pipUrl, "mq-pip-player");
+      console.log("[PiP] Popup blocked, opening as new tab");
+      win = window.open(pipUrl, "_blank");
     }
 
     if (!win) {
