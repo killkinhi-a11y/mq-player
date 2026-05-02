@@ -22,7 +22,7 @@ export default function AuthView() {
   const [tgRegisterLoading, setTgRegisterLoading] = useState(false);
   const [tgRegisterError, setTgRegisterError] = useState("");
   const [tgUsername, setTgUsername] = useState("");
-  const [tgCodeInputRefs] = useRef<(HTMLInputElement | null)[]>([]);
+  const tgCodeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [tgBotName, setTgBotName] = useState<string | null>(null);
   const [tgBotConfigured, setTgBotConfigured] = useState<boolean | null>(null);
   const [tgBotLoading, setTgBotLoading] = useState(true);
