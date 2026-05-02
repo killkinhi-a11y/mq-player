@@ -275,6 +275,29 @@ async function handler(request: NextRequest) {
         if (finalTracks.length >= 50) break;
         if (existingIds.has(item.track.scTrackId)) continue;
         finalTracks.push(item.track);
+        existingIds.add(item.track.scTrackId);
+      }
+    }
+
+    // Fourth pass: if STILL not 50, fetch supplementary tracks
+    if (finalTracks.length < 50) {
+      const existingIds = new Set(finalTracks.map(t => t.scTrackId));
+      const fillQueries = ["top hits 2025", "popular songs", "best new music", "chart toppers", "trending now"];
+      const fillResults = await Promise.allSettled(
+        fillQueries.map(q => searchSCTracks(q, 20))
+      );
+      for (const result of fillResults) {
+        if (result.status !== "fulfilled" || finalTracks.length >= 50) continue;
+        for (const track of result.value) {
+          if (finalTracks.length >= 50) break;
+          if (existingIds.has(track.scTrackId)) continue;
+          if (!track.cover) continue;
+          if (dislikedIds.has(track.id) || dislikedIds.has(String(track.scTrackId))) continue;
+          if (dislikedArtists.size > 0 && track.artist && dislikedArtists.has(track.artist.toLowerCase())) continue;
+          if (dislikedGenres.size > 0 && track.genre && dislikedGenres.has(normalizeGenre(track.genre))) continue;
+          finalTracks.push(track as SCTrack & { [key: string]: unknown });
+          existingIds.add(track.scTrackId);
+        }
       }
     }
 

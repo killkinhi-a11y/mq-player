@@ -376,17 +376,22 @@ export default function MainView() {
         params.set("lang", languagePreference);
       }
 
-      // v9: Build feedback signals from trackFeedback for self-learning
+      // v9→v10: Build feedback signals from trackFeedback for self-learning
       const trackFeedback = useAppStore.getState().trackFeedback || {};
       const fbEntries = Object.entries(trackFeedback);
       if (fbEntries.length > 0) {
-        // Build genre boost map from completed tracks
+        // Build genre boost map from completed tracks with TIME DECAY
         const genreBoost: Record<string, number> = {};
         const artistBoost: Record<string, number> = {};
         const skipGenrePenalty = new Set<string>();
         const completedGenres = new Set<string>();
+        const now = Date.now();
+        const HOUR = 3600000;
 
-        for (const [trackId, fb] of fbEntries) {
+        // Sort by recency — most recent feedback first
+        const sortedEntries = [...fbEntries].sort((a, b) => (b[1].lastPlayedAt || 0) - (a[1].lastPlayedAt || 0));
+
+        for (const [trackId, fb] of sortedEntries) {
           // Find track metadata from history or liked tracks
           const historyEntry = currentHistory.find(h => h.track.id === trackId);
           const likedEntry = likedTracksData.find(t => t.id === trackId);
@@ -398,36 +403,39 @@ export default function MainView() {
           const total = fb.completes + fb.skips;
           if (total === 0) continue;
 
+          // Time decay: recent feedback weighs more (half-life = 24h)
+          const ageHours = fb.lastPlayedAt ? (now - fb.lastPlayedAt) / HOUR : 168; // default 1 week old
+          const timeDecay = Math.exp(-0.029 * Math.min(ageHours, 168)); // e^(-λt), λ=0.029 → half-life ~24h
+
           const completionRate = fb.completes / total;
 
-          // Genre-level learning
+          // Genre-level learning (time-weighted)
           if (genre) {
             if (completionRate >= 0.7) {
-              // User loves this genre — boost
-              genreBoost[genre] = (genreBoost[genre] || 0) + Math.min(completionRate * 30, 40);
-              completedGenres.add(genre);
+              const boost = Math.min(completionRate * 30, 40) * timeDecay;
+              genreBoost[genre] = (genreBoost[genre] || 0) + boost;
+              // Only add to completed if recent enough (< 48h)
+              if (ageHours < 48) completedGenres.add(genre);
             } else if (completionRate <= 0.3 && fb.skips >= 2) {
-              // User consistently skips this genre — penalize
               skipGenrePenalty.add(genre);
-              genreBoost[genre] = (genreBoost[genre] || 0) - 40;
+              genreBoost[genre] = (genreBoost[genre] || 0) - 40 * timeDecay;
             }
           }
 
-          // Artist-level learning
+          // Artist-level learning (time-weighted)
           if (artist) {
             if (completionRate >= 0.7) {
-              artistBoost[artist] = (artistBoost[artist] || 0) + Math.min(completionRate * 25, 35);
+              artistBoost[artist] = (artistBoost[artist] || 0) + Math.min(completionRate * 25, 35) * timeDecay;
             } else if (completionRate <= 0.3 && fb.skips >= 2) {
-              artistBoost[artist] = (artistBoost[artist] || 0) - 50;
+              artistBoost[artist] = (artistBoost[artist] || 0) - 50 * timeDecay;
             }
 
             // Early-skip detection: skip within 10s = strong negative signal
             if (fb.skipPositions && fb.skipPositions.length > 0) {
               const avgSkipPos = fb.skipPositions.reduce((a, b) => a + b, 0) / fb.skipPositions.length;
               if (avgSkipPos < 15 && fb.skips >= 2) {
-                // User skips very early — strong dislike for this artist/genre
-                if (artist) artistBoost[artist] = (artistBoost[artist] || 0) - 30;
-                if (genre) genreBoost[genre] = (genreBoost[genre] || 0) - 25;
+                if (artist) artistBoost[artist] = (artistBoost[artist] || 0) - 30 * timeDecay;
+                if (genre) genreBoost[genre] = (genreBoost[genre] || 0) - 25 * timeDecay;
               }
             }
 
@@ -435,9 +443,15 @@ export default function MainView() {
             if (fb.totalListenTime > 0 && track.duration > 0) {
               const avgListenRatio = fb.totalListenTime / (track.duration * fb.completes);
               if (avgListenRatio > 0.8) {
-                if (genre) genreBoost[genre] = (genreBoost[genre] || 0) + 10;
-                if (artist) artistBoost[artist] = (artistBoost[artist] || 0) + 8;
+                if (genre) genreBoost[genre] = (genreBoost[genre] || 0) + 10 * timeDecay;
+                if (artist) artistBoost[artist] = (artistBoost[artist] || 0) + 8 * timeDecay;
               }
+            }
+
+            // v10: Repeat listen bonus — multiple completes = strong signal
+            if (fb.completes >= 3 && completionRate > 0.8) {
+              artistBoost[artist] = (artistBoost[artist] || 0) + 20 * timeDecay;
+              if (genre) genreBoost[genre] = (genreBoost[genre] || 0) + 15 * timeDecay;
             }
           }
         }

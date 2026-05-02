@@ -881,17 +881,141 @@ async function handler(request: NextRequest) {
       .slice(0, 15);
     for (const { track } of discoveryTracks) usedInCategory.add(track.scTrackId);
 
-    // ── Build flat track list (for backward compat — top 50) ──
+    // ── Build flat track list (MUST always have 50 tracks) ──
+    const TARGET_TRACKS = 50;
     const artistLimit = 3; // max per artist in flat list
     const flatTracks: ReturnType<typeof mapTrack>[] = [];
     const artistCount = new Map<string, number>();
+    const flatIds = new Set<number>();
 
     for (const { track, score } of scoredTracks) {
-      if (flatTracks.length >= 50) break;
+      if (flatTracks.length >= TARGET_TRACKS) break;
       const artist = (track.artist || "").toLowerCase().trim();
       if ((artistCount.get(artist) || 0) >= artistLimit) continue;
       artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
+      flatIds.add(track.scTrackId);
       flatTracks.push(mapTrack(track, score));
+    }
+
+    // ── SUPPLEMENTARY PHASE: if we don't have 50, fetch more ──
+    if (flatTracks.length < TARGET_TRACKS) {
+      const needed = TARGET_TRACKS - flatTracks.length;
+      console.log(`[rec] Only ${flatTracks.length}/${TARGET_TRACKS} tracks, fetching ${needed} more`);
+
+      // Use top genres + time-of-day queries to fill
+      const fillQueries: string[] = [];
+      const timeQueries: Record<string, string[]> = {
+        morning: ["morning vibes", "wake up music", "acoustic morning"],
+        afternoon: ["afternoon hits", "workday music", "focus flow"],
+        evening: ["evening chill", "night drive", "sunset vibes"],
+        night: ["late night vibes", "midnight chill", "after hours"],
+        weekend: ["weekend vibes", "saturday mood", "sunday chill"],
+        friday_evening: ["friday night", "weekend start", "party pregame"],
+      };
+
+      // Time-appropriate queries
+      const timeQs = timeQueries[timeContext] || timeQueries.evening;
+      fillQueries.push(...timeQs);
+
+      // Genre-based fill queries
+      if (allGenres.length > 0) {
+        for (const g of allGenres.slice(0, 3)) {
+          const norm = normalizeGenre(g);
+          const templates = GENRE_QUERIES[norm];
+          if (templates) {
+            fillQueries.push(templates[0], templates[templates.length > 2 ? 2 : 1]);
+          } else {
+            fillQueries.push(`${g} 2025`);
+          }
+        }
+      }
+
+      // Also try language-appropriate queries
+      if (languagePreference === "russian") {
+        fillQueries.push("русская музыка 2025", "русский рэп", "поп русская");
+      }
+
+      // Execute fill queries (up to 8)
+      const fillResults = await Promise.allSettled(
+        fillQueries.slice(0, 8).map(q => searchSCTracks(q, Math.ceil(needed / 4) + 5))
+      );
+
+      // Score and add supplementary tracks
+      const fillMap = new Map<number, SCTrack>();
+      for (const result of fillResults) {
+        if (result.status !== "fulfilled") continue;
+        for (const t of result.value) {
+          if (!fillMap.has(t.scTrackId) && !flatIds.has(t.scTrackId) && !sourceScIds.has(t.scTrackId)) {
+            if (shouldExcludeTrack(t, allGenres, excludeIds, dislikedIds, recentIds, dislikedArtists, dislikedGenres)) continue;
+            fillMap.set(t.scTrackId, t);
+          }
+        }
+      }
+
+      // Score supplementary tracks
+      const fillScored = Array.from(fillMap.values())
+        .map(t => ({ track: t, score: scoreTrackV8(t, { track: t, isFromLikedRelated: false, isFromHistoryRelated: false, isFromArtistSearch: false, isFromGenreFallback: true, isFromBridgeGenre: false, sourceQuery: "fill" }, allGenres, artists, languagePreference, feedbackData) }))
+        .sort((a, b) => b.score - a.score);
+
+      for (const { track, score } of fillScored) {
+        if (flatTracks.length >= TARGET_TRACKS) break;
+        const artist = (track.artist || "").toLowerCase().trim();
+        if ((artistCount.get(artist) || 0) >= artistLimit) continue;
+        artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
+        flatTracks.push(mapTrack(track, score));
+      }
+    }
+
+    // ── v10 EXPLORATION INJECTION: self-developing discovery ──
+    // Replace last 5 slots with tracks from genres the user doesn't usually listen to
+    // This prevents the algorithm from becoming too narrow ("filter bubble")
+    if (flatTracks.length >= TARGET_TRACKS && allGenres.length > 0) {
+      const userGenreSet = new Set(allGenres.map(g => normalizeGenre(g)));
+      // Find bridge/adjacent genres the user hasn't explored
+      const unexplored = new Set<string>();
+      for (const g of allGenres.slice(0, 3)) {
+        for (const rg of getRelatedGenres(g)) {
+          const rgNorm = normalizeGenre(rg);
+          if (!userGenreSet.has(rgNorm) && !isSpamProneGenre(rgNorm)) {
+            unexplored.add(rgNorm);
+          }
+        }
+      }
+      const unexploredArr = [...unexplored].sort(() => Math.random() - 0.5).slice(0, 3);
+
+      if (unexploredArr.length > 0) {
+        const exploreResults = await Promise.allSettled(
+          unexploredArr.map(g => {
+            const t = GENRE_QUERIES[g];
+            return searchSCTracks(t ? t[0] : `${g} 2025`, 10);
+          })
+        );
+
+        const exploreTracks: { track: SCTrack; score: number }[] = [];
+        for (const result of exploreResults) {
+          if (result.status !== "fulfilled") continue;
+          for (const t of result.value) {
+            if (flatIds.has(t.scTrackId) || sourceScIds.has(t.scTrackId)) continue;
+            if (shouldExcludeTrack(t, allGenres, excludeIds, dislikedIds, recentIds, dislikedArtists, dislikedGenres)) continue;
+            // Give exploration tracks a small score bonus so they don't get cut
+            exploreTracks.push({ track: t, score: 30 + Math.random() * 20 });
+          }
+        }
+
+        // Replace last 5 slots with exploration tracks
+        const exploreCount = Math.min(5, exploreTracks.length);
+        if (exploreCount > 0) {
+          const replaceStart = Math.max(TARGET_TRACKS - exploreCount, flatTracks.length - exploreCount);
+          for (let i = 0; i < exploreCount && i < exploreTracks.length; i++) {
+            const idx = replaceStart + i;
+            if (idx < flatTracks.length) {
+              flatTracks[idx] = mapTrack(exploreTracks[i].track, exploreTracks[i].score);
+            } else {
+              flatTracks.push(mapTrack(exploreTracks[i].track, exploreTracks[i].score));
+            }
+          }
+        }
+      }
     }
 
     // ── Build categories array ──
@@ -921,10 +1045,10 @@ async function handler(request: NextRequest) {
     }
 
     const responseData = {
-      tracks: flatTracks,
+      tracks: flatTracks.slice(0, TARGET_TRACKS),
       categories,
       _meta: {
-        version: 9,
+        version: 10,
         timeContext,
         phase1Count: scoredTracks.filter(({ meta }) => meta.isFromLikedRelated || meta.isFromHistoryRelated).length,
         phase2Count: scoredTracks.filter(({ meta }) => meta.isFromArtistSearch).length,
