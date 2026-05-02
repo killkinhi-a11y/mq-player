@@ -786,10 +786,17 @@ export default function PlayerBar() {
                 hlsConfig.emeEnabled = true;
                 hlsConfig.widevineLicenseUrl = stream.licenseUrl;
 
-                // Set up license request headers
+                // Set up license request — Widevine uses binary octet-stream, PlayReady uses XML
                 hlsConfig.licenseXhrSetup = (xhr: XMLHttpRequest) => {
                   xhr.withCredentials = false;
-                  xhr.setRequestHeader('Content-Type', 'text/xml; charset=utf-8');
+                  xhr.responseType = 'arraybuffer';
+                  if (stream.protocol === 'ctr-encrypted-hls') {
+                    // Widevine (CTR) — binary challenge/response
+                    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+                  } else {
+                    // FairPlay (CBC) — XML challenge/response
+                    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+                  }
                 };
               }
 

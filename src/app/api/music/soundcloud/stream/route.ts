@@ -28,8 +28,12 @@ const CLIENT_IDS = [
   "nDSHHx4FpO2gOGKmGqLaWbDXEmwo4RAC",
 ];
 
-// SoundCloud PlayReady/Widevine license server URL (public, no auth needed)
-const SC_LICENSE_URL = "https://license.media-streaming.soundcloud.cloud/playback/playready";
+// SoundCloud DRM license server URLs — each DRM system has its own endpoint
+const SC_LICENSE_URLS: Record<string, string> = {
+  "ctr-encrypted-hls": "https://license.media-streaming.soundcloud.cloud/playback/widevine",
+  "cbc-encrypted-hls": "https://license.media-streaming.soundcloud.cloud/playback/fairplay",
+};
+const SC_LICENSE_URL_FALLBACK = "https://license.media-streaming.soundcloud.cloud/playback/widevine";
 
 interface Transcoding {
   url?: string;
@@ -183,8 +187,8 @@ export async function GET(request: NextRequest) {
             isPreview: info.isPreview,
             duration: info.duration,
             fullDuration: info.fullDuration,
-            // For encrypted tracks, include the license server URL
-            ...(tc.isEncrypted ? { licenseUrl: SC_LICENSE_URL } : {}),
+            // For encrypted tracks, include the correct license server URL per DRM system
+            ...(tc.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[tc.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
           });
         }
       }
@@ -206,7 +210,7 @@ export async function GET(request: NextRequest) {
         isPreview: info.isPreview,
         duration: info.duration,
         fullDuration: info.fullDuration,
-        ...(fallback.isEncrypted ? { licenseUrl: SC_LICENSE_URL } : {}),
+        ...(fallback.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[fallback.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
         error: "cdn_resolve_failed",
       });
     } catch {}
