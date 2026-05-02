@@ -15,7 +15,7 @@ import crypto from "crypto";
  */
 async function handler(req: NextRequest) {
   try {
-    const { code, username } = await req.json();
+    const { code, username, password } = await req.json();
 
     if (!code || code.length !== 6) {
       return NextResponse.json(
@@ -75,13 +75,36 @@ async function handler(req: NextRequest) {
       // Check if username already exists
       const existingUsername = await db.user.findUnique({ where: { username } });
 
-      // If username exists AND has no telegramChatId → link Telegram to that account
+      // If username exists AND has no telegramChatId → need password to link
       if (existingUsername) {
         if (existingUsername.telegramChatId) {
-          // That account already has Telegram linked to a different chat
           return NextResponse.json(
             { error: "Пользователь с таким именем уже привязан к другому Telegram" },
             { status: 409 }
+          );
+        }
+
+        // If no password provided → ask for it
+        if (!password) {
+          // Mask the email for display
+          const emailParts = existingUsername.email.split("@");
+          const maskedEmail = emailParts.length === 2
+            ? `${emailParts[0][0]}${"*".repeat(Math.max(emailParts[0].length - 1, 1))}@${emailParts[1]}`
+            : "****";
+
+          return NextResponse.json({
+            needsPassword: true,
+            maskedEmail,
+            username: existingUsername.username,
+          });
+        }
+
+        // Verify password
+        const passwordValid = await bcrypt.compare(password, existingUsername.password);
+        if (!passwordValid) {
+          return NextResponse.json(
+            { error: "Неверный пароль" },
+            { status: 401 }
           );
         }
 

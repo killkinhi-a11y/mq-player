@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
-import { Send, ArrowLeft, AtSign, Check, X, Loader2, UserPlus } from "lucide-react";
+import { Send, ArrowLeft, AtSign, Check, X, Loader2, UserPlus, Lock, Eye, EyeOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -26,6 +26,13 @@ export default function AuthView() {
   const [tgBotName, setTgBotName] = useState<string | null>(null);
   const [tgBotConfigured, setTgBotConfigured] = useState<boolean | null>(null);
   const [tgBotLoading, setTgBotLoading] = useState(true);
+
+  // Telegram link (password for existing account)
+  const [tgLinkPassword, setTgLinkPassword] = useState("");
+  const [tgLinkShowPassword, setTgLinkShowPassword] = useState(false);
+  const [tgLinkLoading, setTgLinkLoading] = useState(false);
+  const [tgLinkError, setTgLinkError] = useState("");
+  const [tgLinkEmail, setTgLinkEmail] = useState("");
 
   // Username validation
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
@@ -234,11 +241,41 @@ export default function AuthView() {
       });
       const data = await res.json();
       if (!res.ok) { setTgRegisterError(data.error); return; }
+
+      // Server asks for password — this is an existing account
+      if (data.needsPassword) {
+        setTgLinkEmail(data.maskedEmail || "");
+        setTgLinkPassword("");
+        setTgLinkError("");
+        setAuthStep("telegram-link");
+        return;
+      }
+
       setAuth(data.userId, data.username, "", data.role, data.avatar);
     } catch {
       setTgRegisterError("Ошибка соединения");
     } finally {
       setTgRegisterLoading(false);
+    }
+  };
+
+  // ─── Telegram link password submit ─────────────────────
+  const handleTgLinkSubmit = async () => {
+    if (!tgLinkPassword) { setTgLinkError("Введите пароль"); return; }
+    setTgLinkLoading(true); setTgLinkError("");
+    try {
+      const res = await fetch("/api/auth/telegram-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: verifyCode.join(""), username: tgUsername, password: tgLinkPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setTgLinkError(data.error); return; }
+      setAuth(data.userId, data.username, "", data.role, data.avatar);
+    } catch {
+      setTgLinkError("Ошибка соединения");
+    } finally {
+      setTgLinkLoading(false);
     }
   };
 
@@ -581,6 +618,93 @@ export default function AuthView() {
                   disabled={tgRegisterLoading || !tgUsername || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking'}
                   className="w-full min-h-[44px]" style={{ backgroundColor: "#2AABEE", color: "#ffffff" }}>
                   {tgRegisterLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Создать аккаунт"}
+                </Button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ─── Telegram: Link to existing account (password required) ─── */}
+        {authStep === "telegram-link" && (
+          <motion.div key="telegram-link"
+            initial={{ opacity: 0, y: 30, filter: 'blur(8px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, y: -20, filter: 'blur(4px)' }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            className="w-full max-w-md relative z-10">
+            <div className="rounded-2xl p-6 lg:p-8"
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+
+              <button onClick={() => { setAuthStep("telegram-register"); setTgLinkError(""); }} className="flex items-center gap-1 mb-4" style={{ color: "var(--mq-text-muted)" }}>
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-sm">Назад</span>
+              </button>
+
+              <motion.div
+                className="flex flex-col items-center text-center mb-6"
+                initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                transition={{ delay: 0.3, duration: 0.6, ease: [0.34, 1.56, 0.64, 1] }}>
+                <motion.div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                  style={{ backgroundColor: "rgba(42,171,238,0.12)" }}
+                  animate={{ boxShadow: ["0 0 0px rgba(42,171,238,0)", "0 0 25px rgba(42,171,238,0.3)", "0 0 0px rgba(42,171,238,0)"] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <Lock className="w-8 h-8" style={{ color: "#2AABEE" }} />
+                </motion.div>
+                <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--mq-text)" }}>Подтверждение аккаунта</h2>
+                <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                  Аккаунт <span className="font-medium" style={{ color: "var(--mq-text)" }}>@{tgUsername}</span> уже существует
+                </p>
+                <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                  Email: {tgLinkEmail}
+                </p>
+                <p className="text-sm mt-2" style={{ color: "#2AABEE" }}>
+                  Введите пароль для привязки Telegram
+                </p>
+              </motion.div>
+
+              {tgLinkError && (
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                  className="mb-4 p-3 rounded-lg text-sm"
+                  style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
+                  {tgLinkError}
+                </motion.div>
+              )}
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Пароль</label>
+                  <div className="relative">
+                    <Input
+                      type={tgLinkShowPassword ? "text" : "password"}
+                      placeholder="Введите пароль от аккаунта"
+                      value={tgLinkPassword}
+                      onChange={(e) => setTgLinkPassword(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleTgLinkSubmit(); }}
+                      className="pr-10"
+                      style={{
+                        backgroundColor: "var(--mq-input-bg)",
+                        border: `1px solid ${tgLinkError ? '#ef4444' : 'var(--mq-border)'}`,
+                        color: "var(--mq-text)",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setTgLinkShowPassword(!tgLinkShowPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2"
+                      style={{ color: "var(--mq-text-muted)" }}
+                    >
+                      {tgLinkShowPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <Button onClick={handleTgLinkSubmit}
+                  disabled={tgLinkLoading || !tgLinkPassword}
+                  className="w-full min-h-[44px]" style={{ backgroundColor: "#2AABEE", color: "#ffffff" }}>
+                  {tgLinkLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Привязать Telegram"}
                 </Button>
               </div>
             </div>
