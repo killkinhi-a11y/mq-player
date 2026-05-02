@@ -798,47 +798,112 @@ export default function PlayerBar() {
                   hlsConfig.drmSystems = {
                     "com.apple.fps": {
                       licenseUrl: stream.licenseUrl,
-                      serverCertificateUrl: stream.licenseUrl,
                     },
                   };
                 }
 
-                // License XHR setup — binary response for all DRM types
+                // License XHR setup — binary request/response
                 hlsConfig.licenseXhrSetup = (xhr: XMLHttpRequest) => {
                   xhr.withCredentials = false;
                   xhr.responseType = "arraybuffer";
+                };
+
+                // SoundCloud may wrap the license key in JSON — extract raw bytes
+                hlsConfig.licenseResponseCallback = (xhr: XMLHttpRequest) => {
+                  const raw = xhr.response as ArrayBuffer;
+                  if (!raw || raw.byteLength === 0) {
+                    console.error("[Player] Empty license response from", stream.licenseUrl);
+                    return new Uint8Array(0);
+                  }
+                  // Check if response is JSON-wrapped (e.g. {"license":"<base64>"})
+                  try {
+                    const text = new TextDecoder().decode(raw);
+                    const json = JSON.parse(text);
+                    if (json.license) {
+                      const decoded = atob(json.license);
+                      const bytes = new Uint8Array(decoded.length);
+                      for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+                      console.log("[Player] Unwrapped JSON license response");
+                      return bytes;
+                    }
+                  } catch {
+                    // Not JSON — pass raw bytes through (standard Widevine response)
+                  }
+                  return new Uint8Array(raw);
                 };
               }
 
               const hls = new Hls(hlsConfig);
               hls.loadSource(stream.url);
               hls.attachMedia(audioEl);
+
+              // DRM diagnostic logging
+              hls.on(Hls.Events.KEY_LOADING, (_event, data) => {
+                console.log("[Player] DRM key loading:", data.frag?.url?.slice(-40));
+              });
+              hls.on(Hls.Events.KEY_LOADED, (_event, data) => {
+                console.log("[Player] DRM key acquired:", data.frag?.url?.slice(-40));
+              });
+              hls.on(Hls.Events.FRAG_DECRYPTED, (_event, data) => {
+                console.log("[Player] Segment decrypted OK:", data.frag?.url?.slice(-40));
+              });
+              hls.on(Hls.Events.KEY_STATUS, (_event, data) => {
+                if (data.status !== "usable") {
+                  console.warn("[Player] DRM key status:", data.status, "for", data.frag?.url?.slice(-40));
+                }
+              });
+
+              // Timeout: if no decrypted audio after 12s, show error and skip
+              const drmTimeout = setTimeout(() => {
+                if (audioEl.paused && !audioEl.currentTime && !cancelled) {
+                  console.error("[Player] DRM playback timeout — license may be invalid");
+                  setIsLoadingTrack(false);
+                  setPlayError(true);
+                  hls.destroy();
+                  setTimeout(() => nextTrackRef.current(), 2000);
+                }
+              }, 12000);
+
               hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 if (!cancelled) {
+                  // Clear timeout if playback starts
+                  const clearT = () => { clearTimeout(drmTimeout); };
+                  audioEl.addEventListener("playing", clearT, { once: true });
+
                   if (canCrossfade) {
                     crossfadeRef.current = true;
-                    audioEl.play().catch(() => {});
                     crossfadeTo(audioEl);
                   } else {
                     cancelCrossfade();
-                    audioEl.play().catch(() => {});
                   }
+
+                  // Try to play — may fail due to autoplay policy
+                  resumeAudioContext();
+                  audioEl.play().catch((err) => {
+                    if (err.name === "NotAllowedError") {
+                      // Autoplay blocked — user needs to click play manually
+                      console.warn("[Player] Autoplay blocked — need user gesture");
+                    } else {
+                      console.error("[Player] play() failed:", err.name, err.message);
+                    }
+                  });
                   prevTrackIdForCrossfade.current = currentTrack.id;
                 }
               });
+
               hls.on(Hls.Events.ERROR, (_event, data) => {
                 if (data.type === Hls.ErrorTypes.KEY_SYSTEM_ERROR) {
-                  console.error(`[Player] DRM/Key system error:`, data.details, data.fatal);
+                  console.error("[Player] DRM/Key system error:", data.details, data.fatal);
+                  clearTimeout(drmTimeout);
+                  setIsLoadingTrack(false);
+                  setPlayError(true);
                 }
                 if (data.fatal) {
-                  console.error(`[Player] HLS fatal error:`, data.type, data.details);
+                  console.error("[Player] HLS fatal error:", data.type, data.details);
+                  clearTimeout(drmTimeout);
                   hls.destroy();
                   // Let the global onError handler retry
                 }
-              });
-              // Log EME events for debugging DRM playback
-              hls.on(Hls.Events.KEY_LOADING, (_event, data) => {
-                console.log(`[Player] DRM key loading for fragment:`, data.frag?.url);
               });
               // Store hls instance for cleanup
               (audioEl as any)._hlsInstance = hls;

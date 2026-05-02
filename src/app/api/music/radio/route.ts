@@ -9,7 +9,7 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
  * the currently playing track and session context. Uses a two-stage system:
  *
  *   Stage 1 — Candidate Generation (50–100 tracks via related APIs + search)
- *   Stage 2 — Ranking with energy-aware diversity selection (top 5–8)
+ *   Stage 2 — Ranking with energy-aware diversity selection (top 10–12)
  *
  * GET /api/music/radio
  *   ?scTrackId=12345               (required) current SoundCloud track ID
@@ -351,10 +351,10 @@ function shouldExclude(
 
 // ── Energy-aware diversity selection ───────────────────────────────────────────
 /**
- * After scoring, picks 5–8 tracks with controlled energy diversity:
- *   - 2–3 tracks with energy CLOSE to the current track  (smooth transition)
- *   - 1–2 tracks with SLIGHTLY different energy          (gradual shift)
- *   - 1–2 wildcard tracks                                 (variety)
+ * After scoring, picks 10–12 tracks with controlled energy diversity:
+ *   - 3–4 tracks with energy CLOSE to the current track  (smooth transition)
+ *   - 2–3 tracks with SLIGHTLY different energy          (gradual shift)
+ *   - 2–3 wildcard tracks                                 (variety)
  */
 function selectWithEnergyDiversity(
   scored: { candidate: Candidate; score: number }[],
@@ -384,22 +384,22 @@ function selectWithEnergyDiversity(
   const closeRange = 0.2;
   const shiftRange = 0.4;
 
-  // 1. Close energy tracks (2–3)
+  // 1. Close energy tracks (3–4)
   pick(
     (c) => c.candidate.energyDistance <= closeRange,
+    3 + Math.round(Math.random()), // 3 or 4
+  );
+
+  // 2. Slight shift tracks (2–3)
+  pick(
+    (c) => c.candidate.energyDistance > closeRange && c.candidate.energyDistance <= shiftRange,
     2 + Math.round(Math.random()), // 2 or 3
   );
 
-  // 2. Slight shift tracks (1–2)
-  pick(
-    (c) => c.candidate.energyDistance > closeRange && c.candidate.energyDistance <= shiftRange,
-    1 + Math.round(Math.random()), // 1 or 2
-  );
-
-  // 3. Wildcard tracks (1–2) — higher energy difference for variety
+  // 3. Wildcard tracks (2–3) — higher energy difference for variety
   pick(
     (c) => c.candidate.energyDistance > shiftRange,
-    1 + Math.round(Math.random()), // 1 or 2
+    2 + Math.round(Math.random()), // 2 or 3
   );
 
   // 4. Fill remaining slots with highest-scored unused tracks
@@ -675,10 +675,10 @@ async function handler(request: NextRequest) {
     // Sort by score descending
     scoredCandidates.sort((a, b) => b.score - a.score);
 
-    // Energy-aware selection: 5–8 tracks with diversity
+    // Energy-aware selection: 10–12 tracks with diversity
     const selected = selectWithEnergyDiversity(scoredCandidates, currentEnergy, {
-      min: 5,
-      max: 8,
+      min: 10,
+      max: 12,
     });
 
     // Map to output format

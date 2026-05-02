@@ -173,13 +173,13 @@ async function handler(request: NextRequest) {
     const selectedQueries: { query: string; category: string }[] = [];
     for (const [cat, queries] of Object.entries(queryPool)) {
       const shuffled = [...queries].sort(() => Math.random() - 0.5);
-      const pick = cat === "charts" ? 3 : 2; // More chart queries for accuracy
+      const pick = cat === "charts" ? 4 : 3; // More queries per category for 50-track target
       selectedQueries.push(...shuffled.slice(0, pick).map(q => ({ query: q, category: cat })));
     }
 
     // Fetch from all selected queries in parallel
     const results = await Promise.allSettled(
-      selectedQueries.map(({ query }) => searchSCTracks(query, 12))
+      selectedQueries.map(({ query }) => searchSCTracks(query, 15))
     );
 
     // Aggregate tracks across all queries
@@ -247,9 +247,9 @@ async function handler(request: NextRequest) {
     const finalTracks: (SCTrack & { [key: string]: unknown })[] = [];
     const artistCount = new Map<string, number>();
 
-    // First pass: top scored (max 10)
+    // First pass: top scored (max 20)
     for (const item of scored) {
-      if (finalTracks.length >= 10) break;
+      if (finalTracks.length >= 20) break;
       const artist = item.track.artist.toLowerCase();
       const count = artistCount.get(artist) || 0;
       if (count >= 2) continue;
@@ -257,10 +257,10 @@ async function handler(request: NextRequest) {
       finalTracks.push(item.track);
     }
 
-    // Second pass: diverse picks from remaining (max 10 more, unique artists)
+    // Second pass: diverse picks from remaining (max 20 more, unique artists)
     const seenArtists = new Set(finalTracks.map(t => t.artist.toLowerCase()));
     for (const item of scored) {
-      if (finalTracks.length >= 20) break;
+      if (finalTracks.length >= 40) break;
       const artist = item.track.artist.toLowerCase();
       if (seenArtists.has(artist)) continue;
       seenArtists.add(artist);
@@ -268,11 +268,11 @@ async function handler(request: NextRequest) {
     }
 
     // Third pass: fill remaining slots with random picks
-    if (finalTracks.length < 20) {
+    if (finalTracks.length < 50) {
       const existingIds = new Set(finalTracks.map(t => t.scTrackId));
       const shuffled = [...scored].sort(() => Math.random() - 0.5);
       for (const item of shuffled) {
-        if (finalTracks.length >= 20) break;
+        if (finalTracks.length >= 50) break;
         if (existingIds.has(item.track.scTrackId)) continue;
         finalTracks.push(item.track);
       }

@@ -827,22 +827,22 @@ async function handler(request: NextRequest) {
     // ── "Для вас" — the best overall scored tracks ──
     const forYouTracks = scoredTracks
       .filter(({ track, meta }) => !usedInCategory.has(track.scTrackId) && !meta.isFromBridgeGenre)
-      .slice(0, 15);
+      .slice(0, 25);
     for (const { track } of forYouTracks) usedInCategory.add(track.scTrackId);
 
     // ── "Открытия" — bridge genre exploration tracks ──
     const discoveryTracks = scoredTracks
       .filter(({ track, meta }) => meta.isFromBridgeGenre && !usedInCategory.has(track.scTrackId))
-      .slice(0, 10);
+      .slice(0, 15);
     for (const { track } of discoveryTracks) usedInCategory.add(track.scTrackId);
 
-    // ── Build flat track list (for backward compat — top 30) ──
+    // ── Build flat track list (for backward compat — top 50) ──
     const artistLimit = 3; // max per artist in flat list
     const flatTracks: ReturnType<typeof mapTrack>[] = [];
     const artistCount = new Map<string, number>();
 
     for (const { track, score } of scoredTracks) {
-      if (flatTracks.length >= 30) break;
+      if (flatTracks.length >= 50) break;
       const artist = (track.artist || "").toLowerCase().trim();
       if ((artistCount.get(artist) || 0) >= artistLimit) continue;
       artistCount.set(artist, (artistCount.get(artist) || 0) + 1);

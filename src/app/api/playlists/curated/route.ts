@@ -417,7 +417,7 @@ function sortTracksByPlayability(tracks: CuratedPlaylist["tracks"]): CuratedPlay
 /*  Playlist builder functions                                         */
 /* ------------------------------------------------------------------ */
 
-const TRACK_LIMIT = 30;
+const TRACK_LIMIT = 50;
 
 /** "Для вас" — Search each top artist individually, combine results */
 async function buildForYouPlaylist(

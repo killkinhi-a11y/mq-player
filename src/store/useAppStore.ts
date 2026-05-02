@@ -741,7 +741,7 @@ export const useAppStore = create<AppState>()(
                   .then(res => res.ok ? res.json() : null)
                   .then(data => {
                     if (!data || !data.tracks || data.tracks.length === 0) return;
-                    const newTracks = data.tracks.slice(0, 8);
+                    const newTracks = data.tracks.slice(0, 12);
                     const state = get();
                     const existingIds = new Set(state.queue.map(t => t.id));
                     const fresh = newTracks.filter(t => !existingIds.has(t.id));
