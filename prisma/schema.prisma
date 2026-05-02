@@ -1,37 +1,361 @@
-// This is your Prisma schema file.
-// If you don't have a database connection yet, this is a minimal schema to satisfy the build.
-// You can expand this later when you add your database models.
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
-// Minimal model to satisfy Prisma generate
-// Replace with your actual models when ready
 model User {
-  id         String     @id @default(uuid())
-  email      String     @unique
-  name       String?
-  role       String     @default("user")
-  username   String?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  auditLogs  AuditLog[]
+  id             String    @id @default(cuid())
+  username       String    @unique
+  email          String    @unique
+  password       String
+  confirmed      Boolean   @default(false)
+  role           String    @default("user")
+  blocked        Boolean   @default(false)
+  blockedAt      DateTime?
+  blockedReason  String?
+  avatar         String    @default("")
+  theme          String    @default("default")
+  accent         String    @default("#e03131")
+  favoriteArtists String   @default("[]")
+  onboardingComplete Boolean @default(false)
+  lastSeen       DateTime?
+  createdAt      DateTime  @default(now())
+  sentMessages   Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  sentFriendRequests     Friend[] @relation("SentFriendRequests")
+  receivedFriendRequests Friend[] @relation("ReceivedFriendRequests")
+  stories                Story[]  @relation("UserStories")
+  storyLikes             StoryLike[] @relation("UserStoryLikes")
+  storyComments          StoryComment[] @relation("UserStoryComments")
+  playlists              Playlist[] @relation("UserPlaylists")
+  playlistLikes          PlaylistLike[] @relation("UserPlaylistLikes")
+  adminLogs              AuditLog[] @relation("AdminLogs")
+  syncData               UserSync[] @relation("UserSyncData")
+  groupChats             GroupChatMember[] @relation("GroupMemberships")
+  groupMessages          GroupMessage[] @relation("GroupMessages")
+  createdGroups          GroupChat[] @relation("GroupChatCreators")
+  notifications          Notification[] @relation("UserNotifications")
+  hostedSessions         ListenSession[] @relation("HostedSessions")
+  joinedSessions         ListenSession[] @relation("JoinedSessions")
+  typingEventsFrom       TypingEvent[] @relation("TypingFrom")
+  typingEventsTo         TypingEvent[] @relation("TypingTo")
+  trackComments          TrackComment[] @relation("TrackComments")
 }
 
 model AuditLog {
-  id          String   @id @default(uuid())
-  userId      String?
-  action      String
-  details     String?
-  ipAddress   String?
-  userAgent   String?
+  id        String   @id @default(cuid())
+  adminId   String
+  action    String
+  targetId  String?
+  details   String?
+  createdAt DateTime @default(now())
+  admin     User     @relation("AdminLogs", fields: [adminId], references: [id])
+}
+
+model Message {
+  id           String   @id @default(cuid())
+  content      String
+  senderId     String
+  receiverId   String
+  encrypted    Boolean  @default(true)
+  messageType  String   @default("text")
+  replyToId    String?
+  edited       Boolean  @default(false)
+  editedAt     DateTime?
+  deleted      Boolean  @default(false)
+  voiceUrl     String?
+  voiceDuration Float?
+  createdAt    DateTime @default(now())
+  sender       User     @relation("SentMessages", fields: [senderId], references: [id])
+  receiver     User     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  replyTo      Message? @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      Message[] @relation("MessageReplies")
+}
+
+model Friend {
+  id         String   @id @default(cuid())
+  requesterId String
+  addresseeId String
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  requester  User     @relation("SentFriendRequests", fields: [requesterId], references: [id])
+  addressee  User     @relation("ReceivedFriendRequests", fields: [addresseeId], references: [id])
+
+  @@unique([requesterId, addresseeId])
+}
+
+model Story {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   @default("text")
+  content   String
+  bgColor   String   @default("#1a1a2e")
+  textColor String   @default("#ffffff")
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  user      User     @relation("UserStories", fields: [userId], references: [id])
+  likes     StoryLike[]
+  comments  StoryComment[]
+}
+
+model StoryLike {
+  id      String @id @default(cuid())
+  storyId String
+  userId  String
+  createdAt DateTime @default(now())
+  story   Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user    User  @relation("UserStoryLikes", fields: [userId], references: [id])
+
+  @@unique([storyId, userId])
+}
+
+model StoryComment {
+  id        String   @id @default(cuid())
+  storyId   String
+  userId    String
+  content   String
+  createdAt DateTime @default(now())
+  story     Story    @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user      User     @relation("UserStoryComments", fields: [userId], references: [id])
+}
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  userId    String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@unique([email, code])
+}
+
+model Playlist {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  description String   @default("")
+  cover       String   @default("")
+  isPublic    Boolean  @default(true)
+  tags        String   @default("")
+  tracksJson  String   @default("[]")
+  playCount   Int      @default(0)
   createdAt   DateTime @default(now())
-  
-  user        User?    @relation(fields: [userId], references: [id])
+  updatedAt   DateTime @updatedAt
+  user        User     @relation("UserPlaylists", fields: [userId], references: [id], onDelete: Cascade)
+  likes       PlaylistLike[]
+}
+
+model PlaylistLike {
+  id         String   @id @default(cuid())
+  playlistId String
+  userId     String
+  createdAt  DateTime @default(now())
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  user       User     @relation("UserPlaylistLikes", fields: [userId], references: [id])
+
+  @@unique([playlistId, userId])
+}
+
+model SupportMessage {
+  id        String   @id @default(cuid())
+  userId    String?
+  email     String
+  subject   String
+  message   String
+  status    String   @default("new")
+  createdAt DateTime @default(now())
+}
+
+model EmailCampaign {
+  id          String   @id @default(cuid())
+  name        String
+  subject     String
+  htmlBody    String   @default("")
+  segment     String   @default("all")
+  status      String   @default("draft")
+  sentCount   Int      @default(0)
+  openCount   Int      @default(0)
+  clickCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  sentAt      DateTime?
+}
+
+model CronJob {
+  id        String   @id @default(cuid())
+  name      String
+  cronExpr  String?
+  status    String   @default("idle")
+  lastRun   DateTime?
+  nextRun   DateTime?
+  log       String?
+  createdAt DateTime @default(now())
+}
+
+model Transaction {
+  id        String   @id @default(cuid())
+  userId    String
+  userName  String   @default("")
+  amount    Float
+  currency  String   @default("USD")
+  status    String   @default("completed")
+  type      String   @default("subscription")
+  createdAt DateTime @default(now())
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String?
+  enabled     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SupportChatSession {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  userId    String?
+  userName  String?
+  lastMessage String  @default("")
+  messageCount Int    @default(0)
+  status    String   @default("open")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  messages  SupportChatMessage[]
+}
+
+model SupportChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String
+  content   String
+  createdAt DateTime @default(now())
+  session   SupportChatSession @relation(fields: [sessionId], references: [sessionId], onDelete: Cascade)
+}
+
+model GroupChat {
+  id          String   @id @default(cuid())
+  name        String
+  description String   @default("")
+  avatar      String   @default("")
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  members     GroupChatMember[]
+  messages    GroupMessage[]
+  creator     User     @relation("GroupChatCreators", fields: [createdBy], references: [id])
+}
+
+model GroupChatMember {
+  id         String   @id @default(cuid())
+  groupChatId String
+  userId      String
+  role       String   @default("member")
+  joinedAt   DateTime @default(now())
+  groupChat  GroupChat @relation(fields: [groupChatId], references: [id], onDelete: Cascade)
+  user       User     @relation("GroupMemberships", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupChatId, userId])
+}
+
+model GroupMessage {
+  id           String   @id @default(cuid())
+  groupChatId  String
+  senderId     String
+  content      String
+  messageType  String   @default("text")
+  replyToId    String?
+  edited       Boolean  @default(false)
+  editedAt     DateTime?
+  deleted      Boolean  @default(false)
+  voiceUrl     String?
+  voiceDuration Float?
+  createdAt    DateTime @default(now())
+  groupChat    GroupChat @relation(fields: [groupChatId], references: [id], onDelete: Cascade)
+  sender       User     @relation("GroupMessages", fields: [senderId], references: [id])
+}
+
+model UserSync {
+  id        String   @id @default(cuid())
+  userId    String
+  key       String
+  data      String
+  updatedAt DateTime @updatedAt
+  user      User     @relation("UserSyncData", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key])
+}
+
+model ListenSession {
+  id          String   @id @default(cuid())
+  hostId      String
+  guestId     String
+  trackId     String
+  trackTitle  String
+  trackArtist String
+  trackCover  String   @default("")
+  scTrackId   Int?
+  audioUrl    String   @default("")
+  source      String   @default("soundcloud")
+  progress    Float    @default(0)
+  isPlaying   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  host        User     @relation("HostedSessions", fields: [hostId], references: [id])
+  guest       User     @relation("JoinedSessions", fields: [guestId], references: [id])
+
+  @@unique([hostId, guestId])
+  @@index([hostId])
+  @@index([guestId])
+}
+
+model TypingEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  contactId String
+  updatedAt DateTime @updatedAt
+
+  from User @relation("TypingFrom", fields: [userId], references: [id], onDelete: Cascade)
+  to   User @relation("TypingTo", fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contactId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  data      String   @default("{}")
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
+}
+
+model TrackComment {
+  id        String   @id @default(cuid())
+  trackId   String
+  userId    String
+  username  String
+  avatar    String   @default("")
+  content   String
+  timestamp Float
+  likes     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  user      User     @relation("TrackComments", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([trackId, createdAt])
 }
