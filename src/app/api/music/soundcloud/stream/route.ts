@@ -46,6 +46,7 @@ interface TrackInfo {
   isPreview: boolean;
   duration: number;
   fullDuration: number;
+  trackAuthorization: string; // JWT required by SC to resolve stream URLs
 }
 
 /**
@@ -104,6 +105,7 @@ async function getTrackInfo(trackId: string, clientId: string): Promise<TrackInf
       isPreview: track.policy === "SNIP",
       duration: Math.round((track.duration || 0) / 1000),
       fullDuration: Math.round((track.full_duration || 0) / 1000),
+      trackAuthorization: (track as Record<string, unknown>).track_authorization as string || "",
     };
   } catch {
     return null;
@@ -115,12 +117,16 @@ async function getTrackInfo(trackId: string, clientId: string): Promise<TrackInf
 /**
  * Server-side resolve: fetch the template URL to get the actual URL.
  * Tries all client IDs since some may be rate-limited.
+ * Includes track_authorization JWT which SC now requires for media resolution.
  */
-async function resolveUrl(templateUrl: string): Promise<string | null> {
+async function resolveUrl(templateUrl: string, trackAuthorization: string): Promise<string | null> {
   for (const clientId of CLIENT_IDS) {
     try {
       const separator = templateUrl.includes("?") ? "&" : "?";
-      const resolveUrl = `${templateUrl}${separator}client_id=${clientId}`;
+      let resolveUrl = `${templateUrl}${separator}client_id=${clientId}`;
+      if (trackAuthorization) {
+        resolveUrl += `&track_authorization=${encodeURIComponent(trackAuthorization)}`;
+      }
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
@@ -159,8 +165,8 @@ export async function GET(request: NextRequest) {
       const info = await getTrackInfo(trackId, clientId);
       if (!info) continue;
 
-      // Try to resolve the template URL to a real URL
-      const resolvedUrl = await resolveUrl(info.streamUrl);
+      // Try to resolve the template URL to a real URL (with track_authorization JWT)
+      const resolvedUrl = await resolveUrl(info.streamUrl, info.trackAuthorization);
 
       if (resolvedUrl) {
         // Successfully resolved — return the URL with format metadata
@@ -177,9 +183,12 @@ export async function GET(request: NextRequest) {
         });
       }
 
-      // Resolve failed — return template URL for client-side fallback
+      // Resolve failed — include track_authorization in fallback URL for client-side retry
       const separator = info.streamUrl.includes("?") ? "&" : "?";
-      const fallbackUrl = `${info.streamUrl}${separator}client_id=${clientId}`;
+      let fallbackUrl = `${info.streamUrl}${separator}client_id=${clientId}`;
+      if (info.trackAuthorization) {
+        fallbackUrl += `&track_authorization=${encodeURIComponent(info.trackAuthorization)}`;
+      }
 
       return NextResponse.json({
         url: null,
