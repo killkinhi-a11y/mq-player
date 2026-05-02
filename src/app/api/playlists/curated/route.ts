@@ -293,6 +293,25 @@ async function fetchSCTrackRelated(scTrackId: number): Promise<CuratedPlaylist["
 }
 
 /* ------------------------------------------------------------------ */
+/*  Artist diversity enforcement                                       */
+/* ------------------------------------------------------------------ */
+
+const MAX_TRACKS_PER_ARTIST = 2;
+
+/** Post-process: keep at most MAX_TRACKS_PER_ARTIST tracks per artist */
+function enforceArtistDiversity(tracks: CuratedPlaylist["tracks"]): CuratedPlaylist["tracks"] {
+  const artistCounts = new Map<string, number>();
+  return tracks.filter(t => {
+    const artist = (t.artist || "").toLowerCase().trim();
+    if (!artist) return true;
+    const count = artistCounts.get(artist) || 0;
+    if (count >= MAX_TRACKS_PER_ARTIST) return false;
+    artistCounts.set(artist, count + 1);
+    return true;
+  });
+}
+
+/* ------------------------------------------------------------------ */
 /*  Track deduplication & search helpers                               */
 /* ------------------------------------------------------------------ */
 
@@ -392,7 +411,7 @@ async function buildForYouPlaylist(
 
   const queries = topArtists.slice(0, 6).map(a => a.trim());
   const tracks = await searchAndCollect(queries, TRACK_LIMIT);
-  return sortTracksByPlayability(tracks);
+  return enforceArtistDiversity(sortTracksByPlayability(tracks));
 }
 
 /** "Ваш микс" — Mix of top 2-3 genres combined with top artists */
@@ -433,7 +452,7 @@ async function buildYourMixPlaylist(
   }
 
   const tracks = await searchAndCollect(queries.slice(0, 5), TRACK_LIMIT);
-  return sortTracksByPlayability(tracks);
+  return enforceArtistDiversity(sortTracksByPlayability(tracks));
 }
 
 /** "Похожее" — Use SoundCloud related API for liked track IDs */
@@ -470,7 +489,7 @@ async function buildSimilarPlaylist(
     // The related API results are sufficient.
   }
 
-  return sortTracksByPlayability(allTracks);
+  return enforceArtistDiversity(sortTracksByPlayability(allTracks));
 }
 
 /** "Открытия дня" — Bridge genres (1 hop away from user's top genres) */
@@ -510,7 +529,7 @@ async function buildDiscoveriesPlaylist(
   }
 
   const tracks = await searchAndCollect(queries.slice(0, 6), TRACK_LIMIT);
-  return sortTracksByPlayability(tracks);
+  return enforceArtistDiversity(sortTracksByPlayability(tracks));
 }
 
 /** Genre-specific playlists — only for user's actual top genres, max 4 */
@@ -553,7 +572,7 @@ async function buildGenrePlaylists(
 
     genrePlaylists.push({
       config,
-      buildPromise: searchAndCollect(queries, TRACK_LIMIT).then(sortTracksByPlayability),
+      buildPromise: searchAndCollect(queries, TRACK_LIMIT).then(t => enforceArtistDiversity(sortTracksByPlayability(t))),
     });
   }
 
@@ -595,7 +614,7 @@ async function buildPopularPlaylist(
   }
 
   const tracks = await searchAndCollect(queries, TRACK_LIMIT, dislikedGenres);
-  return sortTracksByPlayability(tracks);
+  return enforceArtistDiversity(sortTracksByPlayability(tracks));
 }
 
 /* ------------------------------------------------------------------ */
@@ -717,17 +736,17 @@ async function handler(req: NextRequest) {
 
     // ── Fallback: if no user data at all, show popular playlist ──
     if (playlists.length === 0) {
-      const fallbackTracks = await searchAndCollect(
+      const fallbackTracks = enforceArtistDiversity(sortTracksByPlayability(await searchAndCollect(
         ["popular music 2025", "top hits 2025", "best songs", "trending music"],
         TRACK_LIMIT
-      );
+      )));
       if (fallbackTracks.length > 0) {
         playlists.push({
           id: "popular",
           name: "Популярное",
           subtitle: "популярная музыка",
           gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)",
-          tracks: sortTracksByPlayability(fallbackTracks),
+          tracks: fallbackTracks,
         });
       }
     }
