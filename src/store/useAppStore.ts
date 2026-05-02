@@ -399,7 +399,7 @@ const initialState = {
   email: null as string | null,
   avatar: null as string | null,
   currentView: "auth" as ViewType,
-  authStep: "login" as AuthStep,
+  authStep: "telegram" as AuthStep,
   currentTheme: "default",
   customAccent: null as string | null,
   animationsEnabled: true,
