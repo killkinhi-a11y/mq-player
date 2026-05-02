@@ -1333,7 +1333,7 @@ export default function PlayerBar() {
           </motion.button>
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => {
             const st = useAppStore.getState();
-            if (st.currentTrack?.id) st.recordSkip(st.currentTrack.id);
+            if (st.currentTrack?.id) st.recordSkip(st.currentTrack.id, st.progress || 0);
             nextTrack();
           }}
             className="p-1.5 sm:p-2 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center" style={{ color: "var(--mq-text)" }}>

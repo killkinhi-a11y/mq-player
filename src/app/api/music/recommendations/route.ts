@@ -407,13 +407,19 @@ function buildSessionMood(sessionTracks: SessionTrack[]): {
   return { avgEnergy, dominantMoods, dominantGenres, languagePreference };
 }
 
-// ── v8 Scoring: simpler, focused on actual taste signals ──
+// ── v9 Scoring: self-learning adaptation based on user feedback ──
 function scoreTrackV8(
   track: SCTrack,
   meta: InternalTrack,
   topGenres: string[],
   topArtists: string[],
   languagePreference: "russian" | "english" | "latin" | "mixed",
+  feedbackData?: {
+    genreBoost: Record<string, number>;
+    artistBoost: Record<string, number>;
+    skipGenrePenalty: Set<string>;
+    completedGenres: Set<string>;
+  },
 ): number {
   let score = 0;
   const trackGenre = normalizeGenre(track.genre || "");
@@ -475,6 +481,23 @@ function scoreTrackV8(
   const titleAndArtist = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
   if (hasNoiseKeywords(titleAndArtist) && !userWantsReligiousContent(topGenres)) score -= 100;
   if (titleHashtagGenreMismatch(track.title || "", topGenres)) score -= 50;
+
+  // ── ADAPTIVE FEEDBACK SCORING (v9 self-learning) ──
+  // Boost/penalize based on accumulated user behavior
+  if (feedbackData) {
+    if (trackGenre && feedbackData.genreBoost[trackGenre]) {
+      score += feedbackData.genreBoost[trackGenre];
+    }
+    if (trackArtist && feedbackData.artistBoost[trackArtist]) {
+      score += feedbackData.artistBoost[trackArtist];
+    }
+    if (trackGenre && feedbackData.skipGenrePenalty.has(trackGenre)) {
+      score -= 60;
+    }
+    if (trackGenre && feedbackData.completedGenres.has(trackGenre)) {
+      score += 15;
+    }
+  }
 
   // ── Random jitter for freshness ──
   score += Math.random() * 16 - 8; // ±8
@@ -561,6 +584,8 @@ async function handler(request: NextRequest) {
   // v8 NEW parameters
   const likedScIdsParam = searchParams.get("likedScIds") || "";
   const historyScIdsParam = searchParams.get("historyScIds") || "";
+  // v9: Feedback signals for self-learning
+  const feedbackParam = searchParams.get("feedback") || "";
 
   const excludeIds = new Set((excludeParam || "").split(",").filter(Boolean));
   const dislikedIds = new Set((dislikedParam || "").split(",").filter(Boolean));
@@ -602,12 +627,32 @@ async function handler(request: NextRequest) {
   const allGenres = [...new Set([...genres, ...sessionMood.dominantGenres])].slice(0, 6);
 
   // Language preference: explicit param > session analysis > mixed
+  // v9: Parse feedback signals for adaptive scoring
+  interface FeedbackSignal {
+    genreBoost: Record<string, number>;   // genre -> boost score (-100 to +100)
+    artistBoost: Record<string, number>;  // artist -> boost score (-100 to +100)
+    skipGenrePenalty: Set<string>;        // genres with high skip rate
+    completedGenres: Set<string>;         // genres with completions
+  }
+  let feedbackData: FeedbackSignal = { genreBoost: {}, artistBoost: {}, skipGenrePenalty: new Set(), completedGenres: new Set() };
+  if (feedbackParam) {
+    try {
+      const parsed = JSON.parse(feedbackParam);
+      feedbackData = {
+        genreBoost: parsed.genreBoost || {},
+        artistBoost: parsed.artistBoost || {},
+        skipGenrePenalty: new Set(parsed.skipGenrePenalty || []),
+        completedGenres: new Set(parsed.completedGenres || []),
+      };
+    } catch { /* ignore */ }
+  }
+
   const languagePreference: "russian" | "english" | "latin" | "mixed" =
     (langParam !== "mixed" ? langParam : null) as "russian" | "english" | "latin" | null
     || sessionMood.languagePreference;
 
   // ── Cache check ──
-  const cacheKey = `rec:v8:${likedScIdsParam}:${historyScIdsParam}:${genresParam || ""}:${artistsParam || ""}:${dislikedParam || ""}:${dislikedArtistsParam || ""}:${dislikedGenresParam || ""}:${recentIdsParam}:${langParam}:${sessionParam || ""}`;
+  const cacheKey = `rec:v9:${likedScIdsParam}:${historyScIdsParam}:${genresParam || ""}:${artistsParam || ""}:${dislikedParam || ""}:${dislikedArtistsParam || ""}:${dislikedGenresParam || ""}:${recentIdsParam}:${langParam}:${sessionParam || ""}:${feedbackParam}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 
@@ -787,7 +832,7 @@ async function handler(request: NextRequest) {
     // ── Score all tracks ──
     const scoredTracks: { track: SCTrack; score: number; meta: InternalTrack }[] = [];
     for (const [scTrackId, meta] of trackMap.entries()) {
-      const score = scoreTrackV8(meta.track, meta, allGenres, artists, languagePreference);
+      const score = scoreTrackV8(meta.track, meta, allGenres, artists, languagePreference, feedbackData);
       scoredTracks.push({ track: meta.track, score, meta });
     }
 
@@ -879,7 +924,7 @@ async function handler(request: NextRequest) {
       tracks: flatTracks,
       categories,
       _meta: {
-        version: 8,
+        version: 9,
         timeContext,
         phase1Count: scoredTracks.filter(({ meta }) => meta.isFromLikedRelated || meta.isFromHistoryRelated).length,
         phase2Count: scoredTracks.filter(({ meta }) => meta.isFromArtistSearch).length,

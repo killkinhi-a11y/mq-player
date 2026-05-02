@@ -184,7 +184,7 @@ interface AppState {
   smartShuffle: boolean;
 
   // Feedback signals (Apple Music / Yandex style)
-  trackFeedback: Record<string, { skips: number; completes: number; listenTime: number; lastPlayedAt: number }>;
+  trackFeedback: Record<string, { skips: number; completes: number; listenTime: number; totalListenTime: number; lastPlayedAt: number; skipPositions: number[] }>;
 
   // Release Radar state
   releaseRadarTracks: Track[];
@@ -354,7 +354,7 @@ interface AppState {
   toggleSmartShuffle: () => void;
 
   // Feedback actions
-  recordSkip: (trackId: string) => void;
+  recordSkip: (trackId: string, progressAtSkip?: number) => void;
   recordComplete: (trackId: string, listenTime: number) => void;
 
   // Release Radar actions
@@ -452,7 +452,7 @@ const initialState = {
   smartShuffle: true,
 
   // Feedback signals
-  trackFeedback: {} as Record<string, { skips: number; completes: number; listenTime: number; lastPlayedAt: number }>,
+  trackFeedback: {} as Record<string, { skips: number; completes: number; listenTime: number; totalListenTime: number; lastPlayedAt: number; skipPositions: number[] }>,
 
   // Release Radar
   releaseRadarTracks: [] as Track[],
@@ -1311,11 +1311,13 @@ export const useAppStore = create<AppState>()(
       toggleSmartShuffle: () => set((s) => ({ smartShuffle: !s.smartShuffle })),
 
       // ── Feedback actions ──
-      recordSkip: (trackId: string) => {
+      recordSkip: (trackId: string, progressAtSkip?: number) => {
         set((s) => {
           const fb = { ...s.trackFeedback };
-          const existing = fb[trackId] || { skips: 0, completes: 0, listenTime: 0, lastPlayedAt: 0 };
-          fb[trackId] = { ...existing, skips: existing.skips + 1, lastPlayedAt: Date.now() };
+          const existing = fb[trackId] || { skips: 0, completes: 0, listenTime: 0, totalListenTime: 0, lastPlayedAt: 0, skipPositions: [] };
+          const skipPos = typeof progressAtSkip === "number" ? progressAtSkip : 0;
+          const skipPositions = [...(existing.skipPositions || []), skipPos].slice(-10);
+          fb[trackId] = { ...existing, skips: existing.skips + 1, lastPlayedAt: Date.now(), skipPositions };
           return { trackFeedback: fb, radioSkipCount: s.radioMode ? s.radioSkipCount + 1 : 0 };
         });
       },
@@ -1323,8 +1325,14 @@ export const useAppStore = create<AppState>()(
       recordComplete: (trackId: string, listenTime: number) => {
         set((s) => {
           const fb = { ...s.trackFeedback };
-          const existing = fb[trackId] || { skips: 0, completes: 0, listenTime: 0, lastPlayedAt: 0 };
-          fb[trackId] = { ...existing, completes: existing.completes + 1, listenTime: existing.listenTime + listenTime, lastPlayedAt: Date.now() };
+          const existing = fb[trackId] || { skips: 0, completes: 0, listenTime: 0, totalListenTime: 0, lastPlayedAt: 0, skipPositions: [] };
+          fb[trackId] = {
+            ...existing,
+            completes: existing.completes + 1,
+            listenTime,
+            totalListenTime: (existing.totalListenTime || 0) + listenTime,
+            lastPlayedAt: Date.now(),
+          };
           return { trackFeedback: fb };
         });
       },
@@ -1577,6 +1585,7 @@ export const useAppStore = create<AppState>()(
         onboardingComplete: state.onboardingComplete,
         playlists: state.playlists,
         history: state.history,
+        trackFeedback: state.trackFeedback,
         liquidGlassMobile: state.liquidGlassMobile,
         currentStyle: state.currentStyle,
         shuffle: state.shuffle,

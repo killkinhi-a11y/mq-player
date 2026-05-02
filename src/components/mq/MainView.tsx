@@ -376,6 +376,81 @@ export default function MainView() {
         params.set("lang", languagePreference);
       }
 
+      // v9: Build feedback signals from trackFeedback for self-learning
+      const trackFeedback = useAppStore.getState().trackFeedback || {};
+      const fbEntries = Object.entries(trackFeedback);
+      if (fbEntries.length > 0) {
+        // Build genre boost map from completed tracks
+        const genreBoost: Record<string, number> = {};
+        const artistBoost: Record<string, number> = {};
+        const skipGenrePenalty = new Set<string>();
+        const completedGenres = new Set<string>();
+
+        for (const [trackId, fb] of fbEntries) {
+          // Find track metadata from history or liked tracks
+          const historyEntry = currentHistory.find(h => h.track.id === trackId);
+          const likedEntry = likedTracksData.find(t => t.id === trackId);
+          const track = historyEntry?.track || likedEntry;
+          if (!track) continue;
+
+          const genre = (track.genre || "").toLowerCase().trim();
+          const artist = (track.artist || "").toLowerCase().trim();
+          const total = fb.completes + fb.skips;
+          if (total === 0) continue;
+
+          const completionRate = fb.completes / total;
+
+          // Genre-level learning
+          if (genre) {
+            if (completionRate >= 0.7) {
+              // User loves this genre — boost
+              genreBoost[genre] = (genreBoost[genre] || 0) + Math.min(completionRate * 30, 40);
+              completedGenres.add(genre);
+            } else if (completionRate <= 0.3 && fb.skips >= 2) {
+              // User consistently skips this genre — penalize
+              skipGenrePenalty.add(genre);
+              genreBoost[genre] = (genreBoost[genre] || 0) - 40;
+            }
+          }
+
+          // Artist-level learning
+          if (artist) {
+            if (completionRate >= 0.7) {
+              artistBoost[artist] = (artistBoost[artist] || 0) + Math.min(completionRate * 25, 35);
+            } else if (completionRate <= 0.3 && fb.skips >= 2) {
+              artistBoost[artist] = (artistBoost[artist] || 0) - 50;
+            }
+
+          // Early-skip detection: skip within 10s = strong negative signal
+          if (fb.skipPositions && fb.skipPositions.length > 0) {
+            const avgSkipPos = fb.skipPositions.reduce((a, b) => a + b, 0) / fb.skipPositions.length;
+            if (avgSkipPos < 15 && fb.skips >= 2) {
+              // User skips very early — strong dislike for this artist/genre
+              if (artist) artistBoost[artist] = (artistBoost[artist] || 0) - 30;
+              if (genre) genreBoost[genre] = (genreBoost[genre] || 0) - 25;
+            }
+          }
+
+          // Full listen bonus: listened >80% of duration on average
+          if (fb.totalListenTime > 0 && track.duration > 0) {
+            const avgListenRatio = fb.totalListenTime / (track.duration * fb.completes);
+            if (avgListenRatio > 0.8) {
+              if (genre) genreBoost[genre] = (genreBoost[genre] || 0) + 10;
+              if (artist) artistBoost[artist] = (artistBoost[artist] || 0) + 8;
+            }
+          }
+        }
+
+        if (Object.keys(genreBoost).length > 0 || Object.keys(artistBoost).length > 0) {
+          params.set("feedback", JSON.stringify({
+            genreBoost,
+            artistBoost,
+            skipGenrePenalty: [...skipGenrePenalty],
+            completedGenres: [...completedGenres],
+          }));
+        }
+      }
+
       const res = await fetch(`/api/music/recommendations?${params}`);
       const data = await res.json();
       // Filter out disliked tracks on client side too
