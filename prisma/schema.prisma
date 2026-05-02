@@ -14,13 +14,14 @@ datasource db {
 // Minimal model to satisfy Prisma generate
 // Replace with your actual models when ready
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String?
-  role      String   @default("user")
-  username  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String     @id @default(uuid())
+  email      String     @unique
+  name       String?
+  role       String     @default("user")
+  username   String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  auditLogs  AuditLog[]
 }
 
 model AuditLog {
