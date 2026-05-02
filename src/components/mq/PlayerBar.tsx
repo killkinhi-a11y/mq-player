@@ -784,15 +784,12 @@ export default function PlayerBar() {
               // Configure EME for encrypted HLS streams (Widevine DRM)
               if (stream.isEncrypted && stream.licenseUrl) {
                 hlsConfig.emeEnabled = true;
-                // @ts-expect-error — widevineLicenseUrl exists in HLS.js 1.5+ EME config
                 hlsConfig.widevineLicenseUrl = stream.licenseUrl;
 
                 // Set up license request headers
-                hlsConfig.licenseXhrSetup = (_xhr: XMLHttpRequest, _url: string) => {
-                  _xhr.withCredentials = false;
-                  if (!_xhr.getRequestHeader('Content-Type')) {
-                    _xhr.setRequestHeader('Content-Type', 'text/xml; charset=utf-8');
-                  }
+                hlsConfig.licenseXhrSetup = (xhr: XMLHttpRequest) => {
+                  xhr.withCredentials = false;
+                  xhr.setRequestHeader('Content-Type', 'text/xml; charset=utf-8');
                 };
               }
 
