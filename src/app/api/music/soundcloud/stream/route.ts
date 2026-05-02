@@ -6,12 +6,17 @@ import { NextRequest, NextResponse } from "next/server";
  * Runs as an Edge Function — executes at the Vercel PoP closest to the user,
  * which may bypass CloudFront geo-blocks that affect us-east-1 datacenter IPs.
  *
- * Strategy:
- * 1. Get track info + template URL from SC API (works from any IP)
- * 2. Try to resolve template URL → CDN URL from Edge PoP
- * 3. If Edge resolve also fails, return the template URL for client-side fallback
+ * SoundCloud migration (2025): most tracks no longer serve unencrypted progressive
+ * or plain HLS. The new formats are:
+ *   - ctr-encrypted-hls  → SAMPLE-AES-CTR with Widevine (HLS.js + EME)
+ *   - cbc-encrypted-hls  → SAMPLE-AES with FairPlay (Safari)
  *
- * The client tries: CDN URL → CORS proxy → direct fetch → error
+ * Strategy:
+ * 1. Get track info from SC API
+ * 2. Prefer progressive (old tracks) → resolve to CDN URL
+ * 3. Fall back to ctr-encrypted-hls → resolve to manifest URL (EME required)
+ * 4. Fall back to cbc-encrypted-hls → resolve to manifest URL (Safari only)
+ * 5. Fall back to plain hls → resolve
  */
 
 export const runtime = "edge";
@@ -24,7 +29,58 @@ const CLIENT_IDS = [
   "nDSHHx4FpO2gOGKmGqLaWbDXEmwo4RAC",
 ];
 
-async function getTrackInfo(trackId: string, clientId: string) {
+// SoundCloud PlayReady/Widevine license server URL (public, no auth needed)
+const SC_LICENSE_URL = "https://license.media-streaming.soundcloud.cloud/playback/playready";
+
+interface Transcoding {
+  url?: string;
+  format?: { protocol?: string; mime_type?: string };
+  quality?: string;
+}
+
+interface TrackInfo {
+  streamUrl: string;
+  protocol: string; // "progressive" | "hls" | "cbc-encrypted-hls" | "ctr-encrypted-hls"
+  isHls: boolean;
+  isEncrypted: boolean;
+  isPreview: boolean;
+  duration: number;
+  fullDuration: number;
+}
+
+/**
+ * Get track info and pick the best transcoding.
+ * Priority: progressive > ctr-encrypted-hls > cbc-encrypted-hls > hls
+ */
+function pickTranscoding(transcodings: Transcoding[]): { url: string; protocol: string; isHls: boolean; isEncrypted: boolean } | null {
+  // 1. Progressive (unencrypted MP3) — best for old tracks
+  for (const t of transcodings) {
+    if (t.format?.protocol === "progressive" && t.url) {
+      return { url: t.url, protocol: "progressive", isHls: false, isEncrypted: false };
+    }
+  }
+  // 2. CTR encrypted HLS — works in Chrome/Firefox/Edge via HLS.js + EME (Widevine)
+  for (const t of transcodings) {
+    if (t.format?.protocol === "ctr-encrypted-hls" && t.url) {
+      return { url: t.url, protocol: "ctr-encrypted-hls", isHls: true, isEncrypted: true };
+    }
+  }
+  // 3. CBC encrypted HLS — works in Safari (FairPlay)
+  for (const t of transcodings) {
+    if (t.format?.protocol === "cbc-encrypted-hls" && t.url) {
+      return { url: t.url, protocol: "cbc-encrypted-hls", isHls: true, isEncrypted: true };
+    }
+  }
+  // 4. Plain HLS (unencrypted) — may still work for some tracks
+  for (const t of transcodings) {
+    if (t.format?.protocol === "hls" && t.url) {
+      return { url: t.url, protocol: "hls", isHls: true, isEncrypted: false };
+    }
+  }
+  return null;
+}
+
+async function getTrackInfo(trackId: string, clientId: string): Promise<TrackInfo | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 10000);
 
@@ -36,43 +92,15 @@ async function getTrackInfo(trackId: string, clientId: string) {
     if (!trackRes.ok) return null;
     const track = await trackRes.json();
 
-    const transcodings: { url?: string; format?: { protocol?: string } }[] =
-      (track.media?.transcodings || []).filter(Boolean);
-
-    let streamUrl: string | null = null;
-    let isHls = false;
-
-    // Prefer non-encrypted progressive
-    for (const t of transcodings) {
-      if (t.format?.protocol === "progressive" && t.url) {
-        streamUrl = t.url;
-        break;
-      }
-    }
-    // Then non-encrypted HLS
-    if (!streamUrl) {
-      for (const t of transcodings) {
-        if (t.format?.protocol === "hls" && t.url) {
-          streamUrl = t.url;
-          isHls = true;
-          break;
-        }
-      }
-    }
-    // Then any available
-    if (!streamUrl && transcodings.length > 0) {
-      const t = transcodings[0];
-      if (t.url) {
-        streamUrl = t.url;
-        isHls = !!(t.format?.protocol === "hls" || t.format?.protocol?.includes("hls"));
-      }
-    }
-
-    if (!streamUrl) return null;
+    const transcodings: Transcoding[] = (track.media?.transcodings || []).filter(Boolean);
+    const picked = pickTranscoding(transcodings);
+    if (!picked) return null;
 
     return {
-      streamUrl,
-      isHls,
+      streamUrl: picked.url,
+      protocol: picked.protocol,
+      isHls: picked.isHls,
+      isEncrypted: picked.isEncrypted,
       isPreview: track.policy === "SNIP",
       duration: Math.round((track.duration || 0) / 1000),
       fullDuration: Math.round((track.full_duration || 0) / 1000),
@@ -85,10 +113,10 @@ async function getTrackInfo(trackId: string, clientId: string) {
 }
 
 /**
- * Server-side resolve: fetch the template URL to get the actual CDN URL.
+ * Server-side resolve: fetch the template URL to get the actual URL.
  * Tries all client IDs since some may be rate-limited.
  */
-async function resolveCdnUrl(templateUrl: string): Promise<string | null> {
+async function resolveUrl(templateUrl: string): Promise<string | null> {
   for (const clientId of CLIENT_IDS) {
     try {
       const separator = templateUrl.includes("?") ? "&" : "?";
@@ -129,36 +157,42 @@ export async function GET(request: NextRequest) {
   for (const clientId of CLIENT_IDS) {
     try {
       const info = await getTrackInfo(trackId, clientId);
-      if (info) {
-        // Try server-side resolve from Edge PoP (may bypass CloudFront blocks)
-        const cdnUrl = await resolveCdnUrl(info.streamUrl);
+      if (!info) continue;
 
-        if (cdnUrl) {
-          // Server resolved successfully — return CDN URL directly
-          return NextResponse.json({
-            url: cdnUrl,
-            isHls: info.isHls,
-            isPreview: info.isPreview,
-            duration: info.duration,
-            fullDuration: info.fullDuration,
-          });
-        }
+      // Try to resolve the template URL to a real URL
+      const resolvedUrl = await resolveUrl(info.streamUrl);
 
-        // Edge resolve failed — return template URL for client-side fallback
-        // Client will try: our CORS proxy → direct fetch → error
-        const separator = info.streamUrl.includes("?") ? "&" : "?";
-        const resolveUrl = `${info.streamUrl}${separator}client_id=${clientId}`;
-
+      if (resolvedUrl) {
+        // Successfully resolved — return the URL with format metadata
         return NextResponse.json({
-          url: null,
-          resolveUrl,
+          url: resolvedUrl,
           isHls: info.isHls,
+          isEncrypted: info.isEncrypted,
+          protocol: info.protocol,
           isPreview: info.isPreview,
           duration: info.duration,
           fullDuration: info.fullDuration,
-          error: "cdn_resolve_failed",
+          // For encrypted tracks, include the license server URL
+          ...(info.isEncrypted ? { licenseUrl: SC_LICENSE_URL } : {}),
         });
       }
+
+      // Resolve failed — return template URL for client-side fallback
+      const separator = info.streamUrl.includes("?") ? "&" : "?";
+      const fallbackUrl = `${info.streamUrl}${separator}client_id=${clientId}`;
+
+      return NextResponse.json({
+        url: null,
+        resolveUrl: fallbackUrl,
+        isHls: info.isHls,
+        isEncrypted: info.isEncrypted,
+        protocol: info.protocol,
+        isPreview: info.isPreview,
+        duration: info.duration,
+        fullDuration: info.fullDuration,
+        ...(info.isEncrypted ? { licenseUrl: SC_LICENSE_URL } : {}),
+        error: "cdn_resolve_failed",
+      });
     } catch {}
   }
 

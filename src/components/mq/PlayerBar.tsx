@@ -16,7 +16,18 @@ import TrackCommentsPanel from "./TrackCommentsPanel";
 import QueueView from "./QueueView";
 import Hls from "hls.js";
 
-async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string; isPreview: boolean; duration: number; fullDuration: number; isHls?: boolean } | null> {
+interface StreamResult {
+  url: string;
+  isPreview: boolean;
+  duration: number;
+  fullDuration: number;
+  isHls: boolean;
+  isEncrypted: boolean;
+  protocol?: string;
+  licenseUrl?: string;
+}
+
+async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult | null> {
   try {
     const res = await fetch(`/api/music/soundcloud/stream?trackId=${scTrackId}`, {
       signal: AbortSignal.timeout(15000),
@@ -24,7 +35,7 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string
     if (!res.ok) return null;
     const data = await res.json();
 
-    // Best case: Edge Function resolved the CDN URL directly
+    // Best case: Edge Function resolved the URL directly
     if (data.url) {
       return {
         url: data.url,
@@ -32,6 +43,9 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string
         duration: data.duration || 0,
         fullDuration: data.fullDuration || 0,
         isHls: !!data.isHls,
+        isEncrypted: !!data.isEncrypted,
+        protocol: data.protocol || null,
+        licenseUrl: data.licenseUrl || null,
       };
     }
 
@@ -52,6 +66,9 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string
               duration: data.duration || 0,
               fullDuration: data.fullDuration || 0,
               isHls: !!data.isHls,
+              isEncrypted: !!data.isEncrypted,
+              protocol: data.protocol || null,
+              licenseUrl: data.licenseUrl || null,
             };
           }
         }
@@ -753,13 +770,32 @@ export default function PlayerBar() {
 
             if (isHlsStream) {
               // Use HLS.js for HLS streams (some tracks only have HLS, no progressive MP3)
+              // Support encrypted HLS via EME (Widevine/FairPlay)
               audioEl.crossOrigin = "anonymous";
-              const hls = new Hls({
+
+              const hlsConfig: Partial<Hls.Config> = {
                 enableWorker: true,
                 lowLatencyMode: false,
                 maxBufferLength: 30,
                 maxMaxBufferLength: 60,
-              });
+              };
+
+              // Configure EME for encrypted HLS streams (Widevine DRM)
+              if (stream.isEncrypted && stream.licenseUrl) {
+                hlsConfig.emeEnabled = true;
+                // @ts-expect-error — widevineLicenseUrl exists in HLS.js 1.5+ EME config
+                hlsConfig.widevineLicenseUrl = stream.licenseUrl;
+
+                // Set up license request headers
+                hlsConfig.licenseXhrSetup = (_xhr: XMLHttpRequest, _url: string) => {
+                  _xhr.withCredentials = false;
+                  if (!_xhr.getRequestHeader('Content-Type')) {
+                    _xhr.setRequestHeader('Content-Type', 'text/xml; charset=utf-8');
+                  }
+                };
+              }
+
+              const hls = new Hls(hlsConfig);
               hls.loadSource(stream.url);
               hls.attachMedia(audioEl);
               hls.on(Hls.Events.MANIFEST_PARSED, () => {
