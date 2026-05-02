@@ -1,0 +1,22 @@
+// This is your Prisma schema file.
+// If you don't have a database connection yet, this is a minimal schema to satisfy the build.
+// You can expand this later when you add your database models.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Minimal model to satisfy Prisma generate
+// Replace with your actual models when ready
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
