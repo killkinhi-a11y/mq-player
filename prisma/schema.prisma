@@ -17,6 +17,8 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   name      String?
+  role      String   @default("user")
+  username  String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
