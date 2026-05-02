@@ -15,6 +15,7 @@ import { openPiPPopup, closePiPPopup } from "@/lib/pipManager";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 import QueueView from "./QueueView";
 import Hls from "hls.js";
+import type { Config as HlsConfig } from "hls.js";
 
 interface StreamResult {
   url: string;
@@ -773,7 +774,7 @@ export default function PlayerBar() {
               // Support encrypted HLS via EME (Widevine/FairPlay)
               audioEl.crossOrigin = "anonymous";
 
-              const hlsConfig: Partial<Hls.Config> = {
+              const hlsConfig: Partial<HlsConfig> = {
                 enableWorker: true,
                 lowLatencyMode: false,
                 maxBufferLength: 30,
