@@ -985,7 +985,7 @@ async function handler(request: NextRequest) {
     const forYouArtistCount = new Map<string, number>();
     const forYouTracks: { track: SCTrack; score: number; meta: InternalTrack }[] = [];
     for (const { track, score, meta } of scoredTracks) {
-      if (forYouTracks.length >= 25) break;
+      if (forYouTracks.length >= 50) break;
       if (usedInCategory.has(track.scTrackId)) continue;
       if (meta.isFromBridgeGenre) continue;
       const artist = (track.artist || "").toLowerCase().trim();
@@ -1003,7 +1003,7 @@ async function handler(request: NextRequest) {
     const discoveryArtistCount = new Map<string, number>();
     const discoveryTracks: { track: SCTrack; score: number; meta: InternalTrack }[] = [];
     for (const { track, score, meta } of scoredTracks) {
-      if (discoveryTracks.length >= 15) break;
+      if (discoveryTracks.length >= 50) break;
       if (!meta.isFromBridgeGenre) continue;
       if (usedInCategory.has(track.scTrackId)) continue;
       const artist = (track.artist || "").toLowerCase().trim();
@@ -1170,7 +1170,7 @@ async function handler(request: NextRequest) {
     categories.push(...artistRows);
 
     // "Для вас"
-    if (forYouTracks.length >= 4) {
+    if (forYouTracks.length >= 3) {
       categories.push({
         id: "for_you",
         title: "Для вас",

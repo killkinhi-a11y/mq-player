@@ -26,12 +26,13 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   Music: <Music className="w-4 h-4" />,
 };
 
-function RecCategoryRow({ category, index, playTrack, animationsEnabled, compactMode }: {
+function RecCategoryRow({ category, index, playTrack, animationsEnabled, compactMode, onOpenAll }: {
   category: { id: string; title: string; icon: string; tracks: Track[] };
   index: number;
   playTrack: (track: Track, queue?: Track[]) => void;
   animationsEnabled: boolean;
   compactMode: boolean;
+  onOpenAll: (category: { id: string; title: string; icon: string; tracks: Track[] }) => void;
 }) {
   const Icon = ICON_MAP[category.icon] || <Sparkles className="w-4 h-4" />;
   const tracks = category.tracks;
@@ -47,9 +48,16 @@ function RecCategoryRow({ category, index, playTrack, animationsEnabled, compact
           style={{ backgroundColor: "var(--mq-accent)", opacity: 0.85 }}>
           <span style={{ color: "var(--mq-text)" }}>{Icon}</span>
         </div>
-        <h2 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>
-          {category.title}
-        </h2>
+        <button onClick={() => onOpenAll(category)} className="cursor-pointer hover:opacity-80 transition-opacity">
+          <h2 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>
+            {category.title}
+          </h2>
+        </button>
+        <button onClick={() => onOpenAll(category)}
+          className="text-xs px-2.5 py-1 rounded-full cursor-pointer transition-all hover:opacity-80"
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}>
+          Все
+        </button>
         <span className="text-xs ml-auto" style={{ color: "var(--mq-text-muted)" }}>
           {tracks.length} треков
         </span>
@@ -144,6 +152,7 @@ export default function MainView() {
   const [curatedPlaylists, setCuratedPlaylists] = useState<CuratedPlaylist[]>([]);
   const [curatedLoading, setCuratedLoading] = useState(true);
   const [selectedCurated, setSelectedCurated] = useState<CuratedPlaylist | null>(null);
+  const [selectedRecCategory, setSelectedRecCategory] = useState<{ id: string; title: string; icon: string; tracks: Track[] } | null>(null);
 
   // Build taste profile from liked tracks + history with exponential time decay
   const tasteProfile = useMemo(() => {
@@ -583,6 +592,99 @@ export default function MainView() {
     }
   }, [playTrack, shuffleArray]);
 
+  // ── Rec category detail view (for recommendation rows like "Для вас", "Открытия") ──
+  if (selectedRecCategory) {
+    const cat = selectedRecCategory;
+    return (
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24" : "p-4 lg:p-6 pb-40 lg:pb-28"} max-w-4xl mx-auto`}>
+        {/* Back button */}
+        <motion.button
+          initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
+          animate={{ opacity: 1, x: 0 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setSelectedRecCategory(null)}
+          className="flex items-center gap-2 mb-5 cursor-pointer"
+          style={{ color: "var(--mq-accent)" }}
+        >
+          <ChevronLeft className="w-5 h-5" />
+          <span className="text-sm font-medium">Назад</span>
+        </motion.button>
+
+        {/* Category header */}
+        <motion.div
+          initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl overflow-hidden relative"
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        >
+          <div className="absolute inset-0 opacity-[0.08]" style={{ background: "var(--mq-accent)" }} />
+          <div className="absolute -top-16 -left-16 w-48 h-48 rounded-full opacity-[0.10]" style={{ background: "var(--mq-accent)" }} />
+          <div className="absolute -bottom-12 -right-12 w-40 h-40 rounded-full opacity-[0.06]" style={{ background: "var(--mq-accent)" }} />
+          <div className="relative z-10 p-5 lg:p-8">
+            <div className="flex items-start gap-5">
+              <div className="w-28 h-28 lg:w-36 lg:h-36 rounded-2xl overflow-hidden flex-shrink-0 shadow-xl shadow-black/30 flex items-center justify-center"
+                style={{ background: "var(--mq-accent)", opacity: 0.7 }}>
+                <span style={{ color: "var(--mq-text)" }}>{ICON_MAP[cat.icon] || <Sparkles className="w-12 h-12" />}</span>
+              </div>
+              <div className="flex-1 min-w-0 pt-1">
+                <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: "var(--mq-text-muted)" }}>Рекомендации</p>
+                <h1 className="text-2xl lg:text-3xl font-bold mb-2 truncate" style={{ color: "var(--mq-text)" }}>
+                  {cat.title}
+                </h1>
+                <div className="flex items-center gap-3 text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="flex items-center gap-1">
+                    <Music2 className="w-3 h-3" />
+                    {cat.tracks.length} треков
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 mt-6">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => { if (cat.tracks.length > 0) playTrack(cat.tracks[0], cat.tracks); }}
+                disabled={cat.tracks.length === 0}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-40"
+                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+              >
+                <Play className="w-4 h-4" style={{ marginLeft: 1 }} />
+                Слушать
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => { if (cat.tracks.length > 0) { const s = shuffleArray(cat.tracks); playTrack(s[0], s); } }}
+                disabled={cat.tracks.length === 0}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-40"
+                style={{ backgroundColor: "var(--mq-card-hover)", color: "var(--mq-text)", border: "1px solid var(--mq-border)" }}
+              >
+                <Shuffle className="w-4 h-4" />
+                Перемешать
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Track list */}
+        <div className="mt-6">
+          {cat.tracks.length > 0 ? (
+            <div className="space-y-2">
+              {cat.tracks.map((track, i) => (
+                <TrackCard key={track.id} track={track} index={i} queue={cat.tracks} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <Music className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+              <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Нет треков</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   // ── Curated playlist detail view ──
   if (selectedCurated) {
     return (
@@ -833,7 +935,7 @@ export default function MainView() {
       {/* Smart Recommendations — Categorized Rows (Spotify-style) */}
       {!isRecLoading && recCategories.length > 0 ? (
         recCategories.slice(0, 4).map((cat, catIdx) => (
-          <RecCategoryRow key={cat.id} category={cat} index={catIdx} playTrack={playTrack} animationsEnabled={animationsEnabled} compactMode={compactMode} />
+          <RecCategoryRow key={cat.id} category={cat} index={catIdx} playTrack={playTrack} animationsEnabled={animationsEnabled} compactMode={compactMode} onOpenAll={setSelectedRecCategory} />
         ))
       ) : (
         <div>

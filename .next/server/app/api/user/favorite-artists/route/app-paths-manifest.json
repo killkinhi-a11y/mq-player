@@ -1,0 +1,3 @@
+{
+  "/api/user/favorite-artists/route": "app/api/user/favorite-artists/route.js"
+}
