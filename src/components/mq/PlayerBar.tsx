@@ -781,22 +781,32 @@ export default function PlayerBar() {
                 maxMaxBufferLength: 60,
               };
 
-              // Configure EME for encrypted HLS streams (Widevine DRM)
+              // Configure EME for encrypted HLS streams via drmSystems (HLS.js 1.5+ API)
+              // SoundCloud uses separate license endpoints per DRM system
               if (stream.isEncrypted && stream.licenseUrl) {
                 hlsConfig.emeEnabled = true;
-                hlsConfig.widevineLicenseUrl = stream.licenseUrl;
 
-                // Set up license request — Widevine uses binary octet-stream, PlayReady uses XML
+                if (stream.protocol === "ctr-encrypted-hls") {
+                  // Widevine (CTR) — Chrome/Firefox/Edge
+                  hlsConfig.drmSystems = {
+                    "com.widevine.alpha": {
+                      licenseUrl: stream.licenseUrl,
+                    },
+                  };
+                } else if (stream.protocol === "cbc-encrypted-hls") {
+                  // FairPlay (CBC) — Safari
+                  hlsConfig.drmSystems = {
+                    "com.apple.fps": {
+                      licenseUrl: stream.licenseUrl,
+                      serverCertificateUrl: stream.licenseUrl,
+                    },
+                  };
+                }
+
+                // License XHR setup — binary response for all DRM types
                 hlsConfig.licenseXhrSetup = (xhr: XMLHttpRequest) => {
                   xhr.withCredentials = false;
-                  xhr.responseType = 'arraybuffer';
-                  if (stream.protocol === 'ctr-encrypted-hls') {
-                    // Widevine (CTR) — binary challenge/response
-                    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-                  } else {
-                    // FairPlay (CBC) — XML challenge/response
-                    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                  }
+                  xhr.responseType = "arraybuffer";
                 };
               }
 
@@ -817,11 +827,18 @@ export default function PlayerBar() {
                 }
               });
               hls.on(Hls.Events.ERROR, (_event, data) => {
+                if (data.type === Hls.ErrorTypes.KEY_SYSTEM_ERROR) {
+                  console.error(`[Player] DRM/Key system error:`, data.details, data.fatal);
+                }
                 if (data.fatal) {
                   console.error(`[Player] HLS fatal error:`, data.type, data.details);
                   hls.destroy();
                   // Let the global onError handler retry
                 }
+              });
+              // Log EME events for debugging DRM playback
+              hls.on(Hls.Events.KEY_LOADING, (_event, data) => {
+                console.log(`[Player] DRM key loading for:`, data.keySystem);
               });
               // Store hls instance for cleanup
               (audioEl as any)._hlsInstance = hls;
