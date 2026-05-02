@@ -5,12 +5,9 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 /**
  * Resolve SoundCloud stream URL for a track.
  *
- * Returns the transcoding template URL — the CLIENT will resolve it
- * by fetching the template + client_id to get the actual CDN URL.
- *
- * This avoids server-side resolve failures caused by SoundCloud's
- * CloudFront returning {} from certain server IPs/regions.
- * The browser can always reach the CDN (CORS: *).
+ * The server resolves the template URL → actual CDN URL itself,
+ * so the browser never hits the SoundCloud API (which lacks CORS headers).
+ * Returns the final CDN URL directly.
  */
 
 const CLIENT_IDS = [
@@ -72,6 +69,28 @@ async function getTrackInfo(trackId: string, clientId: string) {
   };
 }
 
+/**
+ * Server-side resolve: fetch the template URL to get the actual CDN URL.
+ * Tries all client IDs since some may be rate-limited.
+ */
+async function resolveCdnUrl(templateUrl: string): Promise<string | null> {
+  for (const clientId of CLIENT_IDS) {
+    try {
+      const separator = templateUrl.includes("?") ? "&" : "?";
+      const resolveUrl = `${templateUrl}${separator}client_id=${clientId}`;
+      const res = await fetch(resolveUrl, {
+        signal: AbortSignal.timeout(8000),
+        headers: { "Accept": "application/json" },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.url) return data.url;
+      }
+    } catch {}
+  }
+  return null;
+}
+
 export const GET = withRateLimit(RATE_LIMITS.read, async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const trackId = searchParams.get("trackId");
@@ -86,17 +105,28 @@ export const GET = withRateLimit(RATE_LIMITS.read, async (request: NextRequest) 
     try {
       const info = await getTrackInfo(trackId, clientId);
       if (info) {
-        // Return the template URL + client_id — client will resolve to CDN URL
-        const separator = info.streamUrl.includes("?") ? "&" : "?";
-        const templateWithClient = `${info.streamUrl}${separator}client_id=${clientId}`;
+        // Server-side resolve: template URL → actual CDN URL
+        // This avoids CORS issues — the browser never hits SoundCloud API
+        const cdnUrl = await resolveCdnUrl(info.streamUrl);
 
+        if (cdnUrl) {
+          return NextResponse.json({
+            url: cdnUrl,
+            isHls: info.isHls,
+            isPreview: info.isPreview,
+            duration: info.duration,
+            fullDuration: info.fullDuration,
+          });
+        }
+
+        // CDN resolve failed — return null so client can handle gracefully
         return NextResponse.json({
-          // Client must fetch this URL to get the actual CDN URL
-          resolveUrl: templateWithClient,
+          url: null,
           isHls: info.isHls,
           isPreview: info.isPreview,
           duration: info.duration,
           fullDuration: info.fullDuration,
+          error: "cdn_resolve_failed",
         });
       }
     } catch {}

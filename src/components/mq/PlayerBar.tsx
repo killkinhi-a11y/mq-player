@@ -23,20 +23,11 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string
     });
     if (!res.ok) return null;
     const data = await res.json();
-    if (!data.resolveUrl) return null;
-
-    // Server returns the template URL — resolve it client-side to get actual CDN URL
-    // This avoids server-side CloudFront geo/restriction failures
-    const resolveRes = await fetch(data.resolveUrl, {
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!resolveRes.ok) return null;
-    const resolveData = await resolveRes.json();
-    const cdnUrl = resolveData.url;
-    if (!cdnUrl) return null;
+    // Server now resolves the CDN URL directly — no client-side resolve needed
+    if (!data.url) return null;
 
     return {
-      url: cdnUrl,
+      url: data.url,
       isPreview: !!data.isPreview,
       duration: data.duration || 0,
       fullDuration: data.fullDuration || 0,
@@ -47,8 +38,7 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string
   }
 }
 
-// Track whether we've already tried the direct URL fallback for a track
-const directUrlTried = new Set<number>();
+
 
 function ShareButton({ scTrackId }: { scTrackId: number }) {
   const [copied, setCopied] = useState(false);
@@ -692,7 +682,7 @@ export default function PlayerBar() {
       prevTrackIdRef.current = currentTrack.id;
       setProgress(0);
       retryCountRef.current = 0;
-      directUrlTried.clear();
+      // (diversity set removed — server resolves CDN URLs now)
     }
 
     // Cancellation flag — prevents race conditions from rapid track switching

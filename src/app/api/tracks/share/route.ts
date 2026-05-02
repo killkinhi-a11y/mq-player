@@ -83,7 +83,7 @@ async function handler(request: NextRequest) {
     const description = track.description || "";
     const duration = Math.round((track.full_duration || track.duration || 0) / 1000);
 
-    // Get stream resolve URL — the client will resolve it to get the CDN URL
+    // Get stream URL — server now resolves CDN URL directly
     let streamUrl: string | null = null;
     let previewUrl = "";
     try {
@@ -94,10 +94,10 @@ async function handler(request: NextRequest) {
       );
       if (streamRes.ok) {
         const streamData = await streamRes.json();
-        // Return the resolveUrl — client must fetch it to get the actual CDN URL
-        if (streamData.resolveUrl) streamUrl = streamData.resolveUrl;
+        // Server resolves CDN URL directly — no client-side resolve needed
+        if (streamData.url) streamUrl = streamData.url;
         if (streamData.isPreview) {
-          previewUrl = streamData.resolveUrl || "";
+          previewUrl = streamData.url || "";
         }
       }
     } catch {

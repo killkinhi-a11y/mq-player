@@ -79,7 +79,7 @@ export default function ShareTrackPage() {
     };
   }, [id]);
 
-  // Set up audio element — resolve stream URL client-side
+  // Set up audio element — streamUrl is now the CDN URL directly (server resolves it)
   useEffect(() => {
     if (!track?.streamUrl) return;
 
@@ -87,22 +87,9 @@ export default function ShareTrackPage() {
     audio.crossOrigin = "anonymous";
     audioRef.current = audio;
 
-    // streamUrl is now a resolveUrl — fetch it to get the actual CDN URL
-    const loadAudio = async () => {
-      try {
-        setIsBuffering(true);
-        const res = await fetch(track.streamUrl!, { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data.url) {
-          audio.src = data.url;
-          audio.load();
-        }
-      } catch {
-        // resolve failed
-      }
-    };
-    loadAudio();
+    // streamUrl is now the actual CDN URL — play directly
+    audio.src = track.streamUrl;
+    audio.load();
 
     const handleTimeUpdate = () => {
       if (!isDragging.current) {
