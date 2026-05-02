@@ -783,53 +783,69 @@ export default function PlayerBar() {
 
               // Configure EME for encrypted HLS streams via drmSystems (HLS.js 1.5+ API)
               // SoundCloud uses separate license endpoints per DRM system
+              // CRITICAL: SC license server has NO CORS headers — must proxy through our API
               if (stream.isEncrypted && stream.licenseUrl) {
                 hlsConfig.emeEnabled = true;
+                const proxyUrl = "/api/music/soundcloud/license-proxy";
+                const realLicenseUrl = stream.licenseUrl;
 
                 if (stream.protocol === "ctr-encrypted-hls") {
                   // Widevine (CTR) — Chrome/Firefox/Edge
                   hlsConfig.drmSystems = {
                     "com.widevine.alpha": {
-                      licenseUrl: stream.licenseUrl,
+                      licenseUrl: proxyUrl,
                     },
                   };
                 } else if (stream.protocol === "cbc-encrypted-hls") {
                   // FairPlay (CBC) — Safari
                   hlsConfig.drmSystems = {
                     "com.apple.fps": {
-                      licenseUrl: stream.licenseUrl,
+                      licenseUrl: proxyUrl,
                     },
                   };
                 }
 
-                // License XHR setup — binary request/response
-                hlsConfig.licenseXhrSetup = (xhr: XMLHttpRequest) => {
+                // Intercept XHR: wrap the CDM challenge in our proxy format
+                // HLS.js sends the raw challenge ArrayBuffer; we need to POST JSON to our proxy
+                hlsConfig.licenseXhrSetup = function (xhr: XMLHttpRequest) {
+                  const originalOpen = xhr.open.bind(xhr);
+                  const originalSend = xhr.send.bind(xhr);
+
+                  // Redirect the XHR to our proxy (same origin)
+                  originalOpen("POST", proxyUrl, true);
                   xhr.withCredentials = false;
-                  xhr.responseType = "arraybuffer";
+
+                  // Override send to wrap the challenge with the real SC license URL
+                  xhr.send = function (body: any) {
+                    const challengeBase64 = btoa(
+                      String.fromCharCode(...new Uint8Array(body as ArrayBuffer)),
+                    );
+                    const payload = JSON.stringify({
+                      licenseUrl: realLicenseUrl,
+                      challenge: challengeBase64,
+                    });
+                    originalSend(payload);
+                  };
                 };
 
-                // SoundCloud may wrap the license key in JSON — extract raw bytes
+                // Our proxy returns { license: "<base64>" } — decode it to ArrayBuffer
                 hlsConfig.licenseResponseCallback = (xhr: XMLHttpRequest): ArrayBuffer => {
-                  const raw = xhr.response as ArrayBuffer;
-                  if (!raw || raw.byteLength === 0) {
-                    console.error("[Player] Empty license response from", stream.licenseUrl);
-                    return new ArrayBuffer(0);
-                  }
-                  // Check if response is JSON-wrapped (e.g. {"license":"<base64>"})
                   try {
-                    const text = new TextDecoder().decode(raw);
-                    const json = JSON.parse(text);
-                    if (json.license) {
-                      const decoded = atob(json.license);
+                    const data = JSON.parse(xhr.responseText);
+                    if (data.license) {
+                      const decoded = atob(data.license);
                       const bytes = new Uint8Array(decoded.length);
                       for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
-                      console.log("[Player] Unwrapped JSON license response");
+                      console.log("[Player] License acquired via proxy,", bytes.length, "bytes");
                       return bytes.buffer as ArrayBuffer;
                     }
-                  } catch {
-                    // Not JSON — pass raw bytes through (standard Widevine response)
+                    if (data.error) {
+                      console.error("[Player] License proxy error:", data.error);
+                    }
+                  } catch (e) {
+                    console.error("[Player] Failed to parse license proxy response", e);
                   }
-                  return raw;
+                  return new ArrayBuffer(0);
                 };
               }
 
