@@ -912,7 +912,8 @@ async function handler(request: NextRequest) {
       });
 
       if (artistTracks.length >= 3) {
-        const selected = artistTracks.slice(0, 8);
+        // Limit to 5 tracks per artist row to avoid monotony
+        const selected = artistTracks.slice(0, 5);
         for (const { track } of selected) usedInCategory.add(track.scTrackId);
         artistRows.push({
           id: `artist_${aLower.replace(/\s+/g, '_')}`,
@@ -923,17 +924,42 @@ async function handler(request: NextRequest) {
       }
     }
 
-    // ── "Для вас" — the best overall scored tracks ──
-    const forYouTracks = scoredTracks
-      .filter(({ track, meta }) => !usedInCategory.has(track.scTrackId) && !meta.isFromBridgeGenre)
-      .slice(0, 25);
-    for (const { track } of forYouTracks) usedInCategory.add(track.scTrackId);
+    // ── "Для вас" — the best overall scored tracks with artist diversity ──
+    const forYouTracks: typeof scoredTracks = [];
+    const forYouArtistCount = new Map<string, number>();
+    const MAX_PER_ARTIST_IN_CATEGORY = 2; // Max 2 tracks per artist in each category
+    
+    for (const item of scoredTracks) {
+      if (forYouTracks.length >= 25) break;
+      if (usedInCategory.has(item.track.scTrackId)) continue;
+      if (item.meta.isFromBridgeGenre) continue;
+      
+      const artist = (item.track.artist || "").toLowerCase().trim();
+      const count = forYouArtistCount.get(artist) || 0;
+      if (count >= MAX_PER_ARTIST_IN_CATEGORY) continue;
+      
+      forYouTracks.push(item);
+      forYouArtistCount.set(artist, count + 1);
+      usedInCategory.add(item.track.scTrackId);
+    }
 
-    // ── "Открытия" — bridge genre exploration tracks ──
-    const discoveryTracks = scoredTracks
-      .filter(({ track, meta }) => meta.isFromBridgeGenre && !usedInCategory.has(track.scTrackId))
-      .slice(0, 15);
-    for (const { track } of discoveryTracks) usedInCategory.add(track.scTrackId);
+    // ── "Открытия" — bridge genre exploration tracks with artist diversity ──
+    const discoveryTracks: typeof scoredTracks = [];
+    const discoveryArtistCount = new Map<string, number>();
+    
+    for (const item of scoredTracks) {
+      if (discoveryTracks.length >= 15) break;
+      if (!item.meta.isFromBridgeGenre) continue;
+      if (usedInCategory.has(item.track.scTrackId)) continue;
+      
+      const artist = (item.track.artist || "").toLowerCase().trim();
+      const count = discoveryArtistCount.get(artist) || 0;
+      if (count >= MAX_PER_ARTIST_IN_CATEGORY) continue;
+      
+      discoveryTracks.push(item);
+      discoveryArtistCount.set(artist, count + 1);
+      usedInCategory.add(item.track.scTrackId);
+    }
 
     // ── Build flat track list (MUST always have 50 tracks) ──
     const TARGET_TRACKS = 50;
