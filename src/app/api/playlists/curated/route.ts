@@ -298,11 +298,27 @@ async function fetchSCTrackRelated(scTrackId: number): Promise<CuratedPlaylist["
 
 const MAX_TRACKS_PER_ARTIST = 2;
 
-/** Post-process: keep at most MAX_TRACKS_PER_ARTIST tracks per artist */
+/** Normalize artist name for grouping: lowercase, strip suffixes like "official", "music", "feat." etc. */
+function normalizeArtistName(raw: string): string {
+  let name = raw.toLowerCase().trim();
+  // Remove parenthetical suffixes: "(official)", "(music)", etc.
+  name = name.replace(/\s*[\(\[\{].*?[\)\]\}]\s*/g, " ").trim();
+  // Strip common SoundCloud suffixes
+  name = name.replace(/\b(official|music|records|entertainment|prod\.?|beats|sound|audio|studio|publishing|label)\b/gi, "").trim();
+  // Strip "feat.", "ft.", "vs.", "&" and everything after
+  name = name.split(/\s+(?:feat\.?|ft\.?|vs\.?|&|×|x)\s+/i)[0];
+  // Collapse whitespace and trim
+  name = name.replace(/\s+/g, " ").trim();
+  // Remove trailing dots, dashes, underscores
+  name = name.replace(/[\.\-_]+$/, "").trim();
+  return name || raw.toLowerCase().trim();
+}
+
+/** Post-process: keep at most MAX_TRACKS_PER_ARTIST tracks per artist (fuzzy match) */
 function enforceArtistDiversity(tracks: CuratedPlaylist["tracks"]): CuratedPlaylist["tracks"] {
   const artistCounts = new Map<string, number>();
   return tracks.filter(t => {
-    const artist = (t.artist || "").toLowerCase().trim();
+    const artist = normalizeArtistName(t.artist || "");
     if (!artist) return true;
     const count = artistCounts.get(artist) || 0;
     if (count >= MAX_TRACKS_PER_ARTIST) return false;
