@@ -79,7 +79,7 @@ async function handler(request: NextRequest) {
     const resolvedUrl = `${streamUrl}${separator}client_id=${clientId}`;
 
     // Try to fetch the actual redirect URL
-    let directUrl = resolvedUrl;
+    let directUrl = "";
     try {
       const redirectRes = await fetch(resolvedUrl, {
         signal: AbortSignal.timeout(8000),
@@ -90,10 +90,15 @@ async function handler(request: NextRequest) {
         directUrl = redirectData.url;
       }
     } catch {
-      // Fallback: use the resolved URL template
+      // Fallback: template URL will not work, return error
     }
 
-    // Cache the direct URL for 60 seconds (SoundCloud URLs expire within 1-2 min)
+    // If we couldn't resolve a direct CDN URL, we can't play this track
+    if (!directUrl) {
+      return NextResponse.json({ url: null, error: "resolve_failed" });
+    }
+
+    // Cache the direct URL for 15 seconds (SoundCloud URLs expire in 1-2 min)
     streamCache.set(trackId, {
       url: directUrl,
       expiry: Date.now() + 15 * 1000, // 15s — SC URLs expire fast
