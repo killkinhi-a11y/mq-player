@@ -386,6 +386,8 @@ function selectWithEnergyDiversity(
 ): Candidate[] {
   const result: Candidate[] = [];
   const used = new Set<number>();
+  const artistCount = new Map<string, number>();
+  const MAX_PER_ARTIST = 2; // Artist diversity: max 2 tracks per artist per radio batch
   const totalTarget = targetCount.min + Math.floor(Math.random() * (targetCount.max - targetCount.min + 1));
 
   const pick = (
@@ -397,6 +399,10 @@ function selectWithEnergyDiversity(
       if (result.length >= totalTarget || picked >= maxFromBucket) return;
       if (used.has(item.candidate.track.scTrackId)) continue;
       if (!filterFn(item)) continue;
+      // Artist diversity check
+      const artist = (item.candidate.track.artist || "").toLowerCase().trim();
+      if ((artistCount.get(artist) || 0) >= MAX_PER_ARTIST) continue;
+      artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
       result.push(item.candidate);
       used.add(item.candidate.track.scTrackId);
       picked++;
@@ -429,11 +435,39 @@ function selectWithEnergyDiversity(
   for (const item of scored) {
     if (result.length >= totalTarget) break;
     if (used.has(item.candidate.track.scTrackId)) continue;
+    const artist = (item.candidate.track.artist || "").toLowerCase().trim();
+    if ((artistCount.get(artist) || 0) >= MAX_PER_ARTIST) continue;
+    artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
     result.push(item.candidate);
     used.add(item.candidate.track.scTrackId);
   }
 
   return result.slice(0, totalTarget);
+}
+
+// ── Artist-aware interleaving for radio tracks ──
+function interleaveRadioTracks(tracks: Candidate[]): Candidate[] {
+  if (tracks.length <= 2) return tracks;
+  const result: Candidate[] = [];
+  const remaining = [...tracks];
+  let lastArtist: string | null = null;
+
+  while (remaining.length > 0) {
+    let pickedIdx = -1;
+    for (let i = 0; i < remaining.length; i++) {
+      const artist = (remaining[i].track.artist || "").toLowerCase().trim();
+      if (artist !== lastArtist) {
+        pickedIdx = i;
+        break;
+      }
+    }
+    // Fallback: all remaining are same artist, take the first
+    if (pickedIdx === -1) pickedIdx = 0;
+    const picked = remaining.splice(pickedIdx, 1)[0];
+    lastArtist = (picked.track.artist || "").toLowerCase().trim();
+    result.push(picked);
+  }
+  return result;
 }
 
 // ── Map candidate to output track ──────────────────────────────────────────────
@@ -701,8 +735,11 @@ async function handler(request: NextRequest) {
       max: CFG.radio.targetMax,
     });
 
+    // Interleave to prevent consecutive same-artist tracks
+    const interleaved = interleaveRadioTracks(selected);
+
     // Map to output format
-    const tracks = selected.map(mapToRadioTrack);
+    const tracks = interleaved.map(mapToRadioTrack);
 
     // ── Build response ──────────────────────────────────────────────────────
     const responseData = {

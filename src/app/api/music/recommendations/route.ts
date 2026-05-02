@@ -566,6 +566,62 @@ function shouldExcludeTrack(
   return false;
 }
 
+// ── Artist-aware interleaving to prevent consecutive same-artist tracks ──
+// Reorders tracks so that no more than `maxConsecutive` tracks from the same
+// artist appear back-to-back. Preserves the overall score ranking as much as
+// possible while improving listening variety.
+function interleaveByArtist<T extends { artist: string }>(tracks: T[], maxConsecutive: number = 1): T[] {
+  if (tracks.length <= 2) return tracks;
+
+  const result: T[] = [];
+  const recentArtists: string[] = []; // circular buffer of recent artist names
+
+  // Work with a mutable copy so we can remove picked tracks
+  const remaining = [...tracks];
+
+  while (remaining.length > 0) {
+    // Count how many of the last `maxConsecutive` entries are from the same artist
+    const tailArtist = recentArtists.length > 0
+      ? recentArtists[recentArtists.length - 1]
+      : null;
+    const consecutiveCount = tailArtist
+      ? recentArtists.filter(a => a === tailArtist).length
+      : 0;
+
+    // Find the best (first = highest score) track that is NOT from the tail artist
+    // (or is from tail artist but we haven't hit the consecutive limit)
+    let pickedIdx = -1;
+    for (let i = 0; i < remaining.length; i++) {
+      const artist = (remaining[i].artist || "").toLowerCase().trim();
+      if (artist === tailArtist) {
+        if (consecutiveCount < maxConsecutive) {
+          pickedIdx = i;
+          break;
+        }
+        // skip — too many consecutive
+      } else {
+        pickedIdx = i;
+        break;
+      }
+    }
+
+    // Fallback: if all remaining are from the same artist as tail, just take the next one
+    if (pickedIdx === -1) pickedIdx = 0;
+
+    const picked = remaining.splice(pickedIdx, 1)[0];
+    const pickedArtist = (picked.artist || "").toLowerCase().trim();
+    result.push(picked);
+
+    // Update recent artists circular buffer
+    recentArtists.push(pickedArtist);
+    if (recentArtists.length > maxConsecutive) {
+      recentArtists.shift();
+    }
+  }
+
+  return result;
+}
+
 // ── Mapped track for output (v10: includes confidence and reason) ──
 interface MappedTrack {
   id: string; title: string; artist: string; album: string;
@@ -925,15 +981,36 @@ async function handler(request: NextRequest) {
     }
 
     // ── "Для вас" — the best overall scored tracks ──
-    const forYouTracks = scoredTracks
-      .filter(({ track, meta }) => !usedInCategory.has(track.scTrackId) && !meta.isFromBridgeGenre)
-      .slice(0, 25);
+    // Apply artist diversity: no more than maxPerArtist tracks per artist in this row
+    const forYouArtistCount = new Map<string, number>();
+    const forYouTracks: { track: SCTrack; score: number; meta: InternalTrack }[] = [];
+    for (const { track, score, meta } of scoredTracks) {
+      if (forYouTracks.length >= 25) break;
+      if (usedInCategory.has(track.scTrackId)) continue;
+      if (meta.isFromBridgeGenre) continue;
+      const artist = (track.artist || "").toLowerCase().trim();
+      if ((forYouArtistCount.get(artist) || 0) >= 2) continue;
+      forYouArtistCount.set(artist, (forYouArtistCount.get(artist) || 0) + 1);
+      forYouTracks.push({ track, score, meta });
+    }
+    // Interleave to prevent consecutive same-artist tracks
+    const forYouInterleaved = interleaveByArtist(forYouTracks.map(({ track }) => track), 1);
+    const forYouInterleavedIds = new Set(forYouInterleaved.map(t => t.scTrackId));
     for (const { track } of forYouTracks) usedInCategory.add(track.scTrackId);
 
     // ── "Открытия" — bridge genre exploration tracks ──
-    const discoveryTracks = scoredTracks
-      .filter(({ track, meta }) => meta.isFromBridgeGenre && !usedInCategory.has(track.scTrackId))
-      .slice(0, 15);
+    // Apply artist diversity: no more than maxPerArtist tracks per artist
+    const discoveryArtistCount = new Map<string, number>();
+    const discoveryTracks: { track: SCTrack; score: number; meta: InternalTrack }[] = [];
+    for (const { track, score, meta } of scoredTracks) {
+      if (discoveryTracks.length >= 15) break;
+      if (!meta.isFromBridgeGenre) continue;
+      if (usedInCategory.has(track.scTrackId)) continue;
+      const artist = (track.artist || "").toLowerCase().trim();
+      if ((discoveryArtistCount.get(artist) || 0) >= 2) continue;
+      discoveryArtistCount.set(artist, (discoveryArtistCount.get(artist) || 0) + 1);
+      discoveryTracks.push({ track, score, meta });
+    }
     for (const { track } of discoveryTracks) usedInCategory.add(track.scTrackId);
 
     // ── Build flat track list (MUST always have 50 tracks) ──
@@ -951,6 +1028,12 @@ async function handler(request: NextRequest) {
       flatIds.add(track.scTrackId);
       flatTracks.push(mapTrack(track, score, meta));
     }
+
+    // ── INTERLEAVE: prevent consecutive same-artist tracks in flat list ──
+    const interleavedFlat = interleaveByArtist(flatTracks, 1);
+    // Replace flatTracks with the interleaved version
+    flatTracks.length = 0;
+    flatTracks.push(...interleavedFlat);
 
     // ── SUPPLEMENTARY PHASE: if we don't have 50, fetch more ──
     if (flatTracks.length < TARGET_TRACKS) {
@@ -1022,6 +1105,11 @@ async function handler(request: NextRequest) {
       }
     }
 
+    // ── Re-interleave after supplementary fill ──
+    const reinterleavedFlat = interleaveByArtist(flatTracks, 1);
+    flatTracks.length = 0;
+    flatTracks.push(...reinterleavedFlat);
+
     // ── v10 EXPLORATION INJECTION: self-developing discovery ──
     // Replace last 5 slots with tracks from genres the user doesn't usually listen to
     // This prevents the algorithm from becoming too narrow ("filter bubble")
@@ -1087,17 +1175,24 @@ async function handler(request: NextRequest) {
         id: "for_you",
         title: "Для вас",
         icon: "Sparkles",
-        tracks: forYouTracks.map(({ track, score, meta }) => mapTrack(track, score, meta)),
+        tracks: forYouInterleaved.map(track => {
+          const match = forYouTracks.find(({ track: t }) => t.scTrackId === track.scTrackId);
+          return match ? mapTrack(match.track, match.score, match.meta) : mapTrack(track, 0);
+        }),
       });
     }
 
-    // "Открытия"
+    // "Открытия" (interleaved)
     if (discoveryTracks.length >= 3) {
+      const discoveryInterleaved = interleaveByArtist(discoveryTracks.map(({ track }) => track), 1);
       categories.push({
         id: "discover",
         title: "Открытия",
         icon: "Compass",
-        tracks: discoveryTracks.map(({ track, score, meta }) => mapTrack(track, score, meta)),
+        tracks: discoveryInterleaved.map(track => {
+          const match = discoveryTracks.find(({ track: t }) => t.scTrackId === track.scTrackId);
+          return match ? mapTrack(match.track, match.score, match.meta) : mapTrack(track, 0);
+        }),
       });
     }
 
