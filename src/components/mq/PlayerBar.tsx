@@ -194,13 +194,6 @@ export default function PlayerBar() {
 
           let finalUrl: string | null = stream?.url || null;
 
-          // On last retry: if proxy URL failed, try direct URL (bypasses server proxy)
-          if (!finalUrl && retryCountRef.current >= maxRetries && stream?.directUrl && !directUrlTried.has(scId)) {
-            directUrlTried.add(scId);
-            console.warn(`[Player] Proxy failed, trying direct URL for track ${scId}`);
-            finalUrl = stream.directUrl;
-          }
-
           if (finalUrl) {
             const a = getActive();
             if (a) {
@@ -208,11 +201,7 @@ export default function PlayerBar() {
               const prevHls = (a as any)._hlsInstance;
               if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
 
-              if (finalUrl.startsWith('/api/')) {
-                a.crossOrigin = 'anonymous';
-              } else {
-                a.crossOrigin = '';
-              }
+              a.crossOrigin = 'anonymous';
               a.src = finalUrl;
               a.load();
               a.play().then(() => {
@@ -767,12 +756,8 @@ export default function PlayerBar() {
               }
             } else {
               // Standard progressive stream or native HLS (Safari)
-              // If using our proxy (same-origin), set crossOrigin for real frequency data
-              if (stream.url.startsWith('/api/')) {
-                audioEl.crossOrigin = "anonymous";
-              } else {
-                audioEl.crossOrigin = "";
-              }
+              // SC CDN returns CORS headers — play directly for reliability
+              audioEl.crossOrigin = "anonymous";
               audioEl.src = stream.url;
 
               // Wait for audio to be ready before playing/crossfading
