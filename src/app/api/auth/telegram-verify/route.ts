@@ -72,15 +72,65 @@ async function handler(req: NextRequest) {
         );
       }
 
-      // Check username uniqueness
+      // Check if username already exists
       const existingUsername = await db.user.findUnique({ where: { username } });
+
+      // If username exists AND has no telegramChatId → link Telegram to that account
       if (existingUsername) {
-        return NextResponse.json(
-          { error: "Пользователь с таким именем уже занят" },
-          { status: 409 }
-        );
+        if (existingUsername.telegramChatId) {
+          // That account already has Telegram linked to a different chat
+          return NextResponse.json(
+            { error: "Пользователь с таким именем уже привязан к другому Telegram" },
+            { status: 409 }
+          );
+        }
+
+        // Link Telegram to existing email-based account
+        const user = await db.$transaction(async (tx) => {
+          await tx.telegramAuthCode.update({
+            where: { id: telegramCode.id },
+            data: { used: true },
+          });
+
+          return tx.user.update({
+            where: { id: existingUsername.id },
+            data: {
+              telegramChatId: telegramCode.chatId,
+              telegramUsername: telegramCode.telegramUsername,
+              confirmed: true,
+            },
+          });
+        });
+
+        // Issue JWT — auto-login
+        const token = await signToken({
+          userId: user.id,
+          username: user.username,
+          role: user.role,
+        });
+
+        const response = NextResponse.json({
+          message: "Telegram привязан к аккаунту!",
+          userId: user.id,
+          username: user.username,
+          role: user.role,
+          avatar: user.avatar || null,
+          isNewUser: false,
+          linked: true,
+        });
+
+        response.cookies.set(SESSION_COOKIE_OPTIONS.name, token, {
+          httpOnly: SESSION_COOKIE_OPTIONS.httpOnly,
+          secure: SESSION_COOKIE_OPTIONS.secure,
+          sameSite: SESSION_COOKIE_OPTIONS.sameSite,
+          maxAge: SESSION_COOKIE_OPTIONS.maxAge,
+          path: SESSION_COOKIE_OPTIONS.path,
+        });
+
+        return response;
       }
 
+      // No existing user with this username → create new account
       // Create placeholder email (Telegram users don't need real email)
       const placeholderEmail = `tg_${telegramCode.chatId}@mqplayer.telegram`;
 
