@@ -31,6 +31,7 @@ const PublicPlaylistsView = lazy(() => import("@/components/mq/PublicPlaylistsVi
 const HistoryView = lazy(() => import("@/components/mq/HistoryView"));
 const StoriesView = lazy(() => import("@/components/mq/StoriesView"));
 const OnboardingView = lazy(() => import("@/components/mq/OnboardingView"));
+const SpatialAudioView = lazy(() => import("@/components/mq/SpatialAudioView"));
 const PlayerBar = lazy(() => import("@/components/mq/PlayerBar"));
 const FullTrackView = lazy(() => import("@/components/mq/FullTrackView"));
 const PiPPlayer = lazy(() => import("@/components/mq/PiPPlayer"));
@@ -51,7 +52,7 @@ function AppShell() {
     currentView, currentTheme, customAccent, fontSize, animationsEnabled,
     isAuthenticated, setView, searchQuery, setSearchQuery, setTheme,
     notifPanelOpen, setNotifPanelOpen, notificationCount,
-    currentStyle,
+    currentStyle, currentTrack,
   } = useAppStore();
 
   // ── Seasonal theme auto-detection from admin flags ──
@@ -236,6 +237,7 @@ function AppShell() {
       case "history": return <HistoryView />;
       case "stories": return <StoriesView />;
       case "onboarding": return <OnboardingView />;
+      case "spatial": return <SpatialAudioView currentTrack={currentTrack} />;
       default: return <MainView />;
     }
   };

@@ -27,7 +27,9 @@ if (typeof window !== "undefined") {
   }
 }
 
-export type ViewType = "auth" | "main" | "search" | "messenger" | "settings" | "profile" | "playlists" | "public-playlists" | "history" | "stories" | "onboarding";
+export type ViewType = "auth" | "main" | "search" | "messenger" | "settings" | "profile" | "playlists" | "public-playlists" | "history" | "stories" | "onboarding" | "spatial";
+
+export type Mood = "chill" | "bassy" | "melodic" | "dark" | "upbeat" | "romantic" | "aggressive" | "dreamy";
 
 export interface FavoriteArtist {
   id: number;
@@ -174,6 +176,11 @@ interface AppState {
 
   // History
   history: HistoryEntry[];
+
+  // Spatial Audio
+  spatialAudioEnabled: boolean;
+  spatialMood: Mood | null;
+  spatialAutoDetect: boolean;
 
   // Radio mode — "Моя волна" (Yandex Music style)
   radioMode: boolean;
@@ -359,6 +366,11 @@ interface AppState {
   addToHistory: (track: Track) => void;
   clearHistory: () => void;
 
+  // Spatial Audio actions
+  setSpatialAudioEnabled: (enabled: boolean) => void;
+  setSpatialMood: (mood: Mood | null) => void;
+  setSpatialAutoDetect: (enabled: boolean) => void;
+
   // Radio mode actions
   toggleRadioMode: () => void;
 
@@ -455,6 +467,11 @@ const initialState = {
 
   // Collaborative listening
   listenSession: null as any,
+
+  // Spatial Audio
+  spatialAudioEnabled: false,
+  spatialMood: null as Mood | null,
+  spatialAutoDetect: true,
 
   // Radio mode
   radioMode: false,
@@ -1319,6 +1336,11 @@ export const useAppStore = create<AppState>()(
       },
 
       clearHistory: () => set({ history: [] }),
+
+      // ── Spatial Audio actions ──
+      setSpatialAudioEnabled: (enabled) => set({ spatialAudioEnabled: enabled }),
+      setSpatialMood: (mood) => set({ spatialMood: mood }),
+      setSpatialAutoDetect: (enabled) => set({ spatialAutoDetect: enabled }),
 
       // ── Radio mode actions ──
       toggleRadioMode: () => {

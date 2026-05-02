@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
   Shuffle, Music, Loader2, PictureInPicture2, ListMusic,
-  Heart, ThumbsDown, FileText, Download, ListEnd, Share2, Waves, Brain
+  Heart, ThumbsDown, FileText, Download, ListEnd, Share2, Waves, Brain, Headphones
 } from "lucide-react";
+import { initSpatialAudio, enableSpatialAudio, setMoodPreset, detectMoodFromTrack } from "@/lib/spatialAudio";
 import { formatDuration } from "@/lib/musicApi";
 import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade } from "@/lib/audioEngine";
 import { getLocalBlobUrl } from "./SearchView";
@@ -125,6 +126,7 @@ export default function PlayerBar() {
     setPlaybackMode, requestShowSimilar, requestShowLyrics,
     toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
     upNext, currentStyle, radioMode, smartShuffle, toggleRadioMode,
+    spatialAudioEnabled, setSpatialAudioEnabled, setSpatialMood, spatialAutoDetect, spatialMood,
   } = useAppStore();
 
   const [showQueue, setShowQueue] = useState(false);
@@ -365,6 +367,32 @@ export default function PlayerBar() {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
   }, []);
+
+  // ── Spatial Audio: auto-detect mood when track changes ──
+  useEffect(() => {
+    if (!spatialAudioEnabled || !spatialAutoDetect || !currentTrack) return;
+    const mood = detectMoodFromTrack(currentTrack.title, currentTrack.genre);
+    setMoodPreset(mood);
+    setSpatialMood(mood);
+  }, [currentTrack?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Spatial Audio: enable/disable ──
+  useEffect(() => {
+    if (spatialAudioEnabled) {
+      const ok = initSpatialAudio();
+      if (ok) {
+        enableSpatialAudio(true);
+        if (currentTrack) {
+          const mood = detectMoodFromTrack(currentTrack.title, currentTrack.genre);
+          setMoodPreset(mood);
+          setSpatialMood(mood);
+        }
+      }
+    } else {
+      enableSpatialAudio(false);
+    }
+    return () => { enableSpatialAudio(false); };
+  }, [spatialAudioEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Style-Aware Canvas Visualization ──────────────────────────────────
   useEffect(() => {
@@ -1397,6 +1425,33 @@ export default function PlayerBar() {
                 style={{ backgroundColor: "var(--mq-accent)" }}
                 animate={{ scale: [1, 1.2, 1] }}
                 transition={{ repeat: Infinity, duration: 2 }}
+              />
+            )}
+          </motion.button>
+          {/* Spatial Audio Toggle */}
+          <motion.button
+            whileTap={{ scale: 0.9 }}
+            onClick={() => {
+              const st = useAppStore.getState();
+              st.setSpatialAudioEnabled(!st.spatialAudioEnabled);
+              if (!st.spatialAudioEnabled) {
+                st.setView("spatial");
+              }
+            }}
+            className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center"
+            style={{
+              color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
+            }}
+            title={spatialAudioEnabled ? "Spatial Audio — ON" : "Spatial Audio"}
+          >
+            <Headphones className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            {spatialAudioEnabled && (
+              <motion.div
+                layoutId="spatial-indicator"
+                className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+                style={{ backgroundColor: "var(--mq-accent)" }}
+                animate={{ scale: [1, 1.3, 1] }}
+                transition={{ repeat: Infinity, duration: 1.5 }}
               />
             )}
           </motion.button>

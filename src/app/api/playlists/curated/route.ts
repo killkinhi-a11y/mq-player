@@ -345,6 +345,63 @@ function enforceArtistDiversity(tracks: CuratedPlaylist["tracks"], minTarget: nu
   return tracks; // Ultimate fallback: return all tracks
 }
 
+/**
+ * Reorders tracks so that no more than `maxConsecutive` tracks from the same
+ * artist appear back-to-back. Preserves the overall score ranking as much as
+ * possible while improving listening variety.
+ */
+function interleaveByArtist<T extends { artist: string }>(tracks: T[], maxConsecutive: number = 1): T[] {
+  if (tracks.length <= 2) return tracks;
+
+  const result: T[] = [];
+  const recentArtists: string[] = []; // circular buffer of recent artist names
+
+  // Work with a mutable copy so we can remove picked tracks
+  const remaining = [...tracks];
+
+  while (remaining.length > 0) {
+    // Count how many of the last `maxConsecutive` entries are from the same artist
+    const tailArtist = recentArtists.length > 0
+      ? recentArtists[recentArtists.length - 1]
+      : null;
+    const consecutiveCount = tailArtist
+      ? recentArtists.filter(a => a === tailArtist).length
+      : 0;
+
+    // Find the best (first = highest score) track that is NOT from the tail artist
+    // (or is from tail artist but we haven't hit the consecutive limit)
+    let pickedIdx = -1;
+    for (let i = 0; i < remaining.length; i++) {
+      const artist = (remaining[i].artist || "").toLowerCase().trim();
+      if (artist === tailArtist) {
+        if (consecutiveCount < maxConsecutive) {
+          pickedIdx = i;
+          break;
+        }
+        // skip — too many consecutive
+      } else {
+        pickedIdx = i;
+        break;
+      }
+    }
+
+    // Fallback: if all remaining are from the same artist as tail, just take the next one
+    if (pickedIdx === -1) pickedIdx = 0;
+
+    const picked = remaining.splice(pickedIdx, 1)[0];
+    const pickedArtist = (picked.artist || "").toLowerCase().trim();
+    result.push(picked);
+
+    // Update recent artists circular buffer
+    recentArtists.push(pickedArtist);
+    if (recentArtists.length > maxConsecutive) {
+      recentArtists.shift();
+    }
+  }
+
+  return result;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Track deduplication & search helpers                               */
 /* ------------------------------------------------------------------ */
@@ -933,6 +990,11 @@ async function handler(req: NextRequest) {
           },
         });
       }
+    }
+
+    // Interleave tracks in all playlists to prevent consecutive same-artist tracks
+    for (const playlist of playlists) {
+      playlist.tracks = interleaveByArtist(playlist.tracks, 1);
     }
 
     cache.set(cacheKey, { playlists, timestamp: Date.now() });

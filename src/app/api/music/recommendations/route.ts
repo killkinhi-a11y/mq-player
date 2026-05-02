@@ -958,7 +958,8 @@ async function handler(request: NextRequest) {
 
     // ── "Похожие на {artist}" — up to 3 rows, one per top artist ──
     const artistRows: { id: string; title: string; icon: string; tracks: MappedTrack[] }[] = [];
-    const maxTracksPerArtistInRow = CFG.diversity.maxPerArtist; // Respect diversity limit in artist rows too
+    // Each artist row gets up to 50 tracks for the detail view
+    const maxTracksPerArtistInRow = CFG.curated.trackLimit;
 
     for (const artist of artists.slice(0, 3)) {
       const aLower = artist.toLowerCase().trim();
@@ -968,8 +969,18 @@ async function handler(request: NextRequest) {
           && !usedInCategory.has(track.scTrackId);
       });
 
+      // Lower minimum threshold since we want more content
       if (artistTracks.length >= 3) {
-        const selected = artistTracks.slice(0, maxTracksPerArtistInRow);
+        // Relax artist diversity limit for artist-specific rows (allow up to 10 per artist since it's their own row)
+        let artistLocalCount = new Map<string, number>();
+        const selected: typeof artistTracks = [];
+        for (const item of artistTracks) {
+          if (selected.length >= maxTracksPerArtistInRow) break;
+          const a = (item.track.artist || "").toLowerCase().trim();
+          if ((artistLocalCount.get(a) || 0) >= 10) continue;
+          artistLocalCount.set(a, (artistLocalCount.get(a) || 0) + 1);
+          selected.push(item);
+        }
         for (const { track } of selected) usedInCategory.add(track.scTrackId);
         artistRows.push({
           id: `artist_${aLower.replace(/\s+/g, '_')}`,
