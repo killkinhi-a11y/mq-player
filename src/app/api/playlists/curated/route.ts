@@ -314,17 +314,28 @@ function normalizeArtistName(raw: string): string {
   return name || raw.toLowerCase().trim();
 }
 
-/** Post-process: keep at most MAX_TRACKS_PER_ARTIST tracks per artist (fuzzy match) */
-function enforceArtistDiversity(tracks: CuratedPlaylist["tracks"]): CuratedPlaylist["tracks"] {
-  const artistCounts = new Map<string, number>();
-  return tracks.filter(t => {
-    const artist = normalizeArtistName(t.artist || "");
-    if (!artist) return true;
-    const count = artistCounts.get(artist) || 0;
-    if (count >= MAX_TRACKS_PER_ARTIST) return false;
-    artistCounts.set(artist, count + 1);
-    return true;
-  });
+/**
+ * Post-process: keep at most MAX_TRACKS_PER_ARTIST tracks per artist (fuzzy match).
+ * If enforcing diversity drops us below minTarget, relax the limit to 3 per artist.
+ * If still below, relax to 4, then 5 — never let diversity drop us below minTarget.
+ */
+function enforceArtistDiversity(tracks: CuratedPlaylist["tracks"], minTarget: number = 50): CuratedPlaylist["tracks"] {
+  for (const maxPerArtist of [MAX_TRACKS_PER_ARTIST, 3, 4, 5, 10]) {
+    const artistCounts = new Map<string, number>();
+    const filtered = tracks.filter(t => {
+      const artist = normalizeArtistName(t.artist || "");
+      if (!artist) return true;
+      const count = artistCounts.get(artist) || 0;
+      if (count >= maxPerArtist) return false;
+      artistCounts.set(artist, count + 1);
+      return true;
+    });
+    // If we have enough tracks, return
+    if (filtered.length >= minTarget || maxPerArtist >= 10) {
+      return filtered;
+    }
+  }
+  return tracks; // Ultimate fallback: return all tracks
 }
 
 /* ------------------------------------------------------------------ */
@@ -352,6 +363,7 @@ function mapSCTrack(t: Awaited<ReturnType<typeof searchSCTracks>>[0]): CuratedPl
 /**
  * Search SoundCloud, filter for quality, deduplicate, up to `limit` tracks.
  * Optionally exclude disliked genres from results.
+ * After initial search, if under limit, performs fallback broadened searches.
  */
 async function searchAndCollect(
   queries: string[],
@@ -385,17 +397,48 @@ async function searchAndCollect(
     return true;
   };
 
+  // Phase 1: Run all provided queries
   for (const query of queries) {
     if (allTracks.length >= limit) break;
     try {
       const remaining = limit - allTracks.length;
-      const fetchLimit = Math.min(50, Math.max(15, remaining));
+      const fetchLimit = Math.min(50, Math.max(20, remaining));
       const results = await searchSCTracks(query, fetchLimit);
       for (const t of results) {
         if (allTracks.length >= limit) break;
         addTrack(mapSCTrack(t));
       }
     } catch {}
+  }
+
+  // Phase 2: If still under 80% of limit, broaden with generic fallback queries
+  if (allTracks.length < Math.floor(limit * 0.8)) {
+    const fallbackQueries = [
+      "new music 2025",
+      "trending tracks",
+      "best songs 2025",
+      "popular music",
+      "top hits this week",
+      "indie new releases",
+      "chill vibes",
+      "underground music",
+      "viral songs",
+      "fresh releases",
+    ];
+    // Shuffle fallback queries for diversity
+    const shuffled = fallbackQueries.sort(() => Math.random() - 0.5);
+    for (const query of shuffled) {
+      if (allTracks.length >= limit) break;
+      try {
+        const remaining = limit - allTracks.length;
+        const fetchLimit = Math.min(50, Math.max(20, remaining));
+        const results = await searchSCTracks(query, fetchLimit);
+        for (const t of results) {
+          if (allTracks.length >= limit) break;
+          addTrack(mapSCTrack(t));
+        }
+      } catch {}
+    }
   }
 
   return allTracks;
@@ -425,9 +468,14 @@ async function buildForYouPlaylist(
 ): Promise<CuratedPlaylist["tracks"]> {
   if (topArtists.length === 0) return [];
 
-  const queries = topArtists.slice(0, 6).map(a => a.trim());
+  // Search each artist individually + add "best of" and "new" variants
+  const queries = topArtists.slice(0, 6).flatMap(a => [
+    a.trim(),
+    `${a.trim()} best of`,
+    `${a.trim()} new`,
+  ]);
   const tracks = await searchAndCollect(queries, TRACK_LIMIT);
-  return enforceArtistDiversity(sortTracksByPlayability(tracks));
+  return enforceArtistDiversity(sortTracksByPlayability(tracks), TRACK_LIMIT);
 }
 
 /** "Ваш микс" — Mix of top 2-3 genres combined with top artists */
@@ -457,28 +505,29 @@ async function buildYourMixPlaylist(
     }
   }
 
-  // Fallback to single genres if no combos possible
-  if (queries.length === 0) {
-    for (const g of topGenres.slice(0, 3)) {
-      queries.push(`${g} mix`);
-    }
+  // Single genre mixes as extra queries for broader coverage
+  for (const g of topGenres.slice(0, 4)) {
+    queries.push(`${g} mix`);
+    queries.push(`${g} hits`);
   }
+
+  // Fallback
   if (queries.length === 0) {
     queries.push("popular music mix", "top hits 2025");
   }
 
-  const tracks = await searchAndCollect(queries.slice(0, 5), TRACK_LIMIT);
-  return enforceArtistDiversity(sortTracksByPlayability(tracks));
+  const tracks = await searchAndCollect(queries.slice(0, 10), TRACK_LIMIT);
+  return enforceArtistDiversity(sortTracksByPlayability(tracks), TRACK_LIMIT);
 }
 
-/** "Похожее" — Use SoundCloud related API for liked track IDs */
+/** "Похожее" — Use SoundCloud related API for liked track IDs, pad with searches */
 async function buildSimilarPlaylist(
   likedScIds: number[],
 ): Promise<CuratedPlaylist["tracks"]> {
   if (likedScIds.length === 0) return [];
 
-  // Use up to 3 liked track IDs for related API
-  const idsToUse = likedScIds.slice(0, 3);
+  // Use up to 5 liked track IDs for related API (increased from 3)
+  const idsToUse = likedScIds.slice(0, 5);
   const relatedResults = await Promise.allSettled(
     idsToUse.map(id => fetchSCTrackRelated(id))
   );
@@ -499,13 +548,39 @@ async function buildSimilarPlaylist(
     if (allTracks.length >= TRACK_LIMIT) break;
   }
 
-  // If we got fewer than 10 tracks from related API, pad with search-based similar queries
-  if (allTracks.length < 10 && likedScIds.length > 0) {
-    // We don't have the track titles here, so we can't search by track name.
-    // The related API results are sufficient.
+  // If under 50, pad with broad search-based queries
+  if (allTracks.length < TRACK_LIMIT) {
+    const padQueries = [
+      "similar music recommendation",
+      "songs like popular hits",
+      "indie recommendations",
+      "chill electronic mix",
+      "underground hip hop new",
+      "alternative rock new",
+      "lofi beats new",
+      "pop hits 2025",
+    ];
+    const shuffled = padQueries.sort(() => Math.random() - 0.5);
+    for (const query of shuffled) {
+      if (allTracks.length >= TRACK_LIMIT) break;
+      try {
+        const remaining = TRACK_LIMIT - allTracks.length;
+        const fetchLimit = Math.min(50, Math.max(20, remaining));
+        const results = await searchSCTracks(query, fetchLimit);
+        for (const raw of results) {
+          if (allTracks.length >= TRACK_LIMIT) break;
+          const t = mapSCTrack(raw);
+          const key = String(t.scTrackId);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          if (!passesQualityFilter(t)) continue;
+          allTracks.push(t);
+        }
+      } catch {}
+    }
   }
 
-  return enforceArtistDiversity(sortTracksByPlayability(allTracks));
+  return enforceArtistDiversity(sortTracksByPlayability(allTracks), TRACK_LIMIT);
 }
 
 /** "Открытия дня" — Bridge genres (1 hop away from user's top genres) */
@@ -513,30 +588,30 @@ async function buildDiscoveriesPlaylist(
   topGenres: string[],
 ): Promise<CuratedPlaylist["tracks"]> {
   if (topGenres.length === 0) {
-    // Fallback: generic discovery
-    return searchAndCollect(
-      ["indie alternative 2025", "emerging artists", "underground new"],
+    const tracks = await searchAndCollect(
+      ["indie alternative 2025", "emerging artists", "underground new", "new releases 2025"],
       TRACK_LIMIT
     );
+    return enforceArtistDiversity(sortTracksByPlayability(tracks), TRACK_LIMIT);
   }
 
   const bridges = getBridgeGenres(topGenres);
   if (bridges.length === 0) {
-    return searchAndCollect(
-      ["indie alternative 2025", "emerging artists", "underground new"],
+    const tracks = await searchAndCollect(
+      ["indie alternative 2025", "emerging artists", "underground new", "new releases 2025"],
       TRACK_LIMIT
     );
+    return enforceArtistDiversity(sortTracksByPlayability(tracks), TRACK_LIMIT);
   }
 
   // Build queries from bridge genres — use their specific queries if available
   const queries: string[] = [];
-  for (const bridge of bridges.slice(0, 4)) {
+  for (const bridge of bridges.slice(0, 6)) {
     const genreQueries = GENRE_QUERIES[normalizeGenre(bridge)];
     if (genreQueries && genreQueries.length > 0) {
-      // Use 2-3 queries from this bridge genre
-      queries.push(...genreQueries.slice(0, 2));
+      queries.push(...genreQueries);
     } else {
-      queries.push(`${bridge} 2025`, `best ${bridge}`);
+      queries.push(`${bridge} 2025`, `best ${bridge}`, `${bridge} new`);
     }
   }
 
@@ -544,8 +619,8 @@ async function buildDiscoveriesPlaylist(
     queries.push("indie alternative 2025", "emerging artists");
   }
 
-  const tracks = await searchAndCollect(queries.slice(0, 6), TRACK_LIMIT);
-  return enforceArtistDiversity(sortTracksByPlayability(tracks));
+  const tracks = await searchAndCollect(queries.slice(0, 12), TRACK_LIMIT);
+  return enforceArtistDiversity(sortTracksByPlayability(tracks), TRACK_LIMIT);
 }
 
 /** Genre-specific playlists — only for user's actual top genres, max 4 */
@@ -588,7 +663,7 @@ async function buildGenrePlaylists(
 
     genrePlaylists.push({
       config,
-      buildPromise: searchAndCollect(queries, TRACK_LIMIT).then(t => enforceArtistDiversity(sortTracksByPlayability(t))),
+      buildPromise: searchAndCollect(queries, TRACK_LIMIT).then(t => enforceArtistDiversity(sortTracksByPlayability(t), TRACK_LIMIT)),
     });
   }
 
@@ -609,6 +684,9 @@ async function buildPopularPlaylist(
       "популярная русская музыка",
       "русские хиты 2025",
       "российская музыка новый",
+      "русская поп музыка",
+      "русский хип-хоп",
+      "российские треки",
     ];
   } else if (lang === "english") {
     queries = [
@@ -617,6 +695,9 @@ async function buildPopularPlaylist(
       "chart music",
       "viral hits",
       "mainstream hits",
+      "billboard top 100",
+      "spotify top hits",
+      "new music friday",
     ];
   } else {
     // Mixed / no preference
@@ -626,11 +707,14 @@ async function buildPopularPlaylist(
       "viral hits",
       "chart toppers",
       "best songs 2025",
+      "global hits",
+      "world music popular",
+      "trending worldwide",
     ];
   }
 
   const tracks = await searchAndCollect(queries, TRACK_LIMIT, dislikedGenres);
-  return enforceArtistDiversity(sortTracksByPlayability(tracks));
+  return enforceArtistDiversity(sortTracksByPlayability(tracks), TRACK_LIMIT);
 }
 
 /* ------------------------------------------------------------------ */

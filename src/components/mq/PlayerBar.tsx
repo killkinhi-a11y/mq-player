@@ -784,6 +784,10 @@ export default function PlayerBar() {
               // Configure EME for encrypted HLS streams via drmSystems (HLS.js 1.5+ API)
               // SoundCloud uses separate license endpoints per DRM system
               // CRITICAL: SC license server has NO CORS headers — must proxy through our API
+              //
+              // HLS.js 1.6 sets xhr.responseType='arraybuffer' BEFORE calling licenseXhrSetup,
+              // so xhr.responseText is UNAVAILABLE in licenseResponseCallback.
+              // We must read xhr.response (ArrayBuffer) and decode it manually.
               if (stream.isEncrypted && stream.licenseUrl) {
                 hlsConfig.emeEnabled = true;
                 const proxyUrl = "/api/music/soundcloud/license-proxy";
@@ -805,20 +809,27 @@ export default function PlayerBar() {
                   };
                 }
 
-                // Intercept XHR: wrap the CDM challenge in our proxy format
-                // HLS.js sends the raw challenge ArrayBuffer; we need to POST JSON to our proxy
-                hlsConfig.licenseXhrSetup = function (xhr: XMLHttpRequest) {
+                // Intercept XHR: wrap the CDM challenge in our proxy format.
+                // HLS.js 1.6 calls: setupLicenseXHR() → licenseXhrSetup(xhr, url, ctx, challenge)
+                // After our callback, it sends the challenge (or our return value) via xhr.send().
+                // We override send to POST JSON { licenseUrl, challenge } to our proxy.
+                // HLS.js 1.6 signature: (xhr, url, keyContext, licenseChallenge)
+                hlsConfig.licenseXhrSetup = function (xhr: XMLHttpRequest, _url: string, _ctx: any, _challenge: Uint8Array) {
                   const originalOpen = xhr.open.bind(xhr);
                   const originalSend = xhr.send.bind(xhr);
 
-                  // Redirect the XHR to our proxy (same origin)
+                  // Re-open XHR pointing to our same-origin proxy
                   originalOpen("POST", proxyUrl, true);
                   xhr.withCredentials = false;
 
-                  // Override send to wrap the challenge with the real SC license URL
+                  // Set Content-Type so our proxy can parse JSON body
+                  try { xhr.setRequestHeader("Content-Type", "application/json"); } catch {}
+
+                  // Override send: wrap raw binary challenge as base64 JSON for our proxy
                   xhr.send = function (body: any) {
+                    const rawBody = body instanceof ArrayBuffer ? new Uint8Array(body) : new Uint8Array(body);
                     const challengeBase64 = btoa(
-                      String.fromCharCode(...new Uint8Array(body as ArrayBuffer)),
+                      String.fromCharCode(...rawBody),
                     );
                     const payload = JSON.stringify({
                       licenseUrl: realLicenseUrl,
@@ -828,10 +839,19 @@ export default function PlayerBar() {
                   };
                 };
 
-                // Our proxy returns { license: "<base64>" } — decode it to ArrayBuffer
+                // Our proxy returns { license: "<base64>" } — decode to ArrayBuffer.
+                // CRITICAL: xhr.responseType is 'arraybuffer' (set by HLS.js before our setup),
+                // so we MUST use xhr.response, NOT xhr.responseText (which is empty/throws).
                 hlsConfig.licenseResponseCallback = (xhr: XMLHttpRequest): ArrayBuffer => {
                   try {
-                    const data = JSON.parse(xhr.responseText);
+                    // Decode the ArrayBuffer response to a string, then parse JSON
+                    const responseBuf = xhr.response as ArrayBuffer;
+                    if (!responseBuf || responseBuf.byteLength === 0) {
+                      console.error("[Player] Empty license response");
+                      return new ArrayBuffer(0);
+                    }
+                    const responseText = new TextDecoder().decode(new Uint8Array(responseBuf));
+                    const data = JSON.parse(responseText);
                     if (data.license) {
                       const decoded = atob(data.license);
                       const bytes = new Uint8Array(decoded.length);
