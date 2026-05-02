@@ -201,10 +201,10 @@ export default function PlayerBar() {
       setPlayError(false);
       crossfadeRef.current = false;
       const st = useAppStore.getState();
-      // Record track completion for feedback
       const currentTrackId = st.currentTrack?.id;
-      if (currentTrackId) {
-        useAppStore.getState().recordComplete(currentTrackId, st.progress || 0);
+      // Record track completion for feedback (only ONCE — not in both branches)
+      if (currentTrackId && st.progress > 0) {
+        useAppStore.getState().recordComplete(currentTrackId, st.progress);
       }
       if (st.repeat === "one") {
         const a = getActive();
@@ -214,10 +214,6 @@ export default function PlayerBar() {
           setProgressRef.current(0);
         }
       } else {
-        const st2 = useAppStore.getState();
-        if (st2.currentTrack?.id && st2.progress > 0) {
-          st2.recordComplete(st2.currentTrack.id, st2.progress);
-        }
         nextTrackRef.current();
       }
     };
