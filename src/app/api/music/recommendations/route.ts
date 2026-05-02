@@ -902,6 +902,7 @@ async function handler(request: NextRequest) {
 
     // ── "Похожие на {artist}" — up to 3 rows, one per top artist ──
     const artistRows: { id: string; title: string; icon: string; tracks: MappedTrack[] }[] = [];
+    const maxTracksPerArtistInRow = CFG.diversity.maxPerArtist; // Respect diversity limit in artist rows too
 
     for (const artist of artists.slice(0, 3)) {
       const aLower = artist.toLowerCase().trim();
@@ -912,7 +913,7 @@ async function handler(request: NextRequest) {
       });
 
       if (artistTracks.length >= 3) {
-        const selected = artistTracks.slice(0, 8);
+        const selected = artistTracks.slice(0, maxTracksPerArtistInRow);
         for (const { track } of selected) usedInCategory.add(track.scTrackId);
         artistRows.push({
           id: `artist_${aLower.replace(/\s+/g, '_')}`,
