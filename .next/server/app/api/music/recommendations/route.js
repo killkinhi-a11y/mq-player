@@ -1,7 +1,7 @@
 var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/music/recommendations/route.js")
-R.c("server/chunks/[root-of-the-server]__0rgqgmf._.js")
-R.c("server/chunks/[root-of-the-server]__0j8-xkl._.js")
-R.c("server/chunks/node_modules_next_dist_esm_build_templates_app-route_04si1-w.js")
-R.c("server/chunks/_next-internal_server_app_api_music_recommendations_route_actions_0lbavsq.js")
-R.m(74708)
-module.exports=R.m(74708).exports
+R.c("server/chunks/[root-of-the-server]__08f1l4y._.js")
+R.c("server/chunks/[root-of-the-server]__000x9bv._.js")
+R.c("server/chunks/0uu7_next_dist_esm_build_templates_app-route_0-qjj05.js")
+R.c("server/chunks/0.j3__next-internal_server_app_api_music_recommendations_route_actions_0gqi-7g.js")
+R.m(24520)
+module.exports=R.m(24520).exports

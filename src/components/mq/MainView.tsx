@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
+import HeroParticles from "./HeroParticles";
 
 interface CuratedPlaylist {
   id: string;
@@ -109,6 +110,133 @@ function RecCategoryRow({ category, index, playTrack, animationsEnabled, compact
   );
 }
 
+// ── 3D Tilt Card (mouse-following perspective) ──
+function TiltCard({ children, className, style, onClick }: {
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+  onClick?: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const x = useMotionValue(0.5);
+  const y = useMotionValue(0.5);
+
+  const rotateX = useSpring(useTransform(y, [0, 1], [6, -6]), { stiffness: 300, damping: 30 });
+  const rotateY = useSpring(useTransform(x, [0, 1], [-6, 6]), { stiffness: 300, damping: 30 });
+
+  const handleMouse = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    x.set((e.clientX - rect.left) / rect.width);
+    y.set((e.clientY - rect.top) / rect.height);
+  }, [x, y]);
+
+  const handleLeave = useCallback(() => {
+    x.set(0.5);
+    y.set(0.5);
+  }, [x, y]);
+
+  return (
+    <motion.div
+      ref={ref}
+      onMouseMove={handleMouse}
+      onMouseLeave={handleLeave}
+      onClick={onClick}
+      style={{
+        ...style,
+        rotateX,
+        rotateY,
+        transformStyle: "preserve-3d",
+        perspective: 600,
+      }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+// ── Mood/Genre Quick Tag ──
+function MoodTag({ label, icon, onClick, active }: {
+  label: string;
+  icon: React.ReactNode;
+  onClick?: () => void;
+  active?: boolean;
+}) {
+  return (
+    <motion.button
+      whileHover={{ scale: 1.08, y: -2 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-all duration-200"
+      style={{
+        backgroundColor: active ? "var(--mq-accent)" : "var(--mq-card)",
+        color: active ? "var(--mq-text)" : "var(--mq-text-muted)",
+        border: `1px solid ${active ? "var(--mq-accent)" : "var(--mq-border)"}`,
+        boxShadow: active ? "0 2px 12px rgba(0,0,0,0.3)" : "none",
+      }}
+    >
+      {icon}
+      {label}
+    </motion.button>
+  );
+}
+
+// ── Animated Listening Stats Bar ──
+function ListeningActivityBar({ history }: { history: any[] }) {
+  const [bars, setBars] = useState<{ day: string; count: number; height: number; isToday: boolean }[]>([]);
+
+  useEffect(() => {
+    if (!history || history.length === 0) { setBars([]); return; }
+    const now = Date.now();
+    const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+    const dayCounts: number[] = new Array(7).fill(0);
+
+    for (const entry of history) {
+      const age = now - entry.playedAt;
+      if (age < 7 * 24 * 60 * 60 * 1000) {
+        const dayIdx = new Date(entry.playedAt).getDay();
+        const mappedIdx = dayIdx === 0 ? 6 : dayIdx - 1; // Mon=0 .. Sun=6
+        dayCounts[mappedIdx]++;
+      }
+    }
+
+    const maxCount = Math.max(...dayCounts, 1);
+    const todayIdx = (new Date().getDay() + 6) % 7;
+
+    setBars(dayNames.map((day, i) => ({
+      day,
+      count: dayCounts[i],
+      height: Math.max(4, (dayCounts[i] / maxCount) * 100),
+      isToday: i === todayIdx,
+    })));
+  }, [history]);
+
+  if (bars.length === 0) return null;
+
+  return (
+    <div className="flex items-end gap-1.5 h-16">
+      {bars.map((bar, i) => (
+        <div key={i} className="flex flex-col items-center gap-1 flex-1">
+          <motion.div
+            initial={{ height: 4 }}
+            animate={{ height: bar.height }}
+            transition={{ delay: i * 0.06, duration: 0.5, ease: "easeOut" }}
+            className="w-full rounded-sm"
+            style={{
+              backgroundColor: bar.isToday ? "var(--mq-accent)" : "var(--mq-border)",
+              opacity: bar.isToday ? 1 : 0.5,
+              minHeight: 4,
+            }}
+          />
+          <span className="text-[9px]" style={{ color: bar.isToday ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
+            {bar.day}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function getGreeting(): string {
   const hour = new Date().getHours();
   if (hour >= 5 && hour < 12) return "Доброе утро!";
@@ -140,7 +268,8 @@ function detectLang(text: string): "russian" | "english" | "latin" | "other" {
 export default function MainView() {
   const {
     animationsEnabled, playTrack, likedTrackIds, dislikedTrackIds, likedTracksData, dislikedTracksData,
-    history, playlists, setView, contacts, messages, userId, compactMode,
+    history, playlists, setView, contacts, messages, userId, compactMode, currentTrack, isPlaying,
+    setSearchQuery,
   } = useAppStore();
 
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
@@ -153,6 +282,7 @@ export default function MainView() {
   const [curatedLoading, setCuratedLoading] = useState(true);
   const [selectedCurated, setSelectedCurated] = useState<CuratedPlaylist | null>(null);
   const [selectedRecCategory, setSelectedRecCategory] = useState<{ id: string; title: string; icon: string; tracks: Track[] } | null>(null);
+  const [activeMood, setActiveMood] = useState<string | null>(null);
 
   // Build taste profile from liked tracks + history with exponential time decay
   const tasteProfile = useMemo(() => {
@@ -803,48 +933,186 @@ export default function MainView() {
 
   return (
     <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-4xl mx-auto`}>
-      {/* Hero */}
+      {/* Hero — Interactive with particles */}
       <motion.div
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         className={`rounded-2xl ${compactMode ? "p-4 lg:p-5" : "p-6 lg:p-8"} relative overflow-hidden`}
         style={{ background: "var(--mq-gradient), var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
-        <div className="relative z-10">
+        {/* Particle background */}
+        <div className="absolute inset-0 rounded-2xl overflow-hidden" style={{ zIndex: 0 }}>
+          <HeroParticles />
+        </div>
+
+        {/* Decorative gradient orbs */}
+        <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full opacity-[0.06] pointer-events-none"
+          style={{ background: "var(--mq-accent)", filter: "blur(40px)", zIndex: 0 }} />
+        <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full opacity-[0.04] pointer-events-none"
+          style={{ background: "var(--mq-accent)", filter: "blur(30px)", zIndex: 0 }} />
+
+        <div className="relative" style={{ zIndex: 2 }}>
           <h1 className={`${compactMode ? "text-xl lg:text-2xl" : "text-2xl lg:text-3xl"} font-bold`} style={{ color: "var(--mq-text)" }}>
             {getGreeting()}
           </h1>
+          <p className="text-sm lg:text-base mt-1" style={{ color: "var(--mq-text-muted)" }}>
+            {getGreetingSubtext()}
+          </p>
+
+          {/* Now Playing mini-widget */}
+          {currentTrack && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mt-4 flex items-center gap-3 p-3 rounded-xl cursor-pointer group"
+              style={{
+                backgroundColor: "rgba(0,0,0,0.25)",
+                border: "1px solid var(--mq-border)",
+                backdropFilter: "blur(12px)",
+              }}
+              onClick={() => {/* expand full player — handled by PlayerBar */}}
+            >
+              <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 shadow-lg shadow-black/40">
+                {currentTrack.cover ? (
+                  <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}>
+                    <Music className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+                  {currentTrack.title}
+                </p>
+                <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                  {currentTrack.artist}
+                </p>
+              </div>
+              {/* Animated equalizer bars */}
+              <div className="flex items-end gap-0.5 h-5">
+                {[0, 1, 2, 3].map((i) => (
+                  <motion.div
+                    key={i}
+                    animate={isPlaying ? {
+                      height: [4, 14, 8, 18, 6, 12, 4],
+                    } : { height: 4 }}
+                    transition={isPlaying ? {
+                      duration: 0.8 + i * 0.15,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay: i * 0.1,
+                    } : {}}
+                    className="w-[3px] rounded-full"
+                    style={{ backgroundColor: "var(--mq-accent)" }}
+                  />
+                ))}
+              </div>
+            </motion.div>
+          )}
         </div>
-        <p className="text-sm lg:text-base" style={{ color: "var(--mq-text-muted)" }}>
-          {getGreetingSubtext()}
-        </p>
       </motion.div>
 
-      {/* Quick stats - CLICKABLE */}
+      {/* Quick stats - CLICKABLE with 3D Tilt */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((stat, i) => (
-          <motion.button
+          <TiltCard
             key={stat.label}
-            initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
             onClick={stat.onClick}
-            className="rounded-xl p-4 flex items-center gap-3 text-left transition-all duration-200 cursor-pointer"
+            className={`rounded-xl p-4 flex items-center gap-3 text-left transition-all duration-200 cursor-pointer ${compactMode ? "" : ""}`}
             style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
           >
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: "var(--mq-accent)", opacity: 0.8 }}>
-              <stat.icon className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>{stat.label}</p>
-              <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{stat.value}</p>
-            </div>
-          </motion.button>
+            <motion.div
+              initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="contents"
+            >
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: "var(--mq-accent)", opacity: 0.8 }}>
+                <stat.icon className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>{stat.label}</p>
+                <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{stat.value}</p>
+              </div>
+            </motion.div>
+          </TiltCard>
         ))}
       </div>
+
+      {/* Quick mood/genre tags */}
+      <motion.div
+        initial={animationsEnabled ? { opacity: 0, y: 15 } : undefined}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+      >
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+          <MoodTag
+            label="Для тебя"
+            icon={<Sparkles className="w-3.5 h-3.5" />}
+            active={activeMood === null}
+            onClick={() => setActiveMood(null)}
+          />
+          <MoodTag
+            label="Энергия"
+            icon={<Zap className="w-3.5 h-3.5" />}
+            active={activeMood === "energy"}
+            onClick={() => { setActiveMood(activeMood === "energy" ? null : "energy"); }}
+          />
+          <MoodTag
+            label="Чилл"
+            icon={<Headphones className="w-3.5 h-3.5" />}
+            active={activeMood === "chill"}
+            onClick={() => { setActiveMood(activeMood === "chill" ? null : "chill"); }}
+          />
+          <MoodTag
+            label="Радио"
+            icon={<Radio className="w-3.5 h-3.5" />}
+            active={activeMood === "radio"}
+            onClick={() => { setActiveMood(activeMood === "radio" ? null : "radio"); }}
+          />
+          {tasteProfile.topGenres.slice(0, 3).map((genre) => (
+            <MoodTag
+              key={genre}
+              label={genre}
+              icon={<Flame className="w-3.5 h-3.5" />}
+              active={activeMood === genre}
+              onClick={() => {
+                const newMood = activeMood === genre ? null : genre;
+                setActiveMood(newMood);
+                if (newMood) {
+                  setSearchQuery(genre);
+                  setView("search");
+                }
+              }}
+            />
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Listening Activity Widget */}
+      {history.length > 0 && (
+        <motion.div
+          initial={animationsEnabled ? { opacity: 0, y: 15 } : undefined}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="rounded-xl p-4"
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+              <span className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>Активность за неделю</span>
+            </div>
+            <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+              {history.filter((h: any) => Date.now() - h.playedAt < 7 * 24 * 60 * 60 * 1000).length} прослушиваний
+            </span>
+          </div>
+          <ListeningActivityBar history={history} />
+        </motion.div>
+      )}
 
       {/* Curated playlists — stylized gradient artwork cards */}
       <div>

@@ -1,0 +1,1 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,26918,t=>{"use strict";var e=t.i(37243);t.s(["default",0,function({error:t}){return(0,e.useEffect)(()=>{window.location.replace("/play?_r="+Date.now())},[]),null}])}]);

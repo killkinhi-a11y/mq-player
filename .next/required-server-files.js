@@ -104,7 +104,7 @@ self.__SERVER_FILES_MANIFEST={
         "transform": "lodash/{{member}}"
       }
     },
-    "outputFileTracingRoot": "/home/z/my-project/mq-player",
+    "outputFileTracingRoot": "/home/z",
     "cacheComponents": false,
     "cacheLife": {
       "default": {
@@ -304,12 +304,12 @@ self.__SERVER_FILES_MANIFEST={
     "bundlePagesRouterDependencies": false,
     "configFileName": "next.config.ts",
     "turbopack": {
-      "root": "/home/z/my-project/mq-player"
+      "root": "/home/z"
     },
     "distDirRoot": ".next"
   },
   "appDir": "/home/z/my-project/mq-player",
-  "relativeAppDir": "",
+  "relativeAppDir": "my-project/mq-player",
   "files": [
     ".next/routes-manifest.json",
     ".next/server/pages-manifest.json",
