@@ -132,3 +132,18 @@ export async function getBotInfo(): Promise<any | null> {
     return null;
   }
 }
+
+/**
+ * Get current webhook info (useful for diagnostics).
+ */
+export async function getWebhookInfo(): Promise<any | null> {
+  if (!TELEGRAM_API_URL) return null;
+
+  try {
+    const res = await fetch(`${TELEGRAM_API_URL}/getWebhookInfo`);
+    const data = await res.json();
+    return data.ok ? data.result : null;
+  } catch {
+    return null;
+  }
+}
