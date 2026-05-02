@@ -22,6 +22,8 @@ model User {
   accent         String    @default("#e03131")
   favoriteArtists String   @default("[]")  // JSON array of {id, username, avatar, genre}
   onboardingComplete Boolean @default(false)
+  telegramChatId String?   @unique          // Telegram chat ID for auth
+  telegramUsername String?                   // Telegram @username
   lastSeen       DateTime?
   createdAt      DateTime  @default(now())
   sentMessages   Message[] @relation("SentMessages")
@@ -350,6 +352,21 @@ model Notification {
 
   @@index([userId, read])
   @@index([userId, createdAt])
+}
+
+// Telegram auth — verification codes sent via Telegram bot
+model TelegramAuthCode {
+  id               String   @id @default(cuid())
+  chatId           String   // Telegram chat ID
+  telegramUserId   BigInt   // Telegram user ID
+  telegramUsername String?  // Telegram @username (may be null)
+  code             String   // 6-digit verification code
+  expiresAt        DateTime // 10 minutes
+  used             Boolean  @default(false)
+  createdAt        DateTime @default(now())
+
+  @@unique([chatId, code])
+  @@index([code, used, expiresAt])
 }
 
 // Track comments — SoundCloud-style timestamped comments on tracks

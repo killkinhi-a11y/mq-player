@@ -39,7 +39,7 @@ export interface FavoriteArtist {
   followers: number;
   trackCount: number;
 }
-export type AuthStep = "login" | "register" | "confirm" | "confirmed" | "forgot-password";
+export type AuthStep = "login" | "register" | "confirm" | "confirmed" | "forgot-password" | "telegram" | "telegram-register";
 
 export interface UserPlaylist {
   id: string;
