@@ -16,9 +16,10 @@ import TrackCommentsPanel from "./TrackCommentsPanel";
 import QueueView from "./QueueView";
 import Hls from "hls.js";
 
-async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string; isPreview: boolean; duration: number; fullDuration: number; directUrl?: string; isHls?: boolean } | null> {
+async function resolveSoundCloudStream(scTrackId: number, noCache = false): Promise<{ url: string; isPreview: boolean; duration: number; fullDuration: number; directUrl?: string; isHls?: boolean } | null> {
   try {
-    const res = await fetch(`/api/music/soundcloud/stream?trackId=${scTrackId}`, {
+    const cacheParam = noCache ? "&noCache=1" : "";
+    const res = await fetch(`/api/music/soundcloud/stream?trackId=${scTrackId}${cacheParam}`, {
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) return null;
@@ -185,7 +186,7 @@ export default function PlayerBar() {
         const scId = st.currentTrack.scTrackId;
         console.warn(`[Player] Error on SC track${wasMidPlayback ? ' (mid-playback)' : ''}, re-resolving stream (attempt ${retryCountRef.current}/${maxRetries})`);
 
-        resolveSoundCloudStream(scId).then(stream => {
+        resolveSoundCloudStream(scId, true).then(stream => {
           retryingRef.current = false;
           // Check if track hasn't changed during retry
           const currentSt = useAppStore.getState();

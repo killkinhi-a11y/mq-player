@@ -7,21 +7,26 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
  * Returns the direct MP3/HLS URL that can be played by HTML5 Audio.
  */
 
-// Cache resolved stream URLs (they expire quickly, cache 60s to avoid stale URLs)
+// Cache resolved stream URLs (SoundCloud URLs expire in 1-2 min, cache 15s to avoid stale)
 const streamCache = new Map<string, { url: string; expiry: number }>();
 
 async function handler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const trackId = searchParams.get("trackId");
+  const noCache = searchParams.get("noCache") === "1";
 
   if (!trackId) {
     return NextResponse.json({ url: null, error: "missing trackId" });
   }
 
-  // Check cache
-  const cached = streamCache.get(trackId);
-  if (cached && cached.expiry > Date.now()) {
-    return NextResponse.json({ url: cached.url });
+  // Check cache (skip if noCache is set — used on retries to force fresh URL)
+  if (!noCache) {
+    const cached = streamCache.get(trackId);
+    if (cached && cached.expiry > Date.now()) {
+      return NextResponse.json({ url: cached.url });
+    }
+  } else {
+    streamCache.delete(trackId); // bust cache
   }
 
   try {
@@ -91,7 +96,7 @@ async function handler(request: NextRequest) {
     // Cache the direct URL for 60 seconds (SoundCloud URLs expire within 1-2 min)
     streamCache.set(trackId, {
       url: directUrl,
-      expiry: Date.now() + 60 * 1000,
+      expiry: Date.now() + 15 * 1000, // 15s — SC URLs expire fast
     });
 
     // For HLS streams, pass the direct URL to the client (client uses hls.js)
