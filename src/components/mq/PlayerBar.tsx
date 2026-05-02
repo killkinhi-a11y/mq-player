@@ -838,7 +838,7 @@ export default function PlayerBar() {
               });
               // Log EME events for debugging DRM playback
               hls.on(Hls.Events.KEY_LOADING, (_event, data) => {
-                console.log(`[Player] DRM key loading for:`, data.keySystem);
+                console.log(`[Player] DRM key loading for fragment:`, data.frag?.url);
               });
               // Store hls instance for cleanup
               (audioEl as any)._hlsInstance = hls;
