@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks, type SCTrack } from "@/lib/soundcloud";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { RECOMMENDATIONS_CONFIG as CFG } from "@/config/recommendations";
 
 /**
  * Popular tracks — Spotify/YouTube Music inspired ranking algorithm.
@@ -11,9 +12,12 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
  * 3. Duration quality (standard song length 2-6 min = proper release)
  * 4. Content quality (has artwork, proper metadata)
  * 5. Discovery factor (controlled randomness for new content exposure)
+ * 6. Freshness heuristic (tracks from "new release" queries get a boost)
+ * 7. Social proof dampening (prevent overrepresentation of ubiquitous tracks)
  *
  * Time-weighted decay: fresher results get a small boost, preventing staleness.
  * Diversity injection: final list balances top-scorers with genre-diverse picks.
+ * All scoring weights are centralized in @/config/recommendations.
  */
 
 const cache = new Map<string, { data: unknown; expiry: number }>();
@@ -98,45 +102,54 @@ function scoreTrack(track: ScoredTrack["track"], queryCount: number, category: s
   // === Core signal: Cross-query frequency ===
   // A track appearing in multiple independent searches = genuine popularity
   // (Spotify uses similar collaborative filtering signals)
-  score += queryCount * 120;
+  score += queryCount * CFG.trending.crossQueryBonus;
 
   // === Category weight ===
   // Chart queries carry more authority than random genre queries
-  const categoryWeight: Record<string, number> = {
-    charts: 1.3,
-    rising: 1.1,
-    social: 1.0,
-    genres: 0.8,
-  };
-  score *= (categoryWeight[category] || 1.0);
+  score *= (CFG.trending.categoryWeights[category as keyof typeof CFG.trending.categoryWeights] || 1.0);
 
   // === Streamability ===
   // Full tracks are vastly preferred (like Spotify promotes full playback)
   if (track.scIsFull) {
-    score += 400;
+    score += CFG.trending.fullPlayableBonus;
   } else {
-    score -= 100; // Demote previews significantly
+    score -= CFG.trending.previewPenalty; // Demote previews significantly
   }
 
   // === Duration quality ===
   // Proper songs are 2-6 minutes (like Spotify's "track quality" signal)
   const dur = track.duration;
-  if (dur >= 120 && dur <= 360) {
-    score += 80; // Sweet spot: standard song length
+  if (dur >= CFG.trending.optimalDurationMin && dur <= CFG.trending.optimalDurationMax) {
+    score += CFG.trending.optimalDurationBonus; // Sweet spot: standard song length
     // Extra points for optimal ~3.5 min (most popular song length globally)
-    if (dur >= 180 && dur <= 240) score += 30;
-  } else if (dur >= 60 && dur < 120) {
+    if (dur >= CFG.trending.sweetSpotMin && dur <= CFG.trending.sweetSpotMax) score += CFG.trending.sweetSpotBonus;
+  } else if (dur >= 60 && dur < CFG.trending.optimalDurationMin) {
     score += 20; // Short but acceptable
-  } else if (dur > 360 && dur <= 600) {
+  } else if (dur > CFG.trending.optimalDurationMax && dur <= 600) {
     score += 40; // Extended/mix
-  } else if (dur < 30) {
-    score -= 200; // Very short clips are noise
+  } else if (dur < CFG.trending.shortClipThreshold) {
+    score -= CFG.trending.shortClipPenalty; // Very short clips are noise
   }
 
   // === Content quality ===
   // Tracks with artwork are more likely to be real releases
   if (track.cover) {
-    score += 50;
+    score += CFG.trending.coverBonus;
+  }
+
+  // ── FRESHNESS BOOST ──
+  // Tracks from "new releases", "2025", "trending" queries are likely fresh
+  const freshnessKeywords = ["new", "2025", "fresh", "latest", "recent", "release"];
+  const queryLower = (category || "").toLowerCase();
+  const isFreshQuery = freshnessKeywords.some(kw => queryLower.includes(kw));
+  if (isFreshQuery && track.scIsFull) {
+    score += CFG.trending.freshnessBonus7d;  // +25 for fresh-sourced tracks
+  }
+
+  // ── SOCIAL PROOF DAMPENING ──
+  // Prevent tracks from dominating due to appearing in every query
+  if (queryCount >= 4) {
+    score *= 0.85;  // 15% dampening for overly frequent tracks
   }
 
   // === Discovery variance ===
@@ -173,7 +186,7 @@ async function handler(request: NextRequest) {
     const selectedQueries: { query: string; category: string }[] = [];
     for (const [cat, queries] of Object.entries(queryPool)) {
       const shuffled = [...queries].sort(() => Math.random() - 0.5);
-      const pick = cat === "charts" ? 4 : 3; // More queries per category for 50-track target
+      const pick = cat === "charts" ? 4 : 3; // More queries per category for targetTracks target
       selectedQueries.push(...shuffled.slice(0, pick).map(q => ({ query: q, category: cat })));
     }
 
@@ -219,17 +232,11 @@ async function handler(request: NextRequest) {
     }
 
     // Score all tracks
-    const categoryWeight: Record<string, number> = {
-      charts: 1.3,
-      rising: 1.1,
-      social: 1.0,
-      genres: 0.8,
-    };
-
     const scored: ScoredTrack[] = Array.from(trackMap.values())
       .map(({ track, queryCount, categories }) => {
         const cat = Array.from(categories).sort((a, b) =>
-          (categoryWeight[b] || 0) - (categoryWeight[a] || 0)
+          (CFG.trending.categoryWeights[b as keyof typeof CFG.trending.categoryWeights] || 0) -
+          (CFG.trending.categoryWeights[a as keyof typeof CFG.trending.categoryWeights] || 0)
         )[0] || "genres";
         return {
           track,
@@ -243,24 +250,26 @@ async function handler(request: NextRequest) {
     scored.sort((a, b) => b.score - a.score);
 
     // === Diversity injection (Spotify-style) ===
-    // Take top scored, then inject diverse picks (max 2 tracks per artist overall)
+    // Take top scored, then inject diverse picks (dynamic artist limits)
     const finalTracks: (SCTrack & { [key: string]: unknown })[] = [];
     const artistCount = new Map<string, number>();
 
-    // First pass: top scored (max 20)
+    // First pass: top scored (max from config)
     for (const item of scored) {
-      if (finalTracks.length >= 20) break;
+      if (finalTracks.length >= CFG.trending.topScoredLimit) break;
       const artist = item.track.artist.toLowerCase();
       const count = artistCount.get(artist) || 0;
-      if (count >= 2) continue;
+      const artistScore = item.queryCount * (CFG.trending.categoryWeights[item.category as keyof typeof CFG.trending.categoryWeights] || 1.0);
+      const artistLimit = artistScore > 500 ? CFG.trending.maxArtistTop : CFG.trending.maxArtistDefault;
+      if (count >= artistLimit) continue;
       artistCount.set(artist, count + 1);
       finalTracks.push(item.track);
     }
 
-    // Second pass: diverse picks from remaining (max 20 more, unique artists)
+    // Second pass: diverse picks from remaining (unique artists)
     const seenArtists = new Set(finalTracks.map(t => t.artist.toLowerCase()));
     for (const item of scored) {
-      if (finalTracks.length >= 40) break;
+      if (finalTracks.length >= CFG.trending.uniqueArtistsLimit) break;
       const artist = item.track.artist.toLowerCase();
       if (seenArtists.has(artist)) continue;
       seenArtists.add(artist);
@@ -268,28 +277,28 @@ async function handler(request: NextRequest) {
     }
 
     // Third pass: fill remaining slots with random picks
-    if (finalTracks.length < 50) {
+    if (finalTracks.length < CFG.trending.targetTracks) {
       const existingIds = new Set(finalTracks.map(t => t.scTrackId));
       const shuffled = [...scored].sort(() => Math.random() - 0.5);
       for (const item of shuffled) {
-        if (finalTracks.length >= 50) break;
+        if (finalTracks.length >= CFG.trending.targetTracks) break;
         if (existingIds.has(item.track.scTrackId)) continue;
         finalTracks.push(item.track);
         existingIds.add(item.track.scTrackId);
       }
     }
 
-    // Fourth pass: if STILL not 50, fetch supplementary tracks
-    if (finalTracks.length < 50) {
+    // Fourth pass: if STILL not at target, fetch supplementary tracks
+    if (finalTracks.length < CFG.trending.targetTracks) {
       const existingIds = new Set(finalTracks.map(t => t.scTrackId));
       const fillQueries = ["top hits 2025", "popular songs", "best new music", "chart toppers", "trending now"];
       const fillResults = await Promise.allSettled(
         fillQueries.map(q => searchSCTracks(q, 20))
       );
       for (const result of fillResults) {
-        if (result.status !== "fulfilled" || finalTracks.length >= 50) continue;
+        if (result.status !== "fulfilled" || finalTracks.length >= CFG.trending.targetTracks) continue;
         for (const track of result.value) {
-          if (finalTracks.length >= 50) break;
+          if (finalTracks.length >= CFG.trending.targetTracks) break;
           if (existingIds.has(track.scTrackId)) continue;
           if (!track.cover) continue;
           if (dislikedIds.has(track.id) || dislikedIds.has(String(track.scTrackId))) continue;
@@ -301,7 +310,22 @@ async function handler(request: NextRequest) {
       }
     }
 
-    const responseData = { tracks: finalTracks };
+    const responseData = {
+      tracks: finalTracks,
+      _meta: {
+        totalCandidates: trackMap.size,
+        categoryBreakdown: {
+          charts: [...trackMap.values()].filter(t => t.categories.has("charts")).length,
+          rising: [...trackMap.values()].filter(t => t.categories.has("rising")).length,
+          social: [...trackMap.values()].filter(t => t.categories.has("social")).length,
+          genres: [...trackMap.values()].filter(t => t.categories.has("genres")).length,
+        },
+        filtered: {
+          noCover: true, // was applied
+          disliked: dislikedIds.size + dislikedArtists.size + dislikedGenres.size > 0,
+        },
+      }
+    };
     setCache(cacheKey, responseData);
     return NextResponse.json(responseData);
   } catch {

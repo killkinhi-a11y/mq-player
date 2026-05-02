@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks, getSoundCloudClientId, type SCTrack } from "@/lib/soundcloud";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { RECOMMENDATIONS_CONFIG as CFG } from "@/config/recommendations";
 
 /**
  * "Моя волна" (My Wave) Radio API — YouTube Music / Yandex Music style.
@@ -18,6 +19,7 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
  *   &skippedArtists=DJ Foo,Bar Baz (optional) artists user keeps skipping
  *   &lang=russian                  (optional) language preference
  *   &energy=medium                 (optional) desired energy level
+ *   &recentSkipCount=3             (optional) number of consecutive recent skips
  */
 
 // ── In-memory cache (4 min TTL) ────────────────────────────────────────────────
@@ -248,6 +250,8 @@ function scoreCandidate(
     currentArtist: string;
     currentGenre: string;
     currentEnergy: number;
+    currentDuration: number;
+    recentSkipCount: number;
     historyArtists: Set<string>;
     skippedArtists: Set<string>;
     skippedGenres: Set<string>;
@@ -255,58 +259,77 @@ function scoreCandidate(
   },
 ): number {
   let score = 0;
-  const { track, source, energyDistance } = candidate;
+  const { track, source } = candidate;
   const trackGenre = normalizeGenre(track.genre || "");
   const trackArtist = (track.artist || "").toLowerCase().trim();
 
   // ── PRIMARY SIGNALS (actual similarity) ──
-  // +150: From SC Related API for the CURRENT track
-  if (source === "current_related") score += 150;
-  // +80: From SC Related API for a HISTORY track
-  else if (source === "history_related") score += 80;
-  // +60: Same artist as current track (different track)
+  // +CFG.radio.relatedCurrent: From SC Related API for the CURRENT track
+  if (source === "current_related") score += CFG.radio.relatedCurrent;
+  // +CFG.radio.relatedHistory: From SC Related API for a HISTORY track
+  else if (source === "history_related") score += CFG.radio.relatedHistory;
+  // +CFG.radio.sameArtist: Same artist as current track (different track)
   if (trackArtist && trackArtist === ctx.currentArtist.toLowerCase().trim()) {
-    score += 60;
+    score += CFG.radio.sameArtist;
   }
-  // +40: Same artist as a recently played track
+  // +CFG.radio.historyArtist: Same artist as a recently played track
   if (trackArtist && ctx.historyArtists.has(trackArtist)) {
-    score += 40;
+    score += CFG.radio.historyArtist;
   }
-  // +30: Genre match with current track's genre
+  // +CFG.radio.genreMatch: Genre match with current track's genre
   if (trackGenre && ctx.currentGenre) {
     const curNorm = normalizeGenre(ctx.currentGenre);
     if (trackGenre === curNorm || trackGenre.includes(curNorm) || curNorm.includes(trackGenre)) {
-      score += 30;
+      score += CFG.radio.genreMatch;
     }
   }
 
-  // ── TRANSITION QUALITY (Spotify Smart Shuffle style) ──
-  // +25: Energy close to current track (within 0.2)
-  if (energyDistance <= 0.2) score += 25;
-  // -15: Energy very different from current (>0.5 diff)
-  else if (energyDistance > 0.5) score -= 15;
-  // +10: Duration similar to current track (within 60s)
-  // (applied via a helper below after we have current duration)
+  // ── ENERGY FLOW ──
+  // Rewards gradual energy transitions (smooth DJ-like mixing)
+  const energyDiff = estimateEnergy(track) - ctx.currentEnergy;
+  if (energyDiff > 0 && energyDiff <= 0.3) {
+    score += CFG.radio.energyFlowUp;  // smooth upward transition
+  } else if (energyDiff < 0 && energyDiff >= -0.3) {
+    score += CFG.radio.energyFlowDown;  // smooth downward transition
+  } else if (Math.abs(energyDiff) <= 0.15) {
+    score += CFG.radio.energyStable;  // stable energy level
+  }
 
   // ── LANGUAGE (user preference) ──
   if (ctx.langPref) {
     const trackText = `${track.title || ""} ${track.artist || ""}`;
     const trackLang = detectLanguage(trackText);
-    if (trackLang === ctx.langPref) score += 20;
+    if (trackLang === ctx.langPref) score += CFG.radio.languageMatch;
   }
 
   // ── QUALITY GATES ──
-  if (track.scIsFull) score += 30;
-  if (track.cover) score += 15;
+  if (track.scIsFull) score += CFG.radio.playability;
+  if (track.cover) score += CFG.radio.coverArt;
   if (track.duration >= 120 && track.duration <= 360) score += 10;
 
+  // ── DURATION SIMILARITY ──
+  // Tracks of similar length tend to flow better in radio
+  if (ctx.currentDuration > 0) {
+    const durDiff = Math.abs((track.duration || 200) - ctx.currentDuration);
+    if (durDiff <= 60) score += 10;       // very similar length
+    else if (durDiff <= 120) score += 5;  // somewhat similar
+  }
+
   // ── FEEDBACK (Apple Music / Yandex style skip signals) ──
-  if (ctx.skippedArtists.has(trackArtist)) score -= 80;
-  if (ctx.skippedGenres.has(trackGenre)) score -= 50;
+  if (ctx.skippedArtists.has(trackArtist)) score -= CFG.radio.skippedArtistPenalty;
+  if (ctx.skippedGenres.has(trackGenre)) score -= CFG.radio.skippedGenrePenalty;
   // ── ANTI-SPAM ──
   const titleArtistNoise = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
-  if (hasNoiseKeywords(titleArtistNoise)) score -= 200;
-  if (titleHashtagGenreMismatch(track.title || "", [ctx.currentGenre])) score -= 100;
+  if (hasNoiseKeywords(titleArtistNoise)) score -= CFG.radio.noisePenalty;
+  if (titleHashtagGenreMismatch(track.title || "", [ctx.currentGenre])) score -= CFG.radio.noisePenalty / 2;
+
+  // ── MOMENTUM PENALTY ──
+  // If user is skipping a lot, avoid same artist to break the pattern
+  if (ctx.recentSkipCount >= CFG.radio.momentumSkipThreshold) {
+    if (trackArtist && trackArtist === ctx.currentArtist.toLowerCase().trim()) {
+      score -= CFG.radio.momentumPenalty;
+    }
+  }
 
   // ── FRESHNESS ──
   score += Math.random() * 16 - 8; // ±8 jitter
@@ -351,10 +374,10 @@ function shouldExclude(
 
 // ── Energy-aware diversity selection ───────────────────────────────────────────
 /**
- * After scoring, picks 10–12 tracks with controlled energy diversity:
- *   - 3–4 tracks with energy CLOSE to the current track  (smooth transition)
- *   - 2–3 tracks with SLIGHTLY different energy          (gradual shift)
- *   - 2–3 wildcard tracks                                 (variety)
+ * After scoring, picks targetMin–targetMax tracks with controlled energy diversity:
+ *   - closeBucketMax tracks with energy CLOSE to the current track  (smooth transition)
+ *   - shiftBucketMax tracks with SLIGHTLY different energy           (gradual shift)
+ *   - wildcardBucketMax tracks                                       (variety)
  */
 function selectWithEnergyDiversity(
   scored: { candidate: Candidate; score: number }[],
@@ -381,25 +404,25 @@ function selectWithEnergyDiversity(
   };
 
   // Bucket definitions
-  const closeRange = 0.2;
-  const shiftRange = 0.4;
+  const closeRange = CFG.radio.energyCloseRange;
+  const shiftRange = CFG.radio.energyShiftRange;
 
-  // 1. Close energy tracks (3–4)
+  // 1. Close energy tracks
   pick(
     (c) => c.candidate.energyDistance <= closeRange,
-    3 + Math.round(Math.random()), // 3 or 4
+    CFG.radio.closeBucketMax,
   );
 
-  // 2. Slight shift tracks (2–3)
+  // 2. Slight shift tracks
   pick(
     (c) => c.candidate.energyDistance > closeRange && c.candidate.energyDistance <= shiftRange,
-    2 + Math.round(Math.random()), // 2 or 3
+    CFG.radio.shiftBucketMax,
   );
 
-  // 3. Wildcard tracks (2–3) — higher energy difference for variety
+  // 3. Wildcard tracks — higher energy difference for variety
   pick(
     (c) => c.candidate.energyDistance > shiftRange,
-    2 + Math.round(Math.random()), // 2 or 3
+    CFG.radio.wildcardBucketMax,
   );
 
   // 4. Fill remaining slots with highest-scored unused tracks
@@ -446,6 +469,7 @@ async function handler(request: NextRequest) {
   const skippedArtistsParam = searchParams.get("skippedArtists") || "";
   const langParam = searchParams.get("lang") || "";
   const energyParam = searchParams.get("energy") || "";
+  const recentSkipCount = parseInt(searchParams.get("recentSkipCount") || "0", 10);
 
   // Validate required parameter
   if (!scTrackIdParam) {
@@ -500,7 +524,7 @@ async function handler(request: NextRequest) {
   else if (energyParam === "low") energyPref = 0.2;
 
   // ── Cache check ───────────────────────────────────────────────────────────
-  const cacheKey = `radio:${scTrackId}:${historyScIdsParam}:${skippedGenresParam}:${skippedArtistsParam}:${langParam}:${energyParam}`;
+  const cacheKey = `radio:${scTrackId}:${historyScIdsParam}:${skippedGenresParam}:${skippedArtistsParam}:${langParam}:${energyParam}:${recentSkipCount}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 
@@ -542,7 +566,7 @@ async function handler(request: NextRequest) {
       currentEnergy = currentEnergy * 0.6 + energyPref * 0.4;
     }
 
-    // Extract history artists (for +40 scoring bonus)
+    // Extract history artists (for +CFG.radio.historyArtist scoring bonus)
     const historyArtists = new Set<string>();
     for (const result of historyMetadataResults) {
       if (result.status === "fulfilled" && result.value.length > 0) {
@@ -653,21 +677,17 @@ async function handler(request: NextRequest) {
     const scoredCandidates: { candidate: Candidate; score: number }[] = [];
 
     for (const [, candidate] of candidateMap) {
-      let score = scoreCandidate(candidate, {
+      const score = scoreCandidate(candidate, {
         currentArtist,
         currentGenre,
         currentEnergy,
+        currentDuration,
+        recentSkipCount,
         historyArtists,
         skippedArtists,
         skippedGenres,
         langPref,
       });
-
-      // +10: Duration similar to current track (within 60s)
-      if (currentDuration > 0) {
-        const durDiff = Math.abs((candidate.track.duration || 0) - currentDuration);
-        if (durDiff <= 60) score += 10;
-      }
 
       scoredCandidates.push({ candidate, score });
     }
@@ -675,10 +695,10 @@ async function handler(request: NextRequest) {
     // Sort by score descending
     scoredCandidates.sort((a, b) => b.score - a.score);
 
-    // Energy-aware selection: 10–12 tracks with diversity
+    // Energy-aware selection: targetMin–targetMax tracks with diversity
     const selected = selectWithEnergyDiversity(scoredCandidates, currentEnergy, {
-      min: 10,
-      max: 12,
+      min: CFG.radio.targetMin,
+      max: CFG.radio.targetMax,
     });
 
     // Map to output format
@@ -691,6 +711,13 @@ async function handler(request: NextRequest) {
         artist: currentArtist || "Unknown",
         genre: currentGenre || "Unknown",
         energy: Math.round(currentEnergy * 100) / 100,
+      },
+      sessionHints: {
+        recommendedEnergyDirection: currentEnergy < 0.4 ? "up" : currentEnergy > 0.7 ? "down" : "stable",
+        diversityDebt: selected.filter(c => {
+          const e = estimateEnergy(c.track);
+          return Math.abs(e - currentEnergy) <= CFG.radio.energyCloseRange;
+        }).length > selected.length * 0.6 ? "high" : "normal",
       },
       _meta: {
         candidatesGenerated: candidateMap.size,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks, getSoundCloudClientId } from "@/lib/soundcloud";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
+import { RECOMMENDATIONS_CONFIG as CFG } from "@/config/recommendations";
 
 /* ------------------------------------------------------------------ */
 /*  Interface                                                          */
@@ -27,6 +28,12 @@ interface CuratedPlaylist {
     scStreamPolicy: string;
     scIsFull: boolean;
   }[];
+  _meta?: {
+    coherenceScore: number;
+    trackCount: number;
+    uniqueArtists: number;
+    playablePercent: number;
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -236,7 +243,7 @@ function passesQualityFilter(track: {
   // Must have cover art
   if (!track.cover) return false;
   // Duration must be > 30 seconds
-  if (track.duration < 30) return false;
+  if (track.duration < CFG.curated.qualityMinDuration) return false;
   // No non-music content
   if (isNonMusicContent(track.title, track.genre, track.duration)) return false;
   return true;
@@ -296,7 +303,7 @@ async function fetchSCTrackRelated(scTrackId: number): Promise<CuratedPlaylist["
 /*  Artist diversity enforcement                                       */
 /* ------------------------------------------------------------------ */
 
-const MAX_TRACKS_PER_ARTIST = 2;
+const MAX_TRACKS_PER_ARTIST = CFG.curated.maxArtistsPerPlaylist;
 
 /** Normalize artist name for grouping: lowercase, strip suffixes like "official", "music", "feat." etc. */
 function normalizeArtistName(raw: string): string {
@@ -320,7 +327,7 @@ function normalizeArtistName(raw: string): string {
  * If still below, relax to 4, then 5 — never let diversity drop us below minTarget.
  */
 function enforceArtistDiversity(tracks: CuratedPlaylist["tracks"], minTarget: number = 50): CuratedPlaylist["tracks"] {
-  for (const maxPerArtist of [MAX_TRACKS_PER_ARTIST, 3, 4, 5, 10]) {
+  for (const maxPerArtist of [CFG.curated.maxArtistsPerPlaylist, ...CFG.curated.artistDiversityRelaxation]) {
     const artistCounts = new Map<string, number>();
     const filtered = tracks.filter(t => {
       const artist = normalizeArtistName(t.artist || "");
@@ -460,7 +467,7 @@ function sortTracksByPlayability(tracks: CuratedPlaylist["tracks"]): CuratedPlay
 /*  Playlist builder functions                                         */
 /* ------------------------------------------------------------------ */
 
-const TRACK_LIMIT = 50;
+const TRACK_LIMIT = CFG.curated.trackLimit;
 
 /** "Для вас" — Search each top artist individually, combine results */
 async function buildForYouPlaylist(
@@ -722,7 +729,34 @@ async function buildPopularPlaylist(
 /* ------------------------------------------------------------------ */
 
 const cache = new Map<string, { playlists: CuratedPlaylist[]; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes (force fresh diversity)
+const CACHE_TTL = CFG.curated.cacheTtl;
+
+/* ------------------------------------------------------------------ */
+/*  Playlist coherence scoring                                          */
+/* ------------------------------------------------------------------ */
+
+function calculatePlaylistCoherence(tracks: CuratedPlaylist["tracks"]): number {
+  if (tracks.length < 3) return 50;
+
+  // Genre coherence: what % of tracks share the top genre
+  const genreCounts: Record<string, number> = {};
+  for (const t of tracks) {
+    const g = (t.genre || "").toLowerCase().trim();
+    if (g) genreCounts[g] = (genreCounts[g] || 0) + 1;
+  }
+  const topGenreCount = Math.max(...Object.values(genreCounts), 0);
+  const genreCoherence = (topGenreCount / tracks.length) * 100;
+
+  // Artist diversity: more unique artists = better (inverted)
+  const uniqueArtists = new Set(tracks.map(t => (t.artist || "").toLowerCase().trim())).size;
+  const artistDiversity = Math.min((uniqueArtists / Math.min(tracks.length, 20)) * 100, 100);
+
+  // Playability: what % are fully playable
+  const playableCount = tracks.filter(t => t.scIsFull).length;
+  const playability = (playableCount / tracks.length) * 100;
+
+  return Math.round(genreCoherence * 0.4 + artistDiversity * 0.3 + playability * 0.3);
+}
 
 /* ------------------------------------------------------------------ */
 /*  Handler                                                            */
@@ -753,12 +787,19 @@ async function handler(req: NextRequest) {
     if (topArtists.length > 0) {
       const forYouTracks = await buildForYouPlaylist(topArtists);
       if (forYouTracks.length >= 3) {
+        const coherence = calculatePlaylistCoherence(forYouTracks);
         playlists.push({
           id: "for-you",
           name: "Для вас",
           subtitle: `на основе ваших любимых артистов`,
           gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
           tracks: forYouTracks,
+          _meta: {
+            coherenceScore: coherence,
+            trackCount: forYouTracks.length,
+            uniqueArtists: new Set(forYouTracks.map(t => (t.artist || "").toLowerCase().trim())).size,
+            playablePercent: Math.round((forYouTracks.filter(t => t.scIsFull).length / forYouTracks.length) * 100),
+          },
         });
       }
     }
@@ -767,12 +808,19 @@ async function handler(req: NextRequest) {
     if (topGenres.length > 0 || topArtists.length > 0) {
       const mixTracks = await buildYourMixPlaylist(topGenres, topArtists);
       if (mixTracks.length >= 3) {
+        const coherence = calculatePlaylistCoherence(mixTracks);
         playlists.push({
           id: "your-mix",
           name: "Ваш микс",
           subtitle: `смесь ваших любимых жанров`,
           gradient: "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
           tracks: mixTracks,
+          _meta: {
+            coherenceScore: coherence,
+            trackCount: mixTracks.length,
+            uniqueArtists: new Set(mixTracks.map(t => (t.artist || "").toLowerCase().trim())).size,
+            playablePercent: Math.round((mixTracks.filter(t => t.scIsFull).length / mixTracks.length) * 100),
+          },
         });
       }
     }
@@ -781,12 +829,19 @@ async function handler(req: NextRequest) {
     if (likedScIds.length > 0) {
       const similarTracks = await buildSimilarPlaylist(likedScIds);
       if (similarTracks.length >= 3) {
+        const coherence = calculatePlaylistCoherence(similarTracks);
         playlists.push({
           id: "similar",
           name: "Похожее",
           subtitle: "похоже на то, что вам нравится",
           gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
           tracks: similarTracks,
+          _meta: {
+            coherenceScore: coherence,
+            trackCount: similarTracks.length,
+            uniqueArtists: new Set(similarTracks.map(t => (t.artist || "").toLowerCase().trim())).size,
+            playablePercent: Math.round((similarTracks.filter(t => t.scIsFull).length / similarTracks.length) * 100),
+          },
         });
       }
     }
@@ -794,12 +849,19 @@ async function handler(req: NextRequest) {
     // ── 4. "Открытия дня" — bridge genres ──
     const discoveryTracks = await buildDiscoveriesPlaylist(topGenres);
     if (discoveryTracks.length >= 3) {
+      const coherence = calculatePlaylistCoherence(discoveryTracks);
       playlists.push({
         id: "discoveries",
         name: "Открытия дня",
         subtitle: "новые жанры рядом с вашими",
         gradient: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
         tracks: discoveryTracks,
+        _meta: {
+          coherenceScore: coherence,
+          trackCount: discoveryTracks.length,
+          uniqueArtists: new Set(discoveryTracks.map(t => (t.artist || "").toLowerCase().trim())).size,
+          playablePercent: Math.round((discoveryTracks.filter(t => t.scIsFull).length / discoveryTracks.length) * 100),
+        },
       });
     }
 
@@ -811,9 +873,17 @@ async function handler(req: NextRequest) {
     for (let i = 0; i < genreResults.length; i++) {
       const result = genreResults[i];
       if (result.status === "fulfilled" && result.value.length >= 3) {
+        const tracks = result.value;
+        const coherence = calculatePlaylistCoherence(tracks);
         playlists.push({
           ...genrePlaylistBuilds[i].config,
-          tracks: result.value,
+          tracks,
+          _meta: {
+            coherenceScore: coherence,
+            trackCount: tracks.length,
+            uniqueArtists: new Set(tracks.map(t => (t.artist || "").toLowerCase().trim())).size,
+            playablePercent: Math.round((tracks.filter(t => t.scIsFull).length / tracks.length) * 100),
+          },
         });
       }
     }
@@ -821,6 +891,7 @@ async function handler(req: NextRequest) {
     // ── 6. "Популярное" — filtered by language and disliked genres ──
     const popularTracks = await buildPopularPlaylist(lang, []);
     if (popularTracks.length >= 3) {
+      const coherence = calculatePlaylistCoherence(popularTracks);
       playlists.push({
         id: "popular",
         name: "Популярное",
@@ -831,6 +902,12 @@ async function handler(req: NextRequest) {
             : "популярная музыка",
         gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)",
         tracks: popularTracks,
+        _meta: {
+          coherenceScore: coherence,
+          trackCount: popularTracks.length,
+          uniqueArtists: new Set(popularTracks.map(t => (t.artist || "").toLowerCase().trim())).size,
+          playablePercent: Math.round((popularTracks.filter(t => t.scIsFull).length / popularTracks.length) * 100),
+        },
       });
     }
 
@@ -841,12 +918,19 @@ async function handler(req: NextRequest) {
         TRACK_LIMIT
       )));
       if (fallbackTracks.length > 0) {
+        const coherence = calculatePlaylistCoherence(fallbackTracks);
         playlists.push({
           id: "popular",
           name: "Популярное",
           subtitle: "популярная музыка",
           gradient: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)",
           tracks: fallbackTracks,
+          _meta: {
+            coherenceScore: coherence,
+            trackCount: fallbackTracks.length,
+            uniqueArtists: new Set(fallbackTracks.map(t => (t.artist || "").toLowerCase().trim())).size,
+            playablePercent: Math.round((fallbackTracks.filter(t => t.scIsFull).length / fallbackTracks.length) * 100),
+          },
         });
       }
     }

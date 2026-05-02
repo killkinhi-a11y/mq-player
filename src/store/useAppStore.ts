@@ -186,6 +186,18 @@ interface AppState {
   // Feedback signals (Apple Music / Yandex style)
   trackFeedback: Record<string, { skips: number; completes: number; listenTime: number; totalListenTime: number; lastPlayedAt: number; skipPositions: number[] }>;
 
+  // Feedback batching for server sync
+  feedbackBatch: {
+    completedGenres: string[];
+    skippedGenres: string[];
+    completedArtists: string[];
+    skippedArtists: string[];
+    genreListenTimes: Record<string, number>;
+    artistListenTimes: Record<string, number>;
+    lastSync: number;
+    pendingCount: number;
+  };
+
   // Release Radar state
   releaseRadarTracks: Track[];
   releaseRadarLoading: boolean;
@@ -356,6 +368,7 @@ interface AppState {
   // Feedback actions
   recordSkip: (trackId: string, progressAtSkip?: number) => void;
   recordComplete: (trackId: string, listenTime: number) => void;
+  syncFeedbackToServer: () => Promise<void>;
 
   // Release Radar actions
   fetchReleaseRadar: () => Promise<void>;
@@ -453,6 +466,18 @@ const initialState = {
 
   // Feedback signals
   trackFeedback: {} as Record<string, { skips: number; completes: number; listenTime: number; totalListenTime: number; lastPlayedAt: number; skipPositions: number[] }>,
+
+  // Feedback batching for server sync
+  feedbackBatch: {
+    completedGenres: [] as string[],
+    skippedGenres: [] as string[],
+    completedArtists: [] as string[],
+    skippedArtists: [] as string[],
+    genreListenTimes: {} as Record<string, number>,
+    artistListenTimes: {} as Record<string, number>,
+    lastSync: 0,
+    pendingCount: 0,
+  },
 
   // Release Radar
   releaseRadarTracks: [] as Track[],
@@ -1318,8 +1343,30 @@ export const useAppStore = create<AppState>()(
           const skipPos = typeof progressAtSkip === "number" ? progressAtSkip : 0;
           const skipPositions = [...(existing.skipPositions || []), skipPos].slice(-10);
           fb[trackId] = { ...existing, skips: existing.skips + 1, lastPlayedAt: Date.now(), skipPositions };
-          return { trackFeedback: fb, radioSkipCount: s.radioMode ? s.radioSkipCount + 1 : 0 };
+
+          // Accumulate for server sync
+          const batch = { ...s.feedbackBatch };
+          const historyEntry = s.history.find(h => h.track.id === trackId);
+          const likedEntry = s.likedTracksData.find(t => t.id === trackId);
+          const trackData = historyEntry?.track || likedEntry;
+          const skipGenre = (trackData?.genre || "").toLowerCase().trim();
+          const skipArtist = (trackData?.artist || "").toLowerCase().trim();
+          if (skipGenre) {
+            batch.skippedGenres = [...batch.skippedGenres, skipGenre];
+          }
+          if (skipArtist) {
+            batch.skippedArtists = [...batch.skippedArtists, skipArtist];
+          }
+          batch.pendingCount++;
+
+          return { trackFeedback: fb, radioSkipCount: s.radioMode ? s.radioSkipCount + 1 : 0, feedbackBatch: batch };
         });
+
+        // Auto-sync when batch reaches 10 pending items
+        const st = get();
+        if (st.feedbackBatch.pendingCount >= 10) {
+          get().syncFeedbackToServer();
+        }
       },
 
       recordComplete: (trackId: string, listenTime: number) => {
@@ -1333,8 +1380,75 @@ export const useAppStore = create<AppState>()(
             totalListenTime: (existing.totalListenTime || 0) + listenTime,
             lastPlayedAt: Date.now(),
           };
-          return { trackFeedback: fb };
+
+          // Accumulate for server sync
+          const batch = { ...s.feedbackBatch };
+          const historyEntry = s.history.find(h => h.track.id === trackId);
+          const likedEntry = s.likedTracksData.find(t => t.id === trackId);
+          const trackData = historyEntry?.track || likedEntry;
+          const completeGenre = (trackData?.genre || "").toLowerCase().trim();
+          const completeArtist = (trackData?.artist || "").toLowerCase().trim();
+          if (completeGenre) {
+            batch.completedGenres = [...batch.completedGenres, completeGenre];
+            batch.genreListenTimes = { ...batch.genreListenTimes, [completeGenre]: (batch.genreListenTimes[completeGenre] || 0) + listenTime };
+          }
+          if (completeArtist) {
+            batch.completedArtists = [...batch.completedArtists, completeArtist];
+            batch.artistListenTimes = { ...batch.artistListenTimes, [completeArtist]: (batch.artistListenTimes[completeArtist] || 0) + listenTime };
+          }
+          batch.pendingCount++;
+
+          return { trackFeedback: fb, feedbackBatch: batch };
         });
+
+        // Auto-sync when batch reaches 10 pending items
+        const st = get();
+        if (st.feedbackBatch.pendingCount >= 10) {
+          get().syncFeedbackToServer();
+        }
+      },
+
+      syncFeedbackToServer: async () => {
+        const st = get();
+        if (st.feedbackBatch.pendingCount === 0) return;
+        if (Date.now() - st.feedbackBatch.lastSync < 30000) return; // 30s debounce
+
+        try {
+          let anonId = '';
+          if (typeof window !== 'undefined') {
+            anonId = localStorage.getItem('mq_anon_id') || '';
+            if (!anonId) {
+              anonId = crypto.randomUUID();
+              localStorage.setItem('mq_anon_id', anonId);
+            }
+          }
+
+          const res = await fetch('/api/music/recommendations/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              anonId,
+              ...st.feedbackBatch,
+            }),
+          });
+
+          if (res.ok) {
+            set({
+              feedbackBatch: {
+                completedGenres: [],
+                skippedGenres: [],
+                completedArtists: [],
+                skippedArtists: [],
+                genreListenTimes: {},
+                artistListenTimes: {},
+                lastSync: Date.now(),
+                pendingCount: 0,
+              },
+            });
+          }
+        } catch (e) {
+          console.error('[feedback] Sync failed:', e);
+        }
       },
 
       // ── Release Radar actions ──
@@ -1586,6 +1700,7 @@ export const useAppStore = create<AppState>()(
         playlists: state.playlists,
         history: state.history,
         trackFeedback: state.trackFeedback,
+        feedbackBatch: state.feedbackBatch,
         liquidGlassMobile: state.liquidGlassMobile,
         currentStyle: state.currentStyle,
         shuffle: state.shuffle,
@@ -1648,6 +1763,19 @@ export const useAppStore = create<AppState>()(
           if (typeof s.shuffle !== "boolean") fixes.shuffle = false;
           if (typeof s.repeat !== "string") fixes.repeat = "off";
           if (typeof s.queueIndex !== "number") fixes.queueIndex = 0;
+          const fb = s.feedbackBatch as Record<string, unknown> | undefined;
+          if (!fb || typeof fb.pendingCount !== "number") {
+            fixes.feedbackBatch = {
+              completedGenres: [],
+              skippedGenres: [],
+              completedArtists: [],
+              skippedArtists: [],
+              genreListenTimes: {},
+              artistListenTimes: {},
+              lastSync: 0,
+              pendingCount: 0,
+            };
+          }
           if (Object.keys(fixes).length > 0) {
             console.warn("[MQ Store] fixing missing fields:", Object.keys(fixes));
             useAppStore.setState(fixes);
@@ -1676,6 +1804,16 @@ export const useAppStore = create<AppState>()(
                 // Network error — keep local state, will retry on next interaction
                 console.warn("[MQ Store] /api/auth/me failed on rehydrate — skipping");
               });
+          }
+
+          // Periodic feedback sync: every 60 seconds if there are pending items
+          if (typeof window !== "undefined") {
+            setInterval(() => {
+              const currentState = useAppStore.getState();
+              if (currentState.feedbackBatch.pendingCount > 0) {
+                currentState.syncFeedbackToServer();
+              }
+            }, 60000);
           }
         };
       },

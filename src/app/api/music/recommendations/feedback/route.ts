@@ -16,12 +16,24 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 
+// ── Time decay ──
+const FEEDBACK_TIME_DECAY_HOURS = 72; // 3-day half-life
+
+function applyTimeDecay(baseScore: number, lastUpdated: number): number {
+  const hoursOld = (Date.now() - lastUpdated) / 3600000;
+  const decay = Math.exp(-hoursOld * Math.LN2 / FEEDBACK_TIME_DECAY_HOURS);
+  return baseScore * decay;
+}
+
 // ── In-memory feedback store ──
 interface UserFeedback {
   genreCompletions: Record<string, number>;
   genreSkips: Record<string, number>;
   artistCompletions: Record<string, number>;
   artistSkips: Record<string, number>;
+  // Track listening depth per genre/artist
+  genreTotalListenTime: Record<string, number>;  // total seconds listened per genre
+  artistTotalListenTime: Record<string, number>; // total seconds listened per artist
   totalSessions: number;
   lastUpdated: number;
 }
@@ -50,6 +62,8 @@ function getOrCreateUser(anonId: string): UserFeedback {
       genreSkips: {},
       artistCompletions: {},
       artistSkips: {},
+      genreTotalListenTime: {},
+      artistTotalListenTime: {},
       totalSessions: 0,
       lastUpdated: Date.now(),
     };
@@ -67,6 +81,31 @@ function cleanupStore() {
   }
 }
 
+// ── Feedback spam protection ──
+const validateFeedback = (body: Record<string, unknown>): boolean => {
+  // Check for suspiciously large payloads
+  const totalSignals = [
+    ...(body.completedGenres as string[] || []),
+    ...(body.skippedGenres as string[] || []),
+    ...(body.completedArtists as string[] || []),
+    ...(body.skippedArtists as string[] || []),
+  ].length;
+
+  if (totalSignals > 200) return false;
+
+  // Check all signals are the same type (suspicious)
+  const nonEmpty = [
+    (body.completedGenres as string[] || []).length > 0,
+    (body.skippedGenres as string[] || []).length > 0,
+    (body.completedArtists as string[] || []).length > 0,
+    (body.skippedArtists as string[] || []).length > 0,
+  ].filter(Boolean).length;
+
+  if (nonEmpty === 1 && totalSignals > 50) return false;
+
+  return true;
+};
+
 /**
  * POST /api/music/recommendations/feedback
  *
@@ -76,6 +115,8 @@ function cleanupStore() {
  *   skippedGenres: string[] (genres of skipped tracks this session)
  *   completedArtists: string[] (artists of fully listened tracks)
  *   skippedArtists: string[] (artists of skipped tracks)
+ *   genreListenTimes: Record<string, number> (seconds listened per genre, optional)
+ *   artistListenTimes: Record<string, number> (seconds listened per artist, optional)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -84,6 +125,11 @@ export async function POST(request: NextRequest) {
 
     if (!anonId) {
       return NextResponse.json({ error: "missing anonId" }, { status: 400 });
+    }
+
+    // Spam protection
+    if (!validateFeedback(body)) {
+      return NextResponse.json({ error: "invalid feedback payload" }, { status: 400 });
     }
 
     if (Math.random() < 0.05) cleanupStore();
@@ -107,6 +153,20 @@ export async function POST(request: NextRequest) {
     for (const a of (skippedArtists || [])) {
       const norm = a.toLowerCase().trim();
       if (norm) fb.artistSkips[norm] = (fb.artistSkips[norm] || 0) + 1;
+    }
+
+    // Accumulate listening depth (total seconds listened)
+    for (const [genre, seconds] of Object.entries(body.genreListenTimes || {})) {
+      const norm = genre.toLowerCase().trim();
+      if (norm && typeof seconds === "number" && seconds > 0) {
+        fb.genreTotalListenTime[norm] = (fb.genreTotalListenTime[norm] || 0) + seconds;
+      }
+    }
+    for (const [artist, seconds] of Object.entries(body.artistListenTimes || {})) {
+      const norm = artist.toLowerCase().trim();
+      if (norm && typeof seconds === "number" && seconds > 0) {
+        fb.artistTotalListenTime[norm] = (fb.artistTotalListenTime[norm] || 0) + seconds;
+      }
     }
 
     // Update aggregate collaborative stats
@@ -139,7 +199,8 @@ export async function POST(request: NextRequest) {
  * GET /api/music/recommendations/feedback?anonId=xxx
  *
  * Returns the accumulated feedback for this user (for recommendation scoring).
- * Also includes top aggregate genre/artist signals from all users.
+ * Also includes top aggregate genre/artist signals from all users,
+ * cross-user similarity signals, and time-decayed affinity scores.
  */
 export async function GET(request: NextRequest) {
   const anonId = request.nextUrl.searchParams.get("anonId");
@@ -159,7 +220,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  // Compute user's genre affinity (completion rate)
+  // Compute user's genre affinity using Laplace smoothing
   const genreAffinity: Record<string, number> = {};
   const allGenres = new Set([...Object.keys(fb.genreCompletions), ...Object.keys(fb.genreSkips)]);
   for (const g of allGenres) {
@@ -167,10 +228,16 @@ export async function GET(request: NextRequest) {
     const skips = fb.genreSkips[g] || 0;
     const total = completions + skips;
     if (total >= 2) {
-      genreAffinity[g] = ((completions - skips) / total) * Math.min(Math.sqrt(total), 5);
+      const smoothedCompletions = completions + 1;
+      const smoothedSkips = skips + 1;
+      const smoothedTotal = total + 2;
+      const baseAffinity = (smoothedCompletions - smoothedSkips) / smoothedTotal;
+      const confidenceWeight = Math.min(Math.sqrt(smoothedTotal) / 5, 1);
+      genreAffinity[g] = baseAffinity * confidenceWeight * 100; // scale to 0-100 range
     }
   }
 
+  // Compute user's artist affinity using Laplace smoothing
   const artistAffinity: Record<string, number> = {};
   const allArtists = new Set([...Object.keys(fb.artistCompletions), ...Object.keys(fb.artistSkips)]);
   for (const a of allArtists) {
@@ -178,7 +245,54 @@ export async function GET(request: NextRequest) {
     const skips = fb.artistSkips[a] || 0;
     const total = completions + skips;
     if (total >= 2) {
-      artistAffinity[a] = ((completions - skips) / total) * Math.min(Math.sqrt(total), 5);
+      const smoothedCompletions = completions + 1;
+      const smoothedSkips = skips + 1;
+      const smoothedTotal = total + 2;
+      const baseAffinity = (smoothedCompletions - smoothedSkips) / smoothedTotal;
+      const confidenceWeight = Math.min(Math.sqrt(smoothedTotal) / 5, 1);
+      artistAffinity[a] = baseAffinity * confidenceWeight * 100; // scale to 0-100 range
+    }
+  }
+
+  // Apply time decay to all affinity scores
+  for (const g of Object.keys(genreAffinity)) {
+    genreAffinity[g] = applyTimeDecay(genreAffinity[g], fb.lastUpdated);
+  }
+  for (const a of Object.keys(artistAffinity)) {
+    artistAffinity[a] = applyTimeDecay(artistAffinity[a], fb.lastUpdated);
+  }
+
+  // Compute cross-user similarity signals
+  const currentUserTopGenres = Object.entries(fb.genreCompletions)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([g]) => g);
+
+  const similarUserGenreBoost: Record<string, number> = {};
+  const similarUserArtistBoost: Record<string, number> = {};
+
+  if (currentUserTopGenres.length >= 2) {
+    for (const [otherAnonId, otherFb] of feedbackStore.entries()) {
+      if (otherAnonId === anonId) continue;
+      const otherTopGenres = Object.entries(otherFb.genreCompletions)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([g]) => g);
+
+      const sharedGenres = currentUserTopGenres.filter(g => otherTopGenres.includes(g));
+      if (sharedGenres.length >= 2) {
+        // This user has similar taste — boost their unique top genres
+        for (const [genre, count] of Object.entries(otherFb.genreCompletions)) {
+          if (!currentUserTopGenres.includes(genre) && count >= 3) {
+            similarUserGenreBoost[genre] = (similarUserGenreBoost[genre] || 0) + count;
+          }
+        }
+        for (const [artist, count] of Object.entries(otherFb.artistCompletions)) {
+          if (count >= 3) {
+            similarUserArtistBoost[artist] = (similarUserArtistBoost[artist] || 0) + count;
+          }
+        }
+      }
     }
   }
 
@@ -187,10 +301,14 @@ export async function GET(request: NextRequest) {
       genreAffinity,
       artistAffinity,
       totalSessions: fb.totalSessions,
-      topGenres: Object.entries(fb.genreCompletions)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([genre]) => genre),
+      topGenres: currentUserTopGenres,
+      // Listening depth info
+      genreTotalListenTime: fb.genreTotalListenTime,
+      artistTotalListenTime: fb.artistTotalListenTime,
+    },
+    similarUserSignals: {
+      genreBoost: similarUserGenreBoost,
+      artistBoost: similarUserArtistBoost,
     },
     aggregate: getTopAggregateSignals(15),
   });

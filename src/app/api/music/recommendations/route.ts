@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks, getSoundCloudClientId, type SCTrack } from "@/lib/soundcloud";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { RECOMMENDATIONS_CONFIG as CFG } from "@/config/recommendations";
 
 /**
  * Smart Recommendations API v8 — "Taste DNA" Edition.
@@ -407,7 +408,7 @@ function buildSessionMood(sessionTracks: SessionTrack[]): {
   return { avgEnergy, dominantMoods, dominantGenres, languagePreference };
 }
 
-// ── v9 Scoring: self-learning adaptation based on user feedback ──
+// ── v10 Scoring: config-driven weights + confidence-proportional jitter + serendipity ──
 function scoreTrackV8(
   track: SCTrack,
   meta: InternalTrack,
@@ -426,50 +427,58 @@ function scoreTrackV8(
   const trackArtist = (track.artist || "").toLowerCase().trim();
 
   // ── PHASE ORIGIN BONUS (the most important signal) ──
-  // +100: Related to a liked track (highest confidence)
-  if (meta.isFromLikedRelated) score += 100;
-  // +70: Related to a recently played track
-  else if (meta.isFromHistoryRelated) score += 70;
+  // Config: CFG.scoring.relatedLiked / relatedHistory
+  if (meta.isFromLikedRelated) score += CFG.scoring.relatedLiked;
+  else if (meta.isFromHistoryRelated) score += CFG.scoring.relatedHistory;
 
   // ── ARTIST MATCH ──
-  // +50: Exact artist match from user's top artists
-  // +40: Same artist as a liked/played track
+  // Config: CFG.scoring.artistExact / artistPartial
   let hasArtistMatch = false;
   if (trackArtist) {
     for (const a of topArtists) {
       const aLower = a.toLowerCase().trim();
-      if (trackArtist === aLower) { score += 50; hasArtistMatch = true; break; }
+      if (trackArtist === aLower) { score += CFG.scoring.artistExact; hasArtistMatch = true; break; }
       else if (trackArtist.includes(aLower) || aLower.includes(trackArtist)) {
-        score += 40; hasArtistMatch = true; break;
+        score += CFG.scoring.artistPartial; hasArtistMatch = true; break;
       }
     }
   }
 
   // ── GENRE MATCH ──
-  // +30: Matches user's top genre
+  // Config: CFG.scoring.genreExact / genrePartial
   if (trackGenre) {
     for (const g of topGenres) {
       const normalized = normalizeGenre(g);
-      if (trackGenre === normalized) { score += 30; break; }
-      else if (trackGenre.includes(normalized) || normalized.includes(trackGenre)) { score += 20; break; }
+      if (trackGenre === normalized) { score += CFG.scoring.genreExact; break; }
+      else if (trackGenre.includes(normalized) || normalized.includes(trackGenre)) { score += CFG.scoring.genrePartial; break; }
+    }
+  }
+
+  // ── SERENDIPITY BOOST ──
+  // Reward tracks from genres the user rarely encounters (encourages discovery)
+  if (trackGenre && feedbackData && !meta.isFromLikedRelated && !meta.isFromHistoryRelated) {
+    const genreBoostValue = feedbackData.genreBoost[trackGenre] || 0;
+    // If this genre has low or no explicit signal, give a small discovery bonus
+    if (Math.abs(genreBoostValue) < 5) {
+      score += CFG.scoring.serendipityBonus;
     }
   }
 
   // ── LANGUAGE PREFERENCE ──
-  // +25: Matches user's language preference
+  // Config: CFG.scoring.languageMatch
   if (languagePreference !== "mixed") {
     const trackText = `${track.title || ""} ${track.artist || ""}`;
     const trackLang = detectLanguage(trackText);
-    if (trackLang === languagePreference) score += 25;
+    if (trackLang === languagePreference) score += CFG.scoring.languageMatch;
   }
 
   // ── PLAYABILITY ──
-  // +20: Full playable track
-  if (track.scIsFull) score += 20;
+  // Config: CFG.scoring.playability
+  if (track.scIsFull) score += CFG.scoring.playability;
 
   // ── COVER ART ──
-  // +15: Has cover art
-  if (track.cover) score += 15;
+  // Config: CFG.scoring.coverArt
+  if (track.cover) score += CFG.scoring.coverArt;
 
   // ── HARD PENALTIES ──
   // -200: Disliked artist
@@ -477,12 +486,13 @@ function scoreTrackV8(
   // -200: Disliked genre
   // (handled before scoring via hard filter)
 
-  // -100: Noise/spam keywords
+  // Config: CFG.scoring.noisePenalty
   const titleAndArtist = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
-  if (hasNoiseKeywords(titleAndArtist) && !userWantsReligiousContent(topGenres)) score -= 100;
-  if (titleHashtagGenreMismatch(track.title || "", topGenres)) score -= 50;
+  if (hasNoiseKeywords(titleAndArtist) && !userWantsReligiousContent(topGenres)) score -= CFG.scoring.noisePenalty;
+  if (titleHashtagGenreMismatch(track.title || "", topGenres)) score -= CFG.scoring.hashtagMismatchPenalty;
 
   // ── ADAPTIVE FEEDBACK SCORING (v9 self-learning) ──
+  // Config: CFG.scoring.skipGenrePenalty / completedGenreBonus
   // Boost/penalize based on accumulated user behavior
   if (feedbackData) {
     if (trackGenre && feedbackData.genreBoost[trackGenre]) {
@@ -492,15 +502,18 @@ function scoreTrackV8(
       score += feedbackData.artistBoost[trackArtist];
     }
     if (trackGenre && feedbackData.skipGenrePenalty.has(trackGenre)) {
-      score -= 60;
+      score -= CFG.scoring.skipGenrePenalty;
     }
     if (trackGenre && feedbackData.completedGenres.has(trackGenre)) {
-      score += 15;
+      score += CFG.scoring.completedGenreBonus;
     }
   }
 
-  // ── Random jitter for freshness ──
-  score += Math.random() * 16 - 8; // ±8
+  // ── Confidence-proportional jitter (v10) ──
+  // Higher-confidence matches get less jitter for more stable rankings
+  const confidence = meta.isFromLikedRelated ? 1.0 : meta.isFromHistoryRelated ? 0.8 : meta.isFromArtistSearch ? 0.6 : meta.isFromGenreFallback ? 0.4 : 0.3;
+  const maxJitter = confidence >= 0.8 ? CFG.scoring.highConfidenceJitter : CFG.scoring.maxJitter;
+  score += (Math.random() - 0.5) * 2 * maxJitter;
 
   return score;
 }
@@ -553,14 +566,41 @@ function shouldExcludeTrack(
   return false;
 }
 
-// ── Mapped track for output ──
-function mapTrack(track: SCTrack, score: number) {
+// ── Mapped track for output (v10: includes confidence and reason) ──
+interface MappedTrack {
+  id: string; title: string; artist: string; album: string;
+  cover: string; duration: number; genre: string;
+  audioUrl: string; previewUrl: string; source: string;
+  scTrackId: number; scStreamPolicy: string; scIsFull: boolean;
+  _score: number;
+  _confidence?: "high" | "medium" | "low";
+  _reason?: string;
+}
+
+function mapTrack(track: SCTrack, score: number, meta?: InternalTrack): MappedTrack {
+  let _confidence: "high" | "medium" | "low" = "low";
+  let _reason = "genre_fallback";
+
+  if (meta) {
+    if (meta.isFromLikedRelated) { _confidence = "high"; _reason = "related_to_liked"; }
+    else if (meta.isFromHistoryRelated) { _confidence = "high"; _reason = "related_to_history"; }
+    else if (meta.isFromArtistSearch) { _confidence = "medium"; _reason = "artist_match"; }
+    else if (meta.isFromBridgeGenre) { _confidence = "medium"; _reason = "discovery"; }
+    else if (meta.isFromGenreFallback) { _confidence = "low"; _reason = "genre_fallback"; }
+
+    // Upgrade confidence if multiple signals agree
+    const signalCount = [meta.isFromLikedRelated, meta.isFromHistoryRelated, meta.isFromArtistSearch, meta.isFromGenreFallback, meta.isFromBridgeGenre].filter(Boolean).length;
+    if (signalCount >= 2 && _confidence === "medium") _confidence = "high";
+  }
+
   return {
     id: track.id, title: track.title, artist: track.artist, album: track.album,
     cover: track.cover, duration: track.duration, genre: track.genre,
     audioUrl: track.audioUrl, previewUrl: track.previewUrl, source: track.source,
     scTrackId: track.scTrackId, scStreamPolicy: track.scStreamPolicy, scIsFull: track.scIsFull,
     _score: Math.round(score),
+    _confidence,
+    _reason,
   };
 }
 
@@ -612,6 +652,12 @@ async function handler(request: NextRequest) {
 
   const timeContext = getTimeContext();
 
+  // ── Cold Start Detection (v10) ──
+  const isColdStart = likedScIds.length < CFG.coldStart.minLikedForFullMode && historyScIds.length < CFG.coldStart.minHistoryForFullMode;
+  if (isColdStart) {
+    console.log(`[rec] Cold start user: ${likedScIds.length} likes, ${historyScIds.length} history — boosting exploration`);
+  }
+
   // Parse session tracks (kept for language/mood context)
   let sessionTracks: SessionTrack[] = [];
   if (sessionParam) {
@@ -662,12 +708,14 @@ async function handler(request: NextRequest) {
     // ════════════════════════════════════════════════
     const relatedPromises: { promise: Promise<SCTrack[]>; fromLiked: boolean }[] = [];
 
-    // Take up to 5 liked track IDs
-    for (const scId of likedScIds.slice(0, 5)) {
+    // Take up to N liked track IDs (config-driven, reduced for cold start)
+    const maxLiked = isColdStart ? 2 : CFG.phases.relatedApi.maxLikedTracks;
+    const maxHistory = isColdStart ? 1 : CFG.phases.relatedApi.maxHistoryTracks;
+    for (const scId of likedScIds.slice(0, maxLiked)) {
       relatedPromises.push({ promise: fetchSCTrackRelated(scId), fromLiked: true });
     }
-    // Take up to 3 history track IDs
-    for (const scId of historyScIds.slice(0, 3)) {
+    // Take up to N history track IDs
+    for (const scId of historyScIds.slice(0, maxHistory)) {
       relatedPromises.push({ promise: fetchSCTrackRelated(scId), fromLiked: false });
     }
 
@@ -678,7 +726,7 @@ async function handler(request: NextRequest) {
     // PHASE 2: ARTIST SEARCH (medium priority, ~25%)
     // ════════════════════════════════════════════════
     const artistSearchPromises: Promise<SCTrack[]>[] = [];
-    for (const artist of artists.slice(0, 3)) {
+    for (const artist of artists.slice(0, CFG.phases.artistSearch.maxArtists)) {
       // Search for artist name (quoted for exact match)
       artistSearchPromises.push(searchSCTracks(`"${artist}"`, 15));
       // Combine with top genre if available
@@ -691,7 +739,7 @@ async function handler(request: NextRequest) {
     // PHASE 3: GENRE FALLBACK (low priority, ~15%)
     // Only used if we don't have enough data from phases 1-2
     // ════════════════════════════════════════════════
-    const needGenreFallback = likedScIds.length < 3 && historyScIds.length < 5;
+    const needGenreFallback = likedScIds.length < CFG.phases.genreFallback.minLikedForSkip && historyScIds.length < CFG.phases.genreFallback.minHistoryForSkip;
 
     const genreSearchPromises: Promise<SCTrack[]>[] = [];
     if (needGenreFallback && allGenres.length > 0) {
@@ -716,10 +764,12 @@ async function handler(request: NextRequest) {
     }
 
     // Bridge genre exploration queries (used for "Открытия" category)
+    // v10: Cold start users get more bridge genres for broader exploration
     const bridgeSearchPromises: Promise<SCTrack[]>[] = [];
     if (allGenres.length > 0) {
       const bridgeGenres = getBridgeGenres(allGenres.slice(0, 3));
-      for (const bg of bridgeGenres.slice(0, 3)) {
+      const bridgeLimit = isColdStart ? 5 : 3;
+      for (const bg of bridgeGenres.slice(0, bridgeLimit)) {
         const templates = GENRE_QUERIES[bg];
         if (templates) {
           bridgeSearchPromises.push(searchSCTracks(templates.sort(() => Math.random() - 0.5)[0], 8));
@@ -830,9 +880,13 @@ async function handler(request: NextRequest) {
     }
 
     // ── Score all tracks ──
+    // v10: Cold start users get exploration boost for bridge genre tracks
     const scoredTracks: { track: SCTrack; score: number; meta: InternalTrack }[] = [];
     for (const [scTrackId, meta] of trackMap.entries()) {
-      const score = scoreTrackV8(meta.track, meta, allGenres, artists, languagePreference, feedbackData);
+      let score = scoreTrackV8(meta.track, meta, allGenres, artists, languagePreference, feedbackData);
+      if (isColdStart && meta.isFromBridgeGenre) {
+        score += CFG.coldStart.explorationBoost;
+      }
       scoredTracks.push({ track: meta.track, score, meta });
     }
 
@@ -847,7 +901,7 @@ async function handler(request: NextRequest) {
     const usedInCategory = new Set<number>();
 
     // ── "Похожие на {artist}" — up to 3 rows, one per top artist ──
-    const artistRows: { id: string; title: string; icon: string; tracks: ReturnType<typeof mapTrack>[] }[] = [];
+    const artistRows: { id: string; title: string; icon: string; tracks: MappedTrack[] }[] = [];
 
     for (const artist of artists.slice(0, 3)) {
       const aLower = artist.toLowerCase().trim();
@@ -864,7 +918,7 @@ async function handler(request: NextRequest) {
           id: `artist_${aLower.replace(/\s+/g, '_')}`,
           title: `Похожие на ${artist}`,
           icon: "Mic2",
-          tracks: selected.map(({ track, score }) => mapTrack(track, score)),
+          tracks: selected.map(({ track, score, meta }) => mapTrack(track, score, meta)),
         });
       }
     }
@@ -883,18 +937,18 @@ async function handler(request: NextRequest) {
 
     // ── Build flat track list (MUST always have 50 tracks) ──
     const TARGET_TRACKS = 50;
-    const artistLimit = 3; // max per artist in flat list
-    const flatTracks: ReturnType<typeof mapTrack>[] = [];
+    const artistLimit = CFG.diversity.maxPerArtist;
+    const flatTracks: MappedTrack[] = [];
     const artistCount = new Map<string, number>();
     const flatIds = new Set<number>();
 
-    for (const { track, score } of scoredTracks) {
+    for (const { track, score, meta } of scoredTracks) {
       if (flatTracks.length >= TARGET_TRACKS) break;
       const artist = (track.artist || "").toLowerCase().trim();
       if ((artistCount.get(artist) || 0) >= artistLimit) continue;
       artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
       flatIds.add(track.scTrackId);
-      flatTracks.push(mapTrack(track, score));
+      flatTracks.push(mapTrack(track, score, meta));
     }
 
     // ── SUPPLEMENTARY PHASE: if we don't have 50, fetch more ──
@@ -953,16 +1007,17 @@ async function handler(request: NextRequest) {
       }
 
       // Score supplementary tracks
+      const fillMeta = (t: SCTrack): InternalTrack => ({ track: t, isFromLikedRelated: false, isFromHistoryRelated: false, isFromArtistSearch: false, isFromGenreFallback: true, isFromBridgeGenre: false, sourceQuery: "fill" });
       const fillScored = Array.from(fillMap.values())
-        .map(t => ({ track: t, score: scoreTrackV8(t, { track: t, isFromLikedRelated: false, isFromHistoryRelated: false, isFromArtistSearch: false, isFromGenreFallback: true, isFromBridgeGenre: false, sourceQuery: "fill" }, allGenres, artists, languagePreference, feedbackData) }))
+        .map(t => { const m = fillMeta(t); return { track: t, meta: m, score: scoreTrackV8(t, m, allGenres, artists, languagePreference, feedbackData) }; })
         .sort((a, b) => b.score - a.score);
 
-      for (const { track, score } of fillScored) {
+      for (const { track, score, meta } of fillScored) {
         if (flatTracks.length >= TARGET_TRACKS) break;
         const artist = (track.artist || "").toLowerCase().trim();
         if ((artistCount.get(artist) || 0) >= artistLimit) continue;
         artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
-        flatTracks.push(mapTrack(track, score));
+        flatTracks.push(mapTrack(track, score, meta));
       }
     }
 
@@ -991,14 +1046,15 @@ async function handler(request: NextRequest) {
           })
         );
 
-        const exploreTracks: { track: SCTrack; score: number }[] = [];
+        const exploreTracks: { track: SCTrack; meta: InternalTrack; score: number }[] = [];
         for (const result of exploreResults) {
           if (result.status !== "fulfilled") continue;
           for (const t of result.value) {
             if (flatIds.has(t.scTrackId) || sourceScIds.has(t.scTrackId)) continue;
             if (shouldExcludeTrack(t, allGenres, excludeIds, dislikedIds, recentIds, dislikedArtists, dislikedGenres)) continue;
+            const eMeta: InternalTrack = { track: t, isFromLikedRelated: false, isFromHistoryRelated: false, isFromArtistSearch: false, isFromGenreFallback: false, isFromBridgeGenre: true, sourceQuery: "explore" };
             // Give exploration tracks a small score bonus so they don't get cut
-            exploreTracks.push({ track: t, score: 30 + Math.random() * 20 });
+            exploreTracks.push({ track: t, meta: eMeta, score: 30 + Math.random() * 20 });
           }
         }
 
@@ -1009,9 +1065,9 @@ async function handler(request: NextRequest) {
           for (let i = 0; i < exploreCount && i < exploreTracks.length; i++) {
             const idx = replaceStart + i;
             if (idx < flatTracks.length) {
-              flatTracks[idx] = mapTrack(exploreTracks[i].track, exploreTracks[i].score);
+              flatTracks[idx] = mapTrack(exploreTracks[i].track, exploreTracks[i].score, exploreTracks[i].meta);
             } else {
-              flatTracks.push(mapTrack(exploreTracks[i].track, exploreTracks[i].score));
+              flatTracks.push(mapTrack(exploreTracks[i].track, exploreTracks[i].score, exploreTracks[i].meta));
             }
           }
         }
@@ -1019,7 +1075,7 @@ async function handler(request: NextRequest) {
     }
 
     // ── Build categories array ──
-    const categories: { id: string; title: string; icon: string; tracks: ReturnType<typeof mapTrack>[] }[] = [];
+    const categories: { id: string; title: string; icon: string; tracks: MappedTrack[] }[] = [];
 
     // Artist-based rows first (most personalized)
     categories.push(...artistRows);
@@ -1030,7 +1086,7 @@ async function handler(request: NextRequest) {
         id: "for_you",
         title: "Для вас",
         icon: "Sparkles",
-        tracks: forYouTracks.map(({ track, score }) => mapTrack(track, score)),
+        tracks: forYouTracks.map(({ track, score, meta }) => mapTrack(track, score, meta)),
       });
     }
 
@@ -1040,7 +1096,7 @@ async function handler(request: NextRequest) {
         id: "discover",
         title: "Открытия",
         icon: "Compass",
-        tracks: discoveryTracks.map(({ track, score }) => mapTrack(track, score)),
+        tracks: discoveryTracks.map(({ track, score, meta }) => mapTrack(track, score, meta)),
       });
     }
 
@@ -1054,9 +1110,10 @@ async function handler(request: NextRequest) {
         phase2Count: scoredTracks.filter(({ meta }) => meta.isFromArtistSearch).length,
         phase3Count: scoredTracks.filter(({ meta }) => meta.isFromGenreFallback).length,
         bridgeCount: scoredTracks.filter(({ meta }) => meta.isFromBridgeGenre).length,
-        likedScIdsUsed: likedScIds.slice(0, 5).length,
-        historyScIdsUsed: historyScIds.slice(0, 3).length,
+        likedScIdsUsed: likedScIds.slice(0, isColdStart ? 2 : CFG.phases.relatedApi.maxLikedTracks).length,
+        historyScIdsUsed: historyScIds.slice(0, isColdStart ? 1 : CFG.phases.relatedApi.maxHistoryTracks).length,
         languagePreference,
+        isColdStart,
       },
     };
 
