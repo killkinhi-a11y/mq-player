@@ -15,7 +15,7 @@ import { openPiPPopup, closePiPPopup } from "@/lib/pipManager";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 import QueueView from "./QueueView";
 import Hls from "hls.js";
-import type { Config as HlsConfig } from "hls.js";
+import type { HlsConfig } from "hls.js";
 
 interface StreamResult {
   url: string;
