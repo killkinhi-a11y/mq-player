@@ -638,7 +638,7 @@ async function buildPopularPlaylist(
 /* ------------------------------------------------------------------ */
 
 const cache = new Map<string, { playlists: CuratedPlaylist[]; timestamp: number }>();
-const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes (force fresh diversity)
 
 /* ------------------------------------------------------------------ */
 /*  Handler                                                            */

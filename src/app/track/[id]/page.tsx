@@ -79,13 +79,30 @@ export default function ShareTrackPage() {
     };
   }, [id]);
 
-  // Set up audio element
+  // Set up audio element — resolve stream URL client-side
   useEffect(() => {
     if (!track?.streamUrl) return;
 
     const audio = new Audio();
     audio.crossOrigin = "anonymous";
     audioRef.current = audio;
+
+    // streamUrl is now a resolveUrl — fetch it to get the actual CDN URL
+    const loadAudio = async () => {
+      try {
+        setIsBuffering(true);
+        const res = await fetch(track.streamUrl!, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.url) {
+          audio.src = data.url;
+          audio.load();
+        }
+      } catch {
+        // resolve failed
+      }
+    };
+    loadAudio();
 
     const handleTimeUpdate = () => {
       if (!isDragging.current) {
@@ -137,11 +154,7 @@ export default function ShareTrackPage() {
 
   const handlePlayPause = useCallback(async () => {
     const audio = audioRef.current;
-    if (!audio || !track?.streamUrl) return;
-
-    if (!audio.src || audio.src === "") {
-      audio.src = track.streamUrl;
-    }
+    if (!audio) return;
 
     if (isPlaying) {
       audio.pause();
