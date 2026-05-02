@@ -12,11 +12,10 @@ import { NextRequest, NextResponse } from "next/server";
  *   - cbc-encrypted-hls  → SAMPLE-AES with FairPlay (Safari)
  *
  * Strategy:
- * 1. Get track info from SC API
- * 2. Prefer progressive (old tracks) → resolve to CDN URL
- * 3. Fall back to ctr-encrypted-hls → resolve to manifest URL (EME required)
- * 4. Fall back to cbc-encrypted-hls → resolve to manifest URL (Safari only)
- * 5. Fall back to plain hls → resolve
+ * 1. Get track info from SC API (with track_authorization JWT)
+ * 2. Collect ALL transcodings ordered by priority
+ * 3. Try to resolve each one — return the first that succeeds
+ * 4. Priority: progressive > ctr-encrypted-hls > cbc-encrypted-hls > hls
  */
 
 export const runtime = "edge";
@@ -38,47 +37,55 @@ interface Transcoding {
   quality?: string;
 }
 
-interface TrackInfo {
-  streamUrl: string;
-  protocol: string; // "progressive" | "hls" | "cbc-encrypted-hls" | "ctr-encrypted-hls"
+interface PickedTranscoding {
+  url: string;
+  protocol: string;
   isHls: boolean;
   isEncrypted: boolean;
+}
+
+interface TrackInfo {
+  transcodings: PickedTranscoding[];
   isPreview: boolean;
   duration: number;
   fullDuration: number;
-  trackAuthorization: string; // JWT required by SC to resolve stream URLs
+  trackAuthorization: string;
 }
 
 /**
- * Get track info and pick the best transcoding.
+ * Collect ALL available transcodings ordered by priority.
+ * We try each one during resolution — the first that resolves wins.
  * Priority: progressive > ctr-encrypted-hls > cbc-encrypted-hls > hls
  */
-function pickTranscoding(transcodings: Transcoding[]): { url: string; protocol: string; isHls: boolean; isEncrypted: boolean } | null {
+function collectTranscodings(transcodings: Transcoding[]): PickedTranscoding[] {
+  const result: PickedTranscoding[] = [];
+
   // 1. Progressive (unencrypted MP3) — best for old tracks
   for (const t of transcodings) {
     if (t.format?.protocol === "progressive" && t.url) {
-      return { url: t.url, protocol: "progressive", isHls: false, isEncrypted: false };
+      result.push({ url: t.url, protocol: "progressive", isHls: false, isEncrypted: false });
     }
   }
   // 2. CTR encrypted HLS — works in Chrome/Firefox/Edge via HLS.js + EME (Widevine)
   for (const t of transcodings) {
     if (t.format?.protocol === "ctr-encrypted-hls" && t.url) {
-      return { url: t.url, protocol: "ctr-encrypted-hls", isHls: true, isEncrypted: true };
+      result.push({ url: t.url, protocol: "ctr-encrypted-hls", isHls: true, isEncrypted: true });
     }
   }
   // 3. CBC encrypted HLS — works in Safari (FairPlay)
   for (const t of transcodings) {
     if (t.format?.protocol === "cbc-encrypted-hls" && t.url) {
-      return { url: t.url, protocol: "cbc-encrypted-hls", isHls: true, isEncrypted: true };
+      result.push({ url: t.url, protocol: "cbc-encrypted-hls", isHls: true, isEncrypted: true });
     }
   }
   // 4. Plain HLS (unencrypted) — may still work for some tracks
   for (const t of transcodings) {
     if (t.format?.protocol === "hls" && t.url) {
-      return { url: t.url, protocol: "hls", isHls: true, isEncrypted: false };
+      result.push({ url: t.url, protocol: "hls", isHls: true, isEncrypted: false });
     }
   }
-  return null;
+
+  return result;
 }
 
 async function getTrackInfo(trackId: string, clientId: string): Promise<TrackInfo | null> {
@@ -94,14 +101,11 @@ async function getTrackInfo(trackId: string, clientId: string): Promise<TrackInf
     const track = await trackRes.json();
 
     const transcodings: Transcoding[] = (track.media?.transcodings || []).filter(Boolean);
-    const picked = pickTranscoding(transcodings);
-    if (!picked) return null;
+    const picked = collectTranscodings(transcodings);
+    if (picked.length === 0) return null;
 
     return {
-      streamUrl: picked.url,
-      protocol: picked.protocol,
-      isHls: picked.isHls,
-      isEncrypted: picked.isEncrypted,
+      transcodings: picked,
       isPreview: track.policy === "SNIP",
       duration: Math.round((track.duration || 0) / 1000),
       fullDuration: Math.round((track.full_duration || 0) / 1000),
@@ -165,27 +169,30 @@ export async function GET(request: NextRequest) {
       const info = await getTrackInfo(trackId, clientId);
       if (!info) continue;
 
-      // Try to resolve the template URL to a real URL (with track_authorization JWT)
-      const resolvedUrl = await resolveUrl(info.streamUrl, info.trackAuthorization);
+      // Try ALL transcodings in priority order — return the first that resolves
+      for (const tc of info.transcodings) {
+        const resolvedUrl = await resolveUrl(tc.url, info.trackAuthorization);
 
-      if (resolvedUrl) {
-        // Successfully resolved — return the URL with format metadata
-        return NextResponse.json({
-          url: resolvedUrl,
-          isHls: info.isHls,
-          isEncrypted: info.isEncrypted,
-          protocol: info.protocol,
-          isPreview: info.isPreview,
-          duration: info.duration,
-          fullDuration: info.fullDuration,
-          // For encrypted tracks, include the license server URL
-          ...(info.isEncrypted ? { licenseUrl: SC_LICENSE_URL } : {}),
-        });
+        if (resolvedUrl) {
+          // Successfully resolved — return the URL with format metadata
+          return NextResponse.json({
+            url: resolvedUrl,
+            isHls: tc.isHls,
+            isEncrypted: tc.isEncrypted,
+            protocol: tc.protocol,
+            isPreview: info.isPreview,
+            duration: info.duration,
+            fullDuration: info.fullDuration,
+            // For encrypted tracks, include the license server URL
+            ...(tc.isEncrypted ? { licenseUrl: SC_LICENSE_URL } : {}),
+          });
+        }
       }
 
-      // Resolve failed — include track_authorization in fallback URL for client-side retry
-      const separator = info.streamUrl.includes("?") ? "&" : "?";
-      let fallbackUrl = `${info.streamUrl}${separator}client_id=${clientId}`;
+      // All transcodings failed — return the first one as fallback for client-side retry
+      const fallback = info.transcodings[0];
+      const separator = fallback.url.includes("?") ? "&" : "?";
+      let fallbackUrl = `${fallback.url}${separator}client_id=${clientId}`;
       if (info.trackAuthorization) {
         fallbackUrl += `&track_authorization=${encodeURIComponent(info.trackAuthorization)}`;
       }
@@ -193,13 +200,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         url: null,
         resolveUrl: fallbackUrl,
-        isHls: info.isHls,
-        isEncrypted: info.isEncrypted,
-        protocol: info.protocol,
+        isHls: fallback.isHls,
+        isEncrypted: fallback.isEncrypted,
+        protocol: fallback.protocol,
         isPreview: info.isPreview,
         duration: info.duration,
         fullDuration: info.fullDuration,
-        ...(info.isEncrypted ? { licenseUrl: SC_LICENSE_URL } : {}),
+        ...(fallback.isEncrypted ? { licenseUrl: SC_LICENSE_URL } : {}),
         error: "cdn_resolve_failed",
       });
     } catch {}
