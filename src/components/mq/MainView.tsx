@@ -9,6 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
 import HeroParticles from "./HeroParticles";
+import CursorSpotlight from "./CursorSpotlight";
+import ScrollReveal from "./ScrollReveal";
+import ScrollProgressBar from "./ScrollProgressBar";
 
 interface CuratedPlaylist {
   id: string;
@@ -110,7 +113,7 @@ function RecCategoryRow({ category, index, playTrack, animationsEnabled, compact
   );
 }
 
-// ── 3D Tilt Card (mouse-following perspective) ──
+// ── 3D Tilt Card (mouse-following perspective + glare effect) ──
 function TiltCard({ children, className, style, onClick }: {
   children: React.ReactNode;
   className?: string;
@@ -121,19 +124,26 @@ function TiltCard({ children, className, style, onClick }: {
   const x = useMotionValue(0.5);
   const y = useMotionValue(0.5);
 
-  const rotateX = useSpring(useTransform(y, [0, 1], [6, -6]), { stiffness: 300, damping: 30 });
-  const rotateY = useSpring(useTransform(x, [0, 1], [-6, 6]), { stiffness: 300, damping: 30 });
+  const rotateX = useSpring(useTransform(y, [0, 1], [8, -8]), { stiffness: 250, damping: 25 });
+  const rotateY = useSpring(useTransform(x, [0, 1], [-8, 8]), { stiffness: 250, damping: 25 });
+
+  // Glare position based on mouse
+  const glareX = useSpring(useTransform(x, [0, 1], [0, 100]), { stiffness: 300, damping: 30 });
+  const glareY = useSpring(useTransform(y, [0, 1], [0, 100]), { stiffness: 300, damping: 30 });
+  const glareOpacity = useSpring(0, { stiffness: 300, damping: 30 });
 
   const handleMouse = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     x.set((e.clientX - rect.left) / rect.width);
     y.set((e.clientY - rect.top) / rect.height);
-  }, [x, y]);
+    glareOpacity.set(0.15);
+  }, [x, y, glareOpacity]);
 
   const handleLeave = useCallback(() => {
     x.set(0.5);
     y.set(0.5);
-  }, [x, y]);
+    glareOpacity.set(0);
+  }, [x, y, glareOpacity]);
 
   return (
     <motion.div
@@ -151,7 +161,58 @@ function TiltCard({ children, className, style, onClick }: {
       className={className}
     >
       {children}
+      {/* Glare overlay */}
+      <motion.div
+        className="absolute inset-0 rounded-xl pointer-events-none"
+        style={{
+          background: `radial-gradient(circle at ${glareX}% ${glareY}%, rgba(255,255,255,0.25), transparent 60%)`,
+          opacity: glareOpacity,
+        }}
+      />
     </motion.div>
+  );
+}
+
+// ── Magnetic Button — icon/content slightly pulls toward cursor ──
+function MagneticButton({ children, className, style, onClick, strength = 0.3 }: {
+  children: React.ReactNode;
+  className?: string;
+  style?: React.CSSProperties;
+  onClick?: () => void;
+  strength?: number;
+}) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const contentX = useSpring(0, { stiffness: 400, damping: 25 });
+  const contentY = useSpring(0, { stiffness: 400, damping: 25 });
+
+  const handleMouse = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = (e.clientX - cx) * strength;
+    const dy = (e.clientY - cy) * strength;
+    contentX.set(dx);
+    contentY.set(dy);
+  }, [strength, contentX, contentY]);
+
+  const handleLeave = useCallback(() => {
+    contentX.set(0);
+    contentY.set(0);
+  }, [contentX, contentY]);
+
+  return (
+    <motion.button
+      ref={ref}
+      onMouseMove={handleMouse}
+      onMouseLeave={handleLeave}
+      onClick={onClick}
+      className={className}
+      style={style}
+    >
+      <motion.span style={{ x: contentX, y: contentY, display: "inline-flex" }}>
+        {children}
+      </motion.span>
+    </motion.button>
   );
 }
 
@@ -162,12 +223,21 @@ function MoodTag({ label, icon, onClick, active }: {
   onClick?: () => void;
   active?: boolean;
 }) {
+  const [ripple, setRipple] = useState<{ x: number; y: number; id: number } | null>(null);
+
+  const handleClick = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setRipple({ x: e.clientX - rect.left, y: e.clientY - rect.top, id: Date.now() });
+    setTimeout(() => setRipple(null), 600);
+    onClick?.();
+  }, [onClick]);
+
   return (
     <motion.button
       whileHover={{ scale: 1.08, y: -2 }}
       whileTap={{ scale: 0.95 }}
-      onClick={onClick}
-      className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-all duration-200"
+      onClick={handleClick}
+      className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-all duration-200 relative overflow-hidden"
       style={{
         backgroundColor: active ? "var(--mq-accent)" : "var(--mq-card)",
         color: active ? "var(--mq-text)" : "var(--mq-text-muted)",
@@ -175,6 +245,15 @@ function MoodTag({ label, icon, onClick, active }: {
         boxShadow: active ? "0 2px 12px rgba(0,0,0,0.3)" : "none",
       }}
     >
+      {ripple && (
+        <motion.span
+          key={ripple.id}
+          className="absolute rounded-full pointer-events-none"
+          style={{ left: ripple.x, top: ripple.y, width: 0, height: 0, backgroundColor: "rgba(255,255,255,0.3)" }}
+          animate={{ width: 120, height: 120, x: -60, y: -60, opacity: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        />
+      )}
       {icon}
       {label}
     </motion.button>
@@ -283,6 +362,43 @@ export default function MainView() {
   const [selectedCurated, setSelectedCurated] = useState<CuratedPlaylist | null>(null);
   const [selectedRecCategory, setSelectedRecCategory] = useState<{ id: string; title: string; icon: string; tracks: Track[] } | null>(null);
   const [activeMood, setActiveMood] = useState<string | null>(null);
+
+  // Mouse position for hero parallax effect
+  const heroRef = useRef<HTMLDivElement>(null);
+  const mousePos = useRef({ x: 0, y: 0 });
+  const [heroOrbStyle, setHeroOrbStyle] = useState({ orb1: {}, orb2: {} });
+  const [heroScrollOpacity, setHeroScrollOpacity] = useState(1);
+  const [heroScrollY, setHeroScrollY] = useState(0);
+  const mainRef = useRef<HTMLDivElement>(null);
+
+  // Track mouse for hero parallax orbs
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      mousePos.current = { x: e.clientX, y: e.clientY };
+      // Parallax: orbs move opposite to mouse with different multipliers
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const dx = (e.clientX - cx) / cx; // -1..1
+      const dy = (e.clientY - cy) / cy; // -1..1
+      setHeroOrbStyle({
+        orb1: { transform: `translate(${dx * 20}px, ${dy * 15}px)` },
+        orb2: { transform: `translate(${dx * -12}px, ${dy * -10}px)` },
+      });
+    };
+    window.addEventListener("mousemove", handleMouseMove, { passive: true });
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
+
+  // Track scroll for hero parallax + fade
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY || document.documentElement.scrollTop;
+      setHeroScrollY(scrollY);
+      setHeroScrollOpacity(Math.max(0, 1 - scrollY / 400));
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Build taste profile from liked tracks + history with exponential time decay
   const tasteProfile = useMemo(() => {
@@ -932,24 +1048,40 @@ export default function MainView() {
   }
 
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-4xl mx-auto`}>
-      {/* Hero — Interactive with particles */}
+    <div ref={mainRef} className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-4xl mx-auto relative`}>
+      {/* Cursor Spotlight — global mouse glow */}
+      <CursorSpotlight />
+
+      {/* Scroll Progress Bar */}
+      <ScrollProgressBar />
+
+      {/* Hero — Interactive with particles + mouse parallax + scroll fade */}
       <motion.div
+        ref={heroRef}
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
-        className={`rounded-2xl ${compactMode ? "p-4 lg:p-5" : "p-6 lg:p-8"} relative overflow-hidden`}
-        style={{ background: "var(--mq-gradient), var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{
+          background: "var(--mq-gradient), var(--mq-card)",
+          border: "1px solid var(--mq-border)",
+          opacity: heroScrollOpacity,
+          transform: `translateY(${heroScrollY * 0.15}px)`,
+        }}
+        className={`rounded-2xl ${compactMode ? "p-4 lg:p-5" : "p-6 lg:p-8"} relative overflow-hidden transition-transform`}
       >
         {/* Particle background */}
         <div className="absolute inset-0 rounded-2xl overflow-hidden" style={{ zIndex: 0 }}>
           <HeroParticles />
         </div>
 
-        {/* Decorative gradient orbs */}
-        <div className="absolute -top-20 -right-20 w-60 h-60 rounded-full opacity-[0.06] pointer-events-none"
-          style={{ background: "var(--mq-accent)", filter: "blur(40px)", zIndex: 0 }} />
-        <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full opacity-[0.04] pointer-events-none"
-          style={{ background: "var(--mq-accent)", filter: "blur(30px)", zIndex: 0 }} />
+        {/* Decorative gradient orbs — mouse parallax */}
+        <div
+          className="absolute -top-20 -right-20 w-60 h-60 rounded-full opacity-[0.06] pointer-events-none"
+          style={{ ...heroOrbStyle.orb1, background: "var(--mq-accent)", filter: "blur(40px)", zIndex: 0, transition: "transform 0.3s ease-out" }}
+        />
+        <div
+          className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full opacity-[0.04] pointer-events-none"
+          style={{ ...heroOrbStyle.orb2, background: "var(--mq-accent)", filter: "blur(30px)", zIndex: 0, transition: "transform 0.3s ease-out" }}
+        />
 
         <div className="relative" style={{ zIndex: 2 }}>
           <h1 className={`${compactMode ? "text-xl lg:text-2xl" : "text-2xl lg:text-3xl"} font-bold`} style={{ color: "var(--mq-text)" }}>
@@ -1014,8 +1146,9 @@ export default function MainView() {
         </div>
       </motion.div>
 
-      {/* Quick stats - CLICKABLE with 3D Tilt */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Quick stats - CLICKABLE with 3D Tilt + Glare */}
+      <ScrollReveal direction="up" delay={0.1}>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((stat, i) => (
           <TiltCard
             key={stat.label}
@@ -1040,14 +1173,11 @@ export default function MainView() {
             </motion.div>
           </TiltCard>
         ))}
-      </div>
+        </div>
+      </ScrollReveal>
 
       {/* Quick mood/genre tags */}
-      <motion.div
-        initial={animationsEnabled ? { opacity: 0, y: 15 } : undefined}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
+      <ScrollReveal direction="up" delay={0.2}>
         <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           <MoodTag
             label="Для тебя"
@@ -1090,10 +1220,11 @@ export default function MainView() {
             />
           ))}
         </div>
-      </motion.div>
+      </ScrollReveal>
 
       {/* Listening Activity Widget */}
       {history.length > 0 && (
+        <ScrollReveal direction="up" delay={0.25}>
         <motion.div
           initial={animationsEnabled ? { opacity: 0, y: 15 } : undefined}
           animate={{ opacity: 1, y: 0 }}
@@ -1112,9 +1243,11 @@ export default function MainView() {
           </div>
           <ListeningActivityBar history={history} />
         </motion.div>
+        </ScrollReveal>
       )}
 
       {/* Curated playlists — stylized gradient artwork cards */}
+      <ScrollReveal direction="up" delay={0.3}>
       <div>
         <h2 className="text-lg font-bold mb-4" style={{ color: "var(--mq-text)" }}>
           Плейлисты для вас
@@ -1175,8 +1308,10 @@ export default function MainView() {
           </div>
         ) : null}
       </div>
+      </ScrollReveal>
 
       {/* Recent history */}
+      <ScrollReveal direction="up" delay={0.35}>
       {recentTracks.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -1199,8 +1334,10 @@ export default function MainView() {
           </div>
         </div>
       )}
+      </ScrollReveal>
 
       {/* Smart Recommendations — Categorized Rows (Spotify-style) */}
+      <ScrollReveal direction="up" delay={0.4}>
       {!isRecLoading && recCategories.length > 0 ? (
         recCategories.slice(0, 4).map((cat, catIdx) => (
           <RecCategoryRow key={cat.id} category={cat} index={catIdx} playTrack={playTrack} animationsEnabled={animationsEnabled} compactMode={compactMode} onOpenAll={setSelectedRecCategory} />
@@ -1264,8 +1401,10 @@ export default function MainView() {
           </motion.button>
         </div>
       )}
+      </ScrollReveal>
 
       {/* Trending tracks */}
+      <ScrollReveal direction="up" delay={0.45}>
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
@@ -1314,6 +1453,7 @@ export default function MainView() {
           </div>
         )}
       </div>
+      </ScrollReveal>
     </div>
   );
 }
