@@ -23,16 +23,44 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<{ url: string
     });
     if (!res.ok) return null;
     const data = await res.json();
-    // Server now resolves the CDN URL directly — no client-side resolve needed
-    if (!data.url) return null;
 
-    return {
-      url: data.url,
-      isPreview: !!data.isPreview,
-      duration: data.duration || 0,
-      fullDuration: data.fullDuration || 0,
-      isHls: !!data.isHls,
-    };
+    // Best case: Edge Function resolved the CDN URL directly
+    if (data.url) {
+      return {
+        url: data.url,
+        isPreview: !!data.isPreview,
+        duration: data.duration || 0,
+        fullDuration: data.fullDuration || 0,
+        isHls: !!data.isHls,
+      };
+    }
+
+    // Fallback: Edge couldn't resolve — try our CORS proxy with the template URL
+    if (data.resolveUrl) {
+      console.warn("[Player] Edge resolve failed, trying CORS proxy...");
+      try {
+        const proxyRes = await fetch(
+          `/api/music/soundcloud/resolve-proxy?url=${encodeURIComponent(data.resolveUrl)}`,
+          { signal: AbortSignal.timeout(10000) }
+        );
+        if (proxyRes.ok) {
+          const proxyData = await proxyRes.json();
+          if (proxyData.url) {
+            return {
+              url: proxyData.url,
+              isPreview: !!data.isPreview,
+              duration: data.duration || 0,
+              fullDuration: data.fullDuration || 0,
+              isHls: !!data.isHls,
+            };
+          }
+        }
+      } catch {
+        // CORS proxy failed too
+      }
+    }
+
+    return null;
   } catch {
     return null;
   }

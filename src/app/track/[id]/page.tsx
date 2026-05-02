@@ -11,6 +11,7 @@ interface TrackData {
   duration: number;
   genre: string;
   streamUrl: string | null;
+  resolveUrl: string | null;
   previewUrl: string;
   scTrackId: number;
   description: string;
@@ -79,17 +80,42 @@ export default function ShareTrackPage() {
     };
   }, [id]);
 
-  // Set up audio element — streamUrl is now the CDN URL directly (server resolves it)
+  // Set up audio element — try streamUrl (CDN) first, then resolveUrl via CORS proxy
   useEffect(() => {
-    if (!track?.streamUrl) return;
+    if (!track?.streamUrl && !track?.resolveUrl) return;
 
     const audio = new Audio();
     audio.crossOrigin = "anonymous";
     audioRef.current = audio;
 
-    // streamUrl is now the actual CDN URL — play directly
-    audio.src = track.streamUrl;
-    audio.load();
+    const loadAudio = async () => {
+      // If we have a direct CDN URL, use it
+      if (track?.streamUrl) {
+        audio.src = track.streamUrl;
+        audio.load();
+        return;
+      }
+
+      // Otherwise resolve the template URL through our CORS proxy
+      if (track?.resolveUrl) {
+        try {
+          setIsBuffering(true);
+          const proxyRes = await fetch(
+            `/api/music/soundcloud/resolve-proxy?url=${encodeURIComponent(track.resolveUrl)}`,
+            { signal: AbortSignal.timeout(10000) }
+          );
+          if (proxyRes.ok) {
+            const proxyData = await proxyRes.json();
+            if (proxyData.url) {
+              audio.src = proxyData.url;
+              audio.load();
+              return;
+            }
+          }
+        } catch {}
+      }
+    };
+    loadAudio();
 
     const handleTimeUpdate = () => {
       if (!isDragging.current) {

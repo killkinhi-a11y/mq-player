@@ -83,8 +83,9 @@ async function handler(request: NextRequest) {
     const description = track.description || "";
     const duration = Math.round((track.full_duration || track.duration || 0) / 1000);
 
-    // Get stream URL — server now resolves CDN URL directly
+    // Get stream URL — Edge function resolves CDN URL, falls back to template URL
     let streamUrl: string | null = null;
+    let resolveUrl: string | null = null;
     let previewUrl = "";
     try {
       const baseUrl = request.nextUrl.origin;
@@ -94,10 +95,15 @@ async function handler(request: NextRequest) {
       );
       if (streamRes.ok) {
         const streamData = await streamRes.json();
-        // Server resolves CDN URL directly — no client-side resolve needed
-        if (streamData.url) streamUrl = streamData.url;
+        if (streamData.url) {
+          // Edge resolved CDN URL directly
+          streamUrl = streamData.url;
+        } else if (streamData.resolveUrl) {
+          // Edge couldn't resolve — pass template URL for client-side CORS proxy fallback
+          resolveUrl = streamData.resolveUrl;
+        }
         if (streamData.isPreview) {
-          previewUrl = streamData.url || "";
+          previewUrl = streamData.url || streamData.resolveUrl || "";
         }
       }
     } catch {
@@ -111,6 +117,7 @@ async function handler(request: NextRequest) {
       duration,
       genre,
       streamUrl,
+      resolveUrl,
       previewUrl,
       scTrackId: track.id,
       description,
