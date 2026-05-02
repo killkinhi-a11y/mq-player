@@ -421,22 +421,23 @@ export default function MainView() {
               artistBoost[artist] = (artistBoost[artist] || 0) - 50;
             }
 
-          // Early-skip detection: skip within 10s = strong negative signal
-          if (fb.skipPositions && fb.skipPositions.length > 0) {
-            const avgSkipPos = fb.skipPositions.reduce((a, b) => a + b, 0) / fb.skipPositions.length;
-            if (avgSkipPos < 15 && fb.skips >= 2) {
-              // User skips very early — strong dislike for this artist/genre
-              if (artist) artistBoost[artist] = (artistBoost[artist] || 0) - 30;
-              if (genre) genreBoost[genre] = (genreBoost[genre] || 0) - 25;
+            // Early-skip detection: skip within 10s = strong negative signal
+            if (fb.skipPositions && fb.skipPositions.length > 0) {
+              const avgSkipPos = fb.skipPositions.reduce((a, b) => a + b, 0) / fb.skipPositions.length;
+              if (avgSkipPos < 15 && fb.skips >= 2) {
+                // User skips very early — strong dislike for this artist/genre
+                if (artist) artistBoost[artist] = (artistBoost[artist] || 0) - 30;
+                if (genre) genreBoost[genre] = (genreBoost[genre] || 0) - 25;
+              }
             }
-          }
 
-          // Full listen bonus: listened >80% of duration on average
-          if (fb.totalListenTime > 0 && track.duration > 0) {
-            const avgListenRatio = fb.totalListenTime / (track.duration * fb.completes);
-            if (avgListenRatio > 0.8) {
-              if (genre) genreBoost[genre] = (genreBoost[genre] || 0) + 10;
-              if (artist) artistBoost[artist] = (artistBoost[artist] || 0) + 8;
+            // Full listen bonus: listened >80% of duration on average
+            if (fb.totalListenTime > 0 && track.duration > 0) {
+              const avgListenRatio = fb.totalListenTime / (track.duration * fb.completes);
+              if (avgListenRatio > 0.8) {
+                if (genre) genreBoost[genre] = (genreBoost[genre] || 0) + 10;
+                if (artist) artistBoost[artist] = (artistBoost[artist] || 0) + 8;
+              }
             }
           }
         }

@@ -809,11 +809,11 @@ export default function PlayerBar() {
                 };
 
                 // SoundCloud may wrap the license key in JSON — extract raw bytes
-                hlsConfig.licenseResponseCallback = (xhr: XMLHttpRequest) => {
+                hlsConfig.licenseResponseCallback = (xhr: XMLHttpRequest): ArrayBuffer => {
                   const raw = xhr.response as ArrayBuffer;
                   if (!raw || raw.byteLength === 0) {
                     console.error("[Player] Empty license response from", stream.licenseUrl);
-                    return new Uint8Array(0);
+                    return new ArrayBuffer(0);
                   }
                   // Check if response is JSON-wrapped (e.g. {"license":"<base64>"})
                   try {
@@ -824,12 +824,12 @@ export default function PlayerBar() {
                       const bytes = new Uint8Array(decoded.length);
                       for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
                       console.log("[Player] Unwrapped JSON license response");
-                      return bytes;
+                      return bytes.buffer as ArrayBuffer;
                     }
                   } catch {
                     // Not JSON — pass raw bytes through (standard Widevine response)
                   }
-                  return new Uint8Array(raw);
+                  return raw;
                 };
               }
 
@@ -847,7 +847,8 @@ export default function PlayerBar() {
               hls.on(Hls.Events.FRAG_DECRYPTED, (_event, data) => {
                 console.log("[Player] Segment decrypted OK:", data.frag?.url?.slice(-40));
               });
-              hls.on(Hls.Events.KEY_STATUS, (_event, data) => {
+              // @ts-expect-error KEY_STATUS may not be in all hls.js versions
+              hls.on(Hls.Events.KEY_STATUS, (_event, data: any) => {
                 if (data.status !== "usable") {
                   console.warn("[Player] DRM key status:", data.status, "for", data.frag?.url?.slice(-40));
                 }
