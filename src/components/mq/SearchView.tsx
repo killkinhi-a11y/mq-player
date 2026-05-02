@@ -5,6 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion } from "framer-motion";
 import { genresList, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
+import ScrollReveal from "./ScrollReveal";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, X, SlidersHorizontal, Music, Play, Upload, Clock, Trash2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
@@ -58,6 +59,7 @@ export default function SearchView() {
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
 
   // Genre filter search
   const [genreTracks, setGenreTracks] = useState<Track[]>([]);
@@ -422,30 +424,38 @@ export default function SearchView() {
         animate={{ opacity: 1, y: 0 }}
         className="flex gap-2"
       >
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-          <Input
-            ref={searchInputRef}
-            placeholder="Искать треки, артистов, альбомы..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-10 min-h-[44px]"
-            style={{
-              backgroundColor: "var(--mq-input-bg)",
-              border: "1px solid var(--mq-border)",
-              color: "var(--mq-text)",
-            }}
-          />
-          {searchQuery && (
-            <button
-              onClick={handleClearSearch}
-              className="absolute right-3 top-1/2 -translate-y-1/2"
-              style={{ color: "var(--mq-text-muted)" }}
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+        <motion.div
+          animate={isFocused ? { boxShadow: "0 0 20px rgba(var(--mq-accent-rgb, 224,49,49), 0.2)" } : { boxShadow: "0 0 0px transparent" }}
+          transition={{ duration: 0.3 }}
+          className="rounded-xl flex-1"
+        >
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+            <Input
+              ref={searchInputRef}
+              placeholder="Искать треки, артистов, альбомы..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              className="pl-10 pr-10 min-h-[44px]"
+              style={{
+                backgroundColor: "var(--mq-input-bg)",
+                border: "1px solid var(--mq-border)",
+                color: "var(--mq-text)",
+              }}
+            />
+            {searchQuery && (
+              <button
+                onClick={handleClearSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2"
+                style={{ color: "var(--mq-text-muted)" }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </motion.div>
         <motion.button
           whileTap={{ scale: 0.95 }}
           onClick={() => setShowFilters(!showFilters)}
@@ -483,93 +493,99 @@ export default function SearchView() {
 
       {/* Genre filters */}
       {showFilters && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: "auto" }}
-          exit={{ opacity: 0, height: 0 }}
-          className="flex flex-wrap gap-2"
-        >
-          <button
-            onClick={() => setSelectedGenre("")}
-            className="px-3 py-1.5 rounded-full text-xs font-medium min-h-[32px]"
-            style={{
-              backgroundColor: !selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
-              color: "var(--mq-text)",
-              border: "1px solid var(--mq-border)",
-            }}
+        <ScrollReveal direction="up" delay={0.05}>
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="flex flex-wrap gap-2"
           >
-            Все
-          </button>
-          {genresList.map((g) => (
             <button
-              key={g}
-              onClick={() => setSelectedGenre(selectedGenre === g ? "" : g)}
+              onClick={() => setSelectedGenre("")}
               className="px-3 py-1.5 rounded-full text-xs font-medium min-h-[32px]"
               style={{
-                backgroundColor: selectedGenre === g ? "var(--mq-accent)" : "var(--mq-card)",
+                backgroundColor: !selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
                 color: "var(--mq-text)",
                 border: "1px solid var(--mq-border)",
               }}
             >
-              {g}
+              Все
             </button>
-          ))}
-        </motion.div>
-      )}
-
-      {/* Search history — shown when no query and no results */}
-      {!searchQuery.trim() && !selectedGenre && searchHistory.length > 0 && !hasSearched && (
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--mq-text-muted)" }}>
-              <Clock className="w-4 h-4" /> Недавние запросы
-            </h3>
-            <button onClick={handleClearHistory} className="p-1 rounded-lg transition-colors"
-              style={{ color: "var(--mq-text-muted)" }}>
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {searchHistory.map((query) => (
-              <motion.button
-                key={query}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => handleHistoryClick(query)}
-                className="px-3 py-1.5 rounded-full text-xs font-medium"
+            {genresList.map((g) => (
+              <button
+                key={g}
+                onClick={() => setSelectedGenre(selectedGenre === g ? "" : g)}
+                className="px-3 py-1.5 rounded-full text-xs font-medium min-h-[32px]"
                 style={{
-                  backgroundColor: "var(--mq-card)",
+                  backgroundColor: selectedGenre === g ? "var(--mq-accent)" : "var(--mq-card)",
                   color: "var(--mq-text)",
                   border: "1px solid var(--mq-border)",
                 }}
               >
-                {query}
-              </motion.button>
+                {g}
+              </button>
             ))}
+          </motion.div>
+        </ScrollReveal>
+      )}
+
+      {/* Search history — shown when no query and no results */}
+      {!searchQuery.trim() && !selectedGenre && searchHistory.length > 0 && !hasSearched && (
+        <ScrollReveal direction="up" delay={0.15}>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: "var(--mq-text-muted)" }}>
+                <Clock className="w-4 h-4" /> Недавние запросы
+              </h3>
+              <button onClick={handleClearHistory} className="p-1 rounded-lg transition-colors"
+                style={{ color: "var(--mq-text-muted)" }}>
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {searchHistory.map((query) => (
+                <motion.button
+                  key={query}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleHistoryClick(query)}
+                  className="px-3 py-1.5 rounded-full text-xs font-medium"
+                  style={{
+                    backgroundColor: "var(--mq-card)",
+                    color: "var(--mq-text)",
+                    border: "1px solid var(--mq-border)",
+                  }}
+                >
+                  {query}
+                </motion.button>
+              ))}
+            </div>
           </div>
-        </div>
+        </ScrollReveal>
       )}
 
       {/* Results info */}
       {activeHasSearched && !activeLoading && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-            {selectedGenre
-              ? `Жанр: ${selectedGenre} — ${activeTracks.length} треков`
-              : `${activeTracks.length} треков найдено`
-            }
-          </p>
-          {activeTracks.length > 0 && (
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={handlePlayAll}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
-            >
-              <Play className="w-3 h-3" style={{ marginLeft: 1 }} />
-              Воспроизвести все
-            </motion.button>
-          )}
-        </div>
+        <ScrollReveal direction="up" delay={0.08}>
+          <div className="flex items-center justify-between">
+            <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+              {selectedGenre
+                ? `Жанр: ${selectedGenre} — ${activeTracks.length} треков`
+                : `${activeTracks.length} треков найдено`
+              }
+            </p>
+            {activeTracks.length > 0 && (
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={handlePlayAll}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+              >
+                <Play className="w-3 h-3" style={{ marginLeft: 1 }} />
+                Воспроизвести все
+              </motion.button>
+            )}
+          </div>
+        </ScrollReveal>
       )}
 
       {/* Loading skeletons */}
@@ -601,16 +617,18 @@ export default function SearchView() {
 
       {/* Track results */}
       {!activeLoading && activeTracks.length > 0 && (
-        <div>
-          <h2 className="text-lg font-bold mb-3" style={{ color: "var(--mq-text)" }}>
-            {selectedGenre ? `Жанр: ${selectedGenre}` : "Треки"}
-          </h2>
-          <div className="space-y-1.5 sm:space-y-2">
-            {activeTracks.map((track, i) => (
-              <TrackCard key={track.id} track={track} index={i} queue={activeTracks} />
-            ))}
+        <ScrollReveal direction="up" delay={0.1}>
+          <div>
+            <h2 className="text-lg font-bold mb-3" style={{ color: "var(--mq-text)" }}>
+              {selectedGenre ? `Жанр: ${selectedGenre}` : "Треки"}
+            </h2>
+            <div className="space-y-1.5 sm:space-y-2">
+              {activeTracks.map((track, i) => (
+                <TrackCard key={track.id} track={track} index={i} queue={activeTracks} />
+              ))}
+            </div>
           </div>
-        </div>
+        </ScrollReveal>
       )}
 
       {/* Default state: no search yet */}

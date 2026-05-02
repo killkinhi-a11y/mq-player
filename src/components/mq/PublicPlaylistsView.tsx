@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import TrackCard from "./TrackCard";
 import { Input } from "@/components/ui/input";
+import ScrollReveal from "./ScrollReveal";
 import type { PublicPlaylist } from "@/store/useAppStore";
 
 type Tab = "public" | "recommended";
@@ -115,6 +116,7 @@ export default function PublicPlaylistsView() {
             <span className="text-sm">Назад</span>
           </button>
 
+          <ScrollReveal direction="up" delay={0.05}>
           <div className="flex items-start gap-4 mb-6">
             <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl overflow-hidden flex-shrink-0"
               style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 8px 30px rgba(0,0,0,0.3)" }}>
@@ -155,6 +157,7 @@ export default function PublicPlaylistsView() {
               )}
             </div>
           </div>
+          </ScrollReveal>
 
           <div className="flex items-center gap-3 mb-6">
             <motion.button
@@ -182,6 +185,7 @@ export default function PublicPlaylistsView() {
             </motion.button>
           </div>
 
+          <ScrollReveal direction="up" delay={0.2}>
           <div className="space-y-1">
             {selectedPlaylist.tracks.map((track, i) => (
               <TrackCard key={track.id} track={track} index={i} queue={selectedPlaylist.tracks} />
@@ -192,6 +196,7 @@ export default function PublicPlaylistsView() {
               </p>
             )}
           </div>
+          </ScrollReveal>
         </div>
       </div>
     );
@@ -201,6 +206,7 @@ export default function PublicPlaylistsView() {
     <div className="min-h-screen" style={{ backgroundColor: "var(--mq-bg)", paddingBottom: 140 }}>
       <div className="max-w-2xl mx-auto px-4 py-4">
         {/* Header */}
+        <ScrollReveal direction="up" delay={0.05}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold" style={{ color: "var(--mq-text)" }}>
             <Globe className="w-5 h-5 inline mr-2" style={{ color: "var(--mq-accent)" }} />
@@ -219,8 +225,10 @@ export default function PublicPlaylistsView() {
             </motion.button>
           </div>
         </div>
+        </ScrollReveal>
 
         {/* Tabs */}
+        <ScrollReveal direction="up" delay={0.08}>
         <div className="flex gap-2 mb-4 p-1 rounded-xl" style={{ backgroundColor: "var(--mq-card)" }}>
           <button onClick={() => setTab("public")}
             className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm transition-all cursor-pointer"
@@ -239,6 +247,7 @@ export default function PublicPlaylistsView() {
             <TrendingUp className="w-4 h-4" /> Для тебя
           </button>
         </div>
+        </ScrollReveal>
 
         {/* Search + Sort (public tab only) */}
         {tab === "public" && (
@@ -272,6 +281,7 @@ export default function PublicPlaylistsView() {
         )}
 
         {/* Public playlists */}
+        <ScrollReveal direction="up" delay={0.1}>
         {tab === "public" && !publicPlaylistsLoading && (
           publicPlaylists.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -285,7 +295,9 @@ export default function PublicPlaylistsView() {
               hint="Стань первым — опубликуй свой плейлист!" />
           )
         )}
+        </ScrollReveal>
 
+        <ScrollReveal direction="up" delay={0.1}>
         {/* Recommended playlists */}
         {tab === "recommended" && !recommendedPlaylistsLoading && (
           recommendedPlaylists.length > 0 ? (
@@ -301,6 +313,7 @@ export default function PublicPlaylistsView() {
               hint="Слушай больше музыки и ставь лайки — алгоритм подберёт плейлисты для тебя!" />
           )
         )}
+        </ScrollReveal>
       </div>
 
       {/* Publish Dialog */}

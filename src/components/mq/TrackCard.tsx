@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { type Track } from "@/lib/musicApi";
 import { useAppStore } from "@/store/useAppStore";
 import { Play, Pause, Heart, ThumbsDown, MoreHorizontal } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import ContextMenu from "./ContextMenu";
 
 interface TrackCardProps {
@@ -23,8 +23,27 @@ export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
   const isDisliked = _dislikedIds.includes(track.id);
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
+  const [ripples, setRipples] = useState<{ x: number; y: number; id: number }[]>([]);
 
-  const handleClick = () => {
+  // 3D Tilt state
+  const cardRef = useRef<HTMLDivElement>(null);
+  const tiltX = useMotionValue(0.5);
+  const tiltY = useMotionValue(0.5);
+  const rotateX = useSpring(useTransform(tiltY, [0, 1], [3, -3]), { stiffness: 300, damping: 30 });
+  const rotateY = useSpring(useTransform(tiltX, [0, 1], [-3, 3]), { stiffness: 300, damping: 30 });
+  const isHovering = useRef(false);
+
+  // Magnetic like button state
+  const likeX = useSpring(0, { stiffness: 400, damping: 25 });
+  const likeY = useSpring(0, { stiffness: 400, damping: 25 });
+
+  const handleClick = (e: React.MouseEvent) => {
+    // Add ripple
+    const rect = e.currentTarget.getBoundingClientRect();
+    const id = Date.now();
+    setRipples(prev => [...prev, { x: e.clientX - rect.left, y: e.clientY - rect.top, id }]);
+    setTimeout(() => setRipples(prev => prev.filter(r => r.id !== id)), 700);
+
     if (isActive) {
       togglePlay();
     } else {
@@ -53,6 +72,37 @@ export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
     toggleDislike(track.id, track);
   }, [track.id, track, toggleDislike]);
 
+  // Mouse handlers for 3D tilt
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!animationsEnabled) return;
+    isHovering.current = true;
+    const rect = e.currentTarget.getBoundingClientRect();
+    tiltX.set((e.clientX - rect.left) / rect.width);
+    tiltY.set((e.clientY - rect.top) / rect.height);
+  }, [animationsEnabled, tiltX, tiltY]);
+
+  const handleMouseLeave = useCallback(() => {
+    isHovering.current = false;
+    tiltX.set(0.5);
+    tiltY.set(0.5);
+  }, [tiltX, tiltY]);
+
+  // Magnetic like button
+  const handleLikeMouseMove = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    if (!animationsEnabled) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const strength = 0.4;
+    likeX.set((e.clientX - cx) * strength);
+    likeY.set((e.clientY - cy) * strength);
+  }, [animationsEnabled, likeX, likeY]);
+
+  const handleLikeMouseLeave = useCallback(() => {
+    likeX.set(0);
+    likeY.set(0);
+  }, [likeX, likeY]);
+
   const motionProps = animationsEnabled
     ? { initial: { opacity: 0, y: 20 }, animate: { opacity: 1, y: 0 }, transition: { delay: index * 0.03 } }
     : {};
@@ -60,19 +110,50 @@ export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
   return (
     <>
       <motion.div
+        ref={cardRef}
         {...motionProps}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        className={`flex items-center ${compactMode ? "gap-1 sm:gap-2 p-1.5 sm:p-2" : "gap-2 sm:gap-3 p-2 sm:p-3"} rounded-xl cursor-pointer transition-all duration-200 group`}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        className={`flex items-center ${compactMode ? "gap-1 sm:gap-2 p-1.5 sm:p-2" : "gap-2 sm:gap-3 p-2 sm:p-3"} rounded-xl cursor-pointer transition-all duration-200 group relative overflow-hidden`}
         style={{
           backgroundColor: isActive ? "var(--mq-accent)" : "var(--mq-card)",
           border: isActive
             ? "1px solid var(--mq-accent)"
             : "1px solid var(--mq-border)",
+          rotateX: animationsEnabled ? rotateX : 0,
+          rotateY: animationsEnabled ? rotateY : 0,
+          transformStyle: "preserve-3d",
+          perspective: 800,
+          boxShadow: isActive ? "0 0 20px rgba(0,0,0,0.15)" : undefined,
         }}
         whileHover={animationsEnabled ? { scale: 1.01 } : undefined}
         whileTap={animationsEnabled ? { scale: 0.98 } : undefined}
       >
+        {/* Ripple effects */}
+        {ripples.map(r => (
+          <motion.span
+            key={r.id}
+            className="absolute rounded-full pointer-events-none"
+            style={{ left: r.x, top: r.y, width: 0, height: 0, backgroundColor: "rgba(255,255,255,0.15)" }}
+            animate={{ width: 300, height: 300, x: -150, y: -150, opacity: 0 }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+          />
+        ))}
+
+        {/* Glare overlay on hover */}
+        {animationsEnabled && (
+          <motion.div
+            className="absolute inset-0 rounded-xl pointer-events-none"
+            style={{
+              background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.06) 45%, rgba(255,255,255,0.06) 50%, transparent 54%)",
+              backgroundSize: "200% 100%",
+              opacity: isHovering.current ? 1 : 0,
+            }}
+          />
+        )}
+
         {/* Cover — smaller on mobile */}
         <div className={`relative ${compactMode ? "w-8 h-8 sm:w-10 sm:h-10" : "w-10 h-10 sm:w-12 sm:h-12"} rounded-lg overflow-hidden flex-shrink-0`}>
           <img src={track.cover} alt={track.album} className="w-full h-full object-cover" loading="lazy" />
@@ -100,14 +181,21 @@ export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
 
         {/* Actions — compact on mobile, only show what fits */}
         <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
-          {/* Like — compact on mobile */}
-          <button onPointerDown={(e) => e.stopPropagation()} onClick={handleLikeClick}
+          {/* Like — magnetic on hover */}
+          <motion.button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={handleLikeClick}
+            onMouseMove={handleLikeMouseMove}
+            onMouseLeave={handleLikeMouseLeave}
             className="p-1 sm:p-1.5 rounded-lg active:scale-90"
-            style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)", touchAction: "manipulation" }}>
-            <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={isLiked ? { fill: "#ef4444" } : {}} />
-          </button>
+            style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)", touchAction: "manipulation" }}
+          >
+            <motion.span style={{ x: likeX, y: likeY, display: "inline-block" }}>
+              <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={isLiked ? { fill: "#ef4444" } : {}} />
+            </motion.span>
+          </motion.button>
 
-          {/* Dislike — hidden on very small mobile to save space */}
+          {/* Dislike */}
           <button onPointerDown={(e) => e.stopPropagation()} onClick={handleDislikeClick}
             className="p-1 sm:p-1.5 rounded-lg active:scale-90 hidden sm:flex"
             style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)", touchAction: "manipulation" }}>

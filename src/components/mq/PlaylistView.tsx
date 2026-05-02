@@ -11,6 +11,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import TrackCard from "./TrackCard";
 import PlaylistExportView from "./PlaylistExportView";
+import ScrollReveal from "./ScrollReveal";
 
 export default function PlaylistView() {
   const {
@@ -411,6 +412,7 @@ export default function PlaylistView() {
         </motion.button>
 
         {/* Playlist header */}
+        <ScrollReveal direction="up" delay={0.05}>
         <motion.div
           initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
           animate={{ opacity: 1, y: 0 }}
@@ -554,9 +556,11 @@ export default function PlaylistView() {
             </div>
           </div>
         </motion.div>
+        </ScrollReveal>
 
         {/* AI-powered actions — show when playlist has tracks */}
         {selectedPlaylist.tracks.length >= 2 && !aiAutoGenerating && (
+          <ScrollReveal direction="up" delay={0.15}>
           <motion.div
             initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
             animate={{ opacity: 1, y: 0 }}
@@ -615,9 +619,11 @@ export default function PlaylistView() {
               </motion.button>
             </div>
           </motion.div>
+          </ScrollReveal>
         )}
 
         {/* Tracks list */}
+        <ScrollReveal direction="up" delay={0.2}>
         {selectedPlaylist.tracks.length > 0 ? (
           <div className="space-y-2">
             {selectedPlaylist.tracks.map((track, i) => (
@@ -644,8 +650,10 @@ export default function PlaylistView() {
             </p>
           </div>
         )}
+        </ScrollReveal>
 
         {/* Smart recommendations for this playlist */}
+        <ScrollReveal direction="up" delay={0.3}>
         {selectedPlaylist.tracks.length >= 3 && (
           <div className="mt-4">
             <div className="flex items-center justify-between mb-3">
@@ -750,6 +758,7 @@ export default function PlaylistView() {
             )}
           </div>
         )}
+        </ScrollReveal>
 
         {/* Export modal */}
         <PlaylistExportView
@@ -766,6 +775,7 @@ export default function PlaylistView() {
   // ── All playlists grid ──
   return (
     <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-2xl mx-auto`}>
+      <ScrollReveal direction="up" delay={0.05}>
       <motion.div
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
@@ -801,6 +811,7 @@ export default function PlaylistView() {
           {playlists.length} плейлистов
         </p>
       </motion.div>
+      </ScrollReveal>
 
       {/* Create playlist dialog */}
       <AnimatePresence>
@@ -1035,6 +1046,7 @@ export default function PlaylistView() {
       </AnimatePresence>
 
       {/* Playlist grid */}
+      <ScrollReveal direction="up" delay={0.1}>
       {playlists.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {playlists.map((pl, i) => (
@@ -1153,6 +1165,7 @@ export default function PlaylistView() {
           </p>
         </div>
       )}
+      </ScrollReveal>
     </div>
   );
 }

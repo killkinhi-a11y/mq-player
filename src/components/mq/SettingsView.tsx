@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import ScrollReveal from "./ScrollReveal";
 
 export default function SettingsView() {
   const {
@@ -384,6 +385,7 @@ export default function SettingsView() {
       </motion.div>
 
       {/* Profile */}
+      <ScrollReveal direction="up" delay={0.05}>
       <motion.div
         initial={anim ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
@@ -416,6 +418,7 @@ export default function SettingsView() {
           </div>
         </div>
       </motion.div>
+      </ScrollReveal>
 
       <motion.button
         whileHover={{ scale: 1.02 }}
@@ -621,6 +624,7 @@ export default function SettingsView() {
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
+              <ScrollReveal direction="up" delay={0.1}>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 mt-4">
                 {themeList.map((theme) => (
                   <motion.button
@@ -654,6 +658,7 @@ export default function SettingsView() {
                   </motion.button>
                 ))}
               </div>
+              </ScrollReveal>
             </motion.div>
           )}
         </AnimatePresence>
@@ -692,6 +697,7 @@ export default function SettingsView() {
               transition={{ duration: 0.2 }}
               className="overflow-hidden"
             >
+              <ScrollReveal direction="up" delay={0.15}>
               <div className="space-y-2 mt-4">
                 {/* Light/Dark variant toggle — shown when a style is active */}
                 {currentStyle && (
@@ -894,12 +900,14 @@ export default function SettingsView() {
                   )}
                 </motion.button>
               </div>
+              </ScrollReveal>
             </motion.div>
           )}
         </AnimatePresence>
       </motion.div>
 
       {/* Accent color */}
+      <ScrollReveal direction="up" delay={0.2}>
       <motion.div
         initial={anim ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
@@ -964,6 +972,7 @@ export default function SettingsView() {
           />
         </div>
       </motion.div>
+      </ScrollReveal>
 
       {/* Toggles */}
       <motion.div

@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import {
   User, Camera, Edit3, Check, X, LogOut, Heart, MessageCircle, Music, Loader2, AlertCircle, EyeOff, Eye
 } from "lucide-react";
+import ScrollReveal from "./ScrollReveal";
 
 const USERNAME_RULES = "Буквы, цифры, _ и -. 2-20 символов.";
 
@@ -203,6 +204,7 @@ export default function ProfileView() {
       </motion.div>
 
       {/* Avatar */}
+      <ScrollReveal direction="up" delay={0.05}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -244,6 +246,7 @@ export default function ProfileView() {
           Сменить аватарку
         </button>
       </motion.div>
+      </ScrollReveal>
 
       {/* Username */}
       <motion.div
@@ -369,6 +372,7 @@ export default function ProfileView() {
       </motion.div>
 
       {/* Stats */}
+      <ScrollReveal direction="up" delay={0.2}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -399,8 +403,10 @@ export default function ProfileView() {
           </div>
         </div>
       </motion.div>
+      </ScrollReveal>
 
       {/* Actions */}
+      <ScrollReveal direction="up" delay={0.25}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -435,6 +441,7 @@ export default function ProfileView() {
           </span>
         </motion.button>
       </motion.div>
+      </ScrollReveal>
     </div>
   );
 }

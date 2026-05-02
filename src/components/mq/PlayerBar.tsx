@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useSpring } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
   Shuffle, Music, Loader2, PictureInPicture2, ListMusic,
@@ -113,6 +113,46 @@ function ShareButton({ scTrackId }: { scTrackId: number }) {
         </span>
       )}
     </div>
+  );
+}
+
+function MagneticPlayButton({ children, onClick, className, style, disabled }: {
+  children: React.ReactNode;
+  onClick: () => void;
+  className?: string;
+  style?: React.CSSProperties;
+  disabled?: boolean;
+}) {
+  const contentX = useSpring(0, { stiffness: 400, damping: 25 });
+  const contentY = useSpring(0, { stiffness: 400, damping: 25 });
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const strength = 0.35;
+    contentX.set((e.clientX - cx) * strength);
+    contentY.set((e.clientY - cy) * strength);
+  }, [contentX, contentY]);
+
+  const handleMouseLeave = useCallback(() => {
+    contentX.set(0);
+    contentY.set(0);
+  }, [contentX, contentY]);
+
+  return (
+    <motion.button
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onClick={onClick}
+      className={className}
+      style={style}
+      disabled={disabled}
+    >
+      <motion.span style={{ x: contentX, y: contentY, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+        {children}
+      </motion.span>
+    </motion.button>
   );
 }
 
@@ -1373,9 +1413,10 @@ export default function PlayerBar() {
             className="p-1.5 sm:p-2 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center" style={{ color: "var(--mq-text)" }}>
             <SkipBack className="w-4 h-4 sm:w-5 sm:h-5" />
           </motion.button>
-          <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.85 }} onClick={togglePlay}
-            className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", boxShadow: isPlaying ? "0 0 20px var(--mq-glow)" : "none" }}>
+          <MagneticPlayButton onClick={togglePlay}
+            className="w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+            style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", boxShadow: isPlaying ? "0 0 20px var(--mq-glow)" : "none" }}
+            disabled={isLoadingTrack}>
             <AnimatePresence mode="wait">
               {isLoadingTrack ? (
                 <motion.div key="loading" initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0 }}>
@@ -1391,7 +1432,7 @@ export default function PlayerBar() {
                 </motion.div>
               )}
             </AnimatePresence>
-          </motion.button>
+          </MagneticPlayButton>
           <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => {
             const st = useAppStore.getState();
             if (st.currentTrack?.id) st.recordSkip(st.currentTrack.id, st.progress || 0);
