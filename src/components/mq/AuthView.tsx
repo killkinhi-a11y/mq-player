@@ -396,6 +396,9 @@ export default function AuthView() {
   const [tgRegisterLoading, setTgRegisterLoading] = useState(false);
   const [tgRegisterError, setTgRegisterError] = useState("");
   const tgCodeInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [tgBotName, setTgBotName] = useState<string | null>(null);
+  const [tgBotConfigured, setTgBotConfigured] = useState<boolean | null>(null);
+  const tgBotFetched = useRef(false);
 
   // Reset telegram states when entering telegram step
   useEffect(() => {
@@ -403,6 +406,26 @@ export default function AuthView() {
       setVerifyCode(["", "", "", "", "", ""]);
       setTgVerifyError("");
       setTimeout(() => tgCodeInputRefs.current[0]?.focus(), 400);
+
+      // Fetch bot name once when entering telegram step
+      if (!tgBotFetched.current) {
+        tgBotFetched.current = true;
+        fetch("/api/auth/telegram-bot-name")
+          .then((r) => r.json())
+          .then((data) => {
+            setTgBotConfigured(data.configured);
+            setTgBotName(data.botName);
+            // Auto-open bot in new tab after a small delay
+            if (data.configured && data.botName) {
+              setTimeout(() => {
+                window.open(`https://t.me/${data.botName}`, "_blank", "noopener");
+              }, 600);
+            }
+          })
+          .catch(() => {
+            setTgBotConfigured(false);
+          });
+      }
     }
     if (authStep === "telegram-register") {
       setTgUsername("");
@@ -1080,6 +1103,35 @@ export default function AuthView() {
                 <p className="text-xs mt-2" style={{ color: "var(--mq-text-muted)" }}>
                   Бот пришлёт вам 6-значный код подтверждения
                 </p>
+
+                {/* Bot not configured warning */}
+                {tgBotConfigured === false && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mt-3 mb-2 p-3 rounded-lg text-xs text-center"
+                    style={{ backgroundColor: "rgba(234,179,8,0.12)", color: "#fbbf24", border: "1px solid rgba(234,179,8,0.25)" }}
+                  >
+                    Бот ещё не настроен. Обратитесь к администратору.
+                  </motion.div>
+                )}
+
+                {/* Open bot button */}
+                {tgBotConfigured && tgBotName && (
+                  <motion.a
+                    href={`https://t.me/${tgBotName}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.35, duration: 0.3 }}
+                    className="mt-3 mb-2 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 hover:brightness-110"
+                    style={{ backgroundColor: "rgba(42,171,238,0.15)", color: "#2AABEE", border: "1px solid rgba(42,171,238,0.3)" }}
+                  >
+                    <Send className="w-4 h-4" />
+                    Открыть бота в Telegram
+                  </motion.a>
+                )}
               </motion.div>
 
               {tgVerifyError && (
@@ -1139,16 +1191,28 @@ export default function AuthView() {
                 </Button>
               </motion.div>
 
-              <motion.div className="mt-6 pt-4" style={{ borderTop: "1px solid var(--mq-border)" }}
+              <motion.div className="mt-6 pt-4 flex items-center justify-between" style={{ borderTop: "1px solid var(--mq-border)" }}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.3 }}>
                 <button
                   onClick={() => { setAuthStep("login"); setError(""); }}
-                  className="flex items-center gap-1.5 mx-auto text-sm transition-colors duration-200"
+                  className="flex items-center gap-1.5 text-sm transition-colors duration-200"
                   style={{ color: "var(--mq-text-muted)" }}
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Вернуться к входу
                 </button>
+                {tgBotConfigured && tgBotName && (
+                  <a
+                    href={`https://t.me/${tgBotName}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-sm font-medium transition-colors duration-200 hover:brightness-110"
+                    style={{ color: "#2AABEE" }}
+                  >
+                    <Send className="w-4 h-4" />
+                    Открыть бота в Telegram
+                  </a>
+                )}
               </motion.div>
             </div>
           </motion.div>
