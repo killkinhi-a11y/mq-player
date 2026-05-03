@@ -12,6 +12,7 @@ import HeroParticles from "./HeroParticles";
 import CursorSpotlight from "./CursorSpotlight";
 import ScrollReveal from "./ScrollReveal";
 import ScrollProgressBar from "./ScrollProgressBar";
+import ArtistCard from "./ArtistCard";
 
 interface CuratedPlaylist {
   id: string;
@@ -348,7 +349,7 @@ export default function MainView() {
   const {
     animationsEnabled, playTrack, likedTrackIds, dislikedTrackIds, likedTracksData, dislikedTracksData,
     history, playlists, setView, contacts, messages, userId, compactMode, currentTrack, isPlaying,
-    setSearchQuery,
+    setSearchQuery, favoriteArtists,
   } = useAppStore();
 
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
@@ -362,6 +363,9 @@ export default function MainView() {
   const [selectedCurated, setSelectedCurated] = useState<CuratedPlaylist | null>(null);
   const [selectedRecCategory, setSelectedRecCategory] = useState<{ id: string; title: string; icon: string; tracks: Track[] } | null>(null);
   const [activeMood, setActiveMood] = useState<string | null>(null);
+  const [selectedArtist, setSelectedArtist] = useState<{ name: string; avatar?: string } | null>(null);
+  const [artistTracks, setArtistTracks] = useState<Track[]>([]);
+  const [artistTracksLoading, setArtistTracksLoading] = useState(false);
 
   // Mouse position for hero parallax effect
   const heroRef = useRef<HTMLDivElement>(null);
@@ -800,7 +804,7 @@ export default function MainView() {
       label: "Друзья",
       value: `${friendCount}`,
       onClick: () => {
-        setView("messenger");
+        setView("friends");
       },
     },
     {
@@ -837,6 +841,128 @@ export default function MainView() {
       playTrack(shuffled[0], shuffled);
     }
   }, [playTrack, shuffleArray]);
+
+  // ── Artist detail panel: fetch tracks when an artist is clicked ──
+  useEffect(() => {
+    if (!selectedArtist) return;
+    let cancelled = false;
+    const fetchArtistTracks = async () => {
+      setArtistTracksLoading(true);
+      setArtistTracks([]);
+      try {
+        const res = await fetch(`/api/music/search?q=${encodeURIComponent(selectedArtist.name)}`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          setArtistTracks(data.tracks || []);
+        }
+      } catch {
+        if (!cancelled) setArtistTracks([]);
+      } finally {
+        if (!cancelled) setArtistTracksLoading(false);
+      }
+    };
+    fetchArtistTracks();
+    return () => { cancelled = true; };
+  }, [selectedArtist]);
+
+  // ── Merge favoriteArtists + topArtists for the artist row ──
+  const displayArtists = useMemo(() => {
+    const favNames = new Set((favoriteArtists || []).map(a => a.username.toLowerCase()));
+    const result: { name: string; avatar?: string; genre?: string }[] = [];
+    for (const a of (favoriteArtists || [])) {
+      result.push({ name: a.username, avatar: a.avatar, genre: a.genre });
+    }
+    for (const name of tasteProfile.topArtists) {
+      if (!favNames.has(name.toLowerCase())) {
+        result.push({ name });
+      }
+    }
+    return result;
+  }, [favoriteArtists, tasteProfile.topArtists]);
+
+  // ── Artist detail view ──
+  if (selectedArtist) {
+    return (
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24" : "p-4 lg:p-6 pb-40 lg:pb-28"} max-w-4xl mx-auto`}>
+        <motion.button
+          initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
+          animate={{ opacity: 1, x: 0 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setSelectedArtist(null)}
+          className="flex items-center gap-2 mb-5 cursor-pointer"
+          style={{ color: "var(--mq-accent)" }}
+        >
+          <ChevronLeft className="w-5 h-5" />
+          <span className="text-sm font-medium">Назад</span>
+        </motion.button>
+
+        <motion.div
+          initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl overflow-hidden relative"
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        >
+          <div className="absolute inset-0 opacity-[0.08]" style={{ background: "var(--mq-accent)" }} />
+          <div className="relative z-10 p-5 lg:p-8">
+            <div className="flex items-start gap-5">
+              <div className="w-24 h-24 lg:w-32 lg:h-32 rounded-full overflow-hidden flex-shrink-0 shadow-xl shadow-black/30 flex items-center justify-center"
+                style={{ backgroundColor: "var(--mq-accent)", opacity: 0.7 }}>
+                {selectedArtist.avatar ? (
+                  <img src={selectedArtist.avatar} alt={selectedArtist.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl lg:text-3xl font-bold" style={{ color: "var(--mq-text)" }}>
+                    {selectedArtist.name.split(" ").map(w => w[0]).slice(0, 2).join("")}
+                  </span>
+                )}
+              </div>
+              <div className="flex-1 min-w-0 pt-1">
+                <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: "var(--mq-text-muted)" }}>Артист</p>
+                <h1 className="text-2xl lg:text-3xl font-bold mb-2 truncate" style={{ color: "var(--mq-text)" }}>
+                  {selectedArtist.name}
+                </h1>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 mt-6">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => { if (artistTracks.length > 0) playTrack(artistTracks[0], artistTracks); }}
+                disabled={artistTracks.length === 0 || artistTracksLoading}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-40"
+                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+              >
+                <Play className="w-4 h-4" style={{ marginLeft: 1 }} />
+                Слушать
+              </motion.button>
+            </div>
+          </div>
+        </motion.div>
+
+        <div className="mt-6">
+          {artistTracksLoading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="h-14 rounded-xl" style={{ background: "var(--mq-card)" }}>
+                  <Skeleton className="w-full h-full rounded-xl" />
+                </div>
+              ))}
+            </div>
+          ) : artistTracks.length > 0 ? (
+            <div className="space-y-2">
+              {artistTracks.map((track, i) => (
+                <TrackCard key={track.id} track={track} index={i} queue={artistTracks} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <Music className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+              <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Треки не найдены</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   // ── Rec category detail view (for recommendation rows like "Для вас", "Открытия") ──
   if (selectedRecCategory) {
@@ -1175,6 +1301,33 @@ export default function MainView() {
         ))}
         </div>
       </ScrollReveal>
+
+      {/* Your Artists — horizontal scrollable row */}
+      {displayArtists.length > 0 && (
+        <ScrollReveal direction="up" delay={0.2}>
+          <div>
+            <h2 className="text-lg font-bold mb-3" style={{ color: "var(--mq-text)" }}>
+              Ваши артисты
+            </h2>
+            <div
+              className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              {displayArtists.map((artist, i) => (
+                <ArtistCard
+                  key={artist.name}
+                  avatar={artist.avatar}
+                  username={artist.name}
+                  genre={artist.genre}
+                  index={i}
+                  animationsEnabled={animationsEnabled}
+                  onClick={() => setSelectedArtist({ name: artist.name, avatar: artist.avatar })}
+                />
+              ))}
+            </div>
+          </div>
+        </ScrollReveal>
+      )}
 
       {/* Listening Activity Widget */}
       {history.length > 0 && (

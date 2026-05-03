@@ -1526,7 +1526,7 @@ export default function PlayerBar() {
       initial={animationsEnabled ? { y: 100 } : undefined}
       animate={{ y: 0 }}
       transition={{ type: "spring", stiffness: 200, damping: 25 }}
-      className="fixed left-0 right-0 z-40 lg:bottom-0 bottom-[56px]"
+      className="fixed left-0 right-0 z-40 lg:bottom-0 bottom-[56px] h-auto"
       style={{ backgroundColor: "var(--mq-player-bg)", borderTop: "1px solid var(--mq-border)", touchAction: "none" }}
     >
       {/* Progress bar */}
@@ -1557,7 +1557,7 @@ export default function PlayerBar() {
         </div>
       </div>
 
-      <div className={`flex items-center justify-between ${compactMode ? "px-2 py-1 lg:px-4 lg:py-2" : "px-3 py-2 lg:px-6 lg:py-3"} max-w-screen-2xl mx-auto`}>
+      <div className={`flex items-center justify-between ${compactMode ? "px-2 py-1.5 lg:px-4 lg:py-2" : "px-3 py-2 lg:px-6 lg:py-3"} max-w-screen-2xl mx-auto`}>
         {/* Track info */}
         <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => setFullTrackViewOpen(true)}>
           {currentTrack.cover ? (

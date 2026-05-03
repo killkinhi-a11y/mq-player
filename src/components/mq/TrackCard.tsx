@@ -180,14 +180,14 @@ export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
         </div>
 
         {/* Actions — compact on mobile, only show what fits */}
-        <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1 flex-shrink-0">
           {/* Like — magnetic on hover */}
           <motion.button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={handleLikeClick}
             onMouseMove={handleLikeMouseMove}
             onMouseLeave={handleLikeMouseLeave}
-            className="p-1 sm:p-1.5 rounded-lg active:scale-90"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg active:scale-90"
             style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)", touchAction: "manipulation" }}
           >
             <motion.span style={{ x: likeX, y: likeY, display: "inline-block" }}>
@@ -197,13 +197,13 @@ export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
 
           {/* Dislike */}
           <button onPointerDown={(e) => e.stopPropagation()} onClick={handleDislikeClick}
-            className="p-1 sm:p-1.5 rounded-lg active:scale-90 hidden sm:flex"
+            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg active:scale-90 hidden sm:flex"
             style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)", touchAction: "manipulation" }}>
             <ThumbsDown className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={isDisliked ? { fill: "#ef4444" } : {}} />
           </button>
 
           {/* More — always accessible */}
-          <button onClick={handleMoreClick} className="p-1 sm:p-1.5 rounded-lg sm:opacity-0 sm:group-hover:opacity-100"
+          <button onClick={handleMoreClick} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg sm:opacity-0 sm:group-hover:opacity-100"
             style={{ color: "var(--mq-text-muted)" }}>
             <MoreHorizontal className="w-4 h-4" />
           </button>

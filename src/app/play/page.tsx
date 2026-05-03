@@ -32,6 +32,7 @@ const HistoryView = lazy(() => import("@/components/mq/HistoryView"));
 const StoriesView = lazy(() => import("@/components/mq/StoriesView"));
 const OnboardingView = lazy(() => import("@/components/mq/OnboardingView"));
 const SpatialAudioView = lazy(() => import("@/components/mq/SpatialAudioView"));
+const FriendsView = lazy(() => import("@/components/mq/FriendsView"));
 const MqCat = lazy(() => import("@/components/mq/MqCat"));
 const PlayerBar = lazy(() => import("@/components/mq/PlayerBar"));
 const FullTrackView = lazy(() => import("@/components/mq/FullTrackView"));
@@ -246,6 +247,7 @@ function AppShell() {
       case "stories": return <StoriesView />;
       case "onboarding": return <OnboardingView />;
       case "spatial": return <SpatialAudioView currentTrack={currentTrack} />;
+      case "friends": return <FriendsView />;
       default: return <MainView />;
     }
   };
