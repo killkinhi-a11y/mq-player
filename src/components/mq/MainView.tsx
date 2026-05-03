@@ -1176,52 +1176,6 @@ export default function MainView() {
         </div>
       </ScrollReveal>
 
-      {/* Quick mood/genre tags */}
-      <ScrollReveal direction="up" delay={0.2}>
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-          <MoodTag
-            label="Для тебя"
-            icon={<Sparkles className="w-3.5 h-3.5" />}
-            active={activeMood === null}
-            onClick={() => setActiveMood(null)}
-          />
-          <MoodTag
-            label="Энергия"
-            icon={<Zap className="w-3.5 h-3.5" />}
-            active={activeMood === "energy"}
-            onClick={() => { setActiveMood(activeMood === "energy" ? null : "energy"); }}
-          />
-          <MoodTag
-            label="Чилл"
-            icon={<Headphones className="w-3.5 h-3.5" />}
-            active={activeMood === "chill"}
-            onClick={() => { setActiveMood(activeMood === "chill" ? null : "chill"); }}
-          />
-          <MoodTag
-            label="Радио"
-            icon={<Radio className="w-3.5 h-3.5" />}
-            active={activeMood === "radio"}
-            onClick={() => { setActiveMood(activeMood === "radio" ? null : "radio"); }}
-          />
-          {tasteProfile.topGenres.slice(0, 3).map((genre) => (
-            <MoodTag
-              key={genre}
-              label={genre}
-              icon={<Flame className="w-3.5 h-3.5" />}
-              active={activeMood === genre}
-              onClick={() => {
-                const newMood = activeMood === genre ? null : genre;
-                setActiveMood(newMood);
-                if (newMood) {
-                  setSearchQuery(genre);
-                  setView("search");
-                }
-              }}
-            />
-          ))}
-        </div>
-      </ScrollReveal>
-
       {/* Listening Activity Widget */}
       {history.length > 0 && (
         <ScrollReveal direction="up" delay={0.25}>
