@@ -288,6 +288,7 @@ export default function PlayerBar() {
 
     const onTimeUpdate = () => {
       const a = getActive();
+      if (a && a.duration && isFinite(a.duration) && a.currentTime > a.duration) return;
       if (!isDraggingRef.current && a) setProgressRef.current(a.currentTime);
       // Update MediaSession position state for lock-screen progress bar
       if ("mediaSession" in navigator && navigator.mediaSession && a?.duration && isFinite(a.duration)) {
@@ -630,6 +631,8 @@ export default function PlayerBar() {
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    const isMobileView = typeof window !== 'undefined' && window.innerWidth < 768;
 
     // Helper: resize canvas to match display
     const resize = () => {
@@ -1534,7 +1537,7 @@ export default function PlayerBar() {
         ref={progressRef}
         onMouseDown={handleProgressMouseDown}
         onTouchStart={handleProgressTouchStart}
-        className={`w-full ${compactMode ? "h-1" : "h-1.5"} cursor-pointer group relative`}
+        className={`w-full ${compactMode ? "h-1 sm:h-1.5" : "h-1.5"} cursor-pointer group relative`}
         style={{ backgroundColor: "var(--mq-border)" }}
       >
         <div className="h-full transition-all duration-100" style={{
@@ -1549,15 +1552,15 @@ export default function PlayerBar() {
           boxShadow: "0 0 6px var(--mq-glow)",
         }} />
         {/* Time text - always visible (not just sm:block) */}
-        <div className="absolute top-full left-1 text-[9px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
-          {formatDuration(Math.floor(progress))}
+        <div className="absolute top-full left-1 text-[9px] mt-0.5 hidden sm:block" style={{ color: "var(--mq-text-muted)" }}>
+          {formatDuration(Math.floor(Math.min(progress, duration || 0)))}
         </div>
-        <div className="absolute top-full right-1 text-[9px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+        <div className="absolute top-full right-1 text-[9px] mt-0.5 hidden sm:block" style={{ color: "var(--mq-text-muted)" }}>
           {formatDuration(Math.floor(duration))}
         </div>
       </div>
 
-      <div className={`flex items-center justify-between ${compactMode ? "px-2 py-1.5 lg:px-4 lg:py-2" : "px-3 py-2 lg:px-6 lg:py-3"} max-w-screen-2xl mx-auto`}>
+      <div className={`flex items-center justify-between ${compactMode ? "px-1.5 py-1 lg:px-4 lg:py-2" : "px-3 py-2 lg:px-6 lg:py-3"} max-w-screen-2xl mx-auto`}>
         {/* Track info */}
         <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => setFullTrackViewOpen(true)}>
           {currentTrack.cover ? (
@@ -1632,7 +1635,7 @@ export default function PlayerBar() {
               const st = useAppStore.getState();
               st.toggleRadioMode();
             }}
-            className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center"
+            className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center hidden sm:flex"
             style={{
               color: radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)",
             }}
@@ -1659,7 +1662,7 @@ export default function PlayerBar() {
                 st.setView("spatial");
               }
             }}
-            className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center"
+            className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center hidden sm:flex"
             style={{
               color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
             }}
@@ -1681,7 +1684,7 @@ export default function PlayerBar() {
         {/* Action buttons — desktop only except like */}
         <div className="flex items-center gap-1 lg:gap-2 flex-1 justify-end min-w-0">
           <span className="text-xs hidden lg:block" style={{ color: "var(--mq-text-muted)" }}>
-            {formatDuration(Math.floor(progress))} / {formatDuration(Math.floor(duration))}
+            {formatDuration(Math.floor(Math.min(progress, duration || 0)))} / {formatDuration(Math.floor(duration))}
           </span>
 
           {/* Like button — visible on all screens */}
@@ -1807,8 +1810,8 @@ export default function PlayerBar() {
       {/* Audio visualization waveform — visible on all screen sizes */}
       <canvas
         ref={canvasRef}
-        className="w-full pointer-events-none block"
-        style={{ height: compactMode ? 20 : 28, opacity: isPlaying ? 0.7 : 0.1, transition: "opacity 0.3s", minHeight: compactMode ? 20 : 28 }}
+        className="w-full pointer-events-none block h-3 sm:h-5 lg:h-7"
+        style={{ opacity: isPlaying ? 0.7 : 0.1, transition: "opacity 0.3s" }}
       />
 
       {/* Queue View */}

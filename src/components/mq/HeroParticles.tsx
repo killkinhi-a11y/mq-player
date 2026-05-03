@@ -23,7 +23,10 @@ export default function HeroParticles() {
   const initParticles = useCallback((w: number, h: number) => {
     const particles: Particle[] = [];
     const count = Math.min(Math.floor((w * h) / 8000), 80);
-    for (let i = 0; i < count; i++) {
+    const isMob = w < 640;
+    const mobileCount = Math.min(Math.floor((w * h) / 20000), 25);
+    const finalCount = isMob ? mobileCount : count;
+    for (let i = 0; i < (isMob ? mobileCount : count); i++) {
       particles.push({
         x: Math.random() * w,
         y: Math.random() * h,
@@ -83,6 +86,7 @@ export default function HeroParticles() {
     const animate = () => {
       const w = parent?.offsetWidth || 400;
       const h = parent?.offsetHeight || 200;
+      const isMobile = (parent?.offsetWidth || 400) < 640;
       ctx.clearRect(0, 0, w, h);
 
       const mx = mouseRef.current.x;
@@ -167,27 +171,29 @@ export default function HeroParticles() {
         }
       }
 
-      // Draw connecting lines between close particles
+      // Draw connecting lines between close particles (skip on mobile for performance)
       const particles = particlesRef.current;
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 100) {
-            const lineAlpha = (1 - dist / 100) * 0.08;
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(${accentR}, ${accentG}, ${accentB}, ${lineAlpha})`;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
+      if (!isMobile) {
+        for (let i = 0; i < particles.length; i++) {
+          for (let j = i + 1; j < particles.length; j++) {
+            const dx = particles[i].x - particles[j].x;
+            const dy = particles[i].y - particles[j].y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 100) {
+              const lineAlpha = (1 - dist / 100) * 0.08;
+              ctx.beginPath();
+              ctx.moveTo(particles[i].x, particles[i].y);
+              ctx.lineTo(particles[j].x, particles[j].y);
+              ctx.strokeStyle = `rgba(${accentR}, ${accentG}, ${accentB}, ${lineAlpha})`;
+              ctx.lineWidth = 0.5;
+              ctx.stroke();
+            }
           }
         }
       }
 
-      // Draw connection to mouse
-      if (isNear) {
+      // Draw connection to mouse (skip on mobile for performance)
+      if (!isMobile && isNear) {
         for (const p of particles) {
           const dx = mx - p.x;
           const dy = my - p.y;

@@ -1489,7 +1489,7 @@ export default function MainView() {
   }
 
   return (
-    <div ref={mainRef} className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-4xl mx-auto relative`}>
+    <div ref={mainRef} className={`${compactMode ? "p-3 lg:p-4 pb-32 lg:pb-24 space-y-4" : "p-4 sm:p-6 lg:p-8 pb-40 lg:pb-28 space-y-6"} max-w-4xl mx-auto relative`}>
       {/* Cursor Spotlight — global mouse glow */}
       <CursorSpotlight />
 
@@ -1507,11 +1507,11 @@ export default function MainView() {
           opacity: heroScrollOpacity,
           transform: `translateY(${heroScrollY * 0.15}px)`,
         }}
-        className={`rounded-2xl ${compactMode ? "p-4 lg:p-5" : "p-6 lg:p-8"} relative overflow-hidden transition-transform`}
+        className={`rounded-2xl ${compactMode ? "p-3 sm:p-4 lg:p-5" : "p-4 sm:p-6 lg:p-8"} relative overflow-hidden transition-transform`}
       >
         {/* Particle background */}
         <div className="absolute inset-0 rounded-2xl overflow-hidden" style={{ zIndex: 0 }}>
-          <HeroParticles />
+          <div className="hidden sm:block"><HeroParticles /></div>
         </div>
 
         {/* Decorative gradient orbs — mouse parallax */}
@@ -1594,7 +1594,7 @@ export default function MainView() {
           whileTap={{ scale: 0.98 }}
           onClick={handleStartWave}
           disabled={waveLoading}
-          className="w-full rounded-2xl p-4 lg:p-5 relative overflow-hidden cursor-pointer text-left transition-all"
+          className="w-full rounded-2xl p-3 sm:p-4 lg:p-5 relative overflow-hidden cursor-pointer text-left transition-all"
           style={{
             backgroundColor: "var(--mq-card)",
             border: "1px solid var(--mq-border)",
@@ -1703,7 +1703,7 @@ export default function MainView() {
 
       {/* Quick stats - CLICKABLE with 3D Tilt + Glare */}
       <ScrollReveal direction="up" delay={0.1}>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         {statCards.map((stat, i) => (
           <TiltCard
             key={stat.label}
