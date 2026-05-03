@@ -41,6 +41,7 @@ const MobileNav = lazy(() => import("@/components/mq/MobileNav"));
 const NotificationPanel = lazy(() => import("@/components/mq/NotificationPanel"));
 const SeasonalEffects = lazy(() => import("@/components/mq/SeasonalEffects"));
 const MaintenanceBanner = lazy(() => import("@/components/mq/MaintenanceBanner"));
+const SideVisuals = lazy(() => import("@/components/mq/SideVisuals"));
 
 function useIsClient() {
   const [isClient, setIsClient] = useState(false);
@@ -287,6 +288,7 @@ function AppShell() {
 
       <Suspense fallback={null}>{showNav && <PlayerBar />}</Suspense>
       <Suspense fallback={null}><FullTrackView /></Suspense>
+      <Suspense fallback={null}><SideVisuals /></Suspense>
       <Suspense fallback={null}><MqCat /></Suspense>
       <Suspense fallback={null}><PiPPlayer /></Suspense>
       <Suspense fallback={null}>{showNav && <MobileNav />}</Suspense>
