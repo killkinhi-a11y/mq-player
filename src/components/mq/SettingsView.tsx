@@ -756,39 +756,8 @@ export default function SettingsView() {
                 </button>
               </div>
 
-              {/* Frequency */}
               {catEnabled && (
                 <>
-                  <div>
-                    <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text)" }}>
-                      Частота появления
-                    </p>
-                    <div className="flex gap-2">
-                      {([
-                        { id: "rare" as const, label: "Редко", desc: "Раз в 5-8 мин" },
-                        { id: "normal" as const, label: "Обычно", desc: "Раз в 2-4 мин" },
-                        { id: "often" as const, label: "Часто", desc: "Раз в 1-2 мин" },
-                      ]).map((opt) => (
-                        <button
-                          key={opt.id}
-                          onClick={() => setCatFrequency(opt.id)}
-                          className="flex-1 p-2 rounded-xl text-center transition-all"
-                          style={{
-                            backgroundColor: catFrequency === opt.id ? "rgba(255,255,255,0.06)" : "transparent",
-                            border: catFrequency === opt.id ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
-                          }}
-                        >
-                          <p className="text-xs font-medium" style={{ color: catFrequency === opt.id ? "var(--mq-accent)" : "var(--mq-text)" }}>
-                            {opt.label}
-                          </p>
-                          <p className="text-[9px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
-                            {opt.desc}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Mood */}
                   <div>
                     <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text)" }}>

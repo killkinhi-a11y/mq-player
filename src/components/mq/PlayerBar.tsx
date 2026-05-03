@@ -14,6 +14,71 @@ import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, rese
 import { getLocalBlobUrl } from "./SearchView";
 import { openPiPPopup, closePiPPopup } from "@/lib/pipManager";
 import TrackCommentsPanel from "./TrackCommentsPanel";
+
+// ── Error Logger ──
+const PlayerErrorLogger = {
+  logs: [] as Array<{ time: string; track: string; error: string; action: string; fixed: boolean }>,
+  maxLogs: 100,
+
+  log(trackTitle: string, errorMsg: string, action: string = "retry") {
+    const entry = {
+      time: new Date().toISOString(),
+      track: trackTitle || "unknown",
+      error: errorMsg,
+      action,
+      fixed: false,
+    };
+    this.logs.push(entry);
+    if (this.logs.length > this.maxLogs) this.logs.shift();
+    console.log(`%c[MQ-Player Error] %c${entry.track}%c: ${entry.error} (${entry.action})`, 
+      "color:#ef4444;font-weight:bold", "color:#fbbf24", "color:#94a3b8");
+    return entry;
+  },
+
+  markFixed(time: string) {
+    const entry = this.logs.find(e => e.time === time);
+    if (entry) entry.fixed = true;
+  },
+
+  getUnfixed() {
+    return this.logs.filter(e => !e.fixed);
+  },
+
+  // Auto-fix: analyze unfixed errors and suggest/apply fixes
+  autoFix() {
+    const unfixed = this.getUnfixed();
+    if (unfixed.length === 0) return;
+    
+    // Group by error pattern
+    const patterns: Record<string, number> = {};
+    for (const entry of unfixed) {
+      const key = entry.error.slice(0, 80);
+      patterns[key] = (patterns[key] || 0) + 1;
+    }
+    
+    console.log(`%c[MQ AutoFix] Found ${unfixed.length} unfixed errors in ${Object.keys(patterns).length} categories`, "color:#22c55e;font-weight:bold");
+    
+    // If many errors are "AbortError" — likely CORS issues, reset CORS state
+    const abortCount = unfixed.filter(e => e.error.includes("AbortError")).length;
+    if (abortCount >= 2) {
+      console.log("[MQ AutoFix] Multiple AbortErrors detected — resetting CORS state");
+      resetCorsState?.();
+      unfixed.filter(e => e.error.includes("AbortError")).forEach(e => this.markFixed(e.time));
+    }
+    
+    // If many "NotAllowedError" — autoplay policy, do nothing (user needs to interact)
+    const allowedCount = unfixed.filter(e => e.error.includes("NotAllowedError")).length;
+    if (allowedCount >= 2) {
+      console.log("[MQ AutoFix] NotAllowedError — autoplay policy, user interaction needed");
+      unfixed.filter(e => e.error.includes("NotAllowedError")).forEach(e => this.markFixed(e.time));
+    }
+  }
+};
+
+// Run auto-fix every 15 seconds
+if (typeof window !== "undefined") {
+  setInterval(() => PlayerErrorLogger.autoFix(), 15000);
+}
 import QueueView from "./QueueView";
 import Hls from "hls.js";
 import type { HlsConfig } from "hls.js";
@@ -268,6 +333,18 @@ export default function PlayerBar() {
       const audioEl = getActive();
       const st = useAppStore.getState();
       const isSCTrack = !!st.currentTrack?.scTrackId;
+      
+      // Log error for diagnostics
+      const trackTitle = st.currentTrack?.title || "unknown";
+      const errorCode = audioEl?.error?.code || 0;
+      const errorMessages: Record<number, string> = {
+        1: "MEDIA_ERR_ABORTED",
+        2: "MEDIA_ERR_NETWORK",
+        3: "MEDIA_ERR_DECODE",
+        4: "MEDIA_ERR_SRC_NOT_SUPPORTED",
+      };
+      const errorMsg = errorMessages[errorCode] || `code ${errorCode}`;
+      PlayerErrorLogger.log(trackTitle, errorMsg, `retry ${retryCountRef.current + 1}`);
 
       // Save playback position for mid-playback recovery
       const savedPosition = audioEl?.currentTime || 0;
@@ -415,6 +492,15 @@ export default function PlayerBar() {
       setIsLoadingTrack(false);
       setPlayError(false);
       retryCountRef.current = 0; // reset retry count on successful load
+      // Log error fix
+      if (PlayerErrorLogger.logs.length > 0) {
+        const st = useAppStore.getState();
+        const lastUnfixed = [...PlayerErrorLogger.getUnfixed()].reverse()[0];
+        if (lastUnfixed) {
+          PlayerErrorLogger.markFixed(lastUnfixed.time);
+          console.log(`%c[MQ-Player] Fixed: %c${lastUnfixed.track}`, "color:#22c55e;font-weight:bold", "color:#94a3b8");
+        }
+      }
       resumeAudioContext();
       const st = useAppStore.getState();
       if (st.isPlaying) {
@@ -426,6 +512,12 @@ export default function PlayerBar() {
       setIsLoadingTrack(false);
       setPlayError(false);
       retryCountRef.current = 0; // reset on confirmed playback
+      // Log error fix
+      const lastUnfixed = [...PlayerErrorLogger.getUnfixed()].reverse()[0];
+      if (lastUnfixed) {
+        PlayerErrorLogger.markFixed(lastUnfixed.time);
+        console.log(`%c[MQ-Player] Playing: %c${lastUnfixed.track}`, "color:#22c55e;font-weight:bold", "color:#94a3b8");
+      }
       resumeAudioContext();
       // Only auto-resume if this event is from the currently active audio element
       // Prevents secondary crossfade element from re-triggering play after user pauses
@@ -437,6 +529,35 @@ export default function PlayerBar() {
     };
 
     // Listen on both audio elements
+    // Safety timeout: if stuck loading for >10s, force retry
+    const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const startLoadingTimeout = () => {
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = setTimeout(() => {
+        const st = useAppStore.getState();
+        if (st.currentTrack && !playErrorRef.current) {
+          const a = getActive();
+          if (a && (a.readyState < 2 || a.paused) && st.isPlaying) {
+            console.warn("[Player] Loading timeout — forcing retry");
+            PlayerErrorLogger.log(st.currentTrack?.title || "unknown", "Loading timeout (10s)", "force retry");
+            // Try play() again
+            a.play().then(() => {
+              console.log("[Player] Force play succeeded after timeout");
+            }).catch((err) => {
+              console.warn("[Player] Force play failed:", err.message);
+              // If still failing, try reloading
+              if (a.src) {
+                const savedSrc = a.src;
+                a.removeAttribute("src");
+                a.load();
+                setTimeout(() => { a.src = savedSrc; a.load(); a.play().catch(() => {}); }, 200);
+              }
+            });
+          }
+        }
+      }, 10000);
+    };
+    
     const addListeners = (el: HTMLAudioElement) => {
       el.addEventListener("timeupdate", onTimeUpdate);
       el.addEventListener("loadedmetadata", onLoaded);

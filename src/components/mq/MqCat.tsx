@@ -257,6 +257,7 @@ function drawCharacter(
   isPlaying: boolean,
   walkPhase: number, // 0..1 walk cycle for leg/arm animation
   isLifted: boolean,
+  hpProgress: number = 0, // 0=no headphones, 1=fully on
 ) {
   const s = size;
   const cx = s / 2;
@@ -595,7 +596,7 @@ function drawCharacter(
   // ═══════════════════════════════
   // HEADPHONES (when music is playing)
   // ═══════════════════════════════
-  if (isPlaying) {
+  if (hpProgress > 0.01) {
     const hpColor = "#333333";
     const hpAccent = accentColor;
     const hpPadColor = "#555555";
@@ -605,7 +606,17 @@ function drawCharacter(
     const hpPadW = bw * 0.12;
     const hpPadH = bh * 0.28;
 
+    // Animate headphone appearance (slide down from above)
+    const hpEase = hpProgress < 0.5 
+      ? 2 * hpProgress * hpProgress 
+      : 1 - Math.pow(-2 * hpProgress + 2, 2) / 2;
+    const hpOffsetY = (1 - hpEase) * bh * 0.8; // slide down
+    const hpAlpha = Math.min(1, hpProgress * 2);
+
     // Headband arc
+    ctx.save();
+    ctx.globalAlpha = hpAlpha;
+    ctx.translate(0, -hpOffsetY);
     ctx.beginPath();
     ctx.ellipse(cx, headY - bh * 0.18, headW, bh * 0.35, 0, Math.PI * 1.1, Math.PI * 1.9);
     ctx.strokeStyle = hpColor;
@@ -666,6 +677,7 @@ function drawCharacter(
     ctx.globalAlpha = 0.5;
     ctx.stroke();
     ctx.globalAlpha = 1;
+    ctx.restore();
   }
 
   // ═══════════════════════════════
@@ -1042,6 +1054,7 @@ function CanvasMascot({
   const animRef = useRef<number>(0);
   const phaseRef = useRef(0);
   const lastTimeRef = useRef(performance.now());
+  const hpProgressRef = useRef(0); // 0..1 headphone animation
   const updateFrame = useFrameSequencer(mood, isPetting, isBlinking, isWalking, walkDirection);
 
   useEffect(() => {
@@ -1065,7 +1078,16 @@ function CanvasMascot({
       phaseRef.current += dt;
       const params = updateFrame(dt);
 
-      drawCharacter(ctx, size, params, phaseRef.current, "#e03131", isPlaying, 0, isLifted);
+      // Animate headphone progress at 60fps (smooth 400ms transition)
+      const hpTarget = isPlaying ? 1 : 0;
+      const hpSpeed = 1 / 0.4; // full transition in 400ms
+      if (hpProgressRef.current < hpTarget) {
+        hpProgressRef.current = Math.min(hpTarget, hpProgressRef.current + dt * hpSpeed);
+      } else if (hpProgressRef.current > hpTarget) {
+        hpProgressRef.current = Math.max(hpTarget, hpProgressRef.current - dt * hpSpeed);
+      }
+
+      drawCharacter(ctx, size, params, phaseRef.current, "#e03131", isPlaying, 0, isLifted, hpProgressRef.current);
       animRef.current = requestAnimationFrame(draw);
     };
 
@@ -1120,11 +1142,31 @@ export default function MqCat() {
   const size = SIZE_PX[catSize] ?? 100;
 
   // Initialize position to bottom-right
+  // Window resize handler to keep mascot in bounds
+  useEffect(() => {
+    if (!catEnabled) return;
+    const handleResize = () => {
+      const margin = 10;
+      const playerBarH = 80;
+      const maxX = window.innerWidth - size - margin;
+      const maxY = window.innerHeight - size - playerBarH - margin;
+      if (posRef.current.x > maxX || posRef.current.y > maxY) {
+        const clampedX = Math.max(margin, Math.min(maxX, posRef.current.x));
+        const clampedY = Math.max(margin, Math.min(maxY, posRef.current.y));
+        posRef.current = { x: clampedX, y: clampedY };
+        setPos({ x: clampedX, y: clampedY });
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [catEnabled, size]);
+
   useEffect(() => {
     if (!catEnabled) return;
     const margin = 16;
-    const initX = window.innerWidth - size - margin;
-    const initY = window.innerHeight - size - 140 - margin; // above player bar
+    const playerBarH = 80;
+    const initX = Math.max(margin, Math.min(window.innerWidth - size - margin, window.innerWidth - size - margin));
+    const initY = Math.max(margin, Math.min(window.innerHeight - size - playerBarH - margin, window.innerHeight - size - 140 - margin));
     setPos({ x: initX, y: initY });
     posRef.current = { x: initX, y: initY };
   }, [catEnabled, size]);
@@ -1139,10 +1181,12 @@ export default function MqCat() {
         return;
       }
 
-      // Pick a random target position
+      // Pick a random target position — clamped to safe area
       const margin = 20;
-      const targetX = margin + Math.random() * (window.innerWidth - size - margin * 2);
-      const targetY = margin + Math.random() * (window.innerHeight - size - 180 - margin);
+      const safeW = Math.max(size + margin * 2, window.innerWidth - size - margin * 2);
+      const safeH = Math.max(size + margin * 2, window.innerHeight - size - 180 - margin);
+      const targetX = margin + Math.random() * safeW;
+      const targetY = margin + Math.random() * safeH;
 
       const dx = targetX - posRef.current.x;
       const dy = targetY - posRef.current.y;
@@ -1171,8 +1215,10 @@ export default function MqCat() {
           return;
         }
         step++;
-        const newX = posRef.current.x + stepX;
-        const newY = posRef.current.y + stepY;
+        const margin = 10;
+        const playerBarH = 80;
+        const newX = Math.max(margin, Math.min(window.innerWidth - size - margin, posRef.current.x + stepX));
+        const newY = Math.max(margin, Math.min(window.innerHeight - size - playerBarH - margin, posRef.current.y + stepY));
         posRef.current = { x: newX, y: newY };
         setPos({ x: newX, y: newY });
 
@@ -1266,8 +1312,9 @@ export default function MqCat() {
     const dy = e.clientY - dragStartRef.current.y;
 
     const margin = 10;
+    const playerBarHeight = 80;
     const newX = Math.max(margin, Math.min(window.innerWidth - size - margin, dragStartRef.current.posX + dx));
-    const newY = Math.max(margin, Math.min(window.innerHeight - size - margin, dragStartRef.current.posY + dy));
+    const newY = Math.max(margin, Math.min(window.innerHeight - size - playerBarHeight - margin, dragStartRef.current.posY + dy));
 
     posRef.current = { x: newX, y: newY };
     setPos({ x: newX, y: newY });
