@@ -371,21 +371,6 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
             className="overflow-y-auto px-4 pb-4 space-y-5"
             style={{ maxHeight: "64vh" }}
           >
-            {/* ── Canvas DNA Helix Visual ──────────────────── */}
-            <motion.div
-              custom={-1}
-              variants={fadeUp}
-              initial="hidden"
-              animate="visible"
-              className="rounded-xl overflow-hidden"
-              style={{
-                backgroundColor: "var(--mq-input-bg)",
-                border: "1px solid var(--mq-border)",
-              }}
-            >
-              <DNAHelixVisual isPlaying={isPlaying} genre={track.genre} compact />
-            </motion.div>
-
             {/* ── Track DNA Card ─────────────────────────── */}
             <motion.div
               custom={0}
@@ -410,6 +395,11 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                   transition: "width 1.5s cubic-bezier(0.22, 1, 0.36, 1)",
                 }}
               />
+
+              {/* DNA Helix Visual — embedded inside the card */}
+              <div className="rounded-lg overflow-hidden mb-3">
+                <DNAHelixVisual isPlaying={isPlaying} genre={track.genre} compact />
+              </div>
 
               <div className="flex items-center gap-3 mb-3">
                 {track.cover && (
