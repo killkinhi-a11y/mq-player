@@ -260,16 +260,16 @@ export async function handleTelegramMessage(body: Record<string, any>) {
 
   // ---- /start ----
   if (text === "/start") {
-    // Register bot commands (fire and forget)
-    setMyCommands().catch(() => {});
-    setChatMenuButton().catch(() => {});
-
-    await sendTelegramMessage(chatId,
+    // Send welcome message immediately (fire and forget)
+    sendTelegramMessage(chatId,
       `🎵 <b>Добро пожаловать в mq!</b>\n\n` +
       `Введите <b>любое сообщение</b> (или /code), чтобы получить код входа.\n\n` +
       `После авторизации используйте /menu для доступа к функциям плеера.`,
       { parseMode: "HTML" }
     );
+    // Register bot commands (fire and forget)
+    setMyCommands().catch(() => {});
+    setChatMenuButton().catch(() => {});
     return;
   }
 
@@ -281,7 +281,8 @@ export async function handleTelegramMessage(body: Record<string, any>) {
 
   // ---- /menu ----
   if (text === "/menu") {
-    await sendTelegramMessage(chatId, "🎵 <b>Главное меню mq</b>\n\nВыберите действие:", {
+    // Send immediately, no DB query needed
+    sendTelegramMessage(chatId, "🎵 <b>Главное меню mq</b>\n\nВыберите действие:", {
       parseMode: "HTML",
       replyMarkup: MENU_KEYBOARD,
     });
@@ -290,36 +291,38 @@ export async function handleTelegramMessage(body: Record<string, any>) {
 
   // ---- /help ----
   if (text === "/help") {
-    await sendTelegramMessage(chatId, HELP_TEXT, { parseMode: "HTML" });
-    return;
-  }
-
-  // ---- /search [query] or /search ----
-  if (text === "/search" || text.startsWith("/search ")) {
-    const user = await findUserByChatId(chatId);
-    if (!user) { await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code"); return; }
-    const query = text.slice(8).trim();
-    if (!query) {
-      await setChatState(chatId, "awaiting_search_query");
-      await sendTelegramMessage(chatId, "Введите название трека или исполнителя для поиска:");
-      return;
-    }
-    await handleSearch(chatId, query);
+    sendTelegramMessage(chatId, HELP_TEXT, { parseMode: "HTML" });
     return;
   }
 
   // ---- /playlists ----
   if (text === "/playlists") {
-    await handlePlaylists(chatId);
+    handlePlaylists(chatId);
     return;
   }
 
   // ---- /newplaylist ----
   if (text === "/newplaylist") {
-    const user = await findUserByChatId(chatId);
-    if (!user) { await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code"); return; }
-    await setChatState(chatId, "awaiting_new_playlist");
-    await sendTelegramMessage(chatId, "Введите название нового плейлиста:");
+    findUserByChatId(chatId).then((user) => {
+      if (!user) { sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code"); return; }
+      setChatState(chatId, "awaiting_new_playlist");
+      sendTelegramMessage(chatId, "Введите название нового плейлиста:");
+    });
+    return;
+  }
+
+  // ---- /search [query] or /search ----
+  if (text === "/search" || text.startsWith("/search ")) {
+    findUserByChatId(chatId).then(async (user) => {
+      if (!user) { await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code"); return; }
+      const query = text.slice(8).trim();
+      if (!query) {
+        await setChatState(chatId, "awaiting_search_query");
+        await sendTelegramMessage(chatId, "Введите название трека или исполнителя для поиска:");
+        return;
+      }
+      await handleSearch(chatId, query);
+    });
     return;
   }
 
