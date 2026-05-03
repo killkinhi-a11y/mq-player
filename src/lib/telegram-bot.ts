@@ -1,12 +1,14 @@
 /**
- * Telegram Bot command handler & state machine.
+ * Telegram Bot command handler & state machine (serverless-safe).
+ *
+ * All conversation state is persisted to PostgreSQL via TelegramBotState model,
+ * making it reliable across serverless function invocations on Vercel.
  *
  * Features:
  *   - Auth: /start, /code
  *   - Import: Send audio to bot → choose playlist → track added
  *   - Search: /search <query> → find on SoundCloud → add to playlist
  *   - Playlists: /playlists — list, /newplaylist <name>
- *   - Now Playing: /nowplaying — current track info
  *   - Help: /help, /menu
  *
  * Uses callback_query for inline keyboard interactions.
@@ -15,22 +17,22 @@
 import { db } from "@/lib/db";
 import {
   sendTelegramMessage,
-  sendTelegramAudio,
   answerCallbackQuery,
   editMessageText,
-  deleteMessage,
-  getTelegramFileUrl,
 } from "@/lib/telegram";
 import { searchSCTracks } from "@/lib/soundcloud";
 
 /* ------------------------------------------------------------------ */
-/*  Site origin (set once from webhook request)                       */
+/*  Site origin (set from webhook request)                             */
 /* ------------------------------------------------------------------ */
 
 let _siteOrigin = "";
 
 export function setSiteOrigin(origin: string) {
-  if (!_siteOrigin) _siteOrigin = origin.replace(/\/$/, "");
+  const cleaned = origin.replace(/\/$/, "");
+  if (cleaned.includes("vercel.app") || cleaned.includes("localhost") || cleaned.includes("mq-player")) {
+    _siteOrigin = cleaned;
+  }
 }
 
 function getSiteOrigin(): string {
@@ -38,45 +40,84 @@ function getSiteOrigin(): string {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Bot conversation states (per chatId)                              */
+/*  Types                                                              */
 /* ------------------------------------------------------------------ */
 
 type BotState =
-  | null // idle
-  | "awaiting_import_playlist" // user sent audio, choosing playlist
-  | "awaiting_import_title"    // user sent audio, typing track title
-  | "awaiting_search_query"    // user triggered /search, waiting for query
-  | "awaiting_new_playlist"    // user triggered /newplaylist, waiting for name
-  | "awaiting_add_to_playlist" // user searching, choosing playlist to add result to;
+  | "idle"
+  | "awaiting_import_playlist"
+  | "awaiting_import_title"
+  | "awaiting_search_query"
+  | "awaiting_new_playlist"
+  | "awaiting_add_to_playlist";
 
 interface PendingImport {
-  fileId?: string;              // Telegram file_id for audio
-  fileUrl: string | null;      // Telegram file URL (temporary) or null
-  fileDuration: number;        // seconds
+  fileId?: string;
+  fileUrl: string | null;
+  fileDuration: number;
   originalFilename: string;
-  scTrackId?: number;          // if from SoundCloud search
-  scData?: Record<string, unknown>; // SoundCloud track data
+  scTrackId?: number;
+  scData?: Record<string, unknown>;
 }
 
-const chatStates = new Map<string, { state: BotState; data: PendingImport; searchResults?: any[] }>();
-const STATE_TTL = 15 * 60 * 1000; // 15 minutes
-
-function setChatState(chatId: string, state: BotState, data: PendingImport = { fileUrl: null, fileDuration: 0, originalFilename: "" }, searchResults?: any[]) {
-  chatStates.set(chatId, { state, data, searchResults });
-  // Auto-expire
-  setTimeout(() => chatStates.delete(chatId), STATE_TTL);
-}
-
-function getChatState(chatId: string) {
-  return chatStates.get(chatId) || null;
-}
-
-function clearChatState(chatId: string) {
-  chatStates.delete(chatId);
+interface ChatState {
+  state: BotState;
+  data: PendingImport;
+  searchResults?: any[];
 }
 
 /* ------------------------------------------------------------------ */
-/*  Helper: find user by telegramChatId                               */
+/*  DB-backed state (serverless-safe)                                  */
+/* ------------------------------------------------------------------ */
+
+async function getChatState(chatId: string): Promise<ChatState | null> {
+  try {
+    const row = await db.telegramBotState.findUnique({ where: { chatId } });
+    if (!row) return null;
+    // Expire states older than 15 minutes
+    const ago = Date.now() - row.updatedAt.getTime();
+    if (ago > 15 * 60 * 1000) {
+      await db.telegramBotState.delete({ where: { chatId } });
+      return null;
+    }
+    return {
+      state: (row.state as BotState) || "idle",
+      data: JSON.parse(row.data || "{}"),
+      searchResults: JSON.parse(row.results || "[]"),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function setChatState(
+  chatId: string,
+  state: BotState,
+  data: PendingImport = { fileUrl: null, fileDuration: 0, originalFilename: "" },
+  searchResults?: any[]
+): Promise<void> {
+  await db.telegramBotState.upsert({
+    where: { chatId },
+    create: {
+      chatId,
+      state,
+      data: JSON.stringify(data),
+      results: JSON.stringify(searchResults || []),
+    },
+    update: {
+      state,
+      data: JSON.stringify(data),
+      results: JSON.stringify(searchResults || []),
+    },
+  });
+}
+
+async function clearChatState(chatId: string): Promise<void> {
+  await db.telegramBotState.delete({ where: { chatId } }).catch(() => {});
+}
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
 /* ------------------------------------------------------------------ */
 
 async function findUserByChatId(chatId: string) {
@@ -85,10 +126,6 @@ async function findUserByChatId(chatId: string) {
     select: { id: true, username: true, telegramChatId: true },
   });
 }
-
-/* ------------------------------------------------------------------ */
-/*  Helper: get user's playlists                                      */
-/* ------------------------------------------------------------------ */
 
 interface PlaylistSummary {
   id: string;
@@ -110,11 +147,7 @@ async function getUserPlaylists(userId: string): Promise<PlaylistSummary[]> {
 }
 
 function trackCountFromJson(tracksJson: string): number {
-  try {
-    return JSON.parse(tracksJson || "[]").length;
-  } catch {
-    return 0;
-  }
+  try { return JSON.parse(tracksJson || "[]").length; } catch { return 0; }
 }
 
 /* ------------------------------------------------------------------ */
@@ -127,9 +160,7 @@ function buildPlaylistKeyboard(playlists: PlaylistSummary[], action: string) {
     callback_data: `${action}:${pl.id}`,
   }));
   const rows: Array<Array<{ text: string; callback_data: string }>> = [];
-  for (let i = 0; i < buttons.length; i += 2) {
-    rows.push(buttons.slice(i, i + 2));
-  }
+  for (let i = 0; i < buttons.length; i += 2) rows.push(buttons.slice(i, i + 2));
   rows.push([{ text: "Отмена", callback_data: "cancel" }]);
   return { inline_keyboard: rows };
 }
@@ -144,7 +175,6 @@ function buildSearchResultsKeyboard(tracks: any[], page: number = 0) {
     callback_data: `add_search:${start + i}`,
   }));
   const rows: Array<Array<{ text: string; callback_data: string }>> = buttons.map((b) => [b]);
-  // Pagination
   const navRow: Array<{ text: string; callback_data: string }> = [];
   if (page > 0) navRow.push({ text: "< Назад", callback_data: `search_page:${page - 1}` });
   if (end < tracks.length) navRow.push({ text: "Далее >", callback_data: `search_page:${page + 1}` });
@@ -154,7 +184,7 @@ function buildSearchResultsKeyboard(tracks: any[], page: number = 0) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Menu / Help                                                       */
+/*  Menu / Help text                                                   */
 /* ------------------------------------------------------------------ */
 
 const HELP_TEXT = `🎵 <b>mq — музыкальный бот</b>
@@ -164,7 +194,6 @@ const HELP_TEXT = `🎵 <b>mq — музыкальный бот</b>
 /search — поиск треков на SoundCloud
 /playlists — мои плейлисты
 /newplaylist — создать плейлист
-/nowplaying — текущий трек
 /help — помощь
 
 <b>Импорт треков:</b>
@@ -183,9 +212,9 @@ const MENU_KEYBOARD = {
   ],
 };
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Handle incoming Telegram message                                   */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 export async function handleTelegramMessage(body: Record<string, any>) {
   const message = body.message;
@@ -194,22 +223,21 @@ export async function handleTelegramMessage(body: Record<string, any>) {
   const chatId = String(message.chat?.id);
   const from = message.from;
   const text = (message.text || "").trim();
-
   if (!chatId || !from) return;
 
   // ---- /start ----
   if (text === "/start") {
     await sendTelegramMessage(chatId,
       `🎵 <b>Добро пожаловать в mq!</b>\n\n` +
-      `Я бот для управления музыкой. Введите <b>любое сообщение</b> (или /code), чтобы получить код входа.\n\n` +
+      `Введите <b>любое сообщение</b> (или /code), чтобы получить код входа.\n\n` +
       `После авторизации используйте /menu для доступа к функциям плеера.`,
       { parseMode: "HTML" }
     );
     return;
   }
 
-  // ---- /code (auth) ----
-  if (text === "/code" || (!text.startsWith("/") && getChatState(chatId) === null && !message.audio && !message.voice)) {
+  // ---- /code (auth) — only when idle (no active state) ----
+  if (text === "/code") {
     await handleAuthCode(chatId, from);
     return;
   }
@@ -229,27 +257,13 @@ export async function handleTelegramMessage(body: Record<string, any>) {
     return;
   }
 
-  // ---- /search ----
-  if (text === "/search") {
+  // ---- /search [query] or /search ----
+  if (text === "/search" || text.startsWith("/search ")) {
     const user = await findUserByChatId(chatId);
-    if (!user) {
-      await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code");
-      return;
-    }
-    setChatState(chatId, "awaiting_search_query");
-    await sendTelegramMessage(chatId, "Введите название трека или исполнителя для поиска:");
-    return;
-  }
-
-  // ---- /search <query> ----
-  if (text.startsWith("/search ")) {
-    const user = await findUserByChatId(chatId);
-    if (!user) {
-      await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code");
-      return;
-    }
+    if (!user) { await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code"); return; }
     const query = text.slice(8).trim();
     if (!query) {
+      await setChatState(chatId, "awaiting_search_query");
       await sendTelegramMessage(chatId, "Введите название трека или исполнителя для поиска:");
       return;
     }
@@ -266,11 +280,8 @@ export async function handleTelegramMessage(body: Record<string, any>) {
   // ---- /newplaylist ----
   if (text === "/newplaylist") {
     const user = await findUserByChatId(chatId);
-    if (!user) {
-      await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code");
-      return;
-    }
-    setChatState(chatId, "awaiting_new_playlist");
+    if (!user) { await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code"); return; }
+    await setChatState(chatId, "awaiting_new_playlist");
     await sendTelegramMessage(chatId, "Введите название нового плейлиста:");
     return;
   }
@@ -278,44 +289,13 @@ export async function handleTelegramMessage(body: Record<string, any>) {
   // ---- /nowplaying ----
   if (text === "/nowplaying") {
     await sendTelegramMessage(chatId,
-      "Управление воспроизведением доступно на сайте mq.\n\n" +
-      "Треки, которые вы слушаете, отображаются в интерфейсе плеера.",
+      "Управление воспроизведением доступно на сайте mq.",
       { parseMode: "HTML" }
     );
     return;
   }
 
-  // ---- Handle states (conversations) ----
-  const chatState = getChatState(chatId);
-
-  // User is typing a search query
-  if (chatState?.state === "awaiting_search_query") {
-    clearChatState(chatId);
-    if (text) {
-      await handleSearch(chatId, text);
-    }
-    return;
-  }
-
-  // User is typing new playlist name
-  if (chatState?.state === "awaiting_new_playlist") {
-    clearChatState(chatId);
-    if (text) {
-      await handleNewPlaylist(chatId, text);
-    }
-    return;
-  }
-
-  // User is typing track title for import
-  if (chatState?.state === "awaiting_import_title") {
-    clearChatState(chatId);
-    if (text) {
-      await handleImportWithTitle(chatId, text, chatState.data);
-    }
-    return;
-  }
-
-  // ---- Audio message received ----
+  // ---- Audio message received (before state check) ----
   if (message.audio || message.voice) {
     const user = await findUserByChatId(chatId);
     if (!user) {
@@ -325,11 +305,43 @@ export async function handleTelegramMessage(body: Record<string, any>) {
     await handleAudioMessage(chatId, message);
     return;
   }
+
+  // ---- Handle conversation states ----
+  const chatState = await getChatState(chatId);
+
+  // Non-command text with no active state → auth code
+  if (!chatState && !text.startsWith("/")) {
+    await handleAuthCode(chatId, from);
+    return;
+  }
+
+  if (!chatState) return;
+
+  // Awaiting search query
+  if (chatState.state === "awaiting_search_query" && text) {
+    await clearChatState(chatId);
+    await handleSearch(chatId, text);
+    return;
+  }
+
+  // Awaiting new playlist name
+  if (chatState.state === "awaiting_new_playlist" && text) {
+    await clearChatState(chatId);
+    await handleNewPlaylist(chatId, text);
+    return;
+  }
+
+  // Awaiting import title
+  if (chatState.state === "awaiting_import_title" && text) {
+    await clearChatState(chatId);
+    await handleImportWithTitle(chatId, text, chatState.data);
+    return;
+  }
 }
 
-/* ------------------------------------------------------------------ */
-/*  Handle callback query (inline keyboard presses)                   */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
+/*  Handle callback query (inline keyboard presses)                    */
+/* ================================================================== */
 
 export async function handleCallbackQuery(body: Record<string, any>) {
   const callbackQuery = body.callback_query;
@@ -338,7 +350,6 @@ export async function handleCallbackQuery(body: Record<string, any>) {
   const chatId = String(callbackQuery.message?.chat?.id);
   const messageId = callbackQuery.message?.message_id;
   const data = callbackQuery.data || "";
-  const fromId = callbackQuery.from?.id;
 
   if (!chatId || !messageId) return;
 
@@ -346,7 +357,7 @@ export async function handleCallbackQuery(body: Record<string, any>) {
 
   // Cancel
   if (data === "cancel") {
-    clearChatState(chatId);
+    await clearChatState(chatId);
     await editMessageText(chatId, messageId, "Действие отменено.");
     return;
   }
@@ -366,11 +377,8 @@ export async function handleCallbackQuery(body: Record<string, any>) {
   }
   if (data === "cmd_search") {
     const user = await findUserByChatId(chatId);
-    if (!user) {
-      await editMessageText(chatId, messageId, "Сначала авторизуйтесь — отправьте /code");
-      return;
-    }
-    setChatState(chatId, "awaiting_search_query");
+    if (!user) { await editMessageText(chatId, messageId, "Сначала авторизуйтесь — отправьте /code"); return; }
+    await setChatState(chatId, "awaiting_search_query");
     await editMessageText(chatId, messageId, "Введите название трека или исполнителя для поиска:");
     return;
   }
@@ -380,63 +388,65 @@ export async function handleCallbackQuery(body: Record<string, any>) {
   }
   if (data === "cmd_newplaylist") {
     const user = await findUserByChatId(chatId);
-    if (!user) {
-      await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code");
-      return;
-    }
-    setChatState(chatId, "awaiting_new_playlist");
+    if (!user) { await editMessageText(chatId, messageId, "Сначала авторизуйтесь — отправьте /code"); return; }
+    await setChatState(chatId, "awaiting_new_playlist");
     await editMessageText(chatId, messageId, "Введите название нового плейлиста:");
     return;
   }
 
+  // ---- State-dependent callbacks ----
+  const state = await getChatState(chatId);
+
   // Import: user chose a playlist
   if (data.startsWith("import_playlist:")) {
     const playlistId = data.slice("import_playlist:".length);
-    const state = getChatState(chatId);
-    if (state?.state !== "awaiting_import_playlist") return;
-    clearChatState(chatId);
+    if (!state || state.state !== "awaiting_import_playlist") {
+      await editMessageText(chatId, messageId, "Сессия истекла. Отправьте аудио заново.");
+      return;
+    }
+    await clearChatState(chatId);
     await handleImportToPlaylist(chatId, playlistId, state.data);
     return;
   }
 
   // Import: user wants to type title
   if (data === "import_custom_title") {
-    const state = getChatState(chatId);
-    if (state?.state !== "awaiting_import_playlist") return;
-    setChatState(chatId, "awaiting_import_title", state.data);
-    await editMessageText(chatId, messageId, "Введите название трека и исполнителя (например: <i>Название — Исполнитель</i>):", {
-      parseMode: "HTML",
-    });
+    if (!state || state.state !== "awaiting_import_playlist") {
+      await editMessageText(chatId, messageId, "Сессия истекла. Отправьте аудио заново.");
+      return;
+    }
+    await setChatState(chatId, "awaiting_import_title", state.data);
+    await editMessageText(chatId, messageId,
+      "Введите название трека и исполнителя (например: <i>Название — Исполнитель</i>):",
+      { parseMode: "HTML" }
+    );
     return;
   }
 
   // Search: user chose a track to add
   if (data.startsWith("add_search:")) {
     const index = parseInt(data.slice("add_search:".length), 10);
-    const state = getChatState(chatId);
-    if (!state?.searchResults) return;
-
+    if (!state || !state.searchResults?.length) {
+      await editMessageText(chatId, messageId, "Сессия истекла. Используйте /search заново.");
+      return;
+    }
     const track = state.searchResults[index];
     if (!track) return;
 
-    // Now ask for playlist
     const user = await findUserByChatId(chatId);
-    if (!user) {
-      await editMessageText(chatId, messageId, "Ошибка авторизации.");
-      return;
-    }
+    if (!user) { await editMessageText(chatId, messageId, "Ошибка авторизации."); return; }
     const playlists = await getUserPlaylists(user.id);
     if (playlists.length === 0) {
       await editMessageText(chatId, messageId, "У вас нет плейлистов. Создайте первый через /newplaylist");
       return;
     }
-    setChatState(chatId, "awaiting_add_to_playlist", { ...state.data, scTrackId: track.scTrackId, scData: track }, state.searchResults);
+    await setChatState(chatId, "awaiting_add_to_playlist",
+      { ...state.data, scTrackId: track.scTrackId, scData: track },
+      state.searchResults
+    );
     await editMessageText(chatId, messageId,
       `Выбран трек: <b>${track.title}</b> — ${track.artist}\n\nВ какой плейлист добавить?`,
-      {
-        parseMode: "HTML",
-        replyMarkup: buildPlaylistKeyboard(playlists, "add_search_pl"),
-      }
+      { parseMode: "HTML", replyMarkup: buildPlaylistKeyboard(playlists, "add_search_pl") }
     );
     return;
   }
@@ -444,9 +454,11 @@ export async function handleCallbackQuery(body: Record<string, any>) {
   // Search: user chose playlist for search result
   if (data.startsWith("add_search_pl:")) {
     const playlistId = data.slice("add_search_pl:".length);
-    const state = getChatState(chatId);
-    if (state?.state !== "awaiting_add_to_playlist") return;
-    clearChatState(chatId);
+    if (!state || state.state !== "awaiting_add_to_playlist") {
+      await editMessageText(chatId, messageId, "Сессия истекла. Используйте /search заново.");
+      return;
+    }
+    await clearChatState(chatId);
     await handleAddSearchTrackToPlaylist(chatId, playlistId, state.data);
     return;
   }
@@ -454,14 +466,13 @@ export async function handleCallbackQuery(body: Record<string, any>) {
   // Search pagination
   if (data.startsWith("search_page:")) {
     const page = parseInt(data.slice("search_page:".length), 10);
-    const state = getChatState(chatId);
-    if (!state?.searchResults) return;
+    if (!state || !state.searchResults?.length) {
+      await editMessageText(chatId, messageId, "Сессия истекла. Используйте /search заново.");
+      return;
+    }
     await editMessageText(chatId, messageId,
       `Найдено ${state.searchResults.length} треков:`,
-      {
-        parseMode: "HTML",
-        replyMarkup: buildSearchResultsKeyboard(state.searchResults, page),
-      }
+      { parseMode: "HTML", replyMarkup: buildSearchResultsKeyboard(state.searchResults, page) }
     );
     return;
   }
@@ -482,9 +493,9 @@ export async function handleCallbackQuery(body: Record<string, any>) {
   }
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Auth: generate and send verification code                         */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 async function handleAuthCode(chatId: string, from: Record<string, any>) {
   const crypto = await import("crypto");
@@ -506,21 +517,19 @@ async function handleAuthCode(chatId: string, from: Record<string, any>) {
   });
 
   await sendTelegramMessage(chatId,
-    `🔐 <b>Код подтверждения mq:</b>\n\n` +
-    `<code>${code}</code>\n\n` +
-    `Код действителен 10 минут.`,
+    `🔐 <b>Код подтверждения mq:</b>\n\n<code>${code}</code>\n\nКод действителен 10 минут.`,
     { parseMode: "HTML" }
   );
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Audio message handler                                             */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 async function handleAudioMessage(chatId: string, message: Record<string, any>) {
   const audio = message.audio || message.voice;
   const fileId = audio.file_id;
-  const duration = audio.duration || 0; // seconds
+  const duration = audio.duration || 0;
   const title = audio.title || "";
   const performer = audio.performer || "";
   const fileName = audio.file_name || (message.voice ? "Голосовое сообщение" : "audio");
@@ -530,66 +539,53 @@ async function handleAudioMessage(chatId: string, message: Record<string, any>) 
     return;
   }
 
-  // Store fileId for later proxy resolution (fileUrl is temporary and expires!)
   const importTitle = (title && performer) ? `${title} — ${performer}` : title || fileName;
+  const pendingData: PendingImport = { fileId, fileUrl: null, fileDuration: duration, originalFilename: importTitle };
 
-  const pendingData: PendingImport = {
-    fileId,
-    fileUrl: null, // will be resolved later via proxy using fileId
-    fileDuration: duration,
-    originalFilename: importTitle,
-  };
-
-  setChatState(chatId, "awaiting_import_playlist", pendingData);
+  await setChatState(chatId, "awaiting_import_playlist", pendingData);
 
   const user = await findUserByChatId(chatId);
   if (!user) return;
   const playlists = await getUserPlaylists(user.id);
 
-  let messageText = `Аудио получено: <b>${importTitle}</b> (${formatDuration(duration)})\n\n`;
   if (playlists.length === 0) {
-    messageText += "У вас нет плейлистов. Сначала создайте один через /newplaylist";
-    await sendTelegramMessage(chatId, messageText, { parseMode: "HTML" });
-    clearChatState(chatId);
+    await sendTelegramMessage(chatId,
+      `Аудио получено: <b>${importTitle}</b> (${formatDuration(duration)})\n\nУ вас нет плейлистов. Создайте через /newplaylist`,
+      { parseMode: "HTML" }
+    );
+    await clearChatState(chatId);
     return;
   }
-  messageText += "В какой плейлист добавить?";
 
-  await sendTelegramMessage(chatId, messageText, {
-    parseMode: "HTML",
-    replyMarkup: buildPlaylistKeyboard(playlists, "import_playlist"),
-  });
+  await sendTelegramMessage(chatId,
+    `Аудио получено: <b>${importTitle}</b> (${formatDuration(duration)})\n\nВ какой плейлист добавить?`,
+    { parseMode: "HTML", replyMarkup: buildPlaylistKeyboard(playlists, "import_playlist") }
+  );
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Import with custom title                                          */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 async function handleImportWithTitle(chatId: string, customTitle: string, data: PendingImport) {
   const user = await findUserByChatId(chatId);
   if (!user) return;
   const playlists = await getUserPlaylists(user.id);
-
   if (playlists.length === 0) {
-    await sendTelegramMessage(chatId, "У вас нет плейлистов. Создайте один через /newplaylist");
+    await sendTelegramMessage(chatId, "У вас нет плейлистов. Создайте через /newplaylist");
     return;
   }
 
-  const newData = { ...data, originalFilename: customTitle };
-  setChatState(chatId, "awaiting_import_playlist", newData);
-
+  await setChatState(chatId, "awaiting_import_playlist", { ...data, originalFilename: customTitle });
   await sendTelegramMessage(chatId,
     `Название: <b>${customTitle}</b>\n\nВ какой плейлист добавить?`,
-    {
-      parseMode: "HTML",
-      replyMarkup: buildPlaylistKeyboard(playlists, "import_playlist"),
-    }
+    { parseMode: "HTML", replyMarkup: buildPlaylistKeyboard(playlists, "import_playlist") }
   );
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Import to playlist (save track)                                   */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 async function handleImportToPlaylist(chatId: string, playlistId: string, data: PendingImport) {
   const user = await findUserByChatId(chatId);
@@ -601,23 +597,14 @@ async function handleImportToPlaylist(chatId: string, playlistId: string, data: 
     return;
   }
 
-  // Parse existing tracks
   let tracks: any[] = [];
-  try {
-    tracks = JSON.parse(playlist.tracksJson || "[]");
-  } catch {
-    tracks = [];
-  }
+  try { tracks = JSON.parse(playlist.tracksJson || "[]"); } catch { tracks = []; }
 
-  // Parse artist/title from filename
   const parts = data.originalFilename.includes(" — ")
-    ? data.originalFilename.split(" — ")
-    : [data.originalFilename];
+    ? data.originalFilename.split(" — ") : [data.originalFilename];
   const trackTitle = (parts[0] || "").trim();
   const trackArtist = (parts[1] || "").trim() || "Неизвестный";
 
-  // Use our proxy URL with fileId — this works even after the original URL expires
-  // The proxy resolves fileId → Telegram file URL on each request
   const proxyAudioUrl = `${getSiteOrigin()}/api/telegram/audio-proxy?fileId=${encodeURIComponent(data.fileId || "")}`;
 
   const newTrack = {
@@ -637,35 +624,24 @@ async function handleImportToPlaylist(chatId: string, playlistId: string, data: 
     scIsFull: true,
   };
 
-  // Dedup by title+artist
-  const exists = tracks.some((t: any) =>
-    t.title === trackTitle && t.artist === trackArtist
-  );
+  const exists = tracks.some((t: any) => t.title === trackTitle && t.artist === trackArtist);
   if (exists) {
-    await sendTelegramMessage(chatId,
-      `Трек "${trackTitle} — ${trackArtist}" уже есть в плейлисте "${playlist.name}".`
-    );
+    await sendTelegramMessage(chatId, `Трек "${trackTitle} — ${trackArtist}" уже есть в плейлисте "${playlist.name}".`);
     return;
   }
 
   tracks.push(newTrack);
-
-  await db.playlist.update({
-    where: { id: playlistId },
-    data: { tracksJson: JSON.stringify(tracks) },
-  });
+  await db.playlist.update({ where: { id: playlistId }, data: { tracksJson: JSON.stringify(tracks) } });
 
   await sendTelegramMessage(chatId,
-    `Трек добавлен в <b>${playlist.name}</b>:\n` +
-    `${trackTitle} — ${trackArtist} (${formatDuration(data.fileDuration)})\n\n` +
-    `Всего треков: ${tracks.length}`,
+    `Трек добавлен в <b>${playlist.name}</b>:\n${trackTitle} — ${trackArtist} (${formatDuration(data.fileDuration)})\n\nВсего треков: ${tracks.length}`,
     { parseMode: "HTML" }
   );
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  SoundCloud search                                                 */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 async function handleSearch(chatId: string, query: string) {
   await sendTelegramMessage(chatId, `Ищу: <i>${query}</i>...`, { parseMode: "HTML" });
@@ -676,21 +652,18 @@ async function handleSearch(chatId: string, query: string) {
     return;
   }
 
-  setChatState(chatId, null, { fileUrl: null, fileDuration: 0, originalFilename: "" }, results);
+  // Store search results in DB state (state=null means "search results available, no active sub-state")
+  await setChatState(chatId, "idle", { fileUrl: null, fileDuration: 0, originalFilename: "" }, results);
 
   await sendTelegramMessage(chatId,
-    `Найдено ${results.length} треков по запросу "${query}":\n\n` +
-    `Нажмите на трек, чтобы добавить его в плейлист.`,
-    {
-      parseMode: "HTML",
-      replyMarkup: buildSearchResultsKeyboard(results, 0),
-    }
+    `Найдено ${results.length} треков по запросу "${query}":\n\nНажмите на трек, чтобы добавить его в плейлист.`,
+    { parseMode: "HTML", replyMarkup: buildSearchResultsKeyboard(results, 0) }
   );
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Add SoundCloud search result to playlist                          */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 async function handleAddSearchTrackToPlaylist(chatId: string, playlistId: string, data: PendingImport) {
   const user = await findUserByChatId(chatId);
@@ -703,51 +676,33 @@ async function handleAddSearchTrackToPlaylist(chatId: string, playlistId: string
   }
 
   let tracks: any[] = [];
-  try {
-    tracks = JSON.parse(playlist.tracksJson || "[]");
-  } catch {
-    tracks = [];
-  }
+  try { tracks = JSON.parse(playlist.tracksJson || "[]"); } catch { tracks = []; }
 
   const scTrack = data.scData;
-  if (!scTrack) {
-    await sendTelegramMessage(chatId, "Ошибка: трек не найден.");
-    return;
-  }
+  if (!scTrack) { await sendTelegramMessage(chatId, "Ошибка: трек не найден."); return; }
 
-  // Dedup
   const exists = tracks.some((t: any) => t.scTrackId === scTrack.scTrackId);
   if (exists) {
-    await sendTelegramMessage(chatId,
-      `Трек "${scTrack.title}" уже есть в плейлисте "${playlist.name}".`
-    );
+    await sendTelegramMessage(chatId, `Трек "${scTrack.title}" уже есть в плейлисте "${playlist.name}".`);
     return;
   }
 
   tracks.push(scTrack);
-  await db.playlist.update({
-    where: { id: playlistId },
-    data: { tracksJson: JSON.stringify(tracks) },
-  });
+  await db.playlist.update({ where: { id: playlistId }, data: { tracksJson: JSON.stringify(tracks) } });
 
   await sendTelegramMessage(chatId,
-    `Трек добавлен в <b>${playlist.name}</b>:\n` +
-    `${scTrack.title} — ${scTrack.artist}\n\n` +
-    `Всего треков: ${tracks.length}`,
+    `Трек добавлен в <b>${playlist.name}</b>:\n${scTrack.title} — ${scTrack.artist}\n\nВсего треков: ${tracks.length}`,
     { parseMode: "HTML" }
   );
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  List playlists                                                    */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 async function handlePlaylists(chatId: string) {
   const user = await findUserByChatId(chatId);
-  if (!user) {
-    await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code");
-    return;
-  }
+  if (!user) { await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code"); return; }
 
   const playlists = await db.playlist.findMany({
     where: { userId: user.id },
@@ -756,10 +711,7 @@ async function handlePlaylists(chatId: string) {
   });
 
   if (playlists.length === 0) {
-    await sendTelegramMessage(chatId,
-      "У вас пока нет плейлистов.\n\nСоздайте первый через /newplaylist",
-      { parseMode: "HTML" }
-    );
+    await sendTelegramMessage(chatId, "У вас пока нет плейлистов.\n\nСоздайте первый через /newplaylist", { parseMode: "HTML" });
     return;
   }
 
@@ -768,13 +720,15 @@ async function handlePlaylists(chatId: string) {
     return `<b>${i + 1}.</b> ${pl.name} — ${count} треков`;
   });
 
-  const text = `音符 <b>Ваши плейлисты</b> (${playlists.length}):\n\n${lines.join("\n")}`;
-  await sendTelegramMessage(chatId, text, { parseMode: "HTML" });
+  await sendTelegramMessage(chatId,
+    `♫ <b>Ваши плейлисты</b> (${playlists.length}):\n\n${lines.join("\n")}`,
+    { parseMode: "HTML" }
+  );
 }
 
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 /*  Create new playlist                                               */
-/* ------------------------------------------------------------------ */
+/* ================================================================== */
 
 async function handleNewPlaylist(chatId: string, name: string) {
   const user = await findUserByChatId(chatId);
@@ -785,26 +739,17 @@ async function handleNewPlaylist(chatId: string, name: string) {
     return;
   }
 
-  const existing = await db.playlist.findFirst({
-    where: { userId: user.id, name: name.trim() },
-  });
+  const existing = await db.playlist.findFirst({ where: { userId: user.id, name: name.trim() } });
   if (existing) {
     await sendTelegramMessage(chatId, `Плейлист "${name.trim()}" уже существует.`);
     return;
   }
 
-  await db.playlist.create({
-    data: {
-      userId: user.id,
-      name: name.trim(),
-      tracksJson: "[]",
-    },
-  });
+  await db.playlist.create({ data: { userId: user.id, name: name.trim(), tracksJson: "[]" } });
 
   await sendTelegramMessage(chatId,
     `Плейлист <b>${name.trim()}</b> создан!\n\nТеперь вы можете:\n` +
-    `• Отправить аудио боту для импорта\n` +
-    `• Использовать /search для поиска треков`,
+    `• Отправить аудио боту для импорта\n• Использовать /search для поиска треков`,
     { parseMode: "HTML" }
   );
 }

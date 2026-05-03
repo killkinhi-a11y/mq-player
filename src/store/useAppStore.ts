@@ -27,7 +27,7 @@ if (typeof window !== "undefined") {
   }
 }
 
-export type ViewType = "auth" | "main" | "search" | "messenger" | "settings" | "profile" | "playlists" | "public-playlists" | "history" | "stories" | "onboarding" | "spatial";
+export type ViewType = "auth" | "main" | "search" | "messenger" | "settings" | "profile" | "playlists" | "public-playlists" | "history" | "stories" | "onboarding" | "spatial" | "taste-profile";
 
 export type Mood = "chill" | "bassy" | "melodic" | "dark" | "upbeat" | "romantic" | "aggressive" | "dreamy";
 
@@ -386,6 +386,17 @@ interface AppState {
   // Release Radar actions
   fetchReleaseRadar: () => Promise<void>;
 
+  // Taste Profile
+  tasteGenres: Record<string, number>;
+  tasteArtists: Record<string, number>;
+  tasteMoods: Record<string, number>;
+  excludedArtists: string[];
+  setTasteGenre: (genre: string, level: number) => void;
+  setTasteArtist: (artist: string, level: number) => void;
+  setTasteMood: (mood: string, level: number) => void;
+  toggleExcludedArtist: (artist: string) => void;
+  resetTasteProfile: () => void;
+
   // Reset
   reset: () => void;
 }
@@ -505,6 +516,12 @@ const initialState = {
   // Style
   currentStyle: "",
   styleVariant: "dark" as string,
+
+  // Taste Profile
+  tasteGenres: {} as Record<string, number>,
+  tasteArtists: {} as Record<string, number>,
+  tasteMoods: {} as Record<string, number>,
+  excludedArtists: [] as string[],
 };
 
 // Simple energy estimation for smart shuffle
@@ -1678,6 +1695,33 @@ export const useAppStore = create<AppState>()(
       // ── Collaborative listening actions ──
       setListenSession: (session) => set({ listenSession: session }),
       clearListenSession: () => set({ listenSession: null }),
+
+      // ── Taste Profile actions ──
+      setTasteGenre: (genre, level) => set((s) => {
+        const newGenres = { ...s.tasteGenres, [genre]: level };
+        // Sync with dislikedTags
+        const currentDisliked = s.dislikedTags.filter(g => g.toLowerCase() !== genre.toLowerCase());
+        if (level < 10 && !currentDisliked.includes(genre)) {
+          currentDisliked.push(genre);
+        }
+        if (level > 70) {
+          const idx = currentDisliked.findIndex(g => g.toLowerCase() === genre.toLowerCase());
+          if (idx >= 0) currentDisliked.splice(idx, 1);
+        }
+        return { tasteGenres: newGenres, dislikedTags: currentDisliked };
+      }),
+      setTasteArtist: (artist, level) => set((s) => ({ tasteArtists: { ...s.tasteArtists, [artist]: level } })),
+      setTasteMood: (mood, level) => set((s) => ({ tasteMoods: { ...s.tasteMoods, [mood]: level } })),
+      toggleExcludedArtist: (artist) => set((s) => {
+        const isExcluded = s.excludedArtists.includes(artist);
+        return {
+          excludedArtists: isExcluded
+            ? s.excludedArtists.filter(a => a !== artist)
+            : [...s.excludedArtists, artist],
+          tasteArtists: { ...s.tasteArtists, [artist]: isExcluded ? 50 : 0 },
+        };
+      }),
+      resetTasteProfile: () => set({ tasteGenres: {}, tasteArtists: {}, tasteMoods: {}, excludedArtists: [] }),
 
       reset: () => set(initialState),
     }),

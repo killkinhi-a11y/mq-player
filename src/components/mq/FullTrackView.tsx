@@ -5,8 +5,9 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
-  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, PictureInPicture2, Waves
+  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, PictureInPicture2, Waves, Dna
 } from "lucide-react";
+import SongDNA from "./SongDNA";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { getAudioElement, resumeAudioContext } from "@/lib/audioEngine";
@@ -41,6 +42,7 @@ export default function FullTrackView() {
   const [showLyrics, setShowLyrics] = useState(false);
   const [showSleepTimer, setShowSleepTimer] = useState(false);
   const [showComments, setShowComments] = useState(false);
+  const [showDNA, setShowDNA] = useState(false);
   const [canvasMode, setCanvasMode] = useState(false);
   const [lyricsLines, setLyricsLines] = useState<{ time: number; text: string }[]>([]);
   const [lyricsPlainText, setLyricsPlainText] = useState("");
@@ -1004,7 +1006,7 @@ export default function FullTrackView() {
               }}>
               <ThumbsDown className={`w-[18px] h-[18px] ${isDisliked ? "fill-current" : ""}`} />
             </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); }}
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
                 backgroundColor: showSimilar ? "var(--mq-accent)" : "var(--mq-card)",
@@ -1013,7 +1015,7 @@ export default function FullTrackView() {
               }}>
               <ListMusic className="w-[18px] h-[18px]" />
             </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); }}
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
                 backgroundColor: showLyrics ? "var(--mq-accent)" : "var(--mq-card)",
@@ -1022,7 +1024,7 @@ export default function FullTrackView() {
               }}>
               <FileText className="w-[18px] h-[18px]" />
             </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowComments(!showComments); setShowSimilar(false); setShowLyrics(false); }}
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowComments(!showComments); setShowSimilar(false); setShowLyrics(false); setShowDNA(false); }}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
                 backgroundColor: showComments ? "var(--mq-accent)" : "var(--mq-card)",
@@ -1030,6 +1032,15 @@ export default function FullTrackView() {
                 color: showComments ? "var(--mq-text)" : "var(--mq-text-muted)",
               }}>
               <MessageSquare className="w-[18px] h-[18px]" />
+            </motion.button>
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowDNA(!showDNA); setShowSimilar(false); setShowLyrics(false); setShowComments(false); }}
+              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: showDNA ? "var(--mq-accent)" : "var(--mq-card)",
+                border: "1px solid var(--mq-border)",
+                color: showDNA ? "var(--mq-text)" : "var(--mq-text-muted)",
+              }}>
+              <Dna className="w-[18px] h-[18px]" />
             </motion.button>
             <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCanvasMode(!canvasMode)}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
@@ -1300,6 +1311,13 @@ export default function FullTrackView() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Song DNA panel */}
+        <SongDNA
+          track={currentTrack}
+          isOpen={showDNA}
+          onClose={() => setShowDNA(false)}
+        />
       </motion.div>
     </AnimatePresence>
   );
