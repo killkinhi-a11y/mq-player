@@ -348,6 +348,12 @@
       "namedRegex": "^/api/auth/verify\\-code(?:/)?$"
     },
     {
+      "page": "/api/cron/keep-warm",
+      "regex": "^/api/cron/keep\\-warm(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/cron/keep\\-warm(?:/)?$"
+    },
+    {
       "page": "/api/db-sync",
       "regex": "^/api/db\\-sync(?:/)?$",
       "routeKeys": {},
@@ -430,6 +436,12 @@
       "regex": "^/api/messages/unread\\-count(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/api/messages/unread\\-count(?:/)?$"
+    },
+    {
+      "page": "/api/music/artist-tracks",
+      "regex": "^/api/music/artist\\-tracks(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/music/artist\\-tracks(?:/)?$"
     },
     {
       "page": "/api/music/artists",

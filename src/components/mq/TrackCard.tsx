@@ -11,7 +11,7 @@ interface TrackCardProps {
   track: Track;
   index?: number;
   queue?: Track[];
-  onArtistClick?: (artistName: string) => void;
+  onArtistClick?: (artistName: string, coverUrl?: string) => void;
 }
 
 export default function TrackCard({ track, index = 0, queue, onArtistClick }: TrackCardProps) {
@@ -181,7 +181,7 @@ export default function TrackCard({ track, index = 0, queue, onArtistClick }: Tr
             onClick={(e) => {
               if (onArtistClick) {
                 e.stopPropagation();
-                onArtistClick(track.artist);
+                onArtistClick(track.artist, track.cover);
               }
             }}
           >

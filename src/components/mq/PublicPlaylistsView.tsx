@@ -189,7 +189,7 @@ export default function PublicPlaylistsView() {
           <ScrollReveal direction="up" delay={0.2}>
           <div className="space-y-1">
             {selectedPlaylist.tracks.map((track, i) => (
-              <TrackCard key={track.id} track={track} index={i} queue={selectedPlaylist.tracks} onArtistClick={(name) => setSelectedArtist({ name })} />
+              <TrackCard key={track.id} track={track} index={i} queue={selectedPlaylist.tracks} onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })} />
             ))}
             {selectedPlaylist.tracks.length === 0 && (
               <p className="text-center py-8 text-sm" style={{ color: "var(--mq-text-muted)" }}>

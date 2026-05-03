@@ -109,7 +109,7 @@ export default function HistoryView() {
                 <div className="space-y-2">
                   {group.items.map((entry, i) => (
                     <div key={entry.track.id + "_" + entry.playedAt}>
-                      <TrackCard track={entry.track} index={gi * 10 + i} queue={history.map(h => h.track)} onArtistClick={(name) => setSelectedArtist({ name })} />
+                      <TrackCard track={entry.track} index={gi * 10 + i} queue={history.map(h => h.track)} onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })} />
                     </div>
                   ))}
                 </div>

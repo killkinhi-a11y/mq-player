@@ -1,0 +1,3 @@
+{
+  "/api/cron/keep-warm/route": "app/api/cron/keep-warm/route.js"
+}

@@ -764,8 +764,8 @@ export default function MainView() {
   }, [likedTracksData, playTrack]);
 
   // Navigate to artist detail when clicking artist name in any track card
-  const handleNavigateToArtist = useCallback((artistName: string) => {
-    setSelectedArtist({ name: artistName });
+  const handleNavigateToArtist = useCallback((artistName: string, coverUrl?: string) => {
+    setSelectedArtist({ name: artistName, avatar: coverUrl || undefined });
   }, [setSelectedArtist]);
 
   const recentTracks = history.slice(0, 6);
@@ -847,8 +847,18 @@ export default function MainView() {
   }, [playTrack, shuffleArray]);
 
   // ── Artist detail panel: fetch artist info + new releases via dedicated API ──
+  const artistNameRef = useRef(selectedArtist?.name);
+  // Reset ref when artist is cleared (back button)
+  useEffect(() => {
+    if (!selectedArtist) {
+      artistNameRef.current = undefined;
+    }
+  }, [selectedArtist]);
   useEffect(() => {
     if (!selectedArtist) return;
+    // Only refetch if the artist name actually changed
+    if (selectedArtist.name === artistNameRef.current) return;
+    artistNameRef.current = selectedArtist.name;
     let cancelled = false;
     const fetchArtistTracks = async () => {
       setArtistTracksLoading(true);
@@ -862,8 +872,8 @@ export default function MainView() {
           if (data.artist) {
             const fetchedAvatar = data.artist.avatar;
             const currentAvatar = selectedArtist.avatar || "";
-            // Always update if we got an avatar and don't have one, or got a different (proxy) avatar
-            if (fetchedAvatar && fetchedAvatar !== currentAvatar) {
+            // Update avatar only if API returned one (it's a proper SC avatar via proxy)
+            if (fetchedAvatar) {
               setSelectedArtist({
                 ...selectedArtist,
                 avatar: fetchedAvatar,
@@ -871,8 +881,8 @@ export default function MainView() {
                 genre: data.artist.genre || selectedArtist.genre,
                 trackCount: data.artist.trackCount ?? selectedArtist.trackCount,
               });
-            } else if (!fetchedAvatar && !currentAvatar) {
-              // No avatar anywhere, still update followers/genre
+            } else {
+              // No avatar from API, still update followers/genre/trackCount
               setSelectedArtist({
                 ...selectedArtist,
                 followers: data.artist.followers ?? selectedArtist.followers,
@@ -892,26 +902,13 @@ export default function MainView() {
     return () => { cancelled = true; };
   }, [selectedArtist]);
 
-  // ── Merge favoriteArtists + topArtists for the artist row ──
-  const displayArtists = useMemo(() => {
-    const favNames = new Set((favoriteArtists || []).map(a => a.username.toLowerCase()));
-    const result: { name: string; avatar?: string; genre?: string }[] = [];
-    for (const a of (favoriteArtists || [])) {
-      result.push({ name: a.username, avatar: a.avatar, genre: a.genre });
-    }
-    for (const name of tasteProfile.topArtists) {
-      if (!favNames.has(name.toLowerCase())) {
-        result.push({ name });
-      }
-    }
-    return result;
-  }, [favoriteArtists, tasteProfile.topArtists]);
+
 
   // ── Artist detail view ──
   if (selectedArtist) {
-    const handleArtistTrackClick = (artistName: string) => {
+    const handleArtistTrackClick = (artistName: string, coverUrl?: string) => {
       if (artistName.toLowerCase() !== selectedArtist.name.toLowerCase()) {
-        setSelectedArtist({ name: artistName });
+        setSelectedArtist({ name: artistName, avatar: coverUrl || undefined });
       }
     };
 
@@ -1355,32 +1352,7 @@ export default function MainView() {
         </div>
       </ScrollReveal>
 
-      {/* Your Artists — horizontal scrollable row */}
-      {displayArtists.length > 0 && (
-        <ScrollReveal direction="up" delay={0.2}>
-          <div>
-            <h2 className="text-lg font-bold mb-3" style={{ color: "var(--mq-text)" }}>
-              Ваши артисты
-            </h2>
-            <div
-              className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1"
-              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-            >
-              {displayArtists.map((artist, i) => (
-                <ArtistCard
-                  key={artist.name}
-                  avatar={artist.avatar}
-                  username={artist.name}
-                  genre={artist.genre}
-                  index={i}
-                  animationsEnabled={animationsEnabled}
-                  onClick={() => setSelectedArtist({ name: artist.name, avatar: artist.avatar })}
-                />
-              ))}
-            </div>
-          </div>
-        </ScrollReveal>
-      )}
+
 
       {/* Listening Activity Widget */}
       {history.length > 0 && (

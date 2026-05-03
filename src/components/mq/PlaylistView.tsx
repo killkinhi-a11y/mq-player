@@ -628,7 +628,7 @@ export default function PlaylistView() {
           <div className="space-y-2">
             {selectedPlaylist.tracks.map((track, i) => (
               <div key={track.id} className="relative">
-                <TrackCard track={track} index={i} queue={selectedPlaylist.tracks} onArtistClick={(name) => setSelectedArtist({ name })} />
+                <TrackCard track={track} index={i} queue={selectedPlaylist.tracks} onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })} />
                 <button
                   onClick={() => removeFromPlaylist(selectedPlaylist.id, track.id)}
                   className="absolute top-3 right-3 p-1 rounded opacity-0 hover:opacity-100 transition-opacity group-hover:opacity-100"
@@ -726,7 +726,7 @@ export default function PlaylistView() {
               <div className="space-y-2">
                 {playlistRecs.slice(0, 8).map((track, i) => (
                   <div key={track.id} className="relative group">
-                    <TrackCard track={track} index={i} queue={[...selectedPlaylist.tracks, ...playlistRecs]} onArtistClick={(name) => setSelectedArtist({ name })} />
+                    <TrackCard track={track} index={i} queue={[...selectedPlaylist.tracks, ...playlistRecs]} onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })} />
                     <motion.button
                       whileTap={{ scale: 0.9 }}
                       onClick={() => {

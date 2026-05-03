@@ -353,6 +353,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../src/app/api/cron/keep-warm/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/cron/keep-warm">> = Specific
+  const handler = {} as typeof import("../../src/app/api/cron/keep-warm/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../src/app/api/db-sync/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/db-sync">> = Specific
@@ -519,6 +528,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/messages/unread-count">> = Specific
   const handler = {} as typeof import("../../src/app/api/messages/unread-count/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../src/app/api/music/artist-tracks/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/music/artist-tracks">> = Specific
+  const handler = {} as typeof import("../../src/app/api/music/artist-tracks/route.js")
   type __Check = __IsExpected<typeof handler>
   // @ts-ignore
   type __Unused = __Check
