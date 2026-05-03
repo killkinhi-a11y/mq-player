@@ -288,7 +288,6 @@ function AppShell() {
 
       <Suspense fallback={null}>{showNav && <PlayerBar />}</Suspense>
       <Suspense fallback={null}><FullTrackView /></Suspense>
-      <Suspense fallback={null}><SideVisuals /></Suspense>
       <Suspense fallback={null}><MqCat /></Suspense>
       <Suspense fallback={null}><PiPPlayer /></Suspense>
       <Suspense fallback={null}>{showNav && <MobileNav />}</Suspense>

@@ -1083,15 +1083,10 @@ export default function TrackCanvas({ isActive, isPlaying, currentStyle, styleVa
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
-    let lastFrame = 0;
-    const targetInterval = 1000 / 30;
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
     const draw = (timestamp: number) => {
       animRef.current = requestAnimationFrame(draw);
-
-      if (timestamp - lastFrame < targetInterval) return;
-      lastFrame = timestamp;
 
       const dpr = window.devicePixelRatio || 1;
       const w = canvas.clientWidth;
