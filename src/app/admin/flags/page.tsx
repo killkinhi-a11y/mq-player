@@ -11,6 +11,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { seasonalThemes } from "@/lib/themes";
+import { motion } from "framer-motion";
 
 interface FeatureFlag {
   id: string;
@@ -21,6 +22,16 @@ interface FeatureFlag {
   createdAt: string;
   updatedAt: string;
 }
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.04 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
 
 export default function AdminFlagsPage() {
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
@@ -101,22 +112,12 @@ export default function AdminFlagsPage() {
     }
   };
 
-  // Check if a seasonal flag is enabled
-  const isSeasonalEnabled = (seasonalKey: string) => {
-    return flags.some(f => f.key === `theme_${seasonalKey}` && f.enabled);
-  };
-
-  // Get current month for auto-suggest
   const currentMonth = new Date().getMonth() + 1;
   const currentSeasonalThemes = seasonalThemes.filter(st => st.months.includes(currentMonth));
-
-  // Separate seasonal flags from regular flags
-  const seasonalFlagKeys = seasonalThemes.map(st => `theme_${st.key}`);
   const maintenanceFlag = flags.find(f => f.key === "maintenance_mode");
   const regularFlags = flags.filter(f => !f.key.startsWith("theme_") && f.key !== "maintenance_mode");
   const activeSeasonalFlags = flags.filter(f => f.key.startsWith("theme_") && f.enabled);
 
-  // Toggle maintenance mode
   const handleMaintenanceToggle = async () => {
     if (maintenanceFlag) {
       setToggleLoading(maintenanceFlag.id);
@@ -133,7 +134,6 @@ export default function AdminFlagsPage() {
         setToggleLoading(null);
       }
     } else {
-      // Create maintenance flag and enable it
       setToggleLoading("new_maintenance");
       try {
         await fetch("/api/admin/feature-flags", {
@@ -156,9 +156,14 @@ export default function AdminFlagsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
             Feature Flags
@@ -167,25 +172,28 @@ export default function AdminFlagsPage() {
             Управление функциями и сезонными темами
           </p>
         </div>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => {
             setShowCreate(true);
             setCreateError("");
           }}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium text-white"
           style={{
-            backgroundColor: "var(--mq-accent)",
-            color: "#fff",
+            background: "linear-gradient(135deg, var(--mq-accent), rgba(224,49,49,0.8))",
           }}
         >
           <Plus className="w-4 h-4" />
           Новый флаг
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
       {/* Create Form */}
       {showCreate && (
-        <div
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl p-5 space-y-4"
           style={{
             backgroundColor: "var(--mq-card)",
@@ -198,7 +206,7 @@ export default function AdminFlagsPage() {
             </h3>
             <button
               onClick={() => setShowCreate(false)}
-              className="p-1 rounded-lg"
+              className="p-1.5 rounded-lg hover:bg-white/5"
               style={{ color: "var(--mq-text-muted)" }}
             >
               <X className="w-4 h-4" />
@@ -277,10 +285,9 @@ export default function AdminFlagsPage() {
             <button
               onClick={handleCreate}
               disabled={createLoading || !formKey || !formName}
-              className="px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2"
+              className="px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 text-white"
               style={{
-                backgroundColor: "var(--mq-accent)",
-                color: "#fff",
+                background: "linear-gradient(135deg, var(--mq-accent), rgba(224,49,49,0.8))",
                 opacity: !formKey || !formName ? 0.5 : 1,
               }}
             >
@@ -292,11 +299,12 @@ export default function AdminFlagsPage() {
               Создать
             </button>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Maintenance Mode */}
-      <div
+      <motion.div
+        variants={itemVariants}
         className="rounded-2xl overflow-hidden"
         style={{
           backgroundColor: maintenanceFlag?.enabled
@@ -305,10 +313,7 @@ export default function AdminFlagsPage() {
           border: `1px solid ${maintenanceFlag?.enabled ? "rgba(234,179,8,0.25)" : "var(--mq-border)"}`,
         }}
       >
-        <div
-          className="flex items-center gap-4 px-4 sm:px-5 py-4"
-        >
-          {/* Toggle Switch */}
+        <div className="flex items-center gap-4 px-5 py-4">
           <button
             onClick={handleMaintenanceToggle}
             disabled={toggleLoading === maintenanceFlag?.id || toggleLoading === "new_maintenance"}
@@ -318,10 +323,7 @@ export default function AdminFlagsPage() {
             }}
           >
             {toggleLoading === maintenanceFlag?.id || toggleLoading === "new_maintenance" ? (
-              <Loader2
-                className="absolute top-1 left-1 w-4 h-4 animate-spin"
-                style={{ color: "#fff" }}
-              />
+              <Loader2 className="absolute top-1 left-1 w-4 h-4 animate-spin" style={{ color: "#fff" }} />
             ) : (
               <div
                 className="absolute top-1 w-4 h-4 rounded-full transition-transform"
@@ -334,10 +336,14 @@ export default function AdminFlagsPage() {
           </button>
 
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <AlertTriangle
-              className="w-5 h-5 flex-shrink-0"
-              style={{ color: maintenanceFlag?.enabled ? "#eab308" : "var(--mq-text-muted)" }}
-            />
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{
+              backgroundColor: maintenanceFlag?.enabled ? "rgba(234,179,8,0.15)" : "rgba(136,136,136,0.08)",
+            }}>
+              <AlertTriangle
+                className="w-5 h-5"
+                style={{ color: maintenanceFlag?.enabled ? "#eab308" : "var(--mq-text-muted)" }}
+              />
+            </div>
             <div className="min-w-0">
               <h2 className="font-semibold text-sm" style={{ color: "var(--mq-text)" }}>
                 Технические работы
@@ -352,7 +358,7 @@ export default function AdminFlagsPage() {
           </div>
 
           <span
-            className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+            className="text-[10px] font-medium px-2.5 py-1 rounded-lg flex-shrink-0"
             style={{
               backgroundColor: maintenanceFlag?.enabled
                 ? "rgba(234,179,8,0.15)"
@@ -363,10 +369,11 @@ export default function AdminFlagsPage() {
             {maintenanceFlag?.enabled ? "ON" : "OFF"}
           </span>
         </div>
-      </div>
+      </motion.div>
 
       {/* Seasonal Themes Section */}
-      <div
+      <motion.div
+        variants={itemVariants}
         className="rounded-2xl overflow-hidden"
         style={{
           backgroundColor: "var(--mq-card)",
@@ -374,11 +381,15 @@ export default function AdminFlagsPage() {
         }}
       >
         <div
-          className="flex items-center justify-between px-4 sm:px-5 py-4"
+          className="flex items-center justify-between px-5 py-4"
           style={{ borderBottom: "1px solid var(--mq-border)" }}
         >
-          <div className="flex items-center gap-2">
-            <Calendar className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{
+              backgroundColor: "rgba(224,49,49,0.1)",
+            }}>
+              <Calendar className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+            </div>
             <div>
               <h2 className="font-semibold text-sm" style={{ color: "var(--mq-text)" }}>
                 Сезонные темы
@@ -391,8 +402,10 @@ export default function AdminFlagsPage() {
             </div>
           </div>
           {currentSeasonalThemes.length > 0 && (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
-              style={{ backgroundColor: "rgba(224,49,49,0.08)", border: "1px solid rgba(224,49,49,0.15)" }}>
+            <div
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+              style={{ backgroundColor: "rgba(224,49,49,0.06)", border: "1px solid rgba(224,49,49,0.12)" }}
+            >
               <Sparkles className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
               <span className="text-[10px] font-medium" style={{ color: "var(--mq-accent)" }}>
                 Сейчас: {currentSeasonalThemes.map(st => st.icon).join(" ")}
@@ -411,7 +424,7 @@ export default function AdminFlagsPage() {
             return (
               <div
                 key={st.key}
-                className="flex items-center gap-3 px-4 sm:px-5 py-3.5"
+                className="flex items-center gap-3 px-5 py-3.5"
                 style={{
                   borderBottom: rowBorder ? "1px solid var(--mq-border)" : "none",
                   borderRight: "1px solid var(--mq-border)",
@@ -422,11 +435,9 @@ export default function AdminFlagsPage() {
                     if (flag) {
                       handleToggle(flag);
                     } else {
-                      // Auto-create the seasonal flag and enable it
                       const createSeasonalFlag = async () => {
                         setToggleLoading(`new_${st.key}`);
                         try {
-                          // Create flag
                           await fetch("/api/admin/feature-flags", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -454,10 +465,7 @@ export default function AdminFlagsPage() {
                   }}
                 >
                   {toggleLoading === flag?.id || toggleLoading === `new_${st.key}` ? (
-                    <Loader2
-                      className="absolute top-1 left-1 w-4 h-4 animate-spin"
-                      style={{ color: "#fff" }}
-                    />
+                    <Loader2 className="absolute top-1 left-1 w-4 h-4 animate-spin" style={{ color: "#fff" }} />
                   ) : (
                     <div
                       className="absolute top-1 w-4 h-4 rounded-full transition-transform"
@@ -478,7 +486,7 @@ export default function AdminFlagsPage() {
                       </h3>
                       {isCurrentMonth && (
                         <span
-                          className="text-[9px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0"
+                          className="text-[9px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0"
                           style={{
                             backgroundColor: "rgba(224,49,49,0.15)",
                             color: "var(--mq-accent)",
@@ -495,9 +503,9 @@ export default function AdminFlagsPage() {
                 </div>
 
                 <span
-                  className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+                  className="text-[10px] font-medium px-2 py-0.5 rounded-md flex-shrink-0"
                   style={{
-                    backgroundColor: isEnabled ? "rgba(74,222,128,0.15)" : "rgba(136,136,136,0.15)",
+                    backgroundColor: isEnabled ? "rgba(74,222,128,0.12)" : "rgba(136,136,136,0.12)",
                     color: isEnabled ? "#4ade80" : "var(--mq-text-muted)",
                   }}
                 >
@@ -507,10 +515,11 @@ export default function AdminFlagsPage() {
             );
           })}
         </div>
-      </div>
+      </motion.div>
 
       {/* Regular Feature Flags */}
-      <div
+      <motion.div
+        variants={itemVariants}
         className="rounded-2xl overflow-hidden"
         style={{
           backgroundColor: "var(--mq-card)",
@@ -518,9 +527,13 @@ export default function AdminFlagsPage() {
         }}
       >
         {regularFlags.length === 0 ? (
-          <div className="p-8 text-center">
-            <ToggleLeftIcon className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-            <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+          <div className="p-12 text-center">
+            <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center" style={{
+              backgroundColor: "rgba(136,136,136,0.06)",
+            }}>
+              <ToggleLeftIcon className="w-6 h-6" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
+            </div>
+            <p className="text-sm font-medium" style={{ color: "var(--mq-text-muted)" }}>
               Нет пользовательских флагов
             </p>
             <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
@@ -531,12 +544,11 @@ export default function AdminFlagsPage() {
           regularFlags.map((flag, idx) => (
             <div
               key={flag.id}
-              className="flex items-center gap-4 px-4 sm:px-5 py-4"
+              className="flex items-center gap-4 px-5 py-4"
               style={{
                 borderBottom: idx < regularFlags.length - 1 ? "1px solid var(--mq-border)" : "none",
               }}
             >
-              {/* Toggle Switch */}
               <button
                 onClick={() => handleToggle(flag)}
                 disabled={toggleLoading === flag.id}
@@ -546,10 +558,7 @@ export default function AdminFlagsPage() {
                 }}
               >
                 {toggleLoading === flag.id ? (
-                  <Loader2
-                    className="absolute top-1 left-1 w-4 h-4 animate-spin"
-                    style={{ color: "#fff" }}
-                  />
+                  <Loader2 className="absolute top-1 left-1 w-4 h-4 animate-spin" style={{ color: "#fff" }} />
                 ) : (
                   <div
                     className="absolute top-1 w-4 h-4 rounded-full transition-transform"
@@ -561,14 +570,13 @@ export default function AdminFlagsPage() {
                 )}
               </button>
 
-              {/* Flag Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-medium text-sm" style={{ color: "var(--mq-text)" }}>
                     {flag.name}
                   </h3>
                   <code
-                    className="text-[11px] px-1.5 py-0.5 rounded"
+                    className="text-[11px] px-1.5 py-0.5 rounded-md"
                     style={{
                       backgroundColor: "var(--mq-input-bg)",
                       border: "1px solid var(--mq-border)",
@@ -585,11 +593,10 @@ export default function AdminFlagsPage() {
                 )}
               </div>
 
-              {/* Status Label */}
               <span
-                className="text-[10px] font-medium px-2 py-0.5 rounded-full flex-shrink-0"
+                className="text-[10px] font-medium px-2 py-0.5 rounded-md flex-shrink-0"
                 style={{
-                  backgroundColor: flag.enabled ? "rgba(74,222,128,0.15)" : "rgba(136,136,136,0.15)",
+                  backgroundColor: flag.enabled ? "rgba(74,222,128,0.12)" : "rgba(136,136,136,0.12)",
                   color: flag.enabled ? "#4ade80" : "var(--mq-text-muted)",
                 }}
               >
@@ -598,7 +605,7 @@ export default function AdminFlagsPage() {
             </div>
           ))
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -8,7 +8,6 @@ import {
   RotateCcw,
   Loader2,
   ChevronDown,
-  Gift,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -19,6 +18,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { motion } from "framer-motion";
 
 interface Transaction {
   id: string;
@@ -78,6 +78,16 @@ const typeFilters = [
   { value: "one_time", label: "Разовая" },
   { value: "promo_period", label: "Промо" },
 ];
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.04 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
 
 export default function AdminBillingPage() {
   const [data, setData] = useState<BillingData | null>(null);
@@ -144,10 +154,46 @@ export default function AdminBillingPage() {
     ? Math.max(...data.mrrData.map((m) => m.revenue), 1)
     : 1;
 
+  const rowHoverIn = (e: React.MouseEvent) => {
+    (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(255,255,255,0.02)";
+  };
+  const rowHoverOut = (e: React.MouseEvent) => {
+    (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+  };
+
+  const statCards = [
+    {
+      label: "Текущий MRR",
+      value: `$${data?.currentMRR.toFixed(2) || "0.00"}`,
+      icon: TrendingUp,
+      color: "#8b5cf6",
+      bg: "rgba(139,92,246,0.12)",
+    },
+    {
+      label: "Общий доход",
+      value: `$${data?.totalRevenue.toFixed(2) || "0.00"}`,
+      icon: DollarSign,
+      color: "#4ade80",
+      bg: "rgba(74,222,128,0.12)",
+    },
+    {
+      label: "Транзакций",
+      value: data?.totalTransactions || 0,
+      icon: Receipt,
+      color: "#06b6d4",
+      bg: "rgba(6,182,212,0.12)",
+    },
+  ];
+
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
             Финансы
@@ -158,7 +204,7 @@ export default function AdminBillingPage() {
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm"
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors"
           style={{
             backgroundColor: showFilters ? "rgba(224,49,49,0.1)" : "var(--mq-card)",
             border: "1px solid var(--mq-border)",
@@ -168,11 +214,13 @@ export default function AdminBillingPage() {
           <ChevronDown className="w-4 h-4" />
           Фильтр
         </button>
-      </div>
+      </motion.div>
 
       {/* Filter */}
       {showFilters && (
-        <div
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl p-4"
           style={{
             backgroundColor: "var(--mq-card)",
@@ -203,7 +251,7 @@ export default function AdminBillingPage() {
               </button>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {loading ? (
@@ -213,80 +261,42 @@ export default function AdminBillingPage() {
       ) : data ? (
         <>
           {/* Stat Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div
-              className="rounded-2xl p-5"
-              style={{
-                backgroundColor: "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-              }}
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: "rgba(139,92,246,0.15)" }}
+          <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {statCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <motion.div
+                  key={card.label}
+                  whileHover={{ y: -2, transition: { duration: 0.2 } }}
+                  className="rounded-2xl p-5"
+                  style={{
+                    backgroundColor: "var(--mq-card)",
+                    border: "1px solid var(--mq-border)",
+                  }}
                 >
-                  <TrendingUp className="w-5 h-5" style={{ color: "#8b5cf6" }} />
-                </div>
-                <span className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>
-                  Текущий MRR
-                </span>
-              </div>
-              <p className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
-                ${data.currentMRR.toFixed(2)}
-              </p>
-            </div>
-
-            <div
-              className="rounded-2xl p-5"
-              style={{
-                backgroundColor: "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-              }}
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: "rgba(74,222,128,0.15)" }}
-                >
-                  <DollarSign className="w-5 h-5" style={{ color: "#4ade80" }} />
-                </div>
-                <span className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>
-                  Общий доход
-                </span>
-              </div>
-              <p className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
-                ${data.totalRevenue.toFixed(2)}
-              </p>
-            </div>
-
-            <div
-              className="rounded-2xl p-5"
-              style={{
-                backgroundColor: "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-              }}
-            >
-              <div className="flex items-center gap-3 mb-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: "rgba(6,182,212,0.15)" }}
-                >
-                  <Receipt className="w-5 h-5" style={{ color: "#06b6d4" }} />
-                </div>
-                <span className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>
-                  Транзакций
-                </span>
-              </div>
-              <p className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
-                {data.totalTransactions}
-              </p>
-            </div>
-          </div>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div
+                      className="w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: card.bg }}
+                    >
+                      <Icon className="w-5 h-5" style={{ color: card.color }} />
+                    </div>
+                    <span className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>
+                      {card.label}
+                    </span>
+                  </div>
+                  <p className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
+                    {card.value}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </motion.div>
 
           {/* MRR Chart */}
           {data.mrrData.length > 0 && (
-            <div
+            <motion.div
+              variants={itemVariants}
               className="rounded-2xl p-5"
               style={{
                 backgroundColor: "var(--mq-card)",
@@ -307,7 +317,7 @@ export default function AdminBillingPage() {
                       style={{
                         height: `${(m.revenue / maxMRR) * 100}%`,
                         minHeight: "4px",
-                        backgroundColor: "var(--mq-accent)",
+                        background: "linear-gradient(180deg, var(--mq-accent), rgba(224,49,49,0.5))",
                       }}
                     />
                     <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
@@ -316,11 +326,12 @@ export default function AdminBillingPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* Transactions Table */}
-          <div
+          <motion.div
+            variants={itemVariants}
             className="rounded-2xl overflow-hidden"
             style={{
               backgroundColor: "var(--mq-card)",
@@ -331,30 +342,36 @@ export default function AdminBillingPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                    <th className="text-left px-4 py-2.5 font-medium text-xs uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Пользователь
                     </th>
-                    <th className="text-left px-4 py-2.5 font-medium text-xs uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Сумма
                     </th>
-                    <th className="text-left px-4 py-2.5 font-medium text-xs uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Тип
                     </th>
-                    <th className="text-left px-4 py-2.5 font-medium text-xs uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Статус
                     </th>
-                    <th className="text-left px-4 py-2.5 font-medium text-xs uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Дата
                     </th>
-                    <th className="text-right px-4 py-2.5 font-medium text-xs uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-right px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Действия
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTransactions.map((t) => (
-                    <tr key={t.id} style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                      <td className="px-4 py-3">
+                    <tr
+                      key={t.id}
+                      className="transition-colors"
+                      style={{ borderBottom: "1px solid var(--mq-border)" }}
+                      onMouseEnter={rowHoverIn}
+                      onMouseLeave={rowHoverOut}
+                    >
+                      <td className="px-5 py-3.5">
                         <div>
                           <p className="font-medium" style={{ color: "var(--mq-text)" }}>
                             {t.userName || "—"}
@@ -364,41 +381,40 @@ export default function AdminBillingPage() {
                           </p>
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-medium" style={{ color: "var(--mq-text)" }}>
+                      <td className="px-5 py-3.5 font-medium" style={{ color: "var(--mq-text)" }}>
                         ${t.amount.toFixed(2)}
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
+                      <td className="px-5 py-3.5 hidden sm:table-cell">
                         <Badge
                           variant="secondary"
                           className="text-[10px] px-1.5 py-0"
                           style={{
-                            backgroundColor: `${typeColors[t.type] || "var(--mq-text-muted)"}20`,
+                            backgroundColor: `${typeColors[t.type] || "var(--mq-text-muted)"}18`,
                             color: typeColors[t.type] || "var(--mq-text-muted)",
                           }}
                         >
                           {typeLabels[t.type] || t.type}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        <Badge
-                          variant="secondary"
-                          className="text-[10px] px-1.5 py-0"
-                          style={{
-                            backgroundColor: `${statusColors[t.status] || "var(--mq-text-muted)"}20`,
-                            color: statusColors[t.status] || "var(--mq-text-muted)",
-                          }}
-                        >
-                          {statusLabels[t.status] || t.status}
-                        </Badge>
+                      <td className="px-5 py-3.5 hidden sm:table-cell">
+                        <div className="flex items-center gap-1.5">
+                          <div
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: statusColors[t.status] || "var(--mq-text-muted)" }}
+                          />
+                          <span className="text-[11px] font-medium" style={{ color: statusColors[t.status] || "var(--mq-text-muted)" }}>
+                            {statusLabels[t.status] || t.status}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-xs hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                      <td className="px-5 py-3.5 text-xs hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                         {formatDate(t.createdAt)}
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-5 py-3.5 text-right">
                         {t.status === "completed" && t.type !== "promo_period" && (
                           <button
                             onClick={() => setRefundConfirm(t)}
-                            className="p-1.5 rounded-lg hover:opacity-80 transition-opacity"
+                            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
                             style={{ color: "#f97316" }}
                             title="Возврат"
                           >
@@ -410,7 +426,8 @@ export default function AdminBillingPage() {
                   ))}
                   {filteredTransactions.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center" style={{ color: "var(--mq-text-muted)" }}>
+                      <td colSpan={6} className="px-5 py-12 text-center" style={{ color: "var(--mq-text-muted)" }}>
+                        <Receipt className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
                         Нет транзакций
                       </td>
                     </tr>
@@ -418,7 +435,7 @@ export default function AdminBillingPage() {
                 </tbody>
               </table>
             </div>
-          </div>
+          </motion.div>
         </>
       ) : null}
 
@@ -469,6 +486,6 @@ export default function AdminBillingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }

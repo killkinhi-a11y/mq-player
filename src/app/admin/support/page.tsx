@@ -14,6 +14,7 @@ import {
   WifiOff,
   Sparkles,
 } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface SupportChatSession {
   id: string;
@@ -40,6 +41,16 @@ const quickReplies = [
   { label: "Передать специалисту", icon: UserCheck, content: "Ваше обращение передано специалисту. Мы свяжемся с вами в ближайшее время." },
   { label: "Закрыть обращение", icon: XCircle, content: "Обращение закрыто. Если у вас возникнут дополнительные вопросы, обращайтесь снова." },
 ];
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.04 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
 
 export default function AdminSupportPage() {
   const [sessions, setSessions] = useState<SupportChatSession[]>([]);
@@ -114,7 +125,6 @@ export default function AdminSupportPage() {
         }),
       });
       const data = await res.json();
-      // Immediately add bot message if returned (though bot only triggers on user messages)
       const allMessages = [...messages];
       if (data.message) {
         allMessages.push(data.message);
@@ -153,12 +163,16 @@ export default function AdminSupportPage() {
 
   const activeSession = sessions.find((s) => s.sessionId === selectedSession);
   const openSessions = sessions.filter((s) => s.status === "open");
-  const closedSessions = sessions.filter((s) => s.status === "closed");
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
             Поддержка
@@ -168,10 +182,9 @@ export default function AdminSupportPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Bot status toggle */}
           <button
             onClick={() => setBotEnabled(!botEnabled)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
             style={{
               backgroundColor: botEnabled ? "rgba(6,182,212,0.1)" : "var(--mq-input-bg)",
               border: `1px solid ${botEnabled ? "rgba(6,182,212,0.3)" : "var(--mq-border)"}`,
@@ -181,10 +194,15 @@ export default function AdminSupportPage() {
             {botEnabled ? <Wifi className="w-3.5 h-3.5" /> : <WifiOff className="w-3.5 h-3.5" />}
             Бот {botEnabled ? "ON" : "OFF"}
           </button>
-          {/* Stats */}
-          <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
-            style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}>
-            <span className="flex items-center gap-1">
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs"
+            style={{
+              backgroundColor: "var(--mq-input-bg)",
+              border: "1px solid var(--mq-border)",
+              color: "var(--mq-text-muted)",
+            }}
+          >
+            <span className="flex items-center gap-1.5">
               <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#4ade80" }} />
               {openSessions.length} открытых
             </span>
@@ -192,10 +210,11 @@ export default function AdminSupportPage() {
             <span>{sessions.length} всего</span>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* 2-column layout */}
-      <div
+      <motion.div
+        variants={itemVariants}
         className="rounded-2xl overflow-hidden flex flex-col lg:flex-row"
         style={{
           backgroundColor: "var(--mq-card)",
@@ -233,7 +252,7 @@ export default function AdminSupportPage() {
               </div>
             ) : sessions.length === 0 ? (
               <div className="px-4 py-12 text-center">
-                <MessageCircle className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)" }} />
+                <MessageCircle className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
                 <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
                   Нет сессий
                 </p>
@@ -247,7 +266,7 @@ export default function AdminSupportPage() {
                   style={{
                     backgroundColor:
                       selectedSession === session.sessionId
-                        ? "rgba(224,49,49,0.08)"
+                        ? "rgba(224,49,49,0.06)"
                         : "transparent",
                     borderBottom: "1px solid var(--mq-border)",
                   }}
@@ -264,18 +283,27 @@ export default function AdminSupportPage() {
                     >
                       {session.userName || session.sessionId.substring(0, 8)}
                     </span>
-                    <span
-                      className="text-[10px] flex-shrink-0 px-1.5 py-0.5 rounded-full"
-                      style={{
-                        backgroundColor:
-                          session.status === "open"
-                            ? "rgba(74,222,128,0.15)"
-                            : "rgba(136,136,136,0.15)",
-                        color: session.status === "open" ? "#4ade80" : "var(--mq-text-muted)",
-                      }}
-                    >
-                      {session.status === "open" ? "Открыт" : "Закрыт"}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <div
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{
+                          backgroundColor:
+                            session.status === "open" ? "#4ade80" : "var(--mq-text-muted)",
+                        }}
+                      />
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-md font-medium"
+                        style={{
+                          backgroundColor:
+                            session.status === "open"
+                              ? "rgba(74,222,128,0.12)"
+                              : "rgba(136,136,136,0.12)",
+                          color: session.status === "open" ? "#4ade80" : "var(--mq-text-muted)",
+                        }}
+                      >
+                        {session.status === "open" ? "Открыт" : "Закрыт"}
+                      </span>
+                    </div>
                   </div>
                   <p
                     className="text-xs truncate mb-1"
@@ -304,9 +332,13 @@ export default function AdminSupportPage() {
                 style={{ borderBottom: "1px solid var(--mq-border)" }}
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: "var(--mq-accent)", opacity: 0.8 }}>
-                    <UserCircle className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: "linear-gradient(135deg, var(--mq-accent), rgba(224,49,49,0.7))",
+                    }}
+                  >
+                    <UserCircle className="w-5 h-5 text-white" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-sm truncate" style={{ color: "var(--mq-text)" }}>
@@ -323,8 +355,13 @@ export default function AdminSupportPage() {
                   </div>
                 </div>
                 {botEnabled && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
-                    style={{ backgroundColor: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.2)" }}>
+                  <div
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+                    style={{
+                      backgroundColor: "rgba(6,182,212,0.08)",
+                      border: "1px solid rgba(6,182,212,0.2)",
+                    }}
+                  >
                     <Sparkles className="w-3 h-3" style={{ color: "#06b6d4" }} />
                     <span className="text-[10px] font-medium" style={{ color: "#06b6d4" }}>Бот активен</span>
                   </div>
@@ -340,7 +377,12 @@ export default function AdminSupportPage() {
                 ) : messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
-                      <Bot className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+                      <div
+                        className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center"
+                        style={{ backgroundColor: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.12)" }}
+                      >
+                        <Bot className="w-8 h-8" style={{ color: "#06b6d4", opacity: 0.4 }} />
+                      </div>
                       <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
                         Нет сообщений
                       </p>
@@ -356,18 +398,21 @@ export default function AdminSupportPage() {
                     const isBot = msg.role === "bot";
 
                     return (
-                      <div
+                      <motion.div
                         key={msg.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2 }}
                         className={`flex ${isUser ? "justify-start" : "justify-end"}`}
                       >
                         <div className="flex gap-2 max-w-[80%]">
                           {!isUser && (
                             <div
-                              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
+                              className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-1"
                               style={{
                                 backgroundColor: isBot
-                                  ? "rgba(6,182,212,0.15)"
-                                  : "rgba(224,49,49,0.15)",
+                                  ? "rgba(6,182,212,0.12)"
+                                  : "rgba(224,49,49,0.12)",
                               }}
                             >
                               {isBot ? (
@@ -396,31 +441,28 @@ export default function AdminSupportPage() {
                                 backgroundColor: isUser
                                   ? "var(--mq-input-bg)"
                                   : isBot
-                                  ? "rgba(6,182,212,0.08)"
-                                  : "rgba(224,49,49,0.1)",
+                                  ? "rgba(6,182,212,0.06)"
+                                  : "rgba(224,49,49,0.08)",
                                 color: "var(--mq-text)",
-                                border: `1px solid ${isUser ? "var(--mq-border)" : isBot ? "rgba(6,182,212,0.2)" : "rgba(224,49,49,0.15)"}`,
+                                border: `1px solid ${isUser ? "var(--mq-border)" : isBot ? "rgba(6,182,212,0.15)" : "rgba(224,49,49,0.12)"}`,
                               }}
                             >
                               {msg.content}
                             </div>
-                            <p
-                              className="text-[10px] mt-1"
-                              style={{ color: "var(--mq-text-muted)" }}
-                            >
+                            <p className="text-[10px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
                               {formatDate(msg.createdAt)}
                             </p>
                           </div>
                           {isUser && (
                             <div
-                              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-1"
-                              style={{ backgroundColor: "rgba(139,92,246,0.15)" }}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-1"
+                              style={{ backgroundColor: "rgba(139,92,246,0.12)" }}
                             >
                               <UserCircle className="w-4 h-4" style={{ color: "#8b5cf6" }} />
                             </div>
                           )}
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })
                 )}
@@ -437,7 +479,7 @@ export default function AdminSupportPage() {
                     key={qr.label}
                     onClick={() => handleQuickReply(qr.content)}
                     disabled={sendLoading}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors flex-shrink-0"
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors flex-shrink-0 hover:bg-white/5"
                     style={{
                       backgroundColor: "var(--mq-input-bg)",
                       border: "1px solid var(--mq-border)",
@@ -473,9 +515,11 @@ export default function AdminSupportPage() {
                 <button
                   type="submit"
                   disabled={sendLoading || !inputText.trim()}
-                  className="p-2.5 rounded-xl flex-shrink-0"
+                  className="p-2.5 rounded-xl flex-shrink-0 transition-transform hover:scale-105"
                   style={{
-                    backgroundColor: inputText.trim() ? "var(--mq-accent)" : "var(--mq-border)",
+                    background: inputText.trim()
+                      ? "linear-gradient(135deg, var(--mq-accent), rgba(224,49,49,0.8))"
+                      : "var(--mq-border)",
                     color: "#fff",
                     opacity: !inputText.trim() ? 0.5 : 1,
                   }}
@@ -492,8 +536,13 @@ export default function AdminSupportPage() {
             /* Empty State */
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center">
-                <div className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-                  style={{ backgroundColor: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.15)" }}>
+                <div
+                  className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+                  style={{
+                    backgroundColor: "rgba(6,182,212,0.06)",
+                    border: "1px solid rgba(6,182,212,0.12)",
+                  }}
+                >
                   <Bot className="w-10 h-10" style={{ color: "#06b6d4" }} />
                 </div>
                 <p className="text-lg font-medium mb-1" style={{ color: "var(--mq-text)" }}>
@@ -503,8 +552,13 @@ export default function AdminSupportPage() {
                   Выберите сессию чата из списка. Бот автоматически отвечает на常见 вопросы пользователей.
                 </p>
                 {botEnabled && (
-                  <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
-                    style={{ backgroundColor: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.2)" }}>
+                  <div
+                    className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+                    style={{
+                      backgroundColor: "rgba(6,182,212,0.06)",
+                      border: "1px solid rgba(6,182,212,0.15)",
+                    }}
+                  >
                     <Sparkles className="w-3 h-3" style={{ color: "#06b6d4" }} />
                     <span className="text-[11px] font-medium" style={{ color: "#06b6d4" }}>
                       AI-бот автоматически отвечает на 10+ тем
@@ -515,7 +569,7 @@ export default function AdminSupportPage() {
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

@@ -5,8 +5,8 @@ import { themes, applyThemeToDOM } from "@/lib/themes";
 
 // ── Storage versioning ──
 // Bump this number to force a fresh store for all users with old data.
-const STORE_VERSION = 5;
-const STORAGE_KEY = "mq-store-v5";
+const STORE_VERSION = 6;
+const STORAGE_KEY = "mq-store-v6";
 
 // Nuke stale data BEFORE Zustand tries to hydrate.
 // This runs at module-import time, so there is no React error boundary to catch failures.
@@ -400,13 +400,13 @@ interface AppState {
   // Cat mascot
   catEnabled: boolean;
   catFrequency: "rare" | "normal" | "often";
-  catMood: "towelie" | "stoned" | "panic" | "lazy";
+  catMood: "chill" | "dreamy" | "panic" | "lazy";
   catSize: "small" | "medium" | "large";
   catLastSeen: number;
   catPetCount: number;
   setCatEnabled: (enabled: boolean) => void;
   setCatFrequency: (freq: "rare" | "normal" | "often") => void;
-  setCatMood: (mood: "towelie" | "stoned" | "panic" | "lazy") => void;
+  setCatMood: (mood: "chill" | "dreamy" | "panic" | "lazy") => void;
   setCatSize: (size: "small" | "medium" | "large") => void;
   petCat: () => void;
 
@@ -537,9 +537,9 @@ const initialState = {
   excludedArtists: [] as string[],
 
   // Cat mascot
-  catEnabled: true as boolean,
+  catEnabled: false as boolean,
   catFrequency: "normal" as "rare" | "normal" | "often",
-  catMood: "towelie" as "towelie" | "stoned" | "panic" | "lazy",
+  catMood: "chill" as "chill" | "dreamy" | "panic" | "lazy",
   catSize: "medium" as "small" | "medium" | "large",
   catLastSeen: 0 as number,
   catPetCount: 0 as number,
@@ -1866,9 +1866,9 @@ export const useAppStore = create<AppState>()(
           if (typeof s.shuffle !== "boolean") fixes.shuffle = false;
           if (typeof s.repeat !== "string") fixes.repeat = "off";
           // Cat mascot validation
-          if (typeof s.catEnabled !== "boolean") fixes.catEnabled = true;
+          if (typeof s.catEnabled !== "boolean") fixes.catEnabled = false;
           if (!["rare", "normal", "often"].includes(s.catFrequency as string)) fixes.catFrequency = "normal";
-          if (!["towelie", "stoned", "panic", "lazy"].includes(s.catMood as string)) fixes.catMood = "towelie";
+          if (!["chill", "dreamy", "panic", "lazy"].includes(s.catMood as string)) fixes.catMood = "chill";
           if (!["small", "medium", "large"].includes(s.catSize as string)) fixes.catSize = "medium";
           if (typeof s.catPetCount !== "number") fixes.catPetCount = 0;
           if (typeof s.queueIndex !== "number") fixes.queueIndex = 0;

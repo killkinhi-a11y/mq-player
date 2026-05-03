@@ -17,6 +17,7 @@ import {
   Copy,
   Eye,
   EyeOff,
+  Users,
 } from "lucide-react";
 import {
   Dialog,
@@ -28,6 +29,7 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useAppStore } from "@/store/useAppStore";
+import { motion } from "framer-motion";
 
 interface User {
   id: string;
@@ -40,6 +42,16 @@ interface User {
   blockedReason: string | null;
   createdAt: string;
 }
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.04 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
 
 export default function AdminUsersPage() {
   const { userId } = useAppStore();
@@ -175,10 +187,22 @@ export default function AdminUsersPage() {
     });
   };
 
+  const rowHoverIn = (e: React.MouseEvent) => {
+    (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(255,255,255,0.02)";
+  };
+  const rowHoverOut = (e: React.MouseEvent) => {
+    (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+  };
+
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
             Пользователи
@@ -187,12 +211,12 @@ export default function AdminUsersPage() {
             Управление аккаунтами ({total.toLocaleString("ru-RU")})
           </p>
         </div>
-      </div>
+      </motion.div>
 
       {/* Search */}
-      <div className="relative">
+      <motion.div variants={itemVariants} className="relative">
         <Search
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+          className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4"
           style={{ color: "var(--mq-text-muted)" }}
         />
         <input
@@ -203,17 +227,18 @@ export default function AdminUsersPage() {
             setSearch(e.target.value);
             setPage(1);
           }}
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl text-sm"
+          className="w-full pl-11 pr-4 py-3 rounded-xl text-sm"
           style={{
             backgroundColor: "var(--mq-input-bg)",
             border: "1px solid var(--mq-border)",
             color: "var(--mq-text)",
           }}
         />
-      </div>
+      </motion.div>
 
       {/* Users table */}
-      <div
+      <motion.div
+        variants={itemVariants}
         className="rounded-2xl overflow-hidden"
         style={{
           backgroundColor: "var(--mq-card)",
@@ -230,36 +255,43 @@ export default function AdminUsersPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                    <th className="text-left px-4 py-2.5 font-medium text-xs uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Пользователь
                     </th>
-                    <th className="text-left px-4 py-2.5 font-medium text-xs uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Email
                     </th>
-                    <th className="text-left px-4 py-2.5 font-medium text-xs uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Статус
                     </th>
-                    <th className="text-left px-4 py-2.5 font-medium text-xs uppercase tracking-wider hidden lg:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden lg:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Роль
                     </th>
-                    <th className="text-right px-4 py-2.5 font-medium text-xs uppercase tracking-wider hidden lg:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-right px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden lg:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Дата
                     </th>
-                    <th className="text-right px-4 py-2.5 font-medium text-xs uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-right px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Действия
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((user) => (
-                    <tr key={user.id} style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
+                    <tr
+                      key={user.id}
+                      className="transition-colors"
+                      style={{ borderBottom: "1px solid var(--mq-border)" }}
+                      onMouseEnter={rowHoverIn}
+                      onMouseLeave={rowHoverOut}
+                    >
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
                           <div
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                            className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 text-white"
                             style={{
-                              backgroundColor: user.blocked ? "rgba(249,115,22,0.15)" : "rgba(224,49,49,0.15)",
-                              color: user.blocked ? "#f97316" : "var(--mq-accent)",
+                              background: user.blocked
+                                ? "linear-gradient(135deg, #f97316, rgba(249,115,22,0.6))"
+                                : "linear-gradient(135deg, var(--mq-accent), rgba(224,49,49,0.6))",
                             }}
                           >
                             {user.username.charAt(0).toUpperCase()}
@@ -274,31 +306,30 @@ export default function AdminUsersPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                      <td className="px-5 py-3.5 hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                         <span className="truncate block max-w-[200px]">{user.email}</span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          {user.confirmed ? (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0" style={{ backgroundColor: "rgba(74,222,128,0.15)", color: "#4ade80" }}>
-                              Подтв.
-                            </Badge>
-                          ) : (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0" style={{ backgroundColor: "rgba(136,136,136,0.15)", color: "var(--mq-text-muted)" }}>
-                              Не подтв.
-                            </Badge>
-                          )}
-                          {user.blocked && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0" style={{ backgroundColor: "rgba(249,115,22,0.15)", color: "#f97316" }}>
-                              Блок
-                            </Badge>
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            <div
+                              className="w-2 h-2 rounded-full"
+                              style={{
+                                backgroundColor: user.blocked ? "#f97316" : user.confirmed ? "#4ade80" : "var(--mq-text-muted)",
+                              }}
+                            />
+                            <span className="text-[11px] font-medium" style={{
+                              color: user.blocked ? "#f97316" : user.confirmed ? "#4ade80" : "var(--mq-text-muted)",
+                            }}>
+                              {user.blocked ? "Блок" : user.confirmed ? "Подтв." : "Не подтв."}
+                            </span>
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
+                      <td className="px-5 py-3.5 hidden lg:table-cell">
                         {user.role === "admin" ? (
-                          <span className="flex items-center gap-1 text-xs" style={{ color: "var(--mq-accent)" }}>
-                            <Shield className="w-3 h-3" />
+                          <span className="inline-flex items-center gap-1 text-xs font-medium" style={{ color: "var(--mq-accent)" }}>
+                            <Shield className="w-3.5 h-3.5" />
                             Админ
                           </span>
                         ) : (
@@ -307,17 +338,17 @@ export default function AdminUsersPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-right text-xs hidden lg:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                      <td className="px-5 py-3.5 text-right text-xs hidden lg:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                         {formatDate(user.createdAt)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center justify-end gap-1">
                           {!user.confirmed && (
                             <button
                               onClick={() => handleConfirmEmail(user)}
                               disabled={actionLoading === user.id}
                               title="Подтвердить email"
-                              className="p-1.5 rounded-lg hover:opacity-80 transition-opacity"
+                              className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
                               style={{ color: "#4ade80" }}
                             >
                               {actionLoading === user.id ? (
@@ -332,7 +363,7 @@ export default function AdminUsersPage() {
                               onClick={() => handleUnblock(user)}
                               disabled={actionLoading === user.id}
                               title="Разблокировать"
-                              className="p-1.5 rounded-lg hover:opacity-80 transition-opacity"
+                              className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
                               style={{ color: "#4ade80" }}
                             >
                               <Unlock className="w-3.5 h-3.5" />
@@ -342,7 +373,7 @@ export default function AdminUsersPage() {
                               onClick={() => handleBlock(user)}
                               disabled={actionLoading === user.id}
                               title="Заблокировать"
-                              className="p-1.5 rounded-lg hover:opacity-80 transition-opacity"
+                              className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
                               style={{ color: "#f97316" }}
                             >
                               <Lock className="w-3.5 h-3.5" />
@@ -352,7 +383,7 @@ export default function AdminUsersPage() {
                             onClick={() => handleRoleChange(user)}
                             disabled={actionLoading === user.id}
                             title={user.role === "admin" ? "Снять права" : "Сделать админом"}
-                            className="p-1.5 rounded-lg hover:opacity-80 transition-opacity"
+                            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
                             style={{ color: user.role === "admin" ? "var(--mq-text-muted)" : "var(--mq-accent)" }}
                           >
                             {user.role === "admin" ? (
@@ -365,7 +396,7 @@ export default function AdminUsersPage() {
                             onClick={() => handlePasswordReset(user)}
                             disabled={actionLoading === user.id}
                             title="Сбросить пароль"
-                            className="p-1.5 rounded-lg hover:opacity-80 transition-opacity"
+                            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
                             style={{ color: "#f59e0b" }}
                           >
                             <Key className="w-3.5 h-3.5" />
@@ -374,7 +405,7 @@ export default function AdminUsersPage() {
                             onClick={() => handleDelete(user)}
                             disabled={actionLoading === user.id}
                             title="Удалить"
-                            className="p-1.5 rounded-lg hover:opacity-80 transition-opacity"
+                            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
                             style={{ color: "#ef4444" }}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -385,7 +416,8 @@ export default function AdminUsersPage() {
                   ))}
                   {users.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center" style={{ color: "var(--mq-text-muted)" }}>
+                      <td colSpan={6} className="px-5 py-12 text-center" style={{ color: "var(--mq-text-muted)" }}>
+                        <Users className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
                         {search ? "Пользователи не найдены" : "Нет пользователей"}
                       </td>
                     </tr>
@@ -397,7 +429,7 @@ export default function AdminUsersPage() {
             {/* Pagination */}
             {totalPages > 1 && (
               <div
-                className="flex items-center justify-between px-4 py-3"
+                className="flex items-center justify-between px-5 py-3"
                 style={{ borderTop: "1px solid var(--mq-border)" }}
               >
                 <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
@@ -407,7 +439,7 @@ export default function AdminUsersPage() {
                   <button
                     onClick={() => setPage(Math.max(1, page - 1))}
                     disabled={page === 1}
-                    className="p-1.5 rounded-lg disabled:opacity-30"
+                    className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30 transition-colors"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -415,7 +447,7 @@ export default function AdminUsersPage() {
                   <button
                     onClick={() => setPage(Math.min(totalPages, page + 1))}
                     disabled={page === totalPages}
-                    className="p-1.5 rounded-lg disabled:opacity-30"
+                    className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30 transition-colors"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -425,7 +457,7 @@ export default function AdminUsersPage() {
             )}
           </>
         )}
-      </div>
+      </motion.div>
 
       {/* Block Dialog */}
       <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
@@ -448,7 +480,7 @@ export default function AdminUsersPage() {
             value={blockReason}
             onChange={(e) => setBlockReason(e.target.value)}
             rows={3}
-            className="w-full rounded-xl px-3 py-2 text-sm resize-none"
+            className="w-full rounded-xl px-3 py-2.5 text-sm resize-none"
             style={{
               backgroundColor: "var(--mq-input-bg)",
               border: "1px solid var(--mq-border)",
@@ -605,7 +637,7 @@ export default function AdminUsersPage() {
           </DialogHeader>
           <div className="flex items-center gap-2">
             <div
-              className="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-mono"
+              className="flex-1 flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-mono"
               style={{
                 backgroundColor: "var(--mq-input-bg)",
                 border: "1px solid var(--mq-border)",
@@ -625,7 +657,7 @@ export default function AdminUsersPage() {
             </div>
             <button
               onClick={copyPassword}
-              className="p-2 rounded-xl flex-shrink-0"
+              className="p-2.5 rounded-xl flex-shrink-0"
               style={{
                 backgroundColor: "var(--mq-input-bg)",
                 border: "1px solid var(--mq-border)",
@@ -641,10 +673,9 @@ export default function AdminUsersPage() {
           <DialogFooter>
             <button
               onClick={() => setPasswordDialogOpen(false)}
-              className="px-4 py-2 rounded-xl text-sm font-medium"
+              className="px-4 py-2 rounded-xl text-sm font-medium text-white"
               style={{
-                backgroundColor: "var(--mq-accent)",
-                color: "var(--mq-text)",
+                background: "linear-gradient(135deg, var(--mq-accent), rgba(224,49,49,0.8))",
               }}
             >
               Закрыть
@@ -652,6 +683,6 @@ export default function AdminUsersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }

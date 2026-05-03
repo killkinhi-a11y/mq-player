@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -14,7 +14,13 @@ import {
   DollarSign,
   ToggleLeft,
   MessageCircle,
+  Menu,
+  X,
+  ChevronRight,
+  Search,
+  LogOut,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 
 const navItems = [
@@ -25,7 +31,7 @@ const navItems = [
   { href: "/admin/billing", label: "Финансы", icon: DollarSign },
   { href: "/admin/flags", label: "Флаги", icon: ToggleLeft },
   { href: "/admin/support", label: "Поддержка", icon: MessageCircle },
-  { href: "/admin/settings", label: "Настройки", icon: Settings },
+  { href: "/admin/settings", label: "Сервер", icon: Settings },
 ];
 
 function useAdminCheck(email: string | null) {
@@ -61,10 +67,23 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { email } = useAppStore();
+  const { email, username, avatar } = useAppStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const isAdmin = useAdminCheck(email);
+
+  const breadcrumbs = useMemo(() => {
+    const parts = pathname.split("/").filter(Boolean);
+    return parts.map((part, idx) => {
+      const href = "/" + parts.slice(0, idx + 1).join("/");
+      const item = navItems.find((n) => n.href === href);
+      return {
+        label: item?.label || part.charAt(0).toUpperCase() + part.slice(1),
+        href,
+        isLast: idx === parts.length - 1,
+      };
+    });
+  }, [pathname]);
 
   if (isAdmin === null) {
     return (
@@ -72,10 +91,21 @@ export default function AdminLayout({
         className="min-h-screen flex items-center justify-center"
         style={{ backgroundColor: "var(--mq-bg)" }}
       >
-        <div
-          className="animate-spin w-8 h-8 border-2 rounded-full"
-          style={{ borderColor: "var(--mq-border)", borderTopColor: "var(--mq-accent)" }}
-        />
+        <div className="flex flex-col items-center gap-3">
+          <motion.div
+            className="w-10 h-10 rounded-2xl flex items-center justify-center"
+            style={{
+              background: "linear-gradient(135deg, var(--mq-accent), rgba(224,49,49,0.6))",
+            }}
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
+          >
+            <Shield className="w-5 h-5 text-white" />
+          </motion.div>
+          <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+            Проверка доступа...
+          </p>
+        </div>
       </div>
     );
   }
@@ -86,35 +116,45 @@ export default function AdminLayout({
         className="min-h-screen flex items-center justify-center"
         style={{ backgroundColor: "var(--mq-bg)" }}
       >
-        <div
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
           className="rounded-2xl p-8 max-w-md w-full mx-4 text-center"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+          style={{
+            backgroundColor: "var(--mq-card)",
+            border: "1px solid var(--mq-border)",
+          }}
         >
-          <Shield
-            className="w-16 h-16 mx-auto mb-4"
-            style={{ color: "var(--mq-accent)" }}
-          />
+          <div
+            className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+            style={{
+              background: "linear-gradient(135deg, rgba(224,49,49,0.2), rgba(224,49,49,0.05))",
+              border: "1px solid rgba(224,49,49,0.15)",
+            }}
+          >
+            <Shield className="w-8 h-8" style={{ color: "var(--mq-accent)" }} />
+          </div>
           <h1
             className="text-2xl font-bold mb-2"
             style={{ color: "var(--mq-text)" }}
           >
             Доступ запрещён
           </h1>
-          <p className="mb-4" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="mb-6 text-sm" style={{ color: "var(--mq-text-muted)" }}>
             У вас нет прав администратора для доступа к этой странице.
           </p>
           <Link
             href="/"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-transform hover:scale-[1.02]"
             style={{
-              backgroundColor: "var(--mq-accent)",
-              color: "var(--mq-text)",
+              background: "linear-gradient(135deg, var(--mq-accent), rgba(224,49,49,0.8))",
             }}
           >
             <ChevronLeft className="w-4 h-4" />
             На главную
           </Link>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -125,132 +165,277 @@ export default function AdminLayout({
   };
 
   return (
-    <div
-      className="min-h-screen flex"
-      style={{ backgroundColor: "var(--mq-bg)" }}
-    >
+    <div className="min-h-screen flex" style={{ backgroundColor: "var(--mq-bg)" }}>
       {/* Mobile overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 lg:hidden bg-black/60"
-          onClick={() => setMobileOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 lg:hidden bg-black/60 backdrop-blur-sm"
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-50 h-screen flex flex-col transition-all duration-300 ${
-          collapsed ? "lg:w-16" : "lg:w-64"
+        className={`fixed lg:sticky top-0 left-0 z-50 h-screen flex flex-col transition-all duration-300 ease-out ${
+          collapsed ? "lg:w-[72px]" : "lg:w-[260px]"
         } ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
         style={{
-          backgroundColor: "var(--mq-card)",
+          background: "linear-gradient(180deg, rgba(99,102,241,0.04) 0%, var(--mq-card) 40%)",
           borderRight: "1px solid var(--mq-border)",
         }}
       >
-        {/* Header */}
+        {/* Logo Header */}
         <div
           className="flex items-center gap-3 px-4 h-16 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--mq-border)" }}
         >
-          <Shield className="w-6 h-6 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+          <div
+            className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{
+              background: "linear-gradient(135deg, #6366f1, #818cf8)",
+            }}
+          >
+            <Shield className="w-4 h-4 text-white" />
+          </div>
           {!collapsed && (
-            <span
-              className="font-bold text-lg truncate"
-              style={{ color: "var(--mq-text)" }}
-            >
-              MQ Admin
-            </span>
+            <div className="min-w-0 flex-1">
+              <span className="font-bold text-sm truncate block" style={{ color: "var(--mq-text)" }}>
+                MQ Admin
+              </span>
+              <span className="text-[10px] truncate block" style={{ color: "var(--mq-text-muted)" }}>
+                Панель управления
+              </span>
+            </div>
           )}
           <button
             onClick={() => {
               setCollapsed(!collapsed);
               setMobileOpen(false);
             }}
-            className="hidden lg:flex ml-auto items-center justify-center w-6 h-6 rounded"
+            className="hidden lg:flex ml-auto items-center justify-center w-7 h-7 rounded-lg transition-colors hover:bg-white/5"
             style={{ color: "var(--mq-text-muted)" }}
           >
-            <ChevronLeft
-              className={`w-4 h-4 transition-transform ${collapsed ? "rotate-180" : ""}`}
-            />
+            <motion.div animate={{ rotate: collapsed ? 180 : 0 }} transition={{ duration: 0.3 }}>
+              <ChevronLeft className="w-4 h-4" />
+            </motion.div>
           </button>
           <button
             onClick={() => setMobileOpen(false)}
-            className="lg:hidden ml-auto p-1"
+            className="lg:hidden ml-auto p-1.5 rounded-lg hover:bg-white/5"
             style={{ color: "var(--mq-text-muted)" }}
           >
-            ✕
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Nav items */}
-        <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
+        {/* Navigation */}
+        <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
+          {!collapsed && (
+            <p
+              className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider"
+              style={{ color: "var(--mq-text-muted)" }}
+            >
+              Навигация
+            </p>
+          )}
+          {navItems.map((item, idx) => {
             const Icon = item.icon;
             const active = isActive(item.href);
             return (
-              <Link
+              <motion.div
                 key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                  collapsed ? "lg:justify-center" : ""
-                }`}
-                style={{
-                  backgroundColor: active ? "rgba(224,49,49,0.1)" : "transparent",
-                  color: active ? "var(--mq-accent)" : "var(--mq-text-muted)",
-                }}
+                initial={false}
+                transition={{ duration: 0.15 }}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
-                {(!collapsed || typeof window !== "undefined" && window.innerWidth < 1024) && (
-                  <span className="truncate">{item.label}</span>
-                )}
-              </Link>
+                <Link
+                  href={item.href}
+                  onClick={() => setMobileOpen(false)}
+                  className={`group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
+                    collapsed ? "lg:justify-center lg:px-0" : ""
+                  }`}
+                  style={{
+                    color: active ? "#6366f1" : "var(--mq-text-muted)",
+                    backgroundColor: active ? "rgba(99,102,241,0.08)" : "transparent",
+                  }}
+                >
+                  {/* Active indicator bar */}
+                  {active && (
+                    <motion.div
+                      layoutId="sidebar-active"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
+                      style={{
+                        background: "linear-gradient(180deg, #6366f1, rgba(99,102,241,0.6))",
+                      }}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
+                      active ? "" : "group-hover:bg-white/5"
+                    }`}
+                    style={
+                      active
+                        ? {
+                            background: "linear-gradient(135deg, rgba(224,49,49,0.2), rgba(224,49,49,0.08))",
+                          }
+                        : undefined
+                    }
+                  >
+                    <Icon className="w-[18px] h-[18px]" />
+                  </div>
+                  {(!collapsed || (typeof window !== "undefined" && window.innerWidth < 1024)) && (
+                    <span className="truncate">{item.label}</span>
+                  )}
+                  {active && !collapsed && (
+                    <motion.div
+                      className="ml-auto w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: "var(--mq-accent)" }}
+                      layoutId="active-dot"
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                </Link>
+              </motion.div>
             );
           })}
         </nav>
 
-        {/* Footer */}
+        {/* User Profile Section */}
         <div
-          className="px-4 py-3 flex-shrink-0"
+          className="px-3 py-3 flex-shrink-0"
           style={{ borderTop: "1px solid var(--mq-border)" }}
         >
+          <div
+            className={`flex items-center gap-3 p-2 rounded-xl transition-colors ${
+              collapsed ? "lg:justify-center lg:px-0" : ""
+            }`}
+            style={{ backgroundColor: "rgba(255,255,255,0.02)" }}
+          >
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-sm font-bold text-white overflow-hidden"
+              style={{
+                background: avatar
+                  ? "transparent"
+                  : "linear-gradient(135deg, var(--mq-accent), rgba(224,49,49,0.7))",
+              }}
+            >
+              {avatar ? (
+                <img
+                  src={avatar}
+                  alt=""
+                  className="w-full h-full object-cover rounded-xl"
+                />
+              ) : (
+                <span>{(username || "A").charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            {(!collapsed || (typeof window !== "undefined" && window.innerWidth < 1024)) && (
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>
+                  {username || "Админ"}
+                </p>
+                <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                  {email || "admin@mq.player"}
+                </p>
+              </div>
+            )}
+          </div>
           <Link
             href="/"
-            className="flex items-center gap-2 text-sm"
+            className={`flex items-center gap-2 px-2 py-2 mt-1 rounded-lg text-xs transition-colors hover:bg-white/5 ${
+              collapsed ? "lg:justify-center" : ""
+            }`}
             style={{ color: "var(--mq-text-muted)" }}
           >
-            <ChevronLeft className="w-4 h-4" />
-            {!collapsed && <span>Назад в приложение</span>}
+            <LogOut className="w-3.5 h-3.5 flex-shrink-0" />
+            {(!collapsed || (typeof window !== "undefined" && window.innerWidth < 1024)) && (
+              <span>Назад в приложение</span>
+            )}
           </Link>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 min-w-0">
-        {/* Mobile header */}
-        <div
-          className="lg:hidden flex items-center gap-3 px-4 h-14 sticky top-0 z-30"
+      {/* Main Content */}
+      <main className="flex-1 min-w-0 flex flex-col">
+        {/* Top Bar */}
+        <header
+          className="sticky top-0 z-30 flex items-center gap-3 px-4 lg:px-6 h-14 flex-shrink-0 backdrop-blur-xl"
           style={{
-            backgroundColor: "var(--mq-card)",
+            backgroundColor: "color-mix(in srgb, var(--mq-card) 85%, transparent)",
             borderBottom: "1px solid var(--mq-border)",
           }}
         >
+          {/* Mobile hamburger */}
           <button
             onClick={() => setMobileOpen(true)}
-            className="p-1.5 rounded-lg"
+            className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-white/5 transition-colors"
             style={{ color: "var(--mq-text)" }}
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 12h18M3 6h18M3 18h18" />
-            </svg>
+            <Menu className="w-5 h-5" />
           </button>
-          <Shield className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-          <span className="font-semibold" style={{ color: "var(--mq-text)" }}>
-            MQ Admin
-          </span>
-        </div>
 
-        <div className="p-4 lg:p-6">{children}</div>
+          {/* Breadcrumbs */}
+          <nav className="flex items-center gap-1 min-w-0 flex-1">
+            {breadcrumbs.map((crumb) => (
+              <div key={crumb.href} className="flex items-center gap-1 min-w-0">
+                {crumb.href !== breadcrumbs[0]?.href && (
+                  <ChevronRight
+                    className="w-3.5 h-3.5 flex-shrink-0"
+                    style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}
+                  />
+                )}
+                {crumb.isLast ? (
+                  <span
+                    className="text-sm font-medium truncate"
+                    style={{ color: "var(--mq-text)" }}
+                  >
+                    {crumb.label}
+                  </span>
+                ) : (
+                  <Link
+                    href={crumb.href}
+                    className="text-sm truncate transition-colors hover:underline"
+                    style={{ color: "var(--mq-text-muted)" }}
+                  >
+                    {crumb.label}
+                  </Link>
+                )}
+              </div>
+            ))}
+          </nav>
+
+          {/* Search (visual only for top bar, individual pages handle their own) */}
+          <div
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg max-w-[200px]"
+            style={{
+              backgroundColor: "var(--mq-input-bg)",
+              border: "1px solid var(--mq-border)",
+            }}
+          >
+            <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+            <span className="text-xs" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
+              Поиск...
+            </span>
+          </div>
+        </header>
+
+        {/* Content area with subtle pattern */}
+        <div className="flex-1 p-4 lg:p-6 relative">
+          {/* Subtle grid pattern */}
+          <div
+            className="absolute inset-0 pointer-events-none opacity-[0.015]"
+            style={{
+              backgroundImage: `radial-gradient(circle, var(--mq-text-muted) 1px, transparent 1px)`,
+              backgroundSize: "24px 24px",
+            }}
+          />
+          <div className="relative">{children}</div>
+        </div>
       </main>
     </div>
   );

@@ -16,6 +16,7 @@ import {
   Mail,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
 
 interface AuditLogEntry {
   id: string;
@@ -67,6 +68,16 @@ const actionFilters = [
   { value: "reset_password", label: "Сброс пароля" },
   { value: "delete_user", label: "Удаление" },
 ];
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.04 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
 
 export default function AdminAuditPage() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
@@ -121,10 +132,22 @@ export default function AdminAuditPage() {
     }
   };
 
+  const rowHoverIn = (e: React.MouseEvent) => {
+    (e.currentTarget as HTMLElement).style.backgroundColor = "rgba(255,255,255,0.02)";
+  };
+  const rowHoverOut = (e: React.MouseEvent) => {
+    (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
+  };
+
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
             Журнал аудита
@@ -135,7 +158,7 @@ export default function AdminAuditPage() {
         </div>
         <button
           onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm"
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-colors"
           style={{
             backgroundColor: showFilters ? "rgba(224,49,49,0.1)" : "var(--mq-card)",
             border: "1px solid var(--mq-border)",
@@ -145,11 +168,13 @@ export default function AdminAuditPage() {
           <Filter className="w-4 h-4" />
           Фильтр
         </button>
-      </div>
+      </motion.div>
 
       {/* Filter dropdown */}
       {showFilters && (
-        <div
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl p-4"
           style={{
             backgroundColor: "var(--mq-card)",
@@ -187,11 +212,12 @@ export default function AdminAuditPage() {
               </button>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Audit logs table */}
-      <div
+      <motion.div
+        variants={itemVariants}
         className="rounded-2xl overflow-hidden"
         style={{
           backgroundColor: "var(--mq-card)",
@@ -208,16 +234,16 @@ export default function AdminAuditPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                    <th className="text-left px-4 py-2.5 font-medium text-xs uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Действие
                     </th>
-                    <th className="text-left px-4 py-2.5 font-medium text-xs uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden sm:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Администратор
                     </th>
-                    <th className="text-left px-4 py-2.5 font-medium text-xs uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden md:table-cell" style={{ color: "var(--mq-text-muted)" }}>
                       Детали
                     </th>
-                    <th className="text-right px-4 py-2.5 font-medium text-xs uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <th className="text-right px-5 py-3 font-medium text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Дата
                     </th>
                   </tr>
@@ -229,18 +255,29 @@ export default function AdminAuditPage() {
                     const label = actionLabels[log.action] || log.action;
                     const details = parseDetails(log.details);
                     return (
-                      <tr key={log.id} style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <Icon className="w-4 h-4 flex-shrink-0" style={{ color }} />
-                            <span className="font-medium" style={{ color: "var(--mq-text)" }}>
+                      <tr
+                        key={log.id}
+                        className="transition-colors"
+                        style={{ borderBottom: "1px solid var(--mq-border)" }}
+                        onMouseEnter={rowHoverIn}
+                        onMouseLeave={rowHoverOut}
+                      >
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: `${color}15` }}
+                            >
+                              <Icon className="w-4 h-4" style={{ color }} />
+                            </div>
+                            <span className="font-medium text-sm" style={{ color: "var(--mq-text)" }}>
                               {label}
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 hidden sm:table-cell">
+                        <td className="px-5 py-3.5 hidden sm:table-cell">
                           <div>
-                            <p className="font-medium" style={{ color: "var(--mq-text)" }}>
+                            <p className="font-medium text-sm" style={{ color: "var(--mq-text)" }}>
                               {log.admin.username}
                             </p>
                             <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
@@ -248,7 +285,7 @@ export default function AdminAuditPage() {
                             </p>
                           </div>
                         </td>
-                        <td className="px-4 py-3 hidden md:table-cell">
+                        <td className="px-5 py-3.5 hidden md:table-cell">
                           {details && typeof details === "object" ? (
                             <div className="flex flex-wrap gap-1.5">
                               {Object.entries(details).map(([key, value]) => (
@@ -277,7 +314,7 @@ export default function AdminAuditPage() {
                           )}
                         </td>
                         <td
-                          className="px-4 py-3 text-right text-xs whitespace-nowrap"
+                          className="px-5 py-3.5 text-right text-xs whitespace-nowrap"
                           style={{ color: "var(--mq-text-muted)" }}
                         >
                           {formatDate(log.createdAt)}
@@ -287,7 +324,8 @@ export default function AdminAuditPage() {
                   })}
                   {logs.length === 0 && (
                     <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center" style={{ color: "var(--mq-text-muted)" }}>
+                      <td colSpan={4} className="px-5 py-12 text-center" style={{ color: "var(--mq-text-muted)" }}>
+                        <ScrollText className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
                         {actionFilter
                           ? "Нет записей для выбранного фильтра"
                           : "Журнал аудита пуст"}
@@ -301,7 +339,7 @@ export default function AdminAuditPage() {
             {/* Pagination */}
             {totalPages > 1 && (
               <div
-                className="flex items-center justify-between px-4 py-3"
+                className="flex items-center justify-between px-5 py-3"
                 style={{ borderTop: "1px solid var(--mq-border)" }}
               >
                 <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
@@ -311,7 +349,7 @@ export default function AdminAuditPage() {
                   <button
                     onClick={() => setPage(Math.max(1, page - 1))}
                     disabled={page === 1}
-                    className="p-1.5 rounded-lg disabled:opacity-30"
+                    className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30 transition-colors"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -319,7 +357,7 @@ export default function AdminAuditPage() {
                   <button
                     onClick={() => setPage(Math.min(totalPages, page + 1))}
                     disabled={page === totalPages}
-                    className="p-1.5 rounded-lg disabled:opacity-30"
+                    className="p-1.5 rounded-lg hover:bg-white/5 disabled:opacity-30 transition-colors"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     <ChevronRight className="w-4 h-4" />
@@ -329,7 +367,7 @@ export default function AdminAuditPage() {
             )}
           </>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

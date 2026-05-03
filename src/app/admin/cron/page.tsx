@@ -10,9 +10,10 @@ import {
   ChevronUp,
   CheckCircle,
   XCircle,
-  AlertTriangle,
   Circle,
+  Zap,
 } from "lucide-react";
+import { motion } from "framer-motion";
 
 interface CronJob {
   id: string;
@@ -25,11 +26,21 @@ interface CronJob {
   createdAt: string;
 }
 
-const statusConfig: Record<string, { label: string; color: string; Icon: typeof Loader2 }> = {
-  idle: { label: "Ожидание", color: "var(--mq-text-muted)", Icon: Circle },
-  running: { label: "Выполняется", color: "#f59e0b", Icon: Loader2 },
-  completed: { label: "Выполнено", color: "#4ade80", Icon: CheckCircle },
-  failed: { label: "Ошибка", color: "#ef4444", Icon: XCircle },
+const statusConfig: Record<string, { label: string; color: string; bg: string; Icon: typeof Loader2 }> = {
+  idle: { label: "Ожидание", color: "var(--mq-text-muted)", bg: "rgba(136,136,136,0.08)", Icon: Circle },
+  running: { label: "Выполняется", color: "#f59e0b", bg: "rgba(245,158,11,0.08)", Icon: Loader2 },
+  completed: { label: "Выполнено", color: "#4ade80", bg: "rgba(74,222,128,0.08)", Icon: CheckCircle },
+  failed: { label: "Ошибка", color: "#ef4444", bg: "rgba(239,68,68,0.08)", Icon: XCircle },
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.04 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
 };
 
 export default function AdminCronPage() {
@@ -54,7 +65,6 @@ export default function AdminCronPage() {
 
   useEffect(() => {
     fetchJobs();
-    // Auto-refresh every 5 seconds
     intervalRef.current = setInterval(fetchJobs, 5000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -119,9 +129,14 @@ export default function AdminCronPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
             Задачи и Cron
@@ -130,14 +145,16 @@ export default function AdminCronPage() {
             Управление фоновыми задачами и автоматическими сценариями
           </p>
         </div>
-        <button
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={handleCleanup}
           disabled={cleanupLoading}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium"
+          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
           style={{
-            backgroundColor: "rgba(239,68,68,0.15)",
+            backgroundColor: "rgba(239,68,68,0.1)",
             color: "#ef4444",
-            border: "1px solid rgba(239,68,68,0.3)",
+            border: "1px solid rgba(239,68,68,0.25)",
           }}
         >
           {cleanupLoading ? (
@@ -146,30 +163,36 @@ export default function AdminCronPage() {
             <Trash2 className="w-4 h-4" />
           )}
           Очистка неверифицированных аккаунтов (30д)
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
       {/* Jobs List */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
+        <div className="flex items-center justify-center py-24">
           <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--mq-accent)" }} />
         </div>
       ) : jobs.length === 0 ? (
-        <div
+        <motion.div
+          variants={itemVariants}
           className="rounded-2xl p-12 text-center"
           style={{
             backgroundColor: "var(--mq-card)",
             border: "1px solid var(--mq-border)",
           }}
         >
-          <Clock className="w-12 h-12 mx-auto mb-4" style={{ color: "var(--mq-text-muted)" }} />
+          <div
+            className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center"
+            style={{ backgroundColor: "rgba(136,136,136,0.06)" }}
+          >
+            <Clock className="w-8 h-8" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
+          </div>
           <p className="text-lg font-medium mb-1" style={{ color: "var(--mq-text)" }}>
             Нет задач
           </p>
           <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
             Запустите первую фоновую задачу
           </p>
-        </div>
+        </motion.div>
       ) : (
         <div className="space-y-3">
           {jobs.map((job) => {
@@ -178,8 +201,10 @@ export default function AdminCronPage() {
             const isExpanded = expandedJobs.has(job.id);
 
             return (
-              <div
+              <motion.div
                 key={job.id}
+                variants={itemVariants}
+                whileHover={{ y: -1, transition: { duration: 0.15 } }}
                 className="rounded-2xl overflow-hidden"
                 style={{
                   backgroundColor: "var(--mq-card)",
@@ -187,11 +212,14 @@ export default function AdminCronPage() {
                 }}
               >
                 {/* Job Row */}
-                <div className="flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4">
+                <div className="flex items-center gap-4 px-5 py-4">
                   {/* Status Icon */}
-                  <div className="flex-shrink-0">
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: config.bg }}
+                  >
                     <StatusIcon
-                      className={`w-5 h-5 ${job.status === "running" ? "animate-spin" : ""}`}
+                      className={`w-4 h-4 ${job.status === "running" ? "animate-spin" : ""}`}
                       style={{ color: config.color }}
                     />
                   </div>
@@ -199,16 +227,13 @@ export default function AdminCronPage() {
                   {/* Job Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3
-                        className="font-medium text-sm truncate"
-                        style={{ color: "var(--mq-text)" }}
-                      >
+                      <h3 className="font-medium text-sm" style={{ color: "var(--mq-text)" }}>
                         {job.name}
                       </h3>
                       <span
-                        className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                        className="text-[10px] font-medium px-2 py-0.5 rounded-md"
                         style={{
-                          backgroundColor: `${config.color}20`,
+                          backgroundColor: `${config.color}15`,
                           color: config.color,
                         }}
                       >
@@ -217,10 +242,15 @@ export default function AdminCronPage() {
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs" style={{ color: "var(--mq-text-muted)" }}>
                       {job.cronExpr && (
-                        <span className="font-mono">{job.cronExpr}</span>
+                        <span className="font-mono px-1.5 py-0.5 rounded" style={{
+                          backgroundColor: "var(--mq-input-bg)",
+                          border: "1px solid var(--mq-border)",
+                        }}>
+                          {job.cronExpr}
+                        </span>
                       )}
                       <span>
-                        Последний запуск: {formatDate(job.lastRun)}
+                        Последний: {formatDate(job.lastRun)}
                       </span>
                       {job.nextRun && (
                         <span className="hidden sm:inline">
@@ -236,7 +266,7 @@ export default function AdminCronPage() {
                       <button
                         onClick={() => handleTrigger(job.id)}
                         disabled={triggerLoading === job.id}
-                        className="p-2 rounded-xl hover:opacity-80 transition-opacity"
+                        className="p-2 rounded-xl hover:bg-white/5 transition-colors"
                         style={{ color: "var(--mq-accent)" }}
                         title="Запустить"
                       >
@@ -250,7 +280,7 @@ export default function AdminCronPage() {
                     {job.log && (
                       <button
                         onClick={() => toggleExpand(job.id)}
-                        className="p-2 rounded-xl hover:opacity-80 transition-opacity"
+                        className="p-2 rounded-xl hover:bg-white/5 transition-colors"
                         style={{ color: "var(--mq-text-muted)" }}
                         title="Логи"
                       >
@@ -288,11 +318,11 @@ export default function AdminCronPage() {
                     </pre>
                   </div>
                 )}
-              </div>
+              </motion.div>
             );
           })}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

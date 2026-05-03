@@ -758,8 +758,8 @@ export default function SettingsView() {
                     </p>
                     <div className="flex gap-2">
                       {([
-                        { id: "towelie" as const, emoji: "🚬" },
-                        { id: "stoned" as const, emoji: "💨" },
+                        { id: "chill" as const, emoji: "🎵" },
+                        { id: "dreamy" as const, emoji: "💭" },
                         { id: "panic" as const, emoji: "😱" },
                         { id: "lazy" as const, emoji: "😴" },
                       ]).map((opt) => (

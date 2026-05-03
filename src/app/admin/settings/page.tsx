@@ -12,8 +12,10 @@ import {
   Globe,
   Cpu,
   ShieldCheck,
+  Activity,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
 
 interface SystemInfo {
   dbStatus: "connected" | "error";
@@ -24,13 +26,22 @@ interface SystemInfo {
   uptime: number;
 }
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 12 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+};
+
 export default function AdminSettingsPage() {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [startTime] = useState(Date.now());
 
   useEffect(() => {
-    // Check DB status
     const checkSystem = async () => {
       try {
         const dbStart = Date.now();
@@ -74,7 +85,7 @@ export default function AdminSettingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-24">
         <Loader2 className="w-8 h-8 animate-spin" style={{ color: "var(--mq-accent)" }} />
       </div>
     );
@@ -90,6 +101,8 @@ export default function AdminSettingsPage() {
       status: info.dbStatus,
       statusLabel: info.dbStatus === "connected" ? "Подключена" : "Ошибка",
       detail: `${info.dbResponseTime}мс`,
+      color: "#4ade80",
+      errorColor: "#ef4444",
     },
     {
       title: "Среда выполнения",
@@ -98,6 +111,8 @@ export default function AdminSettingsPage() {
       status: "connected",
       statusLabel: "Работает",
       detail: `Uptime: ${info.uptime}с`,
+      color: "#06b6d4",
+      errorColor: "#ef4444",
     },
     {
       title: "Переменные окружения",
@@ -106,59 +121,63 @@ export default function AdminSettingsPage() {
       status: info.envVarsCount > 0 ? "connected" : "error",
       statusLabel: `${info.envVarsCount} переменных`,
       detail: "Системные настройки",
+      color: "#8b5cf6",
+      errorColor: "#ef4444",
     },
   ];
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Header */}
-      <div>
+      <motion.div variants={itemVariants}>
         <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
           Настройки системы
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
           Информация о сервере и сервисах
         </p>
-      </div>
+      </motion.div>
 
       {/* System info cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {infoCards.map((card) => {
           const Icon = card.icon;
           const isOk = card.status === "connected";
           return (
-            <div
+            <motion.div
               key={card.title}
-              className="rounded-2xl p-4"
+              whileHover={{ y: -2, transition: { duration: 0.2 } }}
+              className="rounded-2xl p-5"
               style={{
                 backgroundColor: "var(--mq-card)",
                 border: "1px solid var(--mq-border)",
               }}
             >
-              <div className="flex items-start justify-between mb-3">
+              <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    className="w-11 h-11 rounded-xl flex items-center justify-center"
                     style={{
-                      backgroundColor: isOk ? "rgba(74,222,128,0.1)" : "rgba(239,68,68,0.1)",
+                      background: isOk
+                        ? `linear-gradient(135deg, ${card.color}22, ${card.color}08)`
+                        : `linear-gradient(135deg, ${card.errorColor}22, ${card.errorColor}08)`,
                     }}
                   >
                     <Icon
                       className="w-5 h-5"
-                      style={{ color: isOk ? "#4ade80" : "#ef4444" }}
+                      style={{ color: isOk ? card.color : card.errorColor }}
                     />
                   </div>
                   <div>
-                    <h3
-                      className="font-semibold text-sm"
-                      style={{ color: "var(--mq-text)" }}
-                    >
+                    <h3 className="font-semibold text-sm" style={{ color: "var(--mq-text)" }}>
                       {card.title}
                     </h3>
-                    <p
-                      className="text-xs"
-                      style={{ color: "var(--mq-text-muted)" }}
-                    >
+                    <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
                       {card.description}
                     </p>
                   </div>
@@ -168,9 +187,9 @@ export default function AdminSettingsPage() {
                   className="text-[10px] px-2 py-0.5"
                   style={{
                     backgroundColor: isOk
-                      ? "rgba(74,222,128,0.15)"
-                      : "rgba(239,68,68,0.15)",
-                    color: isOk ? "#4ade80" : "#ef4444",
+                      ? `${card.color}18`
+                      : `${card.errorColor}18`,
+                    color: isOk ? card.color : card.errorColor,
                   }}
                 >
                   {card.statusLabel}
@@ -178,65 +197,67 @@ export default function AdminSettingsPage() {
               </div>
               <div className="flex items-center gap-1.5">
                 {isOk ? (
-                  <CheckCircle className="w-3.5 h-3.5" style={{ color: "#4ade80" }} />
+                  <CheckCircle className="w-3.5 h-3.5" style={{ color: card.color }} />
                 ) : (
-                  <XCircle className="w-3.5 h-3.5" style={{ color: "#ef4444" }} />
+                  <XCircle className="w-3.5 h-3.5" style={{ color: card.errorColor }} />
                 )}
                 <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
                   {card.detail}
                 </span>
               </div>
-            </div>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
 
       {/* System details */}
-      <div
-        className="rounded-2xl p-4"
+      <motion.div
+        variants={itemVariants}
+        className="rounded-2xl p-5"
         style={{
           backgroundColor: "var(--mq-card)",
           border: "1px solid var(--mq-border)",
         }}
       >
-        <div className="flex items-center gap-2 mb-4">
-          <Shield className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+        <div className="flex items-center gap-2.5 mb-5">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center"
+            style={{ backgroundColor: "rgba(224,49,49,0.1)" }}
+          >
+            <Shield className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+          </div>
           <h2 className="font-semibold" style={{ color: "var(--mq-text)" }}>
             Системная информация
           </h2>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
-            { label: "Платформа", value: "Next.js 16 + Vercel", icon: Globe },
-            { label: "База данных", value: "PostgreSQL (Neon)", icon: Database },
-            { label: "ORM", value: "Prisma", icon: Cpu },
-            { label: "Среда", value: info.nodeEnv.toUpperCase(), icon: Server },
+            { label: "Платформа", value: "Next.js 16 + Vercel", icon: Globe, color: "#06b6d4" },
+            { label: "База данных", value: "PostgreSQL (Neon)", icon: Database, color: "#4ade80" },
+            { label: "ORM", value: "Prisma", icon: Cpu, color: "#8b5cf6" },
+            { label: "Среда", value: info.nodeEnv.toUpperCase(), icon: Server, color: "#f59e0b" },
           ].map((item) => {
             const Icon = item.icon;
             return (
               <div
                 key={item.label}
-                className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                className="flex items-center gap-3 px-4 py-3 rounded-xl"
                 style={{
                   backgroundColor: "var(--mq-input-bg)",
                   border: "1px solid var(--mq-border)",
                 }}
               >
-                <Icon
-                  className="w-4 h-4 flex-shrink-0"
-                  style={{ color: "var(--mq-text-muted)" }}
-                />
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: `${item.color}15` }}
+                >
+                  <Icon className="w-4 h-4" style={{ color: item.color }} />
+                </div>
                 <div>
-                  <p
-                    className="text-xs"
-                    style={{ color: "var(--mq-text-muted)" }}
-                  >
+                  <p className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)" }}>
                     {item.label}
                   </p>
-                  <p
-                    className="text-sm font-medium"
-                    style={{ color: "var(--mq-text)" }}
-                  >
+                  <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
                     {item.value}
                   </p>
                 </div>
@@ -244,7 +265,7 @@ export default function AdminSettingsPage() {
             );
           })}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

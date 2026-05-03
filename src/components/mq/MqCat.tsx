@@ -4,53 +4,53 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 
-// ── Towelie-style Phrases ──
+// ── Mascot Phrases ──
 const PHRASES: Record<string, string[]> = {
-  towelie: [
-    "Я не понимаю, что происходит...",
-    "Хочешь покурить?",
-    "*затягивается*",
-    "Это... тупо лучшее, чувак",
-    "Не забудь полотенце!",
-    "*кашляет* Извини...",
-    "Я имею в виду... эм...",
-    "Ваай, круто...",
-    "*пускает дым*",
-    "Знаешь, что? Забей...",
-    "Тупо расслабься, чувак",
-    "Не знаю, меееень...",
-    "Это как... вааай...",
+  chill: [
+    "Этот трек — огонь!",
+    "Не забудь наушники!",
+    "*пританцовывает*",
+    "Ого, круто...",
+    "*качает головой*",
     "*зевает* А что играет?",
     "*хихикает*",
+    "Отличный выбор!",
+    "Музыка — это жизнь",
+    "Давай ещё один трек!",
+    "*качает головой в такт*",
+    "Нравится эта мелодия!",
+    "*улыбается*",
+    "Классный бит!",
+    "Включи на полную!",
   ],
-  stoned: [
-    "Ваааай, чувак...",
-    "*кашляет* Кхх... круто...",
+  dreamy: [
+    "*качает головой* Кхх... круто...",
     "Это... самый лучший трек...",
-    "Я... забыл, что хотел сказать",
     "*долгая пауза* ...круто",
     "Это как... музыка... но...",
-    "Ваай... я так покурил...",
+    "Ого... я так заслушался...",
     "*моргает* Да? Что?",
-    "Ммм... это красиво, чувак",
-    "Не забудь... эм... полотенце...",
-    "Это тупо ваай, чувак...",
-    "*пускает дым* Круууто",
-    "Я не чувствую лицо...",
-    "*затягивается* Ааа...",
-    "Чувак... это... ваай...",
+    "Ммм... это красиво...",
+    "Не забудь... эм... наушники...",
+    "*потягивается* Круууто",
+    "*зевает* Ааа...",
+    "Какая атмосфера...",
+    "*закрывает глаза*",
+    "*медленно кивает*",
+    "Звучит волшебно...",
+    "Хорошее настроение...",
   ],
   panic: [
     "О НЕТ! НЕ ЭТО!!",
-    "Не забудь полотенце!!!",
+    "ГДЕ МОИ НАУШНИКИ?!",
     "ВСЁ ПОРАВНО?!",
     "Я НЕ ПОНИМАЮ ЧТО ПРОИСХОДИТ!",
     "ЧТО ДЕЛАТЬ?! ЧТО ДЕЛАТЬ?!",
-    "ПОЛОТЕНЦЕ! НУЖНО ПОЛОТЕНЦЕ!",
+    "МУЗЫКА! НУЖНА МУЗЫКА!",
     "Ох чёрт, ох чёрт...",
     "Не паниковать... не паниковать...",
-    "*быстро курит* Пффф...",
-    "Это конец, чувак...",
+    "*быстро качает головой*",
+    "Это конец...",
     "КТО-ТО ВЫКЛЮЧИЛ МУЗЫКУ?!",
     "О нет нет нет нет!",
     "*трясётся* Всё ок... всё ок...",
@@ -63,8 +63,8 @@ const PHRASES: Record<string, string[]> = {
     "*тянется* Нннн...",
     "Потом... может быть...",
     "Зачем... всё это...",
-    "*зевает* Хочешь покурить?",
-    "Я так устал, чувак...",
+    "*зевает* Хочешь послушать?",
+    "Я так устал...",
     "Сон — это круто...",
     "*ложится*",
     "Не трогай меня...",
@@ -73,22 +73,22 @@ const PHRASES: Record<string, string[]> = {
 };
 
 const PET_RESPONSES = [
-  "Чувак... не трогай...",
-  "*кашляет*",
+  "*качает головой*",
   "Хм?.. А?",
   "О... спасибо...",
   "Круто, наверное...",
   "Ннн... что?",
-  "*пускает дым в лицо*",
-  "Забей, чувак...",
-  "Не забудь полотенце!",
-  "Ваай, ладно...",
+  "*улыбается*",
+  "Не забудь наушники!",
+  "Ого, ладно...",
+  "Ещё раз!",
+  "*радуется*",
 ];
 
 const MILESTONES: Record<number, string> = {
-  10: "10 раз! Чувак, ты мне нравишься...",
-  50: "50 раз!! Ты мой лучший бро!",
-  100: "100 раз!!! ЛЕГЕНДА!!! *кашляет*",
+  10: "10 раз! Ты мне нравишься...",
+  50: "50 раз!! Ты мой лучший друг!",
+  100: "100 раз!!! ЛЕГЕНДА!!!",
 };
 
 const SIZE_PX: Record<string, number> = {
@@ -106,18 +106,6 @@ const WALK_PAUSE_MAX = 8000;
 const LIFT_SCALE = 1.25;
 const LIFT_SHADOW = 20;
 const PHRASE_DISPLAY_MS = 4500;
-
-// ── Smoke Particles ──
-interface SmokeParticle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  size: number;
-  alpha: number;
-  life: number;
-  maxLife: number;
-}
 
 // ══════════════════════════════════════════════════════════════════
 // SPRITE FRAME DEFINITIONS
@@ -145,12 +133,6 @@ interface FrameParams {
   armAngleL: number;
   armAngleR: number;
   walkCycle: number;
-  // Towelie additions
-  bloodshotAlpha: number; // red veins in eyes
-  pupilSize: number; // 1=normal, bigger when stoned
-  mouthWavy: number; // wavy/uneven mouth (stoned)
-  cigAngle: number; // -1=none, 0-1=cigarette angle
-  takingDrag: number; // 0-1, mouth open for drag
 }
 
 const BASE_FRAME: FrameParams = {
@@ -160,7 +142,6 @@ const BASE_FRAME: FrameParams = {
   blushAlpha: 0, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
   motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
   walkCycle: 0,
-  bloodshotAlpha: 0, pupilSize: 1, mouthWavy: 0, cigAngle: 0, takingDrag: 0,
 };
 
 const FRAMES: Record<string, FrameParams> = {
@@ -170,98 +151,72 @@ const FRAMES: Record<string, FrameParams> = {
   smile: {
     ...BASE_FRAME,
     eyeOpen: 0.15, browRaiseL: -0.05, browRaiseR: -0.05,
-    mouthCurve: 0.6, mouthOpen: 0.15, bloodshotAlpha: 0.3,
-    cigAngle: 0.4,
+    mouthCurve: 0.6, mouthOpen: 0.15,
   },
-  stoned_chill: {
+  dreamy_chill: {
     ...BASE_FRAME,
-    eyeOpen: 0.45, pupilDy: 0.15, pupilSize: 1.15,
-    mouthCurve: 0.3, mouthOpen: 0.05, mouthWavy: 0.5,
-    bloodshotAlpha: 0.7, cigAngle: 0.35, takingDrag: 0.2,
+    eyeOpen: 0.45, pupilDy: 0.15,
+    mouthCurve: 0.3, mouthOpen: 0.05,
   },
-  stoned_deep: {
+  dreamy_deep: {
     ...BASE_FRAME,
-    eyeOpen: 0.2, pupilDy: 0.2, pupilSize: 1.25,
+    eyeOpen: 0.2, pupilDy: 0.2,
     browRaiseL: 0.08, browRaiseR: 0.08,
-    mouthCurve: 0.15, mouthOpen: 0.1, mouthWavy: 0.8,
-    bloodshotAlpha: 1, cigAngle: 0.3, takingDrag: 0.6,
+    mouthCurve: 0.15, mouthOpen: 0.1,
   },
-  stoned_laugh: {
+  dreamy_laugh: {
     ...BASE_FRAME,
-    eyeOpen: 0, pupilSize: 1.1,
-    mouthCurve: 0.8, mouthOpen: 0.5, mouthWavy: 0.3,
-    bloodshotAlpha: 0.8, cigAngle: 0.5, takingDrag: 0,
+    eyeOpen: 0,
+    mouthCurve: 0.8, mouthOpen: 0.5,
   },
   cough: {
     ...BASE_FRAME,
     eyeOpen: 0.6, pupilDy: -0.1,
     browAngleL: -0.15, browAngleR: 0.15, browRaiseL: 0.05,
     mouthCurve: -0.3, mouthOpen: 0.8,
-    bloodshotAlpha: 0.5, cigAngle: 0.6, takingDrag: 0,
     motionAlpha: 0.3, motionSide: "left",
   },
   panic: {
     ...BASE_FRAME,
-    eyeOpen: 1.3, pupilDx: 0, pupilDy: -0.2, pupilSize: 0.85,
+    eyeOpen: 1.3, pupilDx: 0, pupilDy: -0.2,
     browAngleL: -0.4, browAngleR: 0.4, browRaiseL: 0.15, browRaiseR: 0.15,
     mouthCurve: -0.5, mouthOpen: 0.7,
     sweatAlpha: 1, sweatSize: 1.4,
-    bloodshotAlpha: 0.3, cigAngle: 0.7, takingDrag: 0,
   },
   panic_wave: {
     ...BASE_FRAME,
-    eyeOpen: 1.1, pupilDx: 0.15, pupilDy: -0.15, pupilSize: 0.9,
+    eyeOpen: 1.1, pupilDx: 0.15, pupilDy: -0.15,
     browAngleL: -0.3, browAngleR: 0.3, browRaiseL: 0.1, browRaiseR: 0.1,
     mouthCurve: -0.2, mouthOpen: 0.4,
     sweatAlpha: 0.8, sweatSize: 1.2,
     armAngleL: -0.5, armAngleR: 0.5,
-    bloodshotAlpha: 0.3, cigAngle: 0.65,
   },
   lazy_yawn: {
     ...BASE_FRAME,
-    eyeOpen: 0.35, pupilDy: 0.1, pupilSize: 1.05,
+    eyeOpen: 0.35, pupilDy: 0.1,
     browRaiseL: 0.06, browRaiseR: 0.06,
     mouthCurve: -0.1, mouthOpen: 0.6,
-    bloodshotAlpha: 0.2, cigAngle: 0.3, takingDrag: 0.1,
   },
   lazy_nap: {
     ...BASE_FRAME,
-    eyeOpen: 0.05, pupilDy: 0.15, pupilSize: 1.05,
+    eyeOpen: 0.05, pupilDy: 0.15,
     mouthCurve: 0, mouthOpen: 0.15,
-    bloodshotAlpha: 0.15, cigAngle: 0.25,
-  },
-  drag_hit: {
-    ...BASE_FRAME,
-    eyeOpen: 0.55, pupilSize: 1.2,
-    mouthCurve: -0.1, mouthOpen: 0.9, takingDrag: 1,
-    bloodshotAlpha: 0.6, cigAngle: 0.4,
-  },
-  exhale: {
-    ...BASE_FRAME,
-    eyeOpen: 0.3, pupilDy: 0.2, pupilSize: 1.2,
-    browRaiseL: 0.05, browRaiseR: 0.05,
-    mouthCurve: 0.4, mouthOpen: 0.4,
-    bloodshotAlpha: 0.7, cigAngle: 0.35,
-    motionAlpha: 0.2, motionSide: "right",
   },
   surprised: {
     ...BASE_FRAME,
-    eyeOpen: 1.2, pupilDy: -0.15, pupilSize: 0.9,
+    eyeOpen: 1.2, pupilDy: -0.15,
     browRaiseL: -0.2, browRaiseR: -0.2,
     mouthCurve: 0, mouthOpen: 0.8, tongueShow: 0.5,
-    cigAngle: 0,
   },
   walk_left: {
     ...BASE_FRAME,
-    eyeOpen: 0.7, pupilDx: 0.2, pupilSize: 1.05,
-    bloodshotAlpha: 0.3, cigAngle: 0.35,
+    eyeOpen: 0.7, pupilDx: 0.2,
     motionAlpha: 0.3, motionSide: "right", legRaiseR: 0.5,
     armAngleL: 0.4, armAngleR: -0.2, walkCycle: 1,
   },
   walk_right: {
     ...BASE_FRAME,
-    eyeOpen: 0.7, pupilDx: -0.2, pupilSize: 1.05,
-    bloodshotAlpha: 0.3, cigAngle: 0.35,
+    eyeOpen: 0.7, pupilDx: -0.2,
     motionAlpha: 0.3, motionSide: "left", legRaiseR: 0,
     armAngleL: -0.2, armAngleR: 0.4, walkCycle: 1,
   },
@@ -269,34 +224,34 @@ const FRAMES: Record<string, FrameParams> = {
 
 type AnimStep = [string, number];
 const MOOD_SEQUENCES: Record<string, AnimStep[]> = {
-  towelie: [
-    ["neutral", 3000], ["stoned_chill", 4000], ["smile", 1500],
-    ["drag_hit", 800], ["exhale", 1200], ["stoned_chill", 3000],
-    ["neutral", 2000], ["cough", 1000], ["neutral", 2500],
-    ["smile", 2000], ["stoned_laugh", 1500], ["neutral", 2000],
+  chill: [
+    ["neutral", 3000], ["smile", 4000], ["smile", 1500],
+    ["surprised", 800], ["smile", 1200], ["neutral", 3000],
+    ["neutral", 2000], ["neutral", 1000], ["neutral", 2500],
+    ["smile", 2000], ["smile", 1500], ["neutral", 2000],
   ],
-  stoned: [
-    ["stoned_chill", 5000], ["stoned_deep", 4000],
-    ["drag_hit", 700], ["exhale", 1500], ["stoned_deep", 3000],
-    ["stoned_laugh", 2000], ["stoned_chill", 4000],
-    ["cough", 1200], ["stoned_chill", 5000],
+  dreamy: [
+    ["neutral", 5000], ["neutral", 4000],
+    ["surprised", 700], ["smile", 1500], ["neutral", 3000],
+    ["smile", 2000], ["neutral", 4000],
+    ["neutral", 1200], ["neutral", 5000],
   ],
   panic: [
     ["neutral", 1000], ["panic", 2000], ["panic_wave", 1500],
-    ["cough", 1000], ["panic", 2000], ["panic_wave", 1500],
-    ["drag_hit", 600], ["exhale", 800], ["panic", 2500],
+    ["neutral", 1000], ["panic", 2000], ["panic_wave", 1500],
+    ["surprised", 600], ["neutral", 800], ["panic", 2500],
     ["neutral", 2000],
   ],
   lazy: [
     ["neutral", 4000], ["lazy_yawn", 2000], ["lazy_nap", 6000],
-    ["lazy_yawn", 1500], ["stoned_chill", 3000], ["neutral", 5000],
-    ["cough", 1000], ["lazy_nap", 5000],
+    ["lazy_yawn", 1500], ["neutral", 3000], ["neutral", 5000],
+    ["neutral", 1000], ["lazy_nap", 5000],
   ],
 };
 
 const PET_SEQUENCE: AnimStep[] = [
-  ["surprised", 400], ["cough", 600], ["smile", 800],
-  ["stoned_laugh", 500], ["smile", 600], ["neutral", 500],
+  ["surprised", 400], ["smile", 600], ["surprised", 800],
+  ["smile", 500], ["smile", 600], ["neutral", 500],
 ];
 
 // ══════════════════════════════════════════════════════════════════
@@ -319,8 +274,6 @@ function lerpParams(a: FrameParams, b: FrameParams, t: number): FrameParams {
     "blushAlpha", "sweatAlpha", "sweatSize",
     "sparkleAlpha", "sparkleCount", "motionAlpha",
     "legRaiseR", "armAngleL", "armAngleR", "walkCycle",
-    "bloodshotAlpha", "pupilSize", "mouthWavy",
-    "cigAngle", "takingDrag",
   ];
   for (const key of numKeys) {
     (r as any)[key] = lerp(a[key] as number, b[key] as number, t);
@@ -346,7 +299,6 @@ function drawCharacter(
   walkPhase: number,
   isLifted: boolean,
   hpProgress: number = 0,
-  smokeParticles: SmokeParticle[],
 ) {
   const s = size;
   const cx = s / 2;
@@ -364,15 +316,12 @@ function drawCharacter(
   const microArmL = Math.sin(phase * 1.8) * 0.03;
   const microArmR = Math.sin(phase * 1.8 + 1.3) * 0.03;
   const microLeg = Math.sin(phase * 3.0) * 0.8;
-  // Subtle sway when stoned
-  const stonedSway = Math.sin(phase * 1.2) * s * 0.003 * (p.bloodshotAlpha || 0);
-  const stonedBob = Math.sin(phase * 0.8) * s * 0.002 * (p.bloodshotAlpha || 0);
 
   const isWalking = (p.walkCycle || 0) > 0.1;
   const walkStride = isWalking ? Math.sin(phase * 5) * 0.3 : 0;
   const walkBounce = isWalking ? Math.abs(Math.sin(phase * 5)) * s * 0.01 : 0;
 
-  ctx.translate(stonedSway, microBounce - walkBounce + stonedBob);
+  ctx.translate(0, microBounce - walkBounce);
 
   const bw = s * 0.38;
   const bh = s * 0.30;
@@ -428,7 +377,7 @@ function drawCharacter(
   ctx.stroke();
   ctx.restore();
 
-  // Right arm (cigarette arm)
+  // Right arm
   const raAngle = 0.1 - (p.armAngleR || 0) - microArmR - walkStride;
   ctx.save();
   ctx.translate(cx + bw * 0.92, armOriginY);
@@ -451,65 +400,6 @@ function drawCharacter(
   ctx.strokeStyle = OL;
   ctx.lineWidth = outlineW;
   ctx.stroke();
-
-  // ── CIGARETTE in hand ──
-  if ((p.cigAngle || 0) > 0.01) {
-    const cigLen = s * 0.1;
-    const cigW = Math.max(1.5, s * 0.012);
-    const cigX = armLen + cigLen * 0.3;
-    const cigY = -armThick * 0.1;
-    const cigRot = (p.cigAngle || 0) * 0.4 + Math.sin(phase * 2) * 0.02;
-
-    ctx.save();
-    ctx.translate(cigX, cigY);
-    ctx.rotate(cigRot);
-
-    // Cigarette body
-    const cigGrad = ctx.createLinearGradient(-cigLen * 0.6, 0, cigLen * 0.4, 0);
-    cigGrad.addColorStop(0, "#FFFFFF");
-    cigGrad.addColorStop(0.65, "#F5F0E8");
-    cigGrad.addColorStop(0.7, "#D4A06A");
-    cigGrad.addColorStop(1, "#8B5E3C");
-    ctx.beginPath();
-    ctx.roundRect(-cigLen * 0.6, -cigW / 2, cigLen, cigW, cigW * 0.3);
-    ctx.fillStyle = cigGrad;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(0,0,0,0.15)";
-    ctx.lineWidth = Math.max(0.3, s * 0.003);
-    ctx.stroke();
-
-    // Glowing tip (cherry)
-    const cherryPulse = 0.7 + Math.sin(phase * 8) * 0.3;
-    const cherryAlpha = p.takingDrag > 0.1 ? cherryPulse * 1.2 : cherryPulse * 0.6;
-    ctx.beginPath();
-    ctx.arc(-cigLen * 0.6, 0, cigW * 0.7, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255,${80 + Math.floor(cherryPulse * 40)},20,${Math.min(1, cherryAlpha)})`;
-    ctx.fill();
-
-    // Cherry glow
-    if (cherryAlpha > 0.4) {
-      ctx.beginPath();
-      ctx.arc(-cigLen * 0.6, 0, cigW * 2, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255,100,30,${cherryAlpha * 0.15})`;
-      ctx.fill();
-    }
-
-    // Emit smoke from cigarette tip (add to particles)
-    if (Math.random() < 0.3) {
-      smokeParticles.push({
-        x: cx + bw * 0.92 + Math.cos(raAngle) * cigX - cigLen * 0.6 * Math.cos(cigRot + raAngle) - Math.sin(cigRot + raAngle) * cigY,
-        y: armOriginY + Math.sin(raAngle) * cigX + cigLen * 0.6 * Math.sin(cigRot + raAngle) - stonedSway,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: -(0.3 + Math.random() * 0.5),
-        size: 2 + Math.random() * 3,
-        alpha: 0.3 + Math.random() * 0.2,
-        life: 0,
-        maxLife: 40 + Math.random() * 30,
-      });
-    }
-
-    ctx.restore();
-  }
   ctx.restore();
 
   // ── LEGS ──
@@ -792,7 +682,7 @@ function drawCharacter(
   const eyeW = bw * 0.11;
   const eyeH = bw * 0.15;
 
-  // Eyebrows (slightly raised/chill for Towelie)
+  // Eyebrows
   const browLen = eyeW * 1.3;
   const browThick = Math.max(2, s * 0.018);
 
@@ -814,10 +704,9 @@ function drawCharacter(
   ctx.fill();
   ctx.restore();
 
-  // Eyes (with bloodshot effect for Towelie)
+  // Eyes
   const drawEye = (ex: number, ey: number) => {
     const openness = Math.max(0, Math.min(1.2, p.eyeOpen));
-    const pSize = p.pupilSize || 1;
 
     if (openness < 0.15) {
       ctx.beginPath();
@@ -836,46 +725,16 @@ function drawCharacter(
     ctx.rect(ex - eyeW * 1.5, ey - clipH * 0.4, eyeW * 3, clipH * 1.4);
     ctx.clip();
 
-    // Eye white with slight red tint when bloodshot
-    const bsAlpha = p.bloodshotAlpha || 0;
-    const eyeWhite = bsAlpha > 0.01
-      ? `rgba(${255 - Math.floor(bsAlpha * 40)},${255 - Math.floor(bsAlpha * 60)},${255 - Math.floor(bsAlpha * 50)},1)`
-      : "#FFFFFF";
-
     ctx.beginPath();
     ctx.ellipse(ex, ey, eyeW, eyeH, 0, 0, Math.PI * 2);
-    ctx.fillStyle = eyeWhite;
+    ctx.fillStyle = "#FFFFFF";
     ctx.fill();
     ctx.strokeStyle = OL;
     ctx.lineWidth = outlineW;
     ctx.stroke();
 
-    // Bloodshot veins
-    if (bsAlpha > 0.1) {
-      ctx.globalAlpha = bsAlpha * 0.5;
-      const veinCount = 3;
-      for (let v = 0; v < veinCount; v++) {
-        const vAngle = (v / veinCount) * Math.PI * 2 + phase * 0.1;
-        const vx1 = ex + Math.cos(vAngle) * eyeW * 0.3;
-        const vy1 = ey + Math.sin(vAngle) * eyeH * 0.3;
-        const vx2 = ex + Math.cos(vAngle) * eyeW * 0.85;
-        const vy2 = ey + Math.sin(vAngle) * eyeH * 0.85;
-        ctx.beginPath();
-        ctx.moveTo(vx1, vy1);
-        ctx.quadraticCurveTo(
-          (vx1 + vx2) / 2 + Math.sin(vAngle * 2) * eyeW * 0.2,
-          (vy1 + vy2) / 2 + Math.cos(vAngle * 3) * eyeH * 0.15,
-          vx2, vy2
-        );
-        ctx.strokeStyle = `rgba(200,50,50,${bsAlpha * 0.7})`;
-        ctx.lineWidth = Math.max(0.3, s * 0.004);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    // Pupil (bigger when stoned)
-    const pupilR = eyeW * 0.52 * pSize;
+    // Pupil
+    const pupilR = eyeW * 0.52;
     const px = ex + (p.pupilDx || 0) * eyeW * 0.5;
     const py = ey + (p.pupilDy || 0) * eyeH * 0.3;
     ctx.beginPath();
@@ -900,42 +759,21 @@ function drawCharacter(
   drawEye(cx - eyeSpacing, faceY);
   drawEye(cx + eyeSpacing, faceY);
 
-  // Mouth (with wavy/uneven effect when stoned)
+  // Mouth
   const mouthY = faceY + eyeH * 1.5;
   const mouthW = eyeW * 0.9;
 
   if ((p.mouthOpen || 0) > 0.15) {
     const openH = eyeH * 0.35 * (p.mouthOpen || 0);
     const curve = (p.mouthCurve || 0);
-    const wavy = p.mouthWavy || 0;
 
-    if (wavy > 0.1) {
-      // Wavy mouth (stoned lopsided grin)
-      ctx.beginPath();
-      ctx.moveTo(cx - mouthW * 0.7, mouthY);
-      ctx.quadraticCurveTo(
-        cx - mouthW * 0.3, mouthY + openH * (0.3 + curve * 0.3) + Math.sin(phase * 3) * openH * wavy * 0.3,
-        cx, mouthY + openH * 0.2
-      );
-      ctx.quadraticCurveTo(
-        cx + mouthW * 0.3, mouthY - openH * (0.1 - curve * 0.2) + Math.sin(phase * 3 + 1) * openH * wavy * 0.2,
-        cx + mouthW * 0.7, mouthY - openH * wavy * 0.15
-      );
-      ctx.quadraticCurveTo(cx, mouthY + openH * (0.5 + curve * 0.4), cx - mouthW * 0.7, mouthY);
-      ctx.fillStyle = "#3D2020";
-      ctx.fill();
-      ctx.strokeStyle = OL;
-      ctx.lineWidth = outlineW;
-      ctx.stroke();
-    } else {
-      ctx.beginPath();
-      ctx.ellipse(cx, mouthY + openH * 0.2, mouthW * (0.8 + curve * 0.3), openH, 0, 0, Math.PI * 2);
-      ctx.fillStyle = "#3D2020";
-      ctx.fill();
-      ctx.strokeStyle = OL;
-      ctx.lineWidth = outlineW;
-      ctx.stroke();
-    }
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY + openH * 0.2, mouthW * (0.8 + curve * 0.3), openH, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#3D2020";
+    ctx.fill();
+    ctx.strokeStyle = OL;
+    ctx.lineWidth = outlineW;
+    ctx.stroke();
 
     if ((p.tongueShow || 0) > 0.1) {
       ctx.beginPath();
@@ -945,44 +783,14 @@ function drawCharacter(
     }
   } else {
     const curve = p.mouthCurve || 0;
-    const wavy = p.mouthWavy || 0;
 
-    if (wavy > 0.1) {
-      // Wavy closed mouth
-      ctx.beginPath();
-      ctx.moveTo(cx - mouthW * 0.7, mouthY);
-      const midY = mouthY + curve * eyeH * 0.4;
-      ctx.quadraticCurveTo(cx - mouthW * 0.2, midY + Math.sin(phase * 2) * eyeH * wavy * 0.1, cx, midY);
-      ctx.quadraticCurveTo(cx + mouthW * 0.2, midY - Math.sin(phase * 2 + 1.5) * eyeH * wavy * 0.08, cx + mouthW * 0.7, mouthY - eyeH * wavy * 0.05);
-      ctx.strokeStyle = OL;
-      ctx.lineWidth = Math.max(1.2, outlineW * 0.8);
-      ctx.lineCap = "round";
-      ctx.stroke();
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(cx - mouthW * 0.7, mouthY);
-      ctx.quadraticCurveTo(cx, mouthY + curve * eyeH * 0.4, cx + mouthW * 0.7, mouthY);
-      ctx.strokeStyle = OL;
-      ctx.lineWidth = Math.max(1.2, outlineW * 0.8);
-      ctx.lineCap = "round";
-      ctx.stroke();
-    }
-  }
-
-  // Exhale smoke from mouth when taking a drag or just smoked
-  if ((p.takingDrag || 0) < 0.3 && (p.cigAngle || 0) > 0.05 && (p.bloodshotAlpha || 0) > 0.2) {
-    if (Math.random() < 0.15) {
-      smokeParticles.push({
-        x: cx + (Math.random() - 0.5) * mouthW * 0.5,
-        y: mouthY - s * 0.02,
-        vx: (Math.random() - 0.3) * 0.4,
-        vy: -(0.4 + Math.random() * 0.6),
-        size: 3 + Math.random() * 4,
-        alpha: 0.2 + Math.random() * 0.15,
-        life: 0,
-        maxLife: 50 + Math.random() * 30,
-      });
-    }
+    ctx.beginPath();
+    ctx.moveTo(cx - mouthW * 0.7, mouthY);
+    ctx.quadraticCurveTo(cx, mouthY + curve * eyeH * 0.4, cx + mouthW * 0.7, mouthY);
+    ctx.strokeStyle = OL;
+    ctx.lineWidth = Math.max(1.2, outlineW * 0.8);
+    ctx.lineCap = "round";
+    ctx.stroke();
   }
 
   // Sweat drop
@@ -1065,29 +873,6 @@ function drawCharacter(
     }
   }
 
-  // ── DRAW SMOKE PARTICLES ──
-  for (let i = smokeParticles.length - 1; i >= 0; i--) {
-    const sp = smokeParticles[i];
-    sp.life++;
-    sp.x += sp.vx;
-    sp.y += sp.vy;
-    sp.vx *= 0.98;
-    sp.size += 0.08;
-
-    const lifeRatio = sp.life / sp.maxLife;
-    const alpha = sp.alpha * (1 - lifeRatio) * (lifeRatio < 0.1 ? lifeRatio / 0.1 : 1);
-
-    if (sp.life >= sp.maxLife || alpha < 0.01) {
-      smokeParticles.splice(i, 1);
-      continue;
-    }
-
-    ctx.beginPath();
-    ctx.arc(sp.x, sp.y + stonedBob, sp.size, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(200,200,210,${alpha})`;
-    ctx.fill();
-  }
-
   // Accent glow
   const glowR = bw * 1.2;
   const glowGrad = ctx.createRadialGradient(cx, bodyY, glowR * 0.3, cx, bodyY, glowR);
@@ -1101,7 +886,7 @@ function drawCharacter(
   ctx.restore();
 }
 
-// ── Pet Effect (Towelie version: smoke clouds) ──
+// ── Music-themed Pet Effect ──
 function PetEffect({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     const id = setTimeout(onDone, 1600);
@@ -1110,11 +895,11 @@ function PetEffect({ onDone }: { onDone: () => void }) {
 
   const symbols = useMemo(
     () => [
-      { sym: "\uD83D\uDEAC", offset: -18 },  // 🚬 cigarette
-      { sym: "\u2601", offset: -7 },          // ☁ cloud
-      { sym: "\uD83D\uDCA8", offset: 4 },     // 💨 dash
-      { sym: "\u2620", offset: 15 },           // ☠ skull
-      { sym: "\uD83C\uDF2C", offset: 26 },     // 🌬 wind
+      { sym: "\uD83C\uDFB5", offset: -18 },  // 🎵 music note
+      { sym: "\u2728", offset: -7 },          // ✨ sparkles
+      { sym: "\uD83C\uDFB6", offset: 4 },     // 🎶 notes
+      { sym: "\uD83D\uDC95", offset: 15 },     // 💕 heart
+      { sym: "\u2B50", offset: 26 },           // ⭐ star
     ],
     []
   );
@@ -1151,14 +936,14 @@ function useFrameSequencer(
   walkDirection: number,
 ) {
   const stateRef = useRef({
-    sequence: MOOD_SEQUENCES.towelie,
+    sequence: MOOD_SEQUENCES.chill,
     stepIndex: 0,
     stepElapsed: 0,
     currentParams: { ...FRAMES.neutral },
     targetParams: { ...FRAMES.neutral },
     transitionProgress: 1,
     prevFrameKey: "neutral" as string,
-    prevMood: "towelie" as string,
+    prevMood: "chill" as string,
   });
 
   const isBlinkingRef = useRef(isBlinking);
@@ -1176,7 +961,7 @@ function useFrameSequencer(
       st.stepElapsed = 0;
     } else if (st.prevMood !== mood) {
       st.prevMood = mood;
-      st.sequence = MOOD_SEQUENCES[mood] || MOOD_SEQUENCES.towelie;
+      st.sequence = MOOD_SEQUENCES[mood] || MOOD_SEQUENCES.chill;
     }
   }, [mood, isPetting]);
 
@@ -1247,7 +1032,6 @@ function CanvasMascot({
   const phaseRef = useRef(0);
   const lastTimeRef = useRef(performance.now());
   const hpProgressRef = useRef(0);
-  const smokeParticlesRef = useRef<SmokeParticle[]>([]);
   const updateFrame = useFrameSequencer(mood, isPetting, isBlinking, isWalking, walkDirection);
 
   useEffect(() => {
@@ -1280,12 +1064,7 @@ function CanvasMascot({
         hpProgressRef.current = Math.max(hpTarget, hpProgressRef.current - dt * hpSpeed);
       }
 
-      // Cap smoke particles
-      if (smokeParticlesRef.current.length > 60) {
-        smokeParticlesRef.current = smokeParticlesRef.current.slice(-40);
-      }
-
-      drawCharacter(ctx, size, params, phaseRef.current, "#e03131", isPlaying, 0, isLifted, hpProgressRef.current, smokeParticlesRef.current);
+      drawCharacter(ctx, size, params, phaseRef.current, "#e03131", isPlaying, 0, isLifted, hpProgressRef.current);
       animRef.current = requestAnimationFrame(draw);
     };
 
@@ -1420,7 +1199,7 @@ export default function MqCat() {
           clearInterval(walkInterval);
           setIsWalking(false);
           if (Math.random() < 0.35) {
-            const list = PHRASES[useAppStore.getState().catMood] ?? PHRASES.towelie;
+            const list = PHRASES[useAppStore.getState().catMood] ?? PHRASES.chill;
             const newPhrase = list[Math.floor(Math.random() * list.length)];
             setPhrase(newPhrase);
             if (phraseTimerRef.current) clearTimeout(phraseTimerRef.current);
@@ -1444,7 +1223,7 @@ export default function MqCat() {
     };
   }, [catEnabled, isLifted, size]);
 
-  // ── Blink loop (slower, more chill for Towelie) ──
+  // ── Blink loop ──
   useEffect(() => {
     if (!catEnabled) return;
     const doBlink = () => {
