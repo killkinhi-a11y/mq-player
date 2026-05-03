@@ -659,7 +659,7 @@ export default function SettingsView() {
                         >
                           <div className="flex justify-center mb-1.5">
                             <motion.img
-                              src="/mq-cat.png"
+                              src="/mq-cat.png?v=3"
                               alt=""
                               className="object-contain"
                               style={{ width: opt.px, height: opt.px }}

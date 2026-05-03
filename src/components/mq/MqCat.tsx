@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 
+const CAT_IMG = `/mq-cat.png?v=3`;
+
 // ── Phrases ──
 const PHRASES: Record<string, string[]> = {
   friendly: [
@@ -389,7 +391,7 @@ export default function MqCat() {
             >
               {/* Cat image — no wrapper, no background card, no border */}
               <img
-                src="/mq-cat.png"
+                src={CAT_IMG}
                 alt="MQ mascot"
                 className="w-full h-full object-contain mq-no-transition"
                 style={{
