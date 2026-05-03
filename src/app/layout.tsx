@@ -10,8 +10,8 @@ const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"], weight: [
 const spaceGrotesk = Space_Grotesk({ variable: "--font-space-grotesk", subsets: ["latin"], weight: ["400", "500", "600", "700"] });
 
 export const metadata: Metadata = {
-  title: "mq — Музыкальный плеер",
-  description: "mq — современный музыкальный плеер с зашифрованным мессенджером, таймером сна и кастомизацией",
+  title: "mq",
+  description: "mq — музыкальный плеер с зашифрованным мессенджером, таймером сна и кастомизацией",
   keywords: ["mq", "music", "player", "мессенджер", "шифрование"],
   authors: [{ name: "mq Team" }],
   icons: {

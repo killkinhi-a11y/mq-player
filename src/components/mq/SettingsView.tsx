@@ -431,6 +431,8 @@ export default function SettingsView() {
         Настройки профиля
       </motion.button>
 
+      {/* Password Reset — only for email-based users */}
+      {email && !email.startsWith("tg_") && (
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
@@ -441,6 +443,7 @@ export default function SettingsView() {
         <KeyRound className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
         Сменить пароль
       </motion.button>
+      )}
 
       {/* Spatial Audio */}
       <motion.button

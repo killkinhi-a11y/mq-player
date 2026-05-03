@@ -309,7 +309,6 @@ export default function PlayPage() {
             <span className="text-3xl font-black text-white">mq</span>
           </div>
         </div>
-        <p className="text-sm" style={{ color: "#888" }}>Музыкальный плеер</p>
         <div className="h-0.5 w-24 rounded-full" style={{ backgroundColor: "#e03131", opacity: 0.4 }} />
       </div>
     );

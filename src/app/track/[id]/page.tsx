@@ -438,7 +438,7 @@ export default function ShareTrackPage() {
       {/* Footer */}
       <div className="text-center pb-6 px-4">
         <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>
-          mq — Музыкальный плеер
+          mq
         </p>
       </div>
     </div>
