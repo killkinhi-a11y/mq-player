@@ -1770,20 +1770,21 @@ export default function PlayerBar() {
             <ShareButton scTrackId={currentTrack.scTrackId} />
           )}
 
-          {/* PiP */}
-          <motion.button whileTap={{ scale: 0.9 }} onClick={async () => {
-            if (isPiPActive) {
-              closePiPPopup();
-              setPiPActive(false);
-            } else {
-              const opened = await openPiPPopup();
-              setPiPActive(true, opened ? 'popup' : 'overlay');
-            }
-          }}
-            className="p-1 flex-shrink-0 flex items-center justify-center"
-            style={{ color: isPiPActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-            <PictureInPicture2 className="w-4 h-4" />
-          </motion.button>
+          {/* PiP — desktop only (mobile PiP is broken/annoying) */}
+          <div className="hidden lg:flex p-1 flex-shrink-0 items-center justify-center">
+            <motion.button whileTap={{ scale: 0.9 }} onClick={async () => {
+              if (isPiPActive) {
+                closePiPPopup();
+                setPiPActive(false);
+              } else {
+                const opened = await openPiPPopup();
+                setPiPActive(true, opened ? 'popup' : 'overlay');
+              }
+            }}
+              style={{ color: isPiPActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+              <PictureInPicture2 className="w-4 h-4" />
+            </motion.button>
+          </div>
 
           {/* Volume — mute button always visible, slider & percentage hidden on mobile */}
           <div ref={volumeSectionRef} className="flex items-center gap-1 flex-shrink-0">

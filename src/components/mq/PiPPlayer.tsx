@@ -147,6 +147,9 @@ export default function PiPPlayer() {
   // Popup mode: the popup window handles itself — render nothing
   if (pipMode === 'popup' || !isPiPActive || !currentTrack) return null;
 
+  // Don't render overlay PiP on mobile — it's broken/annoying on small screens
+  if (isMobile) return null;
+
   return (
     <div
       ref={containerRef}
