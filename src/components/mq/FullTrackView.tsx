@@ -1262,10 +1262,10 @@ export default function FullTrackView() {
         <AnimatePresence>
           {showSimilar && (
             <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              transition={{ type: "spring" as const, damping: 25, stiffness: 300 }}
               className="absolute bottom-0 left-0 right-0 z-20 rounded-t-2xl overflow-hidden"
-              style={{ maxHeight: "50vh", backgroundColor: "var(--mq-card)", borderTop: "1px solid var(--mq-border)" }}>
-              <div className="p-4">
+              style={{ maxHeight: "55vh", backgroundColor: "var(--mq-card)", borderTop: "1px solid var(--mq-border)" }}>
+              <div className="p-4 pb-2">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-bold flex items-center gap-1.5" style={{ color: "var(--mq-text)" }}>
                     Похожие треки
@@ -1275,37 +1275,138 @@ export default function FullTrackView() {
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-                {similarTracksLoading ? (
-                  <div className="space-y-2">
-                    {Array.from({ length: 3 }).map((_, i) => (
-                      <div key={i} className="h-12 rounded-xl animate-pulse" style={{ backgroundColor: "var(--mq-input-bg)" }} />
-                    ))}
-                  </div>
-                ) : similarTracks.length > 0 ? (
-                  <div className="space-y-1 overflow-y-auto" style={{ maxHeight: "35vh" }}>
-                    {similarTracks.map((track, i) => (
-                      <TrackCard key={track.id} track={track} index={i} queue={similarTracks} />
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs text-center py-4" style={{ color: "var(--mq-text-muted)" }}>Не удалось загрузить похожие треки</p>
-                )}
+                {/* Drag handle */}
+                <div className="flex justify-center mb-2">
+                  <div className="w-8 h-1 rounded-full" style={{ backgroundColor: "var(--mq-border)" }} />
+                </div>
               </div>
 
-              {/* Release Radar — New releases from liked artists */}
-              {releaseRadarTracks.length > 0 && (
-                <div className="mt-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Sparkles className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                    <h3 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>
-                      Новые релизы
-                    </h3>
-                  </div>
-                  <div className="space-y-2">
-                    {releaseRadarTracks.slice(0, 6).map((track, i) => (
-                      <TrackCard key={track.id} track={track} index={i} queue={releaseRadarTracks} />
+              {similarTracksLoading ? (
+                <div className="px-4 pb-4 grid grid-cols-2 gap-2">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className="h-20 rounded-xl animate-pulse" style={{ backgroundColor: "var(--mq-input-bg)" }} />
+                  ))}
+                </div>
+              ) : similarTracks.length > 0 ? (
+                <div className="px-4 pb-4 overflow-y-auto" style={{ maxHeight: "42vh" }}>
+                  {/* Compact grid of similar tracks */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {similarTracks.map((track, i) => (
+                      <motion.div
+                        key={track.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.04, duration: 0.25 }}
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => playTrack(track, similarTracks)}
+                        onContextMenu={(e) => e.preventDefault()}
+                        className="flex items-center gap-2.5 p-2 rounded-xl cursor-pointer transition-colors duration-150 group relative overflow-hidden"
+                        style={{
+                          backgroundColor: currentTrack?.id === track.id ? "var(--mq-accent)" : "transparent",
+                          border: `1px solid ${currentTrack?.id === track.id ? "var(--mq-accent)" : "var(--mq-border)"}`,
+                        }}
+                      >
+                        {/* Mini cover */}
+                        <div className="relative w-11 h-11 rounded-lg overflow-hidden flex-shrink-0">
+                          <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+                          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+                            {currentTrack?.id === track.id && isPlaying
+                              ? <Pause className="w-3.5 h-3.5" style={{ color: "#fff" }} />
+                              : <Play className="w-3.5 h-3.5 ml-0.5" style={{ color: "#fff" }} />}
+                          </div>
+                          {currentTrack?.id === track.id && isPlaying && (
+                            <div className="absolute inset-0 flex items-center justify-center opacity-100 group-hover:opacity-0 transition-opacity"
+                              style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+                              <Pause className="w-3.5 h-3.5" style={{ color: "#fff" }} />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Track info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] sm:text-xs font-medium truncate leading-tight"
+                            style={{ color: currentTrack?.id === track.id ? "var(--mq-text)" : "var(--mq-text)" }}>
+                            {track.title}
+                          </p>
+                          <p className="text-[10px] truncate mt-0.5"
+                            style={{ color: currentTrack?.id === track.id ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)" }}>
+                            {track.artist}
+                          </p>
+                          {track.genre && (
+                            <span className="inline-block text-[9px] mt-1 px-1.5 py-0.5 rounded-md truncate max-w-full"
+                              style={{ backgroundColor: "rgba(255,255,255,0.05)", color: "var(--mq-text-muted)" }}>
+                              {track.genre}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Quick actions */}
+                        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleLike(track.id, track); }}
+                            className="p-1 rounded-lg active:scale-90 transition-transform"
+                            style={{ color: (Array.isArray(likedTrackIds) ? likedTrackIds : []).includes(track.id) ? "#ef4444" : "var(--mq-text-muted)" }}>
+                            <Heart className="w-3.5 h-3.5" style={(Array.isArray(likedTrackIds) ? likedTrackIds : []).includes(track.id) ? { fill: "#ef4444" } : {}} />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleDislike(track.id, track); }}
+                            className="p-1 rounded-lg active:scale-90 transition-transform"
+                            style={{ color: (Array.isArray(dislikedTrackIds) ? dislikedTrackIds : []).includes(track.id) ? "#ef4444" : "var(--mq-text-muted)" }}>
+                            <ThumbsDown className="w-3 h-3.5" style={(Array.isArray(dislikedTrackIds) ? dislikedTrackIds : []).includes(track.id) ? { fill: "#ef4444" } : {}} />
+                          </button>
+                        </div>
+                      </motion.div>
                     ))}
                   </div>
+
+                  {/* Release Radar — New releases from liked artists */}
+                  {releaseRadarTracks.length > 0 && (
+                    <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--mq-border)" }}>
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <Sparkles className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+                        <h4 className="text-xs font-bold" style={{ color: "var(--mq-text)" }}>
+                          Новые релизы
+                        </h4>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {releaseRadarTracks.slice(0, 4).map((track, i) => (
+                          <motion.div
+                            key={track.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.05, duration: 0.2 }}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => playTrack(track, releaseRadarTracks)}
+                            className="flex items-center gap-2.5 p-2 rounded-xl cursor-pointer transition-colors duration-150 group"
+                            style={{ border: "1px solid var(--mq-border)" }}
+                          >
+                            <div className="relative w-11 h-11 rounded-lg overflow-hidden flex-shrink-0">
+                              <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+                                <Play className="w-3.5 h-3.5 ml-0.5" style={{ color: "#fff" }} />
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] sm:text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                              <p className="text-[10px] truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleLike(track.id, track); }}
+                              className="p-1 rounded-lg active:scale-90 transition-transform flex-shrink-0"
+                              style={{ color: (Array.isArray(likedTrackIds) ? likedTrackIds : []).includes(track.id) ? "#ef4444" : "var(--mq-text-muted)" }}>
+                              <Heart className="w-3.5 h-3.5" style={(Array.isArray(likedTrackIds) ? likedTrackIds : []).includes(track.id) ? { fill: "#ef4444" } : {}} />
+                            </button>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="px-4 pb-4">
+                  <p className="text-xs text-center py-6" style={{ color: "var(--mq-text-muted)" }}>Не удалось загрузить похожие треки</p>
                 </div>
               )}
             </motion.div>
