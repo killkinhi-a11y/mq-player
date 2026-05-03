@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import ScrollReveal from "./ScrollReveal";
+import TasteProfileView from "./TasteProfileView";
 
 export default function SettingsView() {
   const {
@@ -23,6 +24,7 @@ export default function SettingsView() {
     favoriteArtists, removeFavoriteArtist, saveFavoriteArtistsToServer,
     dislikedTags, removeDislikedTag,
     currentStyle, setStyle, styleVariant, setStyleVariant,
+    catEnabled, setCatEnabled, catFrequency, setCatFrequency, catMood, setCatMood, catSize, setCatSize, catPetCount,
   } = useAppStore();
 
   const ADMIN_EMAILS = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_ADMIN_EMAILS) 
@@ -60,7 +62,8 @@ export default function SettingsView() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
-  const [showTasteSection, setShowTasteSection] = useState(false);
+  const [showCatSettings, setShowCatSettings] = useState(false);
+  const [showFullTaste, setShowFullTaste] = useState(false);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const styleList = [
     { id: "ipod-2001", name: "iPod 2001" },
@@ -389,7 +392,7 @@ export default function SettingsView() {
       <motion.div
         initial={anim ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
+        transition={{ delay: 0.05, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="rounded-2xl p-4"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
@@ -477,115 +480,205 @@ export default function SettingsView() {
         </motion.a>
       )}
 
-      {/* Taste Profile — Favorite Artists */}
+      {/* Musical Tastes — Full Profile */}
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
-        onClick={() => setShowTasteSection(!showTasteSection)}
+        onClick={() => setShowFullTaste(!showFullTaste)}
         className="w-full p-3 rounded-xl text-left text-sm font-medium flex items-center gap-3"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
       >
-        <Headphones className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+        <Palette className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
         Музыкальные вкусы
-        <span className="text-xs ml-auto" style={{ color: "var(--mq-text-muted)" }}>
-          {favoriteArtists.length} артистов
+        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full"
+          style={{
+            backgroundColor: showFullTaste ? "var(--mq-accent)" : "var(--mq-surface, #1a1a1a)",
+            color: showFullTaste ? "#fff" : "var(--mq-text-muted)",
+          }}>
+          {showFullTaste ? "Открыто" : "Настроить"}
         </span>
-        {showTasteSection ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        {showFullTaste ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
       </motion.button>
 
       <AnimatePresence>
-        {showTasteSection && (
+        {showFullTaste && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div
+              className="rounded-2xl"
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+            >
+              <TasteProfileView />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Cat Mascot Settings */}
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setShowCatSettings(!showCatSettings)}
+        className="w-full p-3 rounded-xl text-left text-sm font-medium flex items-center gap-3"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+      >
+        <Sparkles className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+        Котик mq
+        <span className="text-xs ml-auto" style={{ color: "var(--mq-text-muted)" }}>
+          {catEnabled ? "Включён" : "Выключен"}
+        </span>
+        {showCatSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </motion.button>
+
+      <AnimatePresence>
+        {showCatSettings && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             className="overflow-hidden"
           >
             <div
               className="rounded-2xl p-4 space-y-4"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
             >
+              {/* Enable/Disable toggle */}
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
-                  Любимые артисты
-                </p>
+                <div>
+                  <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
+                    Показывать котика
+                  </p>
+                  <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                    Котик будет появляться и давать советы
+                  </p>
+                </div>
                 <button
-                  onClick={() => setView("onboarding")}
-                  className="text-xs px-3 py-1 rounded-lg transition-all"
-                  style={{
-                    backgroundColor: "var(--mq-accent)",
-                    color: "#fff",
-                  }}
+                  onClick={() => setCatEnabled(!catEnabled)}
+                  className="relative w-10 h-5 rounded-full transition-colors duration-200"
+                  style={{ backgroundColor: catEnabled ? "var(--mq-accent)" : "var(--mq-border)" }}
                 >
-                  Настроить
+                  <div
+                    className="absolute top-0.5 w-4 h-4 rounded-full transition-transform duration-200"
+                    style={{
+                      backgroundColor: "#fff",
+                      transform: catEnabled ? "translateX(20px)" : "translateX(2px)",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                    }}
+                  />
                 </button>
               </div>
 
-              {favoriteArtists.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {favoriteArtists.map(a => (
-                    <div
-                      key={a.id}
-                      className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-                      style={{
-                        backgroundColor: "var(--mq-surface, #1a1a1a)",
-                        border: "1px solid var(--mq-border, #2a2a2a)",
-                      }}
-                    >
-                      {a.avatar ? (
-                        <img
-                          src={a.avatar}
-                          alt={a.username}
-                          className="w-5 h-5 rounded-full object-cover"
-                        />
-                      ) : null}
-                      <span className="text-xs" style={{ color: "var(--mq-text, #ddd)" }}>
-                        {a.username}
-                      </span>
-                      <button
-                        onClick={() => {
-                          removeFavoriteArtist(a.id);
-                          saveFavoriteArtistsToServer();
-                        }}
-                        className="text-xs opacity-60 hover:opacity-100 ml-1"
-                        style={{ color: "var(--mq-text, #fff)" }}
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                  Вы ещё не выбрали любимых артистов. Настройте, чтобы получать лучшие рекомендации.
-                </p>
-              )}
-
-              {dislikedTags.length > 0 && (
+              {/* Frequency */}
+              {catEnabled && (
                 <>
-                  <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
-                    Исключённые жанры
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {dislikedTags.map(tag => (
-                      <div
-                        key={tag}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-full"
-                        style={{
-                          backgroundColor: "rgba(255, 75, 75, 0.1)",
-                          border: "1px solid rgba(255, 75, 75, 0.3)",
-                        }}
-                      >
-                        <span className="text-xs" style={{ color: "#ff6b6b" }}>{tag}</span>
+                  <div>
+                    <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text)" }}>
+                      Частота появления
+                    </p>
+                    <div className="flex gap-2">
+                      {([
+                        { id: "rare" as const, label: "Редко", desc: "Раз в 5-8 мин" },
+                        { id: "normal" as const, label: "Обычно", desc: "Раз в 2-4 мин" },
+                        { id: "often" as const, label: "Часто", desc: "Раз в 1-2 мин" },
+                      ]).map((opt) => (
                         <button
-                          onClick={() => removeDislikedTag(tag)}
-                          className="text-xs opacity-60 hover:opacity-100"
-                          style={{ color: "#ff6b6b" }}
+                          key={opt.id}
+                          onClick={() => setCatFrequency(opt.id)}
+                          className="flex-1 p-2 rounded-xl text-center transition-all"
+                          style={{
+                            backgroundColor: catFrequency === opt.id ? "rgba(255,255,255,0.06)" : "transparent",
+                            border: catFrequency === opt.id ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
+                          }}
                         >
-                          <X className="w-3 h-3" />
+                          <p className="text-xs font-medium" style={{ color: catFrequency === opt.id ? "var(--mq-accent)" : "var(--mq-text)" }}>
+                            {opt.label}
+                          </p>
+                          <p className="text-[9px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+                            {opt.desc}
+                          </p>
                         </button>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Mood */}
+                  <div>
+                    <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text)" }}>
+                      Настроение котика
+                    </p>
+                    <div className="flex gap-2">
+                      {([
+                        { id: "friendly" as const, label: "Дружелюбный", emoji: "😺" },
+                        { id: "sassy" as const, label: "Дерзкий", emoji: "😼" },
+                        { id: "sleepy" as const, label: "Сонный", emoji: "😴" },
+                        { id: "excited" as const, label: "Восторженный", emoji: "😸" },
+                      ]).map((opt) => (
+                        <button
+                          key={opt.id}
+                          onClick={() => setCatMood(opt.id)}
+                          className="flex-1 p-2 rounded-xl text-center transition-all"
+                          style={{
+                            backgroundColor: catMood === opt.id ? "rgba(255,255,255,0.06)" : "transparent",
+                            border: catMood === opt.id ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
+                          }}
+                        >
+                          <span className="text-lg">{opt.emoji}</span>
+                          <p className="text-[9px] mt-1" style={{ color: catMood === opt.id ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                            {opt.label}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Size */}
+                  <div>
+                    <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text)" }}>
+                      Размер
+                    </p>
+                    <div className="flex gap-2">
+                      {([
+                        { id: "small" as const, label: "Маленький" },
+                        { id: "medium" as const, label: "Средний" },
+                        { id: "large" as const, label: "Большой" },
+                      ]).map((opt) => (
+                        <button
+                          key={opt.id}
+                          onClick={() => setCatSize(opt.id)}
+                          className="flex-1 p-2 rounded-xl text-center transition-all"
+                          style={{
+                            backgroundColor: catSize === opt.id ? "rgba(255,255,255,0.06)" : "transparent",
+                            border: catSize === opt.id ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
+                          }}
+                        >
+                          <p className="text-xs font-medium" style={{ color: catSize === opt.id ? "var(--mq-accent)" : "var(--mq-text)" }}>
+                            {opt.label}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Pet counter */}
+                  <div
+                    className="rounded-xl p-3 text-center"
+                    style={{ backgroundColor: "var(--mq-input-bg, #1a1a1a)", border: "1px solid var(--mq-border)" }}
+                  >
+                    <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                      Всего поглаживаний
+                    </p>
+                    <p className="text-2xl font-bold mt-1" style={{ color: "var(--mq-accent)" }}>
+                      {catPetCount}
+                    </p>
+                    <p className="text-[9px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                      {catPetCount === 0 ? "Погладьте котика! 🐾" : catPetCount < 10 ? "Котик начинает доверять вам" : catPetCount < 50 ? "Котик вас полюбил! 💕" : catPetCount < 100 ? "Вы — лучший друг котика! 🏆" : "Легендарный кошатник! 👑"}
+                    </p>
                   </div>
                 </>
               )}
@@ -598,7 +691,7 @@ export default function SettingsView() {
       <motion.div
         initial={anim ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
+        transition={{ delay: 0.08, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="rounded-2xl p-4"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
@@ -624,7 +717,7 @@ export default function SettingsView() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
               className="overflow-hidden"
             >
               <ScrollReveal direction="up" delay={0.1}>
@@ -671,7 +764,7 @@ export default function SettingsView() {
       <motion.div
         initial={anim ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.17 }}
+        transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="rounded-2xl p-4"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
@@ -697,7 +790,7 @@ export default function SettingsView() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2 }}
+              transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
               className="overflow-hidden"
             >
               <ScrollReveal direction="up" delay={0.15}>

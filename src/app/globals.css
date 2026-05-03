@@ -226,16 +226,38 @@ input[type="color"]::-webkit-color-swatch {
   border-radius: 6px;
 }
 
-/* Smooth theme transitions — only for color properties, not transform/opacity */
-*, *::before, *::after {
-  transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+/* Smooth theme transitions — scoped to MQ elements only, not all DOM */
+[class*="rounded"],
+[class*="mq-"],
+button, input, select, textarea,
+nav, header, .fixed, [style*="background"] {
+  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 /* Framer Motion managed elements — no CSS transition interference */
 [data-framer-motion-id],
 [data-framer-motion-id] *,
-.mq-no-transition {
+.mq-no-transition,
+motion-div, motion-button, motion-span {
   transition: none !important;
+}
+
+/* GPU compositing hints for animated elements */
+.mq-cat-tail,
+.player-glow,
+.will-animate {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Disable transitions during page load */
@@ -350,4 +372,46 @@ html, body {
 .phantom-theme .rounded-2xl,
 .phantom-theme .rounded-xl {
   box-shadow: inset 0 0 0 1px rgba(167,139,250,0.1), 0 0 12px rgba(167,139,250,0.03);
+}
+
+/* ── MQ Cat Mascot Animations ── */
+@keyframes mq-cat-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes mq-cat-bounce {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.25); }
+  60% { transform: scale(0.92); }
+  80% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+@keyframes mq-cat-pet-float {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.6);
+  }
+}
+
+@keyframes mq-cat-tail-wag {
+  0%, 100% {
+    d: path("M 48 50 Q 60 38 56 24 Q 54 16 48 18");
+  }
+  25% {
+    d: path("M 48 50 Q 58 36 54 22 Q 52 14 46 16");
+  }
+  75% {
+    d: path("M 48 50 Q 62 40 58 26 Q 56 18 50 20");
+  }
+}
+
+.mq-cat-tail {
+  animation: mq-cat-tail-wag 2.5s ease-in-out infinite;
+  will-change: d;
 }

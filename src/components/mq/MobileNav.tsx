@@ -2,14 +2,13 @@
 
 import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
-import { Home, Search, MessageCircle, Settings, User, ListMusic, Clock, Monitor, Sliders } from "lucide-react";
+import { Home, Search, MessageCircle, Settings, User, ListMusic, Clock, Monitor } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
 const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
   { id: "main", icon: Home, label: "Главная" },
   { id: "search", icon: Search, label: "Поиск" },
   { id: "playlists", icon: ListMusic, label: "Плейлисты" },
-  { id: "taste-profile" as ViewType, icon: Sliders, label: "Вкус" },
   { id: "history", icon: Clock, label: "История" },
   { id: "messenger", icon: MessageCircle, label: "Чаты", badgeKey: "messenger" },
   { id: "settings", icon: Settings, label: "Ещё", badgeKey: "settings" },

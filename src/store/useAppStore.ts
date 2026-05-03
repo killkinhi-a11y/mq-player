@@ -27,7 +27,7 @@ if (typeof window !== "undefined") {
   }
 }
 
-export type ViewType = "auth" | "main" | "search" | "messenger" | "settings" | "profile" | "playlists" | "public-playlists" | "history" | "stories" | "onboarding" | "spatial" | "taste-profile";
+export type ViewType = "auth" | "main" | "search" | "messenger" | "settings" | "profile" | "playlists" | "public-playlists" | "history" | "stories" | "onboarding" | "spatial";
 
 export type Mood = "chill" | "bassy" | "melodic" | "dark" | "upbeat" | "romantic" | "aggressive" | "dreamy";
 
@@ -397,6 +397,19 @@ interface AppState {
   toggleExcludedArtist: (artist: string) => void;
   resetTasteProfile: () => void;
 
+  // Cat mascot
+  catEnabled: boolean;
+  catFrequency: "rare" | "normal" | "often";
+  catMood: "friendly" | "sassy" | "sleepy" | "excited";
+  catSize: "small" | "medium" | "large";
+  catLastSeen: number;
+  catPetCount: number;
+  setCatEnabled: (enabled: boolean) => void;
+  setCatFrequency: (freq: "rare" | "normal" | "often") => void;
+  setCatMood: (mood: "friendly" | "sassy" | "sleepy" | "excited") => void;
+  setCatSize: (size: "small" | "medium" | "large") => void;
+  petCat: () => void;
+
   // Reset
   reset: () => void;
 }
@@ -522,6 +535,14 @@ const initialState = {
   tasteArtists: {} as Record<string, number>,
   tasteMoods: {} as Record<string, number>,
   excludedArtists: [] as string[],
+
+  // Cat mascot
+  catEnabled: true as boolean,
+  catFrequency: "normal" as "rare" | "normal" | "often",
+  catMood: "friendly" as "friendly" | "sassy" | "sleepy" | "excited",
+  catSize: "medium" as "small" | "medium" | "large",
+  catLastSeen: 0 as number,
+  catPetCount: 0 as number,
 };
 
 // Simple energy estimation for smart shuffle
@@ -1722,6 +1743,13 @@ export const useAppStore = create<AppState>()(
         };
       }),
       resetTasteProfile: () => set({ tasteGenres: {}, tasteArtists: {}, tasteMoods: {}, excludedArtists: [] }),
+
+      // ── Cat mascot actions ──
+      setCatEnabled: (enabled) => set({ catEnabled: enabled }),
+      setCatFrequency: (freq) => set({ catFrequency: freq }),
+      setCatMood: (mood) => set({ catMood: mood }),
+      setCatSize: (size) => set({ catSize: size }),
+      petCat: () => set((s) => ({ catPetCount: s.catPetCount + 1, catLastSeen: Date.now() })),
 
       reset: () => set(initialState),
     }),

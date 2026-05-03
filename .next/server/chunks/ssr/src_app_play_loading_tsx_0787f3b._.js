@@ -1,0 +1,3 @@
+module.exports=[97617,a=>{"use strict";var b=a.i(7997);a.s(["default",0,function(){return(0,b.jsxs)("div",{className:"min-h-screen flex flex-col items-center justify-center gap-6",style:{backgroundColor:"var(--mq-bg, #0e0e0e)"},children:[(0,b.jsx)("div",{className:"flex flex-col items-center gap-3",children:(0,b.jsx)("div",{className:"w-20 h-20 rounded-2xl flex items-center justify-center shadow-2xl",style:{backgroundColor:"var(--mq-accent, #e03131)"},children:(0,b.jsx)("span",{className:"text-3xl font-black text-white",children:"mq"})})}),(0,b.jsx)("p",{className:"text-sm",style:{color:"var(--mq-text-muted, #888)"},children:"Загрузка..."})]})}])},70242,a=>{a.n(a.i(97617))}];
+
+//# sourceMappingURL=src_app_play_loading_tsx_0787f3b._.js.map

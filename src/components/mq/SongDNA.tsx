@@ -402,6 +402,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                     alt=""
                     className="w-12 h-12 rounded-lg object-cover"
                     style={{ border: "1px solid var(--mq-border)" }}
+                    loading="lazy"
                   />
                 )}
                 <div className="flex-1 min-w-0">
@@ -587,69 +588,80 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
               </p>
 
               {similarLoading ? (
-                <div className="space-y-2">
-                  {Array.from({ length: 3 }).map((_, i) => (
+                <div className="flex gap-2 overflow-hidden">
+                  {Array.from({ length: 4 }).map((_, i) => (
                     <div
                       key={i}
-                      className="h-14 rounded-xl animate-pulse"
+                      className="flex-shrink-0 w-[140px] h-[48px] rounded-xl animate-pulse"
                       style={{ backgroundColor: "var(--mq-input-bg)" }}
                     />
                   ))}
                 </div>
               ) : similarTracks.length > 0 ? (
-                <div className="space-y-1.5">
-                  {similarTracks.slice(0, 3).map((t) => (
+                <div
+                  className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
+                  style={{
+                    scrollbarWidth: "none",
+                    msOverflowStyle: "none",
+                  }}
+                >
+                  {similarTracks.map((t, i) => (
                     <motion.button
                       key={t.id}
-                      whileTap={{ scale: 0.98 }}
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: i * 0.05, duration: 0.2 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => handleTrackClick(t)}
-                      className="flex items-center gap-3 w-full p-2.5 rounded-xl transition-colors duration-200 cursor-pointer"
+                      className="flex-shrink-0 w-[140px] flex items-center gap-2 p-2 rounded-xl transition-all duration-200 cursor-pointer group"
                       style={{
                         backgroundColor: "var(--mq-input-bg)",
                         border: "1px solid transparent",
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.borderColor = "var(--mq-border)";
+                        e.currentTarget.style.backgroundColor = "var(--mq-card)";
                       }}
                       onMouseLeave={(e) => {
                         e.currentTarget.style.borderColor = "transparent";
+                        e.currentTarget.style.backgroundColor = "var(--mq-input-bg)";
                       }}
                     >
                       <img
                         src={t.cover}
                         alt=""
-                        className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                        className="w-9 h-9 rounded-lg object-cover flex-shrink-0"
                         style={{ border: "1px solid var(--mq-border)" }}
+                        loading="lazy"
                       />
                       <div className="flex-1 min-w-0 text-left">
                         <p
-                          className="text-xs font-medium truncate"
+                          className="text-[11px] font-medium truncate leading-tight"
                           style={{ color: "var(--mq-text)" }}
                         >
                           {t.title}
                         </p>
                         <p
-                          className="text-[10px] truncate"
+                          className="text-[9px] truncate leading-tight mt-0.5"
                           style={{ color: "var(--mq-text-muted)" }}
                         >
                           {t.artist}
                         </p>
                       </div>
                       <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                        className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
                         style={{
-                          backgroundColor: "var(--mq-card)",
-                          border: "1px solid var(--mq-border)",
+                          backgroundColor: "var(--mq-accent)",
                         }}
                       >
-                        <Play className="w-3 h-3 ml-0.5" style={{ color: "var(--mq-text-muted)" }} />
+                        <Play className="w-2.5 h-2.5 ml-0.5" style={{ color: "#fff" }} />
                       </div>
                     </motion.button>
                   ))}
                 </div>
               ) : (
                 <p
-                  className="text-xs text-center py-4"
+                  className="text-xs text-center py-3"
                   style={{ color: "var(--mq-text-muted)" }}
                 >
                   Нет данных о похожих треках

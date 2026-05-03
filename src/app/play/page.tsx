@@ -32,7 +32,7 @@ const HistoryView = lazy(() => import("@/components/mq/HistoryView"));
 const StoriesView = lazy(() => import("@/components/mq/StoriesView"));
 const OnboardingView = lazy(() => import("@/components/mq/OnboardingView"));
 const SpatialAudioView = lazy(() => import("@/components/mq/SpatialAudioView"));
-const TasteProfileView = lazy(() => import("@/components/mq/TasteProfileView"));
+const MqCat = lazy(() => import("@/components/mq/MqCat"));
 const PlayerBar = lazy(() => import("@/components/mq/PlayerBar"));
 const FullTrackView = lazy(() => import("@/components/mq/FullTrackView"));
 const PiPPlayer = lazy(() => import("@/components/mq/PiPPlayer"));
@@ -239,7 +239,6 @@ function AppShell() {
       case "stories": return <StoriesView />;
       case "onboarding": return <OnboardingView />;
       case "spatial": return <SpatialAudioView currentTrack={currentTrack} />;
-      case "taste-profile": return <TasteProfileView />;
       default: return <MainView />;
     }
   };
@@ -282,6 +281,7 @@ function AppShell() {
 
       <Suspense fallback={null}>{showNav && <PlayerBar />}</Suspense>
       <Suspense fallback={null}><FullTrackView /></Suspense>
+      <Suspense fallback={null}><MqCat /></Suspense>
       <Suspense fallback={null}><PiPPlayer /></Suspense>
       <Suspense fallback={null}>{showNav && <MobileNav />}</Suspense>
       <Suspense fallback={null}>{isAuthenticated && <NotificationPanel isOpen={notifPanelOpen} onClose={() => setNotifPanelOpen(false)} />}</Suspense>
