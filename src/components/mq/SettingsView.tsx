@@ -99,13 +99,6 @@ function MascotPreview({ size, isSelected }: { size: number; isSelected: boolean
       ctx.fillStyle = "#000000";
       ctx.fill();
 
-      // USA text
-      ctx.font = `bold ${Math.max(5, s * 0.055)}px sans-serif`;
-      ctx.fillStyle = "rgba(0,0,0,0.35)";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("USA", cx - bw * 0.25, bodyY + bh * 0.4);
-
       // Hair
       const hairBaseY = bodyY - bh * 0.88;
       ctx.beginPath();
@@ -765,10 +758,10 @@ export default function SettingsView() {
                     </p>
                     <div className="flex gap-2">
                       {([
-                        { id: "towelie" as const, emoji: "🚬", label: "Полотенчик" },
-                        { id: "stoned" as const, emoji: "💨", label: "Под кайфом" },
-                        { id: "panic" as const, emoji: "😱", label: "Паника" },
-                        { id: "lazy" as const, emoji: "😴", label: "Лень" },
+                        { id: "towelie" as const, emoji: "🚬" },
+                        { id: "stoned" as const, emoji: "💨" },
+                        { id: "panic" as const, emoji: "😱" },
+                        { id: "lazy" as const, emoji: "😴" },
                       ]).map((opt) => (
                         <button
                           key={opt.id}
@@ -789,9 +782,6 @@ export default function SettingsView() {
                           >
                             {opt.emoji}
                           </motion.span>
-                          <span className="text-[9px] mt-1 block" style={{ color: catMood === opt.id ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-                            {opt.label}
-                          </span>
                         </button>
                       ))}
                     </div>
