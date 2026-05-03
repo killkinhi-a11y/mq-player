@@ -40,7 +40,7 @@ function saveSearchHistory(items: string[]) {
 }
 
 export default function SearchView() {
-  const { searchQuery, setSearchQuery, selectedGenre, setSelectedGenre, animationsEnabled, playTrack, toggleLike, currentView, compactMode } = useAppStore();
+  const { searchQuery, setSearchQuery, selectedGenre, setSelectedGenre, animationsEnabled, playTrack, toggleLike, currentView, compactMode, setSelectedArtist } = useAppStore();
   const [showFilters, setShowFilters] = useState(false);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -624,7 +624,7 @@ export default function SearchView() {
             </h2>
             <div className="space-y-1.5 sm:space-y-2">
               {activeTracks.map((track, i) => (
-                <TrackCard key={track.id} track={track} index={i} queue={activeTracks} />
+                <TrackCard key={track.id} track={track} index={i} queue={activeTracks} onArtistClick={(name) => setSelectedArtist({ name })} />
               ))}
             </div>
           </div>

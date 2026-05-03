@@ -320,6 +320,10 @@ interface AppState {
   // Group chat
   selectedGroupId: string | null;
 
+  // Artist detail view (shared across views)
+  selectedArtist: { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number } | null;
+  setSelectedArtist: (artist: { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number } | null) => void;
+
   // Collaborative listening
   listenSession: {
     id: string;
@@ -490,6 +494,7 @@ const initialState = {
   favoriteArtists: [] as FavoriteArtist[],
   onboardingComplete: false as boolean,
   selectedGroupId: null as string | null,
+  selectedArtist: null as { name: string; avatar?: string; followers?: number; genre?: string; trackCount?: number } | null,
 
   // Collaborative listening
   listenSession: null as any,
@@ -1277,6 +1282,15 @@ export const useAppStore = create<AppState>()(
           if (s.favoriteArtists.some(a => a.id === artist.id)) return s;
           return { favoriteArtists: [...s.favoriteArtists, artist] };
         });
+      },
+
+      // ── Artist detail view ──
+      setSelectedArtist: (artist) => {
+        set({ selectedArtist: artist });
+        // Auto-switch to main view where artist detail is rendered
+        if (artist) {
+          get().setView("main");
+        }
       },
       removeFavoriteArtist: (artistId) => {
         set((s) => ({

@@ -266,6 +266,81 @@ async function resolveTemplateUrl(
   return null;
 }
 
+/**
+ * Get tracks from a specific SoundCloud user (artist page).
+ * Returns tracks sorted by release date (newest first) — i.e., new releases.
+ */
+export async function getSCUserTracks(
+  userId: number,
+  limit = 20
+): Promise<SCTrack[]> {
+  try {
+    const clientId = await getSoundCloudClientId();
+    if (!clientId) return [];
+
+    const url = `https://api-v2.soundcloud.com/users/${userId}/tracks?client_id=${clientId}&limit=${limit}&sort=created_at&direction=desc`;
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(12000),
+    });
+
+    if (res.status === 401) {
+      invalidateClientId();
+      return [];
+    }
+    if (!res.ok) return [];
+
+    const data = await res.json();
+    const tracks: Record<string, unknown>[] = data.collection || data || [];
+    if (!Array.isArray(tracks) || tracks.length === 0) return [];
+
+    return tracks
+      .filter((t: Record<string, unknown>) => {
+        const policy = (t.policy as string) || "";
+        if (policy === "BLOCK") return false;
+        const title = (t.title as string) || "";
+        const genre = (t.genre as string) || "";
+        const durationMs = (t.full_duration as number) || (t.duration as number) || 0;
+        const durationSec = Math.round(durationMs / 1000);
+        if (isNonMusicContent(title, genre, durationSec)) return false;
+        return true;
+      })
+      .map((t: Record<string, unknown>) => {
+        const user = t.user as Record<string, unknown> | undefined;
+        const artwork = t.artwork_url as string | undefined;
+        const rawCover = artwork
+          ? artwork.replace("-large.", "-t500x500.")
+          : (user?.avatar_url as string | undefined)?.replace("-large.", "-t500x500.") || "";
+        const cover = rawCover
+          ? `/api/music/soundcloud/image-proxy?url=${encodeURIComponent(rawCover)}`
+          : "";
+        const fullDuration =
+          (t.full_duration as number) || (t.duration as number) || 30000;
+        const policy = (t.policy as string) || "ALLOW";
+        const created = (t.created_at as string) || "";
+
+        return {
+          id: `sc_${t.id}`,
+          title: (t.title as string) || "Unknown Track",
+          artist: (user?.username as string) || "Unknown Artist",
+          album: "",
+          duration: Math.round(fullDuration / 1000),
+          cover: cover || "",
+          genre: (t.genre as string) || "",
+          audioUrl: "",
+          previewUrl: "",
+          source: "soundcloud" as const,
+          scTrackId: t.id as number,
+          scStreamPolicy: policy,
+          scIsFull: policy === "ALLOW",
+          createdAt: created, // ISO date string for sorting
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
 export async function searchSCTracks(
   query: string,
   limit = 20

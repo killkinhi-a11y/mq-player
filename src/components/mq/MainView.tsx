@@ -349,7 +349,7 @@ export default function MainView() {
   const {
     animationsEnabled, playTrack, likedTrackIds, dislikedTrackIds, likedTracksData, dislikedTracksData,
     history, playlists, setView, contacts, messages, userId, compactMode, currentTrack, isPlaying,
-    setSearchQuery, favoriteArtists,
+    setSearchQuery, favoriteArtists, selectedArtist, setSelectedArtist,
   } = useAppStore();
 
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
@@ -363,7 +363,6 @@ export default function MainView() {
   const [selectedCurated, setSelectedCurated] = useState<CuratedPlaylist | null>(null);
   const [selectedRecCategory, setSelectedRecCategory] = useState<{ id: string; title: string; icon: string; tracks: Track[] } | null>(null);
   const [activeMood, setActiveMood] = useState<string | null>(null);
-  const [selectedArtist, setSelectedArtist] = useState<{ name: string; avatar?: string } | null>(null);
   const [artistTracks, setArtistTracks] = useState<Track[]>([]);
   const [artistTracksLoading, setArtistTracksLoading] = useState(false);
 
@@ -764,6 +763,11 @@ export default function MainView() {
     if (likedTracksData.length > 0) playTrack(likedTracksData[0], likedTracksData);
   }, [likedTracksData, playTrack]);
 
+  // Navigate to artist detail when clicking artist name in any track card
+  const handleNavigateToArtist = useCallback((artistName: string) => {
+    setSelectedArtist({ name: artistName });
+  }, [setSelectedArtist]);
+
   const recentTracks = history.slice(0, 6);
   const hasTasteData = tasteProfile.topGenres.length > 0 || tasteProfile.topArtists.length > 0;
 
@@ -842,7 +846,7 @@ export default function MainView() {
     }
   }, [playTrack, shuffleArray]);
 
-  // ── Artist detail panel: fetch tracks when an artist is clicked ──
+  // ── Artist detail panel: fetch artist info + new releases via dedicated API ──
   useEffect(() => {
     if (!selectedArtist) return;
     let cancelled = false;
@@ -850,10 +854,20 @@ export default function MainView() {
       setArtistTracksLoading(true);
       setArtistTracks([]);
       try {
-        const res = await fetch(`/api/music/search?q=${encodeURIComponent(selectedArtist.name)}`);
+        const res = await fetch(`/api/music/artist-tracks?q=${encodeURIComponent(selectedArtist.name)}&limit=30`);
         if (res.ok && !cancelled) {
           const data = await res.json();
           setArtistTracks(data.tracks || []);
+          // Update artist info with fetched avatar and metadata if we didn't have it
+          if (data.artist && !selectedArtist.avatar) {
+            setSelectedArtist({
+              ...selectedArtist,
+              avatar: data.artist.avatar || selectedArtist.avatar,
+              followers: data.artist.followers,
+              genre: data.artist.genre,
+              trackCount: data.artist.trackCount,
+            });
+          }
         }
       } catch {
         if (!cancelled) setArtistTracks([]);
@@ -882,6 +896,12 @@ export default function MainView() {
 
   // ── Artist detail view ──
   if (selectedArtist) {
+    const handleArtistTrackClick = (artistName: string) => {
+      if (artistName.toLowerCase() !== selectedArtist.name.toLowerCase()) {
+        setSelectedArtist({ name: artistName });
+      }
+    };
+
     return (
       <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24" : "p-4 lg:p-6 pb-40 lg:pb-28"} max-w-4xl mx-auto`}>
         <motion.button
@@ -920,6 +940,23 @@ export default function MainView() {
                 <h1 className="text-2xl lg:text-3xl font-bold mb-2 truncate" style={{ color: "var(--mq-text)" }}>
                   {selectedArtist.name}
                 </h1>
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  {selectedArtist.followers != null && selectedArtist.followers > 0 && (
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", opacity: 0.8 }}>
+                      {selectedArtist.followers >= 1000000 ? `${(selectedArtist.followers / 1000000).toFixed(1)}M` : selectedArtist.followers >= 1000 ? `${(selectedArtist.followers / 1000).toFixed(1)}K` : selectedArtist.followers} подписчиков
+                    </span>
+                  )}
+                  {selectedArtist.genre && (
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}>
+                      {selectedArtist.genre}
+                    </span>
+                  )}
+                  {selectedArtist.trackCount != null && selectedArtist.trackCount > 0 && (
+                    <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                      {selectedArtist.trackCount} треков
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-3 mt-6">
@@ -939,6 +976,9 @@ export default function MainView() {
         </motion.div>
 
         <div className="mt-6">
+          <h2 className="text-lg font-bold mb-3" style={{ color: "var(--mq-text)" }}>
+            Новые релизы
+          </h2>
           {artistTracksLoading ? (
             <div className="space-y-2">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -950,7 +990,7 @@ export default function MainView() {
           ) : artistTracks.length > 0 ? (
             <div className="space-y-2">
               {artistTracks.map((track, i) => (
-                <TrackCard key={track.id} track={track} index={i} queue={artistTracks} />
+                <TrackCard key={track.id} track={track} index={i} queue={artistTracks} onArtistClick={handleArtistTrackClick} />
               ))}
             </div>
           ) : (
@@ -1043,7 +1083,7 @@ export default function MainView() {
           {cat.tracks.length > 0 ? (
             <div className="space-y-2">
               {cat.tracks.map((track, i) => (
-                <TrackCard key={track.id} track={track} index={i} queue={cat.tracks} />
+                <TrackCard key={track.id} track={track} index={i} queue={cat.tracks} onArtistClick={handleNavigateToArtist} />
               ))}
             </div>
           ) : (
@@ -1157,7 +1197,7 @@ export default function MainView() {
           {selectedCurated.tracks.length > 0 ? (
             <div className="space-y-2">
               {selectedCurated.tracks.map((track, i) => (
-                <TrackCard key={track.id} track={track} index={i} queue={selectedCurated.tracks} />
+                <TrackCard key={track.id} track={track} index={i} queue={selectedCurated.tracks} onArtistClick={handleNavigateToArtist} />
               ))}
             </div>
           ) : (
@@ -1436,7 +1476,7 @@ export default function MainView() {
           </div>
           <div className="space-y-2">
             {recentTracks.map((entry, i) => (
-              <TrackCard key={entry.track.id + "_" + entry.playedAt} track={entry.track} index={i} queue={recentTracks.map(e => e.track)} />
+              <TrackCard key={entry.track.id + "_" + entry.playedAt} track={entry.track} index={i} queue={recentTracks.map(e => e.track)} onArtistClick={handleNavigateToArtist} />
             ))}
           </div>
         </div>
@@ -1479,7 +1519,7 @@ export default function MainView() {
           {!isRecLoading && recommendations.length > 0 && recCategories.length === 0 && (
             <div className="space-y-2">
               {recommendations.slice(0, 8).map((track, i) => (
-                <TrackCard key={track.id} track={track} index={i} queue={recommendations} />
+                <TrackCard key={track.id} track={track} index={i} queue={recommendations} onArtistClick={handleNavigateToArtist} />
               ))}
             </div>
           )}
@@ -1548,7 +1588,7 @@ export default function MainView() {
         {!isLoading && trendingTracks.length > 0 && (
           <div className="space-y-2">
             {trendingTracks.slice(0, 10).map((track, i) => (
-              <TrackCard key={track.id} track={track} index={i} queue={trendingTracks} />
+              <TrackCard key={track.id} track={track} index={i} queue={trendingTracks} onArtistClick={handleNavigateToArtist} />
             ))}
           </div>
         )}

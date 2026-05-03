@@ -11,9 +11,10 @@ interface TrackCardProps {
   track: Track;
   index?: number;
   queue?: Track[];
+  onArtistClick?: (artistName: string) => void;
 }
 
-export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
+export default function TrackCard({ track, index = 0, queue, onArtistClick }: TrackCardProps) {
   const { currentTrack, isPlaying, playTrack, togglePlay, animationsEnabled,
     toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds, compactMode } = useAppStore();
   const _likedIds = Array.isArray(likedTrackIds) ? likedTrackIds : [];
@@ -174,7 +175,16 @@ export default function TrackCard({ track, index = 0, queue }: TrackCardProps) {
           <p className="font-medium text-xs sm:text-sm truncate" style={{ color: isActive ? "var(--mq-text)" : "var(--mq-text)" }}>
             {track.title}
           </p>
-          <p className="text-[10px] sm:text-xs truncate" style={{ color: isActive ? "rgba(255,255,255,0.75)" : "var(--mq-text-muted)" }}>
+          <p
+            className={`text-[10px] sm:text-xs truncate ${onArtistClick ? "cursor-pointer hover:underline" : ""}`}
+            style={{ color: isActive ? "rgba(255,255,255,0.75)" : "var(--mq-text-muted)" }}
+            onClick={(e) => {
+              if (onArtistClick) {
+                e.stopPropagation();
+                onArtistClick(track.artist);
+              }
+            }}
+          >
             {track.artist}
           </p>
         </div>

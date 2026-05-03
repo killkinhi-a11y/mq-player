@@ -10,7 +10,7 @@ import { Trash2, Clock, Music, Play } from "lucide-react";
 
 export default function HistoryView() {
   const {
-    history, clearHistory, playTrack, animationsEnabled, compactMode,
+    history, clearHistory, playTrack, animationsEnabled, compactMode, setSelectedArtist,
   } = useAppStore();
 
   const handlePlayAll = useCallback(() => {
@@ -109,7 +109,7 @@ export default function HistoryView() {
                 <div className="space-y-2">
                   {group.items.map((entry, i) => (
                     <div key={entry.track.id + "_" + entry.playedAt}>
-                      <TrackCard track={entry.track} index={gi * 10 + i} queue={history.map(h => h.track)} />
+                      <TrackCard track={entry.track} index={gi * 10 + i} queue={history.map(h => h.track)} onArtistClick={(name) => setSelectedArtist({ name })} />
                     </div>
                   ))}
                 </div>
