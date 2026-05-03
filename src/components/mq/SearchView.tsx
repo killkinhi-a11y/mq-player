@@ -201,10 +201,10 @@ export default function SearchView() {
     const fileArray = Array.from(files);
     let idx = 0;
 
-    // Allowed audio extensions
+    // Allowed audio extensions (includes lossless: FLAC, ALAC, AIFF, WAV)
     const AUDIO_EXTENSIONS = /\.(mp3|wav|ogg|flac|aac|m4a|webm|opus|wma|aiff|alac)$/i;
-    // 20MB max
-    const MAX_SIZE = 20 * 1024 * 1024;
+    // 200MB max (lossless formats like FLAC can be large)
+    const MAX_SIZE = 200 * 1024 * 1024;
 
     const processNext = () => {
       if (idx >= fileArray.length) {
