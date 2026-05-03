@@ -190,32 +190,43 @@ export default function MqCat() {
     setShowPetEffect(false);
   }, []);
 
-  // Mood-based visual tweaks
-  const moodFilter = useMemo(() => {
+  // Mood-based animation config
+  const moodConfig = useMemo(() => {
     switch (catMood) {
       case "sleepy":
-        return "brightness(0.7) saturate(0.6)";
+        return {
+          animate: { y: [0, -2, 1, -1, 0], rotate: [8, 10, 6, 9, 8], scale: [1, 1.01, 1, 1.01, 1] },
+          transition: { duration: 6, repeat: Infinity, ease: "easeInOut" as const },
+          filter: "brightness(0.65) saturate(0.5) blur(0.3px)",
+          extraNotes: false,
+        };
       case "excited":
-        return "brightness(1.1) saturate(1.2)";
+        return {
+          animate: { y: [0, -10, -4, -12, -2, -8, 0], rotate: [0, 3, -2, 4, -1, 2, 0], scale: [1, 1.08, 0.96, 1.1, 0.98, 1.05, 1] },
+          transition: { duration: 1.4, repeat: Infinity, ease: "easeInOut" as const },
+          filter: "brightness(1.12) saturate(1.3)",
+          extraNotes: true,
+        };
       case "sassy":
-        return "brightness(0.95) contrast(1.05)";
+        return {
+          animate: { y: [0, -4, -1, -5, 0], rotate: [-6, -3, -8, -4, -6], scale: [1, 1.02, 0.98, 1.01, 1] },
+          transition: { duration: 3.5, repeat: Infinity, ease: [0.4, 0, 0.6, 1] as const },
+          filter: "brightness(0.92) contrast(1.1) hue-rotate(-10deg)",
+          extraNotes: false,
+        };
       default:
-        return "brightness(1) saturate(1)";
+        return {
+          animate: { y: [0, -7, -3, -9, -1, -5, 0], rotate: [0, 1.5, -1, 0.8, -0.5, 1, 0] },
+          transition: { duration: 4, repeat: Infinity, ease: "easeInOut" as const },
+          filter: "brightness(1) saturate(1)",
+          extraNotes: true,
+        };
     }
   }, [catMood]);
 
-  const moodRotation = useMemo(() => {
-    switch (catMood) {
-      case "sassy":
-        return -5;
-      case "sleepy":
-        return 8;
-      case "excited":
-        return 0;
-      default:
-        return 0;
-    }
-  }, [catMood]);
+  // Pet animation overrides
+  const petAnimate = { y: [0, -6, 0, -5, 0], rotate: [0, -8, 5, -4, 0], scale: [1, 1.08, 1.02, 1.1, 1] };
+  const petTransition = { duration: 0.5, repeat: Infinity, ease: "easeInOut" as const };
 
   // Schedule appearance
   useEffect(() => {
@@ -279,6 +290,65 @@ export default function MqCat() {
             mass: 0.7,
           }}
         >
+          {/* Sleepy Zzz particles */}
+          {catMood === "sleepy" && !isPetting && (
+            <div className="absolute -top-6 right-2 pointer-events-none mq-no-transition">
+              {[0, 1, 2].map((i) => (
+                <motion.span
+                  key={i}
+                  className="absolute mq-no-transition text-xs font-bold"
+                  style={{ color: "var(--mq-text-muted)", left: `${i * 12}px` }}
+                  animate={{
+                    y: [0, -18, -10],
+                    opacity: [0, 0.6, 0],
+                    scale: [0.6, 1, 0.8],
+                  }}
+                  transition={{
+                    duration: 2.5,
+                    repeat: Infinity,
+                    ease: "easeOut",
+                    delay: i * 0.8,
+                  }}
+                >
+                  z
+                </motion.span>
+              ))}
+            </div>
+          )}
+
+          {/* Excited sparkles */}
+          {catMood === "excited" && !isPetting && (
+            <>
+              <div className="absolute -top-4 -left-2 pointer-events-none mq-no-transition">
+                <motion.span
+                  className="text-sm mq-no-transition"
+                  style={{ color: "var(--mq-accent)" }}
+                  animate={{ y: [0, -14, -6], opacity: [0.4, 0.9, 0.2], rotate: [0, 15, -10] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                >✦</motion.span>
+              </div>
+              <div className="absolute -top-1 -right-3 pointer-events-none mq-no-transition">
+                <motion.span
+                  className="text-xs mq-no-transition"
+                  style={{ color: "var(--mq-accent)" }}
+                  animate={{ y: [0, -10, -3], opacity: [0.3, 0.7, 0.1], rotate: [0, -12, 8] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
+                >✦</motion.span>
+              </div>
+            </>
+          )}
+
+          {/* Sassy side-eye indicator */}
+          {catMood === "sassy" && !isPetting && (
+            <div className="absolute -top-1 left-1/2 -translate-x-1/2 pointer-events-none mq-no-transition">
+              <motion.span
+                className="text-[10px] mq-no-transition"
+                animate={{ opacity: [0, 0.5, 0], y: [2, -4, -8] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeOut", delay: 2 }}
+              >._.</motion.span>
+            </div>
+          )}
+
           {/* Speech bubble */}
           <motion.div
             className="absolute mq-no-transition"
@@ -357,37 +427,8 @@ export default function MqCat() {
             {/* Main floating animation */}
             <motion.div
               className="w-full h-full relative mq-no-transition"
-              animate={
-                isPetting
-                  ? {
-                      y: [0, -5, 0, -4, 0],
-                      rotate: [0, -6, 4, -3, 0],
-                      scale: [1, 1.05, 1.02, 1.06, 1],
-                    }
-                  : catMood === "excited"
-                  ? {
-                      y: [0, -8, -2, -6, 0],
-                      rotate: [0, 2, -1, 1.5, 0],
-                    }
-                  : catMood === "sleepy"
-                  ? {
-                      y: [0, -2, 0],
-                      rotate: [moodRotation, moodRotation + 2, moodRotation],
-                    }
-                  : {
-                      y: [0, -6, -2, -8, 0],
-                      rotate: [0, 1, -0.5, 0.5, 0],
-                    }
-              }
-              transition={
-                isPetting
-                  ? { duration: 0.6, repeat: Infinity, ease: "easeInOut" }
-                  : catMood === "sleepy"
-                  ? { duration: 5, repeat: Infinity, ease: "easeInOut" }
-                  : catMood === "excited"
-                  ? { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
-                  : { duration: 4, repeat: Infinity, ease: "easeInOut" }
-              }
+              animate={isPetting ? petAnimate : moodConfig.animate}
+              transition={isPetting ? petTransition : moodConfig.transition}
             >
               {/* Cat image — no wrapper, no background card, no border */}
               <img
@@ -395,24 +436,12 @@ export default function MqCat() {
                 alt="MQ mascot"
                 className="w-full h-full object-contain mq-no-transition"
                 style={{
-                  filter: moodFilter,
-                  transition: "filter 0.5s ease",
+                  filter: isPetting ? "brightness(1.15) saturate(1.2)" : moodConfig.filter,
+                  transition: "filter 0.6s ease",
                   imageRendering: "auto",
                 }}
                 draggable={false}
               />
-
-              {/* Sleepy overlay */}
-              {catMood === "sleepy" && !isPetting && (
-                <motion.div
-                  className="absolute inset-0 mq-no-transition"
-                  animate={{ opacity: [0.15, 0.25, 0.15] }}
-                  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                  style={{
-                    background: "radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.05) 70%)",
-                  }}
-                />
-              )}
 
               {/* Pet glow effect */}
               {isPetting && (
@@ -430,18 +459,18 @@ export default function MqCat() {
               )}
             </motion.div>
 
-            {/* Floating music notes (ambient) */}
-            {!isPetting && catMood !== "sleepy" && (
+            {/* Floating music notes (friendly + excited) */}
+            {!isPetting && moodConfig.extraNotes && (
               <div className="absolute -top-3 -left-1 pointer-events-none mq-no-transition">
                 <motion.span
                   className="text-sm mq-no-transition"
-                  style={{ opacity: 0.5, color: "var(--mq-accent)" }}
+                  style={{ color: "var(--mq-accent)" }}
                   animate={{
-                    y: [0, -12, -6],
-                    opacity: [0.5, 0.7, 0.3],
-                    rotate: [0, 10, -5],
+                    y: [0, -14, -6],
+                    opacity: [0.4, 0.8, 0.2],
+                    rotate: [0, 12, -6],
                   }}
-                  transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                  transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
                 >
                   ♪
                 </motion.span>
@@ -452,13 +481,13 @@ export default function MqCat() {
               <div className="absolute -top-2 -right-2 pointer-events-none mq-no-transition">
                 <motion.span
                   className="text-xs mq-no-transition"
-                  style={{ opacity: 0.6, color: "var(--mq-accent)" }}
+                  style={{ color: "var(--mq-accent)" }}
                   animate={{
-                    y: [0, -10, -4],
-                    opacity: [0.6, 0.8, 0.2],
-                    rotate: [0, -8, 6],
+                    y: [0, -12, -4],
+                    opacity: [0.3, 0.9, 0.1],
+                    rotate: [0, -10, 8],
                   }}
-                  transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                  transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
                 >
                   ♫
                 </motion.span>

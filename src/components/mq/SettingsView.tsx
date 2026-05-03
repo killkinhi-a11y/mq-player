@@ -614,24 +614,30 @@ export default function SettingsView() {
                     </p>
                     <div className="flex gap-2">
                       {([
-                        { id: "friendly" as const, label: "Дружелюбный", emoji: "😺" },
-                        { id: "sassy" as const, label: "Дерзкий", emoji: "😼" },
-                        { id: "sleepy" as const, label: "Сонный", emoji: "😴" },
-                        { id: "excited" as const, label: "Восторженный", emoji: "😸" },
+                        { id: "friendly" as const, emoji: "😺" },
+                        { id: "sassy" as const, emoji: "😼" },
+                        { id: "sleepy" as const, emoji: "😴" },
+                        { id: "excited" as const, emoji: "😸" },
                       ]).map((opt) => (
                         <button
                           key={opt.id}
                           onClick={() => setCatMood(opt.id)}
-                          className="flex-1 p-2 rounded-xl text-center transition-all"
+                          className="flex-1 p-3 rounded-xl text-center transition-all"
                           style={{
                             backgroundColor: catMood === opt.id ? "rgba(255,255,255,0.06)" : "transparent",
                             border: catMood === opt.id ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
                           }}
                         >
-                          <span className="text-lg">{opt.emoji}</span>
-                          <p className="text-[9px] mt-1" style={{ color: catMood === opt.id ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-                            {opt.label}
-                          </p>
+                          <motion.span
+                            className="text-2xl block"
+                            animate={catMood === opt.id
+                              ? { scale: [1, 1.2, 1], rotate: [0, -5, 5, 0] }
+                              : {}
+                            }
+                            transition={{ duration: 0.4, ease: "easeInOut" }}
+                          >
+                            {opt.emoji}
+                          </motion.span>
                         </button>
                       ))}
                     </div>
