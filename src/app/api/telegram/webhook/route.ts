@@ -6,6 +6,9 @@ import { handleTelegramMessage, handleCallbackQuery, setSiteOrigin } from "@/lib
  *
  * Handles both messages and callback_query (inline keyboard presses).
  * Delegates to telegram-bot.ts for all command/state logic.
+ *
+ * Uses Node.js runtime (Prisma requires it).
+ * To reduce cold starts, Vercel keeps the function warm after first invocation.
  */
 export async function POST(req: NextRequest) {
   try {

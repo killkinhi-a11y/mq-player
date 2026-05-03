@@ -189,16 +189,13 @@ export async function resolveSCStreamUrl(scTrackId: number): Promise<string | nu
     "1Gbi6DBGBMULQH8MuhNvI1HzL9AiX2Pa",
     "qYUIEFbSZdXPABQbuHA2Tv8C9ndesHim",
     "S3TPtG5i3yzBs1BPd50h1N5TW2kNTo5k",
-    "gYfbOmxjDgPKEbOlXIBOAOvFpWkf8SbA",
-    "nDSHHx4FpO2gOGKmGqLaWbDXEmwo4RAC",
   ];
 
   for (const clientId of CLIENT_IDS_STREAM) {
     try {
-      // 1. Get track info with transcodings
       const trackRes = await fetch(
         `https://api-v2.soundcloud.com/tracks/${scTrackId}?client_id=${clientId}`,
-        { signal: AbortSignal.timeout(10000), headers: { Accept: "application/json" } }
+        { signal: AbortSignal.timeout(4000), headers: { Accept: "application/json" } }
       );
       if (!trackRes.ok) continue;
 
@@ -208,26 +205,33 @@ export async function resolveSCStreamUrl(scTrackId: number): Promise<string | nu
 
       const trackAuthorization = (track as Record<string, unknown>).track_authorization as string || "";
 
-      // 2. Try progressive (MP3) first — Telegram plays these natively
-      const progressive = transcodings.find((t) => t.format?.protocol === "progressive");
-      if (progressive?.url) {
-        const resolved = await resolveTemplateUrl(progressive.url, clientId, trackAuthorization);
-        if (resolved) return resolved;
-      }
-
-      // 3. Try plain HLS
-      const hls = transcodings.find((t) => t.format?.protocol === "hls");
-      if (hls?.url) {
-        const resolved = await resolveTemplateUrl(hls.url, clientId, trackAuthorization);
-        if (resolved) return resolved;
-      }
-
-      // 4. Try any other transcoding
+      // Collect candidates: progressive first, then hls, then others
+      const candidates: string[] = [];
       for (const tc of transcodings) {
-        if (tc.url && tc.format?.protocol !== "progressive" && tc.format?.protocol !== "hls") {
-          const resolved = await resolveTemplateUrl(tc.url, clientId, trackAuthorization);
-          if (resolved) return resolved;
-        }
+        if (!tc.url) continue;
+        if (tc.format?.protocol === "progressive") candidates.unshift(tc.url);
+        else if (tc.format?.protocol === "hls") candidates.push(tc.url);
+        else candidates.push(tc.url);
+      }
+
+      // Try first 2 candidates in parallel (saves ~4s vs sequential)
+      const batch = candidates.slice(0, 2);
+      if (batch.length === 1) {
+        const r = await resolveTemplateUrl(batch[0], clientId, trackAuthorization);
+        if (r) return r;
+      } else if (batch.length >= 2) {
+        const [r1, r2] = await Promise.all([
+          resolveTemplateUrl(batch[0], clientId, trackAuthorization),
+          resolveTemplateUrl(batch[1], clientId, trackAuthorization),
+        ]);
+        if (r1) return r1;
+        if (r2) return r2;
+      }
+
+      // Sequential fallback for remaining candidates
+      for (const url of candidates.slice(2)) {
+        const r = await resolveTemplateUrl(url, clientId, trackAuthorization);
+        if (r) return r;
       }
     } catch {
       continue;
@@ -248,7 +252,7 @@ async function resolveTemplateUrl(
       url += `&track_authorization=${encodeURIComponent(trackAuthorization)}`;
     }
     const res = await fetch(url, {
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(4000),
       headers: {
         Accept: "application/json",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",

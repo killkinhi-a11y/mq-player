@@ -607,19 +607,21 @@ async function handleAuthCode(chatId: string, from: Record<string, any>) {
   const code = crypto.randomInt(100000, 999999).toString();
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-  await db.telegramAuthCode.deleteMany({
-    where: { chatId, used: false, expiresAt: { gt: new Date() } },
-  });
-
-  await db.telegramAuthCode.create({
-    data: {
-      chatId,
-      telegramUserId: BigInt(from.id),
-      telegramUsername: from.username || null,
-      code,
-      expiresAt,
-    },
-  });
+  // Delete old unused codes + create new one in parallel
+  await Promise.all([
+    db.telegramAuthCode.deleteMany({
+      where: { chatId, used: false, expiresAt: { gt: new Date() } },
+    }),
+    db.telegramAuthCode.create({
+      data: {
+        chatId,
+        telegramUserId: BigInt(from.id),
+        telegramUsername: from.username || null,
+        code,
+        expiresAt,
+      },
+    }),
+  ]);
 
   await sendTelegramMessage(chatId,
     `🔐 <b>Код подтверждения mq:</b>\n\n<code>${code}</code>\n\nКод действителен 10 минут.`,
