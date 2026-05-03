@@ -791,6 +791,8 @@ export default function PlayerBar() {
     if (currentTrack.id !== prevTrackIdRef.current) {
       prevTrackIdRef.current = currentTrack.id;
       setProgress(0);
+      // Reset duration to 0 until audio loads — prevents showing previous track's duration
+      setDuration(0);
       retryCountRef.current = 0;
       // (diversity set removed — server resolves CDN URLs now)
     }
@@ -1330,14 +1332,6 @@ export default function PlayerBar() {
 
   const progressPct = duration > 0 ? (progress / duration) * 100 : 0;
 
-  const modeLabel = (() => {
-    if (isLoadingTrack) return null;
-    if (currentTrack.scIsFull) {
-      return <span style={{ color: "#ff5500", marginLeft: 6, fontSize: 10 }}>&#9654; Полный трек</span>;
-    }
-    return <span style={{ color: "var(--mq-text-muted)", marginLeft: 6, fontSize: 10 }}>Превью 30с</span>;
-  })();
-
   return (
     <motion.div
       ref={playerBarRef}
@@ -1389,7 +1383,6 @@ export default function PlayerBar() {
             <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
             <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
               {currentTrack.artist}
-              {modeLabel}
               {playError && <span className="ml-1.5 px-1.5 py-0 rounded text-[9px]" style={{ backgroundColor: "rgba(239,68,68,0.2)", color: "#ef4444" }}>Ошибка</span>}
             </p>
           </div>

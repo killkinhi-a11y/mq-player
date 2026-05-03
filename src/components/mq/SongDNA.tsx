@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import type { Track } from "@/lib/musicApi";
+import DNAHelixVisual from "./DNAHelixVisual";
 
 // ── Types ─────────────────────────────────────────────────────
 interface SongDNAProps {
@@ -173,7 +174,7 @@ function getSourceLabel(source: string): { label: string; color: string } {
 
 // ── Format duration mm:ss ─────────────────────────────────────
 function formatTime(seconds: number): string {
-  if (!seconds || seconds <= 0) return "0:00";
+  if (!seconds || !isFinite(seconds) || seconds <= 0) return "0:00";
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
@@ -182,21 +183,21 @@ function formatTime(seconds: number): string {
 // ── Animation variants ────────────────────────────────────────
 const panelVariants = {
   hidden: { y: "100%" as const },
-  visible: { y: 0, transition: { type: "spring" as const, damping: 25, stiffness: 300 } },
-  exit: { y: "100%" as const, transition: { type: "spring" as const, damping: 25, stiffness: 300 } },
+  visible: { y: 0, transition: { type: "spring" as const, damping: 30, stiffness: 260 } },
+  exit: { y: "100%" as const, transition: { type: "spring" as const, damping: 30, stiffness: 260 } },
 };
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12 },
   visible: (i: number) => ({
     opacity: 1, y: 0,
-    transition: { delay: i * 0.07, duration: 0.3, ease: "easeOut" as const },
+    transition: { delay: i * 0.06, duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
   }),
 };
 
 // ── Main Component ────────────────────────────────────────────
 export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
-  const { playTrack } = useAppStore();
+  const { playTrack, isPlaying } = useAppStore();
   const [similarTracks, setSimilarTracks] = useState<Track[]>([]);
   const [similarLoading, setSimilarLoading] = useState(false);
   const [dnaAnimated, setDnaAnimated] = useState(false);
@@ -370,6 +371,31 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
             className="overflow-y-auto px-4 pb-4 space-y-5"
             style={{ maxHeight: "64vh" }}
           >
+            {/* ── Interactive DNA Helix ─────────────────── */}
+            <motion.div
+              custom={-1}
+              variants={fadeUp}
+              initial="hidden"
+              animate="visible"
+              className="rounded-xl overflow-hidden"
+              style={{
+                backgroundColor: "var(--mq-input-bg)",
+                border: "1px solid var(--mq-border)",
+              }}
+            >
+              <DNAHelixVisual
+                isPlaying={isPlaying}
+                genre={track.genre}
+                compact
+              />
+              <div className="flex items-center justify-center gap-2 pb-2">
+                <Dna className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
+                <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                  Перетаскивай для взаимодействия
+                </span>
+              </div>
+            </motion.div>
+
             {/* ── Track DNA Card ─────────────────────────── */}
             <motion.div
               custom={0}
@@ -391,7 +417,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                 style={{
                   width: dnaAnimated ? "100%" : "0%",
                   background: `linear-gradient(90deg, transparent, var(--mq-accent), transparent)`,
-                  transition: "width 1.2s cubic-bezier(0.22, 1, 0.36, 1)",
+                  transition: "width 1.5s cubic-bezier(0.22, 1, 0.36, 1)",
                 }}
               />
 
@@ -446,7 +472,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                       animate={{
                         width: dnaAnimated ? "72%" : "0%",
                       }}
-                      transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
+                      transition={{ delay: 0.2, duration: 1.0, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
                       className="h-full rounded-full"
                       style={{ backgroundColor: mood.color, opacity: 0.7 }}
                     />

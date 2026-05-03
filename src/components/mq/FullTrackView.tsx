@@ -8,7 +8,6 @@ import {
   Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, PictureInPicture2, Waves, Dna
 } from "lucide-react";
 import SongDNA from "./SongDNA";
-import DNAHelixVisual from "./DNAHelixVisual";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { getAudioElement, resumeAudioContext } from "@/lib/audioEngine";
@@ -858,8 +857,8 @@ export default function FullTrackView() {
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
+        animate={{ opacity: 1, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } }}
+        exit={{ opacity: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } }}
         className="fixed inset-0 z-[100] flex flex-col"
         style={{ backgroundColor: "var(--mq-bg)" }}
       >
@@ -870,8 +869,7 @@ export default function FullTrackView() {
           style={{ opacity: isPlaying ? 0.7 : 0.15, transition: "opacity 0.5s" }}
         />
 
-        {/* Interactive DNA Helix — visible on large screens, right side */}
-        <DNAHelixVisual isPlaying={isPlaying} genre={currentTrack?.genre} />
+        {/* Interactive DNA Helix — now embedded in SongDNA panel */}
 
         {/* Blurred background */}
         <div className="absolute inset-0 z-0" style={{ pointerEvents: "none" }}>
