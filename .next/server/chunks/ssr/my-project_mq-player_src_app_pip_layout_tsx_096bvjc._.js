@@ -1,3 +1,0 @@
-module.exports=[25662,a=>{"use strict";var b=a.i(46140),c=a.i(32049);a.s(["default",0,function({children:a}){return(0,c.useEffect)(()=>{let a=document.getElementById("mq-splash");a&&a.remove(),document.body.style.margin="0",document.body.style.padding="0",document.body.style.backgroundColor="#0e0e0e",document.body.style.overflow="hidden",document.body.style.userSelect="none",document.body.style.fontFamily='-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'},[]),(0,b.jsx)(b.Fragment,{children:a})}])}];
-
-//# sourceMappingURL=my-project_mq-player_src_app_pip_layout_tsx_096bvjc._.js.map

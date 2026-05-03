@@ -8,7 +8,7 @@ import crypto from "crypto";
  *
  * Receives messages from the Telegram bot. When a user sends /start or any message,
  * the bot generates a 6-digit verification code, stores it, and sends it back.
- * The user then enters this code on the MQ Player website to authenticate.
+ * The user then enters this code on the mq website to authenticate.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -34,10 +34,10 @@ export async function POST(req: NextRequest) {
     // Handle /start command
     const text = message.text || "";
     if (text.startsWith("/start")) {
-      const welcomeMessage = `🎵 <b>Добро пожаловать в MQ Player!</b>\n\n` +
+      const welcomeMessage = `🎵 <b>Добро пожаловать в mq!</b>\n\n` +
         `Я отправлю вам код подтверждения для входа.\n` +
         `Введите <b>любое сообщение</b> (или отправьте /code), и я пришлю вам 6-значный код.\n\n` +
-        `Затем введите этот код на сайте MQ Player для авторизации.`;
+        `Затем введите этот код на сайте mq для авторизации.`;
 
       await sendTelegramMessage(chatId, welcomeMessage, { parseMode: "HTML" });
       return NextResponse.json({ ok: true });
@@ -70,10 +70,10 @@ export async function POST(req: NextRequest) {
       });
 
       // Send the code back to the user
-      const codeMessage = `🔐 <b>Код подтверждения MQ Player:</b>\n\n` +
+      const codeMessage = `🔐 <b>Код подтверждения mq:</b>\n\n` +
         `<code>${code}</code>\n\n` +
         `⏱ Код действителен 10 минут.\n` +
-        `Введите его на сайте MQ Player для входа или регистрации.`;
+        `Введите его на сайте mq для входа или регистрации.`;
 
       await sendTelegramMessage(chatId, codeMessage, { parseMode: "HTML" });
       return NextResponse.json({ ok: true });

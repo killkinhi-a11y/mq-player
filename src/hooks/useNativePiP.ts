@@ -343,7 +343,7 @@ function updatePiPContent(pip: Window, s: PiPState) {
 
 function buildPiPHTML(): string {
   return '<!DOCTYPE html><html><head><meta charset="utf-8">'
-    + '<title>MQ Player</title>'
+    + '<title>mq</title>'
     + '<style>' + CSS + '</style>'
     + '</head><body>'
     + '<div id="mq-pip-container">'
@@ -351,7 +351,7 @@ function buildPiPHTML(): string {
     + '<div id="pip-header"><div id="pip-drag-handle"><div id="pip-drag-bar"></div></div></div>'
     + '<div id="pip-content">'
     + '<div id="pip-cover"></div>'
-    + '<div id="pip-info"><div id="pip-title">MQ Player</div><div id="pip-artist">...</div></div>'
+    + '<div id="pip-info"><div id="pip-title">mq</div><div id="pip-artist">...</div></div>'
     + '<div id="pip-eq"><div class="eq-bar" style="--i:0"></div><div class="eq-bar" style="--i:1"></div><div class="eq-bar" style="--i:2"></div></div>'
     + '</div>'
     + '<div id="pip-controls">'

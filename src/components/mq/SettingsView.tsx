@@ -380,7 +380,7 @@ export default function SettingsView() {
           Настройки
         </h1>
         <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-          Персонализируйте ваш MQ Player
+          Персонализируйте ваш mq
         </p>
       </motion.div>
 
@@ -413,7 +413,7 @@ export default function SettingsView() {
             <p className="font-semibold" style={{ color: "var(--mq-text)" }}>{username}</p>
             <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
               <Music className="w-3 h-3 inline mr-1" />
-              MQ Player Premium
+              mq Premium
             </p>
           </div>
         </div>
@@ -745,7 +745,7 @@ export default function SettingsView() {
                   </div>
                   <div>
                     <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Стандартный</span>
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Обычный вид MQ Player</p>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Обычный вид mq</p>
                   </div>
                   {!currentStyle && (
                     <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
@@ -1353,7 +1353,7 @@ export default function SettingsView() {
           <h2 className="font-semibold" style={{ color: "var(--mq-text)" }}>Приложение для компьютера</h2>
         </div>
         <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
-          Установите MQ Player как нативное приложение. Автоматические обновления, ярлык на рабочем столе, работа в фоновом режиме.
+          Установите mq как нативное приложение. Автоматические обновления, ярлык на рабочем столе, работа в фоновом режиме.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1444,7 +1444,7 @@ export default function SettingsView() {
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-            Код подтверждения будет отправлен на {email}
+            Код подтверждения будет отправлен вам
           </p>
           {error && (
             <p className="text-sm" style={{ color: "#ef4444" }}>{error}</p>
@@ -1572,7 +1572,7 @@ export default function SettingsView() {
                     const res = await fetch("/api/user/delete-account", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ email: state.email }),
+                    body: JSON.stringify({ email }),
                     });
                     if (!res.ok) {
                       const data = await res.json();

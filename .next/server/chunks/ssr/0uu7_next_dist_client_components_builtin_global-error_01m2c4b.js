@@ -1,3 +1,0 @@
-module.exports=[98154,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(19772);a.n(d("[project]/my-project/mq-player/node_modules/next/dist/client/components/builtin/global-error.js <module evaluation>"))},590,(a,b,c)=>{let{createClientModuleProxy:d}=a.r(19772);a.n(d("[project]/my-project/mq-player/node_modules/next/dist/client/components/builtin/global-error.js"))},30435,a=>{"use strict";a.i(98154);var b=a.i(590);a.n(b)},77984,a=>{a.n(a.i(30435))}];
-
-//# sourceMappingURL=0uu7_next_dist_client_components_builtin_global-error_01m2c4b.js.map

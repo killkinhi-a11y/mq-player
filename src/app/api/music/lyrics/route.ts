@@ -78,7 +78,7 @@ async function handler(request: NextRequest) {
     const query = `${encodeURIComponent(artist.trim())} ${encodeURIComponent(title.trim())}`;
     const res = await fetch(`https://lrclib.net/api/search?q=${query}`, {
       headers: {
-        "User-Agent": "MQPlayer/1.0 (lyrics fetcher)",
+        "User-Agent": "mq/1.0 (lyrics fetcher)",
       },
       signal: AbortSignal.timeout(8000),
     });

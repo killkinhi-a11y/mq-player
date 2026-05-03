@@ -158,7 +158,7 @@ export default function AdminDashboard() {
           Дашборд
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
-          Обзор системы MQ Player
+          Обзор системы mq
         </p>
       </div>
 

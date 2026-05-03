@@ -11,9 +11,9 @@ const spaceGrotesk = Space_Grotesk({ variable: "--font-space-grotesk", subsets: 
 
 export const metadata: Metadata = {
   title: "mq — Музыкальный плеер",
-  description: "MQ Player — современный музыкальный плеер с зашифрованным мессенджером, таймером сна и кастомизацией",
-  keywords: ["MQ Player", "music", "player", "мессенджер", "шифрование"],
-  authors: [{ name: "MQ Player Team" }],
+  description: "mq — современный музыкальный плеер с зашифрованным мессенджером, таймером сна и кастомизацией",
+  keywords: ["mq", "music", "player", "мессенджер", "шифрование"],
+  authors: [{ name: "mq Team" }],
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",

@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     const msgResult = await sendTelegramMessage(
       chatId,
-      "🧪 Тестовое сообщение из MQ Player — бот работает!"
+      "🧪 Тестовое сообщение из mq — бот работает!"
     );
 
     return NextResponse.json({

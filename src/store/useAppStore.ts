@@ -85,6 +85,7 @@ interface AppState {
   userId: string | null;
   username: string | null;
   email: string | null;
+  telegramUsername: string | null;
   avatar: string | null;
   userRole: string;
   currentView: ViewType;
@@ -210,7 +211,7 @@ interface AppState {
   releaseRadarLoading: boolean;
 
   // Actions
-  setAuth: (userId: string, username: string, email: string, role?: string, avatar?: string | null) => void;
+  setAuth: (userId: string, username: string, email: string, role?: string, avatar?: string | null, telegramUsername?: string | null) => void;
   logout: () => void;
   syncToServer: () => Promise<void>;
   syncFromServer: () => Promise<void>;
@@ -397,6 +398,7 @@ const initialState = {
   userId: null as string | null,
   username: null as string | null,
   email: null as string | null,
+  telegramUsername: null as string | null,
   avatar: null as string | null,
   currentView: "auth" as ViewType,
   authStep: "telegram" as AuthStep,
@@ -538,8 +540,8 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       ...initialState,
 
-      setAuth: (userId, username, email, role, avatar) => {
-        set({ isAuthenticated: true, userId, username, email, userRole: role || "user", avatar: avatar || null, currentView: "main" });
+      setAuth: (userId, username, email, role, avatar, telegramUsername) => {
+        set({ isAuthenticated: true, userId, username, email, telegramUsername: telegramUsername || null, userRole: role || "user", avatar: avatar || null, currentView: "main" });
         // Load saved theme from account
         fetch('/api/user/theme')
           .then(r => r.json())
@@ -1816,7 +1818,7 @@ export const useAppStore = create<AppState>()(
                 }
                 // Session valid — restore user info from server
                 const me = await res.json();
-                useAppStore.getState().setAuth(me.userId, me.username, me.email, me.role, me.avatar);
+                useAppStore.getState().setAuth(me.userId, me.username, me.email, me.role, me.avatar, me.telegramUsername);
                 // Sync local data to server after short delay
                 setTimeout(() => {
                   useAppStore.getState().syncToServer();

@@ -162,7 +162,7 @@ self.addEventListener('push', (event) => {
 
   try {
     const data = event.data.json();
-    const title = data.title || 'MQ Player';
+    const title = data.title || 'mq';
     const options = {
       body: data.body || '',
       icon: '/favicon.ico',

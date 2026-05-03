@@ -255,7 +255,7 @@ export default function ShareTrackPage() {
             className="text-sm px-5 py-2 rounded-lg transition-colors"
             style={{ background: "#e03131", color: "#fff" }}
           >
-            Открыть MQ Player
+            Открыть mq
           </a>
         </div>
       </div>

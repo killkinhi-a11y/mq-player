@@ -29,7 +29,7 @@ function fmt(sec: number): string {
 }
 
 const INITIAL: PiPState = {
-  title: "MQ Player",
+  title: "mq",
   artist: "",
   cover: null,
   isPlaying: false,

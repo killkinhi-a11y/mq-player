@@ -12,7 +12,7 @@
  */
 
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
-const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || "MQ Player";
+const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || "mq";
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL; // e.g. "killkin.hi@gmail.com"
 
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
@@ -75,7 +75,7 @@ async function sendEmail({ to, subject, htmlContent }: { to: string; subject: st
 }
 
 /**
- * Build the MQ Player email template.
+ * Build the mq email template.
  */
 function escapeHtml(str: string): string {
   return str
@@ -116,7 +116,7 @@ export async function sendVerificationEmail(to: string, code: string) {
   try {
     const result = await sendEmail({
       to,
-      subject: "Код подтверждения — MQ Player",
+      subject: "Код подтверждения — mq",
       htmlContent: emailTemplate(
         "Подтверждение email",
         "Введите этот код для подтверждения аккаунта:",
@@ -139,7 +139,7 @@ export async function sendPasswordResetEmail(to: string, code: string) {
   try {
     const result = await sendEmail({
       to,
-      subject: "Восстановление пароля — MQ Player",
+      subject: "Восстановление пароля — mq",
       htmlContent: emailTemplate(
         "Восстановление пароля",
         "Введите этот код для сброса пароля:",

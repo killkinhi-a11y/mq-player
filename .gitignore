@@ -77,4 +77,4 @@ Thumbs.db:encryptable
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-```
+```.next/

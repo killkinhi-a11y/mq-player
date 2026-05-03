@@ -18,7 +18,7 @@ function createWindow() {
     height: 820,
     minWidth: 900,
     minHeight: 600,
-    title: "MQ Player",
+    title: "mq",
     icon: path.join(__dirname, "..", "public", "icon-512.png"),
     backgroundColor: "#0e0e0e",
     show: false,

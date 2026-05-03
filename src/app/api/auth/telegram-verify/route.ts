@@ -138,6 +138,7 @@ async function handler(req: NextRequest) {
           username: user.username,
           role: user.role,
           avatar: user.avatar || null,
+          telegramUsername: user.telegramUsername || telegramCode.telegramUsername || null,
           isNewUser: false,
           linked: true,
         });
@@ -193,6 +194,7 @@ async function handler(req: NextRequest) {
         username: user.username,
         role: user.role,
         avatar: user.avatar || null,
+        telegramUsername: user.telegramUsername || telegramCode.telegramUsername || null,
         isNewUser: true,
       });
 
@@ -244,6 +246,7 @@ async function handler(req: NextRequest) {
         username: existingUser.username,
         role: existingUser.role,
         avatar: existingUser.avatar || null,
+        telegramUsername: existingUser.telegramUsername || telegramCode.telegramUsername || null,
         isNewUser: false,
       });
 

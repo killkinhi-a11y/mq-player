@@ -55,7 +55,7 @@ export default function PlaylistExportView({
         text += `${i + 1}. ${track.artist} — ${track.title}${dur ? ` (${dur})` : ""}\n`;
       });
       text += `\n${pluralize(trackCount)} • ${pluralizeMin(totalMinutes)}\n`;
-      text += `\nShared via MQ Player`;
+      text += `\nShared via mq`;
 
       await navigator.clipboard.writeText(text);
       setStatus("copied");
@@ -274,7 +274,7 @@ export default function PlaylistExportView({
       ctx.font = "bold 32px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "bottom";
-      ctx.fillText("mq player", SIZE / 2, SIZE - 40);
+      ctx.fillText("mq", SIZE / 2, SIZE - 40);
 
       // ── Subtle top border line ──
       ctx.strokeStyle = "rgba(224, 49, 49, 0.3)";

@@ -12,7 +12,7 @@ const USERNAME_RULES = "Буквы, цифры, _ и -. 2-20 символов.";
 
 export default function ProfileView() {
   const {
-    username, email, avatar, likedTrackIds, dislikedTrackIds,
+    username, telegramUsername, email, avatar, likedTrackIds, dislikedTrackIds,
     messages, setView, logout, userId, compactMode,
   } = useAppStore();
   const safeLiked = Array.isArray(likedTrackIds) ? likedTrackIds : [];
@@ -321,7 +321,7 @@ export default function ProfileView() {
         )}
       </motion.div>
 
-      {/* Email */}
+      {/* Telegram */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -329,8 +329,10 @@ export default function ProfileView() {
         className="rounded-2xl p-4"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
-        <span className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Email</span>
-        <p className="text-sm font-medium mt-1" style={{ color: "var(--mq-text)" }}>{email || "—"}</p>
+        <span className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Telegram</span>
+        <p className="text-sm font-medium mt-1" style={{ color: "var(--mq-text)" }}>
+          {telegramUsername ? `@${telegramUsername}` : email || "—"}
+        </p>
       </motion.div>
 
       {/* Invisible mode toggle */}

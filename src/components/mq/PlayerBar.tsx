@@ -1195,7 +1195,7 @@ export default function PlayerBar() {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: currentTrack.title || "Unknown",
       artist: currentTrack.artist || "Unknown",
-      album: currentTrack.album || "MQ Player",
+      album: currentTrack.album || "mq",
       artwork: currentTrack.cover ? [{ src: currentTrack.cover, sizes: "512x512", type: "image/jpeg" }] : [],
     });
 

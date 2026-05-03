@@ -84,7 +84,7 @@ function drawFrame() {
     ctx.font = '22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("MQ Player", w / 2, h / 2);
+    ctx.fillText("mq", w / 2, h / 2);
     return;
   }
 

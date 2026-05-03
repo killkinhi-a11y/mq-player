@@ -220,7 +220,7 @@ export default function AuthView() {
       if (data.isNewUser) {
         setAuthStep("telegram-register");
       } else {
-        setAuth(data.userId, data.username, data.email || "", data.role, data.avatar);
+        setAuth(data.userId, data.username, data.email || "", data.role, data.avatar, data.telegramUsername);
       }
     } catch {
       setTgVerifyError("Ошибка соединения");
@@ -258,7 +258,7 @@ export default function AuthView() {
         return;
       }
 
-      setAuth(data.userId, data.username, "", data.role, data.avatar);
+      setAuth(data.userId, data.username, "", data.role, data.avatar, data.telegramUsername);
     } catch {
       setTgRegisterError("Ошибка соединения");
     } finally {
@@ -278,7 +278,7 @@ export default function AuthView() {
       });
       const data = await res.json();
       if (!res.ok) { setTgLinkError(data.error); return; }
-      setAuth(data.userId, data.username, "", data.role, data.avatar);
+      setAuth(data.userId, data.username, "", data.role, data.avatar, data.telegramUsername);
     } catch {
       setTgLinkError("Ошибка соединения");
     } finally {
@@ -309,7 +309,7 @@ export default function AuthView() {
 
   // ─── Demo login ───────────────────────────────────────
   const handleDemoLogin = () => {
-    setAuth("demo-user-id", "Демо", "demo@mqplayer.com");
+    setAuth("demo-user-id", "Демо", "demo@mq-player.internal");
   };
 
   // ─── Render ───────────────────────────────────────────
