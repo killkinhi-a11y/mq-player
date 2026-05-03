@@ -68,395 +68,27 @@ const FREQUENCY_MS: Record<string, [number, number]> = {
 };
 
 const SIZE_PX: Record<string, number> = {
-  small: 56,
-  medium: 80,
-  large: 110,
+  small: 64,
+  medium: 96,
+  large: 128,
 };
 
 const AUTO_DISMISS_MS = [8_000, 12_000];
 
-// ── Animated Cat SVG ──
-function CatSVG({ size, isPetting, mood }: { size: number; isPetting: boolean; mood: string }) {
-  const breathOffset = 0.6; // breathing amplitude
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 120 120"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      style={{ willChange: "transform", overflow: "visible" }}
-    >
-      <defs>
-        {/* Glow filter for accent elements */}
-        <filter id="mq-cat-glow" x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="2" result="blur" />
-          <feMerge>
-            <feMergeNode in="blur" />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
-        {/* Soft shadow */}
-        <filter id="mq-cat-shadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="3" stdDeviation="4" floodColor="rgba(0,0,0,0.25)" />
-        </filter>
-      </defs>
-
-      {/* ── Ground shadow ── */}
-      <ellipse
-        className="mq-cat-ground-shadow"
-        cx="60"
-        cy="112"
-        rx="28"
-        ry="5"
-        fill="rgba(0,0,0,0.12)"
-      />
-
-      {/* ── TAIL ── */}
-      <g className="mq-cat-tail-group">
-        <path
-          className="mq-cat-tail"
-          d="M 82 85 Q 105 70 102 48 Q 100 35 90 40"
-          stroke="var(--mq-text-muted)"
-          strokeWidth="3.5"
-          strokeLinecap="round"
-          fill="none"
-        />
-        {/* Tail tip accent */}
-        <circle
-          className="mq-cat-tail-tip"
-          cx="90"
-          cy="40"
-          r="3"
-          fill="var(--mq-accent)"
-          opacity="0.6"
-        />
-      </g>
-
-      {/* ── BODY ── */}
-      <g className="mq-cat-body-group">
-        <ellipse
-          className="mq-cat-body"
-          cx="60"
-          cy="82"
-          rx="24"
-          ry="22"
-          fill="var(--mq-card)"
-          stroke="var(--mq-border)"
-          strokeWidth="1.5"
-          filter="url(#mq-cat-shadow)"
-        />
-        {/* Belly patch */}
-        <ellipse
-          className="mq-cat-belly"
-          cx="60"
-          cy="86"
-          rx="14"
-          ry="12"
-          fill="var(--mq-card)"
-          opacity="0.5"
-        />
-      </g>
-
-      {/* ── PAWS (behind body partially) ── */}
-      <g className="mq-cat-paws-group">
-        {/* Back left paw */}
-        <ellipse
-          className="mq-cat-paw mq-cat-paw-bl"
-          cx="40"
-          cy="100"
-          rx="8"
-          ry="5"
-          fill="var(--mq-card)"
-          stroke="var(--mq-border)"
-          strokeWidth="1.2"
-        />
-        {/* Back right paw */}
-        <ellipse
-          className="mq-cat-paw mq-cat-paw-br"
-          cx="72"
-          cy="100"
-          rx="8"
-          ry="5"
-          fill="var(--mq-card)"
-          stroke="var(--mq-border)"
-          strokeWidth="1.2"
-        />
-        {/* Paw pads */}
-        <circle className="mq-cat-pawpad" cx="40" cy="101" r="2" fill="var(--mq-accent)" opacity="0.35" />
-        <circle className="mq-cat-pawpad" cx="72" cy="101" r="2" fill="var(--mq-accent)" opacity="0.35" />
-      </g>
-
-      {/* ── HEAD ── */}
-      <g className="mq-cat-head-group">
-        {/* Main head */}
-        <circle
-          className="mq-cat-head"
-          cx="60"
-          cy="48"
-          r="22"
-          fill="var(--mq-card)"
-          stroke="var(--mq-border)"
-          strokeWidth="1.5"
-          filter="url(#mq-cat-shadow)"
-        />
-
-        {/* ── EARS ── */}
-        {/* Left ear outer */}
-        <path
-          className="mq-cat-ear mq-cat-ear-left"
-          d="M 42 34 L 33 8 L 54 28 Z"
-          fill="var(--mq-card)"
-          stroke="var(--mq-border)"
-          strokeWidth="1.3"
-          strokeLinejoin="round"
-        />
-        {/* Left ear inner */}
-        <path
-          className="mq-cat-ear-inner mq-cat-ear-inner-left"
-          d="M 44 32 L 37 13 L 52 28 Z"
-          fill="var(--mq-accent)"
-          opacity="0.45"
-        />
-
-        {/* Right ear outer */}
-        <path
-          className="mq-cat-ear mq-cat-ear-right"
-          d="M 78 34 L 87 8 L 66 28 Z"
-          fill="var(--mq-card)"
-          stroke="var(--mq-border)"
-          strokeWidth="1.3"
-          strokeLinejoin="round"
-        />
-        {/* Right ear inner */}
-        <path
-          className="mq-cat-ear-inner mq-cat-ear-inner-right"
-          d="M 76 32 L 83 13 L 68 28 Z"
-          fill="var(--mq-accent)"
-          opacity="0.45"
-        />
-
-        {/* ── FACE ── */}
-
-        {/* Cheek blush */}
-        <ellipse
-          className="mq-cat-blush mq-cat-blush-left"
-          cx="40"
-          cy="53"
-          rx="6"
-          ry="3.5"
-          fill="var(--mq-accent)"
-          opacity={isPetting ? 0.35 : 0.12}
-          style={{ transition: "opacity 0.6s ease" }}
-        />
-        <ellipse
-          className="mq-cat-blush mq-cat-blush-right"
-          cx="80"
-          cy="53"
-          rx="6"
-          ry="3.5"
-          fill="var(--mq-accent)"
-          opacity={isPetting ? 0.35 : 0.12}
-          style={{ transition: "opacity 0.6s ease" }}
-        />
-
-        {/* ── EYES ── */}
-        {mood === "sleepy" ? (
-          /* Sleepy eyes — half-closed lines */
-          <>
-            <path
-              className="mq-cat-eye mq-cat-eye-l"
-              d="M 47 44 Q 51 46 55 44"
-              stroke="var(--mq-text)"
-              strokeWidth="2"
-              strokeLinecap="round"
-              fill="none"
-            />
-            <path
-              className="mq-cat-eye mq-cat-eye-r"
-              d="M 65 44 Q 69 46 73 44"
-              stroke="var(--mq-text)"
-              strokeWidth="2"
-              strokeLinecap="round"
-              fill="none"
-            />
-          </>
-        ) : mood === "excited" ? (
-          /* Excited eyes — big and sparkly */
-          <>
-            <g className="mq-cat-eye mq-cat-eye-l">
-              <circle cx="51" cy="44" r="5.5" fill="var(--mq-text)" />
-              <circle cx="52.5" cy="42" r="2" fill="white" opacity="0.9" />
-              <circle cx="49" cy="45.5" r="1" fill="white" opacity="0.5" />
-              {/* Star sparkle */}
-              <path
-                className="mq-cat-eye-sparkle"
-                d="M 55 40 L 56 38 L 57 40 L 59 41 L 57 42 L 56 44 L 55 42 L 53 41 Z"
-                fill="var(--mq-accent)"
-                opacity="0.8"
-                transform="scale(0.7) translate(24, 12)"
-              />
-            </g>
-            <g className="mq-cat-eye mq-cat-eye-r">
-              <circle cx="69" cy="44" r="5.5" fill="var(--mq-text)" />
-              <circle cx="70.5" cy="42" r="2" fill="white" opacity="0.9" />
-              <circle cx="67" cy="45.5" r="1" fill="white" opacity="0.5" />
-              <path
-                className="mq-cat-eye-sparkle"
-                d="M 73 40 L 74 38 L 75 40 L 77 41 L 75 42 L 74 44 L 73 42 L 71 41 Z"
-                fill="var(--mq-accent)"
-                opacity="0.8"
-                transform="scale(0.7) translate(32, 12)"
-              />
-            </g>
-          </>
-        ) : (
-          /* Normal / friendly / sassy eyes with blink */
-          <>
-            <g className="mq-cat-eye mq-cat-eye-l">
-              <ellipse cx="51" cy="44" rx="3.8" ry="4.2" fill="var(--mq-text)" />
-              {/* Highlight */}
-              <circle cx="52.5" cy="42.5" r="1.4" fill="white" opacity="0.85" />
-              <circle cx="49.5" cy="45" r="0.7" fill="white" opacity="0.4" />
-              {/* Eyelid for blink */}
-              <ellipse
-                className="mq-cat-eyelid mq-cat-eyelid-l"
-                cx="51"
-                cy="42"
-                rx="5"
-                ry="6"
-                fill="var(--mq-card)"
-              />
-            </g>
-            <g className="mq-cat-eye mq-cat-eye-r">
-              <ellipse cx="69" cy="44" rx="3.8" ry="4.2" fill="var(--mq-text)" />
-              <circle cx="70.5" cy="42.5" r="1.4" fill="white" opacity="0.85" />
-              <circle cx="67.5" cy="45" r="0.7" fill="white" opacity="0.4" />
-              <ellipse
-                className="mq-cat-eyelid mq-cat-eyelid-r"
-                cx="69"
-                cy="42"
-                rx="5"
-                ry="6"
-                fill="var(--mq-card)"
-              />
-            </g>
-          </>
-        )}
-
-        {/* ── NOSE ── */}
-        <path
-          className="mq-cat-nose"
-          d="M 60 51 L 57.5 54 L 62.5 54 Z"
-          fill="var(--mq-accent)"
-          opacity="0.8"
-        />
-
-        {/* ── MOUTH ── */}
-        <path
-          className="mq-cat-mouth"
-          d="M 57.5 54 Q 60 58 62.5 54"
-          stroke="var(--mq-text-muted)"
-          strokeWidth="1"
-          fill="none"
-          strokeLinecap="round"
-        />
-        {/* Pet mouth — happy open smile */}
-        {isPetting && (
-          <path
-            d="M 55 54 Q 60 60 65 54"
-            stroke="var(--mq-text-muted)"
-            strokeWidth="0.8"
-            fill="var(--mq-accent)"
-            opacity="0.2"
-            strokeLinecap="round"
-            className="mq-cat-happy-mouth"
-            style={{ transition: "opacity 0.4s ease" }}
-          />
-        )}
-
-        {/* ── WHISKERS ── */}
-        <g className="mq-cat-whiskers">
-          {/* Left */}
-          <line className="mq-cat-whisker mq-cat-whisker-l1" x1="16" y1="49" x2="38" y2="52" stroke="var(--mq-text-muted)" strokeWidth="0.8" strokeLinecap="round" opacity="0.5" />
-          <line className="mq-cat-whisker mq-cat-whisker-l2" x1="17" y1="55" x2="38" y2="55" stroke="var(--mq-text-muted)" strokeWidth="0.8" strokeLinecap="round" opacity="0.5" />
-          <line className="mq-cat-whisker mq-cat-whisker-l3" x1="16" y1="61" x2="38" y2="58" stroke="var(--mq-text-muted)" strokeWidth="0.8" strokeLinecap="round" opacity="0.5" />
-          {/* Right */}
-          <line className="mq-cat-whisker mq-cat-whisker-r1" x1="82" y1="52" x2="104" y2="49" stroke="var(--mq-text-muted)" strokeWidth="0.8" strokeLinecap="round" opacity="0.5" />
-          <line className="mq-cat-whisker mq-cat-whisker-r2" x1="82" y1="55" x2="103" y2="55" stroke="var(--mq-text-muted)" strokeWidth="0.8" strokeLinecap="round" opacity="0.5" />
-          <line className="mq-cat-whisker mq-cat-whisker-r3" x1="82" y1="58" x2="104" y2="61" stroke="var(--mq-text-muted)" strokeWidth="0.8" strokeLinecap="round" opacity="0.5" />
-        </g>
-
-        {/* ── Musical note floating (when excited) ── */}
-        {mood === "excited" && (
-          <g className="mq-cat-music-note">
-            <text
-              x="88"
-              y="32"
-              fontSize="14"
-              fill="var(--mq-accent)"
-              opacity="0.7"
-              style={{ animation: "mq-cat-note-float 2s ease-in-out infinite" }}
-            >
-              &#9835;
-            </text>
-          </g>
-        )}
-
-        {/* Zzz for sleepy */}
-        {mood === "sleepy" && (
-          <g className="mq-cat-zzz">
-            <text
-              x="85"
-              y="28"
-              fontSize="10"
-              fill="var(--mq-text-muted)"
-              opacity="0.5"
-              style={{ animation: "mq-cat-zzz-float 3s ease-in-out infinite" }}
-            >
-              z
-            </text>
-            <text
-              x="93"
-              y="20"
-              fontSize="13"
-              fill="var(--mq-text-muted)"
-              opacity="0.35"
-              style={{ animation: "mq-cat-zzz-float 3s ease-in-out 0.5s infinite" }}
-            >
-              Z
-            </text>
-            <text
-              x="100"
-              y="12"
-              fontSize="16"
-              fill="var(--mq-text-muted)"
-              opacity="0.2"
-              style={{ animation: "mq-cat-zzz-float 3s ease-in-out 1s infinite" }}
-            >
-              Z
-            </text>
-          </g>
-        )}
-      </g>
-    </svg>
-  );
-}
-
 // ── Pet Effect (floating hearts / paws) ──
 function PetEffect({ onDone }: { onDone: () => void }) {
   useEffect(() => {
-    const id = setTimeout(onDone, 1500);
+    const id = setTimeout(onDone, 1600);
     return () => clearTimeout(id);
   }, [onDone]);
 
   const symbols = useMemo(
     () => [
-      { sym: "\u2764", offset: -16 },
-      { sym: "\uD83D\uDC3E", offset: -6 },
+      { sym: "\u2764", offset: -18 },
+      { sym: "\uD83D\uDC3E", offset: -7 },
       { sym: "\u2728", offset: 4 },
-      { sym: "\uD83D\uDC9C", offset: 14 },
-      { sym: "\u2665", offset: 24 },
+      { sym: "\uD83D\uDC9C", offset: 15 },
+      { sym: "\u2665", offset: 26 },
     ],
     []
   );
@@ -468,9 +100,9 @@ function PetEffect({ onDone }: { onDone: () => void }) {
           key={i}
           className="absolute mq-no-transition"
           style={{
-            fontSize: `${12 + i * 2}px`,
+            fontSize: `${13 + i * 2}px`,
             left: `${item.offset}px`,
-            animation: `mq-cat-pet-float 1.5s cubic-bezier(0.22, 1, 0.36, 1) ${i * 0.08}s both`,
+            animation: `mq-cat-pet-float 1.6s cubic-bezier(0.22, 1, 0.36, 1) ${i * 0.1}s both`,
             willChange: "transform, opacity",
           }}
         >
@@ -499,7 +131,7 @@ export default function MqCat() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const petTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const size = SIZE_PX[catSize] ?? 80;
+  const size = SIZE_PX[catSize] ?? 96;
 
   const getRandomPhrase = useCallback((mood: string) => {
     const list = PHRASES[mood] ?? PHRASES.friendly;
@@ -549,12 +181,35 @@ export default function MqCat() {
     if (petTimeoutRef.current) clearTimeout(petTimeoutRef.current);
     petTimeoutRef.current = setTimeout(() => {
       setIsPetting(false);
-    }, 2000);
+    }, 2200);
   }, [petCat]);
 
   const handlePetEffectDone = useCallback(() => {
     setShowPetEffect(false);
   }, []);
+
+  // Mood-based visual tweaks
+  const moodFilter = useMemo(() => {
+    switch (catMood) {
+      case "sleepy":
+        return "brightness(0.85) saturate(0.8)";
+      case "excited":
+        return "brightness(1.05) saturate(1.1)";
+      default:
+        return "none";
+    }
+  }, [catMood]);
+
+  const moodRotation = useMemo(() => {
+    switch (catMood) {
+      case "sassy":
+        return -3;
+      case "sleepy":
+        return 4;
+      default:
+        return 0;
+    }
+  }, [catMood]);
 
   // Schedule appearance
   useEffect(() => {
@@ -608,14 +263,14 @@ export default function MqCat() {
             bottom: "calc(72px + env(safe-area-inset-bottom, 0px) + 56px + 8px)",
             right: "16px",
           }}
-          initial={{ opacity: 0, y: 50, x: 30, scale: 0.7, rotate: -10 }}
-          animate={{ opacity: 1, y: 0, x: 0, scale: 1, rotate: 0 }}
-          exit={{ opacity: 0, y: 40, x: 30, scale: 0.7, rotate: 5 }}
+          initial={{ opacity: 0, y: 60, x: 40, scale: 0.6 }}
+          animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 50, x: 40, scale: 0.6 }}
           transition={{
             type: "spring",
-            stiffness: 260,
-            damping: 22,
-            mass: 0.9,
+            stiffness: 240,
+            damping: 20,
+            mass: 0.8,
           }}
         >
           {/* Speech bubble */}
@@ -624,16 +279,16 @@ export default function MqCat() {
             style={{
               bottom: "100%",
               right: 0,
-              marginBottom: "10px",
+              marginBottom: "12px",
               width: "max-content",
               maxWidth: "220px",
             }}
-            initial={{ opacity: 0, y: 10, scale: 0.85 }}
+            initial={{ opacity: 0, y: 12, scale: 0.8 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.85 }}
+            exit={{ opacity: 0, y: 12, scale: 0.8 }}
             transition={{
-              delay: 0.2,
-              duration: 0.35,
+              delay: 0.25,
+              duration: 0.4,
               ease: [0.22, 1, 0.36, 1],
             }}
           >
@@ -644,7 +299,8 @@ export default function MqCat() {
                 border: "1px solid var(--mq-border)",
                 color: "var(--mq-text)",
                 boxShadow:
-                  "0 4px 24px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.03) inset",
+                  "0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04) inset",
+                backdropFilter: "blur(12px)",
               }}
             >
               {/* Close button */}
@@ -658,7 +314,7 @@ export default function MqCat() {
                   backgroundColor: "var(--mq-border)",
                   color: "var(--mq-text-muted)",
                   lineHeight: 1,
-                  boxShadow: "0 2px 6px rgba(0,0,0,0.2)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
                 }}
                 aria-label="Закрыть"
               >
@@ -667,7 +323,7 @@ export default function MqCat() {
 
               {/* Bubble tail */}
               <div
-                className="absolute -bottom-[6px] right-4 w-3 h-3 rotate-45"
+                className="absolute -bottom-[6px] right-5 w-3 h-3 rotate-45"
                 style={{
                   backgroundColor: "var(--mq-card)",
                   borderRight: "1px solid var(--mq-border)",
@@ -682,37 +338,73 @@ export default function MqCat() {
           {/* Cat body (clickable) */}
           <motion.button
             onClick={handlePet}
-            className="relative cursor-pointer rounded-full outline-none mq-no-transition"
+            className="relative cursor-pointer rounded-2xl outline-none mq-no-transition overflow-hidden"
             style={{
-              filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.2))",
+              width: size,
+              height: size,
+              borderRadius: size * 0.28,
+              filter: `drop-shadow(0 6px 20px rgba(0,0,0,0.35))`,
+              background: "var(--mq-card)",
+              padding: "4px",
             }}
-            whileTap={{ scale: 0.92 }}
+            whileTap={{ scale: 0.88 }}
             aria-label="Погладить кота"
           >
             <motion.div
-              className="mq-no-transition"
+              className="w-full h-full relative mq-no-transition"
               animate={
                 isPetting
                   ? {
-                      y: [0, -3, 0, -2, 0],
-                      rotate: [0, -3, 2, -1, 0],
+                      y: [0, -4, 0, -3, 0],
+                      rotate: [0, -5, 3, -2, 0],
                     }
                   : {
-                      y: [0, -5, 0],
+                      y: [0, -6, 0],
                     }
               }
               transition={
                 isPetting
-                  ? { duration: 0.8, repeat: Infinity, ease: "easeInOut" }
+                  ? { duration: 0.7, repeat: Infinity, ease: "easeInOut" }
                   : {
-                      duration: 3,
+                      duration: 3.5,
                       repeat: Infinity,
                       ease: "easeInOut",
                       times: [0, 0.5, 1],
                     }
               }
             >
-              <CatSVG size={size} isPetting={isPetting} mood={catMood} />
+              {/* Cat image */}
+              <img
+                src="/mq-cat.png"
+                alt=""
+                className="w-full h-full object-cover rounded-[inherit] mq-no-transition"
+                style={{
+                  filter: isPetting ? "brightness(1.1) saturate(1.15)" : moodFilter,
+                  transition: "filter 0.5s ease",
+                }}
+                draggable={false}
+              />
+
+              {/* Mood overlay for sleepy */}
+              {catMood === "sleepy" && !isPetting && (
+                <div
+                  className="absolute inset-0 rounded-[inherit] mq-no-transition"
+                  style={{
+                    background: "linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.15) 100%)",
+                  }}
+                />
+              )}
+
+              {/* Pet glow */}
+              {isPetting && (
+                <div
+                  className="absolute inset-0 rounded-[inherit] mq-no-transition"
+                  style={{
+                    boxShadow: "inset 0 0 20px rgba(224,49,49,0.2)",
+                    animation: "mq-cat-pet-glow 0.8s ease-in-out infinite alternate",
+                  }}
+                />
+              )}
             </motion.div>
 
             {/* Pet effect */}
