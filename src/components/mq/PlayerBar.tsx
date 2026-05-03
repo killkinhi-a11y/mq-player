@@ -528,10 +528,10 @@ export default function PlayerBar() {
 
     // Listen on both audio elements
     // Safety timeout: if stuck loading for >10s, force retry
-    const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    let loadingTimeoutId: ReturnType<typeof setTimeout> | null = null;
     const startLoadingTimeout = () => {
-      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
-      loadingTimeoutRef.current = setTimeout(() => {
+      if (loadingTimeoutId) clearTimeout(loadingTimeoutId);
+      loadingTimeoutId = setTimeout(() => {
         const st = useAppStore.getState();
         if (st.currentTrack && !playErrorRef.current) {
           const a = getActive();
