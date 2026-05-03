@@ -68,9 +68,9 @@ const FREQUENCY_MS: Record<string, [number, number]> = {
 };
 
 const SIZE_PX: Record<string, number> = {
-  small: 64,
-  medium: 96,
-  large: 128,
+  small: 72,
+  medium: 100,
+  large: 132,
 };
 
 const AUTO_DISMISS_MS = [8_000, 12_000];
@@ -131,7 +131,7 @@ export default function MqCat() {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const petTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const size = SIZE_PX[catSize] ?? 96;
+  const size = SIZE_PX[catSize] ?? 100;
 
   const getRandomPhrase = useCallback((mood: string) => {
     const list = PHRASES[mood] ?? PHRASES.friendly;
@@ -192,20 +192,24 @@ export default function MqCat() {
   const moodFilter = useMemo(() => {
     switch (catMood) {
       case "sleepy":
-        return "brightness(0.85) saturate(0.8)";
+        return "brightness(0.7) saturate(0.6)";
       case "excited":
-        return "brightness(1.05) saturate(1.1)";
+        return "brightness(1.1) saturate(1.2)";
+      case "sassy":
+        return "brightness(0.95) contrast(1.05)";
       default:
-        return "none";
+        return "brightness(1) saturate(1)";
     }
   }, [catMood]);
 
   const moodRotation = useMemo(() => {
     switch (catMood) {
       case "sassy":
-        return -3;
+        return -5;
       case "sleepy":
-        return 4;
+        return 8;
+      case "excited":
+        return 0;
       default:
         return 0;
     }
@@ -263,14 +267,14 @@ export default function MqCat() {
             bottom: "calc(72px + env(safe-area-inset-bottom, 0px) + 56px + 8px)",
             right: "16px",
           }}
-          initial={{ opacity: 0, y: 60, x: 40, scale: 0.6 }}
-          animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 50, x: 40, scale: 0.6 }}
+          initial={{ opacity: 0, y: 80, scale: 0.3 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 60, scale: 0.3 }}
           transition={{
             type: "spring",
-            stiffness: 240,
-            damping: 20,
-            mass: 0.8,
+            stiffness: 260,
+            damping: 22,
+            mass: 0.7,
           }}
         >
           {/* Speech bubble */}
@@ -287,7 +291,7 @@ export default function MqCat() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 12, scale: 0.8 }}
             transition={{
-              delay: 0.25,
+              delay: 0.3,
               duration: 0.4,
               ease: [0.22, 1, 0.36, 1],
             }}
@@ -299,7 +303,7 @@ export default function MqCat() {
                 border: "1px solid var(--mq-border)",
                 color: "var(--mq-text)",
                 boxShadow:
-                  "0 8px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04) inset",
+                  "0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04) inset",
                 backdropFilter: "blur(12px)",
               }}
             >
@@ -314,7 +318,7 @@ export default function MqCat() {
                   backgroundColor: "var(--mq-border)",
                   color: "var(--mq-text-muted)",
                   lineHeight: 1,
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
                 }}
                 aria-label="Закрыть"
               >
@@ -335,77 +339,129 @@ export default function MqCat() {
             </div>
           </motion.div>
 
-          {/* Cat body (clickable) */}
+          {/* Cat mascot — no card, no border, just the floating image */}
           <motion.button
             onClick={handlePet}
-            className="relative cursor-pointer rounded-2xl outline-none mq-no-transition overflow-hidden"
+            className="relative cursor-pointer outline-none mq-no-transition"
             style={{
               width: size,
               height: size,
-              borderRadius: size * 0.28,
-              filter: `drop-shadow(0 6px 20px rgba(0,0,0,0.35))`,
-              background: "var(--mq-card)",
-              padding: "4px",
+              background: "transparent",
+              filter: `drop-shadow(0 4px 16px rgba(0,0,0,0.45))`,
             }}
-            whileTap={{ scale: 0.88 }}
+            whileTap={{ scale: 0.85 }}
             aria-label="Погладить кота"
           >
+            {/* Main floating animation */}
             <motion.div
               className="w-full h-full relative mq-no-transition"
               animate={
                 isPetting
                   ? {
-                      y: [0, -4, 0, -3, 0],
-                      rotate: [0, -5, 3, -2, 0],
+                      y: [0, -5, 0, -4, 0],
+                      rotate: [0, -6, 4, -3, 0],
+                      scale: [1, 1.05, 1.02, 1.06, 1],
+                    }
+                  : catMood === "excited"
+                  ? {
+                      y: [0, -8, -2, -6, 0],
+                      rotate: [0, 2, -1, 1.5, 0],
+                    }
+                  : catMood === "sleepy"
+                  ? {
+                      y: [0, -2, 0],
+                      rotate: [moodRotation, moodRotation + 2, moodRotation],
                     }
                   : {
-                      y: [0, -6, 0],
+                      y: [0, -6, -2, -8, 0],
+                      rotate: [0, 1, -0.5, 0.5, 0],
                     }
               }
               transition={
                 isPetting
-                  ? { duration: 0.7, repeat: Infinity, ease: "easeInOut" }
-                  : {
-                      duration: 3.5,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                      times: [0, 0.5, 1],
-                    }
+                  ? { duration: 0.6, repeat: Infinity, ease: "easeInOut" }
+                  : catMood === "sleepy"
+                  ? { duration: 5, repeat: Infinity, ease: "easeInOut" }
+                  : catMood === "excited"
+                  ? { duration: 1.8, repeat: Infinity, ease: "easeInOut" }
+                  : { duration: 4, repeat: Infinity, ease: "easeInOut" }
               }
             >
-              {/* Cat image */}
+              {/* Cat image — no wrapper, no background card, no border */}
               <img
                 src="/mq-cat.png"
-                alt=""
-                className="w-full h-full object-cover rounded-[inherit] mq-no-transition"
+                alt="MQ mascot"
+                className="w-full h-full object-contain mq-no-transition"
                 style={{
-                  filter: isPetting ? "brightness(1.1) saturate(1.15)" : moodFilter,
+                  filter: moodFilter,
                   transition: "filter 0.5s ease",
+                  imageRendering: "auto",
                 }}
                 draggable={false}
               />
 
-              {/* Mood overlay for sleepy */}
+              {/* Sleepy overlay */}
               {catMood === "sleepy" && !isPetting && (
-                <div
-                  className="absolute inset-0 rounded-[inherit] mq-no-transition"
+                <motion.div
+                  className="absolute inset-0 mq-no-transition"
+                  animate={{ opacity: [0.15, 0.25, 0.15] }}
+                  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
                   style={{
-                    background: "linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.15) 100%)",
+                    background: "radial-gradient(circle at center, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.05) 70%)",
                   }}
                 />
               )}
 
-              {/* Pet glow */}
+              {/* Pet glow effect */}
               {isPetting && (
-                <div
-                  className="absolute inset-0 rounded-[inherit] mq-no-transition"
-                  style={{
-                    boxShadow: "inset 0 0 20px rgba(224,49,49,0.2)",
-                    animation: "mq-cat-pet-glow 0.8s ease-in-out infinite alternate",
+                <motion.div
+                  className="absolute inset-0 mq-no-transition rounded-full"
+                  animate={{
+                    boxShadow: [
+                      "inset 0 0 20px rgba(224,49,49,0.2), 0 0 20px rgba(224,49,49,0.15)",
+                      "inset 0 0 30px rgba(224,49,49,0.35), 0 0 30px rgba(224,49,49,0.25)",
+                    ],
                   }}
+                  transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut", repeatType: "reverse" }}
+                  style={{ borderRadius: "50%" }}
                 />
               )}
             </motion.div>
+
+            {/* Floating music notes (ambient) */}
+            {!isPetting && catMood !== "sleepy" && (
+              <div className="absolute -top-3 -left-1 pointer-events-none mq-no-transition">
+                <motion.span
+                  className="text-sm mq-no-transition"
+                  style={{ opacity: 0.5, color: "var(--mq-accent)" }}
+                  animate={{
+                    y: [0, -12, -6],
+                    opacity: [0.5, 0.7, 0.3],
+                    rotate: [0, 10, -5],
+                  }}
+                  transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  ♪
+                </motion.span>
+              </div>
+            )}
+
+            {!isPetting && catMood === "excited" && (
+              <div className="absolute -top-2 -right-2 pointer-events-none mq-no-transition">
+                <motion.span
+                  className="text-xs mq-no-transition"
+                  style={{ opacity: 0.6, color: "var(--mq-accent)" }}
+                  animate={{
+                    y: [0, -10, -4],
+                    opacity: [0.6, 0.8, 0.2],
+                    rotate: [0, -8, 6],
+                  }}
+                  transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                >
+                  ♫
+                </motion.span>
+              </div>
+            )}
 
             {/* Pet effect */}
             {showPetEffect && <PetEffect onDone={handlePetEffectDone} />}
