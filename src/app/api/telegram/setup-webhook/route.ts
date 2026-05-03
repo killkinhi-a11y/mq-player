@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { setWebhook, getBotInfo, getWebhookInfo, isTelegramConfigured } from "@/lib/telegram";
+import { setWebhook, getBotInfo, getWebhookInfo, isTelegramConfigured, setMyCommands, setChatMenuButton } from "@/lib/telegram";
 
 /**
  * POST /api/telegram/setup-webhook
  *
  * Sets up the Telegram webhook so the bot can receive messages.
- * Call this once after deploying with TELEGRAM_BOT_TOKEN set.
- * Also returns bot info for diagnostics.
+ * Also registers bot commands and sets the menu button.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -29,6 +28,12 @@ export async function POST(req: NextRequest) {
     // Set the webhook
     const success = await setWebhook(webhookUrl);
 
+    // Register bot commands (visible in "/" menu)
+    const commandsRegistered = await setMyCommands();
+
+    // Set menu button (commands button next to input)
+    const menuButtonSet = await setChatMenuButton();
+
     // Get bot info for diagnostics
     const botInfo = await getBotInfo();
 
@@ -39,6 +44,8 @@ export async function POST(req: NextRequest) {
       ok: success,
       configured: true,
       webhookUrl,
+      commandsRegistered,
+      menuButtonSet,
       botInfo,
       webhookInfo,
     });

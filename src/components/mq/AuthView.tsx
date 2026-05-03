@@ -34,10 +34,6 @@ export default function AuthView() {
   const [tgLinkError, setTgLinkError] = useState("");
   const [tgLinkEmail, setTgLinkEmail] = useState("");
 
-  // Webhook setup
-  const [webhookStatus, setWebhookStatus] = useState<string | null>(null);
-  const [webhookLoading, setWebhookLoading] = useState(false);
-
   // Username validation
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
   const [usernameError, setUsernameError] = useState('');
@@ -286,27 +282,6 @@ export default function AuthView() {
     }
   };
 
-  // ─── Webhook setup ────────────────────────────────────
-  const handleSetupWebhook = async () => {
-    setWebhookLoading(true);
-    setWebhookStatus(null);
-    try {
-      const res = await fetch("/api/telegram/setup-webhook", { method: "POST" });
-      const data = await res.json();
-      if (data.ok && data.webhookInfo?.url) {
-        setWebhookStatus(`Webhook настроен: ${data.webhookInfo.url}`);
-      } else if (data.error) {
-        setWebhookStatus(`Ошибка: ${data.error}`);
-      } else {
-        setWebhookStatus(`Результат: ${JSON.stringify(data)}`);
-      }
-    } catch (err) {
-      setWebhookStatus("Не удалось подключиться к серверу");
-    } finally {
-      setWebhookLoading(false);
-    }
-  };
-
   // ─── Demo login ───────────────────────────────────────
   const handleDemoLogin = () => {
     setAuth("demo-user-id", "Демо", "demo@mq-player.internal");
@@ -510,55 +485,12 @@ export default function AuthView() {
               </motion.div>
 
               {/* Bottom links */}
-              <motion.div className="mt-6 pt-4 flex flex-col gap-3" style={{ borderTop: "1px solid var(--mq-border)" }}
+              <motion.div className="mt-6 pt-4 flex items-center justify-between" style={{ borderTop: "1px solid var(--mq-border)" }}
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.3 }}>
-                <div className="flex items-center justify-between">
-                  <Button variant="ghost" onClick={handleDemoLogin} className="text-sm h-auto p-0"
-                    style={{ color: "var(--mq-text-muted)" }}>
-                    Демо-режим
-                  </Button>
-                  {tgBotConfigured && tgBotName && (
-                    <a
-                      href={`https://t.me/${tgBotName}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 text-sm font-medium transition-colors duration-200 hover:brightness-110"
-                      style={{ color: "#2AABEE" }}
-                    >
-                      <Send className="w-4 h-4" />
-                      Открыть бота
-                    </a>
-                  )}
-                </div>
-
-                {/* Webhook setup (for admin) */}
-                {tgBotConfigured && (
-                  <div className="flex flex-col gap-1.5">
-                    <Button
-                      variant="ghost"
-                      onClick={handleSetupWebhook}
-                      disabled={webhookLoading}
-                      className="text-xs h-auto p-0 w-fit"
-                      style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}
-                    >
-                      {webhookLoading ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
-                      Настроить webhook
-                    </Button>
-                    {webhookStatus && (
-                      <p className="text-[10px] leading-tight" style={{ color: webhookStatus.includes("Ошибка") ? "#ff6b6b" : "var(--mq-text-muted)" }}>
-                        {webhookStatus}
-                      </p>
-                    )}
-                    <Button
-                      variant="ghost"
-                      onClick={() => window.open("/api/telegram/diagnose", "_blank")}
-                      className="text-xs h-auto p-0 w-fit"
-                      style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}
-                    >
-                      Диагностика бота
-                    </Button>
-                  </div>
-                )}
+                <Button variant="ghost" onClick={handleDemoLogin} className="text-sm h-auto p-0"
+                  style={{ color: "var(--mq-text-muted)" }}>
+                  Демо-режим
+                </Button>
               </motion.div>
             </div>
           </motion.div>

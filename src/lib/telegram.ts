@@ -294,3 +294,54 @@ export async function getWebhookInfo(): Promise<any | null> {
     return null;
   }
 }
+
+/**
+ * Register bot commands so they appear in the Telegram "/" menu.
+ */
+export async function setMyCommands(): Promise<boolean> {
+  if (!TELEGRAM_API_URL) return false;
+
+  try {
+    const res = await fetch(`${TELEGRAM_API_URL}/setMyCommands`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        commands: [
+          { command: "menu", description: "Главное меню" },
+          { command: "search", description: "Поиск треков" },
+          { command: "playlists", description: "Мои плейлисты" },
+          { command: "newplaylist", description: "Создать плейлист" },
+          { command: "help", description: "Помощь" },
+        ],
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) console.error("[TELEGRAM] setMyCommands failed:", data.description);
+    return data.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Set the bot's menu button (shown next to the input field).
+ */
+export async function setChatMenuButton(): Promise<boolean> {
+  if (!TELEGRAM_API_URL) return false;
+
+  try {
+    const res = await fetch(`${TELEGRAM_API_URL}/setChatMenuButton`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        menu_button: {
+          type: "commands",
+        },
+      }),
+    });
+    const data = await res.json();
+    return data.ok;
+  } catch {
+    return false;
+  }
+}

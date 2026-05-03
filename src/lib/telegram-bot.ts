@@ -7,7 +7,7 @@
  * Features:
  *   - Auth: /start, /code
  *   - Import: Send audio to bot → choose playlist → track added
- *   - Search: /search <query> → find on SoundCloud → add to playlist
+ *   - Search: /search <query> → find on SoundCloud → preview → add to playlist
  *   - Playlists: /playlists — list, /newplaylist <name>
  *   - Help: /help, /menu
  *
@@ -17,8 +17,11 @@
 import { db } from "@/lib/db";
 import {
   sendTelegramMessage,
+  sendTelegramAudio,
   answerCallbackQuery,
   editMessageText,
+  setMyCommands,
+  setChatMenuButton,
 } from "@/lib/telegram";
 import { searchSCTracks } from "@/lib/soundcloud";
 
@@ -49,7 +52,8 @@ type BotState =
   | "awaiting_import_title"
   | "awaiting_search_query"
   | "awaiting_new_playlist"
-  | "awaiting_add_to_playlist";
+  | "awaiting_add_to_playlist"
+  | "awaiting_preview_choice";
 
 interface PendingImport {
   fileId?: string;
@@ -150,6 +154,23 @@ function trackCountFromJson(tracksJson: string): number {
   try { return JSON.parse(tracksJson || "[]").length; } catch { return 0; }
 }
 
+/**
+ * Get user playlists, auto-create "Избранное" if none exist.
+ */
+async function getUserPlaylistsOrCreate(chatId: string): Promise<{ userId: string; playlists: PlaylistSummary[] } | null> {
+  const user = await findUserByChatId(chatId);
+  if (!user) return null;
+
+  let playlists = await getUserPlaylists(user.id);
+  if (playlists.length === 0) {
+    await db.playlist.create({
+      data: { userId: user.id, name: "Избранное", tracksJson: "[]" },
+    });
+    playlists = await getUserPlaylists(user.id);
+  }
+  return { userId: user.id, playlists };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Inline Keyboard builders                                          */
 /* ------------------------------------------------------------------ */
@@ -181,6 +202,18 @@ function buildSearchResultsKeyboard(tracks: any[], page: number = 0) {
   if (navRow.length > 0) rows.push(navRow);
   rows.push([{ text: "Отмена", callback_data: "cancel" }]);
   return { inline_keyboard: rows };
+}
+
+function buildPreviewKeyboard(trackIndex: number) {
+  return {
+    inline_keyboard: [
+      [
+        { text: "Прослушать", callback_data: `preview:${trackIndex}` },
+        { text: "Добавить в плейлист", callback_data: `add_search:${trackIndex}` },
+      ],
+      [{ text: "Отмена", callback_data: "cancel" }],
+    ],
+  };
 }
 
 /* ------------------------------------------------------------------ */
@@ -227,6 +260,10 @@ export async function handleTelegramMessage(body: Record<string, any>) {
 
   // ---- /start ----
   if (text === "/start") {
+    // Register bot commands (fire and forget)
+    setMyCommands().catch(() => {});
+    setChatMenuButton().catch(() => {});
+
     await sendTelegramMessage(chatId,
       `🎵 <b>Добро пожаловать в mq!</b>\n\n` +
       `Введите <b>любое сообщение</b> (или /code), чтобы получить код входа.\n\n` +
@@ -283,15 +320,6 @@ export async function handleTelegramMessage(body: Record<string, any>) {
     if (!user) { await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code"); return; }
     await setChatState(chatId, "awaiting_new_playlist");
     await sendTelegramMessage(chatId, "Введите название нового плейлиста:");
-    return;
-  }
-
-  // ---- /nowplaying ----
-  if (text === "/nowplaying") {
-    await sendTelegramMessage(chatId,
-      "Управление воспроизведением доступно на сайте mq.",
-      { parseMode: "HTML" }
-    );
     return;
   }
 
@@ -397,6 +425,43 @@ export async function handleCallbackQuery(body: Record<string, any>) {
   // ---- State-dependent callbacks ----
   const state = await getChatState(chatId);
 
+  // Preview: user wants to listen to a track before adding
+  if (data.startsWith("preview:")) {
+    const index = parseInt(data.slice("preview:".length), 10);
+    if (!state || !state.searchResults?.length) {
+      await editMessageText(chatId, messageId, "Сессия истекла. Используйте /search заново.");
+      return;
+    }
+    const track = state.searchResults[index];
+    if (!track) return;
+
+    const keyboard = buildPreviewKeyboard(index);
+    const previewUrl = track.previewUrl || track.audioUrl || "";
+
+    if (previewUrl) {
+      await editMessageText(chatId, messageId,
+        `Предпрослушивание: <b>${track.title}</b> — ${track.artist}`,
+        { parseMode: "HTML" }
+      );
+      // Send audio for preview
+      await sendTelegramAudio(chatId, previewUrl, {
+        title: track.title,
+        performer: track.artist,
+        duration: track.duration,
+        caption: `${track.title} — ${track.artist}`,
+        replyMarkup: keyboard,
+      });
+    } else {
+      // No preview URL — show SoundCloud link
+      const scLink = track.permalinkUrl || `https://soundcloud.com/search?q=${encodeURIComponent(track.title + ' ' + track.artist)}`;
+      await editMessageText(chatId, messageId,
+        `<b>${track.title}</b> — ${track.artist}\n\nПрослушать: <a href="${scLink}">открыть на SoundCloud</a>`,
+        { parseMode: "HTML", replyMarkup: keyboard }
+      );
+    }
+    return;
+  }
+
   // Import: user chose a playlist
   if (data.startsWith("import_playlist:")) {
     const playlistId = data.slice("import_playlist:".length);
@@ -423,7 +488,7 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     return;
   }
 
-  // Search: user chose a track to add
+  // Search: user chose a track to add → show preview choice first
   if (data.startsWith("add_search:")) {
     const index = parseInt(data.slice("add_search:".length), 10);
     if (!state || !state.searchResults?.length) {
@@ -433,13 +498,29 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     const track = state.searchResults[index];
     if (!track) return;
 
+    // Check if user has playlists, auto-create if needed
     const user = await findUserByChatId(chatId);
     if (!user) { await editMessageText(chatId, messageId, "Ошибка авторизации."); return; }
     const playlists = await getUserPlaylists(user.id);
     if (playlists.length === 0) {
-      await editMessageText(chatId, messageId, "У вас нет плейлистов. Создайте первый через /newplaylist");
+      // Auto-create "Избранное" and try again
+      await db.playlist.create({
+        data: { userId: user.id, name: "Избранное", tracksJson: "[]" },
+      });
+      const newPlaylists = await getUserPlaylists(user.id);
+      await setChatState(chatId, "awaiting_add_to_playlist",
+        { ...state.data, scTrackId: track.scTrackId, scData: track },
+        state.searchResults
+      );
+      await editMessageText(chatId, messageId,
+        `Выбран трек: <b>${track.title}</b> — ${track.artist}\n\n` +
+        `Плейлист <b>Избранное</b> создан автоматически.\n\nВ какой плейлист добавить?`,
+        { parseMode: "HTML", replyMarkup: buildPlaylistKeyboard(newPlaylists, "add_search_pl") }
+      );
       return;
     }
+
+    // Show playlist picker directly (user already decided to add)
     await setChatState(chatId, "awaiting_add_to_playlist",
       { ...state.data, scTrackId: track.scTrackId, scData: track },
       state.searchResults
@@ -463,16 +544,34 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     return;
   }
 
-  // Search pagination
+  // Search pagination — rebuild keyboard with preview buttons
   if (data.startsWith("search_page:")) {
     const page = parseInt(data.slice("search_page:".length), 10);
     if (!state || !state.searchResults?.length) {
       await editMessageText(chatId, messageId, "Сессия истекла. Используйте /search заново.");
       return;
     }
+    // Build enhanced keyboard with preview + add buttons per track
+    const perPage = 5;
+    const start = page * perPage;
+    const end = start + perPage;
+    const items = state.searchResults.slice(start, end);
+    const rows: Array<Array<{ text: string; callback_data: string }>> = items.map((t: any, i: number) => {
+      const idx = start + i;
+      return [
+        { text: `▶ ${t.title} — ${t.artist}`, callback_data: `preview:${idx}` },
+        { text: `+ Добавить`, callback_data: `add_search:${idx}` },
+      ];
+    });
+    const navRow: Array<{ text: string; callback_data: string }> = [];
+    if (page > 0) navRow.push({ text: "< Назад", callback_data: `search_page:${page - 1}` });
+    if (end < state.searchResults.length) navRow.push({ text: "Далее >", callback_data: `search_page:${page + 1}` });
+    if (navRow.length > 0) rows.push(navRow);
+    rows.push([{ text: "Отмена", callback_data: "cancel" }]);
+
     await editMessageText(chatId, messageId,
-      `Найдено ${state.searchResults.length} треков:`,
-      { parseMode: "HTML", replyMarkup: buildSearchResultsKeyboard(state.searchResults, page) }
+      `Найдено ${state.searchResults.length} треков:\n\nНажмите ▶ для прослушивания, или + для добавления в плейлист.`,
+      { parseMode: "HTML", replyMarkup: { inline_keyboard: rows } }
     );
     return;
   }
@@ -544,21 +643,17 @@ async function handleAudioMessage(chatId: string, message: Record<string, any>) 
 
   await setChatState(chatId, "awaiting_import_playlist", pendingData);
 
-  const user = await findUserByChatId(chatId);
-  if (!user) return;
-  const playlists = await getUserPlaylists(user.id);
+  // Auto-create playlist if user has none
+  const result = await getUserPlaylistsOrCreate(chatId);
+  if (!result) return;
 
-  if (playlists.length === 0) {
-    await sendTelegramMessage(chatId,
-      `Аудио получено: <b>${importTitle}</b> (${formatDuration(duration)})\n\nУ вас нет плейлистов. Создайте через /newplaylist`,
-      { parseMode: "HTML" }
-    );
-    await clearChatState(chatId);
-    return;
-  }
+  const playlists = result.playlists;
+  const wasAutoCreated = playlists.length === 1 && playlists[0].name === "Избранное";
 
   await sendTelegramMessage(chatId,
-    `Аудио получено: <b>${importTitle}</b> (${formatDuration(duration)})\n\nВ какой плейлист добавить?`,
+    `Аудио получено: <b>${importTitle}</b> (${formatDuration(duration)})\n\n` +
+    (wasAutoCreated ? `Плейлист <b>Избранное</b> создан автоматически.\n\n` : "") +
+    `В какой плейлист добавить?`,
     { parseMode: "HTML", replyMarkup: buildPlaylistKeyboard(playlists, "import_playlist") }
   );
 }
@@ -568,18 +663,13 @@ async function handleAudioMessage(chatId: string, message: Record<string, any>) 
 /* ================================================================== */
 
 async function handleImportWithTitle(chatId: string, customTitle: string, data: PendingImport) {
-  const user = await findUserByChatId(chatId);
-  if (!user) return;
-  const playlists = await getUserPlaylists(user.id);
-  if (playlists.length === 0) {
-    await sendTelegramMessage(chatId, "У вас нет плейлистов. Создайте через /newplaylist");
-    return;
-  }
+  const result = await getUserPlaylistsOrCreate(chatId);
+  if (!result) return;
 
   await setChatState(chatId, "awaiting_import_playlist", { ...data, originalFilename: customTitle });
   await sendTelegramMessage(chatId,
     `Название: <b>${customTitle}</b>\n\nВ какой плейлист добавить?`,
-    { parseMode: "HTML", replyMarkup: buildPlaylistKeyboard(playlists, "import_playlist") }
+    { parseMode: "HTML", replyMarkup: buildPlaylistKeyboard(result.playlists, "import_playlist") }
   );
 }
 
@@ -652,12 +742,24 @@ async function handleSearch(chatId: string, query: string) {
     return;
   }
 
-  // Store search results in DB state (state=null means "search results available, no active sub-state")
+  // Store search results in DB state
   await setChatState(chatId, "idle", { fileUrl: null, fileDuration: 0, originalFilename: "" }, results);
 
+  // Build keyboard with preview + add buttons per track
+  const perPage = 5;
+  const items = results.slice(0, perPage);
+  const rows: Array<Array<{ text: string; callback_data: string }>> = items.map((t: any, i: number) => [
+    { text: `▶ ${t.title} — ${t.artist}`, callback_data: `preview:${i}` },
+    { text: `+ Добавить`, callback_data: `add_search:${i}` },
+  ]);
+  const navRow: Array<{ text: string; callback_data: string }> = [];
+  if (results.length > perPage) navRow.push({ text: "Далее >", callback_data: "search_page:1" });
+  if (navRow.length > 0) rows.push(navRow);
+  rows.push([{ text: "Отмена", callback_data: "cancel" }]);
+
   await sendTelegramMessage(chatId,
-    `Найдено ${results.length} треков по запросу "${query}":\n\nНажмите на трек, чтобы добавить его в плейлист.`,
-    { parseMode: "HTML", replyMarkup: buildSearchResultsKeyboard(results, 0) }
+    `Найдено ${results.length} треков по запросу "${query}":\n\nНажмите ▶ для прослушивания, или + для добавления в плейлист.`,
+    { parseMode: "HTML", replyMarkup: { inline_keyboard: rows } }
   );
 }
 
@@ -711,7 +813,10 @@ async function handlePlaylists(chatId: string) {
   });
 
   if (playlists.length === 0) {
-    await sendTelegramMessage(chatId, "У вас пока нет плейлистов.\n\nСоздайте первый через /newplaylist", { parseMode: "HTML" });
+    await sendTelegramMessage(chatId,
+      "У вас пока нет плейлистов.\n\nСоздайте первый через /newplaylist или при добавлении трека плейлист создастся автоматически.",
+      { parseMode: "HTML" }
+    );
     return;
   }
 
