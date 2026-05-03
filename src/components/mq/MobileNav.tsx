@@ -37,6 +37,10 @@ export default function MobileNav() {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
+      {/* Glass highlight */}
+      <div className="absolute top-0 left-0 right-0 h-px"
+        style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent)" }}
+      />
       <div className={`flex items-center justify-around ${compactMode ? "py-1" : "py-1.5"} px-1`}>
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -47,7 +51,7 @@ export default function MobileNav() {
               key={item.id}
               whileTap={{ scale: 0.9 }}
               onClick={() => setView(item.id)}
-              className={`flex flex-col items-center gap-0.5 ${compactMode ? "px-2 py-1 min-w-[40px] min-h-[38px]" : "px-3 py-1.5 min-w-[48px] min-h-[44px]"} cursor-pointer rounded-xl transition-all duration-200 relative overflow-hidden`}
+              className={`flex flex-col items-center gap-0.5 ${compactMode ? "px-2 py-1 min-w-[40px] min-h-[38px]" : "px-3 py-1.5 min-w-[52px] min-h-[46px]"} cursor-pointer rounded-xl transition-all duration-200 relative overflow-hidden`}
               style={{
                 color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
                 backgroundColor: isActive
@@ -77,8 +81,8 @@ export default function MobileNav() {
                 {isActive && (
                   <motion.div
                     layoutId="mobileNavDot"
-                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
-                    style={{ backgroundColor: "var(--mq-accent)" }}
+                    className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-0.5 rounded-full"
+                    style={{ backgroundColor: "var(--mq-accent)", width: 16 }}
                   />
                 )}
               </div>

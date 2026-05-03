@@ -6,6 +6,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { Play, Pause, Heart, ThumbsDown, MoreHorizontal } from "lucide-react";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import ContextMenu from "./ContextMenu";
+import { formatDuration } from "@/lib/musicApi";
 
 interface TrackCardProps {
   track: Track;
@@ -117,7 +118,7 @@ export default function TrackCard({ track, index = 0, queue, onArtistClick }: Tr
         onContextMenu={handleContextMenu}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className={`flex items-center ${compactMode ? "gap-1 sm:gap-2 p-1 sm:p-2" : "gap-1.5 sm:gap-2.5 p-1.5 sm:p-3"} rounded-xl cursor-pointer transition-all duration-200 group relative overflow-hidden`}
+        className={`flex items-center ${compactMode ? "gap-1.5 sm:gap-2 p-2 sm:p-2" : "gap-1.5 sm:gap-2.5 p-2 sm:p-3"} rounded-xl cursor-pointer transition-all duration-200 group relative overflow-hidden`}
         style={{
           backgroundColor: isActive ? "var(--mq-accent)" : "var(--mq-card)",
           border: isActive
@@ -191,6 +192,10 @@ export default function TrackCard({ track, index = 0, queue, onArtistClick }: Tr
 
         {/* Actions — compact on mobile, only show what fits */}
         <div className="flex items-center gap-1 sm:gap-1 flex-shrink-0">
+          {/* Duration — sm+ only */}
+          <span className="hidden sm:block text-[11px] tabular-nums w-10 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
+            {formatDuration(track.duration || 0)}
+          </span>
           {/* Like — magnetic on hover */}
           <motion.button
             onPointerDown={(e) => e.stopPropagation()}

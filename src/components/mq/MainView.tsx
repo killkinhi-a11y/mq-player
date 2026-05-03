@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending, X } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
 import HeroParticles from "./HeroParticles";
 import CursorSpotlight from "./CursorSpotlight";
@@ -426,6 +426,7 @@ export default function MainView() {
   const [similarArtists, setSimilarArtists] = useState<{ name: string; avatar?: string; followers?: number }[]>([]);
   const [similarArtistsLoading, setSimilarArtistsLoading] = useState(false);
   const [waveLoading, setWaveLoading] = useState(false);
+  const [showLikedTracks, setShowLikedTracks] = useState(false);
 
   // Mouse position for hero parallax effect
   const heroRef = useRef<HTMLDivElement>(null);
@@ -913,13 +914,7 @@ export default function MainView() {
       icon: Heart,
       label: "Избранное",
       value: `${likedTrackIds.length} треков`,
-      onClick: () => {
-        if (likedTracksData.length > 0) {
-          handlePlayLiked();
-        } else {
-          setView("search");
-        }
-      },
+      onClick: () => setShowLikedTracks(prev => !prev),
     },
     {
       icon: MessageCircle,
@@ -1490,6 +1485,42 @@ export default function MainView() {
 
   return (
     <div ref={mainRef} className={`${compactMode ? "p-3 lg:p-4 pb-32 lg:pb-24 space-y-4" : "p-4 sm:p-6 lg:p-8 pb-40 lg:pb-28 space-y-6"} max-w-4xl mx-auto relative`}>
+      {/* Mobile-only compact greeting */}
+      <div className="sm:hidden flex items-center justify-between mb-3">
+        <div>
+          <h1 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>{getGreeting()}</h1>
+          <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{getGreetingSubtext()}</p>
+        </div>
+        {currentTrack && (
+          <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl max-w-[55%]"
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+            <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0">
+              {currentTrack.cover ? (
+                <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}>
+                  <Music className="w-3.5 h-3.5" style={{ color: "var(--mq-text)" }} />
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-medium truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+              <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
+            </div>
+            {isPlaying && (
+              <div className="flex items-end gap-0.5 h-3.5">
+                {[0, 1, 2].map((i) => (
+                  <motion.div key={i}
+                    animate={{ height: [3, 10, 5, 3] }}
+                    transition={{ duration: 0.6 + i * 0.12, repeat: Infinity, ease: "easeInOut", delay: i * 0.08 }}
+                    className="w-[2px] rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Cursor Spotlight — global mouse glow */}
       <CursorSpotlight />
 
@@ -1507,7 +1538,7 @@ export default function MainView() {
           opacity: heroScrollOpacity,
           transform: `translateY(${heroScrollY * 0.15}px)`,
         }}
-        className={`rounded-2xl ${compactMode ? "p-3 sm:p-4 lg:p-5" : "p-4 sm:p-6 lg:p-8"} relative overflow-hidden transition-transform`}
+        className={`hidden sm:block rounded-2xl ${compactMode ? "p-3 sm:p-4 lg:p-5" : "p-4 sm:p-6 lg:p-8"} relative overflow-hidden transition-transform`}
       >
         {/* Particle background */}
         <div className="absolute inset-0 rounded-2xl overflow-hidden" style={{ zIndex: 0 }}>
@@ -1586,6 +1617,60 @@ export default function MainView() {
           )}
         </div>
       </motion.div>
+
+      {/* Liked tracks overlay */}
+      <AnimatePresence>
+        {showLikedTracks && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden"
+          >
+            <div className="rounded-2xl p-4 relative overflow-hidden mb-4" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Heart className="w-5 h-5" style={{ color: "#ef4444" }} fill="#ef4444" />
+                  <h2 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>
+                    Избранные треки
+                  </h2>
+                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444" }}>
+                    {likedTrackIds.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  {likedTracksData.length > 0 && (
+                    <motion.button whileTap={{ scale: 0.95 }} onClick={() => playTrack(likedTracksData[0], likedTracksData)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                      style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                      <Play className="w-3 h-3" style={{ marginLeft: 1 }} />
+                      Все
+                    </motion.button>
+                  )}
+                  <button onClick={() => setShowLikedTracks(false)}
+                    className="p-1.5 rounded-lg" style={{ color: "var(--mq-text-muted)" }}>
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              {likedTracksData.length > 0 ? (
+                <div className="space-y-1">
+                  {likedTracksData.slice(0, 20).map((track, i) => (
+                    <TrackCard key={track.id} track={track} index={i} queue={likedTracksData} onArtistClick={handleNavigateToArtist} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <Heart className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+                  <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                    Вы ещё не добавили треки в избранное
+                  </p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Wave — personalized endless stream */}
       <ScrollReveal direction="up" delay={0.05}>
@@ -1703,12 +1788,12 @@ export default function MainView() {
 
       {/* Quick stats - CLICKABLE with 3D Tilt + Glare */}
       <ScrollReveal direction="up" delay={0.1}>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <div className="flex gap-2 overflow-x-auto pb-1 sm:grid sm:grid-cols-2 lg:grid-cols-4 sm:overflow-visible sm:pb-0 sm:gap-3" style={{ scrollbarWidth: "none" }}>
         {statCards.map((stat, i) => (
           <TiltCard
             key={stat.label}
             onClick={stat.onClick}
-            className={`rounded-xl p-4 flex items-center gap-3 text-left transition-all duration-200 cursor-pointer ${compactMode ? "" : ""}`}
+            className={`rounded-xl p-4 flex items-center gap-3 text-left transition-all duration-200 cursor-pointer min-w-[140px] flex-shrink-0 sm:min-w-0 ${compactMode ? "" : ""}`}
             style={{ backgroundColor: "var(--mq-card)" }}
           >
             <motion.div
@@ -1740,14 +1825,14 @@ export default function MainView() {
           initial={animationsEnabled ? { opacity: 0, y: 15 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="rounded-2xl p-5 relative overflow-hidden"
+          className="rounded-2xl p-3 sm:p-5 relative overflow-hidden"
           style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
         >
           {/* Subtle gradient accent */}
           <div className="absolute top-0 right-0 w-32 h-32 rounded-full pointer-events-none"
             style={{ background: "var(--mq-accent)", filter: "blur(50px)", opacity: 0.06 }} />
           <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center"
                   style={{ backgroundColor: "var(--mq-accent)", opacity: 0.85 }}>
@@ -1756,7 +1841,7 @@ export default function MainView() {
                 <span className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Активность за неделю</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold" style={{ color: "var(--mq-text)" }}>
+                <span className="text-xs font-semibold hidden sm:inline" style={{ color: "var(--mq-text)" }}>
                   {history.filter((h: any) => Date.now() - h.playedAt < 7 * 24 * 60 * 60 * 1000).length}
                 </span>
                 <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
@@ -1797,7 +1882,7 @@ export default function MainView() {
                 onClick={() => {
                   setSelectedCurated(pl);
                 }}
-                className="flex-shrink-0 w-40 h-52 rounded-2xl relative overflow-hidden cursor-pointer group"
+                className="flex-shrink-0 w-32 h-44 sm:w-40 sm:h-52 rounded-2xl relative overflow-hidden cursor-pointer group"
               >
                 {/* Playlist artwork as background */}
                 <div className="absolute inset-0">
@@ -1808,7 +1893,7 @@ export default function MainView() {
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
                 {/* Content */}
-                <div className="relative z-10 h-full flex flex-col justify-between p-3.5">
+                <div className="relative z-10 h-full flex flex-col justify-between p-2.5 sm:p-3.5">
                   <div className="mt-1">
                     <p className="text-sm font-bold leading-tight drop-shadow-md" style={{ color: "#fff" }}>
                       {pl.name}
@@ -1838,7 +1923,7 @@ export default function MainView() {
       <ScrollReveal direction="up" delay={0.35}>
       {recentTracks.length > 0 && (
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-2 sm:mb-4">
             <div className="flex items-center gap-2">
               <Clock className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
               <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>

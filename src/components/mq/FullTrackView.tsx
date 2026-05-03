@@ -931,16 +931,16 @@ export default function FullTrackView() {
         </div>
 
         {/* Content */}
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 max-w-lg mx-auto w-full">
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 max-w-lg mx-auto w-full">
           {/* Album art — hidden when canvas mode is active (canvas draws its own cover) */}
           {!canvasMode && (
             <motion.div
               initial={animationsEnabled ? { scale: 0.8, opacity: 0 } : undefined}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 200 }}
-              className="mb-8 flex items-center justify-center"
+              className="mb-6 sm:mb-8 flex items-center justify-center"
             >
-              <div className="w-56 h-56 sm:w-64 sm:h-64 lg:w-80 lg:h-80 rounded-2xl overflow-hidden shadow-2xl relative z-10"
+              <div className="w-48 h-48 sm:w-64 sm:h-64 lg:w-80 lg:h-80 rounded-2xl overflow-hidden shadow-2xl relative z-10"
                 style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
                 {currentPlaylistId ? (
                   <PlaylistArtwork
@@ -961,7 +961,7 @@ export default function FullTrackView() {
           {canvasMode && <div className="mb-8" style={{ height: "clamp(14rem, 40vh, 20rem)" }} />}
 
           {/* Track info */}
-          <div className="text-center mb-6 w-full">
+          <div className="text-center mb-4 sm:mb-6 w-full">
             <h2 className="text-xl font-bold mb-1 truncate" style={{ color: "var(--mq-text)" }}>
               {currentTrack.title}
             </h2>
@@ -974,7 +974,7 @@ export default function FullTrackView() {
           </div>
 
           {/* Progress bar */}
-          <div className="w-full mb-6">
+          <div className="w-full mb-4 sm:mb-6">
             <div ref={progressRef}
               onMouseDown={handleProgressMouseDown}
               onTouchStart={handleProgressTouchStart}
@@ -992,7 +992,7 @@ export default function FullTrackView() {
           </div>
 
           {/* Action buttons row */}
-          <div className="flex items-center justify-center gap-4 mb-6">
+          <div className="flex items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-6 overflow-x-auto px-2 sm:px-0" style={{ scrollbarWidth: "none" }}>
             <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
@@ -1139,7 +1139,7 @@ export default function FullTrackView() {
           </div>
 
           {/* Main playback controls */}
-          <div className="flex items-center gap-6 mb-4">
+          <div className="flex items-center gap-4 sm:gap-6 mb-3 sm:mb-4">
             <motion.button whileTap={{ scale: 0.9 }} onClick={toggleShuffle}
               style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
               <Shuffle className="w-5 h-5" />
@@ -1148,7 +1148,7 @@ export default function FullTrackView() {
               <SkipBack className="w-6 h-6" />
             </motion.button>
             <motion.button whileTap={{ scale: 0.85 }} onClick={togglePlay}
-              className="w-16 h-16 rounded-full flex items-center justify-center"
+              className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center"
               style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", boxShadow: isPlaying ? "0 0 30px var(--mq-glow)" : "none" }}>
               {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7 ml-1" />}
             </motion.button>
@@ -1161,10 +1161,10 @@ export default function FullTrackView() {
             </motion.button>
           </div>
 
-          {/* Volume slider — scroll-safe */}
+          {/* Volume slider — scroll-safe, hidden on very small screens */}
           <div
             ref={volumeSectionRef}
-            className="flex items-center gap-3 w-full max-w-xs"
+            className="flex items-center gap-3 w-full max-w-xs hidden sm:flex"
           >
             <div ref={volumeRef} onClick={handleVolumeClick}
               className="flex-1 h-1.5 rounded-full cursor-pointer" style={{ backgroundColor: "var(--mq-border)" }}>

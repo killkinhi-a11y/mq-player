@@ -334,7 +334,7 @@ export default function SearchView() {
   const activeHasSearched = selectedGenre || hasSearched;
 
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-4xl mx-auto relative`}>
+    <div className={`${compactMode ? "p-2 sm:p-3 lg:p-4 pb-32 lg:pb-24 space-y-4" : "p-3 sm:p-4 lg:p-6 pb-36 lg:pb-28 space-y-6"} max-w-4xl mx-auto relative`}>
       {/* Upload progress floating notification */}
       {uploadProgress && (
         <motion.div
@@ -422,7 +422,8 @@ export default function SearchView() {
       <motion.div
         initial={animationsEnabled ? { opacity: 0, y: -10 } : undefined}
         animate={{ opacity: 1, y: 0 }}
-        className="flex gap-2"
+        className="flex gap-2 sticky top-0 z-20 -mx-2 sm:-mx-3 lg:-mx-4 px-2 sm:px-3 lg:px-4 py-2 sm:py-3"
+        style={{ backgroundColor: "var(--mq-bg)" }}
       >
         <motion.div
           animate={isFocused ? { boxShadow: "0 0 20px rgba(var(--mq-accent-rgb, 224,49,49), 0.2)" } : { boxShadow: "0 0 0px transparent" }}

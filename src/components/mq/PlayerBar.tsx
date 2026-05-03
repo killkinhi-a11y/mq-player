@@ -1545,7 +1545,7 @@ export default function PlayerBar() {
           backgroundColor: playError ? "#ef4444" : "var(--mq-accent)",
           boxShadow: "0 0 8px var(--mq-glow)",
         }} />
-        <div className="absolute top-1/2 w-3 h-3 rounded-full transition-opacity sm:opacity-0 sm:group-hover:opacity-100 opacity-100" style={{
+        <div className="absolute top-1/2 w-2 h-2 sm:w-3 sm:h-3 rounded-full transition-opacity sm:opacity-0 sm:group-hover:opacity-100 opacity-100" style={{
           left: `${progressPct}%`,
           backgroundColor: playError ? "#ef4444" : "var(--mq-accent)",
           transform: "translate(-50%, -50%)",
@@ -1810,7 +1810,7 @@ export default function PlayerBar() {
       {/* Audio visualization waveform — visible on all screen sizes */}
       <canvas
         ref={canvasRef}
-        className="w-full pointer-events-none block h-3 sm:h-5 lg:h-7"
+        className="w-full pointer-events-none hidden md:block h-3 sm:h-5 lg:h-7"
         style={{ opacity: isPlaying ? 0.7 : 0.1, transition: "opacity 0.3s" }}
       />
 
