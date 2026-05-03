@@ -1605,15 +1605,24 @@ export const useAppStore = create<AppState>()(
         if (!state.userId) return;
         set({ isSyncing: true, syncError: null });
         try {
-          const res = await fetch('/api/sync');
-          if (!res.ok) {
-            set({ isSyncing: false });
-            return;
+          // Fetch both UserSync data AND Playlist table data in parallel
+          const [syncRes, playlistsRes] = await Promise.all([
+            fetch('/api/sync').catch(() => null),
+            fetch('/api/playlists?myOnly=true&limit=50').catch(() => null),
+          ]);
+
+          // ── Parse UserSync data ──
+          let data: Record<string, any> = {};
+          if (syncRes?.ok) {
+            const json = await syncRes.json();
+            data = json.data || {};
           }
-          const { data } = await res.json();
-          if (!data || typeof data !== "object") {
-            set({ isSyncing: false, lastSyncAt: Date.now() });
-            return;
+
+          // ── Parse Playlist table data (bot-created playlists) ──
+          let dbPlaylists: any[] = [];
+          if (playlistsRes?.ok) {
+            const json = await playlistsRes.json();
+            dbPlaylists = json.playlists || [];
           }
 
           const updates: Record<string, unknown> = {};
@@ -1648,6 +1657,44 @@ export const useAppStore = create<AppState>()(
                 const localTracks = merged[localIdx].tracks?.length || 0;
                 if (serverTracks > localTracks) {
                   merged[localIdx] = pl;
+                }
+              }
+            }
+            updates.playlists = merged;
+          }
+
+          // ── Merge bot-created playlists from Playlist DB table ──
+          // Convert Playlist rows to UserPlaylist format and merge into store
+          if (dbPlaylists.length > 0) {
+            const existing = (updates.playlists as any[] || state.playlists || []);
+            const merged = [...existing];
+            for (const pl of dbPlaylists) {
+              const localIdx = merged.findIndex((p: any) => p.id === pl.id);
+              const dbTrackCount = (pl.tracks || []).length;
+              if (localIdx === -1) {
+                // New playlist from DB (created via bot) — convert to UserPlaylist format
+                merged.push({
+                  id: pl.id,
+                  name: pl.name,
+                  description: pl.description || "",
+                  cover: pl.cover || "",
+                  tracks: pl.tracks || [],
+                  createdAt: pl.createdAt ? new Date(pl.createdAt).getTime() : Date.now(),
+                  // Extra fields from DB
+                  isPublic: pl.isPublic,
+                  tags: pl.tags || [],
+                });
+              } else {
+                // Existing playlist — update if DB version has more tracks (bot added something)
+                const localTracks = (merged[localIdx].tracks || []).length;
+                if (dbTrackCount > localTracks) {
+                  merged[localIdx] = {
+                    ...merged[localIdx],
+                    tracks: pl.tracks || merged[localIdx].tracks,
+                    name: pl.name || merged[localIdx].name,
+                    description: pl.description || merged[localIdx].description,
+                    cover: pl.cover || merged[localIdx].cover,
+                  };
                 }
               }
             }
