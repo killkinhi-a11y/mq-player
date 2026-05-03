@@ -41,7 +41,7 @@ const MobileNav = lazy(() => import("@/components/mq/MobileNav"));
 const NotificationPanel = lazy(() => import("@/components/mq/NotificationPanel"));
 const SeasonalEffects = lazy(() => import("@/components/mq/SeasonalEffects"));
 const MaintenanceBanner = lazy(() => import("@/components/mq/MaintenanceBanner"));
-const SideVisuals = lazy(() => import("@/components/mq/SideVisuals"));
+// SideVisuals removed
 
 function useIsClient() {
   const [isClient, setIsClient] = useState(false);

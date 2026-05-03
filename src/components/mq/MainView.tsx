@@ -1154,7 +1154,7 @@ export default function MainView() {
             key={stat.label}
             onClick={stat.onClick}
             className={`rounded-xl p-4 flex items-center gap-3 text-left transition-all duration-200 cursor-pointer ${compactMode ? "" : ""}`}
-            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+            style={{ backgroundColor: "var(--mq-card)" }}
           >
             <motion.div
               initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
@@ -1184,7 +1184,7 @@ export default function MainView() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
           className="rounded-xl p-4"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+          style={{ backgroundColor: "var(--mq-card)" }}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">

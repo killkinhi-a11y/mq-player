@@ -417,7 +417,7 @@ export default function PlaylistView() {
           initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl p-5"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+          style={{ backgroundColor: "var(--mq-card)" }}
         >
           <div className="flex items-start gap-4">
             {/* Cover with upload overlay */}
@@ -565,7 +565,7 @@ export default function PlaylistView() {
             initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
             animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl p-4"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+            style={{ backgroundColor: "var(--mq-card)" }}
           >
             <p className="text-xs font-medium mb-3" style={{ color: "var(--mq-text-muted)" }}>
               Перегенерировать ИИ
@@ -821,7 +821,7 @@ export default function PlaylistView() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             className="rounded-2xl p-4 space-y-3"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+            style={{ backgroundColor: "var(--mq-card)" }}
           >
             <div className="flex items-center justify-between">
               <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Новый плейлист</h3>
@@ -870,7 +870,7 @@ export default function PlaylistView() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             className="rounded-2xl p-4 space-y-3"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+            style={{ backgroundColor: "var(--mq-card)" }}
           >
             <div className="flex items-center justify-between">
               <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Импорт плейлиста</h3>
@@ -1059,7 +1059,7 @@ export default function PlaylistView() {
               whileTap={{ scale: 0.97 }}
               onClick={() => setSelectedPlaylistId(pl.id)}
               className="rounded-xl p-4 cursor-pointer relative group"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+              style={{ backgroundColor: "var(--mq-card)" }}
             >
               {/* Cover with upload hover */}
               <div className="relative group/cover w-14 h-14 rounded-lg overflow-hidden mb-3 flex items-center justify-center"

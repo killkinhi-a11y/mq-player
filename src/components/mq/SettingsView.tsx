@@ -569,7 +569,7 @@ export default function SettingsView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="rounded-2xl p-4"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <div className="flex items-center gap-4">
           {avatar ? (
@@ -686,7 +686,7 @@ export default function SettingsView() {
           >
             <div
               className="rounded-2xl"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+              style={{ backgroundColor: "var(--mq-card)" }}
             >
               <TasteProfileView />
             </div>
@@ -721,7 +721,7 @@ export default function SettingsView() {
           >
             <div
               className="rounded-2xl p-4 space-y-4"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+              style={{ backgroundColor: "var(--mq-card)" }}
             >
               {/* Enable/Disable toggle */}
               <div className="flex items-center justify-between">
@@ -849,7 +849,7 @@ export default function SettingsView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.08, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="rounded-2xl p-4"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <button
           onClick={() => setShowThemeMenu(!showThemeMenu)}
@@ -922,7 +922,7 @@ export default function SettingsView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="rounded-2xl p-4"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <button
           onClick={() => setShowStyleMenu(!showStyleMenu)}
@@ -1165,7 +1165,7 @@ export default function SettingsView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
         className="rounded-2xl p-4"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -1232,7 +1232,7 @@ export default function SettingsView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.25 }}
         className="rounded-2xl p-4 space-y-4"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
@@ -1303,7 +1303,7 @@ export default function SettingsView() {
         initial={anim ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         className="rounded-2xl p-4 space-y-4"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <div className="flex items-center gap-2 mb-2">
           <MessageCircle className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
@@ -1361,7 +1361,7 @@ export default function SettingsView() {
         initial={anim ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         className="rounded-2xl p-4 space-y-3"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -1410,7 +1410,7 @@ export default function SettingsView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
         className="rounded-2xl p-4"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <div className="flex items-center gap-2 mb-4">
           <Type className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
@@ -1443,7 +1443,7 @@ export default function SettingsView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.35 }}
         className="rounded-2xl p-4"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <div className="flex items-center gap-2 mb-3">
           <Volume2 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
@@ -1475,7 +1475,7 @@ export default function SettingsView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
         className="rounded-2xl p-4"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <div className="flex items-center gap-2 mb-4">
           <Shield className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
@@ -1539,7 +1539,7 @@ export default function SettingsView() {
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         className="rounded-2xl p-4 space-y-3"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -1598,7 +1598,7 @@ export default function SettingsView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.45 }}
         className="rounded-2xl p-4"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <div className="flex items-center gap-2 mb-2">
           <Monitor className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />

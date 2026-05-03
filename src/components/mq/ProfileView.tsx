@@ -254,7 +254,7 @@ export default function ProfileView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
         className="rounded-2xl p-4"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Имя пользователя</span>
@@ -327,7 +327,7 @@ export default function ProfileView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
         className="rounded-2xl p-4"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <span className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Telegram</span>
         <p className="text-sm font-medium mt-1" style={{ color: "var(--mq-text)" }}>
@@ -341,7 +341,7 @@ export default function ProfileView() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.22 }}
         className="rounded-2xl p-4 flex items-center justify-between"
-        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+        style={{ backgroundColor: "var(--mq-card)" }}
       >
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg flex items-center justify-center"
@@ -382,7 +382,7 @@ export default function ProfileView() {
         className="grid grid-cols-2 gap-3"
       >
         <div className="rounded-2xl p-4 flex items-center gap-3"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+          style={{ backgroundColor: "var(--mq-card)" }}>
           <div className="w-10 h-10 rounded-lg flex items-center justify-center"
             style={{ backgroundColor: "var(--mq-accent)", opacity: 0.8 }}>
             <Heart className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
@@ -394,7 +394,7 @@ export default function ProfileView() {
         </div>
 
         <div className="rounded-2xl p-4 flex items-center gap-3"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+          style={{ backgroundColor: "var(--mq-card)" }}>
           <div className="w-10 h-10 rounded-lg flex items-center justify-center"
             style={{ backgroundColor: "var(--mq-accent)", opacity: 0.8 }}>
             <MessageCircle className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
