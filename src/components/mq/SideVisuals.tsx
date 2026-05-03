@@ -4,12 +4,12 @@ import { useEffect, useRef, useCallback } from "react";
 import { getAnalyser } from "@/lib/audioEngine";
 
 /**
- * Side panels — bold, visible audio visualizer:
- * - Full-height equalizer bars (thick, gradient-filled)
- * - Circular wave rings emanating from center-bottom
- * - Flowing vertical gradient that breathes
- * - Mouse glow
- * All colors from --mq-accent theme variable.
+ * Side panels — glowing neon lines that flow with music:
+ * - 3 smooth flowing curves per side, each from a different frequency range
+ * - Lines glow (shadow blur) and pulse with audio
+ * - Subtle vertical gradient atmosphere
+ * - Mouse glow on hover
+ * Theme-aware via --mq-accent.
  */
 
 function hexToRgb(hex: string): [number, number, number] {
@@ -82,9 +82,79 @@ export default function SideVisuals() {
     window.addEventListener("resize", resize);
 
     const freq = new Uint8Array(128);
-    // smoothed values for silky animation
-    const smoothed = new Float32Array(64).fill(0);
+    const smooth = new Float32Array(64).fill(0);
     let t = 0;
+
+    // Each line: color (rgb), freqOffset, speed, base amplitude, width, glow
+    type LineDef = {
+      cr: number; cg: number; cb: number;
+      freqStart: number; freqEnd: number;
+      speed: number;
+      amp: number;
+      lineW: number;
+      glow: number;
+      phaseOffset: number;
+      sideMirror: boolean;
+    };
+
+    const drawLine = (
+      ctx: CanvasRenderingContext2D,
+      line: LineDef,
+      w: number, h: number,
+      smooth: Float32Array,
+      t: number, side: number
+    ) => {
+      // Get average of this line's frequency range
+      let val = 0;
+      const count = line.freqEnd - line.freqStart;
+      for (let i = line.freqStart; i < line.freqEnd; i++) val += smooth[i];
+      val /= Math.max(1, count);
+
+      const { cr, cg, cb, speed, amp, lineW, glow, phaseOffset, sideMirror } = line;
+
+      // Base X position (shifts per line)
+      const baseX = w * (0.25 + (sideMirror ? 0.15 : 0));
+
+      ctx.beginPath();
+      ctx.lineWidth = lineW + val * 1.5;
+
+      // Draw smooth path top to bottom
+      const steps = 60;
+      for (let i = 0; i <= steps; i++) {
+        const y = (h / steps) * i;
+        const normalY = i / steps;
+
+        // Multiple sine waves for organic movement
+        const wave1 = Math.sin(normalY * 5 + t * speed + phaseOffset) * amp;
+        const wave2 = Math.sin(normalY * 8 + t * speed * 0.7 + phaseOffset * 1.5) * amp * 0.4;
+        const wave3 = Math.sin(normalY * 3 + t * speed * 1.3 + phaseOffset * 0.8) * amp * 0.6;
+
+        // Audio modulation
+        const freqIdx = line.freqStart + Math.floor(normalY * count);
+        const localVal = smooth[Math.min(63, freqIdx)];
+        const audioWave = localVal * amp * 2.5;
+
+        const x = baseX + (wave1 + wave2 + wave3 + audioWave) * (1 + val * 0.5);
+
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+
+      // Main stroke
+      const alpha = 0.35 + val * 0.55;
+      ctx.strokeStyle = `rgba(${cr},${cg},${cb},${alpha})`;
+      ctx.shadowColor = `rgba(${cr},${cg},${cb},${glow * (0.4 + val * 0.6)})`;
+      ctx.shadowBlur = glow * (8 + val * 20);
+      ctx.stroke();
+
+      // Bright core (thinner, brighter)
+      ctx.lineWidth = Math.max(0.5, (lineW + val * 1.5) * 0.4);
+      ctx.strokeStyle = `rgba(${Math.min(255, cr + 80)},${Math.min(255, cg + 80)},${Math.min(255, cb + 80)},${alpha * 0.7})`;
+      ctx.shadowBlur = glow * 4;
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+    };
 
     const draw = () => {
       animRef.current = requestAnimationFrame(draw);
@@ -93,147 +163,81 @@ export default function SideVisuals() {
 
       const an = getAnalyser();
       if (an) an.getByteFrequencyData(freq);
+      for (let i = 0; i < 64; i++) smooth[i] += ((freq[i] || 0) / 255 - smooth[i]) * 0.12;
 
-      // smooth frequency data
-      for (let i = 0; i < 64; i++) {
-        smoothed[i] += ((freq[i] || 0) / 255 - smoothed[i]) * 0.15;
-      }
-
-      let energy = 0, bass = 0;
-      for (let i = 0; i < 32; i++) energy += smoothed[i];
+      let energy = 0;
+      for (let i = 0; i < 32; i++) energy += smooth[i];
       energy /= 32;
-      for (let i = 0; i < 8; i++) bass += smoothed[i];
-      bass /= 8;
 
       const [ar, ag, ab] = accentRef.current;
       const mx = mouseRef.current.x;
       const my = mouseRef.current.y;
       const vw = window.innerWidth;
 
-      // helper: lerp color toward lighter for gradient tops
-      const lr = Math.min(255, ar + 60);
-      const lg = Math.min(255, ag + 60);
-      const lb = Math.min(255, ab + 60);
-      // darker
-      const dr = Math.round(ar * 0.5);
-      const dg = Math.round(ag * 0.5);
-      const db = Math.round(ab * 0.5);
+      // Lighter version for secondary lines
+      const lr = Math.min(255, ar + 40);
+      const lg = Math.min(255, ag + 40);
+      const lb = Math.min(255, ab + 40);
+      // Muted/darker for tertiary
+      const mr = Math.round(ar * 0.6 + 40);
+      const mg = Math.round(ag * 0.6 + 40);
+      const mb = Math.round(ab * 0.6 + 40);
+
+      // Line definitions: bass, mids, highs
+      const lines: LineDef[] = [
+        // Bass line — main accent, thick
+        { cr: ar, cg: ag, cb: ab, freqStart: 0, freqEnd: 8, speed: 0.8, amp: w * 0.15, lineW: 2.5, glow: 1, phaseOffset: 0, sideMirror: false },
+        // Mid line — lighter
+        { cr: lr, cg: lg, cb: lb, freqStart: 8, freqEnd: 28, speed: 1.1, amp: w * 0.12, lineW: 1.8, glow: 0.8, phaseOffset: 2.1, sideMirror: true },
+        // High line — muted, thin
+        { cr: mr, cg: mg, cb: mb, freqStart: 28, freqEnd: 52, speed: 1.5, amp: w * 0.08, lineW: 1.2, glow: 0.6, phaseOffset: 4.2, sideMirror: false },
+      ];
 
       [ctxL, ctxR].forEach((ctx, side) => {
         ctx.clearRect(0, 0, w, h);
 
-        // ═══════════════════════════════════
-        // 1. FLOWING GRADIENT BACKGROUND — breathes
-        // ═══════════════════════════════════
-        const breathPhase = Math.sin(t * 0.6) * 0.5 + 0.5;
-        const gradX = w * (0.3 + breathPhase * 0.4);
-        const gradY = h * (0.3 + Math.sin(t * 0.4 + 1) * 0.2);
-        const bgGrad = ctx.createRadialGradient(gradX, gradY, 0, gradX, gradY, w * 2);
-        bgGrad.addColorStop(0, `rgba(${ar},${ag},${ab},${0.08 + energy * 0.12})`);
-        bgGrad.addColorStop(0.5, `rgba(${dr},${dg},${db},${0.04 + energy * 0.06})`);
+        // ── Subtle background atmosphere ──
+        const bgGrad = ctx.createLinearGradient(
+          side === 0 ? w : 0, 0,
+          side === 0 ? 0 : w, 0
+        );
+        bgGrad.addColorStop(0, `rgba(${ar},${ag},${ab},${0.03 + energy * 0.05})`);
+        bgGrad.addColorStop(0.5, `rgba(${ar},${ag},${ab},0)`);
         bgGrad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
         ctx.fillStyle = bgGrad;
         ctx.fillRect(0, 0, w, h);
 
-        // second glow blob, offset
-        const g2x = w * (0.7 - breathPhase * 0.3);
-        const g2y = h * (0.7 + Math.cos(t * 0.5) * 0.15);
-        const bg2 = ctx.createRadialGradient(g2x, g2y, 0, g2x, g2y, w * 1.5);
-        bg2.addColorStop(0, `rgba(${lr},${lg},${lb},${0.05 + bass * 0.08})`);
-        bg2.addColorStop(1, `rgba(${lr},${lg},${lb},0)`);
-        ctx.fillStyle = bg2;
-        ctx.fillRect(0, 0, w, h);
-
-        // ═══════════════════════════════════
-        // 2. EQUALIZER BARS — bold, centered, gradient-filled
-        // ═══════════════════════════════════
-        const barCount = Math.max(6, Math.min(16, Math.floor(w / 10)));
-        const gap = Math.max(2, w * 0.04);
-        const barW = (w - gap * (barCount + 1)) / barCount;
-
-        for (let i = 0; i < barCount; i++) {
-          // use different frequency ranges for variety
-          const fi = Math.min(63, Math.floor((i / barCount) * 48 + (side === 0 ? 0 : 16)));
-          const val = smoothed[fi];
-          const barH = Math.max(4, val * h * 0.75);
-          const x = gap + i * (barW + gap);
-          const y = h / 2 - barH / 2;
-
-          // gradient from accent → lighter → accent
-          const bGrad = ctx.createLinearGradient(x, y, x, y + barH);
-          bGrad.addColorStop(0, `rgba(${dr},${dg},${db},${0.4 + val * 0.4})`);
-          bGrad.addColorStop(0.3, `rgba(${ar},${ag},${ab},${0.6 + val * 0.35})`);
-          bGrad.addColorStop(0.5, `rgba(${lr},${lg},${lb},${0.7 + val * 0.3})`);
-          bGrad.addColorStop(0.7, `rgba(${ar},${ag},${ab},${0.6 + val * 0.35})`);
-          bGrad.addColorStop(1, `rgba(${dr},${dg},${db},${0.4 + val * 0.4})`);
-
-          ctx.fillStyle = bGrad;
-          ctx.beginPath();
-          ctx.roundRect(x, y, barW, barH, Math.min(barW / 2, 4));
-          ctx.fill();
-
-          // glow behind each bar
-          if (val > 0.3) {
-            ctx.shadowColor = `rgba(${ar},${ag},${ab},${val * 0.4})`;
-            ctx.shadowBlur = 8 + val * 12;
-            ctx.fillStyle = `rgba(${ar},${ag},${ab},${val * 0.15})`;
-            ctx.beginPath();
-            ctx.roundRect(x, y, barW, barH, Math.min(barW / 2, 4));
-            ctx.fill();
-            ctx.shadowBlur = 0;
-          }
+        // ── Draw the 3 neon lines ──
+        for (const line of lines) {
+          drawLine(ctx, line, w, h, smooth, t, side);
         }
 
-        // ═══════════════════════════════════
-        // 3. WAVE RINGS — concentric arcs from center
-        // ═══════════════════════════════════
-        const ringCount = 4;
-        const cx = w / 2;
-        const cy = h / 2;
+        // ── Inner edge glow ──
+        const edgeX = side === 0 ? w - 1 : 0.5;
+        const eGrad = ctx.createLinearGradient(0, 0, 0, h);
+        eGrad.addColorStop(0, `rgba(${ar},${ag},${ab},0)`);
+        eGrad.addColorStop(0.3, `rgba(${ar},${ag},${ab},${0.08 + energy * 0.12})`);
+        eGrad.addColorStop(0.5, `rgba(${ar},${ag},${ab},${0.15 + energy * 0.2})`);
+        eGrad.addColorStop(0.7, `rgba(${ar},${ag},${ab},${0.08 + energy * 0.12})`);
+        eGrad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
+        ctx.fillStyle = eGrad;
+        ctx.fillRect(edgeX, 0, 1.5, h);
 
-        for (let r = 0; r < ringCount; r++) {
-          const baseR = 20 + r * 25;
-          const pulse = baseR + smoothed[r * 8] * 40;
-          const alpha = 0.12 + smoothed[r * 8] * 0.25 - r * 0.03;
-          if (alpha <= 0) continue;
-
-          ctx.beginPath();
-          ctx.arc(cx, cy, pulse, 0, Math.PI * 2);
-          ctx.strokeStyle = `rgba(${lr},${lg},${lb},${alpha})`;
-          ctx.lineWidth = 1.5 - r * 0.2;
-          ctx.stroke();
-        }
-
-        // ═══════════════════════════════════
-        // 4. MOUSE GLOW
-        // ═══════════════════════════════════
+        // ── Mouse glow ──
         const glowX = side === 0
           ? Math.min(w, mx) : Math.max(0, mx - (vw - w));
         const glowY = Math.min(h, Math.max(0, my));
-        const dist = Math.abs(glowX - w / 2) + Math.abs(glowY - h / 2);
-        const glowA = Math.max(0, 0.2 + energy * 0.2 - dist / 1200);
+        const dist = Math.hypot(glowX - w / 2, glowY - h / 2);
+        const glowA = Math.max(0, 0.15 + energy * 0.15 - dist / 1000);
 
         if (glowA > 0.01) {
-          const mGrad = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, w);
+          const mGrad = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, w * 1.2);
           mGrad.addColorStop(0, `rgba(${lr},${lg},${lb},${glowA})`);
-          mGrad.addColorStop(0.5, `rgba(${ar},${ag},${ab},${glowA * 0.4})`);
+          mGrad.addColorStop(0.5, `rgba(${ar},${ag},${ab},${glowA * 0.3})`);
           mGrad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
           ctx.fillStyle = mGrad;
           ctx.fillRect(0, 0, w, h);
         }
-
-        // ═══════════════════════════════════
-        // 5. INNER EDGE LINE — accent border
-        // ═══════════════════════════════════
-        const edgeX = side === 0 ? w - 1.5 : 0;
-        const eGrad = ctx.createLinearGradient(0, 0, 0, h);
-        eGrad.addColorStop(0, `rgba(${ar},${ag},${ab},0)`);
-        eGrad.addColorStop(0.2, `rgba(${ar},${ag},${ab},${0.15 + energy * 0.2})`);
-        eGrad.addColorStop(0.5, `rgba(${lr},${lg},${lb},${0.25 + energy * 0.25})`);
-        eGrad.addColorStop(0.8, `rgba(${ar},${ag},${ab},${0.15 + energy * 0.2})`);
-        eGrad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
-        ctx.fillStyle = eGrad;
-        ctx.fillRect(edgeX, 0, 1.5, h);
       });
     };
 
