@@ -79,3 +79,4 @@ Thumbs.db:encryptable
 *.tar.zst
 ```.next/
 .gitnexus
+.vercel

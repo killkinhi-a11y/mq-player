@@ -1,74 +1,96 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { getAudioElement, getAnalyser } from "@/lib/audioEngine";
+import { getAnalyser } from "@/lib/audioEngine";
 
 /**
- * Animated side panels with:
- * - Floating particles that drift upward
- * - Audio-reactive bars that pulse with the music
+ * Animated side panels with theme-aware colors:
+ * - Geometric grid lines that pulse with audio
+ * - Ripple circles emanating from random points
+ * - Diagonal light streaks
  * - Subtle mouse-following glow
- * All rendered on canvas for performance.
+ * - Audio-reactive vertical bars along inner edge
+ * All colors read from --mq-accent CSS variable.
  */
+
+interface Ripple {
+  x: number;
+  y: number;
+  radius: number;
+  maxRadius: number;
+  opacity: number;
+}
+
+interface Streak {
+  x: number;
+  y: number;
+  length: number;
+  speed: number;
+  opacity: number;
+  angle: number;
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.substring(0, 2), 16);
+  const g = parseInt(clean.substring(2, 4), 16);
+  const b = parseInt(clean.substring(4, 6), 16);
+  return [r, g, b];
+}
+
+function parseAccentColor(raw: string): [number, number, number] {
+  if (raw.startsWith("#") && raw.length >= 7) return hexToRgb(raw);
+  // fallback: try to extract rgb from getComputedStyle value
+  const m = raw.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (m) return [+m[1], +m[2], +m[3]];
+  return [224, 49, 49]; // fallback red
+}
+
 export default function SideVisuals() {
   const leftCanvasRef = useRef<HTMLCanvasElement>(null);
   const rightCanvasRef = useRef<HTMLCanvasElement>(null);
   const mouseRef = useRef({ x: 0, y: 0 });
   const animRef = useRef<number>(0);
-  const particlesRef = useRef<Particle[]>([]);
-  const isMobileRef = useRef(false);
+  const ripplesRef = useRef<Ripple[]>([]);
+  const streaksRef = useRef<Streak[]>([]);
+  const accentRef = useRef<[number, number, number]>([224, 49, 49]);
 
-  interface Particle {
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    size: number;
-    opacity: number;
-    life: number;
-    maxLife: number;
-    hue: number;
-  }
-
-  const initParticles = useCallback((width: number, height: number) => {
-    const count = isMobileRef.current ? 15 : 30;
-    const particles: Particle[] = [];
-    for (let i = 0; i < count; i++) {
-      particles.push(createParticle(width, height, true));
-    }
-    particlesRef.current = particles;
-  }, []);
-
-  const createParticle = (w: number, h: number, randomY = false): Particle => ({
+  const createRipple = (w: number, h: number): Ripple => ({
     x: Math.random() * w,
-    y: randomY ? Math.random() * h : h + Math.random() * 20,
-    vx: (Math.random() - 0.5) * 0.3,
-    vy: -(Math.random() * 0.5 + 0.2),
-    size: Math.random() * 2 + 0.5,
-    opacity: Math.random() * 0.4 + 0.1,
-    life: 0,
-    maxLife: Math.random() * 300 + 200,
-    hue: Math.random() * 30, // slight hue variation around accent
+    y: Math.random() * h,
+    radius: 0,
+    maxRadius: Math.random() * 80 + 40,
+    opacity: Math.random() * 0.15 + 0.05,
   });
 
-  useEffect(() => {
-    isMobileRef.current = window.innerWidth < 1024;
+  const createStreak = (w: number, h: number): Streak => ({
+    x: Math.random() * w * 1.5 - w * 0.25,
+    y: -Math.random() * 40,
+    length: Math.random() * 60 + 20,
+    speed: Math.random() * 1.5 + 0.5,
+    opacity: Math.random() * 0.06 + 0.02,
+    angle: Math.PI / 4 + (Math.random() - 0.5) * 0.3,
+  });
 
+  const readAccent = useCallback(() => {
+    if (typeof document === "undefined") return;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue("--mq-accent").trim();
+    if (raw) accentRef.current = parseAccentColor(raw);
+  }, []);
+
+  useEffect(() => {
+    readAccent();
+    // Re-read accent every 2 seconds to catch theme changes
+    const interval = setInterval(readAccent, 2000);
+    return () => clearInterval(interval);
+  }, [readAccent]);
+
+  useEffect(() => {
     const handleMouse = (e: MouseEvent) => {
       mouseRef.current = { x: e.clientX, y: e.clientY };
     };
     window.addEventListener("mousemove", handleMouse, { passive: true });
-
-    const resize = () => {
-      isMobileRef.current = window.innerWidth < 1024;
-    };
-    window.addEventListener("resize", resize, { passive: true });
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouse);
-      window.removeEventListener("resize", resize);
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-    };
+    return () => window.removeEventListener("mousemove", handleMouse);
   }, []);
 
   useEffect(() => {
@@ -86,8 +108,6 @@ export default function SideVisuals() {
     const resizeCanvases = () => {
       const vw = window.innerWidth;
       const isMobile = vw < 1024;
-
-      // Side panels are ~160px wide on desktop, hidden on mobile
       const sideW = isMobile ? 0 : Math.max(60, Math.min(200, (vw - 896) / 2));
       const vh = window.innerHeight;
 
@@ -112,16 +132,27 @@ export default function SideVisuals() {
         if (ctx) ctx.scale(dpr, dpr);
       });
 
-      initParticles(w, h);
+      // Init ripples
+      const rippleCount = Math.max(3, Math.floor(h / 200));
+      ripplesRef.current = Array.from({ length: rippleCount }, () => ({
+        ...createRipple(w, h),
+        radius: Math.random() * 60,
+      }));
+
+      // Init streaks
+      const streakCount = Math.max(2, Math.floor(h / 250));
+      streaksRef.current = Array.from({ length: streakCount }, () => ({
+        ...createStreak(w, h),
+        y: Math.random() * h,
+      }));
     };
 
     resizeCanvases();
     window.addEventListener("resize", resizeCanvases);
 
-    // Audio frequency data
     const freqData = new Uint8Array(128);
-
     let time = 0;
+    let rippleTimer = 0;
 
     const draw = () => {
       animRef.current = requestAnimationFrame(draw);
@@ -134,26 +165,27 @@ export default function SideVisuals() {
         analyser.getByteFrequencyData(freqData);
       }
 
-      // Compute audio energy (0-1)
+      // Audio energy (0-1)
       let energy = 0;
       for (let i = 0; i < 32; i++) energy += freqData[i];
       energy = energy / (32 * 255);
 
-      // Compute bass energy
+      // Bass energy
       let bass = 0;
       for (let i = 0; i < 8; i++) bass += freqData[i];
       bass = bass / (8 * 255);
 
-      // Mouse proximity factor for left/right glow
+      const [ar, ag, ab] = accentRef.current;
       const mx = mouseRef.current.x;
       const my = mouseRef.current.y;
       const vw = window.innerWidth;
 
-      // Draw both canvases
+      rippleTimer += 0.016;
+
       [ctxL, ctxR].forEach((ctx, side) => {
         ctx.clearRect(0, 0, w, h);
 
-        // ── Subtle gradient background glow ──
+        // ── Subtle gradient background glow (mouse-following) ──
         const glowX = side === 0
           ? Math.min(w, mx)
           : Math.max(0, mx - (vw - w));
@@ -168,14 +200,117 @@ export default function SideVisuals() {
             glowX, glowY, 0,
             glowX, glowY, w * 1.2
           );
-          grad.addColorStop(0, `rgba(224, 49, 49, ${glowOpacity})`);
-          grad.addColorStop(0.5, `rgba(224, 49, 49, ${glowOpacity * 0.3})`);
-          grad.addColorStop(1, "rgba(224, 49, 49, 0)");
+          grad.addColorStop(0, `rgba(${ar},${ag},${ab},${glowOpacity})`);
+          grad.addColorStop(0.5, `rgba(${ar},${ag},${ab},${glowOpacity * 0.3})`);
+          grad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
           ctx.fillStyle = grad;
           ctx.fillRect(0, 0, w, h);
         }
 
-        // ── Audio-reactive vertical bars along the inner edge ──
+        // ── Geometric grid lines (subtle) ──
+        const gridSpacing = 40;
+        const gridPulse = 0.02 + energy * 0.03;
+        ctx.strokeStyle = `rgba(${ar},${ag},${ab},${gridPulse})`;
+        ctx.lineWidth = 0.5;
+
+        // Vertical grid lines
+        for (let gx = gridSpacing; gx < w; gx += gridSpacing) {
+          ctx.beginPath();
+          ctx.moveTo(gx, 0);
+          ctx.lineTo(gx, h);
+          ctx.stroke();
+        }
+
+        // Horizontal grid lines with subtle wave distortion
+        for (let gy = gridSpacing; gy < h; gy += gridSpacing) {
+          ctx.beginPath();
+          for (let px = 0; px <= w; px += 4) {
+            const waveDistort = Math.sin(px * 0.03 + time * 1.5 + gy * 0.01) * (1 + bass * 3);
+            if (px === 0) ctx.moveTo(px, gy + waveDistort);
+            else ctx.lineTo(px, gy + waveDistort);
+          }
+          ctx.stroke();
+        }
+
+        // Grid intersection dots (audio-reactive glow)
+        for (let gx = gridSpacing; gx < w; gx += gridSpacing) {
+          for (let gy = gridSpacing; gy < h; gy += gridSpacing) {
+            const freqIdx = Math.floor(((gx + gy) / (w + h)) * 32);
+            const val = freqData[freqIdx] / 255;
+            const dotSize = 1 + val * 2;
+            const dotAlpha = 0.05 + val * 0.12;
+            ctx.beginPath();
+            ctx.arc(gx, gy, dotSize, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${ar},${ag},${ab},${dotAlpha})`;
+            ctx.fill();
+          }
+        }
+
+        // ── Ripple circles ──
+        const ripples = ripplesRef.current;
+        for (let i = ripples.length - 1; i >= 0; i--) {
+          const r = ripples[i];
+          r.radius += 0.3 + energy * 1.5;
+
+          if (r.radius >= r.maxRadius) {
+            ripples[i] = createRipple(w, h);
+            continue;
+          }
+
+          const progress = r.radius / r.maxRadius;
+          const fade = 1 - progress;
+          ctx.beginPath();
+          ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(${ar},${ag},${ab},${r.opacity * fade})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          // Inner ring
+          if (r.radius > 10) {
+            ctx.beginPath();
+            ctx.arc(r.x, r.y, r.radius * 0.6, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(${ar},${ag},${ab},${r.opacity * fade * 0.4})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+
+        // Spawn new ripple periodically
+        if (rippleTimer > 3 + Math.random() * 2) {
+          rippleTimer = 0;
+          if (ripples.length < 8) {
+            ripples.push(createRipple(w, h));
+          }
+        }
+
+        // ── Diagonal light streaks ──
+        const streaks = streaksRef.current;
+        for (let i = streaks.length - 1; i >= 0; i--) {
+          const s = streaks[i];
+          s.y += s.speed * (1 + energy * 2);
+
+          if (s.y > h + 50) {
+            streaks[i] = createStreak(w, h);
+            continue;
+          }
+
+          const endX = s.x + Math.cos(s.angle) * s.length;
+          const endY = s.y + Math.sin(s.angle) * s.length;
+
+          const grad = ctx.createLinearGradient(s.x, s.y, endX, endY);
+          grad.addColorStop(0, `rgba(${ar},${ag},${ab},0)`);
+          grad.addColorStop(0.5, `rgba(${ar},${ag},${ab},${s.opacity * (0.5 + energy)})`);
+          grad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
+
+          ctx.beginPath();
+          ctx.moveTo(s.x, s.y);
+          ctx.lineTo(endX, endY);
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        // ── Audio-reactive vertical bars along inner edge ──
         const barCount = 16;
         const barGap = 2;
         const barW = Math.max(1, (w * 0.3) / barCount - barGap);
@@ -189,7 +324,7 @@ export default function SideVisuals() {
           const x = barX + i * (barW + barGap);
           const y = h / 2 - barH / 2 + Math.sin(time * 1.5 + i * 0.3) * 10;
 
-          ctx.fillStyle = `rgba(224, 49, 49, ${0.08 + val * 0.15})`;
+          ctx.fillStyle = `rgba(${ar},${ag},${ab},${0.08 + val * 0.15})`;
           ctx.beginPath();
           ctx.roundRect(x, y, barW, barH, barW / 2);
           ctx.fill();
@@ -197,10 +332,10 @@ export default function SideVisuals() {
 
         // ── Wave line ──
         ctx.beginPath();
-        ctx.strokeStyle = `rgba(224, 49, 49, ${0.06 + energy * 0.08})`;
+        ctx.strokeStyle = `rgba(${ar},${ag},${ab},${0.06 + energy * 0.08})`;
         ctx.lineWidth = 1;
 
-        const waveX = side === 0 ? w * 0.5 : w * 0.5;
+        const waveX = w * 0.5;
         for (let y = 0; y < h; y += 2) {
           const freqIdx = Math.floor((y / h) * 64);
           const val = freqData[freqIdx] / 255;
@@ -211,61 +346,12 @@ export default function SideVisuals() {
         }
         ctx.stroke();
 
-        // ── Floating particles ──
-        const particles = particlesRef.current;
-        for (let i = particles.length - 1; i >= 0; i--) {
-          const p = particles[i];
-          p.life++;
-
-          // Audio boost: particles move faster when music plays
-          const audioBoost = 1 + energy * 2;
-          p.x += p.vx * audioBoost + Math.sin(time + i) * 0.1;
-          p.y += p.vy * audioBoost;
-
-          // Mouse attraction (subtle)
-          if (side === 0 && mx < w * 2) {
-            p.x += (mx - p.x) * 0.001;
-          } else if (side === 1 && mx > vw - w * 2) {
-            p.x += ((vw - w * 2) - p.x) * 0.001;
-          }
-
-          // Fade based on life
-          const lifeRatio = p.life / p.maxLife;
-          const fadeIn = Math.min(1, p.life / 30);
-          const fadeOut = lifeRatio > 0.7 ? 1 - (lifeRatio - 0.7) / 0.3 : 1;
-          const alpha = p.opacity * fadeIn * fadeOut * (0.5 + energy * 0.5);
-
-          if (p.life >= p.maxLife || p.y < -10) {
-            particles[i] = createParticle(w, h, false);
-            continue;
-          }
-
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size * (1 + bass * 0.5), 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(224, 49, 49, ${alpha})`;
-          ctx.fill();
-
-          // Glow around particle
-          if (p.size > 1) {
-            const glowGrad = ctx.createRadialGradient(
-              p.x, p.y, 0,
-              p.x, p.y, p.size * 3
-            );
-            glowGrad.addColorStop(0, `rgba(224, 49, 49, ${alpha * 0.3})`);
-            glowGrad.addColorStop(1, "rgba(224, 49, 49, 0)");
-            ctx.fillStyle = glowGrad;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size * 3, 0, Math.PI * 2);
-            ctx.fill();
-          }
-        }
-
-        // ── Horizontal scan line (subtle) ──
+        // ── Horizontal scan line ──
         const scanY = (time * 30) % h;
         const scanGrad = ctx.createLinearGradient(0, scanY - 2, 0, scanY + 2);
-        scanGrad.addColorStop(0, "rgba(224, 49, 49, 0)");
-        scanGrad.addColorStop(0.5, `rgba(224, 49, 49, ${0.03 + energy * 0.04})`);
-        scanGrad.addColorStop(1, "rgba(224, 49, 49, 0)");
+        scanGrad.addColorStop(0, `rgba(${ar},${ag},${ab},0)`);
+        scanGrad.addColorStop(0.5, `rgba(${ar},${ag},${ab},${0.03 + energy * 0.04})`);
+        scanGrad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
         ctx.fillStyle = scanGrad;
         ctx.fillRect(0, scanY - 2, w, 4);
       });
@@ -277,7 +363,7 @@ export default function SideVisuals() {
       window.removeEventListener("resize", resizeCanvases);
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [initParticles]);
+  }, []);
 
   return (
     <>
