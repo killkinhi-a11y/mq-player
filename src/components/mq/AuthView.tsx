@@ -232,9 +232,12 @@ export default function AuthView() {
   // ─── Telegram register ────────────────────────────────
   const handleTgRegister = async () => {
     if (!tgUsername) { setTgRegisterError("Введите имя пользователя"); return; }
-    if (usernameStatus === 'taken') { setTgRegisterError("Это имя уже занято"); return; }
     if (usernameStatus === 'invalid') { setTgRegisterError(usernameError); return; }
     if (tgUsername.length < 2) { setTgRegisterError("От 2 до 20 символов"); return; }
+
+    // If username is 'taken', clear the frontend-only error and let backend
+    // decide — it may return needsPassword to link an existing account
+    setTgRegisterError("");
 
     setTgRegisterLoading(true); setTgRegisterError("");
     try {
@@ -645,8 +648,8 @@ export default function AuthView() {
                     )}
                     {usernameStatus === 'taken' && usernameError && (
                       <motion.p key="tg-taken" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-                        className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#ef4444" }}>
-                        <X className="w-3 h-3" /> {usernameError}
+                        className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#60a5fa" }}>
+                        <Lock className="w-3 h-3" /> Аккаунт с таким именем уже существует — нажмите кнопку ниже для входа
                       </motion.p>
                     )}
                     {usernameStatus === 'invalid' && usernameError && (
@@ -671,9 +674,9 @@ export default function AuthView() {
                 </div>
 
                 <Button onClick={handleTgRegister}
-                  disabled={tgRegisterLoading || !tgUsername || usernameStatus === 'taken' || usernameStatus === 'invalid' || usernameStatus === 'checking'}
-                  className="w-full min-h-[44px]" style={{ backgroundColor: "#2AABEE", color: "#ffffff" }}>
-                  {tgRegisterLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Создать аккаунт"}
+                  disabled={tgRegisterLoading || !tgUsername || usernameStatus === 'invalid' || usernameStatus === 'checking'}
+                  className="w-full min-h-[44px]" style={{ backgroundColor: usernameStatus === 'taken' ? '#1d4ed8' : "#2AABEE", color: "#ffffff" }}>
+                  {tgRegisterLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : usernameStatus === 'taken' ? "Привязать к существующему аккаунту" : "Создать аккаунт"}
                 </Button>
               </div>
             </div>
