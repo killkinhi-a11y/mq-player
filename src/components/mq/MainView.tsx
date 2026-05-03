@@ -858,15 +858,28 @@ export default function MainView() {
         if (res.ok && !cancelled) {
           const data = await res.json();
           setArtistTracks(data.tracks || []);
-          // Update artist info with fetched avatar and metadata if we didn't have it
-          if (data.artist && !selectedArtist.avatar) {
-            setSelectedArtist({
-              ...selectedArtist,
-              avatar: data.artist.avatar || selectedArtist.avatar,
-              followers: data.artist.followers,
-              genre: data.artist.genre,
-              trackCount: data.artist.trackCount,
-            });
+          // Update artist info with fetched avatar and metadata if better
+          if (data.artist) {
+            const fetchedAvatar = data.artist.avatar;
+            const currentAvatar = selectedArtist.avatar || "";
+            // Always update if we got an avatar and don't have one, or got a different (proxy) avatar
+            if (fetchedAvatar && fetchedAvatar !== currentAvatar) {
+              setSelectedArtist({
+                ...selectedArtist,
+                avatar: fetchedAvatar,
+                followers: data.artist.followers ?? selectedArtist.followers,
+                genre: data.artist.genre || selectedArtist.genre,
+                trackCount: data.artist.trackCount ?? selectedArtist.trackCount,
+              });
+            } else if (!fetchedAvatar && !currentAvatar) {
+              // No avatar anywhere, still update followers/genre
+              setSelectedArtist({
+                ...selectedArtist,
+                followers: data.artist.followers ?? selectedArtist.followers,
+                genre: data.artist.genre || selectedArtist.genre,
+                trackCount: data.artist.trackCount ?? selectedArtist.trackCount,
+              });
+            }
           }
         }
       } catch {

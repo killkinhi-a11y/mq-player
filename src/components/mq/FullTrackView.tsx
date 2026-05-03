@@ -44,6 +44,8 @@ export default function FullTrackView() {
   const [showComments, setShowComments] = useState(false);
   const [showDNA, setShowDNA] = useState(false);
   const [canvasMode, setCanvasMode] = useState(false);
+  const [artistReleases, setArtistReleases] = useState<Track[]>([]);
+  const [artistReleasesLoading, setArtistReleasesLoading] = useState(false);
   const [lyricsLines, setLyricsLines] = useState<{ time: number; text: string }[]>([]);
   const [lyricsPlainText, setLyricsPlainText] = useState("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
@@ -187,6 +189,29 @@ export default function FullTrackView() {
     fetchSimilar();
     return () => { cancelled = true; };
   }, [currentTrack, showSimilar, setSimilarTracks, setSimilarTracksLoading]);
+
+  // Fetch artist releases (new releases from current track's artist)
+  useEffect(() => {
+    if (!currentTrack || !showSimilar || !currentTrack.artist) return;
+    let cancelled = false;
+    const fetchArtistReleases = async () => {
+      setArtistReleasesLoading(true);
+      try {
+        const res = await fetch(`/api/music/artist-tracks?q=${encodeURIComponent(currentTrack.artist)}&limit=6`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          const tracks: Track[] = (data.tracks || []).filter((t: Track) => t.id !== currentTrack.id);
+          setArtistReleases(tracks.slice(0, 4));
+        }
+      } catch {
+        if (!cancelled) setArtistReleases([]);
+      } finally {
+        if (!cancelled) setArtistReleasesLoading(false);
+      }
+    };
+    fetchArtistReleases();
+    return () => { cancelled = true; };
+  }, [currentTrack, showSimilar]);
 
   // ── Ambient visualization — style-aware, composite waves ──
   useEffect(() => {
@@ -1362,24 +1387,39 @@ export default function FullTrackView() {
                     ))}
                   </div>
 
-                  {/* Release Radar — New releases from liked artists */}
-                  {releaseRadarTracks.length > 0 && (
+                  {/* New releases from current track's artist */}
+                  {artistReleasesLoading && (
                     <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--mq-border)" }}>
                       <div className="flex items-center gap-2 mb-2.5">
                         <Sparkles className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
                         <h4 className="text-xs font-bold" style={{ color: "var(--mq-text)" }}>
-                          Новые релизы
+                          Новые релизы {currentTrack.artist}
                         </h4>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                        {releaseRadarTracks.slice(0, 4).map((track, i) => (
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="h-14 rounded-xl animate-pulse" style={{ backgroundColor: "var(--mq-input-bg)" }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {!artistReleasesLoading && artistReleases.length > 0 && (
+                    <div className="mt-4 pt-3" style={{ borderTop: "1px solid var(--mq-border)" }}>
+                      <div className="flex items-center gap-2 mb-2.5">
+                        <Sparkles className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+                        <h4 className="text-xs font-bold" style={{ color: "var(--mq-text)" }}>
+                          Новые релизы {currentTrack.artist}
+                        </h4>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {artistReleases.map((track, i) => (
                           <motion.div
                             key={track.id}
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.05, duration: 0.2 }}
                             whileTap={{ scale: 0.97 }}
-                            onClick={() => playTrack(track, releaseRadarTracks)}
+                            onClick={() => playTrack(track, artistReleases)}
                             className="flex items-center gap-2.5 p-2 rounded-xl cursor-pointer transition-colors duration-150 group"
                             style={{ border: "1px solid var(--mq-border)" }}
                           >

@@ -64,13 +64,34 @@ async function handler(request: NextRequest) {
       // Step 2: Get artist's tracks sorted by release date (newest first)
       tracks = await getSCUserTracks(match.id, limit);
 
-      // If no tracks from user endpoint, fallback to search
+      // If no tracks from user endpoint, fallback to search filtered by artist
       if (tracks.length === 0) {
-        tracks = await searchSCTracks(query.trim(), limit);
+        const searchResults = await searchSCTracks(query.trim(), limit);
+        // Only keep tracks from this specific artist
+        tracks = searchResults.filter(t => t.artist.toLowerCase() === match!.username.toLowerCase());
+        if (tracks.length === 0) {
+          // Second fallback: include tracks where artist name is similar
+          tracks = searchResults.filter(t => t.artist.toLowerCase().includes(queryLower) || queryLower.includes(t.artist.toLowerCase()));
+        }
       }
     } else {
-      // Fallback: just search for tracks by name
-      tracks = await searchSCTracks(query.trim(), limit);
+      // Fallback: search tracks and try to extract artist info from results
+      const searchResults = await searchSCTracks(query.trim(), limit);
+      // Filter to tracks from this artist
+      tracks = searchResults.filter(t => t.artist.toLowerCase().includes(queryLower) || queryLower.includes(t.artist.toLowerCase()));
+      // Try to get artist info from track data (first track's user)
+      if (searchResults.length > 0 && tracks.length > 0) {
+        // Build a basic artist object from the most relevant track
+        const bestTrack = tracks[0] || searchResults[0];
+        artistInfo = {
+          id: -(Date.now() % 100000), // negative placeholder ID
+          username: query.trim(),
+          avatar: bestTrack.cover || "",
+          followers: 0,
+          genre: bestTrack.genre || "",
+          trackCount: tracks.length,
+        };
+      }
     }
 
     const responseData = {
