@@ -4,73 +4,60 @@ import { useEffect, useRef, useCallback } from "react";
 import { getAnalyser } from "@/lib/audioEngine";
 
 /**
- * Animated side panels with theme-aware colors:
- * - Aurora / northern lights flowing effect
- * - Vertical light pillars pulsing with bass
- * - Flowing neon bezier curves
- * - Mouse-following glow
- * - Audio-reactive mini equalizer along inner edge
+ * Side panels — bold, visible audio visualizer:
+ * - Full-height equalizer bars (thick, gradient-filled)
+ * - Circular wave rings emanating from center-bottom
+ * - Flowing vertical gradient that breathes
+ * - Mouse glow
+ * All colors from --mq-accent theme variable.
  */
 
 function hexToRgb(hex: string): [number, number, number] {
-  const clean = hex.replace("#", "");
+  const c = hex.replace("#", "");
   return [
-    parseInt(clean.substring(0, 2), 16),
-    parseInt(clean.substring(2, 4), 16),
-    parseInt(clean.substring(4, 6), 16),
+    parseInt(c.substring(0, 2), 16),
+    parseInt(c.substring(2, 4), 16),
+    parseInt(c.substring(4, 6), 16),
   ];
 }
 
-function parseAccentColor(raw: string): [number, number, number] {
+function parseAccent(raw: string): [number, number, number] {
   if (raw.startsWith("#") && raw.length >= 7) return hexToRgb(raw);
   const m = raw.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
   if (m) return [+m[1], +m[2], +m[3]];
   return [224, 49, 49];
 }
 
-/** Shift a hue from base rgb by offset degrees */
-function shiftHue(r: number, g: number, b: number, offset: number): [number, number, number] {
-  // Simple approximation: rotate through rgb channels
-  const cos = Math.cos((offset * Math.PI) / 180);
-  const sin = Math.sin((offset * Math.PI) / 180);
-  const nr = Math.min(255, Math.max(0, r * (0.6 + 0.4 * cos) + g * (-0.4 * sin) + b * 0.1));
-  const ng = Math.min(255, Math.max(0, r * (0.4 * sin) + g * (0.6 + 0.4 * cos) + b * 0.1));
-  const nb = Math.min(255, Math.max(0, r * 0.1 + g * 0.1 + b * (0.6 + 0.4 * cos)));
-  return [Math.round(nr), Math.round(ng), Math.round(nb)];
-}
-
 export default function SideVisuals() {
-  const leftCanvasRef = useRef<HTMLCanvasElement>(null);
-  const rightCanvasRef = useRef<HTMLCanvasElement>(null);
-  const mouseRef = useRef({ x: 0, y: 0 });
-  const animRef = useRef<number>(0);
+  const lcRef = useRef<HTMLCanvasElement>(null);
+  const rcRef = useRef<HTMLCanvasElement>(null);
+  const mouseRef = useRef({ x: -999, y: -999 });
+  const animRef = useRef(0);
   const accentRef = useRef<[number, number, number]>([224, 49, 49]);
 
   const readAccent = useCallback(() => {
     if (typeof document === "undefined") return;
     const raw = getComputedStyle(document.documentElement)
-      .getPropertyValue("--mq-accent")
-      .trim();
-    if (raw) accentRef.current = parseAccentColor(raw);
+      .getPropertyValue("--mq-accent").trim();
+    if (raw) accentRef.current = parseAccent(raw);
   }, []);
 
   useEffect(() => {
     readAccent();
-    const interval = setInterval(readAccent, 2000);
-    return () => clearInterval(interval);
+    const id = setInterval(readAccent, 2000);
+    return () => clearInterval(id);
   }, [readAccent]);
 
   useEffect(() => {
-    const onMouse = (e: MouseEvent) => {
-      mouseRef.current = { x: e.clientX, y: e.clientY };
-    };
+    const onMouse = (e: MouseEvent) =>
+      (mouseRef.current = { x: e.clientX, y: e.clientY });
     window.addEventListener("mousemove", onMouse, { passive: true });
     return () => window.removeEventListener("mousemove", onMouse);
   }, []);
 
   useEffect(() => {
-    const lc = leftCanvasRef.current;
-    const rc = rightCanvasRef.current;
+    const lc = lcRef.current;
+    const rc = rcRef.current;
     if (!lc || !rc) return;
     const ctxL = lc.getContext("2d");
     const ctxR = rc.getContext("2d");
@@ -81,31 +68,22 @@ export default function SideVisuals() {
 
     const resize = () => {
       const vw = window.innerWidth;
-      const sideW = vw < 1024 ? 0 : Math.max(60, Math.min(200, (vw - 896) / 2));
-      const vh = window.innerHeight;
-      if (sideW === 0) {
-        lc.style.display = "none";
-        rc.style.display = "none";
-        return;
-      }
-      lc.style.display = "block";
-      rc.style.display = "block";
-      w = sideW;
-      h = vh;
+      const sw = vw < 1024 ? 0 : Math.max(60, Math.min(200, (vw - 896) / 2));
+      if (sw === 0) { lc.style.display = "none"; rc.style.display = "none"; return; }
+      lc.style.display = "block"; rc.style.display = "block";
+      w = sw; h = window.innerHeight;
       [lc, rc].forEach((c) => {
-        c.width = w * dpr;
-        c.height = h * dpr;
-        c.style.width = `${w}px`;
-        c.style.height = `${h}px`;
-        const cx = c.getContext("2d");
-        if (cx) cx.scale(dpr, dpr);
+        c.width = w * dpr; c.height = h * dpr;
+        c.style.width = `${w}px`; c.style.height = `${h}px`;
+        const cx = c.getContext("2d"); if (cx) cx.scale(dpr, dpr);
       });
     };
-
     resize();
     window.addEventListener("resize", resize);
 
     const freq = new Uint8Array(128);
+    // smoothed values for silky animation
+    const smoothed = new Float32Array(64).fill(0);
     let t = 0;
 
     const draw = () => {
@@ -116,221 +94,150 @@ export default function SideVisuals() {
       const an = getAnalyser();
       if (an) an.getByteFrequencyData(freq);
 
-      let energy = 0;
-      for (let i = 0; i < 32; i++) energy += freq[i];
-      energy /= 32 * 255;
+      // smooth frequency data
+      for (let i = 0; i < 64; i++) {
+        smoothed[i] += ((freq[i] || 0) / 255 - smoothed[i]) * 0.15;
+      }
 
-      let bass = 0;
-      for (let i = 0; i < 8; i++) bass += freq[i];
-      bass /= 8 * 255;
-
-      let mid = 0;
-      for (let i = 8; i < 24; i++) mid += freq[i];
-      mid /= 16 * 255;
-
-      let high = 0;
-      for (let i = 24; i < 64; i++) high += freq[i];
-      high /= 40 * 255;
+      let energy = 0, bass = 0;
+      for (let i = 0; i < 32; i++) energy += smoothed[i];
+      energy /= 32;
+      for (let i = 0; i < 8; i++) bass += smoothed[i];
+      bass /= 8;
 
       const [ar, ag, ab] = accentRef.current;
-      // secondary color (hue-shifted for aurora layers)
-      const [sr, sg, sb] = shiftHue(ar, ag, ab, 40);
-      const [tr, tg, tb] = shiftHue(ar, ag, ab, -30);
-
       const mx = mouseRef.current.x;
       const my = mouseRef.current.y;
       const vw = window.innerWidth;
 
+      // helper: lerp color toward lighter for gradient tops
+      const lr = Math.min(255, ar + 60);
+      const lg = Math.min(255, ag + 60);
+      const lb = Math.min(255, ab + 60);
+      // darker
+      const dr = Math.round(ar * 0.5);
+      const dg = Math.round(ag * 0.5);
+      const db = Math.round(ab * 0.5);
+
       [ctxL, ctxR].forEach((ctx, side) => {
         ctx.clearRect(0, 0, w, h);
 
-        // ═══════════════════════════════════════
-        // 1. AURORA — flowing organic color bands
-        // ═══════════════════════════════════════
-        const auroraBands = 3;
-        for (let band = 0; band < auroraBands; band++) {
-          const phaseOffset = band * 2.1 + (side === 1 ? Math.PI : 0);
-          const bandAlpha = (0.03 + energy * 0.04) * (1 - band * 0.25);
+        // ═══════════════════════════════════
+        // 1. FLOWING GRADIENT BACKGROUND — breathes
+        // ═══════════════════════════════════
+        const breathPhase = Math.sin(t * 0.6) * 0.5 + 0.5;
+        const gradX = w * (0.3 + breathPhase * 0.4);
+        const gradY = h * (0.3 + Math.sin(t * 0.4 + 1) * 0.2);
+        const bgGrad = ctx.createRadialGradient(gradX, gradY, 0, gradX, gradY, w * 2);
+        bgGrad.addColorStop(0, `rgba(${ar},${ag},${ab},${0.08 + energy * 0.12})`);
+        bgGrad.addColorStop(0.5, `rgba(${dr},${dg},${db},${0.04 + energy * 0.06})`);
+        bgGrad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
+        ctx.fillStyle = bgGrad;
+        ctx.fillRect(0, 0, w, h);
 
-          // Pick color per band
-          let br: number, bg2: number, bb: number;
-          if (band === 0) { br = ar; bg2 = ag; bb = ab; }
-          else if (band === 1) { br = sr; bg2 = sg; bb = sb; }
-          else { br = tr; bg2 = tg; bb = tb; }
+        // second glow blob, offset
+        const g2x = w * (0.7 - breathPhase * 0.3);
+        const g2y = h * (0.7 + Math.cos(t * 0.5) * 0.15);
+        const bg2 = ctx.createRadialGradient(g2x, g2y, 0, g2x, g2y, w * 1.5);
+        bg2.addColorStop(0, `rgba(${lr},${lg},${lb},${0.05 + bass * 0.08})`);
+        bg2.addColorStop(1, `rgba(${lr},${lg},${lb},0)`);
+        ctx.fillStyle = bg2;
+        ctx.fillRect(0, 0, w, h);
 
-          ctx.beginPath();
-          ctx.moveTo(0, h);
-
-          // Build smooth curve across the width
-          for (let y = h; y >= 0; y -= 3) {
-            const normalY = y / h;
-            const wave1 = Math.sin(normalY * 4 + t * 0.8 + phaseOffset) * w * 0.3;
-            const wave2 = Math.sin(normalY * 7 + t * 1.2 + phaseOffset * 1.5) * w * 0.15;
-            const wave3 = Math.sin(normalY * 2 + t * 0.5 + phaseOffset * 0.7) * w * 0.2;
-
-            // Audio modulation — bass makes waves bigger
-            const audioMod = 1 + bass * 1.5 + mid * 0.8;
-            const x = w * 0.3 + (wave1 + wave2 + wave3) * audioMod;
-            ctx.lineTo(x, y);
-          }
-
-          ctx.lineTo(w + 5, 0);
-          ctx.lineTo(w + 5, h);
-          ctx.closePath();
-
-          // Gradient fill from accent to transparent
-          const grad = ctx.createLinearGradient(0, 0, w, 0);
-          grad.addColorStop(0, `rgba(${br},${bg2},${bb},${bandAlpha * 0.2})`);
-          grad.addColorStop(0.4, `rgba(${br},${bg2},${bb},${bandAlpha})`);
-          grad.addColorStop(0.7, `rgba(${br},${bg2},${bb},${bandAlpha * 0.5})`);
-          grad.addColorStop(1, `rgba(${br},${bg2},${bb},0)`);
-          ctx.fillStyle = grad;
-          ctx.fill();
-        }
-
-        // ═══════════════════════════════════════
-        // 2. LIGHT PILLARS — vertical beams pulsing with bass
-        // ═══════════════════════════════════════
-        const pillarCount = Math.max(2, Math.floor(w / 50));
-        for (let i = 0; i < pillarCount; i++) {
-          const px = (w / (pillarCount + 1)) * (i + 1);
-          const freqIdx = Math.floor((i / pillarCount) * 16);
-          const val = freq[freqIdx] / 255;
-
-          const pillarAlpha = 0.015 + val * 0.05;
-          const pillarW = 2 + val * 6;
-          const pulseSpeed = t * 3 + i * 0.5;
-          const intensity = (Math.sin(pulseSpeed) * 0.5 + 0.5) * (1 + val);
-
-          const pGrad = ctx.createLinearGradient(0, 0, 0, h);
-          pGrad.addColorStop(0, `rgba(${ar},${ag},${ab},0)`);
-          pGrad.addColorStop(0.2, `rgba(${ar},${ag},${ab},${pillarAlpha * intensity})`);
-          pGrad.addColorStop(0.5, `rgba(${ar},${ag},${ab},${pillarAlpha * intensity * 1.5})`);
-          pGrad.addColorStop(0.8, `rgba(${ar},${ag},${ab},${pillarAlpha * intensity})`);
-          pGrad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
-
-          ctx.fillStyle = pGrad;
-          ctx.fillRect(px - pillarW / 2, 0, pillarW, h);
-        }
-
-        // ═══════════════════════════════════════
-        // 3. FLOWING NEON CURVES — smooth bezier ribbons
-        // ═══════════════════════════════════════
-        const curveCount = 4;
-        for (let c = 0; c < curveCount; c++) {
-          const curvePhase = c * 1.7 + (side === 1 ? 2.5 : 0);
-          const curveAlpha = 0.04 + energy * 0.06 + (c === 0 ? 0.02 : 0);
-
-          let cr: number, cg: number, cb: number;
-          if (c % 3 === 0) { cr = ar; cg = ag; cb = ab; }
-          else if (c % 3 === 1) { cr = sr; cg = sg; cb = sb; }
-          else { cr = tr; cg = tg; cb = tb; }
-
-          ctx.beginPath();
-          ctx.strokeStyle = `rgba(${cr},${cg},${cb},${curveAlpha})`;
-          ctx.lineWidth = 1 + (c === 0 ? energy * 2 : 0.5);
-
-          const startX = w * (0.2 + Math.sin(t * 0.3 + curvePhase) * 0.15);
-
-          ctx.moveTo(startX, 0);
-
-          // Bezier segments going down
-          const segments = 6;
-          for (let s = 0; s < segments; s++) {
-            const sy1 = (h / segments) * s;
-            const sy2 = (h / segments) * (s + 1);
-            const midY = (sy1 + sy2) / 2;
-
-            const freqVal = freq[Math.floor((s / segments) * 32)] / 255;
-            const wave = Math.sin(t * (1 + c * 0.3) + s * 1.2 + curvePhase) * (15 + freqVal * 25);
-            const wave2 = Math.cos(t * 0.7 + s * 0.8 + curvePhase * 1.3) * (8 + bass * 15);
-
-            const cp1x = startX + wave;
-            const cp1y = midY - 15;
-            const cp2x = startX + wave2;
-            const cp2y = midY + 15;
-            const ex = startX + (wave + wave2) / 2;
-
-            ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, ex, sy2);
-          }
-          ctx.stroke();
-
-          // Glow version (wider, more transparent)
-          ctx.strokeStyle = `rgba(${cr},${cg},${cb},${curveAlpha * 0.3})`;
-          ctx.lineWidth = 4 + (c === 0 ? energy * 4 : 1);
-          ctx.stroke();
-        }
-
-        // ═══════════════════════════════════════
-        // 4. MINI EQUALIZER along inner edge
-        // ═══════════════════════════════════════
-        const barCount = 20;
-        const barGap = 1.5;
-        const barW = Math.max(1, (w * 0.25) / barCount - barGap);
-        const barBaseX = side === 0 ? w - barW * barCount - barGap * (barCount - 1) : 0;
+        // ═══════════════════════════════════
+        // 2. EQUALIZER BARS — bold, centered, gradient-filled
+        // ═══════════════════════════════════
+        const barCount = Math.max(6, Math.min(16, Math.floor(w / 10)));
+        const gap = Math.max(2, w * 0.04);
+        const barW = (w - gap * (barCount + 1)) / barCount;
 
         for (let i = 0; i < barCount; i++) {
-          const fi = Math.floor((i / barCount) * 48);
-          const val = freq[fi] / 255;
-
-          // Centered bar
-          const barH = Math.max(1, val * h * 0.35);
-          const x = barBaseX + i * (barW + barGap);
+          // use different frequency ranges for variety
+          const fi = Math.min(63, Math.floor((i / barCount) * 48 + (side === 0 ? 0 : 16)));
+          const val = smoothed[fi];
+          const barH = Math.max(4, val * h * 0.75);
+          const x = gap + i * (barW + gap);
           const y = h / 2 - barH / 2;
 
-          const bGrad = ctx.createLinearGradient(0, y, 0, y + barH);
-          bGrad.addColorStop(0, `rgba(${ar},${ag},${ab},0)`);
-          bGrad.addColorStop(0.3, `rgba(${ar},${ag},${ab},${0.15 + val * 0.25})`);
-          bGrad.addColorStop(0.5, `rgba(${sr},${sg},${sb},${0.2 + val * 0.3})`);
-          bGrad.addColorStop(0.7, `rgba(${ar},${ag},${ab},${0.15 + val * 0.25})`);
-          bGrad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
+          // gradient from accent → lighter → accent
+          const bGrad = ctx.createLinearGradient(x, y, x, y + barH);
+          bGrad.addColorStop(0, `rgba(${dr},${dg},${db},${0.4 + val * 0.4})`);
+          bGrad.addColorStop(0.3, `rgba(${ar},${ag},${ab},${0.6 + val * 0.35})`);
+          bGrad.addColorStop(0.5, `rgba(${lr},${lg},${lb},${0.7 + val * 0.3})`);
+          bGrad.addColorStop(0.7, `rgba(${ar},${ag},${ab},${0.6 + val * 0.35})`);
+          bGrad.addColorStop(1, `rgba(${dr},${dg},${db},${0.4 + val * 0.4})`);
+
           ctx.fillStyle = bGrad;
           ctx.beginPath();
-          ctx.roundRect(x, y, barW, barH, barW / 2);
+          ctx.roundRect(x, y, barW, barH, Math.min(barW / 2, 4));
           ctx.fill();
+
+          // glow behind each bar
+          if (val > 0.3) {
+            ctx.shadowColor = `rgba(${ar},${ag},${ab},${val * 0.4})`;
+            ctx.shadowBlur = 8 + val * 12;
+            ctx.fillStyle = `rgba(${ar},${ag},${ab},${val * 0.15})`;
+            ctx.beginPath();
+            ctx.roundRect(x, y, barW, barH, Math.min(barW / 2, 4));
+            ctx.fill();
+            ctx.shadowBlur = 0;
+          }
         }
 
-        // ═══════════════════════════════════════
-        // 5. MOUSE-FOLLOWING GLOW
-        // ═══════════════════════════════════════
-        const glowX =
-          side === 0 ? Math.min(w, mx) : Math.max(0, mx - (vw - w));
-        const glowY = Math.min(h, Math.max(0, my));
-        const glowDist = Math.sqrt(
-          (glowX - w / 2) ** 2 + (glowY - h / 2) ** 2
-        );
-        const glowOp = Math.max(0, 0.06 + energy * 0.08 - glowDist / 600);
+        // ═══════════════════════════════════
+        // 3. WAVE RINGS — concentric arcs from center
+        // ═══════════════════════════════════
+        const ringCount = 4;
+        const cx = w / 2;
+        const cy = h / 2;
 
-        if (glowOp > 0.005) {
-          const gGrad = ctx.createRadialGradient(
-            glowX, glowY, 0, glowX, glowY, w * 1.5
-          );
-          gGrad.addColorStop(0, `rgba(${ar},${ag},${ab},${glowOp})`);
-          gGrad.addColorStop(0.4, `rgba(${sr},${sg},${sb},${glowOp * 0.3})`);
-          gGrad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
-          ctx.fillStyle = gGrad;
+        for (let r = 0; r < ringCount; r++) {
+          const baseR = 20 + r * 25;
+          const pulse = baseR + smoothed[r * 8] * 40;
+          const alpha = 0.12 + smoothed[r * 8] * 0.25 - r * 0.03;
+          if (alpha <= 0) continue;
+
+          ctx.beginPath();
+          ctx.arc(cx, cy, pulse, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(${lr},${lg},${lb},${alpha})`;
+          ctx.lineWidth = 1.5 - r * 0.2;
+          ctx.stroke();
+        }
+
+        // ═══════════════════════════════════
+        // 4. MOUSE GLOW
+        // ═══════════════════════════════════
+        const glowX = side === 0
+          ? Math.min(w, mx) : Math.max(0, mx - (vw - w));
+        const glowY = Math.min(h, Math.max(0, my));
+        const dist = Math.abs(glowX - w / 2) + Math.abs(glowY - h / 2);
+        const glowA = Math.max(0, 0.2 + energy * 0.2 - dist / 1200);
+
+        if (glowA > 0.01) {
+          const mGrad = ctx.createRadialGradient(glowX, glowY, 0, glowX, glowY, w);
+          mGrad.addColorStop(0, `rgba(${lr},${lg},${lb},${glowA})`);
+          mGrad.addColorStop(0.5, `rgba(${ar},${ag},${ab},${glowA * 0.4})`);
+          mGrad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
+          ctx.fillStyle = mGrad;
           ctx.fillRect(0, 0, w, h);
         }
 
-        // ═══════════════════════════════════════
-        // 6. BREATHING EDGE LINE — subtle inner border
-        // ═══════════════════════════════════════
-        const breathe = Math.sin(t * 1.5) * 0.5 + 0.5;
-        const edgeAlpha = 0.03 + breathe * 0.04 + energy * 0.03;
-        const edgeX = side === 0 ? w - 1 : 0;
+        // ═══════════════════════════════════
+        // 5. INNER EDGE LINE — accent border
+        // ═══════════════════════════════════
+        const edgeX = side === 0 ? w - 1.5 : 0;
         const eGrad = ctx.createLinearGradient(0, 0, 0, h);
         eGrad.addColorStop(0, `rgba(${ar},${ag},${ab},0)`);
-        eGrad.addColorStop(0.3, `rgba(${ar},${ag},${ab},${edgeAlpha})`);
-        eGrad.addColorStop(0.5, `rgba(${ar},${ag},${ab},${edgeAlpha * 1.5})`);
-        eGrad.addColorStop(0.7, `rgba(${ar},${ag},${ab},${edgeAlpha})`);
+        eGrad.addColorStop(0.2, `rgba(${ar},${ag},${ab},${0.15 + energy * 0.2})`);
+        eGrad.addColorStop(0.5, `rgba(${lr},${lg},${lb},${0.25 + energy * 0.25})`);
+        eGrad.addColorStop(0.8, `rgba(${ar},${ag},${ab},${0.15 + energy * 0.2})`);
         eGrad.addColorStop(1, `rgba(${ar},${ag},${ab},0)`);
         ctx.fillStyle = eGrad;
-        ctx.fillRect(edgeX, 0, 1, h);
+        ctx.fillRect(edgeX, 0, 1.5, h);
       });
     };
 
     draw();
-
     return () => {
       window.removeEventListener("resize", resize);
       if (animRef.current) cancelAnimationFrame(animRef.current);
@@ -339,16 +246,8 @@ export default function SideVisuals() {
 
   return (
     <>
-      <canvas
-        ref={leftCanvasRef}
-        className="fixed left-0 top-0 z-[1] pointer-events-none"
-        style={{ display: "none" }}
-      />
-      <canvas
-        ref={rightCanvasRef}
-        className="fixed right-0 top-0 z-[1] pointer-events-none"
-        style={{ display: "none" }}
-      />
+      <canvas ref={lcRef} className="fixed left-0 top-0 z-[1] pointer-events-none" style={{ display: "none" }} />
+      <canvas ref={rcRef} className="fixed right-0 top-0 z-[1] pointer-events-none" style={{ display: "none" }} />
     </>
   );
 }
