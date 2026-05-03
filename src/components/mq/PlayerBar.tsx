@@ -15,6 +15,10 @@ import { getLocalBlobUrl } from "./SearchView";
 import { openPiPPopup, closePiPPopup } from "@/lib/pipManager";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 
+import QueueView from "./QueueView";
+import Hls from "hls.js";
+import type { HlsConfig } from "hls.js";
+
 // ── Error Logger ──
 const PlayerErrorLogger = {
   logs: [] as Array<{ time: string; track: string; error: string; action: string; fixed: boolean }>,
@@ -44,12 +48,10 @@ const PlayerErrorLogger = {
     return this.logs.filter(e => !e.fixed);
   },
 
-  // Auto-fix: analyze unfixed errors and suggest/apply fixes
   autoFix() {
     const unfixed = this.getUnfixed();
     if (unfixed.length === 0) return;
     
-    // Group by error pattern
     const patterns: Record<string, number> = {};
     for (const entry of unfixed) {
       const key = entry.error.slice(0, 80);
@@ -58,7 +60,6 @@ const PlayerErrorLogger = {
     
     console.log(`%c[MQ AutoFix] Found ${unfixed.length} unfixed errors in ${Object.keys(patterns).length} categories`, "color:#22c55e;font-weight:bold");
     
-    // If many errors are "AbortError" — likely CORS issues, reset CORS state
     const abortCount = unfixed.filter(e => e.error.includes("AbortError")).length;
     if (abortCount >= 2) {
       console.log("[MQ AutoFix] Multiple AbortErrors detected — resetting CORS state");
@@ -66,7 +67,6 @@ const PlayerErrorLogger = {
       unfixed.filter(e => e.error.includes("AbortError")).forEach(e => this.markFixed(e.time));
     }
     
-    // If many "NotAllowedError" — autoplay policy, do nothing (user needs to interact)
     const allowedCount = unfixed.filter(e => e.error.includes("NotAllowedError")).length;
     if (allowedCount >= 2) {
       console.log("[MQ AutoFix] NotAllowedError — autoplay policy, user interaction needed");
@@ -79,9 +79,7 @@ const PlayerErrorLogger = {
 if (typeof window !== "undefined") {
   setInterval(() => PlayerErrorLogger.autoFix(), 15000);
 }
-import QueueView from "./QueueView";
-import Hls from "hls.js";
-import type { HlsConfig } from "hls.js";
+
 
 interface StreamResult {
   url: string;
