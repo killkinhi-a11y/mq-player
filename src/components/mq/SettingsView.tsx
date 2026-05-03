@@ -528,7 +528,7 @@ export default function SettingsView() {
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
       >
         <Sparkles className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-        Котик mq
+        Маскот mq
         <span className="text-xs ml-auto" style={{ color: "var(--mq-text-muted)" }}>
           {catEnabled ? "Включён" : "Выключен"}
         </span>
@@ -552,10 +552,10 @@ export default function SettingsView() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
-                    Показывать котика
+                    Показывать маскота
                   </p>
                   <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
-                    Котик будет появляться и давать советы
+                    Маскот будет появляться и давать советы
                   </p>
                 </div>
                 <button
@@ -610,14 +610,14 @@ export default function SettingsView() {
                   {/* Mood */}
                   <div>
                     <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text)" }}>
-                      Настроение котика
+                      Настроение маскота
                     </p>
                     <div className="flex gap-2">
                       {([
-                        { id: "friendly" as const, emoji: "😺" },
-                        { id: "sassy" as const, emoji: "😼" },
+                        { id: "friendly" as const, emoji: "🌍" },
+                        { id: "sassy" as const, emoji: "😏" },
                         { id: "sleepy" as const, emoji: "😴" },
-                        { id: "excited" as const, emoji: "😸" },
+                        { id: "excited" as const, emoji: "🎉" },
                       ]).map((opt) => (
                         <button
                           key={opt.id}
@@ -665,7 +665,7 @@ export default function SettingsView() {
                         >
                           <div className="flex justify-center mb-1.5">
                             <motion.img
-                              src="/mq-cat.png?v=4"
+                              src="/mascot.png"
                               alt=""
                               className="object-contain"
                               style={{ width: opt.px, height: opt.px }}
@@ -694,13 +694,13 @@ export default function SettingsView() {
                     style={{ backgroundColor: "var(--mq-input-bg, #1a1a1a)", border: "1px solid var(--mq-border)" }}
                   >
                     <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-                      Всего поглаживаний
+                      Всего взаимодействий
                     </p>
                     <p className="text-2xl font-bold mt-1" style={{ color: "var(--mq-accent)" }}>
                       {catPetCount}
                     </p>
                     <p className="text-[9px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
-                      {catPetCount === 0 ? "Погладьте котика! 🐾" : catPetCount < 10 ? "Котик начинает доверять вам" : catPetCount < 50 ? "Котик вас полюбил! 💕" : catPetCount < 100 ? "Вы — лучший друг котика! 🏆" : "Легендарный кошатник! 👑"}
+                      {catPetCount === 0 ? "Нажмите на маскота!" : catPetCount < 10 ? "Маскот начинает доверять вам" : catPetCount < 50 ? "Маскот вас полюбил!" : catPetCount < 100 ? "Вы — лучший друг маскота!" : "Легендарный друг!"}
                     </p>
                   </div>
                 </>
