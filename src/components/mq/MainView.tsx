@@ -350,7 +350,7 @@ export default function MainView() {
     animationsEnabled, playTrack, likedTrackIds, dislikedTrackIds, likedTracksData, dislikedTracksData,
     history, playlists, setView, contacts, messages, userId, compactMode, currentTrack, isPlaying,
     setSearchQuery, favoriteArtists, selectedArtist, setSelectedArtist,
-    addFavoriteArtist, removeFavoriteArtist,
+    addFavoriteArtist, removeFavoriteArtist, radioMode,
   } = useAppStore();
 
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
@@ -369,6 +369,7 @@ export default function MainView() {
   const [artistTab, setArtistTab] = useState<"all" | "popular" | "releases">("all");
   const [similarArtists, setSimilarArtists] = useState<{ name: string; avatar?: string; followers?: number }[]>([]);
   const [similarArtistsLoading, setSimilarArtistsLoading] = useState(false);
+  const [waveLoading, setWaveLoading] = useState(false);
 
   // Mouse position for hero parallax effect
   const heroRef = useRef<HTMLDivElement>(null);
@@ -766,6 +767,63 @@ export default function MainView() {
   const handlePlayLiked = useCallback(() => {
     if (likedTracksData.length > 0) playTrack(likedTracksData[0], likedTracksData);
   }, [likedTracksData, playTrack]);
+
+  // ── Wave: personalized endless stream based on listening history ──
+  const handleStartWave = useCallback(async () => {
+    setWaveLoading(true);
+    try {
+      const { topGenres, topArtists, excludeIds, recentIds, dislikedArtists, dislikedGenres } = tasteProfile;
+      const disliked = useAppStore.getState().dislikedTrackIds || [];
+      const favArtistNames = (useAppStore.getState().favoriteArtists || []).map(a => a.username);
+      const allArtists = [...new Set([...favArtistNames, ...topArtists])];
+
+      const params = new URLSearchParams();
+      if (topGenres.length > 0) params.set("genres", topGenres.join(","));
+      if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
+      if (excludeIds) params.set("excludeIds", excludeIds);
+      if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
+      if (dislikedArtists) params.set("dislikedArtists", dislikedArtists);
+      if (dislikedGenres) params.set("dislikedGenres", dislikedGenres);
+      if (recentIds) params.set("recentIds", recentIds);
+
+      // Send liked SC IDs for related track discovery
+      const likedScIds = useAppStore.getState().likedTracksData
+        .map((t: any) => t.scTrackId)
+        .filter((id: any): id is number => !!id)
+        .slice(0, 5)
+        .join(",");
+      if (likedScIds) params.set("likedScIds", likedScIds);
+
+      if (languagePreference !== "mixed") params.set("lang", languagePreference);
+
+      const res = await fetch(`/api/music/recommendations?${params}`);
+      const data = await res.json();
+      let tracks: Track[] = (data.tracks || []).filter((t: Track) => !disliked.includes(t.id));
+
+      // Fallback: if no taste data, just get random recommendations
+      if (tracks.length === 0) {
+        const fallbackRes = await fetch("/api/music/recommendations?genre=random&limit=20");
+        const fallbackData = await fallbackRes.json();
+        tracks = (fallbackData.tracks || []).filter((t: Track) => !disliked.includes(t.id));
+      }
+
+      if (tracks.length > 0) {
+        // Shuffle for variety
+        for (let i = tracks.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
+        }
+        // Enable radio mode so queue auto-refills when tracks end
+        const state = useAppStore.getState();
+        if (!state.radioMode) state.toggleRadioMode();
+        playTrack(tracks[0], tracks);
+      }
+    } catch {
+      // Silently fail — user can tap again
+    } finally {
+      setWaveLoading(false);
+    }
+  }, [tasteProfile, languagePreference, playTrack]);
 
   // Navigate to artist detail when clicking artist name in any track card
   const handleNavigateToArtist = useCallback((artistName: string, coverUrl?: string) => {
@@ -1472,6 +1530,120 @@ export default function MainView() {
           )}
         </div>
       </motion.div>
+
+      {/* Wave — personalized endless stream */}
+      <ScrollReveal direction="up" delay={0.05}>
+        <motion.button
+          whileHover={{ scale: 1.02, y: -2 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={handleStartWave}
+          disabled={waveLoading}
+          className="w-full rounded-2xl p-4 lg:p-5 relative overflow-hidden cursor-pointer text-left transition-all"
+          style={{
+            backgroundColor: "var(--mq-card)",
+            border: "1px solid var(--mq-border)",
+          }}
+        >
+          {/* Animated wave background */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ opacity: 0.12 }}>
+            <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 800 60" preserveAspectRatio="none" style={{ height: 40 }}>
+              <motion.path
+                d="M0,30 C100,10 200,50 300,30 C400,10 500,50 600,30 C700,10 800,50 800,30 L800,60 L0,60 Z"
+                fill="var(--mq-accent)"
+                animate={{
+                  d: [
+                    "M0,30 C100,10 200,50 300,30 C400,10 500,50 600,30 C700,10 800,50 800,30 L800,60 L0,60 Z",
+                    "M0,35 C100,50 200,10 300,35 C400,50 500,10 600,35 C700,50 800,10 800,35 L800,60 L0,60 Z",
+                    "M0,25 C100,40 200,15 300,35 C400,20 500,45 600,25 C700,40 800,15 800,30 L800,60 L0,60 Z",
+                    "M0,30 C100,10 200,50 300,30 C400,10 500,50 600,30 C700,10 800,50 800,30 L800,60 L0,60 Z",
+                  ],
+                }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </svg>
+            <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 800 60" preserveAspectRatio="none" style={{ height: 30, opacity: 0.6 }}>
+              <motion.path
+                d="M0,35 C150,15 350,55 500,30 C650,5 750,45 800,35 L800,60 L0,60 Z"
+                fill="var(--mq-accent)"
+                animate={{
+                  d: [
+                    "M0,35 C150,15 350,55 500,30 C650,5 750,45 800,35 L800,60 L0,60 Z",
+                    "M0,25 C150,50 350,15 500,40 C650,55 750,20 800,30 L800,60 L0,60 Z",
+                    "M0,40 C150,20 350,45 500,25 C650,45 750,15 800,35 L800,60 L0,60 Z",
+                    "M0,35 C150,15 350,55 500,30 C650,5 750,45 800,35 L800,60 L0,60 Z",
+                  ],
+                }}
+                transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+              />
+            </svg>
+          </div>
+
+          {/* Glow */}
+          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full pointer-events-none"
+            style={{ background: "var(--mq-accent)", filter: "blur(60px)", opacity: 0.08 }} />
+
+          <div className="relative z-10 flex items-center gap-4">
+            {/* Wave icon with animated rings */}
+            <div className="relative flex-shrink-0">
+              <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
+                {waveLoading ? (
+                  <div className="w-5 h-5 border-2 rounded-full animate-spin"
+                    style={{ borderColor: "var(--mq-text)", borderTopColor: "transparent" }} />
+                ) : (
+                  <Waves className="w-6 h-6 lg:w-7 lg:h-7" style={{ color: "var(--mq-text)" }} />
+                )}
+              </div>
+              {/* Animated pulse ring */}
+              {!waveLoading && (
+                <motion.div
+                  className="absolute inset-0 rounded-xl"
+                  style={{ border: "2px solid var(--mq-accent)" }}
+                  animate={{ scale: [1, 1.2, 1], opacity: [0.6, 0, 0.6] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                />
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <h3 className="text-base lg:text-lg font-bold truncate" style={{ color: "var(--mq-text)" }}>
+                {waveLoading ? "Составляем волну..." : "Волна"}
+              </h3>
+              <p className="text-xs lg:text-sm truncate" style={{ color: "var(--mq-text-muted)" }}>
+                {waveLoading ? "Подбираем треки по вашему вкусу" : hasTasteData
+                  ? "Персональный поток треков на основе ваших прослушиваний"
+                  : "Бесконечный поток музыки, подобранной для вас"}
+              </p>
+            </div>
+
+            {/* Play indicator */}
+            <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: "var(--mq-accent)", opacity: 0.9 }}>
+              <Play className="w-4 h-4 ml-0.5" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+            </div>
+          </div>
+
+          {/* Active wave indicator when radio mode is on */}
+          {radioMode && currentTrack && (
+            <div className="relative z-10 mt-3 flex items-center gap-2">
+              <div className="flex items-end gap-0.5 h-3">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <motion.div
+                    key={i}
+                    animate={isPlaying ? { height: [3, 10, 5, 12, 3] } : { height: 3 }}
+                    transition={isPlaying ? { duration: 0.7 + i * 0.12, repeat: Infinity, ease: "easeInOut", delay: i * 0.08 } : {}}
+                    className="w-[2px] rounded-full"
+                    style={{ backgroundColor: "var(--mq-accent)" }}
+                  />
+                ))}
+              </div>
+              <span className="text-[11px] font-medium" style={{ color: "var(--mq-accent)" }}>
+                Волна воспроизводится
+              </span>
+            </div>
+          )}
+        </motion.button>
+      </ScrollReveal>
 
       {/* Quick stats - CLICKABLE with 3D Tilt + Glare */}
       <ScrollReveal direction="up" delay={0.1}>
