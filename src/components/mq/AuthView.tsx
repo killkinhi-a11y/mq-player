@@ -546,6 +546,14 @@ export default function AuthView() {
                         {webhookStatus}
                       </p>
                     )}
+                    <Button
+                      variant="ghost"
+                      onClick={() => window.open("/api/telegram/diagnose", "_blank")}
+                      className="text-xs h-auto p-0 w-fit"
+                      style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}
+                    >
+                      Диагностика бота
+                    </Button>
                   </div>
                 )}
               </motion.div>
