@@ -264,6 +264,7 @@ function MoodTag({ label, icon, onClick, active }: {
 // ── Animated Listening Stats Bar ──
 function ListeningActivityBar({ history }: { history: any[] }) {
   const [bars, setBars] = useState<{ day: string; count: number; height: number; isToday: boolean }[]>([]);
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (!history || history.length === 0) { setBars([]); return; }
@@ -286,33 +287,88 @@ function ListeningActivityBar({ history }: { history: any[] }) {
     setBars(dayNames.map((day, i) => ({
       day,
       count: dayCounts[i],
-      height: Math.max(4, (dayCounts[i] / maxCount) * 100),
+      height: Math.max(8, (dayCounts[i] / maxCount) * 100),
       isToday: i === todayIdx,
     })));
   }, [history]);
 
   if (bars.length === 0) return null;
 
+  const maxCount = Math.max(...bars.map(b => b.count), 1);
+
   return (
-    <div className="flex items-end gap-1.5 h-16">
-      {bars.map((bar, i) => (
-        <div key={i} className="flex flex-col items-center gap-1 flex-1">
-          <motion.div
-            initial={{ height: 4 }}
-            animate={{ height: bar.height }}
-            transition={{ delay: i * 0.06, duration: 0.5, ease: "easeOut" }}
-            className="w-full rounded-sm"
-            style={{
-              backgroundColor: bar.isToday ? "var(--mq-accent)" : "var(--mq-border)",
-              opacity: bar.isToday ? 1 : 0.5,
-              minHeight: 4,
-            }}
-          />
-          <span className="text-[9px]" style={{ color: bar.isToday ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
-            {bar.day}
-          </span>
-        </div>
-      ))}
+    <div className="flex items-end gap-2 h-20">
+      {bars.map((bar, i) => {
+        const isHovered = hoveredIdx === i;
+        const hasActivity = bar.count > 0;
+        return (
+          <motion.button
+            key={i}
+            onMouseEnter={() => setHoveredIdx(i)}
+            onMouseLeave={() => setHoveredIdx(null)}
+            className="flex flex-col items-center gap-1.5 flex-1 cursor-default relative group"
+          >
+            {/* Tooltip on hover */}
+            {isHovered && hasActivity && (
+              <motion.div
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute -top-7 px-2 py-0.5 rounded-md text-[10px] font-medium whitespace-nowrap z-10"
+                style={{
+                  backgroundColor: "var(--mq-accent)",
+                  color: "var(--mq-text)",
+                  boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                }}
+              >
+                {bar.count} {bar.count === 1 ? "трек" : bar.count < 5 ? "трека" : "треков"}
+              </motion.div>
+            )}
+            {/* Bar */}
+            <div className="w-full flex items-end justify-center" style={{ height: 56 }}>
+              <motion.div
+                initial={{ height: 4 }}
+                animate={{ height: `${bar.height}%` }}
+                transition={{ delay: i * 0.06, duration: 0.5, ease: "easeOut" }}
+                className="w-full max-w-[32px] rounded-md relative overflow-hidden"
+                style={{
+                  backgroundColor: bar.isToday
+                    ? "var(--mq-accent)"
+                    : hasActivity
+                      ? "var(--mq-accent)"
+                      : "var(--mq-border)",
+                  opacity: bar.isToday ? 1 : hasActivity ? 0.45 : 0.25,
+                  minHeight: 4,
+                  transition: "opacity 0.2s, filter 0.2s",
+                  filter: isHovered && hasActivity ? "brightness(1.3)" : "none",
+                }}
+              >
+                {/* Shine overlay on today's bar */}
+                {bar.isToday && (
+                  <div
+                    className="absolute inset-0 rounded-md"
+                    style={{
+                      background: "linear-gradient(180deg, rgba(255,255,255,0.2) 0%, transparent 60%)",
+                    }}
+                  />
+                )}
+              </motion.div>
+            </div>
+            {/* Day label */}
+            <span
+              className="text-[11px] font-medium transition-colors duration-200"
+              style={{
+                color: bar.isToday
+                  ? "var(--mq-accent)"
+                  : isHovered
+                    ? "var(--mq-text)"
+                    : "var(--mq-text-muted)",
+              }}
+            >
+              {bar.day}
+            </span>
+          </motion.button>
+        );
+      })}
     </div>
   );
 }
@@ -1684,19 +1740,32 @@ export default function MainView() {
           initial={animationsEnabled ? { opacity: 0, y: 15 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="rounded-xl p-4"
-          style={{ backgroundColor: "var(--mq-card)" }}
+          className="rounded-2xl p-5 relative overflow-hidden"
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
         >
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Activity className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-              <span className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>Активность за неделю</span>
+          {/* Subtle gradient accent */}
+          <div className="absolute top-0 right-0 w-32 h-32 rounded-full pointer-events-none"
+            style={{ background: "var(--mq-accent)", filter: "blur(50px)", opacity: 0.06 }} />
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: "var(--mq-accent)", opacity: 0.85 }}>
+                  <Activity className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
+                </div>
+                <span className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Активность за неделю</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold" style={{ color: "var(--mq-text)" }}>
+                  {history.filter((h: any) => Date.now() - h.playedAt < 7 * 24 * 60 * 60 * 1000).length}
+                </span>
+                <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                  прослушиваний
+                </span>
+              </div>
             </div>
-            <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
-              {history.filter((h: any) => Date.now() - h.playedAt < 7 * 24 * 60 * 60 * 1000).length} прослушиваний
-            </span>
+            <ListeningActivityBar history={history} />
           </div>
-          <ListeningActivityBar history={history} />
         </motion.div>
         </ScrollReveal>
       )}
