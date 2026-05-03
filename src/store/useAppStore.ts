@@ -400,13 +400,13 @@ interface AppState {
   // Cat mascot
   catEnabled: boolean;
   catFrequency: "rare" | "normal" | "often";
-  catMood: "friendly" | "sassy" | "sleepy" | "excited";
+  catMood: "towelie" | "stoned" | "panic" | "lazy";
   catSize: "small" | "medium" | "large";
   catLastSeen: number;
   catPetCount: number;
   setCatEnabled: (enabled: boolean) => void;
   setCatFrequency: (freq: "rare" | "normal" | "often") => void;
-  setCatMood: (mood: "friendly" | "sassy" | "sleepy" | "excited") => void;
+  setCatMood: (mood: "towelie" | "stoned" | "panic" | "lazy") => void;
   setCatSize: (size: "small" | "medium" | "large") => void;
   petCat: () => void;
 
@@ -539,7 +539,7 @@ const initialState = {
   // Cat mascot
   catEnabled: true as boolean,
   catFrequency: "normal" as "rare" | "normal" | "often",
-  catMood: "friendly" as "friendly" | "sassy" | "sleepy" | "excited",
+  catMood: "towelie" as "towelie" | "stoned" | "panic" | "lazy",
   catSize: "medium" as "small" | "medium" | "large",
   catLastSeen: 0 as number,
   catPetCount: 0 as number,
@@ -1868,7 +1868,7 @@ export const useAppStore = create<AppState>()(
           // Cat mascot validation
           if (typeof s.catEnabled !== "boolean") fixes.catEnabled = true;
           if (!["rare", "normal", "often"].includes(s.catFrequency as string)) fixes.catFrequency = "normal";
-          if (!["friendly", "sassy", "sleepy", "excited"].includes(s.catMood as string)) fixes.catMood = "friendly";
+          if (!["towelie", "stoned", "panic", "lazy"].includes(s.catMood as string)) fixes.catMood = "towelie";
           if (!["small", "medium", "large"].includes(s.catSize as string)) fixes.catSize = "medium";
           if (typeof s.catPetCount !== "number") fixes.catPetCount = 0;
           if (typeof s.queueIndex !== "number") fixes.queueIndex = 0;

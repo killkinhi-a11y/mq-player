@@ -761,14 +761,14 @@ export default function SettingsView() {
                   {/* Mood */}
                   <div>
                     <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text)" }}>
-                      Настроение маскота
+                      Состояние маскота
                     </p>
                     <div className="flex gap-2">
                       {([
-                        { id: "friendly" as const, emoji: "🌍" },
-                        { id: "sassy" as const, emoji: "😏" },
-                        { id: "sleepy" as const, emoji: "😴" },
-                        { id: "excited" as const, emoji: "🎉" },
+                        { id: "towelie" as const, emoji: "🚬", label: "Полотенчик" },
+                        { id: "stoned" as const, emoji: "💨", label: "Под кайфом" },
+                        { id: "panic" as const, emoji: "😱", label: "Паника" },
+                        { id: "lazy" as const, emoji: "😴", label: "Лень" },
                       ]).map((opt) => (
                         <button
                           key={opt.id}
@@ -789,6 +789,9 @@ export default function SettingsView() {
                           >
                             {opt.emoji}
                           </motion.span>
+                          <span className="text-[9px] mt-1 block" style={{ color: catMood === opt.id ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                            {opt.label}
+                          </span>
                         </button>
                       ))}
                     </div>

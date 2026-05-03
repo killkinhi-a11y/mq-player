@@ -4,61 +4,91 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 
-// ── Phrases ──
+// ── Towelie-style Phrases ──
 const PHRASES: Record<string, string[]> = {
-  friendly: [
-    "Привет! Как музыка?",
-    "Отличный вкус!",
-    "Хей~",
-    "Давай послушаем что-нибудь новое!",
-    "Ты сегодня в отличном настроении!",
-    "Как насчёт чилл-плейлиста?",
-    "Музыка — это жизнь~",
+  towelie: [
+    "Я не понимаю, что происходит...",
+    "Хочешь покурить?",
+    "*затягивается*",
+    "Это... тупо лучшее, чувак",
+    "Не забудь полотенце!",
+    "*кашляет* Извини...",
+    "Я имею в виду... эм...",
+    "Ваай, круто...",
+    "*пускает дым*",
+    "Знаешь, что? Забей...",
+    "Тупо расслабься, чувак",
+    "Не знаю, меееень...",
+    "Это как... вааай...",
+    "*зевает* А что играет?",
+    "*хихикает*",
   ],
-  sassy: [
-    "*зевает* Опять попса?",
-    "Я бы лучше спал...",
-    "Это лучшее, что ты смог найти?",
-    "...серьёзно?",
-    "У меня нет рук, а я подбираю музыку лучше",
-    "*хмурится* Не то...",
-    "Может, включим что-нибудь приличное?",
+  stoned: [
+    "Ваааай, чувак...",
+    "*кашляет* Кхх... круто...",
+    "Это... самый лучший трек...",
+    "Я... забыл, что хотел сказать",
+    "*долгая пауза* ...круто",
+    "Это как... музыка... но...",
+    "Ваай... я так покурил...",
+    "*моргает* Да? Что?",
+    "Ммм... это красиво, чувак",
+    "Не забудь... эм... полотенце...",
+    "Это тупо ваай, чувак...",
+    "*пускает дым* Круууто",
+    "Я не чувствую лицо...",
+    "*затягивается* Ааа...",
+    "Чувак... это... ваай...",
   ],
-  sleepy: [
-    "*засыпает*... хррр...",
-    "Zzz...",
-    "Разбуди меня для хорошего трека...",
-    "*свернулся*",
+  panic: [
+    "О НЕТ! НЕ ЭТО!!",
+    "Не забудь полотенце!!!",
+    "ВСЁ ПОРАВНО?!",
+    "Я НЕ ПОНИМАЮ ЧТО ПРОИСХОДИТ!",
+    "ЧТО ДЕЛАТЬ?! ЧТО ДЕЛАТЬ?!",
+    "ПОЛОТЕНЦЕ! НУЖНО ПОЛОТЕНЦЕ!",
+    "Ох чёрт, ох чёрт...",
+    "Не паниковать... не паниковать...",
+    "*быстро курит* Пффф...",
+    "Это конец, чувак...",
+    "КТО-ТО ВЫКЛЮЧИЛ МУЗЫКУ?!",
+    "О нет нет нет нет!",
+    "*трясётся* Всё ок... всё ок...",
+  ],
+  lazy: [
+    "*засыпает стоя*... хррр...",
     "Ещё пять минут...",
-    "Сон — лучшая музыка...",
-    "*сонно открывает один глаз*...",
-  ],
-  excited: [
-    "Новый трек! Новый трек!!",
-    "УРААА!!",
-    "Я ТАК РАД!!",
-    "Включай скорее!!",
-    "Это мой любимый!!",
-    "ТАНЕЦ!!",
-    "Не могу усидеть на месте!!",
+    "Мне лень идти...",
+    "Не хочу... но... ок...",
+    "*тянется* Нннн...",
+    "Потом... может быть...",
+    "Зачем... всё это...",
+    "*зевает* Хочешь покурить?",
+    "Я так устал, чувак...",
+    "Сон — это круто...",
+    "*ложится*",
+    "Не трогай меня...",
+    "Можно не вставать?",
   ],
 };
 
 const PET_RESPONSES = [
-  "Спасибо~",
-  "*радуется*",
-  "Ещё! Ещё!",
-  "Круто!",
-  "*подпрыгивает*",
-  "Ура!",
-  "*счастлив*",
-  "Класс!",
+  "Чувак... не трогай...",
+  "*кашляет*",
+  "Хм?.. А?",
+  "О... спасибо...",
+  "Круто, наверное...",
+  "Ннн... что?",
+  "*пускает дым в лицо*",
+  "Забей, чувак...",
+  "Не забудь полотенце!",
+  "Ваай, ладно...",
 ];
 
 const MILESTONES: Record<number, string> = {
-  10: "10 раз! Обожаю!",
-  50: "50 раз!! Ты лучший!",
-  100: "100 раз!!! ЛЕГЕНДА!!",
+  10: "10 раз! Чувак, ты мне нравишься...",
+  50: "50 раз!! Ты мой лучший бро!",
+  100: "100 раз!!! ЛЕГЕНДА!!! *кашляет*",
 };
 
 const SIZE_PX: Record<string, number> = {
@@ -69,13 +99,25 @@ const SIZE_PX: Record<string, number> = {
 
 const BLINK_INTERVAL = 3500;
 const BLINK_DURATION = 180;
-const WALK_SPEED_MIN = 0.3; // px per frame
+const WALK_SPEED_MIN = 0.3;
 const WALK_SPEED_MAX = 1.2;
 const WALK_PAUSE_MIN = 3000;
 const WALK_PAUSE_MAX = 8000;
 const LIFT_SCALE = 1.25;
 const LIFT_SHADOW = 20;
-const PHRASE_DISPLAY_MS = 4000;
+const PHRASE_DISPLAY_MS = 4500;
+
+// ── Smoke Particles ──
+interface SmokeParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  alpha: number;
+  life: number;
+  maxLife: number;
+}
 
 // ══════════════════════════════════════════════════════════════════
 // SPRITE FRAME DEFINITIONS
@@ -102,115 +144,159 @@ interface FrameParams {
   legRaiseR: number;
   armAngleL: number;
   armAngleR: number;
-  walkCycle: number; // 0=standing, 1=full walk stride
+  walkCycle: number;
+  // Towelie additions
+  bloodshotAlpha: number; // red veins in eyes
+  pupilSize: number; // 1=normal, bigger when stoned
+  mouthWavy: number; // wavy/uneven mouth (stoned)
+  cigAngle: number; // -1=none, 0-1=cigarette angle
+  takingDrag: number; // 0-1, mouth open for drag
 }
+
+const BASE_FRAME: FrameParams = {
+  eyeOpen: 1, pupilDx: 0, pupilDy: 0,
+  browAngleL: 0, browAngleR: 0, browRaiseL: 0, browRaiseR: 0,
+  mouthCurve: 0, mouthOpen: 0, tongueShow: 0,
+  blushAlpha: 0, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
+  motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
+  walkCycle: 0,
+  bloodshotAlpha: 0, pupilSize: 1, mouthWavy: 0, cigAngle: 0, takingDrag: 0,
+};
 
 const FRAMES: Record<string, FrameParams> = {
   neutral: {
-    eyeOpen: 1, pupilDx: 0, pupilDy: 0,
-    browAngleL: 0, browAngleR: 0, browRaiseL: 0, browRaiseR: 0,
-    mouthCurve: 0, mouthOpen: 0, tongueShow: 0,
-    blushAlpha: 0, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
-    motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
-    walkCycle: 0,
+    ...BASE_FRAME,
   },
   smile: {
-    eyeOpen: 0, pupilDx: 0, pupilDy: 0,
-    browAngleL: 0, browAngleR: 0, browRaiseL: -0.05, browRaiseR: -0.05,
-    mouthCurve: 1, mouthOpen: 0.3, tongueShow: 0,
-    blushAlpha: 0.35, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
-    motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
-    walkCycle: 0,
+    ...BASE_FRAME,
+    eyeOpen: 0.15, browRaiseL: -0.05, browRaiseR: -0.05,
+    mouthCurve: 0.6, mouthOpen: 0.15, bloodshotAlpha: 0.3,
+    cigAngle: 0.4,
   },
-  motion: {
-    eyeOpen: 1, pupilDx: -0.15, pupilDy: 0,
-    browAngleL: -0.05, browAngleR: 0.05, browRaiseL: 0, browRaiseR: 0,
-    mouthCurve: 0.3, mouthOpen: 0, tongueShow: 0,
-    blushAlpha: 0, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
-    motionAlpha: 1, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
-    walkCycle: 0,
+  stoned_chill: {
+    ...BASE_FRAME,
+    eyeOpen: 0.45, pupilDy: 0.15, pupilSize: 1.15,
+    mouthCurve: 0.3, mouthOpen: 0.05, mouthWavy: 0.5,
+    bloodshotAlpha: 0.7, cigAngle: 0.35, takingDrag: 0.2,
   },
-  angry: {
-    eyeOpen: 0.7, pupilDx: 0, pupilDy: 0.1,
-    browAngleL: -0.35, browAngleR: 0.35, browRaiseL: 0.1, browRaiseR: 0.1,
-    mouthCurve: -0.6, mouthOpen: 0.2, tongueShow: 0,
-    blushAlpha: 0.5, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
-    motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
-    walkCycle: 0,
+  stoned_deep: {
+    ...BASE_FRAME,
+    eyeOpen: 0.2, pupilDy: 0.2, pupilSize: 1.25,
+    browRaiseL: 0.08, browRaiseR: 0.08,
+    mouthCurve: 0.15, mouthOpen: 0.1, mouthWavy: 0.8,
+    bloodshotAlpha: 1, cigAngle: 0.3, takingDrag: 0.6,
   },
-  sweat: {
-    eyeOpen: 0.85, pupilDx: 0.15, pupilDy: -0.1,
-    browAngleL: 0.1, browAngleR: -0.15, browRaiseL: 0.08, browRaiseR: 0,
-    mouthCurve: -0.2, mouthOpen: 0, tongueShow: 0,
-    blushAlpha: 0.1, sweatAlpha: 1, sweatSize: 1.3, sparkleAlpha: 0, sparkleCount: 0,
-    motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
-    walkCycle: 0,
+  stoned_laugh: {
+    ...BASE_FRAME,
+    eyeOpen: 0, pupilSize: 1.1,
+    mouthCurve: 0.8, mouthOpen: 0.5, mouthWavy: 0.3,
+    bloodshotAlpha: 0.8, cigAngle: 0.5, takingDrag: 0,
   },
-  sparkle: {
-    eyeOpen: 0, pupilDx: 0, pupilDy: 0,
-    browAngleL: 0, browAngleR: 0, browRaiseL: -0.08, browRaiseR: -0.08,
-    mouthCurve: 1, mouthOpen: 0.4, tongueShow: 0,
-    blushAlpha: 0.45, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 1, sparkleCount: 3,
-    motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0.15, armAngleR: -0.15,
-    walkCycle: 0,
+  cough: {
+    ...BASE_FRAME,
+    eyeOpen: 0.6, pupilDy: -0.1,
+    browAngleL: -0.15, browAngleR: 0.15, browRaiseL: 0.05,
+    mouthCurve: -0.3, mouthOpen: 0.8,
+    bloodshotAlpha: 0.5, cigAngle: 0.6, takingDrag: 0,
+    motionAlpha: 0.3, motionSide: "left",
+  },
+  panic: {
+    ...BASE_FRAME,
+    eyeOpen: 1.3, pupilDx: 0, pupilDy: -0.2, pupilSize: 0.85,
+    browAngleL: -0.4, browAngleR: 0.4, browRaiseL: 0.15, browRaiseR: 0.15,
+    mouthCurve: -0.5, mouthOpen: 0.7,
+    sweatAlpha: 1, sweatSize: 1.4,
+    bloodshotAlpha: 0.3, cigAngle: 0.7, takingDrag: 0,
+  },
+  panic_wave: {
+    ...BASE_FRAME,
+    eyeOpen: 1.1, pupilDx: 0.15, pupilDy: -0.15, pupilSize: 0.9,
+    browAngleL: -0.3, browAngleR: 0.3, browRaiseL: 0.1, browRaiseR: 0.1,
+    mouthCurve: -0.2, mouthOpen: 0.4,
+    sweatAlpha: 0.8, sweatSize: 1.2,
+    armAngleL: -0.5, armAngleR: 0.5,
+    bloodshotAlpha: 0.3, cigAngle: 0.65,
+  },
+  lazy_yawn: {
+    ...BASE_FRAME,
+    eyeOpen: 0.35, pupilDy: 0.1, pupilSize: 1.05,
+    browRaiseL: 0.06, browRaiseR: 0.06,
+    mouthCurve: -0.1, mouthOpen: 0.6,
+    bloodshotAlpha: 0.2, cigAngle: 0.3, takingDrag: 0.1,
+  },
+  lazy_nap: {
+    ...BASE_FRAME,
+    eyeOpen: 0.05, pupilDy: 0.15, pupilSize: 1.05,
+    mouthCurve: 0, mouthOpen: 0.15,
+    bloodshotAlpha: 0.15, cigAngle: 0.25,
+  },
+  drag_hit: {
+    ...BASE_FRAME,
+    eyeOpen: 0.55, pupilSize: 1.2,
+    mouthCurve: -0.1, mouthOpen: 0.9, takingDrag: 1,
+    bloodshotAlpha: 0.6, cigAngle: 0.4,
+  },
+  exhale: {
+    ...BASE_FRAME,
+    eyeOpen: 0.3, pupilDy: 0.2, pupilSize: 1.2,
+    browRaiseL: 0.05, browRaiseR: 0.05,
+    mouthCurve: 0.4, mouthOpen: 0.4,
+    bloodshotAlpha: 0.7, cigAngle: 0.35,
+    motionAlpha: 0.2, motionSide: "right",
   },
   surprised: {
-    eyeOpen: 1.2, pupilDx: 0, pupilDy: -0.15,
-    browAngleL: 0, browAngleR: 0, browRaiseL: -0.2, browRaiseR: -0.2,
-    mouthCurve: 0, mouthOpen: 1, tongueShow: 1,
-    blushAlpha: 0.3, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
-    motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
-    walkCycle: 0,
-  },
-  leg_raise: {
-    eyeOpen: 1, pupilDx: 0.1, pupilDy: 0,
-    browAngleL: 0, browAngleR: -0.08, browRaiseL: 0, browRaiseR: -0.06,
-    mouthCurve: 0.5, mouthOpen: 0, tongueShow: 0,
-    blushAlpha: 0, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
-    motionAlpha: 0.6, motionSide: "right", legRaiseR: 0.45, armAngleL: 0, armAngleR: 0,
-    walkCycle: 0,
+    ...BASE_FRAME,
+    eyeOpen: 1.2, pupilDy: -0.15, pupilSize: 0.9,
+    browRaiseL: -0.2, browRaiseR: -0.2,
+    mouthCurve: 0, mouthOpen: 0.8, tongueShow: 0.5,
+    cigAngle: 0,
   },
   walk_left: {
-    eyeOpen: 0.8, pupilDx: 0.2, pupilDy: 0,
-    browAngleL: 0.02, browAngleR: -0.02, browRaiseL: 0, browRaiseR: 0,
-    mouthCurve: 0.1, mouthOpen: 0, tongueShow: 0,
-    blushAlpha: 0, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
-    motionAlpha: 0.3, motionSide: "right", legRaiseR: 0.5, armAngleL: 0.4, armAngleR: -0.2,
-    walkCycle: 1,
+    ...BASE_FRAME,
+    eyeOpen: 0.7, pupilDx: 0.2, pupilSize: 1.05,
+    bloodshotAlpha: 0.3, cigAngle: 0.35,
+    motionAlpha: 0.3, motionSide: "right", legRaiseR: 0.5,
+    armAngleL: 0.4, armAngleR: -0.2, walkCycle: 1,
   },
   walk_right: {
-    eyeOpen: 0.8, pupilDx: -0.2, pupilDy: 0,
-    browAngleL: -0.02, browAngleR: 0.02, browRaiseL: 0, browRaiseR: 0,
-    mouthCurve: 0.1, mouthOpen: 0, tongueShow: 0,
-    blushAlpha: 0, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
-    motionAlpha: 0.3, motionSide: "left", legRaiseR: 0, armAngleL: -0.2, armAngleR: 0.4,
-    walkCycle: 1,
+    ...BASE_FRAME,
+    eyeOpen: 0.7, pupilDx: -0.2, pupilSize: 1.05,
+    bloodshotAlpha: 0.3, cigAngle: 0.35,
+    motionAlpha: 0.3, motionSide: "left", legRaiseR: 0,
+    armAngleL: -0.2, armAngleR: 0.4, walkCycle: 1,
   },
 };
 
 type AnimStep = [string, number];
 const MOOD_SEQUENCES: Record<string, AnimStep[]> = {
-  friendly: [
-    ["neutral", 3000], ["smile", 800], ["neutral", 2500],
-    ["smile", 700], ["neutral", 3500],
+  towelie: [
+    ["neutral", 3000], ["stoned_chill", 4000], ["smile", 1500],
+    ["drag_hit", 800], ["exhale", 1200], ["stoned_chill", 3000],
+    ["neutral", 2000], ["cough", 1000], ["neutral", 2500],
+    ["smile", 2000], ["stoned_laugh", 1500], ["neutral", 2000],
   ],
-  excited: [
-    ["neutral", 600], ["sparkle", 1200], ["surprised", 900],
-    ["sparkle", 1000], ["leg_raise", 800], ["sparkle", 1200],
-    ["neutral", 1000],
+  stoned: [
+    ["stoned_chill", 5000], ["stoned_deep", 4000],
+    ["drag_hit", 700], ["exhale", 1500], ["stoned_deep", 3000],
+    ["stoned_laugh", 2000], ["stoned_chill", 4000],
+    ["cough", 1200], ["stoned_chill", 5000],
   ],
-  sassy: [
-    ["neutral", 2500], ["sweat", 1800], ["angry", 1500],
-    ["sweat", 1200], ["neutral", 3000],
+  panic: [
+    ["neutral", 1000], ["panic", 2000], ["panic_wave", 1500],
+    ["cough", 1000], ["panic", 2000], ["panic_wave", 1500],
+    ["drag_hit", 600], ["exhale", 800], ["panic", 2500],
+    ["neutral", 2000],
   ],
-  sleepy: [
-    ["neutral", 5000], ["sweat", 3000], ["neutral", 6000],
+  lazy: [
+    ["neutral", 4000], ["lazy_yawn", 2000], ["lazy_nap", 6000],
+    ["lazy_yawn", 1500], ["stoned_chill", 3000], ["neutral", 5000],
+    ["cough", 1000], ["lazy_nap", 5000],
   ],
 };
 
 const PET_SEQUENCE: AnimStep[] = [
-  ["surprised", 400], ["sparkle", 600], ["smile", 800],
-  ["sparkle", 500], ["smile", 600], ["neutral", 500],
+  ["surprised", 400], ["cough", 600], ["smile", 800],
+  ["stoned_laugh", 500], ["smile", 600], ["neutral", 500],
 ];
 
 // ══════════════════════════════════════════════════════════════════
@@ -233,6 +319,8 @@ function lerpParams(a: FrameParams, b: FrameParams, t: number): FrameParams {
     "blushAlpha", "sweatAlpha", "sweatSize",
     "sparkleAlpha", "sparkleCount", "motionAlpha",
     "legRaiseR", "armAngleL", "armAngleR", "walkCycle",
+    "bloodshotAlpha", "pupilSize", "mouthWavy",
+    "cigAngle", "takingDrag",
   ];
   for (const key of numKeys) {
     (r as any)[key] = lerp(a[key] as number, b[key] as number, t);
@@ -255,9 +343,10 @@ function drawCharacter(
   phase: number,
   accentColor: string,
   isPlaying: boolean,
-  walkPhase: number, // 0..1 walk cycle for leg/arm animation
+  walkPhase: number,
   isLifted: boolean,
-  hpProgress: number = 0, // 0=no headphones, 1=fully on
+  hpProgress: number = 0,
+  smokeParticles: SmokeParticle[],
 ) {
   const s = size;
   const cx = s / 2;
@@ -270,21 +359,21 @@ function drawCharacter(
   const acG = parseInt(accentColor.slice(3, 5), 16);
   const acB = parseInt(accentColor.slice(5, 7), 16);
 
-  // Micro-bounce at 60fps (reduced when lifted)
   const bounceScale = isLifted ? 0.3 : 1;
-  const microBounce = Math.sin(phase * 3.2) * s * 0.006 * bounceScale;
-  const microArmL = Math.sin(phase * 2.5) * 0.04;
-  const microArmR = Math.sin(phase * 2.5 + 1.3) * 0.04;
-  const microLeg = Math.sin(phase * 4.0) * 1.2;
+  const microBounce = Math.sin(phase * 2.2) * s * 0.004 * bounceScale; // slower, more chill bounce
+  const microArmL = Math.sin(phase * 1.8) * 0.03;
+  const microArmR = Math.sin(phase * 1.8 + 1.3) * 0.03;
+  const microLeg = Math.sin(phase * 3.0) * 0.8;
+  // Subtle sway when stoned
+  const stonedSway = Math.sin(phase * 1.2) * s * 0.003 * (p.bloodshotAlpha || 0);
+  const stonedBob = Math.sin(phase * 0.8) * s * 0.002 * (p.bloodshotAlpha || 0);
 
-  // Walk cycle overrides
   const isWalking = (p.walkCycle || 0) > 0.1;
-  const walkStride = isWalking ? Math.sin(phase * 6) * 0.35 : 0;
-  const walkBounce = isWalking ? Math.abs(Math.sin(phase * 6)) * s * 0.012 : 0;
+  const walkStride = isWalking ? Math.sin(phase * 5) * 0.3 : 0;
+  const walkBounce = isWalking ? Math.abs(Math.sin(phase * 5)) * s * 0.01 : 0;
 
-  ctx.translate(0, microBounce - walkBounce);
+  ctx.translate(stonedSway, microBounce - walkBounce + stonedBob);
 
-  // ── Proportions ──
   const bw = s * 0.38;
   const bh = s * 0.30;
   const bodyY = cy;
@@ -298,9 +387,7 @@ function drawCharacter(
   const HAIR_DARK = "#CC9000";
   const HAIR_EDGE = "#311800";
 
-  // ═══════════════════════════════
-  // GROUND SHADOW (bigger when lifted)
-  // ═══════════════════════════════
+  // ── GROUND SHADOW ──
   const shadowScale = isLifted ? 1.4 : 1;
   const shadowAlpha = isLifted ? 0.04 : 0.08;
   ctx.beginPath();
@@ -308,9 +395,7 @@ function drawCharacter(
   ctx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
   ctx.fill();
 
-  // ═══════════════════════════════
-  // ARMS (behind body)
-  // ═══════════════════════════════
+  // ── ARMS ──
   const armLen = bw * 0.52;
   const armThick = Math.max(3, s * 0.028);
   const armOriginY = bodyY - bh * 0.1;
@@ -343,7 +428,7 @@ function drawCharacter(
   ctx.stroke();
   ctx.restore();
 
-  // Right arm
+  // Right arm (cigarette arm)
   const raAngle = 0.1 - (p.armAngleR || 0) - microArmR - walkStride;
   ctx.save();
   ctx.translate(cx + bw * 0.92, armOriginY);
@@ -366,16 +451,72 @@ function drawCharacter(
   ctx.strokeStyle = OL;
   ctx.lineWidth = outlineW;
   ctx.stroke();
+
+  // ── CIGARETTE in hand ──
+  if ((p.cigAngle || 0) > 0.01) {
+    const cigLen = s * 0.1;
+    const cigW = Math.max(1.5, s * 0.012);
+    const cigX = armLen + cigLen * 0.3;
+    const cigY = -armThick * 0.1;
+    const cigRot = (p.cigAngle || 0) * 0.4 + Math.sin(phase * 2) * 0.02;
+
+    ctx.save();
+    ctx.translate(cigX, cigY);
+    ctx.rotate(cigRot);
+
+    // Cigarette body
+    const cigGrad = ctx.createLinearGradient(-cigLen * 0.6, 0, cigLen * 0.4, 0);
+    cigGrad.addColorStop(0, "#FFFFFF");
+    cigGrad.addColorStop(0.65, "#F5F0E8");
+    cigGrad.addColorStop(0.7, "#D4A06A");
+    cigGrad.addColorStop(1, "#8B5E3C");
+    ctx.beginPath();
+    ctx.roundRect(-cigLen * 0.6, -cigW / 2, cigLen, cigW, cigW * 0.3);
+    ctx.fillStyle = cigGrad;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,0.15)";
+    ctx.lineWidth = Math.max(0.3, s * 0.003);
+    ctx.stroke();
+
+    // Glowing tip (cherry)
+    const cherryPulse = 0.7 + Math.sin(phase * 8) * 0.3;
+    const cherryAlpha = p.takingDrag > 0.1 ? cherryPulse * 1.2 : cherryPulse * 0.6;
+    ctx.beginPath();
+    ctx.arc(-cigLen * 0.6, 0, cigW * 0.7, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,${80 + Math.floor(cherryPulse * 40)},20,${Math.min(1, cherryAlpha)})`;
+    ctx.fill();
+
+    // Cherry glow
+    if (cherryAlpha > 0.4) {
+      ctx.beginPath();
+      ctx.arc(-cigLen * 0.6, 0, cigW * 2, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,100,30,${cherryAlpha * 0.15})`;
+      ctx.fill();
+    }
+
+    // Emit smoke from cigarette tip (add to particles)
+    if (Math.random() < 0.3) {
+      smokeParticles.push({
+        x: cx + bw * 0.92 + Math.cos(raAngle) * cigX - cigLen * 0.6 * Math.cos(cigRot + raAngle) - Math.sin(cigRot + raAngle) * cigY,
+        y: armOriginY + Math.sin(raAngle) * cigX + cigLen * 0.6 * Math.sin(cigRot + raAngle) - stonedSway,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: -(0.3 + Math.random() * 0.5),
+        size: 2 + Math.random() * 3,
+        alpha: 0.3 + Math.random() * 0.2,
+        life: 0,
+        maxLife: 40 + Math.random() * 30,
+      });
+    }
+
+    ctx.restore();
+  }
   ctx.restore();
 
-  // ═══════════════════════════════
-  // LEGS
-  // ═══════════════════════════════
+  // ── LEGS ──
   const legLen = s * 0.12;
   const legThick = Math.max(4, s * 0.032);
   const legOriginY = bodyY + bh * 0.8;
 
-  // Left leg
   const leftLegX = cx - bw * 0.22 + microLeg + (isWalking ? walkStride * 4 : 0);
   ctx.beginPath();
   ctx.moveTo(leftLegX - legThick * 0.5, legOriginY);
@@ -405,7 +546,6 @@ function drawCharacter(
   ctx.lineWidth = outlineW;
   ctx.stroke();
 
-  // Right leg
   const rLegRaise = p.legRaiseR || 0;
   const rightLegX = cx + bw * 0.22 - microLeg - (isWalking ? walkStride * 4 : 0);
   ctx.save();
@@ -438,9 +578,7 @@ function drawCharacter(
   ctx.stroke();
   ctx.restore();
 
-  // ═══════════════════════════════
-  // BODY — egg oval
-  // ═══════════════════════════════
+  // ── BODY ──
   const bodyGrad = ctx.createRadialGradient(
     cx - bw * 0.15, bodyY - bh * 0.3, bh * 0.08,
     cx, bodyY, bw * 1.1
@@ -457,7 +595,7 @@ function drawCharacter(
   ctx.lineWidth = outlineW;
   ctx.stroke();
 
-  // Shirt details
+  // Shirt fold lines
   ctx.save();
   ctx.beginPath();
   ctx.ellipse(cx, bodyY, bw - outlineW, bh - outlineW, 0, 0, Math.PI * 2);
@@ -506,16 +644,7 @@ function drawCharacter(
   ctx.fillStyle = "#000000";
   ctx.fill();
 
-  // "USA" text
-  ctx.font = `bold ${Math.max(7, s * 0.065)}px sans-serif`;
-  ctx.fillStyle = "rgba(0,0,0,0.4)";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText("USA", cx - bw * 0.25, bodyY + bh * 0.45);
-
-  // ═══════════════════════════════
-  // HAIR — golden comb-over
-  // ═══════════════════════════════
+  // ── HAIR ──
   const hairBaseY = bodyY - bh * 0.88;
 
   ctx.beginPath();
@@ -593,9 +722,7 @@ function drawCharacter(
   ctx.lineWidth = outlineW;
   ctx.stroke();
 
-  // ═══════════════════════════════
-  // HEADPHONES (when music is playing)
-  // ═══════════════════════════════
+  // ── HEADPHONES ──
   if (hpProgress > 0.01) {
     const hpColor = "#333333";
     const hpAccent = accentColor;
@@ -606,14 +733,12 @@ function drawCharacter(
     const hpPadW = bw * 0.12;
     const hpPadH = bh * 0.28;
 
-    // Animate headphone appearance (slide down from above)
-    const hpEase = hpProgress < 0.5 
-      ? 2 * hpProgress * hpProgress 
+    const hpEase = hpProgress < 0.5
+      ? 2 * hpProgress * hpProgress
       : 1 - Math.pow(-2 * hpProgress + 2, 2) / 2;
-    const hpOffsetY = (1 - hpEase) * bh * 0.8; // slide down
+    const hpOffsetY = (1 - hpEase) * bh * 0.8;
     const hpAlpha = Math.min(1, hpProgress * 2);
 
-    // Headband arc
     ctx.save();
     ctx.globalAlpha = hpAlpha;
     ctx.translate(0, -hpOffsetY);
@@ -624,7 +749,6 @@ function drawCharacter(
     ctx.lineCap = "round";
     ctx.stroke();
 
-    // Headband highlight
     ctx.beginPath();
     ctx.ellipse(cx, headY - bh * 0.18, headW * 0.95, bh * 0.32, 0, Math.PI * 1.15, Math.PI * 1.45);
     ctx.strokeStyle = hpAccent;
@@ -633,7 +757,6 @@ function drawCharacter(
     ctx.stroke();
     ctx.globalAlpha = 1;
 
-    // Left ear pad
     const lpadX = cx - headW - hpPadW * 0.2;
     const lpadY = headY + bh * 0.02;
     ctx.beginPath();
@@ -643,21 +766,11 @@ function drawCharacter(
     ctx.strokeStyle = OL;
     ctx.lineWidth = outlineW * 0.6;
     ctx.stroke();
-    // Pad cushion
     ctx.beginPath();
     ctx.roundRect(lpadX - hpPadW * 0.3, lpadY - hpPadH * 0.4, hpPadW * 0.6, hpPadH * 0.8, hpPadW * 0.2);
     ctx.fillStyle = hpPadColor;
     ctx.fill();
-    // Accent ring
-    ctx.beginPath();
-    ctx.roundRect(lpadX - hpPadW * 0.35, lpadY - hpPadH * 0.45, hpPadW * 0.7, hpPadH * 0.9, hpPadW * 0.25);
-    ctx.strokeStyle = hpAccent;
-    ctx.lineWidth = Math.max(0.8, s * 0.006);
-    ctx.globalAlpha = 0.5;
-    ctx.stroke();
-    ctx.globalAlpha = 1;
 
-    // Right ear pad
     const rpadX = cx + headW + hpPadW * 0.2;
     ctx.beginPath();
     ctx.roundRect(rpadX - hpPadW / 2, lpadY - hpPadH / 2, hpPadW, hpPadH, hpPadW * 0.25);
@@ -670,25 +783,16 @@ function drawCharacter(
     ctx.roundRect(rpadX - hpPadW * 0.3, lpadY - hpPadH * 0.4, hpPadW * 0.6, hpPadH * 0.8, hpPadW * 0.2);
     ctx.fillStyle = hpPadColor;
     ctx.fill();
-    ctx.beginPath();
-    ctx.roundRect(rpadX - hpPadW * 0.35, lpadY - hpPadH * 0.45, hpPadW * 0.7, hpPadH * 0.9, hpPadW * 0.25);
-    ctx.strokeStyle = hpAccent;
-    ctx.lineWidth = Math.max(0.8, s * 0.006);
-    ctx.globalAlpha = 0.5;
-    ctx.stroke();
-    ctx.globalAlpha = 1;
     ctx.restore();
   }
 
-  // ═══════════════════════════════
-  // FACE
-  // ═══════════════════════════════
+  // ── FACE ──
   const faceY = bodyY - bh * 0.18;
   const eyeSpacing = bw * 0.26;
   const eyeW = bw * 0.11;
   const eyeH = bw * 0.15;
 
-  // Eyebrows
+  // Eyebrows (slightly raised/chill for Towelie)
   const browLen = eyeW * 1.3;
   const browThick = Math.max(2, s * 0.018);
 
@@ -710,9 +814,10 @@ function drawCharacter(
   ctx.fill();
   ctx.restore();
 
-  // Eyes
+  // Eyes (with bloodshot effect for Towelie)
   const drawEye = (ex: number, ey: number) => {
     const openness = Math.max(0, Math.min(1.2, p.eyeOpen));
+    const pSize = p.pupilSize || 1;
 
     if (openness < 0.15) {
       ctx.beginPath();
@@ -731,15 +836,46 @@ function drawCharacter(
     ctx.rect(ex - eyeW * 1.5, ey - clipH * 0.4, eyeW * 3, clipH * 1.4);
     ctx.clip();
 
+    // Eye white with slight red tint when bloodshot
+    const bsAlpha = p.bloodshotAlpha || 0;
+    const eyeWhite = bsAlpha > 0.01
+      ? `rgba(${255 - Math.floor(bsAlpha * 40)},${255 - Math.floor(bsAlpha * 60)},${255 - Math.floor(bsAlpha * 50)},1)`
+      : "#FFFFFF";
+
     ctx.beginPath();
     ctx.ellipse(ex, ey, eyeW, eyeH, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "#FFFFFF";
+    ctx.fillStyle = eyeWhite;
     ctx.fill();
     ctx.strokeStyle = OL;
     ctx.lineWidth = outlineW;
     ctx.stroke();
 
-    const pupilR = eyeW * 0.52;
+    // Bloodshot veins
+    if (bsAlpha > 0.1) {
+      ctx.globalAlpha = bsAlpha * 0.5;
+      const veinCount = 3;
+      for (let v = 0; v < veinCount; v++) {
+        const vAngle = (v / veinCount) * Math.PI * 2 + phase * 0.1;
+        const vx1 = ex + Math.cos(vAngle) * eyeW * 0.3;
+        const vy1 = ey + Math.sin(vAngle) * eyeH * 0.3;
+        const vx2 = ex + Math.cos(vAngle) * eyeW * 0.85;
+        const vy2 = ey + Math.sin(vAngle) * eyeH * 0.85;
+        ctx.beginPath();
+        ctx.moveTo(vx1, vy1);
+        ctx.quadraticCurveTo(
+          (vx1 + vx2) / 2 + Math.sin(vAngle * 2) * eyeW * 0.2,
+          (vy1 + vy2) / 2 + Math.cos(vAngle * 3) * eyeH * 0.15,
+          vx2, vy2
+        );
+        ctx.strokeStyle = `rgba(200,50,50,${bsAlpha * 0.7})`;
+        ctx.lineWidth = Math.max(0.3, s * 0.004);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Pupil (bigger when stoned)
+    const pupilR = eyeW * 0.52 * pSize;
     const px = ex + (p.pupilDx || 0) * eyeW * 0.5;
     const py = ey + (p.pupilDy || 0) * eyeH * 0.3;
     ctx.beginPath();
@@ -764,20 +900,42 @@ function drawCharacter(
   drawEye(cx - eyeSpacing, faceY);
   drawEye(cx + eyeSpacing, faceY);
 
-  // Mouth
+  // Mouth (with wavy/uneven effect when stoned)
   const mouthY = faceY + eyeH * 1.5;
   const mouthW = eyeW * 0.9;
 
   if ((p.mouthOpen || 0) > 0.15) {
     const openH = eyeH * 0.35 * (p.mouthOpen || 0);
     const curve = (p.mouthCurve || 0);
-    ctx.beginPath();
-    ctx.ellipse(cx, mouthY + openH * 0.2, mouthW * (0.8 + curve * 0.3), openH, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "#3D2020";
-    ctx.fill();
-    ctx.strokeStyle = OL;
-    ctx.lineWidth = outlineW;
-    ctx.stroke();
+    const wavy = p.mouthWavy || 0;
+
+    if (wavy > 0.1) {
+      // Wavy mouth (stoned lopsided grin)
+      ctx.beginPath();
+      ctx.moveTo(cx - mouthW * 0.7, mouthY);
+      ctx.quadraticCurveTo(
+        cx - mouthW * 0.3, mouthY + openH * (0.3 + curve * 0.3) + Math.sin(phase * 3) * openH * wavy * 0.3,
+        cx, mouthY + openH * 0.2
+      );
+      ctx.quadraticCurveTo(
+        cx + mouthW * 0.3, mouthY - openH * (0.1 - curve * 0.2) + Math.sin(phase * 3 + 1) * openH * wavy * 0.2,
+        cx + mouthW * 0.7, mouthY - openH * wavy * 0.15
+      );
+      ctx.quadraticCurveTo(cx, mouthY + openH * (0.5 + curve * 0.4), cx - mouthW * 0.7, mouthY);
+      ctx.fillStyle = "#3D2020";
+      ctx.fill();
+      ctx.strokeStyle = OL;
+      ctx.lineWidth = outlineW;
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.ellipse(cx, mouthY + openH * 0.2, mouthW * (0.8 + curve * 0.3), openH, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "#3D2020";
+      ctx.fill();
+      ctx.strokeStyle = OL;
+      ctx.lineWidth = outlineW;
+      ctx.stroke();
+    }
 
     if ((p.tongueShow || 0) > 0.1) {
       ctx.beginPath();
@@ -787,25 +945,44 @@ function drawCharacter(
     }
   } else {
     const curve = p.mouthCurve || 0;
-    ctx.beginPath();
-    ctx.moveTo(cx - mouthW * 0.7, mouthY);
-    ctx.quadraticCurveTo(cx, mouthY + curve * eyeH * 0.4, cx + mouthW * 0.7, mouthY);
-    ctx.strokeStyle = OL;
-    ctx.lineWidth = Math.max(1.2, outlineW * 0.8);
-    ctx.lineCap = "round";
-    ctx.stroke();
+    const wavy = p.mouthWavy || 0;
+
+    if (wavy > 0.1) {
+      // Wavy closed mouth
+      ctx.beginPath();
+      ctx.moveTo(cx - mouthW * 0.7, mouthY);
+      const midY = mouthY + curve * eyeH * 0.4;
+      ctx.quadraticCurveTo(cx - mouthW * 0.2, midY + Math.sin(phase * 2) * eyeH * wavy * 0.1, cx, midY);
+      ctx.quadraticCurveTo(cx + mouthW * 0.2, midY - Math.sin(phase * 2 + 1.5) * eyeH * wavy * 0.08, cx + mouthW * 0.7, mouthY - eyeH * wavy * 0.05);
+      ctx.strokeStyle = OL;
+      ctx.lineWidth = Math.max(1.2, outlineW * 0.8);
+      ctx.lineCap = "round";
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(cx - mouthW * 0.7, mouthY);
+      ctx.quadraticCurveTo(cx, mouthY + curve * eyeH * 0.4, cx + mouthW * 0.7, mouthY);
+      ctx.strokeStyle = OL;
+      ctx.lineWidth = Math.max(1.2, outlineW * 0.8);
+      ctx.lineCap = "round";
+      ctx.stroke();
+    }
   }
 
-  // Cheek blush
-  if ((p.blushAlpha || 0) > 0.01) {
-    ctx.beginPath();
-    ctx.ellipse(cx - eyeSpacing - eyeW * 0.4, faceY + eyeH * 0.7, eyeW * 0.55, eyeH * 0.28, -0.1, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255,130,130,${p.blushAlpha})`;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(cx + eyeSpacing + eyeW * 0.4, faceY + eyeH * 0.7, eyeW * 0.55, eyeH * 0.28, 0.1, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255,130,130,${p.blushAlpha})`;
-    ctx.fill();
+  // Exhale smoke from mouth when taking a drag or just smoked
+  if ((p.takingDrag || 0) < 0.3 && (p.cigAngle || 0) > 0.05 && (p.bloodshotAlpha || 0) > 0.2) {
+    if (Math.random() < 0.15) {
+      smokeParticles.push({
+        x: cx + (Math.random() - 0.5) * mouthW * 0.5,
+        y: mouthY - s * 0.02,
+        vx: (Math.random() - 0.3) * 0.4,
+        vy: -(0.4 + Math.random() * 0.6),
+        size: 3 + Math.random() * 4,
+        alpha: 0.2 + Math.random() * 0.15,
+        life: 0,
+        maxLife: 50 + Math.random() * 30,
+      });
+    }
   }
 
   // Sweat drop
@@ -874,7 +1051,6 @@ function drawCharacter(
     ctx.strokeStyle = `rgba(0,0,0,${0.15 * mAlpha})`;
     ctx.lineWidth = Math.max(1, s * 0.012);
     ctx.lineCap = "round";
-
     const sides = p.motionSide === "both" ? [-1, 1] : p.motionSide === "left" ? [-1] : [1];
     for (const side of sides) {
       for (let i = 0; i < 3; i++) {
@@ -887,6 +1063,29 @@ function drawCharacter(
         ctx.stroke();
       }
     }
+  }
+
+  // ── DRAW SMOKE PARTICLES ──
+  for (let i = smokeParticles.length - 1; i >= 0; i--) {
+    const sp = smokeParticles[i];
+    sp.life++;
+    sp.x += sp.vx;
+    sp.y += sp.vy;
+    sp.vx *= 0.98;
+    sp.size += 0.08;
+
+    const lifeRatio = sp.life / sp.maxLife;
+    const alpha = sp.alpha * (1 - lifeRatio) * (lifeRatio < 0.1 ? lifeRatio / 0.1 : 1);
+
+    if (sp.life >= sp.maxLife || alpha < 0.01) {
+      smokeParticles.splice(i, 1);
+      continue;
+    }
+
+    ctx.beginPath();
+    ctx.arc(sp.x, sp.y + stonedBob, sp.size, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(200,200,210,${alpha})`;
+    ctx.fill();
   }
 
   // Accent glow
@@ -902,7 +1101,7 @@ function drawCharacter(
   ctx.restore();
 }
 
-// ── Pet Effect ──
+// ── Pet Effect (Towelie version: smoke clouds) ──
 function PetEffect({ onDone }: { onDone: () => void }) {
   useEffect(() => {
     const id = setTimeout(onDone, 1600);
@@ -911,11 +1110,11 @@ function PetEffect({ onDone }: { onDone: () => void }) {
 
   const symbols = useMemo(
     () => [
-      { sym: "\u2764", offset: -18 },
-      { sym: "\u2B50", offset: -7 },
-      { sym: "\u2728", offset: 4 },
-      { sym: "\uD83D\uDC9C", offset: 15 },
-      { sym: "\u2665", offset: 26 },
+      { sym: "\uD83D\uDEAC", offset: -18 },  // 🚬 cigarette
+      { sym: "\u2601", offset: -7 },          // ☁ cloud
+      { sym: "\uD83D\uDCA8", offset: 4 },     // 💨 dash
+      { sym: "\u2620", offset: 15 },           // ☠ skull
+      { sym: "\uD83C\uDF2C", offset: 26 },     // 🌬 wind
     ],
     []
   );
@@ -949,17 +1148,17 @@ function useFrameSequencer(
   isPetting: boolean,
   isBlinking: boolean,
   isWalking: boolean,
-  walkDirection: number, // -1 left, 0 none, 1 right
+  walkDirection: number,
 ) {
   const stateRef = useRef({
-    sequence: MOOD_SEQUENCES.friendly,
+    sequence: MOOD_SEQUENCES.towelie,
     stepIndex: 0,
     stepElapsed: 0,
     currentParams: { ...FRAMES.neutral },
     targetParams: { ...FRAMES.neutral },
     transitionProgress: 1,
     prevFrameKey: "neutral" as string,
-    prevMood: "friendly" as string,
+    prevMood: "towelie" as string,
   });
 
   const isBlinkingRef = useRef(isBlinking);
@@ -976,26 +1175,21 @@ function useFrameSequencer(
       st.stepIndex = 0;
       st.stepElapsed = 0;
     } else if (st.prevMood !== mood) {
-      // Mood changed — blend to new sequence
       st.prevMood = mood;
-      st.sequence = MOOD_SEQUENCES[mood] || MOOD_SEQUENCES.friendly;
-      // Don't reset stepIndex — let it wrap naturally for smooth transition
+      st.sequence = MOOD_SEQUENCES[mood] || MOOD_SEQUENCES.towelie;
     }
   }, [mood, isPetting]);
 
   const update = useCallback((dt: number): FrameParams => {
     const st = stateRef.current;
 
-    // If walking, override with walk frame
     if (isWalkingRef.current) {
       const walkFrame = walkDirRef.current >= 0 ? FRAMES.walk_right : FRAMES.walk_left;
-      // Blend walk frame with current mood frame
       const [frameKey] = st.sequence[st.stepIndex];
       const moodFrame = FRAMES[frameKey] || FRAMES.neutral;
       return { ...moodFrame, walkCycle: 1, eyeOpen: moodFrame.eyeOpen, mouthCurve: moodFrame.mouthCurve };
     }
 
-    // Advance sequence step
     st.stepElapsed += dt * 1000;
     const [frameKey, duration] = st.sequence[st.stepIndex];
     if (st.stepElapsed >= duration) {
@@ -1007,9 +1201,8 @@ function useFrameSequencer(
       st.transitionProgress = 0;
     }
 
-    // Smooth transition (200ms ease)
     if (st.transitionProgress < 1) {
-      st.transitionProgress = Math.min(1, st.transitionProgress + dt * 5);
+      st.transitionProgress = Math.min(1, st.transitionProgress + dt * 4);
       st.currentParams = lerpParams(
         FRAMES[st.prevFrameKey] || FRAMES.neutral,
         st.targetParams,
@@ -1019,7 +1212,6 @@ function useFrameSequencer(
       st.currentParams = st.targetParams;
     }
 
-    // Blink override
     if (isBlinkingRef.current) {
       st.currentParams = { ...st.currentParams, eyeOpen: 0 };
     }
@@ -1054,7 +1246,8 @@ function CanvasMascot({
   const animRef = useRef<number>(0);
   const phaseRef = useRef(0);
   const lastTimeRef = useRef(performance.now());
-  const hpProgressRef = useRef(0); // 0..1 headphone animation
+  const hpProgressRef = useRef(0);
+  const smokeParticlesRef = useRef<SmokeParticle[]>([]);
   const updateFrame = useFrameSequencer(mood, isPetting, isBlinking, isWalking, walkDirection);
 
   useEffect(() => {
@@ -1078,16 +1271,21 @@ function CanvasMascot({
       phaseRef.current += dt;
       const params = updateFrame(dt);
 
-      // Animate headphone progress at 60fps (smooth 400ms transition)
+      // Headphone animation
       const hpTarget = isPlaying ? 1 : 0;
-      const hpSpeed = 1 / 0.4; // full transition in 400ms
+      const hpSpeed = 1 / 0.4;
       if (hpProgressRef.current < hpTarget) {
         hpProgressRef.current = Math.min(hpTarget, hpProgressRef.current + dt * hpSpeed);
       } else if (hpProgressRef.current > hpTarget) {
         hpProgressRef.current = Math.max(hpTarget, hpProgressRef.current - dt * hpSpeed);
       }
 
-      drawCharacter(ctx, size, params, phaseRef.current, "#e03131", isPlaying, 0, isLifted, hpProgressRef.current);
+      // Cap smoke particles
+      if (smokeParticlesRef.current.length > 60) {
+        smokeParticlesRef.current = smokeParticlesRef.current.slice(-40);
+      }
+
+      drawCharacter(ctx, size, params, phaseRef.current, "#e03131", isPlaying, 0, isLifted, hpProgressRef.current, smokeParticlesRef.current);
       animRef.current = requestAnimationFrame(draw);
     };
 
@@ -1122,10 +1320,9 @@ export default function MqCat() {
   const [isPetting, setIsPetting] = useState(false);
   const [isBlinking, setIsBlinking] = useState(false);
 
-  // Walking state
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [isWalking, setIsWalking] = useState(false);
-  const [walkDirection, setWalkDirection] = useState(1); // 1=right, -1=left
+  const [walkDirection, setWalkDirection] = useState(1);
   const [isLifted, setIsLifted] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -1134,15 +1331,13 @@ export default function MqCat() {
   const blinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const phraseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Drag state
   const isDragging = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
   const posRef = useRef({ x: 0, y: 0 });
 
   const size = SIZE_PX[catSize] ?? 100;
 
-  // Initialize position to bottom-right
-  // Window resize handler to keep mascot in bounds
+  // Resize handler to keep mascot in bounds
   useEffect(() => {
     if (!catEnabled) return;
     const handleResize = () => {
@@ -1181,7 +1376,6 @@ export default function MqCat() {
         return;
       }
 
-      // Pick a random target position — clamped to safe area
       const margin = 20;
       const safeW = Math.max(size + margin * 2, window.innerWidth - size - margin * 2);
       const safeH = Math.max(size + margin * 2, window.innerHeight - size - 180 - margin);
@@ -1201,7 +1395,7 @@ export default function MqCat() {
       setIsWalking(true);
 
       const speed = WALK_SPEED_MIN + Math.random() * (WALK_SPEED_MAX - WALK_SPEED_MIN);
-      const duration = (dist / speed) * 16; // approximate frames
+      const duration = (dist / speed) * 16;
       const steps = Math.ceil(duration / 16);
       const stepX = dx / steps;
       const stepY = dy / steps;
@@ -1225,9 +1419,8 @@ export default function MqCat() {
         if (step >= steps) {
           clearInterval(walkInterval);
           setIsWalking(false);
-          // Show a random phrase sometimes
-          if (Math.random() < 0.3) {
-            const list = PHRASES[useAppStore.getState().catMood] ?? PHRASES.friendly;
+          if (Math.random() < 0.35) {
+            const list = PHRASES[useAppStore.getState().catMood] ?? PHRASES.towelie;
             const newPhrase = list[Math.floor(Math.random() * list.length)];
             setPhrase(newPhrase);
             if (phraseTimerRef.current) clearTimeout(phraseTimerRef.current);
@@ -1244,7 +1437,6 @@ export default function MqCat() {
       walkTimerRef.current = setTimeout(startWalk, delay);
     };
 
-    // Start first walk after a short delay
     walkTimerRef.current = setTimeout(startWalk, 2000 + Math.random() * 3000);
 
     return () => {
@@ -1252,7 +1444,7 @@ export default function MqCat() {
     };
   }, [catEnabled, isLifted, size]);
 
-  // ── Blink loop ──
+  // ── Blink loop (slower, more chill for Towelie) ──
   useEffect(() => {
     if (!catEnabled) return;
     const doBlink = () => {
@@ -1264,8 +1456,8 @@ export default function MqCat() {
       doBlink();
       blinkTimerRef.current = setInterval(() => {
         doBlink();
-        if (Math.random() < 0.25) setTimeout(doBlink, 300);
-      }, BLINK_INTERVAL + Math.random() * 1500);
+        if (Math.random() < 0.15) setTimeout(doBlink, 400); // occasional double blink
+      }, BLINK_INTERVAL + Math.random() * 2000);
     }, initialDelay);
     return () => {
       clearTimeout(first);
@@ -1289,7 +1481,7 @@ export default function MqCat() {
 
   // ── Drag handlers ──
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    if (e.button !== 0) return; // left click only
+    if (e.button !== 0) return;
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
 
@@ -1327,7 +1519,6 @@ export default function MqCat() {
     const dy = Math.abs(e.clientY - dragStartRef.current.y);
     const totalMove = Math.sqrt(dx * dx + dy * dy);
 
-    // If barely moved — it was a click/pet
     if (totalMove < 5) {
       handlePet();
     }
@@ -1365,7 +1556,6 @@ export default function MqCat() {
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
       >
-        {/* Lift shadow effect */}
         {isLifted && (
           <div
             className="absolute inset-0 pointer-events-none"
@@ -1388,10 +1578,8 @@ export default function MqCat() {
           walkDirection={walkDirection}
         />
 
-        {/* Pet effect */}
         {showPetEffect && <PetEffect onDone={handlePetEffectDone} />}
 
-        {/* Phrase bubble */}
         <AnimatePresence>
           {phrase && (
             <motion.div
@@ -1417,7 +1605,6 @@ export default function MqCat() {
                 }}
               >
                 {phrase}
-                {/* Bubble tail */}
                 <div
                   className="absolute left-1/2 -translate-x-1/2"
                   style={{
