@@ -119,7 +119,8 @@ function PetEffect({ onDone }: { onDone: () => void }) {
 }
 
 // ── Canvas Cat Drawing ──
-// Draws a cute cartoon cat on canvas with different expressions
+// Kawaii/chibi-style cat inspired by Open Design's hatch-pet sprite aesthetic.
+// Chunky readable silhouettes, simple expressive faces, flat cel shading, limited palette.
 function drawCat(
   ctx: CanvasRenderingContext2D,
   size: number,
@@ -129,247 +130,550 @@ function drawCat(
   tailPhase: number,
   accentColor: string
 ) {
-  const s = size; // base size
+  const s = size;
   const cx = s / 2;
-  const cy = s / 2 + 4;
+  const cy = s / 2 + 2;
 
   ctx.clearRect(0, 0, s, s);
   ctx.save();
 
-  // ── Body (rounded) ──
-  const bodyR = s * 0.38;
-  const bodyGrad = ctx.createRadialGradient(cx, cy + 2, bodyR * 0.2, cx, cy + 2, bodyR * 1.1);
-  bodyGrad.addColorStop(0, "#f5c26b");
-  bodyGrad.addColorStop(0.7, "#e8a44a");
-  bodyGrad.addColorStop(1, "#d4893a");
+  // Parse accent color to rgba helper
+  const acR = parseInt(accentColor.slice(1, 3), 16);
+  const acG = parseInt(accentColor.slice(3, 5), 16);
+  const acB = parseInt(accentColor.slice(5, 7), 16);
+  const acRGBA = (a: number) => `rgba(${acR},${acG},${acB},${a})`;
 
+  // ══════════════════════════════════════════════════════
+  // Chibi proportions: big head (~60%), small round body
+  // ══════════════════════════════════════════════════════
+  const headR = s * 0.34;
+  const headY = cy - s * 0.07;
+  const bodyR = s * 0.21;
+  const bodyY = cy + s * 0.2;
+
+  // ── 8. Accent color glow (subtle) ──
+  const glowR = s * 0.47;
+  const glowGrad = ctx.createRadialGradient(cx, cy, glowR * 0.5, cx, cy, glowR);
+  glowGrad.addColorStop(0, acRGBA(0.08));
+  glowGrad.addColorStop(0.6, acRGBA(0.04));
+  glowGrad.addColorStop(1, acRGBA(0));
   ctx.beginPath();
-  ctx.ellipse(cx, cy + 2, bodyR, bodyR * 0.92, 0, 0, Math.PI * 2);
-  ctx.fillStyle = bodyGrad;
+  ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
+  ctx.fillStyle = glowGrad;
   ctx.fill();
 
-  // Belly (lighter oval)
-  const bellyR = bodyR * 0.6;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy + bodyR * 0.15, bellyR, bellyR * 0.75, 0, 0, Math.PI * 2);
-  ctx.fillStyle = "#fbe4c0";
-  ctx.fill();
-
-  // ── Ears ──
-  const earW = bodyR * 0.4;
-  const earH = bodyR * 0.55;
-  const earInnerW = earW * 0.6;
-  const earInnerH = earH * 0.7;
-
-  // Left ear
-  ctx.beginPath();
-  ctx.moveTo(cx - bodyR * 0.55, cy - bodyR * 0.45);
-  ctx.lineTo(cx - bodyR * 0.8, cy - bodyR * 0.45 - earH);
-  ctx.lineTo(cx - bodyR * 0.15, cy - bodyR * 0.7);
-  ctx.closePath();
-  ctx.fillStyle = "#e8a44a";
-  ctx.fill();
-
-  // Left ear inner
-  ctx.beginPath();
-  ctx.moveTo(cx - bodyR * 0.52, cy - bodyR * 0.5);
-  ctx.lineTo(cx - bodyR * 0.7, cy - bodyR * 0.45 - earH * 0.7);
-  ctx.lineTo(cx - bodyR * 0.25, cy - bodyR * 0.65);
-  ctx.closePath();
-  ctx.fillStyle = "#f7b8d0";
-  ctx.fill();
-
-  // Right ear
-  ctx.beginPath();
-  ctx.moveTo(cx + bodyR * 0.55, cy - bodyR * 0.45);
-  ctx.lineTo(cx + bodyR * 0.8, cy - bodyR * 0.45 - earH);
-  ctx.lineTo(cx + bodyR * 0.15, cy - bodyR * 0.7);
-  ctx.closePath();
-  ctx.fillStyle = "#e8a44a";
-  ctx.fill();
-
-  // Right ear inner
-  ctx.beginPath();
-  ctx.moveTo(cx + bodyR * 0.52, cy - bodyR * 0.5);
-  ctx.lineTo(cx + bodyR * 0.7, cy - bodyR * 0.45 - earH * 0.7);
-  ctx.lineTo(cx + bodyR * 0.25, cy - bodyR * 0.65);
-  ctx.closePath();
-  ctx.fillStyle = "#f7b8d0";
-  ctx.fill();
-
-  // ── Eyes ──
-  const eyeSpacing = bodyR * 0.32;
-  const eyeY = cy - bodyR * 0.15;
-  const eyeW = bodyR * 0.15;
-  const eyeH = state === "blink" ? bodyR * 0.02 : bodyR * 0.17;
-
-  // Eye whites
-  if (state !== "blink") {
-    // Left eye white
-    ctx.beginPath();
-    ctx.ellipse(cx - eyeSpacing, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "#fff";
-    ctx.fill();
-
-    // Right eye white
-    ctx.beginPath();
-    ctx.ellipse(cx + eyeSpacing, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "#fff";
-    ctx.fill();
-
-    // Pupils
-    const pupilR = eyeH * 0.55;
-    ctx.beginPath();
-    ctx.arc(cx - eyeSpacing, eyeY + pupilR * 0.1, pupilR, 0, Math.PI * 2);
-    ctx.fillStyle = "#2d1b0e";
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(cx + eyeSpacing, eyeY + pupilR * 0.1, pupilR, 0, Math.PI * 2);
-    ctx.fillStyle = "#2d1b0e";
-    ctx.fill();
-
-    // Eye shine
-    const shineR = pupilR * 0.35;
-    ctx.beginPath();
-    ctx.arc(cx - eyeSpacing + shineR * 0.8, eyeY - shineR * 0.6, shineR, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(cx + eyeSpacing + shineR * 0.8, eyeY - shineR * 0.6, shineR, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,255,255,0.85)";
-    ctx.fill();
-  } else {
-    // Blink — horizontal lines
-    ctx.beginPath();
-    ctx.moveTo(cx - eyeSpacing - eyeW, eyeY);
-    ctx.quadraticCurveTo(cx - eyeSpacing, eyeY + eyeW * 0.3, cx - eyeSpacing + eyeW, eyeY);
-    ctx.strokeStyle = "#2d1b0e";
-    ctx.lineWidth = Math.max(1, bodyR * 0.04);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(cx + eyeSpacing - eyeW, eyeY);
-    ctx.quadraticCurveTo(cx + eyeSpacing, eyeY + eyeW * 0.3, cx + eyeSpacing + eyeW, eyeY);
-    ctx.strokeStyle = "#2d1b0e";
-    ctx.lineWidth = Math.max(1, bodyR * 0.04);
-    ctx.stroke();
-  }
-
-  // ── Nose ──
-  const noseY = eyeY + bodyR * 0.25;
-  ctx.beginPath();
-  ctx.moveTo(cx, noseY - bodyR * 0.05);
-  ctx.lineTo(cx - bodyR * 0.06, noseY + bodyR * 0.03);
-  ctx.lineTo(cx + bodyR * 0.06, noseY + bodyR * 0.03);
-  ctx.closePath();
-  ctx.fillStyle = "#f7b8d0";
-  ctx.fill();
-
-  // ── Mouth ──
-  if (state === "smile" || isPetting) {
-    // Happy open mouth
-    ctx.beginPath();
-    ctx.ellipse(cx, noseY + bodyR * 0.1, bodyR * 0.1, bodyR * 0.07, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "#f7b8d0";
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(cx, noseY + bodyR * 0.1, bodyR * 0.1, bodyR * 0.07, 0, 0, Math.PI * 2);
-    ctx.strokeStyle = "#c47a5a";
-    ctx.lineWidth = Math.max(1, bodyR * 0.02);
-    ctx.stroke();
-  } else {
-    // W-shaped mouth
-    const mouthY = noseY + bodyR * 0.05;
-    ctx.beginPath();
-    ctx.moveTo(cx - bodyR * 0.12, mouthY);
-    ctx.quadraticCurveTo(cx - bodyR * 0.04, mouthY + bodyR * 0.06, cx, mouthY + bodyR * 0.02);
-    ctx.quadraticCurveTo(cx + bodyR * 0.04, mouthY + bodyR * 0.06, cx + bodyR * 0.12, mouthY);
-    ctx.strokeStyle = "#c47a5a";
-    ctx.lineWidth = Math.max(1, bodyR * 0.025);
-    ctx.lineCap = "round";
-    ctx.stroke();
-  }
-
-  // ── Whiskers ──
-  const whiskerY = noseY + bodyR * 0.08;
-  ctx.strokeStyle = "rgba(80,50,30,0.3)";
-  ctx.lineWidth = Math.max(0.5, bodyR * 0.015);
-
-  // Left whiskers
-  for (let i = -1; i <= 1; i++) {
-    ctx.beginPath();
-    ctx.moveTo(cx - bodyR * 0.2, whiskerY + i * bodyR * 0.06);
-    ctx.lineTo(cx - bodyR * 0.6, whiskerY + i * bodyR * 0.1 - bodyR * 0.02);
-    ctx.stroke();
-  }
-  // Right whiskers
-  for (let i = -1; i <= 1; i++) {
-    ctx.beginPath();
-    ctx.moveTo(cx + bodyR * 0.2, whiskerY + i * bodyR * 0.06);
-    ctx.lineTo(cx + bodyR * 0.6, whiskerY + i * bodyR * 0.1 - bodyR * 0.02);
-    ctx.stroke();
-  }
-
-  // ── Cheek blush ──
-  if (state === "smile" || isPetting || mood === "excited") {
-    ctx.beginPath();
-    ctx.ellipse(cx - bodyR * 0.45, noseY + bodyR * 0.02, bodyR * 0.1, bodyR * 0.06, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,150,150,0.25)";
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.ellipse(cx + bodyR * 0.45, noseY + bodyR * 0.02, bodyR * 0.1, bodyR * 0.06, 0, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(255,150,150,0.25)";
-    ctx.fill();
-  }
-
-  // ── Tail (animated) ──
-  const tailBaseX = cx + bodyR * 0.75;
-  const tailBaseY = cy + bodyR * 0.5;
-  const tailSwing = Math.sin(tailPhase) * bodyR * 0.2;
-  const tailTipX = tailBaseX + bodyR * 0.5 + tailSwing;
-  const tailTipY = tailBaseY - bodyR * 0.6;
+  // ── 9. Tail (thicker, expressive curve with round tip) — behind body ──
+  const tailBaseX = cx + bodyR * 0.65;
+  const tailBaseY = bodyY + bodyR * 0.2;
+  const tailSwing = Math.sin(tailPhase) * bodyR * 0.45;
+  const tailMidX = tailBaseX + bodyR * 0.5 + tailSwing * 0.5;
+  const tailMidY = tailBaseY - bodyR * 0.7;
+  const tailTipX = tailMidX + tailSwing * 0.4;
+  const tailTipY = tailMidY - bodyR * 0.45;
 
   ctx.beginPath();
   ctx.moveTo(tailBaseX, tailBaseY);
   ctx.bezierCurveTo(
-    tailBaseX + bodyR * 0.2 + tailSwing * 0.3, tailBaseY - bodyR * 0.1,
-    tailTipX - bodyR * 0.1, tailTipY + bodyR * 0.3,
+    tailBaseX + bodyR * 0.3 + tailSwing * 0.2, tailBaseY - bodyR * 0.15,
+    tailMidX - bodyR * 0.15, tailMidY + bodyR * 0.25,
     tailTipX, tailTipY
   );
   ctx.strokeStyle = "#e8a44a";
-  ctx.lineWidth = Math.max(2, bodyR * 0.12);
+  ctx.lineWidth = Math.max(3, bodyR * 0.3);
   ctx.lineCap = "round";
   ctx.stroke();
 
-  // Tail tip
+  // Tail tip (bigger round blob)
   ctx.beginPath();
-  ctx.arc(tailTipX, tailTipY, bodyR * 0.06, 0, Math.PI * 2);
+  ctx.arc(tailTipX, tailTipY, Math.max(2, bodyR * 0.16), 0, Math.PI * 2);
   ctx.fillStyle = "#d4893a";
   ctx.fill();
+  // Tiny highlight on tail tip
+  ctx.beginPath();
+  ctx.arc(tailTipX - bodyR * 0.04, tailTipY - bodyR * 0.05, Math.max(1, bodyR * 0.06), 0, Math.PI * 2);
+  ctx.fillStyle = "rgba(255,255,255,0.15)";
+  ctx.fill();
 
-  // ── Sleepy mood: Zzz ──
-  if (mood === "sleepy" && !isPetting) {
-    const zPhase = (tailPhase * 0.5) % (Math.PI * 2);
-    ctx.font = `bold ${bodyR * 0.22}px sans-serif`;
-    ctx.fillStyle = "rgba(128,128,128,0.5)";
-    ctx.fillText("z", cx + bodyR * 0.5, cy - bodyR * 0.5 + Math.sin(zPhase) * 3);
-    ctx.font = `bold ${bodyR * 0.28}px sans-serif`;
-    ctx.fillStyle = "rgba(128,128,128,0.4)";
-    ctx.fillText("z", cx + bodyR * 0.65, cy - bodyR * 0.7 + Math.sin(zPhase + 1) * 3);
-    ctx.font = `bold ${bodyR * 0.35}px sans-serif`;
-    ctx.fillStyle = "rgba(128,128,128,0.3)";
-    ctx.fillText("Z", cx + bodyR * 0.8, cy - bodyR * 0.95 + Math.sin(zPhase + 2) * 3);
+  // ── 2. Body (softer, rounder, smaller chibi body) ──
+  const bodyGrad = ctx.createRadialGradient(cx - bodyR * 0.15, bodyY - bodyR * 0.15, bodyR * 0.1, cx, bodyY, bodyR * 1.1);
+  bodyGrad.addColorStop(0, "#f5c26b");
+  bodyGrad.addColorStop(0.65, "#e8a44a");
+  bodyGrad.addColorStop(1, "#d4893a");
+
+  ctx.beginPath();
+  ctx.ellipse(cx, bodyY, bodyR, bodyR * 0.9, 0, 0, Math.PI * 2);
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  // Belly patch (flat cel-shading — lighter oval)
+  ctx.beginPath();
+  ctx.ellipse(cx, bodyY + bodyR * 0.06, bodyR * 0.58, bodyR * 0.6, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#fbe4c0";
+  ctx.fill();
+
+  // ── 7. Paws (small oval shapes at bottom of body) ──
+  const pawY = bodyY + bodyR * 0.72;
+  const pawRx = bodyR * 0.2;
+  const pawRy = bodyR * 0.14;
+
+  // Left paw
+  ctx.beginPath();
+  ctx.ellipse(cx - bodyR * 0.35, pawY, pawRx, pawRy, -0.08, 0, Math.PI * 2);
+  ctx.fillStyle = "#e8a44a";
+  ctx.fill();
+  // Left paw pad
+  ctx.beginPath();
+  ctx.ellipse(cx - bodyR * 0.35, pawY + pawRy * 0.25, pawRx * 0.45, pawRy * 0.4, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#f7b8d0";
+  ctx.fill();
+
+  // Right paw
+  ctx.beginPath();
+  ctx.ellipse(cx + bodyR * 0.35, pawY, pawRx, pawRy, 0.08, 0, Math.PI * 2);
+  ctx.fillStyle = "#e8a44a";
+  ctx.fill();
+  // Right paw pad
+  ctx.beginPath();
+  ctx.ellipse(cx + bodyR * 0.35, pawY + pawRy * 0.25, pawRx * 0.45, pawRy * 0.4, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#f7b8d0";
+  ctx.fill();
+
+  // ── Head (big round chibi head, overlaps body) ──
+  const headGrad = ctx.createRadialGradient(cx - headR * 0.12, headY - headR * 0.15, headR * 0.08, cx, headY, headR);
+  headGrad.addColorStop(0, "#f5c26b");
+  headGrad.addColorStop(0.55, "#e8a44a");
+  headGrad.addColorStop(1, "#d4893a");
+
+  ctx.beginPath();
+  ctx.arc(cx, headY, headR, 0, Math.PI * 2);
+  ctx.fillStyle = headGrad;
+  ctx.fill();
+
+  // ── 3. Ears (rounder tips with visible fur tufts inside) ──
+  const earH = headR * 0.5;
+
+  // --- Left ear (rounder using quadratic curves) ---
+  ctx.beginPath();
+  ctx.moveTo(cx - headR * 0.62, headY - headR * 0.48);
+  ctx.quadraticCurveTo(cx - headR * 0.82, headY - headR * 0.48 - earH * 0.65, cx - headR * 0.66, headY - headR * 0.48 - earH);
+  ctx.quadraticCurveTo(cx - headR * 0.42, headY - headR * 0.48 - earH * 0.75, cx - headR * 0.15, headY - headR * 0.72);
+  ctx.closePath();
+  ctx.fillStyle = "#e8a44a";
+  ctx.fill();
+
+  // Left ear inner pink
+  ctx.beginPath();
+  ctx.moveTo(cx - headR * 0.56, headY - headR * 0.53);
+  ctx.quadraticCurveTo(cx - headR * 0.72, headY - headR * 0.53 - earH * 0.5, cx - headR * 0.6, headY - headR * 0.53 - earH * 0.72);
+  ctx.quadraticCurveTo(cx - headR * 0.42, headY - headR * 0.53 - earH * 0.6, cx - headR * 0.24, headY - headR * 0.68);
+  ctx.closePath();
+  ctx.fillStyle = "#f7b8d0";
+  ctx.fill();
+
+  // Left ear fur tufts (3 small strokes)
+  ctx.strokeStyle = "#fbe4c0";
+  ctx.lineWidth = Math.max(0.7, headR * 0.022);
+  ctx.lineCap = "round";
+  for (let i = 0; i < 3; i++) {
+    const tx = cx - headR * 0.56 + (i - 1) * headR * 0.07;
+    const ty = headY - headR * 0.56;
+    const angle = -Math.PI / 2 + (i - 1) * 0.25;
+    const len = headR * 0.09 + (1 - Math.abs(i - 1)) * headR * 0.03;
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(tx + Math.cos(angle) * len * 0.4, ty + Math.sin(angle) * len);
+    ctx.stroke();
   }
 
-  // ── Sassy mood: ._. ──
+  // --- Right ear ---
+  ctx.beginPath();
+  ctx.moveTo(cx + headR * 0.62, headY - headR * 0.48);
+  ctx.quadraticCurveTo(cx + headR * 0.82, headY - headR * 0.48 - earH * 0.65, cx + headR * 0.66, headY - headR * 0.48 - earH);
+  ctx.quadraticCurveTo(cx + headR * 0.42, headY - headR * 0.48 - earH * 0.75, cx + headR * 0.15, headY - headR * 0.72);
+  ctx.closePath();
+  ctx.fillStyle = "#e8a44a";
+  ctx.fill();
+
+  // Right ear inner pink
+  ctx.beginPath();
+  ctx.moveTo(cx + headR * 0.56, headY - headR * 0.53);
+  ctx.quadraticCurveTo(cx + headR * 0.72, headY - headR * 0.53 - earH * 0.5, cx + headR * 0.6, headY - headR * 0.53 - earH * 0.72);
+  ctx.quadraticCurveTo(cx + headR * 0.42, headY - headR * 0.53 - earH * 0.6, cx + headR * 0.24, headY - headR * 0.68);
+  ctx.closePath();
+  ctx.fillStyle = "#f7b8d0";
+  ctx.fill();
+
+  // Right ear fur tufts
+  ctx.strokeStyle = "#fbe4c0";
+  ctx.lineWidth = Math.max(0.7, headR * 0.022);
+  for (let i = 0; i < 3; i++) {
+    const tx = cx + headR * 0.56 + (i - 1) * headR * 0.07;
+    const ty = headY - headR * 0.56;
+    const angle = -Math.PI / 2 + (i - 1) * 0.25;
+    const len = headR * 0.09 + (1 - Math.abs(i - 1)) * headR * 0.03;
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(tx + Math.cos(angle) * len * 0.4, ty + Math.sin(angle) * len);
+    ctx.stroke();
+  }
+
+  // ══════════════════════════════════════════════════════
+  // 1 & 5. Eyes — big anime-style with enhanced expressions
+  // ══════════════════════════════════════════════════════
+  const eyeSpacing = headR * 0.32;
+  const eyeY = headY + headR * 0.03;
+  const eyeW = headR * 0.24; // ~30% of face diameter → kawaii big eyes
+  const eyeH = headR * 0.29;
+
+  const isSleepy = mood === "sleepy" && !isPetting;
+  const isSassy = mood === "sassy" && !isPetting;
+
+  // ── Helper: draw one big anime eye ──
+  const drawBigEye = (ex: number, ey: number, slant: number) => {
+    ctx.save();
+
+    // Droopy/happy eye outline (slightly heavier on top for anime feel)
+    const topCurve = -headR * 0.04 + slant;
+    const botCurve = headR * 0.95;
+    ctx.beginPath();
+    ctx.moveTo(ex - eyeW, ey + eyeH * 0.1);
+    ctx.quadraticCurveTo(ex, ey + topCurve, ex + eyeW, ey + eyeH * 0.05 + slant);
+    ctx.quadraticCurveTo(ex, ey + botCurve, ex - eyeW, ey + eyeH * 0.1);
+    ctx.closePath();
+    ctx.clip();
+
+    // White sclera
+    ctx.beginPath();
+    ctx.ellipse(ex, ey + eyeH * 0.38, eyeW * 1.05, eyeH * 1.05, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+
+    // Large colored iris (cat-green, cel-shaded)
+    const irisR = eyeH * 0.62;
+    const irisCY = ey + eyeH * 0.42;
+    const irisGrad = ctx.createRadialGradient(ex - irisR * 0.15, irisCY - irisR * 0.15, irisR * 0.08, ex, irisCY, irisR);
+    irisGrad.addColorStop(0, "#6dd85a");
+    irisGrad.addColorStop(0.45, "#3da82e");
+    irisGrad.addColorStop(1, "#2a7520");
+    ctx.beginPath();
+    ctx.arc(ex, irisCY, irisR, 0, Math.PI * 2);
+    ctx.fillStyle = irisGrad;
+    ctx.fill();
+
+    // Dark pupil (vertical cat-slit)
+    const pupilRx = irisR * 0.3;
+    const pupilRy = irisR * 0.7;
+    ctx.beginPath();
+    ctx.ellipse(ex, irisCY, pupilRx, pupilRy, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#140b03";
+    ctx.fill();
+
+    // Sparkle highlight #1 — big (top-right, bright)
+    const s1R = irisR * 0.28;
+    ctx.beginPath();
+    ctx.ellipse(ex + irisR * 0.3, irisCY - irisR * 0.3, s1R, s1R * 0.85, -0.3, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fill();
+
+    // Sparkle highlight #2 — small (bottom-left)
+    const s2R = irisR * 0.13;
+    ctx.beginPath();
+    ctx.arc(ex - irisR * 0.2, irisCY + irisR * 0.4, s2R, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fill();
+
+    ctx.restore();
+
+    // Eye outline (drawn after restore so it's on top)
+    ctx.beginPath();
+    ctx.moveTo(ex - eyeW, ey + eyeH * 0.1);
+    ctx.quadraticCurveTo(ex, ey + topCurve, ex + eyeW, ey + eyeH * 0.05 + slant);
+    ctx.quadraticCurveTo(ex, ey + botCurve, ex - eyeW, ey + eyeH * 0.1);
+    ctx.strokeStyle = "#2d1b0e";
+    ctx.lineWidth = Math.max(1, headR * 0.03);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.stroke();
+  };
+
+  // ── Helper: half-closed sleepy eye ──
+  const drawSleepyEye = (ex: number, ey: number) => {
+    ctx.save();
+    // Clip to only show top ~55% of eye
+    ctx.beginPath();
+    ctx.rect(ex - eyeW * 1.3, ey - eyeH * 0.2, eyeW * 2.6, eyeH * 0.85);
+    ctx.clip();
+
+    // Sclera
+    ctx.beginPath();
+    ctx.ellipse(ex, ey + eyeH * 0.38, eyeW * 1.05, eyeH * 1.05, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+
+    // Iris
+    const irisR = eyeH * 0.62;
+    const irisCY = ey + eyeH * 0.42;
+    const irisGrad = ctx.createRadialGradient(ex - irisR * 0.15, irisCY - irisR * 0.15, irisR * 0.08, ex, irisCY, irisR);
+    irisGrad.addColorStop(0, "#6dd85a");
+    irisGrad.addColorStop(0.45, "#3da82e");
+    irisGrad.addColorStop(1, "#2a7520");
+    ctx.beginPath();
+    ctx.arc(ex, irisCY, irisR, 0, Math.PI * 2);
+    ctx.fillStyle = irisGrad;
+    ctx.fill();
+
+    // Pupil
+    ctx.beginPath();
+    ctx.ellipse(ex, irisCY, irisR * 0.3, irisR * 0.7, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#140b03";
+    ctx.fill();
+
+    // Big sparkle
+    const s1R = irisR * 0.28;
+    ctx.beginPath();
+    ctx.ellipse(ex + irisR * 0.3, irisCY - irisR * 0.3, s1R, s1R * 0.85, -0.3, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fill();
+
+    // Small sparkle
+    ctx.beginPath();
+    ctx.arc(ex - irisR * 0.2, irisCY + irisR * 0.4, irisR * 0.13, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.fill();
+
+    ctx.restore();
+
+    // Droopy eyelid — curved line closing the bottom
+    ctx.beginPath();
+    ctx.moveTo(ex - eyeW * 1.15, ey + eyeH * 0.12);
+    ctx.quadraticCurveTo(ex, ey + eyeH * 0.22, ex + eyeW * 1.15, ey + eyeH * 0.08);
+    ctx.strokeStyle = "#d4893a";
+    ctx.lineWidth = Math.max(1.8, headR * 0.045);
+    ctx.lineCap = "round";
+    ctx.stroke();
+    // Thin dark line on eyelid edge
+    ctx.beginPath();
+    ctx.moveTo(ex - eyeW * 1.15, ey + eyeH * 0.12);
+    ctx.quadraticCurveTo(ex, ey + eyeH * 0.22, ex + eyeW * 1.15, ey + eyeH * 0.08);
+    ctx.strokeStyle = "#2d1b0e";
+    ctx.lineWidth = Math.max(0.6, headR * 0.015);
+    ctx.stroke();
+  };
+
+  // ── Draw eyes based on state & mood ──
+  if (state === "blink" && !isSleepy) {
+    // 5b. Blink: cute ^_^ style arched lines (upward curves)
+    const blinkArcH = eyeH * 0.28;
+    const lx = cx - eyeSpacing;
+    const rx = cx + eyeSpacing;
+
+    ctx.strokeStyle = "#2d1b0e";
+    ctx.lineWidth = Math.max(1.3, headR * 0.035);
+    ctx.lineCap = "round";
+
+    // Left blink arc (upward)
+    ctx.beginPath();
+    ctx.moveTo(lx - eyeW, eyeY + eyeH * 0.35);
+    ctx.quadraticCurveTo(lx, eyeY - blinkArcH, lx + eyeW, eyeY + eyeH * 0.35);
+    ctx.stroke();
+
+    // Right blink arc (upward)
+    ctx.beginPath();
+    ctx.moveTo(rx - eyeW, eyeY + eyeH * 0.35);
+    ctx.quadraticCurveTo(rx, eyeY - blinkArcH, rx + eyeW, eyeY + eyeH * 0.35);
+    ctx.stroke();
+  } else if (state === "smile" || isPetting) {
+    // 5c. Smile: closed happy eyes like ◠‿◠ (wider upward arcs)
+    const lx = cx - eyeSpacing;
+    const rx = cx + eyeSpacing;
+
+    ctx.strokeStyle = "#2d1b0e";
+    ctx.lineWidth = Math.max(1.5, headR * 0.04);
+    ctx.lineCap = "round";
+
+    // Left happy arc
+    ctx.beginPath();
+    ctx.moveTo(lx - eyeW, eyeY + eyeH * 0.3);
+    ctx.quadraticCurveTo(lx, eyeY - eyeH * 0.35, lx + eyeW, eyeY + eyeH * 0.3);
+    ctx.stroke();
+
+    // Right happy arc
+    ctx.beginPath();
+    ctx.moveTo(rx - eyeW, eyeY + eyeH * 0.3);
+    ctx.quadraticCurveTo(rx, eyeY - eyeH * 0.35, rx + eyeW, eyeY + eyeH * 0.3);
+    ctx.stroke();
+  } else if (isSleepy) {
+    // 10a. Sleepy: half-closed eyes
+    drawSleepyEye(cx - eyeSpacing, eyeY);
+    drawSleepyEye(cx + eyeSpacing, eyeY);
+  } else {
+    // 5a. Normal: big sparkly eyes
+    drawBigEye(cx - eyeSpacing, eyeY, 0);
+
+    // 10b. Sassy: right eye slanted, left eye has raised eyebrow
+    const sassySlant = isSassy ? -headR * 0.08 : 0;
+    drawBigEye(cx + eyeSpacing, eyeY, sassySlant);
+
+    if (isSassy) {
+      // Raised eyebrow on left eye
+      ctx.beginPath();
+      ctx.moveTo(cx - eyeSpacing - eyeW * 0.85, eyeY - eyeH * 0.12);
+      ctx.quadraticCurveTo(cx - eyeSpacing, eyeY - eyeH * 0.42, cx - eyeSpacing + eyeW * 0.85, eyeY - eyeH * 0.2);
+      ctx.strokeStyle = "#2d1b0e";
+      ctx.lineWidth = Math.max(1, headR * 0.025);
+      ctx.lineCap = "round";
+      ctx.stroke();
+    }
+  }
+
+  // ── 10c. Excited: star-shaped eye sparkles ──
+  if (mood === "excited" && !isPetting) {
+    const sp = tailPhase * 2;
+    const drawStar = (sx: number, sy: number, sr: number, phase: number) => {
+      const alpha = 0.45 + Math.sin(phase) * 0.3;
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(phase * 0.4);
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a1 = (i / 4) * Math.PI * 2 - Math.PI / 2;
+        const a2 = ((i + 0.5) / 4) * Math.PI * 2 - Math.PI / 2;
+        if (i === 0) ctx.moveTo(Math.cos(a1) * sr, Math.sin(a1) * sr);
+        else ctx.lineTo(Math.cos(a1) * sr, Math.sin(a1) * sr);
+        ctx.lineTo(Math.cos(a2) * sr * 0.32, Math.sin(a2) * sr * 0.32);
+      }
+      ctx.closePath();
+      ctx.fillStyle = `rgba(255,230,100,${alpha})`;
+      ctx.fill();
+      ctx.restore();
+    };
+    drawStar(cx - eyeSpacing - eyeW * 1.35, eyeY - eyeH * 0.15, headR * 0.08, sp);
+    drawStar(cx + eyeSpacing + eyeW * 1.35, eyeY - eyeH * 0.05, headR * 0.065, sp + 1.2);
+    drawStar(cx, eyeY - eyeH * 1.15, headR * 0.055, sp + 2.4);
+  }
+
+  // ── Nose (small rounded pink triangle) ──
+  const noseY = eyeY + headR * 0.3;
+  ctx.beginPath();
+  ctx.moveTo(cx, noseY - headR * 0.04);
+  ctx.quadraticCurveTo(cx - headR * 0.048, noseY + headR * 0.022, cx, noseY + headR * 0.028);
+  ctx.quadraticCurveTo(cx + headR * 0.048, noseY + headR * 0.022, cx, noseY - headR * 0.04);
+  ctx.fillStyle = "#f7b8d0";
+  ctx.fill();
+
+  // ── 4. Mouth ──
+  const mouthY = noseY + headR * 0.02;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  if (state === "smile" || isPetting) {
+    // 5c cont. Bigger open mouth with tiny fang
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY + headR * 0.065, headR * 0.085, headR * 0.06, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#f7b8d0";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx, mouthY + headR * 0.065, headR * 0.085, headR * 0.06, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = "#c47a5a";
+    ctx.lineWidth = Math.max(0.7, headR * 0.016);
+    ctx.stroke();
+
+    // Tiny cute fang (left side)
+    ctx.beginPath();
+    ctx.moveTo(cx - headR * 0.028, mouthY + headR * 0.04);
+    ctx.lineTo(cx - headR * 0.022, mouthY + headR * 0.075);
+    ctx.lineTo(cx - headR * 0.012, mouthY + headR * 0.04);
+    ctx.closePath();
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+  } else {
+    // 4. ω-shaped cat mouth (like :3 but rounder)
+    const omegaR = headR * 0.055;
+    const omegaY = mouthY + headR * 0.045;
+
+    // Center vertical line from nose down
+    ctx.beginPath();
+    ctx.moveTo(cx, noseY + headR * 0.028);
+    ctx.lineTo(cx, omegaY);
+    ctx.strokeStyle = "#c47a5a";
+    ctx.lineWidth = Math.max(0.6, headR * 0.014);
+    ctx.stroke();
+
+    // Left ω bump
+    ctx.beginPath();
+    ctx.arc(cx - omegaR, omegaY, omegaR, 0, Math.PI);
+    ctx.strokeStyle = "#c47a5a";
+    ctx.lineWidth = Math.max(0.7, headR * 0.018);
+    ctx.stroke();
+
+    // Right ω bump
+    ctx.beginPath();
+    ctx.arc(cx + omegaR, omegaY, omegaR, 0, Math.PI);
+    ctx.strokeStyle = "#c47a5a";
+    ctx.lineWidth = Math.max(0.7, headR * 0.018);
+    ctx.stroke();
+  }
+
+  // ── 6. Whiskers (slightly curved, natural) ──
+  const whiskerY = noseY + headR * 0.07;
+  ctx.strokeStyle = "rgba(80,50,30,0.22)";
+  ctx.lineWidth = Math.max(0.5, headR * 0.013);
+  ctx.lineCap = "round";
+
+  // Left whiskers (curved via quadratic)
+  const whiskerDy = [headR * 0.065, 0, -headR * 0.065];
+  for (let i = 0; i < 3; i++) {
+    const sy = whiskerY + whiskerDy[i];
+    const ex2 = cx - headR * 0.68;
+    const ey2 = sy + whiskerDy[i] * 0.4;
+    const cpx = cx - headR * 0.4;
+    const cpy = sy + whiskerDy[i] * 0.15;
+    ctx.beginPath();
+    ctx.moveTo(cx - headR * 0.22, sy);
+    ctx.quadraticCurveTo(cpx, cpy, ex2, ey2);
+    ctx.stroke();
+  }
+  // Right whiskers
+  for (let i = 0; i < 3; i++) {
+    const sy = whiskerY + whiskerDy[i];
+    const ex2 = cx + headR * 0.68;
+    const ey2 = sy + whiskerDy[i] * 0.4;
+    const cpx = cx + headR * 0.4;
+    const cpy = sy + whiskerDy[i] * 0.15;
+    ctx.beginPath();
+    ctx.moveTo(cx + headR * 0.22, sy);
+    ctx.quadraticCurveTo(cpx, cpy, ex2, ey2);
+    ctx.stroke();
+  }
+
+  // ── Cheek blush (always subtle, stronger on smile/excited) ──
+  const blushA = (state === "smile" || isPetting || mood === "excited") ? 0.28 : 0.1;
+  ctx.beginPath();
+  ctx.ellipse(cx - headR * 0.44, noseY + headR * 0.06, headR * 0.095, headR * 0.055, -0.1, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(255,150,150,${blushA})`;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(cx + headR * 0.44, noseY + headR * 0.06, headR * 0.095, headR * 0.055, 0.1, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(255,150,150,${blushA})`;
+  ctx.fill();
+
+  // ── 10a. Sleepy mood: smaller Zzz ──
+  if (mood === "sleepy" && !isPetting) {
+    const zPhase = (tailPhase * 0.5) % (Math.PI * 2);
+    ctx.font = `bold ${headR * 0.15}px sans-serif`;
+    ctx.fillStyle = "rgba(128,128,128,0.35)";
+    ctx.fillText("z", cx + headR * 0.6, headY - headR * 0.55 + Math.sin(zPhase) * 2);
+    ctx.font = `bold ${headR * 0.19}px sans-serif`;
+    ctx.fillStyle = "rgba(128,128,128,0.25)";
+    ctx.fillText("Z", cx + headR * 0.75, headY - headR * 0.78 + Math.sin(zPhase + 1) * 2);
+  }
+
+  // ── 10b. Sassy mood: ._. ──
   if (mood === "sassy" && !isPetting) {
-    ctx.font = `${bodyR * 0.2}px monospace`;
-    ctx.fillStyle = "rgba(128,128,128,0.5)";
+    ctx.font = `${headR * 0.17}px monospace`;
+    ctx.fillStyle = "rgba(128,128,128,0.45)";
     ctx.textAlign = "center";
-    ctx.fillText("._.", cx, cy - bodyR * 0.85);
+    ctx.fillText("._.", cx, headY - headR * 1.0);
   }
 
   ctx.restore();
