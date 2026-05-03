@@ -8,6 +8,7 @@ import {
   Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, PictureInPicture2, Waves, Dna
 } from "lucide-react";
 import SongDNA from "./SongDNA";
+import DNAHelixVisual from "./DNAHelixVisual";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { getAudioElement, resumeAudioContext } from "@/lib/audioEngine";
@@ -868,6 +869,9 @@ export default function FullTrackView() {
           className="absolute inset-0 z-[1] w-full h-full pointer-events-none"
           style={{ opacity: isPlaying ? 0.7 : 0.15, transition: "opacity 0.5s" }}
         />
+
+        {/* Interactive DNA Helix — visible on large screens, right side */}
+        <DNAHelixVisual isPlaying={isPlaying} genre={currentTrack?.genre} />
 
         {/* Blurred background */}
         <div className="absolute inset-0 z-0" style={{ pointerEvents: "none" }}>
