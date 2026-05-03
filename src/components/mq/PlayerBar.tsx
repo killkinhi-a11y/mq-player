@@ -791,10 +791,9 @@ export default function PlayerBar() {
     if (currentTrack.id !== prevTrackIdRef.current) {
       prevTrackIdRef.current = currentTrack.id;
       setProgress(0);
-      // Reset duration to 0 until audio loads — prevents showing previous track's duration
-      setDuration(0);
+      // Use track metadata duration immediately — onLoaded/durationchange will overwrite with actual
+      setDuration(currentTrack.duration || 0);
       retryCountRef.current = 0;
-      // (diversity set removed — server resolves CDN URLs now)
     }
 
     // Cancellation flag — prevents race conditions from rapid track switching
