@@ -1801,6 +1801,13 @@ export const useAppStore = create<AppState>()(
         currentStyle: state.currentStyle,
         shuffle: state.shuffle,
         repeat: state.repeat,
+        // Cat mascot settings
+        catEnabled: state.catEnabled,
+        catFrequency: state.catFrequency,
+        catMood: state.catMood,
+        catSize: state.catSize,
+        catLastSeen: state.catLastSeen,
+        catPetCount: state.catPetCount,
         // typingUsers is intentionally excluded — it's ephemeral real-time state
       }),
       migrate: (persisted: unknown, version: number) => {
@@ -1858,6 +1865,12 @@ export const useAppStore = create<AppState>()(
           if (typeof s.fontSize !== "number") fixes.fontSize = 16;
           if (typeof s.shuffle !== "boolean") fixes.shuffle = false;
           if (typeof s.repeat !== "string") fixes.repeat = "off";
+          // Cat mascot validation
+          if (typeof s.catEnabled !== "boolean") fixes.catEnabled = true;
+          if (!["rare", "normal", "often"].includes(s.catFrequency as string)) fixes.catFrequency = "normal";
+          if (!["friendly", "sassy", "sleepy", "excited"].includes(s.catMood as string)) fixes.catMood = "friendly";
+          if (!["small", "medium", "large"].includes(s.catSize as string)) fixes.catSize = "medium";
+          if (typeof s.catPetCount !== "number") fixes.catPetCount = 0;
           if (typeof s.queueIndex !== "number") fixes.queueIndex = 0;
           const fb = s.feedbackBatch as Record<string, unknown> | undefined;
           if (!fb || typeof fb.pendingCount !== "number") {

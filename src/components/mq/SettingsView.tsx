@@ -644,9 +644,9 @@ export default function SettingsView() {
                     </p>
                     <div className="flex gap-2">
                       {([
-                        { id: "small" as const, label: "Маленький" },
-                        { id: "medium" as const, label: "Средний" },
-                        { id: "large" as const, label: "Большой" },
+                        { id: "small" as const, label: "Маленький", px: 48 },
+                        { id: "medium" as const, label: "Средний", px: 64 },
+                        { id: "large" as const, label: "Большой", px: 80 },
                       ]).map((opt) => (
                         <button
                           key={opt.id}
@@ -657,6 +657,23 @@ export default function SettingsView() {
                             border: catSize === opt.id ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
                           }}
                         >
+                          <div className="flex justify-center mb-1.5">
+                            <motion.img
+                              src="/mq-cat.png"
+                              alt=""
+                              className="object-contain"
+                              style={{ width: opt.px, height: opt.px }}
+                              animate={catSize === opt.id
+                                ? { scale: [1, 1.12, 1], rotate: [0, -4, 4, -2, 0] }
+                                : { scale: 0.85 }
+                              }
+                              transition={catSize === opt.id
+                                ? { duration: 0.5, ease: "easeInOut" }
+                                : { duration: 0.2 }
+                              }
+                              draggable={false}
+                            />
+                          </div>
                           <p className="text-xs font-medium" style={{ color: catSize === opt.id ? "var(--mq-accent)" : "var(--mq-text)" }}>
                             {opt.label}
                           </p>
