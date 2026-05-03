@@ -396,137 +396,143 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                 }}
               />
 
-              {/* DNA Helix Visual — embedded inside the card */}
-              <div className="rounded-lg overflow-hidden mb-3">
-                <DNAHelixVisual isPlaying={isPlaying} genre={track.genre} compact />
-              </div>
-
-              <div className="flex items-center gap-3 mb-3">
-                {track.cover && (
-                  <img
-                    src={track.cover}
-                    alt=""
-                    className="w-12 h-12 rounded-lg object-cover"
-                    style={{ border: "1px solid var(--mq-border)" }}
-                    loading="lazy"
-                  />
-                )}
+              {/* Two-column layout: track info on left, DNA helix on right */}
+              <div className="flex gap-3">
+                {/* Left column — track info + stats */}
                 <div className="flex-1 min-w-0">
-                  <p
-                    className="text-sm font-semibold truncate"
-                    style={{ color: "var(--mq-text)" }}
-                  >
-                    {track.title}
-                  </p>
-                  <p
-                    className="text-xs truncate"
-                    style={{ color: "var(--mq-text-muted)" }}
-                  >
-                    {track.artist}
-                  </p>
-                </div>
-              </div>
+                  <div className="flex items-center gap-3 mb-3">
+                    {track.cover && (
+                      <img
+                        src={track.cover}
+                        alt=""
+                        className="w-12 h-12 rounded-lg object-cover"
+                        style={{ border: "1px solid var(--mq-border)" }}
+                        loading="lazy"
+                      />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="text-sm font-semibold truncate"
+                        style={{ color: "var(--mq-text)" }}
+                      >
+                        {track.title}
+                      </p>
+                      <p
+                        className="text-xs truncate"
+                        style={{ color: "var(--mq-text-muted)" }}
+                      >
+                        {track.artist}
+                      </p>
+                    </div>
+                  </div>
 
-              {/* DNA stats grid */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
-                {/* Genre */}
-                <div>
-                  <p
-                    className="text-[10px] uppercase tracking-wider mb-1"
-                    style={{ color: "var(--mq-text-muted)" }}
-                  >
-                    Жанр
-                  </p>
-                  <p
-                    className="text-xs font-medium"
-                    style={{ color: mood.color }}
-                  >
-                    {getGenreDisplay(track.genre)}
-                  </p>
-                  <div
-                    className="mt-1 h-1 rounded-full overflow-hidden"
-                    style={{ backgroundColor: "var(--mq-border)" }}
-                  >
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{
-                        width: dnaAnimated ? "72%" : "0%",
-                      }}
-                      transition={{ delay: 0.2, duration: 1.0, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
-                      className="h-full rounded-full"
-                      style={{ backgroundColor: mood.color, opacity: 0.7 }}
-                    />
+                  {/* DNA stats grid */}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                    {/* Genre */}
+                    <div>
+                      <p
+                        className="text-[10px] uppercase tracking-wider mb-1"
+                        style={{ color: "var(--mq-text-muted)" }}
+                      >
+                        Жанр
+                      </p>
+                      <p
+                        className="text-xs font-medium"
+                        style={{ color: mood.color }}
+                      >
+                        {getGenreDisplay(track.genre)}
+                      </p>
+                      <div
+                        className="mt-1 h-1 rounded-full overflow-hidden"
+                        style={{ backgroundColor: "var(--mq-border)" }}
+                      >
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{
+                            width: dnaAnimated ? "72%" : "0%",
+                          }}
+                          transition={{ delay: 0.2, duration: 1.0, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+                          className="h-full rounded-full"
+                          style={{ backgroundColor: mood.color, opacity: 0.7 }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Mood */}
+                    <div>
+                      <p
+                        className="text-[10px] uppercase tracking-wider mb-1"
+                        style={{ color: "var(--mq-text-muted)" }}
+                      >
+                        Настроение
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <MoodIcon
+                          className="w-3 h-3"
+                          style={{ color: mood.color }}
+                        />
+                        <p
+                          className="text-xs font-medium capitalize"
+                          style={{ color: mood.color }}
+                        >
+                          {mood.label}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Duration */}
+                    <div>
+                      <p
+                        className="text-[10px] uppercase tracking-wider mb-1"
+                        style={{ color: "var(--mq-text-muted)" }}
+                      >
+                        Длительность
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
+                        <p className="text-xs font-medium" style={{ color: "var(--mq-text)" }}>
+                          {formatTime(track.duration)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Source */}
+                    <div>
+                      <p
+                        className="text-[10px] uppercase tracking-wider mb-1"
+                        style={{ color: "var(--mq-text-muted)" }}
+                      >
+                        Источник
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <Radio className="w-3 h-3" style={{ color: sourceInfo.color }} />
+                        <p className="text-xs font-medium" style={{ color: sourceInfo.color }}>
+                          {sourceInfo.label}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* BPM */}
+                    <div>
+                      <p
+                        className="text-[10px] uppercase tracking-wider mb-1"
+                        style={{ color: "var(--mq-text-muted)" }}
+                      >
+                        BPM (оценка)
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <Zap className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
+                        <p className="text-xs font-mono font-medium" style={{ color: "var(--mq-text)" }}>
+                          {bpm}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Mood */}
-                <div>
-                  <p
-                    className="text-[10px] uppercase tracking-wider mb-1"
-                    style={{ color: "var(--mq-text-muted)" }}
-                  >
-                    Настроение
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <MoodIcon
-                      className="w-3 h-3"
-                      style={{ color: mood.color }}
-                    />
-                    <p
-                      className="text-xs font-medium capitalize"
-                      style={{ color: mood.color }}
-                    >
-                      {mood.label}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Duration */}
-                <div>
-                  <p
-                    className="text-[10px] uppercase tracking-wider mb-1"
-                    style={{ color: "var(--mq-text-muted)" }}
-                  >
-                    Длительность
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                    <p className="text-xs font-medium" style={{ color: "var(--mq-text)" }}>
-                      {formatTime(track.duration)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Source */}
-                <div>
-                  <p
-                    className="text-[10px] uppercase tracking-wider mb-1"
-                    style={{ color: "var(--mq-text-muted)" }}
-                  >
-                    Источник
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <Radio className="w-3 h-3" style={{ color: sourceInfo.color }} />
-                    <p className="text-xs font-medium" style={{ color: sourceInfo.color }}>
-                      {sourceInfo.label}
-                    </p>
-                  </div>
-                </div>
-
-                {/* BPM */}
-                <div>
-                  <p
-                    className="text-[10px] uppercase tracking-wider mb-1"
-                    style={{ color: "var(--mq-text-muted)" }}
-                  >
-                    BPM (оценка)
-                  </p>
-                  <div className="flex items-center gap-1">
-                    <Zap className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                    <p className="text-xs font-mono font-medium" style={{ color: "var(--mq-text)" }}>
-                      {bpm}
-                    </p>
-                  </div>
+                {/* Right column — DNA Helix Visual */}
+                <div className="w-[120px] flex-shrink-0 rounded-lg overflow-hidden relative">
+                  <DNAHelixVisual isPlaying={isPlaying} genre={track.genre} compact />
                 </div>
               </div>
             </motion.div>

@@ -50,6 +50,7 @@ function hexToRgb(hex: string): [number, number, number] {
 export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVisualProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const mouseRef = useRef({ x: 0.5, y: 0.5 });
+  const targetMouseRef = useRef({ x: 0.5, y: 0.5 });
   const animRef = useRef<number>(0);
   const particlesRef = useRef<Array<{
     x: number; y: number; z: number;
@@ -60,6 +61,8 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
   // Touch tracking for interactive rotation
   const touchActiveRef = useRef(false);
   const touchAngleRef = useRef(0);
+  const prevTouchAngleRef = useRef(0);
+  const touchDeltaRef = useRef(0);
 
   const getColors = useCallback(() => {
     const key = (genre || "").toLowerCase().trim();
@@ -70,7 +73,7 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: true, desynchronized: true });
     if (!ctx) return;
 
     const colors = getColors();
@@ -78,38 +81,53 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
     const [r1, g1, b1] = hexToRgb(c1);
     const [r2, g2, b2] = hexToRgb(c2);
 
-    // Smooth mouse position with lerp
-    const smoothMouse = { x: 0.5, y: 0.5 };
+    // Pre-compute lerp speed based on target FPS (60fps = ~16.67ms per frame)
+    const LERP_SPEED = 0.12; // Smooth but responsive interpolation
 
     // Pointer interaction (mouse + touch unified)
     const handlePointerMove = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
-      smoothMouse.x = (e.clientX - rect.left) / rect.width;
-      smoothMouse.y = (e.clientY - rect.top) / rect.height;
+      targetMouseRef.current.x = (e.clientX - rect.left) / rect.width;
+      targetMouseRef.current.y = (e.clientY - rect.top) / rect.height;
+
+      // Touch drag rotation
+      if (touchActiveRef.current) {
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const newAngle = Math.atan2(e.clientY - rect.top - cy, e.clientX - rect.left - cx);
+        touchDeltaRef.current += newAngle - prevTouchAngleRef.current;
+        prevTouchAngleRef.current = newAngle;
+      }
     };
     const handlePointerDown = (e: PointerEvent) => {
       touchActiveRef.current = true;
+      touchDeltaRef.current = 0;
       const rect = canvas.getBoundingClientRect();
       const cx = rect.width / 2;
       const cy = rect.height / 2;
-      touchAngleRef.current = Math.atan2(e.clientY - rect.top - cy, e.clientX - rect.left - cx);
+      const angle = Math.atan2(e.clientY - rect.top - cy, e.clientX - rect.left - cx);
+      touchAngleRef.current = angle;
+      prevTouchAngleRef.current = angle;
     };
     const handlePointerUp = () => {
       touchActiveRef.current = false;
     };
     const handlePointerLeave = () => {
       touchActiveRef.current = false;
+      // Smoothly return to center
+      targetMouseRef.current.x = 0.5;
+      targetMouseRef.current.y = 0.5;
     };
 
-    canvas.addEventListener("pointermove", handlePointerMove);
+    canvas.addEventListener("pointermove", handlePointerMove, { passive: true });
     canvas.addEventListener("pointerdown", handlePointerDown);
-    canvas.addEventListener("pointerup", handlePointerUp);
-    canvas.addEventListener("pointerleave", handlePointerLeave);
+    canvas.addEventListener("pointerup", handlePointerUp, { passive: true });
+    canvas.addEventListener("pointerleave", handlePointerLeave, { passive: true });
     // Prevent scrolling on touch
     canvas.style.touchAction = "none";
 
     // Initialize particles
-    const particleCount = compact ? 20 : 40;
+    const particleCount = compact ? 15 : 30;
     if (particlesRef.current.length === 0) {
       for (let i = 0; i < particleCount; i++) {
         particlesRef.current.push({
@@ -127,8 +145,21 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
       }
     }
 
-    const draw = () => {
+    // Pre-allocate node sorting array
+    const numNodes = compact ? 18 : 28;
+    const nodePool: Array<{ x: number; y: number; z: number; strand: number; frac: number; scale: number }> = new Array(numNodes * 2);
+
+    // Frame timing for consistent 60fps feel
+    let lastTime = 0;
+    let touchBoostDecay = 0; // Decays smoothly
+
+    const draw = (timestamp: number) => {
       animRef.current = requestAnimationFrame(draw);
+
+      // Delta time for frame-rate independent animation
+      const dt = lastTime ? Math.min((timestamp - lastTime) / 16.667, 3) : 1; // normalize to 60fps, cap at 3x
+      lastTime = timestamp;
+
       const dpr = window.devicePixelRatio || 1;
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
@@ -140,11 +171,11 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
 
       ctx.clearRect(0, 0, w, h);
 
-      const t = performance.now() / 1000;
+      const t = timestamp / 1000;
 
-      // Smooth mouse interpolation for fluid response
-      mouseRef.current.x += (smoothMouse.x - mouseRef.current.x) * 0.08;
-      mouseRef.current.y += (smoothMouse.y - mouseRef.current.y) * 0.08;
+      // Smooth mouse interpolation for fluid response (lerp)
+      mouseRef.current.x += (targetMouseRef.current.x - mouseRef.current.x) * LERP_SPEED * dt;
+      mouseRef.current.y += (targetMouseRef.current.y - mouseRef.current.y) * LERP_SPEED * dt;
 
       const mx = mouseRef.current.x;
       const my = mouseRef.current.y;
@@ -152,8 +183,13 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
       // Speed multiplier based on playing state
       const speedMul = isPlaying ? 1 : 0.3;
 
-      // Touch drag adds extra rotation
-      const touchBoost = touchActiveRef.current ? 0.6 : 0;
+      // Touch drag: smooth boost with decay
+      if (touchActiveRef.current) {
+        touchBoostDecay = Math.min(touchBoostDecay + 0.08 * dt, 0.6);
+      } else {
+        touchBoostDecay *= Math.pow(0.96, dt); // Exponential decay
+        if (touchBoostDecay < 0.01) touchBoostDecay = 0;
+      }
 
       // Mouse influence on helix tilt and position
       const tiltX = (my - 0.5) * 0.4;
@@ -162,38 +198,34 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
 
       const cx = w / 2 + offsetX;
       const cy = h / 2;
-      const numNodes = compact ? 18 : 28;
       const helixHeight = h * (compact ? 0.82 : 0.85);
       const startY = cy - helixHeight / 2;
       const radius = Math.min(w * (compact ? 0.28 : 0.22), compact ? 35 : 60);
-      const twistSpeed = (compact ? 0.6 : 0.8) * speedMul + touchBoost;
+      const twistSpeed = (compact ? 0.6 : 0.8) * speedMul + touchBoostDecay;
 
-      // Draw connecting "rungs" first (behind strands)
+      // Draw connecting "rungs" first (behind strands) — lightweight version
       for (let i = 0; i < numNodes; i++) {
         const frac = i / (numNodes - 1);
         const yBase = startY + frac * helixHeight;
-
-        // Apply tilt perspective to Y
         const y = cy + (yBase - cy) * Math.cos(tiltEffect);
-
         const angle = frac * Math.PI * (compact ? 3 : 4) + t * twistSpeed;
 
-        const x1 = cx + Math.cos(angle) * radius;
-        const z1 = Math.sin(angle);
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+        const x1 = cx + cosA * radius;
+        const z1 = sinA;
         const x2 = cx + Math.cos(angle + Math.PI) * radius;
         const z2 = Math.sin(angle + Math.PI);
 
-        // Only draw rungs that are roughly in front
         const avgZ = (z1 + z2) / 2;
         if (avgZ > -0.2) {
           const alpha = (compact ? 0.12 : 0.06) + 0.08 * (avgZ + 0.2);
           const mixFrac = frac;
-          const rr = Math.round(r1 + (r2 - r1) * mixFrac);
-          const gg = Math.round(g1 + (g2 - g1) * mixFrac);
-          const bb = Math.round(b1 + (b2 - b1) * mixFrac);
+          const rr = (r1 + (r2 - r1) * mixFrac) | 0;
+          const gg = (g1 + (g2 - g1) * mixFrac) | 0;
+          const bb = (b1 + (b2 - b1) * mixFrac) | 0;
 
-          // Bezier rung with slight curve
-          const midX = (x1 + x2) / 2;
+          const midX = (x1 + x2) * 0.5;
           const curve = Math.sin(angle * 2) * (compact ? 2.5 : 4);
 
           ctx.beginPath();
@@ -203,17 +235,8 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
           ctx.lineWidth = compact ? 1.5 : 1;
           ctx.stroke();
 
-          // Center node on rung — glow in compact mode
+          // Center node on rung — simple dot in compact mode
           const nodeAlpha = (compact ? 0.15 : 0.08) + 0.08 * avgZ;
-          if (compact) {
-            const ngGrad = ctx.createRadialGradient(midX, y + curve * 0.5, 0, midX, y + curve * 0.5, 5);
-            ngGrad.addColorStop(0, `rgba(${rr},${gg},${bb},${nodeAlpha})`);
-            ngGrad.addColorStop(1, `rgba(${rr},${gg},${bb},0)`);
-            ctx.beginPath();
-            ctx.arc(midX, y + curve * 0.5, 5, 0, Math.PI * 2);
-            ctx.fillStyle = ngGrad;
-            ctx.fill();
-          }
           ctx.beginPath();
           ctx.arc(midX, y + curve * 0.5, compact ? 2.5 : 2, 0, Math.PI * 2);
           ctx.fillStyle = `rgba(${rr},${gg},${bb},${nodeAlpha * 1.5})`;
@@ -222,8 +245,7 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
       }
 
       // Sort nodes by Z for proper depth rendering
-      const nodes: Array<{ x: number; y: number; z: number; strand: number; frac: number; scale: number }> = [];
-
+      let nodeCount = 0;
       for (let i = 0; i < numNodes; i++) {
         const frac = i / (numNodes - 1);
         const yBase = startY + frac * helixHeight;
@@ -236,51 +258,64 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
           const z = Math.sin(strandAngle);
           const scale = 1 / (1 - z * 0.3);
 
-          nodes.push({ x, y, z, strand, frac, scale });
+          nodePool[nodeCount++] = { x, y, z, strand, frac, scale };
         }
       }
 
-      // Sort by Z (back to front)
-      nodes.sort((a, b) => a.z - b.z);
+      // Sort by Z (back to front) — in-place insertion sort for small arrays
+      for (let i = 1; i < nodeCount; i++) {
+        const key = nodePool[i];
+        let j = i - 1;
+        while (j >= 0 && nodePool[j].z < key.z) {
+          nodePool[j + 1] = nodePool[j];
+          j--;
+        }
+        nodePool[j + 1] = key;
+      }
 
-      // Draw nodes
-      for (const node of nodes) {
+      // Draw nodes — optimized: reduce gradient calls
+      for (let i = 0; i < nodeCount; i++) {
+        const node = nodePool[i];
         const baseSize = compact ? 3.5 : 3;
-        const size = (baseSize + node.z * 1.5) * node.scale;
+        const size = Math.max(1, (baseSize + node.z * 1.5) * node.scale);
         const alpha = (compact ? 0.25 : 0.15) + (node.z + 1) * (compact ? 0.3 : 0.25);
+
         const mixFrac = node.frac;
+        const rr = (r1 + (r2 - r1) * mixFrac) | 0;
+        const gg = (g1 + (g2 - g1) * mixFrac) | 0;
+        const bb = (b1 + (b2 - b1) * mixFrac) | 0;
 
-        // Blend between two colors based on position
-        const rr = Math.round(r1 + (r2 - r1) * mixFrac);
-        const gg = Math.round(g1 + (g2 - g1) * mixFrac);
-        const bb = Math.round(b1 + (b2 - b1) * mixFrac);
-
-        // Outer glow
-        const glowSize = size * (compact ? 4 : 3);
-        const glow = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, glowSize);
-        glow.addColorStop(0, `rgba(${rr},${gg},${bb},${alpha * 0.35})`);
-        glow.addColorStop(1, `rgba(${rr},${gg},${bb},0)`);
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, glowSize, 0, Math.PI * 2);
-        ctx.fillStyle = glow;
-        ctx.fill();
+        // Outer glow — only for front-facing nodes (z > 0) to save GPU
+        if (node.z > -0.3) {
+          const glowSize = size * (compact ? 3.5 : 2.5);
+          const glow = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, glowSize);
+          glow.addColorStop(0, `rgba(${rr},${gg},${bb},${alpha * 0.3})`);
+          glow.addColorStop(1, `rgba(${rr},${gg},${bb},0)`);
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, glowSize, 0, Math.PI * 2);
+          ctx.fillStyle = glow;
+          ctx.fill();
+        }
 
         // Core dot
         ctx.beginPath();
-        ctx.arc(node.x, node.y, Math.max(1, size), 0, Math.PI * 2);
+        ctx.arc(node.x, node.y, size, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(${rr},${gg},${bb},${alpha + 0.1})`;
         ctx.fill();
 
-        // Bright center
-        ctx.beginPath();
-        ctx.arc(node.x, node.y, Math.max(0.5, size * 0.4), 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(255,255,255,${alpha * 0.35})`;
-        ctx.fill();
+        // Bright center — only for front nodes
+        if (node.z > 0) {
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, Math.max(0.5, size * 0.4), 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,255,255,${alpha * 0.35})`;
+          ctx.fill();
+        }
       }
 
-      // Floating particles
-      for (const p of particlesRef.current) {
-        p.z += p.vz * speedMul;
+      // Floating particles — lightweight
+      for (let i = 0; i < particlesRef.current.length; i++) {
+        const p = particlesRef.current[i];
+        p.z += p.vz * speedMul * dt;
         if (p.z > 1) {
           p.z = 0;
           const pFrac = Math.random();
@@ -296,8 +331,8 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
           p.b = Math.random() > 0.5 ? b1 : b2;
         }
 
-        p.x += p.vx;
-        p.y += p.vy;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
 
         // Fade in/out based on life
         const fadeIn = Math.min(1, p.z * 3);
@@ -306,17 +341,14 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
 
         const pSize = p.size * (1 + p.z * 0.5);
 
-        // Particle glow
-        const pgGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, pSize * 2);
-        pgGrad.addColorStop(0, `rgba(${p.r},${p.g},${p.b},${pAlpha})`);
-        pgGrad.addColorStop(1, `rgba(${p.r},${p.g},${p.b},0)`);
+        // Simple particle dot (no gradient — much faster)
         ctx.beginPath();
-        ctx.arc(p.x, p.y, pSize * 2, 0, Math.PI * 2);
-        ctx.fillStyle = pgGrad;
+        ctx.arc(p.x, p.y, pSize, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${p.r | 0},${p.g | 0},${p.b | 0},${pAlpha})`;
         ctx.fill();
       }
 
-      // Subtle center glow
+      // Subtle center glow — single gradient
       const glowR = radius * (compact ? 1.8 : 1.5);
       const centerGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
       centerGlow.addColorStop(0, `rgba(${r1},${g1},${b1},${isPlaying ? (compact ? 0.06 : 0.04) : 0.015})`);
@@ -328,7 +360,7 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
       ctx.fill();
     };
 
-    draw();
+    draw(performance.now());
 
     return () => {
       cancelAnimationFrame(animRef.current);

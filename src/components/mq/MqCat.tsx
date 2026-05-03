@@ -4,11 +4,6 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 
-// ── Image URLs with cache-buster ──
-const CAT_NORMAL = `/mq-cat.png?v=4`;
-const CAT_BLINK = `/mq-cat-blink.png?v=4`;
-const CAT_SMILE = `/mq-cat-smile.png?v=4`;
-
 // ── Phrases ──
 const PHRASES: Record<string, string[]> = {
   friendly: [
@@ -123,49 +118,330 @@ function PetEffect({ onDone }: { onDone: () => void }) {
   );
 }
 
-// ── Animated Tail (CSS waggling SVG tail) — stays with the body ──
-function CatTail({ mood, isPetting }: { mood: string; isPetting: boolean }) {
-  const tailSpeed = isPetting
-    ? "0.25s"
-    : mood === "excited"
-      ? "0.45s"
-      : mood === "sassy"
-        ? "1.4s"
-        : mood === "sleepy"
-          ? "2s"
-          : "0.8s";
-  const tailDir = mood === "sassy" ? "normal" : "alternate";
+// ── Canvas Cat Drawing ──
+// Draws a cute cartoon cat on canvas with different expressions
+function drawCat(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  state: "normal" | "blink" | "smile",
+  mood: string,
+  isPetting: boolean,
+  tailPhase: number,
+  accentColor: string
+) {
+  const s = size; // base size
+  const cx = s / 2;
+  const cy = s / 2 + 4;
+
+  ctx.clearRect(0, 0, s, s);
+  ctx.save();
+
+  // ── Body (rounded) ──
+  const bodyR = s * 0.38;
+  const bodyGrad = ctx.createRadialGradient(cx, cy + 2, bodyR * 0.2, cx, cy + 2, bodyR * 1.1);
+  bodyGrad.addColorStop(0, "#f5c26b");
+  bodyGrad.addColorStop(0.7, "#e8a44a");
+  bodyGrad.addColorStop(1, "#d4893a");
+
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + 2, bodyR, bodyR * 0.92, 0, 0, Math.PI * 2);
+  ctx.fillStyle = bodyGrad;
+  ctx.fill();
+
+  // Belly (lighter oval)
+  const bellyR = bodyR * 0.6;
+  ctx.beginPath();
+  ctx.ellipse(cx, cy + bodyR * 0.15, bellyR, bellyR * 0.75, 0, 0, Math.PI * 2);
+  ctx.fillStyle = "#fbe4c0";
+  ctx.fill();
+
+  // ── Ears ──
+  const earW = bodyR * 0.4;
+  const earH = bodyR * 0.55;
+  const earInnerW = earW * 0.6;
+  const earInnerH = earH * 0.7;
+
+  // Left ear
+  ctx.beginPath();
+  ctx.moveTo(cx - bodyR * 0.55, cy - bodyR * 0.45);
+  ctx.lineTo(cx - bodyR * 0.8, cy - bodyR * 0.45 - earH);
+  ctx.lineTo(cx - bodyR * 0.15, cy - bodyR * 0.7);
+  ctx.closePath();
+  ctx.fillStyle = "#e8a44a";
+  ctx.fill();
+
+  // Left ear inner
+  ctx.beginPath();
+  ctx.moveTo(cx - bodyR * 0.52, cy - bodyR * 0.5);
+  ctx.lineTo(cx - bodyR * 0.7, cy - bodyR * 0.45 - earH * 0.7);
+  ctx.lineTo(cx - bodyR * 0.25, cy - bodyR * 0.65);
+  ctx.closePath();
+  ctx.fillStyle = "#f7b8d0";
+  ctx.fill();
+
+  // Right ear
+  ctx.beginPath();
+  ctx.moveTo(cx + bodyR * 0.55, cy - bodyR * 0.45);
+  ctx.lineTo(cx + bodyR * 0.8, cy - bodyR * 0.45 - earH);
+  ctx.lineTo(cx + bodyR * 0.15, cy - bodyR * 0.7);
+  ctx.closePath();
+  ctx.fillStyle = "#e8a44a";
+  ctx.fill();
+
+  // Right ear inner
+  ctx.beginPath();
+  ctx.moveTo(cx + bodyR * 0.52, cy - bodyR * 0.5);
+  ctx.lineTo(cx + bodyR * 0.7, cy - bodyR * 0.45 - earH * 0.7);
+  ctx.lineTo(cx + bodyR * 0.25, cy - bodyR * 0.65);
+  ctx.closePath();
+  ctx.fillStyle = "#f7b8d0";
+  ctx.fill();
+
+  // ── Eyes ──
+  const eyeSpacing = bodyR * 0.32;
+  const eyeY = cy - bodyR * 0.15;
+  const eyeW = bodyR * 0.15;
+  const eyeH = state === "blink" ? bodyR * 0.02 : bodyR * 0.17;
+
+  // Eye whites
+  if (state !== "blink") {
+    // Left eye white
+    ctx.beginPath();
+    ctx.ellipse(cx - eyeSpacing, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+
+    // Right eye white
+    ctx.beginPath();
+    ctx.ellipse(cx + eyeSpacing, eyeY, eyeW, eyeH, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#fff";
+    ctx.fill();
+
+    // Pupils
+    const pupilR = eyeH * 0.55;
+    ctx.beginPath();
+    ctx.arc(cx - eyeSpacing, eyeY + pupilR * 0.1, pupilR, 0, Math.PI * 2);
+    ctx.fillStyle = "#2d1b0e";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(cx + eyeSpacing, eyeY + pupilR * 0.1, pupilR, 0, Math.PI * 2);
+    ctx.fillStyle = "#2d1b0e";
+    ctx.fill();
+
+    // Eye shine
+    const shineR = pupilR * 0.35;
+    ctx.beginPath();
+    ctx.arc(cx - eyeSpacing + shineR * 0.8, eyeY - shineR * 0.6, shineR, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(cx + eyeSpacing + shineR * 0.8, eyeY - shineR * 0.6, shineR, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.fill();
+  } else {
+    // Blink — horizontal lines
+    ctx.beginPath();
+    ctx.moveTo(cx - eyeSpacing - eyeW, eyeY);
+    ctx.quadraticCurveTo(cx - eyeSpacing, eyeY + eyeW * 0.3, cx - eyeSpacing + eyeW, eyeY);
+    ctx.strokeStyle = "#2d1b0e";
+    ctx.lineWidth = Math.max(1, bodyR * 0.04);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(cx + eyeSpacing - eyeW, eyeY);
+    ctx.quadraticCurveTo(cx + eyeSpacing, eyeY + eyeW * 0.3, cx + eyeSpacing + eyeW, eyeY);
+    ctx.strokeStyle = "#2d1b0e";
+    ctx.lineWidth = Math.max(1, bodyR * 0.04);
+    ctx.stroke();
+  }
+
+  // ── Nose ──
+  const noseY = eyeY + bodyR * 0.25;
+  ctx.beginPath();
+  ctx.moveTo(cx, noseY - bodyR * 0.05);
+  ctx.lineTo(cx - bodyR * 0.06, noseY + bodyR * 0.03);
+  ctx.lineTo(cx + bodyR * 0.06, noseY + bodyR * 0.03);
+  ctx.closePath();
+  ctx.fillStyle = "#f7b8d0";
+  ctx.fill();
+
+  // ── Mouth ──
+  if (state === "smile" || isPetting) {
+    // Happy open mouth
+    ctx.beginPath();
+    ctx.ellipse(cx, noseY + bodyR * 0.1, bodyR * 0.1, bodyR * 0.07, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "#f7b8d0";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(cx, noseY + bodyR * 0.1, bodyR * 0.1, bodyR * 0.07, 0, 0, Math.PI * 2);
+    ctx.strokeStyle = "#c47a5a";
+    ctx.lineWidth = Math.max(1, bodyR * 0.02);
+    ctx.stroke();
+  } else {
+    // W-shaped mouth
+    const mouthY = noseY + bodyR * 0.05;
+    ctx.beginPath();
+    ctx.moveTo(cx - bodyR * 0.12, mouthY);
+    ctx.quadraticCurveTo(cx - bodyR * 0.04, mouthY + bodyR * 0.06, cx, mouthY + bodyR * 0.02);
+    ctx.quadraticCurveTo(cx + bodyR * 0.04, mouthY + bodyR * 0.06, cx + bodyR * 0.12, mouthY);
+    ctx.strokeStyle = "#c47a5a";
+    ctx.lineWidth = Math.max(1, bodyR * 0.025);
+    ctx.lineCap = "round";
+    ctx.stroke();
+  }
+
+  // ── Whiskers ──
+  const whiskerY = noseY + bodyR * 0.08;
+  ctx.strokeStyle = "rgba(80,50,30,0.3)";
+  ctx.lineWidth = Math.max(0.5, bodyR * 0.015);
+
+  // Left whiskers
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx - bodyR * 0.2, whiskerY + i * bodyR * 0.06);
+    ctx.lineTo(cx - bodyR * 0.6, whiskerY + i * bodyR * 0.1 - bodyR * 0.02);
+    ctx.stroke();
+  }
+  // Right whiskers
+  for (let i = -1; i <= 1; i++) {
+    ctx.beginPath();
+    ctx.moveTo(cx + bodyR * 0.2, whiskerY + i * bodyR * 0.06);
+    ctx.lineTo(cx + bodyR * 0.6, whiskerY + i * bodyR * 0.1 - bodyR * 0.02);
+    ctx.stroke();
+  }
+
+  // ── Cheek blush ──
+  if (state === "smile" || isPetting || mood === "excited") {
+    ctx.beginPath();
+    ctx.ellipse(cx - bodyR * 0.45, noseY + bodyR * 0.02, bodyR * 0.1, bodyR * 0.06, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,150,150,0.25)";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.ellipse(cx + bodyR * 0.45, noseY + bodyR * 0.02, bodyR * 0.1, bodyR * 0.06, 0, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(255,150,150,0.25)";
+    ctx.fill();
+  }
+
+  // ── Tail (animated) ──
+  const tailBaseX = cx + bodyR * 0.75;
+  const tailBaseY = cy + bodyR * 0.5;
+  const tailSwing = Math.sin(tailPhase) * bodyR * 0.2;
+  const tailTipX = tailBaseX + bodyR * 0.5 + tailSwing;
+  const tailTipY = tailBaseY - bodyR * 0.6;
+
+  ctx.beginPath();
+  ctx.moveTo(tailBaseX, tailBaseY);
+  ctx.bezierCurveTo(
+    tailBaseX + bodyR * 0.2 + tailSwing * 0.3, tailBaseY - bodyR * 0.1,
+    tailTipX - bodyR * 0.1, tailTipY + bodyR * 0.3,
+    tailTipX, tailTipY
+  );
+  ctx.strokeStyle = "#e8a44a";
+  ctx.lineWidth = Math.max(2, bodyR * 0.12);
+  ctx.lineCap = "round";
+  ctx.stroke();
+
+  // Tail tip
+  ctx.beginPath();
+  ctx.arc(tailTipX, tailTipY, bodyR * 0.06, 0, Math.PI * 2);
+  ctx.fillStyle = "#d4893a";
+  ctx.fill();
+
+  // ── Sleepy mood: Zzz ──
+  if (mood === "sleepy" && !isPetting) {
+    const zPhase = (tailPhase * 0.5) % (Math.PI * 2);
+    ctx.font = `bold ${bodyR * 0.22}px sans-serif`;
+    ctx.fillStyle = "rgba(128,128,128,0.5)";
+    ctx.fillText("z", cx + bodyR * 0.5, cy - bodyR * 0.5 + Math.sin(zPhase) * 3);
+    ctx.font = `bold ${bodyR * 0.28}px sans-serif`;
+    ctx.fillStyle = "rgba(128,128,128,0.4)";
+    ctx.fillText("z", cx + bodyR * 0.65, cy - bodyR * 0.7 + Math.sin(zPhase + 1) * 3);
+    ctx.font = `bold ${bodyR * 0.35}px sans-serif`;
+    ctx.fillStyle = "rgba(128,128,128,0.3)";
+    ctx.fillText("Z", cx + bodyR * 0.8, cy - bodyR * 0.95 + Math.sin(zPhase + 2) * 3);
+  }
+
+  // ── Sassy mood: ._. ──
+  if (mood === "sassy" && !isPetting) {
+    ctx.font = `${bodyR * 0.2}px monospace`;
+    ctx.fillStyle = "rgba(128,128,128,0.5)";
+    ctx.textAlign = "center";
+    ctx.fillText("._.", cx, cy - bodyR * 0.85);
+  }
+
+  ctx.restore();
+}
+
+// ── Canvas Cat Component ──
+function CanvasCat({
+  size,
+  state,
+  mood,
+  isPetting,
+}: {
+  size: number;
+  state: "normal" | "blink" | "smile";
+  mood: string;
+  isPetting: boolean;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animRef = useRef<number>(0);
+  const tailPhaseRef = useRef(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d", { alpha: true });
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    ctx.scale(dpr, dpr);
+
+    let lastTime = performance.now();
+    // Tail speed based on mood
+    const getTailSpeed = () => {
+      if (isPetting) return 8;
+      switch (mood) {
+        case "excited": return 4;
+        case "sassy": return 1.5;
+        case "sleepy": return 1;
+        default: return 2.5;
+      }
+    };
+
+    const draw = (timestamp: number) => {
+      const dt = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+
+      tailPhaseRef.current += getTailSpeed() * dt;
+
+      drawCat(ctx, size, state, mood, isPetting, tailPhaseRef.current, "#e03131");
+      animRef.current = requestAnimationFrame(draw);
+    };
+
+    animRef.current = requestAnimationFrame(draw);
+
+    return () => {
+      cancelAnimationFrame(animRef.current);
+    };
+  }, [size, state, mood, isPetting]);
 
   return (
-    <div
-      className="absolute pointer-events-none mq-no-transition"
+    <canvas
+      ref={canvasRef}
       style={{
-        bottom: "10%",
-        right: "2%",
-        width: "32%",
-        height: "28%",
-        transformOrigin: "0% 100%",
-        animation: `mq-cat-wag ${tailSpeed} ease-in-out infinite ${tailDir}`,
-        filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.25))",
+        width: size,
+        height: size,
       }}
-    >
-      <svg viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-        {/* Tail curve */}
-        <path
-          d="M 10 110 C 10 60, 50 20, 80 10 C 90 6, 95 12, 88 20 C 78 32, 40 65, 15 100 Z"
-          fill="currentColor"
-          className="mq-no-transition"
-          style={{ color: "#e8a44a" }}
-        />
-        {/* Tail tip darker stripe */}
-        <path
-          d="M 80 10 C 90 6, 95 12, 88 20 C 82 28, 70 40, 62 50 C 68 38, 76 24, 80 10 Z"
-          fill="currentColor"
-          className="mq-no-transition"
-          style={{ color: "#d4893a" }}
-        />
-      </svg>
-    </div>
+      className="mq-no-transition"
+      draggable={false}
+    />
   );
 }
 
@@ -175,7 +451,6 @@ export default function MqCat() {
   const catFrequency = useAppStore((s) => s.catFrequency);
   const catMood = useAppStore((s) => s.catMood);
   const catSize = useAppStore((s) => s.catSize);
-  const catPetCount = useAppStore((s) => s.catPetCount);
   const petCat = useAppStore((s) => s.petCat);
 
   const [isVisible, setIsVisible] = useState(false);
@@ -219,12 +494,10 @@ export default function MqCat() {
       setTimeout(() => setIsBlinking(false), BLINK_DURATION);
     };
 
-    // Randomize first blink
     const initialDelay = BLINK_INTERVAL + Math.random() * 2000;
     const first = setTimeout(() => {
       doBlink();
       blinkTimerRef.current = setInterval(() => {
-        // Double blink sometimes
         doBlink();
         if (Math.random() < 0.25) {
           setTimeout(doBlink, 300);
@@ -280,7 +553,7 @@ export default function MqCat() {
     petCat();
     setShowPetEffect(true);
     setIsPetting(true);
-    setIsSmiling(true); // Smile when petted
+    setIsSmiling(true);
 
     const resp = PET_RESPONSES[Math.floor(Math.random() * PET_RESPONSES.length)];
     setPhrase(resp);
@@ -299,7 +572,7 @@ export default function MqCat() {
     setShowPetEffect(false);
   }, []);
 
-  // Mood animation config — gentle, subtle, no extreme rotations
+  // Mood animation config
   const moodFloat = useMemo(() => {
     switch (catMood) {
       case "sleepy":
@@ -315,18 +588,8 @@ export default function MqCat() {
 
   const moodDuration = catMood === "sleepy" ? 6 : catMood === "excited" ? 2 : catMood === "sassy" ? 3.5 : 4;
 
-  // Determine which image to show
-  const currentImage = isBlinking ? CAT_BLINK : isSmiling ? CAT_SMILE : CAT_NORMAL;
-
-  // Very subtle mood tint — no aggressive brightness/saturation changes
-  const moodFilter = useMemo(() => {
-    switch (catMood) {
-      case "sleepy": return "brightness(0.88)";
-      case "excited": return "brightness(1.05)";
-      case "sassy": return "brightness(0.96)";
-      default: return "none";
-    }
-  }, [catMood]);
+  // Determine cat expression state
+  const catState: "normal" | "blink" | "smile" = isBlinking ? "blink" : isSmiling ? "smile" : "normal";
 
   // Schedule appearance
   useEffect(() => {
@@ -391,54 +654,6 @@ export default function MqCat() {
             mass: 0.7,
           }}
         >
-          {/* Sleepy Zzz */}
-          {catMood === "sleepy" && !isPetting && (
-            <div className="absolute -top-6 right-2 pointer-events-none mq-no-transition">
-              {[0, 1, 2].map((i) => (
-                <motion.span
-                  key={i}
-                  className="absolute mq-no-transition text-xs font-bold"
-                  style={{ color: "var(--mq-text-muted)", left: `${i * 12}px` }}
-                  animate={{ y: [0, -18, -10], opacity: [0, 0.6, 0], scale: [0.6, 1, 0.8] }}
-                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeOut", delay: i * 0.8 }}
-                >z</motion.span>
-              ))}
-            </div>
-          )}
-
-          {/* Excited sparkles */}
-          {catMood === "excited" && !isPetting && (
-            <>
-              <div className="absolute -top-4 -left-2 pointer-events-none mq-no-transition">
-                <motion.span
-                  className="text-sm mq-no-transition"
-                  style={{ color: "var(--mq-accent)" }}
-                  animate={{ y: [0, -14, -6], opacity: [0.4, 0.9, 0.2], rotate: [0, 15, -10] }}
-                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                >✦</motion.span>
-              </div>
-              <div className="absolute -top-1 -right-3 pointer-events-none mq-no-transition">
-                <motion.span
-                  className="text-xs mq-no-transition"
-                  style={{ color: "var(--mq-accent)" }}
-                  animate={{ y: [0, -10, -3], opacity: [0.3, 0.7, 0.1], rotate: [0, -12, 8] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
-                >✦</motion.span>
-              </div>
-            </>
-          )}
-
-          {/* Sassy ._. */}
-          {catMood === "sassy" && !isPetting && (
-            <div className="absolute -top-1 left-1/2 -translate-x-1/2 pointer-events-none mq-no-transition">
-              <motion.span
-                className="text-[10px] mq-no-transition"
-                animate={{ opacity: [0, 0.5, 0], y: [2, -4, -8] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeOut", delay: 2 }}
-              >._.</motion.span>
-            </div>
-          )}
-
           {/* Speech bubble */}
           <motion.div
             className="absolute mq-no-transition"
@@ -492,7 +707,7 @@ export default function MqCat() {
             </div>
           </motion.div>
 
-          {/* Cat body */}
+          {/* Cat body — canvas based */}
           <motion.button
             onClick={handlePet}
             className="relative cursor-pointer outline-none mq-no-transition"
@@ -519,45 +734,13 @@ export default function MqCat() {
                   : { duration: moodDuration, repeat: Infinity, ease: "easeInOut" }
               }
             >
-              {/* Cat image — crossfades between normal/blink/smile */}
-              <div className="w-full h-full relative mq-no-transition">
-                <img
-                  src={CAT_NORMAL}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-contain mq-no-transition"
-                  style={{
-                    filter: moodFilter,
-                    transition: "filter 0.8s ease, opacity 0.05s ease-in",
-                    opacity: currentImage === CAT_NORMAL ? 1 : 0,
-                  }}
-                  draggable={false}
-                />
-                <img
-                  src={CAT_BLINK}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-contain mq-no-transition"
-                  style={{
-                    filter: moodFilter,
-                    transition: "filter 0.8s ease, opacity 0.05s ease-in",
-                    opacity: currentImage === CAT_BLINK ? 1 : 0,
-                  }}
-                  draggable={false}
-                />
-                <img
-                  src={CAT_SMILE}
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-contain mq-no-transition"
-                  style={{
-                    filter: isPetting ? "brightness(1.08)" : moodFilter,
-                    transition: "filter 0.8s ease, opacity 0.15s ease-out",
-                    opacity: currentImage === CAT_SMILE ? 1 : 0,
-                  }}
-                  draggable={false}
-                />
-              </div>
-
-              {/* Tail INSIDE the floating wrapper so it moves with the body */}
-              <CatTail mood={catMood} isPetting={isPetting} />
+              {/* Canvas Cat */}
+              <CanvasCat
+                size={size}
+                state={catState}
+                mood={catMood}
+                isPetting={isPetting}
+              />
 
               {/* Pet glow */}
               {isPetting && (
@@ -574,8 +757,6 @@ export default function MqCat() {
                 />
               )}
             </motion.div>
-
-            {/* Tail is now inside the floating wrapper above */}
 
             {/* Music notes */}
             {!isPetting && (catMood === "friendly" || catMood === "excited") && (
