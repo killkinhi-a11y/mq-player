@@ -908,6 +908,37 @@ export default function MainView() {
 
 
 
+  // Fetch similar artists when artist is selected (MUST be outside conditional block — Rules of Hooks)
+  useEffect(() => {
+    if (!selectedArtist) return;
+    let cancelled = false;
+    const fetchSimilar = async () => {
+      setSimilarArtistsLoading(true);
+      try {
+        // Use search to find related tracks, then extract unique artists
+        const res = await fetch(`/api/music/search?q=${encodeURIComponent(selectedArtist.name)}&limit=15`);
+        const data = await res.json();
+        const tracks: Track[] = data.tracks || [];
+        // Extract unique artists (excluding the current one)
+        const artistMap = new Map<string, { name: string; avatar?: string; followers?: number }>();
+        for (const t of tracks) {
+          if (t.artist && t.artist.toLowerCase() !== selectedArtist.name.toLowerCase()) {
+            if (!artistMap.has(t.artist)) {
+              artistMap.set(t.artist, { name: t.artist, avatar: t.cover });
+            }
+          }
+        }
+        if (!cancelled) setSimilarArtists([...artistMap.values()].slice(0, 6));
+      } catch {
+        if (!cancelled) setSimilarArtists([]);
+      } finally {
+        if (!cancelled) setSimilarArtistsLoading(false);
+      }
+    };
+    fetchSimilar();
+    return () => { cancelled = true; };
+  }, [selectedArtist?.name]);
+
   // ── Artist detail view ──
   if (selectedArtist) {
     const handleArtistTrackClick = (artistName: string, coverUrl?: string) => {
@@ -947,37 +978,6 @@ export default function MainView() {
     });
 
     const displayTracks = artistTab === "popular" ? popularTracks : artistTab === "releases" ? releaseTracks : allTracksSorted;
-
-    // Fetch similar artists when artist is selected
-    useEffect(() => {
-      if (!selectedArtist) return;
-      let cancelled = false;
-      const fetchSimilar = async () => {
-        setSimilarArtistsLoading(true);
-        try {
-          // Use the first track's SC ID to find related tracks, then extract unique artists
-          const res = await fetch(`/api/music/search?q=${encodeURIComponent(selectedArtist.name)}&limit=15`);
-          const data = await res.json();
-          const tracks: Track[] = data.tracks || [];
-          // Extract unique artists (excluding the current one)
-          const artistMap = new Map<string, { name: string; avatar?: string; followers?: number }>();
-          for (const t of tracks) {
-            if (t.artist && t.artist.toLowerCase() !== selectedArtist.name.toLowerCase()) {
-              if (!artistMap.has(t.artist)) {
-                artistMap.set(t.artist, { name: t.artist, avatar: t.cover });
-              }
-            }
-          }
-          if (!cancelled) setSimilarArtists([...artistMap.values()].slice(0, 6));
-        } catch {
-          if (!cancelled) setSimilarArtists([]);
-        } finally {
-          if (!cancelled) setSimilarArtistsLoading(false);
-        }
-      };
-      fetchSimilar();
-      return () => { cancelled = true; };
-    }, [selectedArtist?.name]);
 
     const artistTabs = [
       { id: "all" as const, label: "Все треки" },
