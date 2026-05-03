@@ -179,6 +179,7 @@ export default function PlayerBar() {
   const prevTrackIdForCrossfade = useRef<string | null>(null);
 
   const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(false);
   const [isLoadingTrack, _setIsLoadingTrack] = useState(false);
   const isLoadingTrackRef = useRef(false);
   // Wrapper that keeps the ref in sync with local state (needed for cross-handler checks)
@@ -208,6 +209,7 @@ export default function PlayerBar() {
   useEffect(() => { setProgressRef.current = setProgress; }, [setProgress]);
   useEffect(() => { setDurationRef.current = setDuration; }, [setDuration]);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
 
   // ── Audio element + Web Audio init (shared engine) ──
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -223,7 +225,7 @@ export default function PlayerBar() {
 
     const onTimeUpdate = () => {
       const a = getActive();
-      if (!isDragging && a) setProgressRef.current(a.currentTime);
+      if (!isDraggingRef.current && a) setProgressRef.current(a.currentTime);
       // Update MediaSession position state for lock-screen progress bar
       if ("mediaSession" in navigator && navigator.mediaSession && a?.duration && isFinite(a.duration)) {
         try {

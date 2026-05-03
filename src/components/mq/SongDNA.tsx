@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import type { Track } from "@/lib/musicApi";
+import DNAHelixVisual from "./DNAHelixVisual";
 
 // ── Types ─────────────────────────────────────────────────────
 interface SongDNAProps {
@@ -200,7 +201,6 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
   const [similarTracks, setSimilarTracks] = useState<Track[]>([]);
   const [similarLoading, setSimilarLoading] = useState(false);
   const [dnaAnimated, setDnaAnimated] = useState(false);
-  const [mousePos, setMousePos] = useState({ x: 0.5, y: 0.5 });
 
   // Reset animation when opened
   useEffect(() => {
@@ -271,7 +271,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
         label: track.title.length > 20 ? track.title.slice(0, 18) + "..." : track.title,
         role: "center",
         x: 152,
-        y: 125,
+        y: 160,
       },
     ];
 
@@ -300,7 +300,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
         role: "fans",
         track: t,
         x: 20 + i * 125,
-        y: 255,
+        y: 325,
       });
     }
 
@@ -371,98 +371,19 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
             className="overflow-y-auto px-4 pb-4 space-y-5"
             style={{ maxHeight: "64vh" }}
           >
-            {/* ── Interactive CSS DNA Helix ─────────────────── */}
+            {/* ── Canvas DNA Helix Visual ──────────────────── */}
             <motion.div
               custom={-1}
               variants={fadeUp}
               initial="hidden"
               animate="visible"
-              className="rounded-xl overflow-hidden relative"
+              className="rounded-xl overflow-hidden"
               style={{
                 backgroundColor: "var(--mq-input-bg)",
                 border: "1px solid var(--mq-border)",
-                height: 200,
               }}
-              onMouseMove={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                setMousePos({
-                  x: (e.clientX - rect.left) / rect.width,
-                  y: (e.clientY - rect.top) / rect.height,
-                });
-              }}
-              onMouseLeave={() => setMousePos({ x: 0.5, y: 0.5 })}
-              onTouchMove={(e) => {
-                const touch = e.touches[0];
-                const rect = e.currentTarget.getBoundingClientRect();
-                setMousePos({
-                  x: (touch.clientX - rect.left) / rect.width,
-                  y: (touch.clientY - rect.top) / rect.height,
-                });
-              }}
-              onTouchEnd={() => setMousePos({ x: 0.5, y: 0.5 })}
             >
-              <style>{`
-                @keyframes dnaRotate {
-                  from { transform: rotateX(${(mousePos.y - 0.5) * 30}deg) rotateY(${(mousePos.x - 0.5) * 30}deg); }
-                  to { transform: rotateX(${(mousePos.y - 0.5) * 30}deg) rotateY(${(mousePos.x - 0.5) * 30 + 360}deg); }
-                }
-                @keyframes dnaFloat1 { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-                @keyframes dnaFloat2 { 0%,100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
-                @keyframes dnaPulse { 0%,100% { opacity: 0.6; } 50% { opacity: 1; } }
-              `}</style>
-              <div
-                className="absolute inset-0 flex items-center justify-center"
-                style={{ perspective: 600 }}
-              >
-                <div
-                  style={{
-                    transformStyle: "preserve-3d",
-                    animation: `dnaRotate ${isPlaying ? 8 : 20}s linear infinite`,
-                    transition: "transform 0.3s ease-out",
-                  }}
-                >
-                  {[...Array(10)].map((_, i) => {
-                    const topOffset = i * 18 - 90;
-                    const side = i % 2 === 0 ? 1 : -1;
-                    const zPos = side * 25;
-                    return (
-                      <div key={i} className="absolute flex items-center gap-0" style={{
-                        left: "50%",
-                        top: "50%",
-                        transform: `translate(-50%, -50%) translateZ(${zPos}px) translateY(${topOffset}px)`,
-                        animation: `${side > 0 ? "dnaFloat1" : "dnaFloat2"} ${2 + i * 0.15}s ease-in-out infinite`,
-                      }}>
-                        <div style={{
-                          width: 8, height: 8, borderRadius: "50%",
-                          backgroundColor: `var(--mq-accent)`,
-                          opacity: 0.5 + (i / 10) * 0.5,
-                          boxShadow: `0 0 ${6 + i}px var(--mq-accent), 0 0 ${12 + i * 2}px var(--mq-glow)`,
-                          animation: `dnaPulse ${1.5 + i * 0.1}s ease-in-out infinite`,
-                        }} />
-                        <div style={{
-                          width: 50, height: 2,
-                          background: `linear-gradient(90deg, transparent, var(--mq-accent), transparent)`,
-                          opacity: 0.15 + (i / 10) * 0.15,
-                        }} />
-                        <div style={{
-                          width: 8, height: 8, borderRadius: "50%",
-                          backgroundColor: "var(--mq-text-muted)",
-                          opacity: 0.3 + (i / 10) * 0.4,
-                          boxShadow: `0 0 4px var(--mq-text-muted)`,
-                          animation: `dnaPulse ${1.8 + i * 0.12}s ease-in-out infinite`,
-                          animationDelay: "0.3s",
-                        }} />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="absolute bottom-2 inset-x-0 flex items-center justify-center gap-1.5">
-                <Dna className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
-                <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
-                  Наведи для взаимодействия
-                </span>
-              </div>
+              <DNAHelixVisual isPlaying={isPlaying} genre={track.genre} compact />
             </motion.div>
 
             {/* ── Track DNA Card ─────────────────────────── */}
@@ -805,9 +726,9 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
 
                   <svg
                     width="100%"
-                    viewBox="0 0 400 300"
+                    viewBox="0 0 400 380"
                     className="w-full"
-                    style={{ maxHeight: "280px" }}
+                    style={{ maxHeight: "360px" }}
                   >
                     {/* Connection lines */}
                     {genealogyLines.map((line, i) => (
