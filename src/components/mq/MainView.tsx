@@ -6,7 +6,7 @@ import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
 import HeroParticles from "./HeroParticles";
 import CursorSpotlight from "./CursorSpotlight";
@@ -350,6 +350,7 @@ export default function MainView() {
     animationsEnabled, playTrack, likedTrackIds, dislikedTrackIds, likedTracksData, dislikedTracksData,
     history, playlists, setView, contacts, messages, userId, compactMode, currentTrack, isPlaying,
     setSearchQuery, favoriteArtists, selectedArtist, setSelectedArtist,
+    addFavoriteArtist, removeFavoriteArtist,
   } = useAppStore();
 
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
@@ -365,6 +366,9 @@ export default function MainView() {
   const [activeMood, setActiveMood] = useState<string | null>(null);
   const [artistTracks, setArtistTracks] = useState<Track[]>([]);
   const [artistTracksLoading, setArtistTracksLoading] = useState(false);
+  const [artistTab, setArtistTab] = useState<"all" | "popular" | "releases">("all");
+  const [similarArtists, setSimilarArtists] = useState<{ name: string; avatar?: string; followers?: number }[]>([]);
+  const [similarArtistsLoading, setSimilarArtistsLoading] = useState(false);
 
   // Mouse position for hero parallax effect
   const heroRef = useRef<HTMLDivElement>(null);
@@ -912,6 +916,75 @@ export default function MainView() {
       }
     };
 
+    const isSubscribed = favoriteArtists.some(
+      a => a.username.toLowerCase() === selectedArtist.name.toLowerCase()
+    );
+
+    const handleToggleSubscribe = () => {
+      if (isSubscribed) {
+        const fav = favoriteArtists.find(a => a.username.toLowerCase() === selectedArtist.name.toLowerCase());
+        if (fav) removeFavoriteArtist(fav.id);
+      } else {
+        addFavoriteArtist({
+          id: Date.now(),
+          username: selectedArtist.name,
+          avatar: selectedArtist.avatar || "",
+          genre: selectedArtist.genre || "",
+          followers: selectedArtist.followers || 0,
+          trackCount: selectedArtist.trackCount || 0,
+        });
+      }
+    };
+
+    // Sort tracks for different tabs — use (track as any).playbackCount since SC tracks have it at runtime
+    const allTracksSorted = [...artistTracks];
+    const popularTracks = [...artistTracks].sort((a: any, b: any) => (b.playbackCount || 0) - (a.playbackCount || 0));
+    // "Releases" = tracks from the last 2 years
+    const twoYearsAgo = Date.now() - 2 * 365 * 24 * 60 * 60 * 1000;
+    const releaseTracks = artistTracks.filter((t: any) => {
+      if (t.createdAt) return new Date(t.createdAt).getTime() > twoYearsAgo;
+      return true; // if no date, include in releases
+    });
+
+    const displayTracks = artistTab === "popular" ? popularTracks : artistTab === "releases" ? releaseTracks : allTracksSorted;
+
+    // Fetch similar artists when artist is selected
+    useEffect(() => {
+      if (!selectedArtist) return;
+      let cancelled = false;
+      const fetchSimilar = async () => {
+        setSimilarArtistsLoading(true);
+        try {
+          // Use the first track's SC ID to find related tracks, then extract unique artists
+          const res = await fetch(`/api/music/search?q=${encodeURIComponent(selectedArtist.name)}&limit=15`);
+          const data = await res.json();
+          const tracks: Track[] = data.tracks || [];
+          // Extract unique artists (excluding the current one)
+          const artistMap = new Map<string, { name: string; avatar?: string; followers?: number }>();
+          for (const t of tracks) {
+            if (t.artist && t.artist.toLowerCase() !== selectedArtist.name.toLowerCase()) {
+              if (!artistMap.has(t.artist)) {
+                artistMap.set(t.artist, { name: t.artist, avatar: t.cover });
+              }
+            }
+          }
+          if (!cancelled) setSimilarArtists([...artistMap.values()].slice(0, 6));
+        } catch {
+          if (!cancelled) setSimilarArtists([]);
+        } finally {
+          if (!cancelled) setSimilarArtistsLoading(false);
+        }
+      };
+      fetchSimilar();
+      return () => { cancelled = true; };
+    }, [selectedArtist?.name]);
+
+    const artistTabs = [
+      { id: "all" as const, label: "Все треки" },
+      { id: "popular" as const, label: "Популярные" },
+      { id: "releases" as const, label: "Релизы" },
+    ];
+
     return (
       <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24" : "p-4 lg:p-6 pb-40 lg:pb-28"} max-w-4xl mx-auto`}>
         <motion.button
@@ -926,6 +999,7 @@ export default function MainView() {
           <span className="text-sm font-medium">Назад</span>
         </motion.button>
 
+        {/* Artist header card */}
         <motion.div
           initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
           animate={{ opacity: 1, y: 0 }}
@@ -973,7 +1047,7 @@ export default function MainView() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => { if (artistTracks.length > 0) playTrack(artistTracks[0], artistTracks); }}
+                onClick={() => { if (displayTracks.length > 0) playTrack(displayTracks[0], displayTracks); }}
                 disabled={artistTracks.length === 0 || artistTracksLoading}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-40"
                 style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
@@ -981,35 +1055,112 @@ export default function MainView() {
                 <Play className="w-4 h-4" style={{ marginLeft: 1 }} />
                 Слушать
               </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleToggleSubscribe}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium cursor-pointer transition-all"
+                style={{
+                  backgroundColor: isSubscribed ? "var(--mq-accent)" : "transparent",
+                  color: isSubscribed ? "var(--mq-text)" : "var(--mq-text-muted)",
+                  border: `1px solid ${isSubscribed ? "var(--mq-accent)" : "var(--mq-border)"}`,
+                }}
+              >
+                {isSubscribed ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                {isSubscribed ? "Подписка" : "Подписаться"}
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => { if (displayTracks.length > 0) { const s = [...displayTracks]; for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [s[i], s[j]] = [s[j], s[i]]; } playTrack(s[0], s); } }}
+                disabled={artistTracks.length === 0 || artistTracksLoading}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-40"
+                style={{ border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}
+              >
+                <Shuffle className="w-4 h-4" />
+              </motion.button>
             </div>
           </div>
         </motion.div>
 
-        <div className="mt-6">
-          <h2 className="text-lg font-bold mb-3" style={{ color: "var(--mq-text)" }}>
-            Новые релизы
-          </h2>
-          {artistTracksLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="h-14 rounded-xl" style={{ background: "var(--mq-card)" }}>
-                  <Skeleton className="w-full h-full rounded-xl" />
-                </div>
-              ))}
-            </div>
-          ) : artistTracks.length > 0 ? (
-            <div className="space-y-2">
-              {artistTracks.map((track, i) => (
-                <TrackCard key={track.id} track={track} index={i} queue={artistTracks} onArtistClick={handleArtistTrackClick} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-16">
-              <Music className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-              <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Треки не найдены</p>
-            </div>
-          )}
+        {/* Tabs */}
+        <div className="flex items-center gap-1 mt-6 mb-4 p-1 rounded-xl" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+          {artistTabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setArtistTab(tab.id)}
+              className="flex-1 py-2 px-3 rounded-lg text-xs font-medium cursor-pointer transition-all"
+              style={{
+                backgroundColor: artistTab === tab.id ? "var(--mq-accent)" : "transparent",
+                color: artistTab === tab.id ? "var(--mq-text)" : "var(--mq-text-muted)",
+              }}
+            >
+              {tab.label}
+              <span className="ml-1.5 opacity-60">
+                {tab.id === "all" ? artistTracks.length : tab.id === "popular" ? popularTracks.length : releaseTracks.length}
+              </span>
+            </button>
+          ))}
         </div>
+
+        {/* Track list */}
+        {artistTracksLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-14 rounded-xl" style={{ background: "var(--mq-card)" }}>
+                <Skeleton className="w-full h-full rounded-xl" />
+              </div>
+            ))}
+          </div>
+        ) : displayTracks.length > 0 ? (
+          <div className="space-y-2">
+            {displayTracks.map((track, i) => (
+              <TrackCard key={track.id} track={track} index={i} queue={displayTracks} onArtistClick={handleArtistTrackClick} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-16">
+            <Music className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+            <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Треки не найдены</p>
+          </div>
+        )}
+
+        {/* Similar artists — "Вам может понравиться" */}
+        {!similarArtistsLoading && similarArtists.length > 0 && (
+          <div className="mt-10">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: "var(--mq-text)" }}>
+              <Users className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+              Вам может понравиться
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {similarArtists.map(artist => (
+                <motion.button
+                  key={artist.name}
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setSelectedArtist({ name: artist.name, avatar: artist.avatar })}
+                  className="flex items-center gap-3 p-3 rounded-xl cursor-pointer text-left transition-all"
+                  style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+                >
+                  <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
+                    style={{ backgroundColor: "var(--mq-accent)", opacity: 0.6 }}>
+                    {artist.avatar ? (
+                      <img src={artist.avatar} alt={artist.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xs font-bold" style={{ color: "var(--mq-text)" }}>
+                        {artist.name.split(" ").map(w => w[0]).slice(0, 2).join("")}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{artist.name}</p>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Артист</p>
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

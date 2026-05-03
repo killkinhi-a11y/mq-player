@@ -1585,8 +1585,7 @@ export default function PlayerBar() {
             </motion.button>
             {shuffle && smartShuffle && (
               <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: "var(--mq-accent)", fontSize: "6px", color: "var(--mq-text)" }}>
-                AI
+                style={{ backgroundColor: "var(--mq-accent)" }}>
               </div>
             )}
           </div>

@@ -1274,7 +1274,6 @@ export default function FullTrackView() {
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-sm font-bold flex items-center gap-1.5" style={{ color: "var(--mq-text)" }}>
                     Похожие треки
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(224,49,49,0.1)", color: "var(--mq-accent)" }}>AI</span>
                   </h3>
                   <button onClick={() => setShowSimilar(false)} style={{ color: "var(--mq-text-muted)" }}>
                     <X className="w-4 h-4" />

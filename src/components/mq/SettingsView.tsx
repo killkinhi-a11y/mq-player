@@ -1894,7 +1894,7 @@ export default function SettingsView() {
             </DialogTitle>
             <p className="text-[11px] mt-1 flex items-center gap-1.5" style={{ color: "var(--mq-text-muted)" }}>
               <Bot className="w-3 h-3" style={{ color: "#06b6d4" }} />
-              AI-бот отвечает мгновенно, администратор — в рабочее время
+              Бот отвечает мгновенно, администратор — в рабочее время
             </p>
           </DialogHeader>
 

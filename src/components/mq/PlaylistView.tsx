@@ -275,7 +275,7 @@ export default function PlaylistView() {
           p.id === playlistId ? { ...p, cover: data.cover } : p
         ),
       });
-      toast({ title: "Обложка создана", description: "AI-обложка установлена" });
+      toast({ title: "Обложка создана", description: "Обложка установлена" });
     } catch {
       toast({ title: "Ошибка", description: "Не удалось связаться с сервером" });
     } finally {
@@ -558,7 +558,7 @@ export default function PlaylistView() {
         </motion.div>
         </ScrollReveal>
 
-        {/* AI-powered actions — show when playlist has tracks */}
+        {/* Автоматические действия — show when playlist has tracks */}
         {selectedPlaylist.tracks.length >= 2 && !aiAutoGenerating && (
           <ScrollReveal direction="up" delay={0.15}>
           <motion.div

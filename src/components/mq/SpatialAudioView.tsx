@@ -309,7 +309,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
           Spatial Audio
         </h1>
         <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-          AI-powered 3D spatial positioning that adapts to your music&apos;s mood
+          3D spatial positioning that adapts to your music&apos;s mood
         </p>
       </motion.div>
 
@@ -551,7 +551,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
       >
         <p className="text-xs leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
           Spatial Audio positions each frequency band in a 3D space around you.
-          The AI analyzes track metadata to detect mood and automatically adjusts
+          The system analyzes track metadata to detect mood and automatically adjusts
           the positioning — bass-heavy genres center the low end, while dreamy
           tracks spread instruments wide for an ethereal experience.
         </p>
