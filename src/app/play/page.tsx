@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import type { ViewType } from "@/store/useAppStore";
@@ -61,6 +61,34 @@ function AppShell() {
 
   // ── All refs declared before effects ──
   const prevViewRef = useRef(currentView);
+  const viewDirectionRef = useRef(0);
+
+  // Determine slide direction based on nav item order
+  const VIEW_ORDER: Record<string, number> = {
+    main: 0,
+    search: 1,
+    playlists: 2,
+    history: 3,
+    messenger: 4,
+    settings: 5,
+    profile: 6,
+    spatial: 7,
+    stories: 8,
+    public_playlists: 2.5,
+  };
+
+  useEffect(() => {
+    const prev = VIEW_ORDER[prevViewRef.current] ?? 0;
+    const curr = VIEW_ORDER[currentView] ?? 0;
+    if (currentView === "auth" || currentView === "onboarding") {
+      viewDirectionRef.current = 1;
+    } else if (prevViewRef.current === "auth" || prevViewRef.current === "onboarding") {
+      viewDirectionRef.current = -1;
+    } else {
+      viewDirectionRef.current = curr > prev ? 1 : curr < prev ? -1 : 0;
+    }
+    prevViewRef.current = currentView;
+  }, [currentView]);
 
   // ── Apply style class to document ──
   useEffect(() => {
@@ -219,11 +247,35 @@ function AppShell() {
     prevViewRef.current = currentView;
   }, [currentView, searchQuery, setSearchQuery]);
 
-  const viewVariants = {
-    initial: { opacity: 0, y: 8 },
-    animate: { opacity: 1, y: 0 },
-    exit: { opacity: 0, y: -8 },
-  };
+  // Custom transition variants based on view direction
+  const dir = viewDirectionRef.current;
+  const viewVariants = useMemo(() => ({
+    initial: {
+      opacity: 0,
+      x: dir > 0 ? 40 : dir < 0 ? -40 : 0,
+      y: dir === 0 ? 12 : 0,
+      filter: "blur(2px)",
+    },
+    animate: {
+      opacity: 1,
+      x: 0,
+      y: 0,
+      filter: "blur(0px)",
+    },
+    exit: {
+      opacity: 0,
+      x: dir > 0 ? -30 : dir < 0 ? 30 : 0,
+      y: dir === 0 ? -8 : 0,
+      filter: "blur(1px)",
+    },
+  }), [dir]);
+
+  const viewTransition = useMemo(() => ({
+    type: "spring" as const,
+    stiffness: 300,
+    damping: 30,
+    mass: 0.8,
+  }), []);
 
   const renderView = () => {
     switch (currentView) {
@@ -258,14 +310,14 @@ function AppShell() {
       </Suspense>
 
       <main className={showNav ? "pt-16 lg:pt-14" : ""}>
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={currentView}
             variants={animationsEnabled ? viewVariants : undefined}
             initial={animationsEnabled ? "initial" : undefined}
             animate={animationsEnabled ? "animate" : undefined}
             exit={animationsEnabled ? "exit" : undefined}
-            transition={{ duration: 0.2 }}
+            transition={animationsEnabled ? viewTransition : undefined}
           >
             <Suspense fallback={
               <div className="flex items-center justify-center py-8">
