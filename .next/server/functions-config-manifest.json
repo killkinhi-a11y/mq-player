@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/db-sync": {
+      "maxDuration": 60
+    },
+    "/api/listen-session": {
+      "maxDuration": 30
+    },
+    "/api/listen-session/accept": {
+      "maxDuration": 30
+    },
+    "/api/listen-session/invite": {
+      "maxDuration": 30
+    },
+    "/api/messages/sse": {
+      "maxDuration": 60
+    },
+    "/api/messages/transcribe": {
+      "maxDuration": 30
+    },
+    "/api/messages/typing": {
+      "maxDuration": 30
+    },
+    "/api/music/recommendations/feedback": {},
+    "/api/music/soundcloud/license-proxy": {},
+    "/api/music/soundcloud/resolve-proxy": {},
+    "/api/music/soundcloud/stream": {},
+    "/api/music/upload": {
+      "maxDuration": 300
+    },
+    "/api/music/upload/file/[filename]": {
+      "maxDuration": 60
+    },
+    "/api/playlists/auto-generate": {
+      "maxDuration": 30
+    },
+    "/api/playlists/generate-cover": {
+      "maxDuration": 60
+    }
+  }
+}

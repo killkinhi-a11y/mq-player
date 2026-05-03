@@ -1,0 +1,3 @@
+{
+  "/api/playlists/generate-cover/route": "app/api/playlists/generate-cover/route.js"
+}

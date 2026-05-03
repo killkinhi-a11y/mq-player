@@ -1,0 +1,40 @@
+{
+  "sorted_middleware": [
+    "/api/music/soundcloud/resolve-proxy/route"
+  ],
+  "middleware": {},
+  "instrumentation": null,
+  "functions": {
+    "/api/music/soundcloud/resolve-proxy/route": {
+      "files": [
+        "server/middleware-build-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "required-server-files.js",
+        "server/server-reference-manifest.js",
+        "server/app/api/music/soundcloud/resolve-proxy/route_client-reference-manifest.js",
+        "server/edge/chunks/0zjb_server_app_api_music_soundcloud_resolve-proxy_route_actions_050~sx..js",
+        "server/edge/chunks/node_modules_next_dist_esm_06c8f4b._.js",
+        "server/edge/chunks/[root-of-the-server]__0w8nc0.._.js",
+        "server/edge/chunks/turbopack-node_modules_next_dist_esm_build_templates_edge-wrapper_0b6butk.js"
+      ],
+      "name": "app/api/music/soundcloud/resolve-proxy/route",
+      "page": "/api/music/soundcloud/resolve-proxy/route",
+      "entrypoint": "server/edge/chunks/turbopack-node_modules_next_dist_esm_build_templates_edge-wrapper_0b6butk.js",
+      "matchers": [
+        {
+          "regexp": "^/api/music/soundcloud/resolve-proxy(?:/)?$",
+          "originalSource": "/api/music/soundcloud/resolve-proxy"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "1777772502992",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "lDE+JRiCuhCQLzlSAkOJ9KrPpmPfPxnaVWyIL++cvaA=",
+        "__NEXT_PREVIEW_MODE_ID": "74213c8b7f525418c08405f700bdb1aa",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "462edccfe892fd209193cc0011867d7f0d47adc2df658e379ee89cb6cb0661b4",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "4167daa79047c45c313690eedb76d83641e2c50ed16095b492ba1dc6f33bc8e4"
+      }
+    }
+  }
+}

@@ -1,0 +1,3 @@
+{
+  "/api/music/soundcloud/resolve-proxy/route": "app-edge-has-no-entrypoint"
+}
