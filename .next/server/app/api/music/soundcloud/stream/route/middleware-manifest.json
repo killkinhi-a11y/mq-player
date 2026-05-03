@@ -1,0 +1,41 @@
+{
+  "sorted_middleware": [
+    "/api/music/soundcloud/stream/route"
+  ],
+  "middleware": {},
+  "instrumentation": null,
+  "functions": {
+    "/api/music/soundcloud/stream/route": {
+      "files": [
+        "server/middleware-build-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "required-server-files.js",
+        "server/server-reference-manifest.js",
+        "server/app/api/music/soundcloud/stream/route_client-reference-manifest.js",
+        "server/edge/chunks/_next-internal_server_app_api_music_soundcloud_stream_route_actions_0jrku-s.js",
+        "server/edge/chunks/node_modules_next_dist_esm_0_cvku_._.js",
+        "server/edge/chunks/[root-of-the-server]__0w8nc0.._.js",
+        "server/edge/chunks/node_modules_next_dist_esm_build_templates_edge-app-route_01p18eo.js",
+        "server/edge/chunks/turbopack-node_modules_next_dist_esm_build_templates_edge-wrapper_0spqtfc.js"
+      ],
+      "name": "app/api/music/soundcloud/stream/route",
+      "page": "/api/music/soundcloud/stream/route",
+      "entrypoint": "server/edge/chunks/turbopack-node_modules_next_dist_esm_build_templates_edge-wrapper_0spqtfc.js",
+      "matchers": [
+        {
+          "regexp": "^/api/music/soundcloud/stream(?:/)?$",
+          "originalSource": "/api/music/soundcloud/stream"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "1777775013366",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "oUG/yiHSjR1Vy7y/ro5twv4z9G753fQq77Q/u5YNan8=",
+        "__NEXT_PREVIEW_MODE_ID": "a998e759f6dd17f5b7a8705a2f21a5dd",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "0584df0fca52f43bd44be3c01ab4632bd2bb5fb698ba7f45ce80003f9c66902c",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "c9a4169ca93839217c62d6adb7561ef275e8365064e5636419a9a38e32ac818c"
+      }
+    }
+  }
+}

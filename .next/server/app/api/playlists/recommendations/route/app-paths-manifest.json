@@ -1,0 +1,3 @@
+{
+  "/api/playlists/recommendations/route": "app/api/playlists/recommendations/route.js"
+}
