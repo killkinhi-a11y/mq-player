@@ -604,16 +604,18 @@ export async function handleCallbackQuery(body: Record<string, any>) {
 /* ================================================================== */
 
 async function handleAuthCode(chatId: string, from: Record<string, any>) {
-  const crypto = await import("crypto");
-  const code = crypto.randomInt(100000, 999999).toString();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+  try {
+    const crypto = await import("crypto");
+    const code = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-  // Delete old unused codes + create new one in parallel
-  await Promise.all([
-    db.telegramAuthCode.deleteMany({
+    // Delete old unused codes first (sequential to avoid unique constraint race)
+    await db.telegramAuthCode.deleteMany({
       where: { chatId, used: false, expiresAt: { gt: new Date() } },
-    }),
-    db.telegramAuthCode.create({
+    }).catch(() => {});
+
+    // Create new code
+    await db.telegramAuthCode.create({
       data: {
         chatId,
         telegramUserId: BigInt(from.id),
@@ -621,13 +623,16 @@ async function handleAuthCode(chatId: string, from: Record<string, any>) {
         code,
         expiresAt,
       },
-    }),
-  ]);
+    });
 
-  await sendTelegramMessage(chatId,
-    `🔐 <b>Код подтверждения mq:</b>\n\n<code>${code}</code>\n\nКод действителен 10 минут.`,
-    { parseMode: "HTML" }
-  );
+    await sendTelegramMessage(chatId,
+      `🔐 <b>Код подтверждения mq:</b>\n\n<code>${code}</code>\n\nКод действителен 10 минут.`,
+      { parseMode: "HTML" }
+    );
+  } catch (err: any) {
+    console.error("handleAuthCode error:", err?.message || err);
+    await sendTelegramMessage(chatId, "Ошибка при генерации кода. Попробуйте ещё раз.");
+  }
 }
 
 /* ================================================================== */
