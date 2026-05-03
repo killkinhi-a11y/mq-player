@@ -14,6 +14,188 @@ import { Button } from "@/components/ui/button";
 import ScrollReveal from "./ScrollReveal";
 import TasteProfileView from "./TasteProfileView";
 
+// ── Inline mascot preview for settings ──
+function MascotPreview({ size, isSelected }: { size: number; isSelected: boolean }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animRef = useRef<number>(0);
+  const phaseRef = useRef(0);
+  const lastTimeRef = useRef(performance.now());
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    ctx.scale(dpr, dpr);
+
+    lastTimeRef.current = performance.now();
+
+    const draw = (timestamp: number) => {
+      const dt = (timestamp - lastTimeRef.current) / 1000;
+      lastTimeRef.current = timestamp;
+      phaseRef.current += dt;
+      const t = phaseRef.current;
+      const s = size;
+      const cx = s / 2;
+      const cy = s / 2 + s * 0.02;
+      const bounce = Math.sin(t * 3.2) * s * 0.006;
+
+      ctx.clearRect(0, 0, s, s);
+      ctx.save();
+      ctx.translate(0, bounce);
+
+      const bw = s * 0.38;
+      const bh = s * 0.30;
+      const bodyY = cy;
+      const OL = "#000000";
+      const outlineW = Math.max(1.5, s * 0.016);
+      const SKIN = "#FEF8EC";
+
+      // Ground shadow
+      ctx.beginPath();
+      ctx.ellipse(cx, bodyY + bh + s * 0.14, bw * 0.65, s * 0.015, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(0,0,0,0.07)";
+      ctx.fill();
+
+      // Body
+      const bodyGrad = ctx.createRadialGradient(cx - bw * 0.15, bodyY - bh * 0.3, bh * 0.08, cx, bodyY, bw * 1.1);
+      bodyGrad.addColorStop(0, "#FFFCF2");
+      bodyGrad.addColorStop(0.45, SKIN);
+      bodyGrad.addColorStop(1, "#F5ECD5");
+      ctx.beginPath();
+      ctx.ellipse(cx, bodyY, bw, bh, 0, 0, Math.PI * 2);
+      ctx.fillStyle = bodyGrad;
+      ctx.fill();
+      ctx.strokeStyle = OL;
+      ctx.lineWidth = outlineW;
+      ctx.stroke();
+
+      // Collar + Tie
+      ctx.strokeStyle = OL;
+      ctx.lineWidth = outlineW;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(cx - bw * 0.32, bodyY - bh * 0.05);
+      ctx.lineTo(cx - bw * 0.05, bodyY + bh * 0.17);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx + bw * 0.32, bodyY - bh * 0.05);
+      ctx.lineTo(cx + bw * 0.05, bodyY + bh * 0.17);
+      ctx.stroke();
+
+      const tieW = bw * 0.09;
+      const tieH = bh * 0.35;
+      ctx.beginPath();
+      ctx.moveTo(cx - tieW, bodyY);
+      ctx.lineTo(cx + tieW, bodyY);
+      ctx.lineTo(cx + tieW * 0.65, bodyY + tieH);
+      ctx.lineTo(cx, bodyY + tieH + bh * 0.06);
+      ctx.lineTo(cx - tieW * 0.65, bodyY + tieH);
+      ctx.closePath();
+      ctx.fillStyle = "#000000";
+      ctx.fill();
+
+      // USA text
+      ctx.font = `bold ${Math.max(5, s * 0.055)}px sans-serif`;
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("USA", cx - bw * 0.25, bodyY + bh * 0.4);
+
+      // Hair
+      const hairBaseY = bodyY - bh * 0.88;
+      ctx.beginPath();
+      ctx.moveTo(cx - bw * 0.38, hairBaseY + bh * 0.34);
+      ctx.bezierCurveTo(cx - bw * 0.58, hairBaseY - bh * 0.1, cx - bw * 0.25, hairBaseY - bh * 0.32, cx + bw * 0.08, hairBaseY - bh * 0.17);
+      ctx.bezierCurveTo(cx + bw * 0.4, hairBaseY - bh * 0.02, cx + bw * 0.5, hairBaseY + bh * 0.18, cx + bw * 0.43, hairBaseY + bh * 0.34);
+      ctx.quadraticCurveTo(cx + bw * 0.12, hairBaseY + bh * 0.5, cx - bw * 0.38, hairBaseY + bh * 0.34);
+      ctx.closePath();
+      ctx.fillStyle = "#CC9000";
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(cx - bw * 0.34, hairBaseY + bh * 0.30);
+      ctx.bezierCurveTo(cx - bw * 0.52, hairBaseY - bh * 0.07, cx - bw * 0.2, hairBaseY - bh * 0.28, cx + bw * 0.06, hairBaseY - bh * 0.14);
+      ctx.bezierCurveTo(cx + bw * 0.36, hairBaseY, cx + bw * 0.46, hairBaseY + bh * 0.16, cx + bw * 0.39, hairBaseY + bh * 0.30);
+      ctx.quadraticCurveTo(cx + bw * 0.08, hairBaseY + bh * 0.46, cx - bw * 0.34, hairBaseY + bh * 0.30);
+      ctx.closePath();
+      ctx.fillStyle = "#F8C400";
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(cx - bw * 0.28, hairBaseY + bh * 0.22);
+      ctx.quadraticCurveTo(cx - bw * 0.15, hairBaseY - bh * 0.1, cx + bw * 0.02, hairBaseY + bh * 0.02);
+      ctx.strokeStyle = "#FCCC08";
+      ctx.lineWidth = Math.max(1, s * 0.014);
+      ctx.stroke();
+
+      // Face
+      const faceY = bodyY - bh * 0.18;
+      const eyeSpacing = bw * 0.26;
+      const eyeW = bw * 0.11;
+      const eyeH = bw * 0.15;
+
+      // Happy eyes (closed arcs)
+      const drawHappyEye = (ex: number, ey: number) => {
+        ctx.beginPath();
+        ctx.moveTo(ex - eyeW * 0.7, ey);
+        ctx.quadraticCurveTo(ex, ey - eyeH * 0.35, ex + eyeW * 0.7, ey);
+        ctx.strokeStyle = OL;
+        ctx.lineWidth = Math.max(1.2, outlineW);
+        ctx.lineCap = "round";
+        ctx.stroke();
+      };
+      drawHappyEye(cx - eyeSpacing, faceY);
+      drawHappyEye(cx + eyeSpacing, faceY);
+
+      // Blush
+      ctx.beginPath();
+      ctx.ellipse(cx - eyeSpacing - eyeW * 0.3, faceY + eyeH * 0.6, eyeW * 0.45, eyeH * 0.22, -0.1, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,130,130,0.25)";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(cx + eyeSpacing + eyeW * 0.3, faceY + eyeH * 0.6, eyeW * 0.45, eyeH * 0.22, 0.1, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255,130,130,0.25)";
+      ctx.fill();
+
+      // Smile
+      const mouthY = faceY + eyeH * 1.4;
+      ctx.beginPath();
+      ctx.moveTo(cx - eyeW * 0.5, mouthY);
+      ctx.quadraticCurveTo(cx, mouthY + eyeH * 0.3, cx + eyeW * 0.5, mouthY);
+      ctx.strokeStyle = OL;
+      ctx.lineWidth = Math.max(1, outlineW * 0.7);
+      ctx.lineCap = "round";
+      ctx.stroke();
+
+      ctx.restore();
+      animRef.current = requestAnimationFrame(draw);
+    };
+
+    animRef.current = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(animRef.current);
+  }, [size]);
+
+  return (
+    <motion.div
+      animate={isSelected ? { scale: [1, 1.12, 1], rotate: [0, -4, 4, -2, 0] } : { scale: 0.85 }}
+      transition={isSelected ? { duration: 0.5, ease: "easeInOut" } : { duration: 0.2 }}
+      style={{ width: size, height: size }}
+    >
+      <canvas
+        ref={canvasRef}
+        style={{ width: size, height: size }}
+        className="object-contain"
+        draggable={false}
+      />
+    </motion.div>
+  );
+}
+
 export default function SettingsView() {
   const {
     currentTheme, setTheme, customAccent, setCustomAccent,
@@ -664,20 +846,9 @@ export default function SettingsView() {
                           }}
                         >
                           <div className="flex justify-center mb-1.5">
-                            <motion.img
-                              src="/mascot.png"
-                              alt=""
-                              className="object-contain"
-                              style={{ width: opt.px, height: opt.px }}
-                              animate={catSize === opt.id
-                                ? { scale: [1, 1.12, 1], rotate: [0, -4, 4, -2, 0] }
-                                : { scale: 0.85 }
-                              }
-                              transition={catSize === opt.id
-                                ? { duration: 0.5, ease: "easeInOut" }
-                                : { duration: 0.2 }
-                              }
-                              draggable={false}
+                            <MascotPreview
+                              size={opt.px}
+                              isSelected={catSize === opt.id}
                             />
                           </div>
                           <p className="text-xs font-medium" style={{ color: catSize === opt.id ? "var(--mq-accent)" : "var(--mq-text)" }}>

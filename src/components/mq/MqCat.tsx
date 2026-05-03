@@ -61,49 +61,48 @@ const MILESTONES: Record<number, string> = {
   100: "100 раз!!! ЛЕГЕНДА!!",
 };
 
-const FREQUENCY_MS: Record<string, [number, number]> = {
-  rare: [300_000, 480_000],
-  normal: [120_000, 240_000],
-  often: [60_000, 120_000],
-};
-
 const SIZE_PX: Record<string, number> = {
   small: 80,
   medium: 110,
   large: 144,
 };
 
-const AUTO_DISMISS_MS = [8_000, 12_000];
 const BLINK_INTERVAL = 3500;
 const BLINK_DURATION = 180;
-const SMILE_HOLD_DURATION = 2500;
+const WALK_SPEED_MIN = 0.3; // px per frame
+const WALK_SPEED_MAX = 1.2;
+const WALK_PAUSE_MIN = 3000;
+const WALK_PAUSE_MAX = 8000;
+const LIFT_SCALE = 1.25;
+const LIFT_SHADOW = 20;
+const PHRASE_DISPLAY_MS = 4000;
 
 // ══════════════════════════════════════════════════════════════════
 // SPRITE FRAME DEFINITIONS
-// 8 frames from sprite sheet, each with interpolated params
 // ══════════════════════════════════════════════════════════════════
 
 interface FrameParams {
-  eyeOpen: number;       // 0=closed arc, 1=full open
-  pupilDx: number;       // pupil offset x
-  pupilDy: number;       // pupil offset y
-  browAngleL: number;    // radians, 0=neutral
+  eyeOpen: number;
+  pupilDx: number;
+  pupilDy: number;
+  browAngleL: number;
   browAngleR: number;
-  browRaiseL: number;    // extra y offset
+  browRaiseL: number;
   browRaiseR: number;
-  mouthCurve: number;    // -1=frown, 0=flat, 1=smile
-  mouthOpen: number;     // 0=closed, 1=open
-  tongueShow: number;    // 0=hidden, 1=visible
+  mouthCurve: number;
+  mouthOpen: number;
+  tongueShow: number;
   blushAlpha: number;
-  sweatAlpha: number;    // sweat drop visibility
+  sweatAlpha: number;
   sweatSize: number;
-  sparkleAlpha: number;  // sparkle stars visibility
+  sparkleAlpha: number;
   sparkleCount: number;
-  motionAlpha: number;   // motion lines
+  motionAlpha: number;
   motionSide: "left" | "right" | "both";
-  legRaiseR: number;     // right leg raise angle (rad)
-  armAngleL: number;     // arm raise angle (rad)
+  legRaiseR: number;
+  armAngleL: number;
   armAngleR: number;
+  walkCycle: number; // 0=standing, 1=full walk stride
 }
 
 const FRAMES: Record<string, FrameParams> = {
@@ -113,6 +112,7 @@ const FRAMES: Record<string, FrameParams> = {
     mouthCurve: 0, mouthOpen: 0, tongueShow: 0,
     blushAlpha: 0, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
     motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
+    walkCycle: 0,
   },
   smile: {
     eyeOpen: 0, pupilDx: 0, pupilDy: 0,
@@ -120,6 +120,7 @@ const FRAMES: Record<string, FrameParams> = {
     mouthCurve: 1, mouthOpen: 0.3, tongueShow: 0,
     blushAlpha: 0.35, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
     motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
+    walkCycle: 0,
   },
   motion: {
     eyeOpen: 1, pupilDx: -0.15, pupilDy: 0,
@@ -127,6 +128,7 @@ const FRAMES: Record<string, FrameParams> = {
     mouthCurve: 0.3, mouthOpen: 0, tongueShow: 0,
     blushAlpha: 0, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
     motionAlpha: 1, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
+    walkCycle: 0,
   },
   angry: {
     eyeOpen: 0.7, pupilDx: 0, pupilDy: 0.1,
@@ -134,6 +136,7 @@ const FRAMES: Record<string, FrameParams> = {
     mouthCurve: -0.6, mouthOpen: 0.2, tongueShow: 0,
     blushAlpha: 0.5, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
     motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
+    walkCycle: 0,
   },
   sweat: {
     eyeOpen: 0.85, pupilDx: 0.15, pupilDy: -0.1,
@@ -141,6 +144,7 @@ const FRAMES: Record<string, FrameParams> = {
     mouthCurve: -0.2, mouthOpen: 0, tongueShow: 0,
     blushAlpha: 0.1, sweatAlpha: 1, sweatSize: 1.3, sparkleAlpha: 0, sparkleCount: 0,
     motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
+    walkCycle: 0,
   },
   sparkle: {
     eyeOpen: 0, pupilDx: 0, pupilDy: 0,
@@ -148,6 +152,7 @@ const FRAMES: Record<string, FrameParams> = {
     mouthCurve: 1, mouthOpen: 0.4, tongueShow: 0,
     blushAlpha: 0.45, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 1, sparkleCount: 3,
     motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0.15, armAngleR: -0.15,
+    walkCycle: 0,
   },
   surprised: {
     eyeOpen: 1.2, pupilDx: 0, pupilDy: -0.15,
@@ -155,6 +160,7 @@ const FRAMES: Record<string, FrameParams> = {
     mouthCurve: 0, mouthOpen: 1, tongueShow: 1,
     blushAlpha: 0.3, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
     motionAlpha: 0, motionSide: "both", legRaiseR: 0, armAngleL: 0, armAngleR: 0,
+    walkCycle: 0,
   },
   leg_raise: {
     eyeOpen: 1, pupilDx: 0.1, pupilDy: 0,
@@ -162,11 +168,26 @@ const FRAMES: Record<string, FrameParams> = {
     mouthCurve: 0.5, mouthOpen: 0, tongueShow: 0,
     blushAlpha: 0, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
     motionAlpha: 0.6, motionSide: "right", legRaiseR: 0.45, armAngleL: 0, armAngleR: 0,
+    walkCycle: 0,
+  },
+  walk_left: {
+    eyeOpen: 0.8, pupilDx: 0.2, pupilDy: 0,
+    browAngleL: 0.02, browAngleR: -0.02, browRaiseL: 0, browRaiseR: 0,
+    mouthCurve: 0.1, mouthOpen: 0, tongueShow: 0,
+    blushAlpha: 0, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
+    motionAlpha: 0.3, motionSide: "right", legRaiseR: 0.5, armAngleL: 0.4, armAngleR: -0.2,
+    walkCycle: 1,
+  },
+  walk_right: {
+    eyeOpen: 0.8, pupilDx: -0.2, pupilDy: 0,
+    browAngleL: -0.02, browAngleR: 0.02, browRaiseL: 0, browRaiseR: 0,
+    mouthCurve: 0.1, mouthOpen: 0, tongueShow: 0,
+    blushAlpha: 0, sweatAlpha: 0, sweatSize: 1, sparkleAlpha: 0, sparkleCount: 0,
+    motionAlpha: 0.3, motionSide: "left", legRaiseR: 0, armAngleL: -0.2, armAngleR: 0.4,
+    walkCycle: 1,
   },
 };
 
-// ── Animation sequences per mood ──
-// Each entry: [frameKey, durationMs]
 type AnimStep = [string, number];
 const MOOD_SEQUENCES: Record<string, AnimStep[]> = {
   friendly: [
@@ -211,7 +232,7 @@ function lerpParams(a: FrameParams, b: FrameParams, t: number): FrameParams {
     "mouthCurve", "mouthOpen", "tongueShow",
     "blushAlpha", "sweatAlpha", "sweatSize",
     "sparkleAlpha", "sparkleCount", "motionAlpha",
-    "legRaiseR", "armAngleL", "armAngleR",
+    "legRaiseR", "armAngleL", "armAngleR", "walkCycle",
   ];
   for (const key of numKeys) {
     (r as any)[key] = lerp(a[key] as number, b[key] as number, t);
@@ -224,7 +245,7 @@ function easeInOut(t: number): number {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// CANVAS DRAWING — exact character from sprite sheet
+// CANVAS DRAWING
 // ══════════════════════════════════════════════════════════════════
 
 function drawCharacter(
@@ -233,6 +254,9 @@ function drawCharacter(
   p: FrameParams,
   phase: number,
   accentColor: string,
+  isPlaying: boolean,
+  walkPhase: number, // 0..1 walk cycle for leg/arm animation
+  isLifted: boolean,
 ) {
   const s = size;
   const cx = s / 2;
@@ -245,17 +269,21 @@ function drawCharacter(
   const acG = parseInt(accentColor.slice(3, 5), 16);
   const acB = parseInt(accentColor.slice(5, 7), 16);
 
-  // Continuous micro-bounce at 60fps
-  const microBounce = Math.sin(phase * 3.2) * s * 0.006;
-  // Micro arm sway
+  // Micro-bounce at 60fps (reduced when lifted)
+  const bounceScale = isLifted ? 0.3 : 1;
+  const microBounce = Math.sin(phase * 3.2) * s * 0.006 * bounceScale;
   const microArmL = Math.sin(phase * 2.5) * 0.04;
   const microArmR = Math.sin(phase * 2.5 + 1.3) * 0.04;
-  // Micro leg sway
   const microLeg = Math.sin(phase * 4.0) * 1.2;
 
-  ctx.translate(0, microBounce);
+  // Walk cycle overrides
+  const isWalking = (p.walkCycle || 0) > 0.1;
+  const walkStride = isWalking ? Math.sin(phase * 6) * 0.35 : 0;
+  const walkBounce = isWalking ? Math.abs(Math.sin(phase * 6)) * s * 0.012 : 0;
 
-  // ── Proportions (exact from sprite) ──
+  ctx.translate(0, microBounce - walkBounce);
+
+  // ── Proportions ──
   const bw = s * 0.38;
   const bh = s * 0.30;
   const bodyY = cy;
@@ -270,11 +298,13 @@ function drawCharacter(
   const HAIR_EDGE = "#311800";
 
   // ═══════════════════════════════
-  // GROUND SHADOW
+  // GROUND SHADOW (bigger when lifted)
   // ═══════════════════════════════
+  const shadowScale = isLifted ? 1.4 : 1;
+  const shadowAlpha = isLifted ? 0.04 : 0.08;
   ctx.beginPath();
-  ctx.ellipse(cx, bodyY + bh + s * 0.14, bw * 0.72, s * 0.018, 0, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(0,0,0,0.08)";
+  ctx.ellipse(cx, bodyY + bh + s * 0.14, bw * 0.72 * shadowScale, s * 0.018 * shadowScale, 0, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(0,0,0,${shadowAlpha})`;
   ctx.fill();
 
   // ═══════════════════════════════
@@ -288,11 +318,10 @@ function drawCharacter(
   ctx.lineJoin = "round";
 
   // Left arm
-  const laAngle = -0.1 + (p.armAngleL || 0) + microArmL;
+  const laAngle = -0.1 + (p.armAngleL || 0) + microArmL + walkStride;
   ctx.save();
   ctx.translate(cx - bw * 0.92, armOriginY);
   ctx.rotate(laAngle);
-  // Arm shape (tapered rectangle)
   ctx.beginPath();
   ctx.moveTo(0, -armThick * 0.6);
   ctx.lineTo(-armLen, -armThick * 0.3);
@@ -304,7 +333,6 @@ function drawCharacter(
   ctx.strokeStyle = OL;
   ctx.lineWidth = outlineW;
   ctx.stroke();
-  // Hand
   ctx.beginPath();
   ctx.arc(-armLen, 0, armThick * 0.45, 0, Math.PI * 2);
   ctx.fillStyle = SKIN;
@@ -315,7 +343,7 @@ function drawCharacter(
   ctx.restore();
 
   // Right arm
-  const raAngle = 0.1 - (p.armAngleR || 0) - microArmR;
+  const raAngle = 0.1 - (p.armAngleR || 0) - microArmR - walkStride;
   ctx.save();
   ctx.translate(cx + bw * 0.92, armOriginY);
   ctx.rotate(raAngle);
@@ -347,7 +375,7 @@ function drawCharacter(
   const legOriginY = bodyY + bh * 0.8;
 
   // Left leg
-  const leftLegX = cx - bw * 0.22 + microLeg;
+  const leftLegX = cx - bw * 0.22 + microLeg + (isWalking ? walkStride * 4 : 0);
   ctx.beginPath();
   ctx.moveTo(leftLegX - legThick * 0.5, legOriginY);
   ctx.lineTo(leftLegX - legThick * 0.45, legOriginY + legLen);
@@ -359,7 +387,6 @@ function drawCharacter(
   ctx.strokeStyle = OL;
   ctx.lineWidth = outlineW;
   ctx.stroke();
-  // Left foot
   const footW = legThick * 1.6;
   const footH = legThick * 0.9;
   ctx.beginPath();
@@ -377,12 +404,12 @@ function drawCharacter(
   ctx.lineWidth = outlineW;
   ctx.stroke();
 
-  // Right leg (may be raised)
+  // Right leg
   const rLegRaise = p.legRaiseR || 0;
-  const rightLegX = cx + bw * 0.22 - microLeg;
+  const rightLegX = cx + bw * 0.22 - microLeg - (isWalking ? walkStride * 4 : 0);
   ctx.save();
   ctx.translate(rightLegX, legOriginY);
-  ctx.rotate(-rLegRaise);
+  ctx.rotate(-rLegRaise - (isWalking ? walkStride * 0.3 : 0));
   ctx.beginPath();
   ctx.moveTo(-legThick * 0.5, 0);
   ctx.lineTo(-legThick * 0.45, legLen);
@@ -394,7 +421,6 @@ function drawCharacter(
   ctx.strokeStyle = OL;
   ctx.lineWidth = outlineW;
   ctx.stroke();
-  // Right foot
   const rfx = -footW * 0.4;
   const rfy = legLen - footH * 0.2;
   ctx.beginPath();
@@ -430,19 +456,14 @@ function drawCharacter(
   ctx.lineWidth = outlineW;
   ctx.stroke();
 
-  // ═══════════════════════════════
-  // SHIRT DETAILS (lower half)
-  // ═══════════════════════════════
+  // Shirt details
   ctx.save();
   ctx.beginPath();
   ctx.ellipse(cx, bodyY, bw - outlineW, bh - outlineW, 0, 0, Math.PI * 2);
   ctx.clip();
-
   const shirtTop = bodyY + bh * 0.1;
   ctx.fillStyle = SKIN;
   ctx.fillRect(cx - bw, shirtTop, bw * 2, bh * 2);
-
-  // Subtle shirt fold
   ctx.strokeStyle = "rgba(0,0,0,0.04)";
   ctx.lineWidth = Math.max(0.5, s * 0.004);
   ctx.beginPath();
@@ -453,10 +474,9 @@ function drawCharacter(
   ctx.moveTo(cx + bw * 0.06, shirtTop + bh * 0.03);
   ctx.lineTo(cx + bw * 0.1, shirtTop + bh * 0.5);
   ctx.stroke();
-
   ctx.restore();
 
-  // ── Collar (V-neck) ──
+  // Collar
   const collarW = bw * 0.32;
   const collarY = bodyY + bh * 0.05;
   ctx.strokeStyle = OL;
@@ -471,7 +491,7 @@ function drawCharacter(
   ctx.lineTo(cx + collarW * 0.15, collarY + bh * 0.12);
   ctx.stroke();
 
-  // ── Tie ──
+  // Tie
   const tieW = bw * 0.09;
   const tieH = bh * 0.42;
   const tieTop = bodyY - bh * 0.02;
@@ -485,7 +505,7 @@ function drawCharacter(
   ctx.fillStyle = "#000000";
   ctx.fill();
 
-  // ── "USA" text ──
+  // "USA" text
   ctx.font = `bold ${Math.max(7, s * 0.065)}px sans-serif`;
   ctx.fillStyle = "rgba(0,0,0,0.4)";
   ctx.textAlign = "center";
@@ -497,7 +517,6 @@ function drawCharacter(
   // ═══════════════════════════════
   const hairBaseY = bodyY - bh * 0.88;
 
-  // Hair dark edge (shadow layer)
   ctx.beginPath();
   ctx.moveTo(cx - bw * 0.42, hairBaseY + bh * 0.38);
   ctx.bezierCurveTo(
@@ -515,7 +534,6 @@ function drawCharacter(
   ctx.fillStyle = HAIR_EDGE;
   ctx.fill();
 
-  // Hair main body
   ctx.beginPath();
   ctx.moveTo(cx - bw * 0.38, hairBaseY + bh * 0.34);
   ctx.bezierCurveTo(
@@ -533,7 +551,6 @@ function drawCharacter(
   ctx.fillStyle = HAIR_DARK;
   ctx.fill();
 
-  // Hair bright fill
   ctx.beginPath();
   ctx.moveTo(cx - bw * 0.34, hairBaseY + bh * 0.30);
   ctx.bezierCurveTo(
@@ -551,7 +568,6 @@ function drawCharacter(
   ctx.fillStyle = HAIR_MAIN;
   ctx.fill();
 
-  // Hair highlight streak
   ctx.beginPath();
   ctx.moveTo(cx - bw * 0.28, hairBaseY + bh * 0.22);
   ctx.quadraticCurveTo(cx - bw * 0.15, hairBaseY - bh * 0.1, cx + bw * 0.02, hairBaseY + bh * 0.02);
@@ -560,7 +576,6 @@ function drawCharacter(
   ctx.lineCap = "round";
   ctx.stroke();
 
-  // Hair outline
   ctx.beginPath();
   ctx.moveTo(cx - bw * 0.38, hairBaseY + bh * 0.34);
   ctx.bezierCurveTo(
@@ -578,6 +593,82 @@ function drawCharacter(
   ctx.stroke();
 
   // ═══════════════════════════════
+  // HEADPHONES (when music is playing)
+  // ═══════════════════════════════
+  if (isPlaying) {
+    const hpColor = "#333333";
+    const hpAccent = accentColor;
+    const hpPadColor = "#555555";
+    const headY = bodyY - bh * 0.55;
+    const headW = bw * 0.75;
+    const hpBandH = s * 0.035;
+    const hpPadW = bw * 0.12;
+    const hpPadH = bh * 0.28;
+
+    // Headband arc
+    ctx.beginPath();
+    ctx.ellipse(cx, headY - bh * 0.18, headW, bh * 0.35, 0, Math.PI * 1.1, Math.PI * 1.9);
+    ctx.strokeStyle = hpColor;
+    ctx.lineWidth = hpBandH;
+    ctx.lineCap = "round";
+    ctx.stroke();
+
+    // Headband highlight
+    ctx.beginPath();
+    ctx.ellipse(cx, headY - bh * 0.18, headW * 0.95, bh * 0.32, 0, Math.PI * 1.15, Math.PI * 1.45);
+    ctx.strokeStyle = hpAccent;
+    ctx.lineWidth = hpBandH * 0.35;
+    ctx.globalAlpha = 0.6;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Left ear pad
+    const lpadX = cx - headW - hpPadW * 0.2;
+    const lpadY = headY + bh * 0.02;
+    ctx.beginPath();
+    ctx.roundRect(lpadX - hpPadW / 2, lpadY - hpPadH / 2, hpPadW, hpPadH, hpPadW * 0.25);
+    ctx.fillStyle = hpColor;
+    ctx.fill();
+    ctx.strokeStyle = OL;
+    ctx.lineWidth = outlineW * 0.6;
+    ctx.stroke();
+    // Pad cushion
+    ctx.beginPath();
+    ctx.roundRect(lpadX - hpPadW * 0.3, lpadY - hpPadH * 0.4, hpPadW * 0.6, hpPadH * 0.8, hpPadW * 0.2);
+    ctx.fillStyle = hpPadColor;
+    ctx.fill();
+    // Accent ring
+    ctx.beginPath();
+    ctx.roundRect(lpadX - hpPadW * 0.35, lpadY - hpPadH * 0.45, hpPadW * 0.7, hpPadH * 0.9, hpPadW * 0.25);
+    ctx.strokeStyle = hpAccent;
+    ctx.lineWidth = Math.max(0.8, s * 0.006);
+    ctx.globalAlpha = 0.5;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Right ear pad
+    const rpadX = cx + headW + hpPadW * 0.2;
+    ctx.beginPath();
+    ctx.roundRect(rpadX - hpPadW / 2, lpadY - hpPadH / 2, hpPadW, hpPadH, hpPadW * 0.25);
+    ctx.fillStyle = hpColor;
+    ctx.fill();
+    ctx.strokeStyle = OL;
+    ctx.lineWidth = outlineW * 0.6;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.roundRect(rpadX - hpPadW * 0.3, lpadY - hpPadH * 0.4, hpPadW * 0.6, hpPadH * 0.8, hpPadW * 0.2);
+    ctx.fillStyle = hpPadColor;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.roundRect(rpadX - hpPadW * 0.35, lpadY - hpPadH * 0.45, hpPadW * 0.7, hpPadH * 0.9, hpPadW * 0.25);
+    ctx.strokeStyle = hpAccent;
+    ctx.lineWidth = Math.max(0.8, s * 0.006);
+    ctx.globalAlpha = 0.5;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // ═══════════════════════════════
   // FACE
   // ═══════════════════════════════
   const faceY = bodyY - bh * 0.18;
@@ -585,11 +676,10 @@ function drawCharacter(
   const eyeW = bw * 0.11;
   const eyeH = bw * 0.15;
 
-  // ── Eyebrows (solid black bars) ──
+  // Eyebrows
   const browLen = eyeW * 1.3;
   const browThick = Math.max(2, s * 0.018);
 
-  // Left eyebrow
   ctx.save();
   ctx.translate(cx - eyeSpacing, faceY - eyeH * 0.7 - (p.browRaiseL || 0) * eyeH);
   ctx.rotate(p.browAngleL || 0);
@@ -599,7 +689,6 @@ function drawCharacter(
   ctx.fill();
   ctx.restore();
 
-  // Right eyebrow
   ctx.save();
   ctx.translate(cx + eyeSpacing, faceY - eyeH * 0.7 - (p.browRaiseR || 0) * eyeH);
   ctx.rotate(p.browAngleR || 0);
@@ -609,12 +698,11 @@ function drawCharacter(
   ctx.fill();
   ctx.restore();
 
-  // ── Eyes ──
+  // Eyes
   const drawEye = (ex: number, ey: number) => {
     const openness = Math.max(0, Math.min(1.2, p.eyeOpen));
 
     if (openness < 0.15) {
-      // Closed eye — upward arc (like ^_^)
       ctx.beginPath();
       ctx.moveTo(ex - eyeW * 0.8, ey);
       ctx.quadraticCurveTo(ex, ey - eyeH * 0.4 * (1 - openness / 0.15), ex + eyeW * 0.8, ey);
@@ -626,13 +714,11 @@ function drawCharacter(
     }
 
     ctx.save();
-    // Clip for openness
     const clipH = eyeH * openness;
     ctx.beginPath();
     ctx.rect(ex - eyeW * 1.5, ey - clipH * 0.4, eyeW * 3, clipH * 1.4);
     ctx.clip();
 
-    // White sclera
     ctx.beginPath();
     ctx.ellipse(ex, ey, eyeW, eyeH, 0, 0, Math.PI * 2);
     ctx.fillStyle = "#FFFFFF";
@@ -641,7 +727,6 @@ function drawCharacter(
     ctx.lineWidth = outlineW;
     ctx.stroke();
 
-    // Black pupil (solid, large — chibi style)
     const pupilR = eyeW * 0.52;
     const px = ex + (p.pupilDx || 0) * eyeW * 0.5;
     const py = ey + (p.pupilDy || 0) * eyeH * 0.3;
@@ -650,14 +735,12 @@ function drawCharacter(
     ctx.fillStyle = "#000000";
     ctx.fill();
 
-    // White highlight (upper-right)
     const hlR = pupilR * 0.35;
     ctx.beginPath();
     ctx.arc(px + pupilR * 0.35, py - pupilR * 0.4, hlR, 0, Math.PI * 2);
     ctx.fillStyle = "#FFFFFF";
     ctx.fill();
 
-    // Second smaller highlight (lower-left)
     ctx.beginPath();
     ctx.arc(px - pupilR * 0.25, py + pupilR * 0.35, hlR * 0.45, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(255,255,255,0.6)";
@@ -669,12 +752,11 @@ function drawCharacter(
   drawEye(cx - eyeSpacing, faceY);
   drawEye(cx + eyeSpacing, faceY);
 
-  // ── Mouth ──
+  // Mouth
   const mouthY = faceY + eyeH * 1.5;
   const mouthW = eyeW * 0.9;
 
   if ((p.mouthOpen || 0) > 0.15) {
-    // Open mouth (ellipse)
     const openH = eyeH * 0.35 * (p.mouthOpen || 0);
     const curve = (p.mouthCurve || 0);
     ctx.beginPath();
@@ -685,7 +767,6 @@ function drawCharacter(
     ctx.lineWidth = outlineW;
     ctx.stroke();
 
-    // Tongue
     if ((p.tongueShow || 0) > 0.1) {
       ctx.beginPath();
       ctx.ellipse(cx, mouthY + openH * 0.5, mouthW * 0.4 * (p.tongueShow || 0), openH * 0.4, 0, 0, Math.PI);
@@ -693,7 +774,6 @@ function drawCharacter(
       ctx.fill();
     }
   } else {
-    // Line mouth
     const curve = p.mouthCurve || 0;
     ctx.beginPath();
     ctx.moveTo(cx - mouthW * 0.7, mouthY);
@@ -704,7 +784,7 @@ function drawCharacter(
     ctx.stroke();
   }
 
-  // ── Cheek blush ──
+  // Cheek blush
   if ((p.blushAlpha || 0) > 0.01) {
     ctx.beginPath();
     ctx.ellipse(cx - eyeSpacing - eyeW * 0.4, faceY + eyeH * 0.7, eyeW * 0.55, eyeH * 0.28, -0.1, 0, Math.PI * 2);
@@ -716,9 +796,7 @@ function drawCharacter(
     ctx.fill();
   }
 
-  // ═══════════════════════════════
-  // SWEAT DROP
-  // ═══════════════════════════════
+  // Sweat drop
   if ((p.sweatAlpha || 0) > 0.01) {
     const swX = cx + bw * 0.65;
     const swY = bodyY - bh * 0.65 + Math.sin(phase * 2) * s * 0.008;
@@ -737,7 +815,6 @@ function drawCharacter(
     ctx.strokeStyle = "#64B5F6";
     ctx.lineWidth = Math.max(0.5, s * 0.005);
     ctx.stroke();
-    // Highlight
     ctx.beginPath();
     ctx.arc(swX - swW * 0.2, swY - swH * 0.15, swW * 0.22, 0, Math.PI * 2);
     ctx.fillStyle = "rgba(255,255,255,0.7)";
@@ -745,9 +822,7 @@ function drawCharacter(
     ctx.globalAlpha = 1;
   }
 
-  // ═══════════════════════════════
-  // SPARKLE STARS
-  // ═══════════════════════════════
+  // Sparkle stars
   if ((p.sparkleAlpha || 0) > 0.01) {
     const sp = phase * 3;
     const count = p.sparkleCount || 3;
@@ -781,9 +856,7 @@ function drawCharacter(
     }
   }
 
-  // ═══════════════════════════════
-  // MOTION LINES
-  // ═══════════════════════════════
+  // Motion lines
   if ((p.motionAlpha || 0) > 0.01) {
     const mAlpha = p.motionAlpha || 0;
     ctx.strokeStyle = `rgba(0,0,0,${0.15 * mAlpha})`;
@@ -804,12 +877,7 @@ function drawCharacter(
     }
   }
 
-  // ═══════════════════════════════
-  // Zzz (sleepy overlay)
-  // ═══════════════════════════════
-  // (drawn by mood overlay system below)
-
-  // ── Subtle accent glow ──
+  // Accent glow
   const glowR = bw * 1.2;
   const glowGrad = ctx.createRadialGradient(cx, bodyY, glowR * 0.3, cx, bodyY, glowR);
   glowGrad.addColorStop(0, `rgba(${acR},${acG},${acB},0.03)`);
@@ -861,36 +929,59 @@ function PetEffect({ onDone }: { onDone: () => void }) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// ANIMATION ENGINE — frame sequencer at 60fps
+// ANIMATION ENGINE
 // ══════════════════════════════════════════════════════════════════
 
 function useFrameSequencer(
   mood: string,
   isPetting: boolean,
   isBlinking: boolean,
+  isWalking: boolean,
+  walkDirection: number, // -1 left, 0 none, 1 right
 ) {
   const stateRef = useRef({
     sequence: MOOD_SEQUENCES.friendly,
     stepIndex: 0,
     stepElapsed: 0,
-    currentParams: FRAMES.neutral,
-    targetParams: FRAMES.neutral,
+    currentParams: { ...FRAMES.neutral },
+    targetParams: { ...FRAMES.neutral },
     transitionProgress: 1,
     prevFrameKey: "neutral" as string,
+    prevMood: "friendly" as string,
   });
+
+  const isBlinkingRef = useRef(isBlinking);
+  isBlinkingRef.current = isBlinking;
+  const isWalkingRef = useRef(isWalking);
+  isWalkingRef.current = isWalking;
+  const walkDirRef = useRef(walkDirection);
+  walkDirRef.current = walkDirection;
 
   useEffect(() => {
     const st = stateRef.current;
     if (isPetting) {
       st.sequence = PET_SEQUENCE;
-    } else {
+      st.stepIndex = 0;
+      st.stepElapsed = 0;
+    } else if (st.prevMood !== mood) {
+      // Mood changed — blend to new sequence
+      st.prevMood = mood;
       st.sequence = MOOD_SEQUENCES[mood] || MOOD_SEQUENCES.friendly;
+      // Don't reset stepIndex — let it wrap naturally for smooth transition
     }
-    // Don't reset step — let it continue smoothly
   }, [mood, isPetting]);
 
   const update = useCallback((dt: number): FrameParams => {
     const st = stateRef.current;
+
+    // If walking, override with walk frame
+    if (isWalkingRef.current) {
+      const walkFrame = walkDirRef.current >= 0 ? FRAMES.walk_right : FRAMES.walk_left;
+      // Blend walk frame with current mood frame
+      const [frameKey] = st.sequence[st.stepIndex];
+      const moodFrame = FRAMES[frameKey] || FRAMES.neutral;
+      return { ...moodFrame, walkCycle: 1, eyeOpen: moodFrame.eyeOpen, mouthCurve: moodFrame.mouthCurve };
+    }
 
     // Advance sequence step
     st.stepElapsed += dt * 1000;
@@ -917,12 +1008,12 @@ function useFrameSequencer(
     }
 
     // Blink override
-    if (isBlinking) {
+    if (isBlinkingRef.current) {
       st.currentParams = { ...st.currentParams, eyeOpen: 0 };
     }
 
     return st.currentParams;
-  }, [isBlinking]);
+  }, []);
 
   return update;
 }
@@ -933,17 +1024,25 @@ function CanvasMascot({
   mood,
   isPetting,
   isBlinking,
+  isPlaying,
+  isLifted,
+  isWalking,
+  walkDirection,
 }: {
   size: number;
   mood: string;
   isPetting: boolean;
   isBlinking: boolean;
+  isPlaying: boolean;
+  isLifted: boolean;
+  isWalking: boolean;
+  walkDirection: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const phaseRef = useRef(0);
   const lastTimeRef = useRef(performance.now());
-  const updateFrame = useFrameSequencer(mood, isPetting, isBlinking);
+  const updateFrame = useFrameSequencer(mood, isPetting, isBlinking, isWalking, walkDirection);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -966,14 +1065,14 @@ function CanvasMascot({
       phaseRef.current += dt;
       const params = updateFrame(dt);
 
-      drawCharacter(ctx, size, params, phaseRef.current, "#e03131");
+      drawCharacter(ctx, size, params, phaseRef.current, "#e03131", isPlaying, 0, isLifted);
       animRef.current = requestAnimationFrame(draw);
     };
 
     animRef.current = requestAnimationFrame(draw);
 
     return () => cancelAnimationFrame(animRef.current);
-  }, [size, mood, isPetting, isBlinking, updateFrame]);
+  }, [size, updateFrame, isPlaying, isLifted]);
 
   return (
     <canvas
@@ -991,44 +1090,125 @@ function CanvasMascot({
 
 export default function MqCat() {
   const catEnabled = useAppStore((s) => s.catEnabled);
-  const catFrequency = useAppStore((s) => s.catFrequency);
   const catMood = useAppStore((s) => s.catMood);
   const catSize = useAppStore((s) => s.catSize);
   const petCat = useAppStore((s) => s.petCat);
+  const isPlaying = useAppStore((s) => s.isPlaying);
 
-  const [isVisible, setIsVisible] = useState(false);
   const [phrase, setPhrase] = useState("");
   const [showPetEffect, setShowPetEffect] = useState(false);
   const [isPetting, setIsPetting] = useState(false);
   const [isBlinking, setIsBlinking] = useState(false);
-  const [isSmiling, setIsSmiling] = useState(false);
 
-  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Walking state
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [isWalking, setIsWalking] = useState(false);
+  const [walkDirection, setWalkDirection] = useState(1); // 1=right, -1=left
+  const [isLifted, setIsLifted] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const walkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const petTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const blinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const smileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const phraseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Drag state
+  const isDragging = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
+  const posRef = useRef({ x: 0, y: 0 });
 
   const size = SIZE_PX[catSize] ?? 100;
 
-  const getRandomPhrase = useCallback((mood: string) => {
-    const list = PHRASES[mood] ?? PHRASES.friendly;
-    return list[Math.floor(Math.random() * list.length)];
-  }, []);
+  // Initialize position to bottom-right
+  useEffect(() => {
+    if (!catEnabled) return;
+    const margin = 16;
+    const initX = window.innerWidth - size - margin;
+    const initY = window.innerHeight - size - 140 - margin; // above player bar
+    setPos({ x: initX, y: initY });
+    posRef.current = { x: initX, y: initY };
+  }, [catEnabled, size]);
 
-  const getRandomDelay = useCallback((freq: string) => {
-    const [min, max] = FREQUENCY_MS[freq] ?? FREQUENCY_MS.normal;
-    return min + Math.random() * (max - min);
-  }, []);
+  // ── Walking logic ──
+  useEffect(() => {
+    if (!catEnabled || isLifted) return;
 
-  const getRandomDismiss = useCallback(() => {
-    const [min, max] = AUTO_DISMISS_MS;
-    return min + Math.random() * (max - min);
-  }, []);
+    const startWalk = () => {
+      if (isDragging.current) {
+        scheduleNextWalk();
+        return;
+      }
+
+      // Pick a random target position
+      const margin = 20;
+      const targetX = margin + Math.random() * (window.innerWidth - size - margin * 2);
+      const targetY = margin + Math.random() * (window.innerHeight - size - 180 - margin);
+
+      const dx = targetX - posRef.current.x;
+      const dy = targetY - posRef.current.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < 30) {
+        scheduleNextWalk();
+        return;
+      }
+
+      setWalkDirection(dx > 0 ? 1 : -1);
+      setIsWalking(true);
+
+      const speed = WALK_SPEED_MIN + Math.random() * (WALK_SPEED_MAX - WALK_SPEED_MIN);
+      const duration = (dist / speed) * 16; // approximate frames
+      const steps = Math.ceil(duration / 16);
+      const stepX = dx / steps;
+      const stepY = dy / steps;
+
+      let step = 0;
+      const walkInterval = setInterval(() => {
+        if (isDragging.current) {
+          clearInterval(walkInterval);
+          setIsWalking(false);
+          scheduleNextWalk();
+          return;
+        }
+        step++;
+        const newX = posRef.current.x + stepX;
+        const newY = posRef.current.y + stepY;
+        posRef.current = { x: newX, y: newY };
+        setPos({ x: newX, y: newY });
+
+        if (step >= steps) {
+          clearInterval(walkInterval);
+          setIsWalking(false);
+          // Show a random phrase sometimes
+          if (Math.random() < 0.3) {
+            const list = PHRASES[useAppStore.getState().catMood] ?? PHRASES.friendly;
+            const newPhrase = list[Math.floor(Math.random() * list.length)];
+            setPhrase(newPhrase);
+            if (phraseTimerRef.current) clearTimeout(phraseTimerRef.current);
+            phraseTimerRef.current = setTimeout(() => setPhrase(""), PHRASE_DISPLAY_MS);
+          }
+          scheduleNextWalk();
+        }
+      }, 16);
+    };
+
+    const scheduleNextWalk = () => {
+      if (walkTimerRef.current) clearTimeout(walkTimerRef.current);
+      const delay = WALK_PAUSE_MIN + Math.random() * (WALK_PAUSE_MAX - WALK_PAUSE_MIN);
+      walkTimerRef.current = setTimeout(startWalk, delay);
+    };
+
+    // Start first walk after a short delay
+    walkTimerRef.current = setTimeout(startWalk, 2000 + Math.random() * 3000);
+
+    return () => {
+      if (walkTimerRef.current) clearTimeout(walkTimerRef.current);
+    };
+  }, [catEnabled, isLifted, size]);
 
   // ── Blink loop ──
   useEffect(() => {
-    if (!isVisible) return;
+    if (!catEnabled) return;
     const doBlink = () => {
       setIsBlinking(true);
       setTimeout(() => setIsBlinking(false), BLINK_DURATION);
@@ -1045,203 +1225,168 @@ export default function MqCat() {
       clearTimeout(first);
       if (blinkTimerRef.current) clearInterval(blinkTimerRef.current);
     };
-  }, [isVisible]);
-
-  // ── Smile flash (not used for frame control but kept for pet) ──
-  useEffect(() => {
-    if (!isVisible || catMood === "sassy" || catMood === "sleepy") return;
-    const interval = setInterval(() => {
-      if (Math.random() < 0.3 && !isPetting) {
-        setIsSmiling(true);
-        setTimeout(() => setIsSmiling(false), SMILE_HOLD_DURATION);
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [isVisible, catMood, isPetting]);
-
-  const showCat = useCallback(() => {
-    const milestoneKey = [10, 50, 100].find(
-      (m) => useAppStore.getState().catPetCount === m
-    );
-    const newPhrase = milestoneKey
-      ? MILESTONES[milestoneKey]
-      : getRandomPhrase(useAppStore.getState().catMood);
-    setPhrase(newPhrase);
-    setIsVisible(true);
-    if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
-    dismissTimerRef.current = setTimeout(() => setIsVisible(false), getRandomDismiss());
-  }, [getRandomPhrase, getRandomDismiss]);
-
-  const dismiss = useCallback(() => {
-    setIsVisible(false);
-    if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
-  }, []);
+  }, [catEnabled]);
 
   const handlePet = useCallback(() => {
     petCat();
     setShowPetEffect(true);
     setIsPetting(true);
-    setIsSmiling(true);
     const resp = PET_RESPONSES[Math.floor(Math.random() * PET_RESPONSES.length)];
     setPhrase(resp);
     if (petTimeoutRef.current) clearTimeout(petTimeoutRef.current);
-    if (smileTimerRef.current) clearTimeout(smileTimerRef.current);
+    if (phraseTimerRef.current) clearTimeout(phraseTimerRef.current);
     petTimeoutRef.current = setTimeout(() => setIsPetting(false), 2200);
-    smileTimerRef.current = setTimeout(() => setIsSmiling(false), 2500);
+    phraseTimerRef.current = setTimeout(() => setPhrase(""), PHRASE_DISPLAY_MS);
   }, [petCat]);
 
   const handlePetEffectDone = useCallback(() => setShowPetEffect(false), []);
 
-  const moodFloat = useMemo(() => {
-    switch (catMood) {
-      case "sleepy":
-        return { y: [0, -1, 0.5, 0], rotate: [0, 1, 0.5, 0] };
-      case "excited":
-        return { y: [0, -4, -1, -5, -0.5, -2.5, 0], rotate: [0, 1.5, -1, 1.2, -0.6, 0.8, 0] };
-      case "sassy":
-        return { y: [0, -2, -0.5, -3, 0], rotate: [0, -1, 0, -1.5, 0] };
-      default:
-        return { y: [0, -3, -1, -4, -0.5, -2.5, 0], rotate: [0, 0.5, -0.3, 0.4, -0.2, 0.4, 0] };
-    }
-  }, [catMood]);
+  // ── Drag handlers ──
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    if (e.button !== 0) return; // left click only
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
 
-  const moodDuration = catMood === "sleepy" ? 6 : catMood === "excited" ? 2 : catMood === "sassy" ? 3.5 : 4;
+    isDragging.current = true;
+    setIsLifted(true);
+    setIsWalking(false);
 
-  // Schedule appearance
-  useEffect(() => {
-    if (!catEnabled) {
-      setIsVisible(false);
-      setIsPetting(false);
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      return;
-    }
-    const initialDelay = getRandomDelay(catFrequency);
-    const firstTimer = setTimeout(() => showCat(), initialDelay);
-    intervalRef.current = setInterval(() => {
-      if (!isVisible && Math.random() < 0.7) showCat();
-    }, 30_000);
-    return () => {
-      clearTimeout(firstTimer);
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
-      if (petTimeoutRef.current) clearTimeout(petTimeoutRef.current);
-      if (smileTimerRef.current) clearTimeout(smileTimerRef.current);
+    dragStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      posX: posRef.current.x,
+      posY: posRef.current.y,
     };
-  }, [catEnabled, catFrequency, isVisible, showCat, getRandomDelay]);
+  }, []);
 
-  useEffect(() => {
-    if (!isVisible && catEnabled) {
-      const delay = getRandomDelay(catFrequency);
-      const timer = setTimeout(() => showCat(), delay);
-      return () => clearTimeout(timer);
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+
+    const margin = 10;
+    const newX = Math.max(margin, Math.min(window.innerWidth - size - margin, dragStartRef.current.posX + dx));
+    const newY = Math.max(margin, Math.min(window.innerHeight - size - margin, dragStartRef.current.posY + dy));
+
+    posRef.current = { x: newX, y: newY };
+    setPos({ x: newX, y: newY });
+  }, [size]);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    if (!isDragging.current) return;
+
+    const dx = Math.abs(e.clientX - dragStartRef.current.x);
+    const dy = Math.abs(e.clientY - dragStartRef.current.y);
+    const totalMove = Math.sqrt(dx * dx + dy * dy);
+
+    // If barely moved — it was a click/pet
+    if (totalMove < 5) {
+      handlePet();
     }
-  }, [isVisible, catEnabled, catFrequency, showCat, getRandomDelay]);
+
+    isDragging.current = false;
+    setIsLifted(false);
+  }, [handlePet]);
 
   if (!catEnabled) return null;
 
   return (
     <AnimatePresence>
-      {isVisible && (
-        <motion.div
-          key="mq-cat"
-          className="fixed z-[40] mq-no-transition"
-          style={{
-            bottom: "calc(72px + env(safe-area-inset-bottom, 0px) + 56px + 8px)",
-            right: "16px",
-          }}
-          initial={{ opacity: 0, y: 80, scale: 0.3 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 60, scale: 0.3 }}
-          transition={{ type: "spring", stiffness: 260, damping: 22, mass: 0.7 }}
-        >
-          {/* Speech bubble */}
-          <motion.div
-            className="absolute mq-no-transition"
-            style={{ bottom: "100%", right: 0, marginBottom: "12px", width: "max-content", maxWidth: "220px" }}
-            initial={{ opacity: 0, y: 12, scale: 0.8 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.8 }}
-            transition={{ delay: 0.3, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <div
-              className="relative rounded-2xl px-4 py-2.5 text-xs leading-relaxed"
+      <motion.div
+        ref={containerRef}
+        key="mq-cat"
+        className="fixed z-[40] mq-no-transition select-none touch-none"
+        style={{
+          left: pos.x,
+          top: pos.y,
+          width: size,
+          height: size,
+          cursor: isLifted ? "grabbing" : "grab",
+        }}
+        initial={{ opacity: 0, scale: 0.3 }}
+        animate={{
+          opacity: 1,
+          scale: isLifted ? LIFT_SCALE : 1,
+        }}
+        transition={{
+          opacity: { duration: 0.3 },
+          scale: { type: "spring", stiffness: 400, damping: 25 },
+        }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+      >
+        {/* Lift shadow effect */}
+        {isLifted && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              boxShadow: `0 ${LIFT_SHADOW}px ${LIFT_SHADOW * 2}px rgba(0,0,0,0.2)`,
+              borderRadius: "50%",
+              transform: `translateY(${LIFT_SHADOW * 0.5}px)`,
+            }}
+          />
+        )}
+
+        <CanvasMascot
+          size={size}
+          mood={catMood}
+          isPetting={isPetting}
+          isBlinking={isBlinking}
+          isPlaying={isPlaying}
+          isLifted={isLifted}
+          isWalking={isWalking}
+          walkDirection={walkDirection}
+        />
+
+        {/* Pet effect */}
+        {showPetEffect && <PetEffect onDone={handlePetEffectDone} />}
+
+        {/* Phrase bubble */}
+        <AnimatePresence>
+          {phrase && (
+            <motion.div
+              key={phrase}
+              initial={{ opacity: 0, y: 5, scale: 0.8 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -5, scale: 0.8 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              className="absolute left-1/2 -translate-x-1/2 pointer-events-none mq-no-transition"
               style={{
-                backgroundColor: "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: "var(--mq-text)",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04) inset",
-                backdropFilter: "blur(12px)",
+                bottom: "calc(100% + 8px)",
+                whiteSpace: "nowrap",
               }}
             >
-              <button
-                onClick={(e) => { e.stopPropagation(); dismiss(); }}
-                className="absolute -top-2 -right-2 w-5 h-5 rounded-full flex items-center justify-center text-[10px] cursor-pointer mq-no-transition"
-                style={{ backgroundColor: "var(--mq-border)", color: "var(--mq-text-muted)", lineHeight: 1, boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}
-                aria-label="Закрыть"
-              >x</button>
-              <div className="absolute -bottom-[6px] right-5 w-3 h-3 rotate-45" style={{ backgroundColor: "var(--mq-card)", borderRight: "1px solid var(--mq-border)", borderBottom: "1px solid var(--mq-border)" }} />
-              <span>{phrase}</span>
-            </div>
-          </motion.div>
-
-          {/* Mascot body */}
-          <motion.button
-            onClick={handlePet}
-            className="relative cursor-pointer outline-none mq-no-transition"
-            style={{ width: size, height: size, background: "transparent", filter: "drop-shadow(0 4px 16px rgba(0,0,0,0.45))" }}
-            whileTap={{ scale: 0.85 }}
-            aria-label="Погладить маскота"
-          >
-            <motion.div
-              className="w-full h-full relative mq-no-transition"
-              animate={
-                isPetting
-                  ? { y: [0, -5, 0, -4, 0], rotate: [0, -6, 4, -3, 0], scale: [1, 1.06, 1.02, 1.08, 1] }
-                  : moodFloat
-              }
-              transition={isPetting
-                ? { duration: 0.5, repeat: Infinity, ease: "easeInOut" }
-                : { duration: moodDuration, repeat: Infinity, ease: "easeInOut" }
-              }
-            >
-              <CanvasMascot size={size} mood={catMood} isPetting={isPetting} isBlinking={isBlinking} />
-              {isPetting && (
-                <motion.div
-                  className="absolute inset-0 mq-no-transition"
-                  style={{ borderRadius: "50%" }}
-                  animate={{
-                    boxShadow: [
-                      "inset 0 0 20px rgba(224,49,49,0.2), 0 0 20px rgba(224,49,49,0.15)",
-                      "inset 0 0 30px rgba(224,49,49,0.35), 0 0 30px rgba(224,49,49,0.25)",
-                    ],
+              <div
+                className="px-3 py-1.5 rounded-2xl text-xs font-medium"
+                style={{
+                  backgroundColor: "rgba(30,30,30,0.92)",
+                  color: "#fff",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  backdropFilter: "blur(12px)",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                }}
+              >
+                {phrase}
+                {/* Bubble tail */}
+                <div
+                  className="absolute left-1/2 -translate-x-1/2"
+                  style={{
+                    top: "100%",
+                    width: 0,
+                    height: 0,
+                    borderLeft: "6px solid transparent",
+                    borderRight: "6px solid transparent",
+                    borderTop: "6px solid rgba(30,30,30,0.92)",
                   }}
-                  transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut", repeatType: "reverse" }}
                 />
-              )}
+              </div>
             </motion.div>
-
-            {/* Music notes */}
-            {!isPetting && (catMood === "friendly" || catMood === "excited") && (
-              <div className="absolute -top-3 -left-1 pointer-events-none mq-no-transition">
-                <motion.span className="text-sm mq-no-transition" style={{ color: "var(--mq-accent)" }}
-                  animate={{ y: [0, -14, -6], opacity: [0.4, 0.8, 0.2], rotate: [0, 12, -6] }}
-                  transition={{ duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
-                >♪</motion.span>
-              </div>
-            )}
-            {!isPetting && catMood === "excited" && (
-              <div className="absolute -top-2 -right-2 pointer-events-none mq-no-transition">
-                <motion.span className="text-xs mq-no-transition" style={{ color: "var(--mq-accent)" }}
-                  animate={{ y: [0, -12, -4], opacity: [0.3, 0.9, 0.1], rotate: [0, -10, 8] }}
-                  transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-                >♫</motion.span>
-              </div>
-            )}
-
-            {showPetEffect && <PetEffect onDone={handlePetEffectDone} />}
-          </motion.button>
-        </motion.div>
-      )}
+          )}
+        </AnimatePresence>
+      </motion.div>
     </AnimatePresence>
   );
 }

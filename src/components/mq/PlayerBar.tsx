@@ -326,19 +326,87 @@ export default function PlayerBar() {
         console.warn(`[Player] Error loading track, retry ${retryCountRef.current}/${maxRetries}`);
         setTimeout(() => {
           retryingRef.current = false;
+          // Try clearing src and re-setting to force a fresh network request
+          const savedSrc = audioEl.src;
+          audioEl.removeAttribute('src');
           audioEl.load();
-          audioEl.play().catch(() => {
-            setPlayError(true);
-            setIsLoadingTrack(false);
-          });
+          setTimeout(() => {
+            audioEl.src = savedSrc;
+            audioEl.load();
+            audioEl.play().then(() => {
+              // Playback recovered
+            }).catch(() => {
+              // Still failing — for SC tracks try one more resolve
+              if (isSCTrack && st.currentTrack?.scTrackId && retryCountRef.current < maxRetries + 1) {
+                retryCountRef.current++;
+                console.warn(`[Player] Extra SC resolve attempt ${retryCountRef.current}`);
+                resolveSoundCloudStream(st.currentTrack.scTrackId).then(stream => {
+                  if (stream?.url && useAppStore.getState().currentTrack?.scTrackId === st.currentTrack?.scTrackId) {
+                    const a = getActive();
+                    if (a) {
+                      a.crossOrigin = 'anonymous';
+                      a.src = stream.url;
+                      a.load();
+                      a.play().catch(() => {
+                        setPlayError(true);
+                        setIsLoadingTrack(false);
+                      });
+                    }
+                  } else {
+                    setPlayError(true);
+                    setIsLoadingTrack(false);
+                  }
+                }).catch(() => {
+                  setPlayError(true);
+                  setIsLoadingTrack(false);
+                });
+              } else {
+                setPlayError(true);
+                setIsLoadingTrack(false);
+              }
+            });
+          }, 100);
         }, 1000 * retryCountRef.current);
       } else {
         setPlayError(true);
         setIsLoadingTrack(false);
         console.warn(`[Player] Max retries reached, auto-skipping to next track`);
+        // Instead of auto-skip, try the track one final time after a longer delay
         setTimeout(() => {
           if (playErrorRef.current && useAppStore.getState().currentTrack) {
-            nextTrackRef.current();
+            const st2 = useAppStore.getState();
+            const track = st2.currentTrack;
+            // Final attempt: re-trigger loadTrack by toggling currentTrack
+            if (track?.scTrackId) {
+              console.warn(`[Player] Final retry: re-resolving stream`);
+              retryCountRef.current = 0; // reset for the new load
+              resolveSoundCloudStream(track.scTrackId).then(stream => {
+                if (stream?.url && useAppStore.getState().currentTrack?.scTrackId === track.scTrackId) {
+                  const a = getActive();
+                  if (a) {
+                    const prevHls = (a as any)._hlsInstance;
+                    if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
+                    a.crossOrigin = 'anonymous';
+                    a.src = stream.url;
+                    a.load();
+                    a.play().then(() => {
+                      setPlayError(false);
+                      setIsLoadingTrack(false);
+                    }).catch(() => {
+                      // Truly failed — skip to next
+                      setPlayError(true);
+                      setTimeout(() => { nextTrackRef.current(); }, 1000);
+                    });
+                  }
+                } else {
+                  nextTrackRef.current();
+                }
+              }).catch(() => {
+                nextTrackRef.current();
+              });
+            } else {
+              nextTrackRef.current();
+            }
           }
         }, 2000);
       }
