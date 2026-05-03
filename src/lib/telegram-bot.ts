@@ -23,7 +23,7 @@ import {
   setMyCommands,
   setChatMenuButton,
 } from "@/lib/telegram";
-import { searchSCTracks } from "@/lib/soundcloud";
+import { searchSCTracks, resolveSCStreamUrl } from "@/lib/soundcloud";
 
 /* ------------------------------------------------------------------ */
 /*  Site origin (set from webhook request)                             */
@@ -436,29 +436,35 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     if (!track) return;
 
     const keyboard = buildPreviewKeyboard(index);
-    const previewUrl = track.previewUrl || track.audioUrl || "";
 
-    if (previewUrl) {
-      await editMessageText(chatId, messageId,
-        `Предпрослушивание: <b>${track.title}</b> — ${track.artist}`,
-        { parseMode: "HTML" }
-      );
-      // Send audio for preview
-      await sendTelegramAudio(chatId, previewUrl, {
-        title: track.title,
-        performer: track.artist,
-        duration: track.duration,
-        caption: `${track.title} — ${track.artist}`,
-        replyMarkup: keyboard,
-      });
-    } else {
-      // No preview URL — show SoundCloud link
-      const scLink = track.permalinkUrl || `https://soundcloud.com/search?q=${encodeURIComponent(track.title + ' ' + track.artist)}`;
-      await editMessageText(chatId, messageId,
-        `<b>${track.title}</b> — ${track.artist}\n\nПрослушать: <a href="${scLink}">открыть на SoundCloud</a>`,
-        { parseMode: "HTML", replyMarkup: keyboard }
-      );
+    // Send "searching audio..." message
+    await editMessageText(chatId, messageId,
+      `Загружаю: <b>${track.title}</b> — ${track.artist}...`,
+      { parseMode: "HTML" }
+    );
+
+    // Try to resolve a direct audio URL from SoundCloud
+    if (track.scTrackId) {
+      const audioUrl = await resolveSCStreamUrl(track.scTrackId);
+      if (audioUrl) {
+        // Send audio as a proper Telegram audio message
+        await sendTelegramAudio(chatId, audioUrl, {
+          title: track.title,
+          performer: track.artist,
+          duration: track.duration,
+          caption: `🎵 ${track.title} — ${track.artist}`,
+          replyMarkup: keyboard,
+        });
+        return;
+      }
     }
+
+    // Fallback: if we can't resolve audio, send a link
+    const scLink = track.permalinkUrl || `https://soundcloud.com/search?q=${encodeURIComponent(track.title + ' ' + track.artist)}`;
+    await editMessageText(chatId, messageId,
+      `<b>${track.title}</b> — ${track.artist}\n\nНе удалось загрузить аудио.\nПрослушать: <a href="${scLink}">открыть на SoundCloud</a>`,
+      { parseMode: "HTML", replyMarkup: keyboard }
+    );
     return;
   }
 
@@ -724,7 +730,7 @@ async function handleImportToPlaylist(chatId: string, playlistId: string, data: 
   await db.playlist.update({ where: { id: playlistId }, data: { tracksJson: JSON.stringify(tracks) } });
 
   await sendTelegramMessage(chatId,
-    `Трек добавлен в <b>${playlist.name}</b>:\n${trackTitle} — ${trackArtist} (${formatDuration(data.fileDuration)})\n\nВсего треков: ${tracks.length}`,
+    `Трек добавлен в <b>${playlist.name}</b>:\n${trackTitle} — ${trackArtist} (${formatDuration(data.fileDuration)})\n\nВсего треков: ${tracks.length}\nТрек доступен для воспроизведения на сайте.`,
     { parseMode: "HTML" }
   );
 }
@@ -793,7 +799,7 @@ async function handleAddSearchTrackToPlaylist(chatId: string, playlistId: string
   await db.playlist.update({ where: { id: playlistId }, data: { tracksJson: JSON.stringify(tracks) } });
 
   await sendTelegramMessage(chatId,
-    `Трек добавлен в <b>${playlist.name}</b>:\n${scTrack.title} — ${scTrack.artist}\n\nВсего треков: ${tracks.length}`,
+    `Трек добавлен в <b>${playlist.name}</b>:\n${scTrack.title} — ${scTrack.artist}\n\nВсего треков: ${tracks.length}\nТрек доступен для воспроизведения на сайте.`,
     { parseMode: "HTML" }
   );
 }
@@ -806,18 +812,22 @@ async function handlePlaylists(chatId: string) {
   const user = await findUserByChatId(chatId);
   if (!user) { await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code"); return; }
 
-  const playlists = await db.playlist.findMany({
+  let playlists = await db.playlist.findMany({
     where: { userId: user.id },
     orderBy: { updatedAt: "desc" },
     select: { id: true, name: true, description: true, tracksJson: true, createdAt: true },
   });
 
+  // Auto-create "Избранное" if no playlists exist
   if (playlists.length === 0) {
-    await sendTelegramMessage(chatId,
-      "У вас пока нет плейлистов.\n\nСоздайте первый через /newplaylist или при добавлении трека плейлист создастся автоматически.",
-      { parseMode: "HTML" }
-    );
-    return;
+    await db.playlist.create({
+      data: { userId: user.id, name: "Избранное", tracksJson: "[]" },
+    });
+    playlists = await db.playlist.findMany({
+      where: { userId: user.id },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, name: true, description: true, tracksJson: true, createdAt: true },
+    });
   }
 
   const lines = playlists.map((pl, i) => {
@@ -825,9 +835,20 @@ async function handlePlaylists(chatId: string) {
     return `<b>${i + 1}.</b> ${pl.name} — ${count} треков`;
   });
 
+  const deleteButtons = playlists.slice(0, 6).map((pl) => ({
+    text: `🗑 ${pl.name}`,
+    callback_data: `delete_playlist:${pl.id}`,
+  }));
+  const rows: Array<Array<{ text: string; callback_data: string }>> = [];
+  for (let i = 0; i < deleteButtons.length; i += 2) rows.push(deleteButtons.slice(i, i + 2));
+  rows.push([{ text: "Создать новый", callback_data: "cmd_newplaylist" }]);
+
   await sendTelegramMessage(chatId,
-    `♫ <b>Ваши плейлисты</b> (${playlists.length}):\n\n${lines.join("\n")}`,
-    { parseMode: "HTML" }
+    `♫ <b>Ваши плейлисты</b> (${playlists.length}):\n\n${lines.join("\n")}\n\nЭти плейлисты также доступны на сайте в вашем аккаунте.`,
+    {
+      parseMode: "HTML",
+      replyMarkup: playlists.length <= 6 ? { inline_keyboard: rows } : undefined,
+    }
   );
 }
 
@@ -853,8 +874,8 @@ async function handleNewPlaylist(chatId: string, name: string) {
   await db.playlist.create({ data: { userId: user.id, name: name.trim(), tracksJson: "[]" } });
 
   await sendTelegramMessage(chatId,
-    `Плейлист <b>${name.trim()}</b> создан!\n\nТеперь вы можете:\n` +
-    `• Отправить аудио боту для импорта\n• Использовать /search для поиска треков`,
+    `Плейлист <b>${name.trim()}</b> создан!\nОн также доступен на сайте в вашем аккаунте.\n\nТеперь вы можете:\n` +
+    `• Отправить аудио боту для импорта\n• Использовать /search для поиска треков\n• Открыть /playlists для просмотра всех плейлистов`,
     { parseMode: "HTML" }
   );
 }

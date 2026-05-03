@@ -179,6 +179,89 @@ export async function searchSCArtists(
 /*  Track search (existing)                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * Resolve a SoundCloud track to a direct progressive audio URL.
+ * Used by the Telegram bot to send audio previews in chat.
+ * Tries progressive (MP3) transcodings first for Telegram compatibility.
+ */
+export async function resolveSCStreamUrl(scTrackId: number): Promise<string | null> {
+  const CLIENT_IDS_STREAM = [
+    "1Gbi6DBGBMULQH8MuhNvI1HzL9AiX2Pa",
+    "qYUIEFbSZdXPABQbuHA2Tv8C9ndesHim",
+    "S3TPtG5i3yzBs1BPd50h1N5TW2kNTo5k",
+    "gYfbOmxjDgPKEbOlXIBOAOvFpWkf8SbA",
+    "nDSHHx4FpO2gOGKmGqLaWbDXEmwo4RAC",
+  ];
+
+  for (const clientId of CLIENT_IDS_STREAM) {
+    try {
+      // 1. Get track info with transcodings
+      const trackRes = await fetch(
+        `https://api-v2.soundcloud.com/tracks/${scTrackId}?client_id=${clientId}`,
+        { signal: AbortSignal.timeout(10000), headers: { Accept: "application/json" } }
+      );
+      if (!trackRes.ok) continue;
+
+      const track = await trackRes.json();
+      const transcodings: Array<{ url?: string; format?: { protocol?: string } }> =
+        (track.media?.transcodings || []).filter(Boolean);
+
+      const trackAuthorization = (track as Record<string, unknown>).track_authorization as string || "";
+
+      // 2. Try progressive (MP3) first — Telegram plays these natively
+      const progressive = transcodings.find((t) => t.format?.protocol === "progressive");
+      if (progressive?.url) {
+        const resolved = await resolveTemplateUrl(progressive.url, clientId, trackAuthorization);
+        if (resolved) return resolved;
+      }
+
+      // 3. Try plain HLS
+      const hls = transcodings.find((t) => t.format?.protocol === "hls");
+      if (hls?.url) {
+        const resolved = await resolveTemplateUrl(hls.url, clientId, trackAuthorization);
+        if (resolved) return resolved;
+      }
+
+      // 4. Try any other transcoding
+      for (const tc of transcodings) {
+        if (tc.url && tc.format?.protocol !== "progressive" && tc.format?.protocol !== "hls") {
+          const resolved = await resolveTemplateUrl(tc.url, clientId, trackAuthorization);
+          if (resolved) return resolved;
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+async function resolveTemplateUrl(
+  templateUrl: string,
+  clientId: string,
+  trackAuthorization: string
+): Promise<string | null> {
+  try {
+    const separator = templateUrl.includes("?") ? "&" : "?";
+    let url = `${templateUrl}${separator}client_id=${clientId}`;
+    if (trackAuthorization) {
+      url += `&track_authorization=${encodeURIComponent(trackAuthorization)}`;
+    }
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.url) return data.url;
+    }
+  } catch {}
+  return null;
+}
+
 export async function searchSCTracks(
   query: string,
   limit = 20
