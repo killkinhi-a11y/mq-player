@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { handleTelegramMessage, handleCallbackQuery, setSiteOrigin } from "@/lib/telegram-bot";
 
 /**
  * Telegram Webhook endpoint.
  *
- * Handles both messages and callback_query (inline keyboard presses).
- * Delegates to telegram-bot.ts for all command/state logic.
- *
- * Uses Node.js runtime (Prisma requires it).
- * To reduce cold starts, Vercel keeps the function warm after first invocation.
+ * Uses Next.js `after()` to process messages AFTER sending 200 to Telegram.
+ * This prevents Telegram from timing out while ensuring the handler
+ * actually completes (unlike fire-and-forget which Vercel may freeze).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -23,18 +22,20 @@ export async function POST(req: NextRequest) {
 
     // Handle callback query (inline keyboard button press)
     if (body.callback_query) {
-      // Fire and forget — always respond 200 to Telegram
-      handleCallbackQuery(body).catch((err) =>
-        console.error("[TELEGRAM WEBHOOK] callback_query error:", err)
+      after(() =>
+        handleCallbackQuery(body).catch((err) =>
+          console.error("[TELEGRAM WEBHOOK] callback_query error:", err)
+        )
       );
       return NextResponse.json({ ok: true });
     }
 
     // Handle message
     if (body.message) {
-      // Fire and forget — always respond 200 to Telegram
-      handleTelegramMessage(body).catch((err) =>
-        console.error("[TELEGRAM WEBHOOK] message error:", err)
+      after(() =>
+        handleTelegramMessage(body).catch((err) =>
+          console.error("[TELEGRAM WEBHOOK] message error:", err)
+        )
       );
       return NextResponse.json({ ok: true });
     }
