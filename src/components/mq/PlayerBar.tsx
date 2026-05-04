@@ -145,7 +145,8 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult 
     }
 
     return null;
-  } catch {
+  } catch (err) {
+    console.warn("[resolveSoundCloudStream] failed:", err);
     return null;
   }
 }
@@ -304,7 +305,10 @@ export default function PlayerBar() {
         } catch {}
       }
     };
-    const onLoaded = () => {
+    const onLoaded = (e: Event) => {
+      // Ignore metadata events from inactive element during crossfade
+      const target = e.target as HTMLAudioElement | null;
+      if (target && target !== getActive()) return;
       const a = getActive();
       if (a?.duration && isFinite(a.duration)) setDurationRef.current(a.duration);
     };
@@ -376,13 +380,19 @@ export default function PlayerBar() {
         setIsLoadingTrack(false);
         retryingRef.current = false; // safety: ensure not stuck
         prevTrackIdForCrossfade.current = null; // prevent crossfade from errored track
+        const errTrackId = st.currentTrack?.id; // capture to avoid skipping wrong track
         try {
           toast({
             title: "Ошибка воспроизведения",
             description: message,
           });
         } catch {}
-        setTimeout(() => { nextTrackRef.current(); }, 1500);
+        setTimeout(() => {
+          // Only skip if user hasn't already changed tracks
+          if (useAppStore.getState().currentTrack?.id === errTrackId) {
+            nextTrackRef.current();
+          }
+        }, 1500);
       };
 
       // For SoundCloud tracks: re-resolve stream URL instead of reloading same (possibly expired) URL
@@ -401,7 +411,8 @@ export default function PlayerBar() {
           if (currentSt.currentTrack?.scTrackId !== scId) return;
 
           if (stream?.url) {
-            const a = getActive();
+            // Use audioEl captured at error time, not getActive() which may have changed
+            const a = audioEl;
             if (a) {
               // Clean up any previous HLS instance before switching source
               const prevHls = (a as any)._hlsInstance;
@@ -521,9 +532,12 @@ export default function PlayerBar() {
       // Prevents secondary crossfade element from re-triggering play after user pauses
       const target = e.target as HTMLAudioElement | null;
       if (target && target !== getActive()) return;
-      if (!useAppStore.getState().isPlaying) {
+      // Don't toggle play during crossfade — the fade-in is intentional
+      if (!useAppStore.getState().isPlaying && !crossfadeRef.current) {
         useAppStore.getState().togglePlay();
       }
+      // Reset crossfade flag after playback confirmed
+      crossfadeRef.current = false;
     };
 
     // Listen on both audio elements
@@ -540,38 +554,36 @@ export default function PlayerBar() {
             PlayerErrorLogger.log(st.currentTrack?.title || "unknown", "Loading timeout (10s)", "force retry");
             // For SC tracks: re-resolve stream URL (may have expired)
             if (st.currentTrack?.scTrackId && !retryingRef.current) {
+              retryingRef.current = true; // prevent concurrent retries
               resolveSoundCloudStream(st.currentTrack.scTrackId).then(stream => {
-                if (stream?.url && a) {
-                  const prevHls = (a as any)._hlsInstance;
-                  if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
-                  a.crossOrigin = 'anonymous';
+                retryingRef.current = false;
+                if (!stream?.url || !a) return;
+                // Check track hasn't changed
+                if (useAppStore.getState().currentTrack?.scTrackId !== st.currentTrack?.scTrackId) return;
+                const prevHls = (a as any)._hlsInstance;
+                if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
+                a.crossOrigin = 'anonymous';
+                if (stream.isHls && Hls.isSupported()) {
+                  // HLS streams MUST use HLS.js
+                  const hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30, maxMaxBufferLength: 60 });
+                  hls.loadSource(stream.url);
+                  hls.attachMedia(a);
+                  hls.on(Hls.Events.MANIFEST_PARSED, () => { a.play().catch(() => {}); });
+                  hls.on(Hls.Events.ERROR, (_ev, data) => { if (data.fatal) { hls.destroy(); delete (a as any)._hlsInstance; } });
+                  (a as any)._hlsInstance = hls;
+                } else {
                   a.src = stream.url;
                   a.load();
                   a.play().catch(() => {});
                 }
               }).catch(() => {
-                // Fallback: try play() again
-                a.play().then(() => {}).catch(() => {
-                  if (a.src) {
-                    const savedSrc = a.src;
-                    a.removeAttribute("src");
-                    a.load();
-                    setTimeout(() => { a.src = savedSrc; a.load(); a.play().catch(() => {}); }, 200);
-                  }
-                });
+                retryingRef.current = false;
+                a.play().then(() => {}).catch(() => {});
               });
             } else {
               a.play().then(() => {
                 console.log("[Player] Force play succeeded after timeout");
-              }).catch((err) => {
-                console.warn("[Player] Force play failed:", err.message);
-                if (a.src) {
-                  const savedSrc = a.src;
-                  a.removeAttribute("src");
-                  a.load();
-                  setTimeout(() => { a.src = savedSrc; a.load(); a.play().catch(() => {}); }, 200);
-                }
-              });
+              }).catch(() => {});
             }
           }
         }
@@ -1001,6 +1013,7 @@ export default function PlayerBar() {
   useEffect(() => {
     if (!currentTrack) {
       setPlaybackMode("idle");
+      setIsLoadingTrack(false);
       return;
     }
 
@@ -1014,6 +1027,7 @@ export default function PlayerBar() {
 
     // Cancellation flag — prevents race conditions from rapid track switching
     let cancelled = false;
+    const pendingTimeouts: ReturnType<typeof setTimeout>[] = []; // track all timeouts for cleanup
 
     const loadTrack = async () => {
       try {
@@ -1164,9 +1178,10 @@ export default function PlayerBar() {
                   setPlayError(true);
                   try { hls.destroy(); } catch {}
                   delete (audioEl as any)._hlsInstance;
-                  setTimeout(() => nextTrackRef.current(), 1500);
+                  pendingTimeouts.push(setTimeout(() => nextTrackRef.current(), 1500));
                 }
               }, 10000);
+              pendingTimeouts.push(hlsManifestTimeout);
 
               // DRM diagnostic logging
               hls.on(Hls.Events.KEY_LOADING, (_event, data) => {
@@ -1192,9 +1207,10 @@ export default function PlayerBar() {
                   setIsLoadingTrack(false);
                   setPlayError(true);
                   hls.destroy();
-                  setTimeout(() => nextTrackRef.current(), 2000);
+                  pendingTimeouts.push(setTimeout(() => nextTrackRef.current(), 2000));
                 }
               }, 12000);
+              pendingTimeouts.push(drmTimeout);
 
               hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 if (!cancelled) {
@@ -1373,7 +1389,7 @@ export default function PlayerBar() {
 
     loadTrack();
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; pendingTimeouts.forEach(t => clearTimeout(t)); };
   }, [currentTrack?.id]);
 
   // ── Override prevTrack: seek audio to 0 when progress > 3s ──

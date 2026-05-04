@@ -196,11 +196,16 @@ export function crossfadeTo(newAudio: HTMLAudioElement, fadeIn: boolean = true):
 
   // Stop old audio after crossfade completes
   setTimeout(() => {
-    if (oldAudio && oldAudio !== getAudioElement()) {
-      oldAudio.pause();
-      oldAudio.currentTime = 0;
-      // Don't set src="" — keeps it ready for next crossfade
-    }
+    const current = getAudioElement();
+    [_audioA, _audioB].forEach(el => {
+      if (el && el !== current) {
+        el.pause();
+        el.currentTime = 0;
+        // Destroy any HLS instance on the old element to stop buffering
+        const hls = (el as any)._hlsInstance;
+        if (hls) { try { hls.destroy(); } catch {} delete (el as any)._hlsInstance; }
+      }
+    });
   }, (duration + 0.1) * 1000);
 }
 

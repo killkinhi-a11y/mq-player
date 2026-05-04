@@ -181,6 +181,7 @@ export async function GET(request: NextRequest) {
           // Successfully resolved — return the URL with format metadata
           return NextResponse.json({
             url: resolvedUrl,
+            trackAuthorization: info.trackAuthorization,
             isHls: tc.isHls,
             isEncrypted: tc.isEncrypted,
             protocol: tc.protocol,
@@ -204,6 +205,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         url: null,
         resolveUrl: fallbackUrl,
+        trackAuthorization: info.trackAuthorization,
         isHls: fallback.isHls,
         isEncrypted: fallback.isEncrypted,
         protocol: fallback.protocol,
