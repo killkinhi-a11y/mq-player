@@ -780,11 +780,11 @@ export default function PlaylistView() {
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
       >
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>
+        <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+          <h1 className="text-2xl font-bold truncate min-w-0" style={{ color: "var(--mq-text)" }}>
             Плейлисты
           </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.9 }}

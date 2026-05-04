@@ -101,11 +101,25 @@ export const mockContacts: Contact[] = [
   { id: "c24", name: "Юлия Степанова", username: "yulia_step", avatar: "https://ui-avatars.com/api/?name=ЮС&background=e040fb&color=fff&size=128", online: true, lastSeen: "Сейчас" },
 ];
 
+export function normalizeDuration(d: number): number {
+  // SoundCloud returns duration in milliseconds; detect and convert to seconds
+  // If value looks like milliseconds (> 60000 = 10min), divide by 1000
+  if (!d || !isFinite(d) || d <= 0) return 0;
+  if (d > 60000) return d / 1000;
+  return d;
+}
+
 export function formatDuration(seconds: number): string {
-  if (!seconds || !isFinite(seconds) || seconds <= 0) return "0:00";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
+  const s = normalizeDuration(seconds);
+  if (s <= 0) return "0:00";
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    const rm = m % 60;
+    return `${h}:${rm.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
+  }
+  return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
 export async function searchTracks(query: string): Promise<Track[]> {

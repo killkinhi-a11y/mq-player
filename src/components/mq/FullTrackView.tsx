@@ -938,9 +938,9 @@ export default function FullTrackView() {
               initial={animationsEnabled ? { scale: 0.8, opacity: 0 } : undefined}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 200 }}
-              className="mb-6 sm:mb-8 flex items-center justify-center"
+              className="mb-3 sm:mb-5 flex items-center justify-center"
             >
-              <div className="w-48 h-48 sm:w-64 sm:h-64 lg:w-80 lg:h-80 rounded-2xl overflow-hidden shadow-2xl relative z-10"
+              <div className="w-44 h-44 sm:w-56 sm:h-56 lg:w-72 lg:h-72 rounded-2xl overflow-hidden shadow-2xl relative z-10"
                 style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
                 {currentPlaylistId ? (
                   <PlaylistArtwork
@@ -961,7 +961,7 @@ export default function FullTrackView() {
           {canvasMode && <div className="mb-8" style={{ height: "clamp(14rem, 40vh, 20rem)" }} />}
 
           {/* Track info */}
-          <div className="text-center mb-4 sm:mb-6 w-full">
+          <div className="text-center mb-2 sm:mb-4 w-full">
             <h2 className="text-xl font-bold mb-1 truncate" style={{ color: "var(--mq-text)" }}>
               {currentTrack.title}
             </h2>
@@ -974,7 +974,7 @@ export default function FullTrackView() {
           </div>
 
           {/* Progress bar */}
-          <div className="w-full mb-4 sm:mb-6">
+          <div className="w-full mb-3 sm:mb-4">
             <div ref={progressRef}
               onMouseDown={handleProgressMouseDown}
               onTouchStart={handleProgressTouchStart}
@@ -992,7 +992,7 @@ export default function FullTrackView() {
           </div>
 
           {/* Action buttons — wrap to 2 rows on mobile, single row on desktop */}
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-4 sm:mb-6 px-2 sm:px-0">
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3 px-2 sm:px-0">
             {/* Row 1: Primary actions — always visible */}
             <div className="flex items-center justify-center gap-2 sm:gap-3">
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}

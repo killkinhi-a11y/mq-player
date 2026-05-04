@@ -53,8 +53,8 @@ function RecCategoryRow({ category, index, playTrack, animationsEnabled, compact
           style={{ backgroundColor: "var(--mq-accent)", opacity: 0.85 }}>
           <span style={{ color: "var(--mq-text)" }}>{Icon}</span>
         </div>
-        <button onClick={() => onOpenAll(category)} className="cursor-pointer hover:opacity-80 transition-opacity">
-          <h2 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>
+        <button onClick={() => onOpenAll(category)} className="cursor-pointer hover:opacity-80 transition-opacity min-w-0">
+          <h2 className="text-base font-bold truncate" style={{ color: "var(--mq-text)" }}>
             {category.title}
           </h2>
         </button>
@@ -549,71 +549,6 @@ export default function MainView() {
     };
   }, [likedTrackIds, dislikedTrackIds, likedTracksData, dislikedTracksData, history]);
 
-  // Fetch trending tracks
-  useEffect(() => {
-    let cancelled = false;
-    const fetchTrending = async () => {
-      setIsLoading(true);
-      try {
-        const { dislikedArtists, dislikedGenres, excludeIds } = tasteProfile;
-        const disliked = useAppStore.getState().dislikedTrackIds || [];
-        const params = new URLSearchParams();
-        if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
-        if (dislikedArtists) params.set("dislikedArtists", dislikedArtists);
-        if (dislikedGenres) params.set("dislikedGenres", dislikedGenres);
-        const res = await fetch(`/api/music/trending?${params}`);
-        if (!cancelled) {
-          const data = await res.json();
-          // Also filter client-side for excludeIds
-          const excludeSet = new Set(excludeIds.split(",").filter(Boolean));
-          const filtered = (data.tracks || []).filter((t: Track) => !excludeSet.has(t.id));
-          setTrendingTracks(filtered);
-        }
-      } catch {
-        if (!cancelled) setTrendingTracks([]);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    };
-    fetchTrending();
-    return () => { cancelled = true; };
-  }, [tasteProfile]);
-
-  // Fetch curated algorithmic playlists
-  useEffect(() => {
-    let cancelled = false;
-    const fetchCurated = async () => {
-      setCuratedLoading(true);
-      try {
-        const { topGenres, topArtists } = tasteProfile;
-        const sp = new URLSearchParams();
-        if (userId) sp.set("userId", userId);
-        if (topGenres.length > 0) sp.set("genres", topGenres.join(","));
-        if (topArtists.length > 0) sp.set("artists", topArtists.join(","));
-        // Pass liked track SC IDs for "Похожее" playlist via SoundCloud related API
-        const likedSc = useAppStore.getState().likedTracksData
-          .map((t: any) => t.scTrackId)
-          .filter((id: any): id is number => !!id)
-          .slice(0, 3)
-          .join(",");
-        if (likedSc) sp.set("likedScIds", likedSc);
-        // Pass language preference
-        if (languagePreference !== "mixed") sp.set("lang", languagePreference);
-        const res = await fetch(`/api/playlists/curated?${sp}`);
-        if (!cancelled && res.ok) {
-          const data = await res.json();
-          setCuratedPlaylists(data.playlists || []);
-        }
-      } catch {
-        if (!cancelled) setCuratedPlaylists([]);
-      } finally {
-        if (!cancelled) setCuratedLoading(false);
-      }
-    };
-    fetchCurated();
-    return () => { cancelled = true; };
-  }, [tasteProfile, userId]);
-
   // Detect language preference from listening history
   const languagePreference = useMemo(() => {
     const { likedTracksData, history } = useAppStore.getState();
@@ -635,6 +570,54 @@ export default function MainView() {
     if (total === 0 || sorted[0][1] < total * 0.4) return "mixed";
     return sorted[0][0] as "russian" | "english" | "latin";
   }, [likedTracksData, history]);
+
+  // Fetch trending tracks and curated playlists in parallel
+  useEffect(() => {
+    let cancelled = false;
+    const fetchAll = async () => {
+      setIsLoading(true);
+      try {
+        const { dislikedArtists, dislikedGenres, excludeIds } = tasteProfile;
+        const disliked = useAppStore.getState().dislikedTrackIds || [];
+
+        const trendingParams = new URLSearchParams();
+        if (disliked.length > 0) trendingParams.set("dislikedIds", disliked.join(","));
+        if (dislikedArtists) trendingParams.set("dislikedArtists", dislikedArtists);
+        if (dislikedGenres) trendingParams.set("dislikedGenres", dislikedGenres);
+
+        const { topGenres, topArtists } = tasteProfile;
+        const curatedParams = new URLSearchParams();
+        if (userId) curatedParams.set("userId", userId);
+        if (topGenres.length > 0) curatedParams.set("genres", topGenres.join(","));
+        if (topArtists.length > 0) curatedParams.set("artists", topArtists.join(","));
+        const likedSc = useAppStore.getState().likedTracksData.map((t: any) => t.scTrackId).filter((id: any): id is number => !!id).slice(0, 3).join(",");
+        if (likedSc) curatedParams.set("likedScIds", likedSc);
+        if (languagePreference !== "mixed") curatedParams.set("lang", languagePreference);
+
+        const [trendingRes, curatedRes] = await Promise.all([
+          fetch(`/api/music/trending?${trendingParams}`),
+          fetch(`/api/playlists/curated?${curatedParams}`),
+        ]);
+
+        if (!cancelled) {
+          const trendingData = await trendingRes.json();
+          const excludeSet = new Set(excludeIds.split(",").filter(Boolean));
+          const filtered = (trendingData.tracks || []).filter((t: Track) => !excludeSet.has(t.id));
+          setTrendingTracks(filtered);
+        }
+        if (!cancelled && curatedRes.ok) {
+          const curatedData = await curatedRes.json();
+          setCuratedPlaylists(curatedData.playlists || []);
+        }
+      } catch {
+        if (!cancelled) { setTrendingTracks([]); setCuratedPlaylists([]); }
+      } finally {
+        if (!cancelled) { setIsLoading(false); setCuratedLoading(false); }
+      }
+    };
+    fetchAll();
+    return () => { cancelled = true; };
+  }, [tasteProfile, userId, languagePreference]);
 
   // Fetch smart recommendations based on taste
   const loadRecommendations = useCallback(async () => {
@@ -1618,88 +1601,90 @@ export default function MainView() {
         </div>
       </motion.div>
 
-      {/* Liked tracks overlay — GPU-accelerated slide animation */}
+      {/* Liked tracks panel — smooth 60fps height animation */}
       <AnimatePresence>
         {showLikedTracks && (
           <motion.div
-            initial={{ opacity: 0, x: "100%", willChange: "transform" }}
-            animate={{ opacity: 1, x: 0, willChange: "auto" }}
-            exit={{ opacity: 0, x: "100%", willChange: "transform" }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            style={{ willChange: "transform" }}
-            className="fixed inset-0 z-50 overflow-y-auto"
+            key="liked-panel"
+            initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+            animate={{ opacity: 1, height: "auto", overflow: "hidden" }}
+            exit={{ opacity: 0, height: 0, overflow: "hidden" }}
+            transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+            style={{ willChange: "transform, opacity" }}
           >
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="absolute inset-0 bg-black/40"
-              onClick={() => setShowLikedTracks(false)}
-              style={{ backdropFilter: "blur(4px)" }}
-            />
-            {/* Panel */}
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              style={{ willChange: "transform", transform: "translateZ(0)" }}
-              className="absolute right-0 top-0 bottom-0 w-full max-w-md overflow-y-auto"
-            >
-              <div className="p-4 h-full" style={{ backgroundColor: "var(--mq-bg)" }}>
-                <div className="rounded-2xl p-4 relative overflow-hidden" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Heart className="w-5 h-5 flex-shrink-0" style={{ color: "#ef4444" }} fill="#ef4444" />
-                      <h2 className="text-base font-bold truncate" style={{ color: "var(--mq-text)" }}>
-                        Избранные треки
-                      </h2>
-                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444" }}>
-                        {likedTrackIds.length}
-                      </span>
+            <div className="fixed inset-0 z-50 overflow-y-auto">
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 bg-black/40"
+                onClick={() => setShowLikedTracks(false)}
+                style={{ backdropFilter: "blur(4px)" }}
+              />
+              {/* Panel */}
+              <motion.div
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                style={{ willChange: "transform", transform: "translateZ(0)" }}
+                className="absolute right-0 top-0 bottom-0 w-full max-w-md overflow-y-auto"
+              >
+                <div className="p-4 h-full" style={{ backgroundColor: "var(--mq-bg)" }}>
+                  <div className="rounded-2xl p-4 relative overflow-hidden" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Heart className="w-5 h-5 flex-shrink-0" style={{ color: "#ef4444" }} fill="#ef4444" />
+                        <h2 className="text-base font-bold truncate" style={{ color: "var(--mq-text)" }}>
+                          Избранные треки
+                        </h2>
+                        <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444" }}>
+                          {likedTrackIds.length}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {likedTracksData.length > 0 && (
+                          <motion.button whileTap={{ scale: 0.95 }} onClick={() => playTrack(likedTracksData[0], likedTracksData)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                            style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                            <Play className="w-3 h-3" style={{ marginLeft: 1 }} />
+                            Все
+                          </motion.button>
+                        )}
+                        <button onClick={() => setShowLikedTracks(false)}
+                          className="p-1.5 rounded-lg" style={{ color: "var(--mq-text-muted)" }}>
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {likedTracksData.length > 0 && (
-                        <motion.button whileTap={{ scale: 0.95 }} onClick={() => playTrack(likedTracksData[0], likedTracksData)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-                          style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
-                          <Play className="w-3 h-3" style={{ marginLeft: 1 }} />
-                          Все
-                        </motion.button>
-                      )}
-                      <button onClick={() => setShowLikedTracks(false)}
-                        className="p-1.5 rounded-lg" style={{ color: "var(--mq-text-muted)" }}>
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {likedTracksData.length > 0 ? (
+                      <div className="space-y-1">
+                        {likedTracksData.slice(0, 20).map((track, i) => (
+                          <motion.div
+                            key={track.id}
+                            initial={{ opacity: 0, x: 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.03, type: "spring", stiffness: 300, damping: 30 }}
+                            style={{ willChange: "transform" }}
+                          >
+                            <TrackCard track={track} index={i} queue={likedTracksData} onArtistClick={handleNavigateToArtist} />
+                          </motion.div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-6">
+                        <Heart className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+                        <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                          Вы ещё не добавили треки в избранное
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  {likedTracksData.length > 0 ? (
-                    <div className="space-y-1">
-                      {likedTracksData.slice(0, 20).map((track, i) => (
-                        <motion.div
-                          key={track.id}
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.03, type: "spring", stiffness: 300, damping: 30 }}
-                          style={{ willChange: "transform" }}
-                        >
-                          <TrackCard track={track} index={i} queue={likedTracksData} onArtistClick={handleNavigateToArtist} />
-                        </motion.div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-6">
-                      <Heart className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-                      <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                        Вы ещё не добавили треки в избранное
-                      </p>
-                    </div>
-                  )}
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -1956,9 +1941,9 @@ export default function MainView() {
       {recentTracks.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2 sm:mb-4">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-              <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
+            <div className="flex items-center gap-2 min-w-0">
+              <Clock className="w-5 h-5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+              <h2 className="text-lg font-bold truncate" style={{ color: "var(--mq-text)" }}>
                 Недавно прослушанные
               </h2>
             </div>
@@ -1985,10 +1970,10 @@ export default function MainView() {
         ))
       ) : (
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-              <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
+          <div className="flex items-center justify-between mb-4 min-h-[28px]">
+            <div className="flex items-center gap-2 min-w-0">
+              <Sparkles className="w-5 h-5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+              <h2 className="text-lg font-bold overflow-hidden text-ellipsis whitespace-nowrap" style={{ color: "var(--mq-text)" }}>
                 {hasTasteData ? "Рекомендации для вас" : "Откройте для себя"}
               </h2>
             </div>
@@ -2047,8 +2032,8 @@ export default function MainView() {
       {/* Trending tracks */}
       <ScrollReveal direction="up" delay={0.45}>
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
+        <div className="flex items-center justify-between mb-4 min-h-[28px]">
+          <h2 className="text-lg font-bold overflow-hidden text-ellipsis whitespace-nowrap min-w-0" style={{ color: "var(--mq-text)" }}>
             Популярные треки
           </h2>
           {trendingTracks.length > 0 && (
