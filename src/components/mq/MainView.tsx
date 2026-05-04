@@ -1618,56 +1618,88 @@ export default function MainView() {
         </div>
       </motion.div>
 
-      {/* Liked tracks overlay */}
+      {/* Liked tracks overlay — GPU-accelerated slide animation */}
       <AnimatePresence>
         {showLikedTracks && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
+            initial={{ opacity: 0, x: "100%", willChange: "transform" }}
+            animate={{ opacity: 1, x: 0, willChange: "auto" }}
+            exit={{ opacity: 0, x: "100%", willChange: "transform" }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            style={{ willChange: "transform" }}
+            className="fixed inset-0 z-50 overflow-y-auto"
           >
-            <div className="rounded-2xl p-4 relative overflow-hidden mb-4" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Heart className="w-5 h-5" style={{ color: "#ef4444" }} fill="#ef4444" />
-                  <h2 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>
-                    Избранные треки
-                  </h2>
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444" }}>
-                    {likedTrackIds.length}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {likedTracksData.length > 0 && (
-                    <motion.button whileTap={{ scale: 0.95 }} onClick={() => playTrack(likedTracksData[0], likedTracksData)}
-                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-                      style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
-                      <Play className="w-3 h-3" style={{ marginLeft: 1 }} />
-                      Все
-                    </motion.button>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setShowLikedTracks(false)}
+              style={{ backdropFilter: "blur(4px)" }}
+            />
+            {/* Panel */}
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              style={{ willChange: "transform", transform: "translateZ(0)" }}
+              className="absolute right-0 top-0 bottom-0 w-full max-w-md overflow-y-auto"
+            >
+              <div className="p-4 h-full" style={{ backgroundColor: "var(--mq-bg)" }}>
+                <div className="rounded-2xl p-4 relative overflow-hidden" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Heart className="w-5 h-5 flex-shrink-0" style={{ color: "#ef4444" }} fill="#ef4444" />
+                      <h2 className="text-base font-bold truncate" style={{ color: "var(--mq-text)" }}>
+                        Избранные треки
+                      </h2>
+                      <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444" }}>
+                        {likedTrackIds.length}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {likedTracksData.length > 0 && (
+                        <motion.button whileTap={{ scale: 0.95 }} onClick={() => playTrack(likedTracksData[0], likedTracksData)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+                          style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                          <Play className="w-3 h-3" style={{ marginLeft: 1 }} />
+                          Все
+                        </motion.button>
+                      )}
+                      <button onClick={() => setShowLikedTracks(false)}
+                        className="p-1.5 rounded-lg" style={{ color: "var(--mq-text-muted)" }}>
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                  {likedTracksData.length > 0 ? (
+                    <div className="space-y-1">
+                      {likedTracksData.slice(0, 20).map((track, i) => (
+                        <motion.div
+                          key={track.id}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.03, type: "spring", stiffness: 300, damping: 30 }}
+                          style={{ willChange: "transform" }}
+                        >
+                          <TrackCard track={track} index={i} queue={likedTracksData} onArtistClick={handleNavigateToArtist} />
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <Heart className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+                      <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                        Вы ещё не добавили треки в избранное
+                      </p>
+                    </div>
                   )}
-                  <button onClick={() => setShowLikedTracks(false)}
-                    className="p-1.5 rounded-lg" style={{ color: "var(--mq-text-muted)" }}>
-                    <X className="w-4 h-4" />
-                  </button>
                 </div>
               </div>
-              {likedTracksData.length > 0 ? (
-                <div className="space-y-1">
-                  {likedTracksData.slice(0, 20).map((track, i) => (
-                    <TrackCard key={track.id} track={track} index={i} queue={likedTracksData} onArtistClick={handleNavigateToArtist} />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <Heart className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-                  <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                    Вы ещё не добавили треки в избранное
-                  </p>
-                </div>
-              )}
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
