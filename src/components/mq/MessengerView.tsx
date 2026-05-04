@@ -1260,6 +1260,7 @@ export default function MessengerView() {
 
   const handleSend = async () => {
     if (!inputText.trim() || !activeChatId || !userId) return;
+    if (sendingRef.current) return;
     const text = inputText.trim();
     setInputText("");
     setShowEmojis(false);
@@ -1272,7 +1273,7 @@ export default function MessengerView() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!sendingRef.current) handleSend(); }
     // Send typing indicator on non-special keys (skip Enter/Escape/Tab/etc.)
     else if (selectedContactId && !["Enter", "Escape", "Tab", "Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key)) {
       typingTimeoutRef.current && clearTimeout(typingTimeoutRef.current);
@@ -1650,9 +1651,9 @@ export default function MessengerView() {
   // PlayerBar actual height on desktop: progress(~6px) + controls(~72px) + canvas(~28px) ≈ 106px ≈ 6.6rem
   // PlayerBar actual height on mobile: progress(~6px) + controls(~56px) + canvas(~20px) + mobileNav(~56px) ≈ 138px
   const messengerHeight = (() => {
-    const topNav = isMobileView ? 4 : 3.5;
+    const topNav = isMobileView ? 3.5 : 3.5;
     const mobileNav = isMobileView ? 3.5 : 0;
-    const playerBar = currentTrack ? (isMobileView ? 8.75 : 7.5) : 0;
+    const playerBar = currentTrack ? (isMobileView ? 8 : 7.5) : 0;
     return `calc(100dvh - ${topNav + mobileNav + playerBar}rem)`;
   })();
 
@@ -2033,8 +2034,8 @@ export default function MessengerView() {
             </AnimatePresence>
 
             {/* ── Messages area ── */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-0" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
-              <div className="flex justify-center mb-4">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-2 space-y-1.5 min-h-0" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
+              <div className="flex justify-center mb-2">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs" style={glassPanel}>
                   <Shield className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
                   <span style={{ color: "var(--mq-text-muted)" }}>
@@ -2056,16 +2057,16 @@ export default function MessengerView() {
               )}
 
               {displayMessages.length === 0 && !isGroupChat && (
-                <div className="flex flex-col items-center justify-center py-12 px-6">
+                <div className="flex flex-col items-center justify-center py-8 px-6">
                   {/* Empty state card — player style */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
-                    className="w-full max-w-[280px] rounded-2xl p-6 text-center"
+                    className="w-full max-w-[280px] rounded-2xl p-5 text-center"
                     style={{ ...glassPanelSolid, boxShadow: shadowDeep }}>
                     {/* Cute character / icon */}
-                    <div className="w-20 h-20 mx-auto mb-4 rounded-full flex items-center justify-center"
+                    <div className="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center"
                       style={{ background: "linear-gradient(135deg, var(--mq-accent), rgba(255,255,255,0.1))" }}>
                       <motion.span
                         className="text-4xl"
@@ -2192,7 +2193,7 @@ export default function MessengerView() {
               </div>
             ) : (
               /* ── Normal input mode ── */
-              <div className="px-2.5 py-1.5 flex items-center gap-2 flex-shrink-0 relative z-50" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
+              <div className="px-2 py-1 flex items-center gap-2 flex-shrink-0 relative z-50" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
                 {/* Emoji / Sticker toggle */}
                 <motion.button whileTap={{ scale: 0.9 }}
                   onClick={() => { if (showEmojis) { setShowEmojis(false); } else if (showStickers) { setShowStickers(false); } else { setShowEmojis(true); } }}

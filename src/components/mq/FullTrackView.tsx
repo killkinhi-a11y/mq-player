@@ -46,6 +46,15 @@ export default function FullTrackView() {
   const [showDNA, setShowDNA] = useState(false);
   const [canvasMode, setCanvasMode] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Track mobile viewport
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const [lyricsLines, setLyricsLines] = useState<{ time: number; text: string }[]>([]);
   const [lyricsPlainText, setLyricsPlainText] = useState("");
@@ -914,13 +923,14 @@ export default function FullTrackView() {
           <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}>
             Сейчас играет
           </span>
-          <div className="relative">
+          {/* Desktop-only header more button (mobile uses the one in secondary actions row) */}
+          <div className="relative hidden sm:block">
             <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
               className="p-2" style={{ color: "var(--mq-text-muted)" }}>
               <MoreVertical className="w-5 h-5" />
             </motion.button>
             <AnimatePresence>
-              {showMoreMenu && (
+              {showMoreMenu && !isMobile && (
                 <>
                   <div className="fixed inset-0 z-[150]" onClick={() => setShowMoreMenu(false)} />
                   <motion.div
@@ -966,7 +976,69 @@ export default function FullTrackView() {
               )}
             </AnimatePresence>
           </div>
+          {/* Spacer on mobile to keep header layout */}
+          <div className="sm:hidden w-9" />
         </div>
+
+        {/* Mobile bottom sheet for "more" menu */}
+        <AnimatePresence>
+          {showMoreMenu && isMobile && (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="fixed inset-0 z-[150] bg-black/50"
+                onClick={() => setShowMoreMenu(false)}
+              />
+              <motion.div
+                initial={{ y: "100%" }}
+                animate={{ y: 0 }}
+                exit={{ y: "100%" }}
+                transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                className="fixed bottom-0 left-0 right-0 z-[160] rounded-t-2xl shadow-2xl max-h-[70vh] overflow-hidden"
+                style={{ backgroundColor: "var(--mq-card)", borderTop: "1px solid var(--mq-border)" }}
+              >
+                {/* Drag handle */}
+                <div className="flex justify-center pt-3 pb-1">
+                  <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--mq-border)" }} />
+                </div>
+                <div className="px-2 pb-4 pt-1 overflow-y-auto" style={{ maxHeight: "calc(70vh - 2rem)" }}>
+                  {[
+                    { icon: FileText, label: "Текст песни", active: showLyrics, action: () => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); setShowMoreMenu(false); } },
+                    { icon: ListMusic, label: "Похожие треки", active: showSimilar, action: () => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); setShowMoreMenu(false); } },
+                    { icon: Dna, label: "ДНК трека", active: showDNA, action: () => { setShowDNA(!showDNA); setShowSimilar(false); setShowLyrics(false); setShowComments(false); setShowMoreMenu(false); } },
+                    { icon: MessageSquare, label: "Комментарии", active: showComments, action: () => { setShowComments(!showComments); setShowSimilar(false); setShowLyrics(false); setShowDNA(false); setShowMoreMenu(false); } },
+                    { icon: Moon, label: sleepTimerActive ? "Таймер сна вкл" : "Таймер сна", active: sleepTimerActive, action: () => { setShowSleepTimer(true); setShowMoreMenu(false); } },
+                    { icon: Sparkles, label: "Canvas режим", active: canvasMode, action: () => { setCanvasMode(!canvasMode); setShowMoreMenu(false); } },
+                    { icon: Headphones, label: "Spatial Audio", active: spatialAudioEnabled, action: () => { setSpatialAudioEnabled(!spatialAudioEnabled); setShowMoreMenu(false); } },
+                    { icon: Waves, label: radioMode ? "Волна вкл" : "Радио режим", active: radioMode, action: () => { toggleRadioMode(); setShowMoreMenu(false); } },
+                    { icon: Download, label: "Скачать", active: false, action: () => { handleDownload(); setShowMoreMenu(false); } },
+                    { icon: PictureInPicture2, label: isPiPActive ? "Закрыть мини-плеер" : "Мини-плеер", active: isPiPActive, action: async () => {
+                      if (isPiPActive) { closePiPPopup(); setPiPActive(false); }
+                      else { const opened = await openPiPPopup(); setPiPActive(true, opened ? 'popup' : 'overlay'); }
+                      setShowMoreMenu(false);
+                    } },
+                  ].map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.label}
+                        onClick={item.action}
+                        className="w-full flex items-center gap-3.5 px-4 py-3.5 text-sm text-left cursor-pointer active:opacity-70 transition-colors rounded-xl"
+                        style={{ color: item.active ? "var(--mq-accent)" : "var(--mq-text)" }}
+                      >
+                        <Icon className="w-5 h-5 flex-shrink-0" />
+                        <span className="font-medium">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
 
         {/* Content */}
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 max-w-lg mx-auto w-full">
@@ -1050,13 +1122,24 @@ export default function FullTrackView() {
               <ThumbsDown className={`w-[18px] h-[18px] ${isDisliked ? "fill-current" : ""}`} />
             </motion.button>
             <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+              className="w-[38px] h-[38px] rounded-full flex items-center justify-center sm:hidden"
               style={{
-                backgroundColor: "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: "var(--mq-text-muted)",
+                backgroundColor: showMoreMenu ? "var(--mq-accent)" : "var(--mq-card)",
+                border: `1px solid ${showMoreMenu ? "var(--mq-accent)" : "var(--mq-border)"}`,
+                color: showMoreMenu ? "var(--mq-text)" : "var(--mq-text-muted)",
+                boxShadow: showMoreMenu ? "0 0 12px var(--mq-glow)" : "none",
               }}>
               <MoreVertical className="w-[18px] h-[18px]" />
+            </motion.button>
+            {/* Mobile volume toggle */}
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => setVolume(volume > 0 ? 0 : 70)}
+              className="w-[38px] h-[38px] rounded-full flex items-center justify-center sm:hidden"
+              style={{
+                backgroundColor: volume === 0 ? "var(--mq-accent)" : "var(--mq-card)",
+                border: `1px solid ${volume === 0 ? "var(--mq-accent)" : "var(--mq-border)"}`,
+                color: volume === 0 ? "var(--mq-text)" : "var(--mq-text-muted)",
+              }}>
+              {volume === 0 ? <VolumeX className="w-[18px] h-[18px]" /> : <Volume2 className="w-[18px] h-[18px]" />}
             </motion.button>
           </div>
 

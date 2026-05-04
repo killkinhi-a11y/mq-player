@@ -306,13 +306,35 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
       <motion.div
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
+        className="flex items-center gap-3"
       >
-        <h1 className="text-2xl font-bold mb-1" style={{ color: "var(--mq-text)" }}>
-          Spatial Audio
-        </h1>
-        <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-          3D пространственное позиционирование, адаптирующееся под настроение музыки
-        </p>
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{
+            backgroundColor: spatialAudioEnabled ? `rgba(${activeMoodInfo ? parseInt(activeMoodInfo.color.slice(1,3),16) : 224},${activeMoodInfo ? parseInt(activeMoodInfo.color.slice(3,5),16) : 49},${activeMoodInfo ? parseInt(activeMoodInfo.color.slice(5,7),16) : 49},0.15)` : "var(--mq-surface, #1a1a1a)",
+            border: `1px solid ${spatialAudioEnabled ? `${activeMoodInfo?.color || "#e03131"}50` : "var(--mq-border)"}`,
+          }}
+        >
+          {spatialAudioEnabled ? (
+            <motion.span
+              className="text-lg"
+              animate={{ rotate: [0, 5, -5, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            >
+              {activeMoodInfo?.icon || "🌀"}
+            </motion.span>
+          ) : (
+            <span className="text-lg">🔇</span>
+          )}
+        </div>
+        <div>
+          <h1 className="text-xl font-bold" style={{ color: "var(--mq-text)" }}>
+            Spatial Audio
+          </h1>
+          <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+            3D пространственное позиционирование
+          </p>
+        </div>
       </motion.div>
 
       {/* Main Toggle */}
@@ -320,51 +342,31 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="rounded-2xl p-3.5"
+        className="rounded-xl p-3 flex items-center justify-between"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center"
-              style={{
-                backgroundColor: spatialAudioEnabled
-                  ? `rgba(${activeMoodInfo ? parseInt(activeMoodInfo.color.slice(1,3),16) : 224},${activeMoodInfo ? parseInt(activeMoodInfo.color.slice(3,5),16) : 49},${activeMoodInfo ? parseInt(activeMoodInfo.color.slice(5,7),16) : 49},0.15)`
-                  : "var(--mq-surface, #1a1a1a)",
-                border: `1px solid ${spatialAudioEnabled
-                  ? `${activeMoodInfo?.color || "#e03131"}50`
-                  : "var(--mq-border)"}`,
-              }}
-            >
-              <span className="text-lg">{spatialAudioEnabled ? (activeMoodInfo?.icon || "🌀") : "🔇"}</span>
-            </div>
-            <div>
-              <p className="font-semibold text-sm" style={{ color: "var(--mq-text)" }}>
-                {spatialAudioEnabled ? activeMoodInfo?.label || spatialMood : "Выключено"}
-              </p>
-              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-                {spatialAudioEnabled
-                  ? `${spatialAutoDetect ? "Авто-определение" : "Ручной режим"}`
-                  : "Включите для визуализации"
-                }
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={() => handleToggle(!spatialAudioEnabled)}
-            className="relative w-12 h-6 rounded-full transition-colors duration-300"
-            style={{ backgroundColor: spatialAudioEnabled ? (activeMoodInfo?.color || "var(--mq-accent)") : "var(--mq-border)" }}
-          >
-            <div
-              className="absolute top-0.5 w-5 h-5 rounded-full transition-transform duration-300"
-              style={{
-                backgroundColor: "#fff",
-                transform: spatialAudioEnabled ? "translateX(24px)" : "translateX(2px)",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-              }}
-            />
-          </button>
+        <div className="flex items-center gap-2">
+          <span className="text-sm" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+            {spatialAudioEnabled
+              ? `${activeMoodInfo?.icon || "🌀"} ${activeMoodInfo?.label || spatialMood} — ${spatialAutoDetect ? "Авто" : "Ручной"}`
+              : "Выключено"
+            }
+          </span>
         </div>
+        <button
+          onClick={() => handleToggle(!spatialAudioEnabled)}
+          className="relative w-11 h-6 rounded-full transition-colors duration-300"
+          style={{ backgroundColor: spatialAudioEnabled ? (activeMoodInfo?.color || "var(--mq-accent)") : "var(--mq-border)" }}
+        >
+          <div
+            className="absolute top-0.5 w-5 h-5 rounded-full transition-transform duration-300"
+            style={{
+              backgroundColor: "#fff",
+              transform: spatialAudioEnabled ? "translateX(22px)" : "translateX(2px)",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+            }}
+          />
+        </button>
       </motion.div>
 
       {/* 3D Spatial Canvas */}
@@ -482,7 +484,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
           {MOOD_INFO.map((info) => {
             const isActive = spatialMood === info.mood;
             return (
@@ -523,10 +525,10 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
           initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="rounded-2xl p-3.5"
+          className="rounded-xl p-3"
           style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
         >
-          <p className="font-semibold text-sm mb-3" style={{ color: "var(--mq-text)" }}>
+          <p className="font-semibold text-xs mb-2.5" style={{ color: "var(--mq-text)" }}>
             Позиционирование частот
           </p>
           <div className="space-y-2.5">
@@ -563,14 +565,17 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.25 }}
-        className="rounded-2xl p-3.5"
+        className="rounded-xl p-3 flex items-start gap-3"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
+        <div
+          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: "rgba(var(--mq-accent-rgb, 224,49,49),0.1)" }}
+        >
+          <span className="text-sm">💡</span>
+        </div>
         <p className="text-xs leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-          Spatial Audio позиционирует каждую частотную полосу в 3D-пространстве вокруг вас.
-          Система анализирует метаданные трека для определения настроения и автоматически корректирует
-          позиционирование — басовые жанры центрируют низкие частоты, а атмосферные
-          треки раскидывают инструменты широко для создания эфирного звучания.
+          Система анализирует метаданные трека и автоматически корректирует 3D-позиционирование частотных полос вокруг вас для оптимального звучания.
         </p>
       </motion.div>
     </div>
