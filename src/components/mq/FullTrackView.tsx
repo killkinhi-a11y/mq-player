@@ -991,111 +991,114 @@ export default function FullTrackView() {
             </div>
           </div>
 
-          {/* Action buttons row */}
-          <div className="flex items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-6 overflow-x-auto px-2 sm:px-0" style={{ scrollbarWidth: "none" }}>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: isLiked ? "rgba(239,68,68,0.15)" : "var(--mq-card)",
-                border: `1px solid ${isLiked ? "rgba(239,68,68,0.4)" : "var(--mq-border)"}`,
-                color: isLiked ? "#ef4444" : "var(--mq-text-muted)",
-              }}>
-              <Heart className={`w-[18px] h-[18px] ${isLiked ? "fill-current" : ""}`} />
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleDislike(currentTrack.id, currentTrack)}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "var(--mq-card)",
-                border: `1px solid ${isDisliked ? "rgba(239,68,68,0.4)" : "var(--mq-border)"}`,
-                color: isDisliked ? "#ef4444" : "var(--mq-text-muted)",
-              }}>
-              <ThumbsDown className={`w-[18px] h-[18px] ${isDisliked ? "fill-current" : ""}`} />
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: showSimilar ? "var(--mq-accent)" : "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: showSimilar ? "var(--mq-text)" : "var(--mq-text-muted)",
-              }}>
-              <ListMusic className="w-[18px] h-[18px]" />
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: showLyrics ? "var(--mq-accent)" : "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: showLyrics ? "var(--mq-text)" : "var(--mq-text-muted)",
-              }}>
-              <FileText className="w-[18px] h-[18px]" />
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowComments(!showComments); setShowSimilar(false); setShowLyrics(false); setShowDNA(false); }}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: showComments ? "var(--mq-accent)" : "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: showComments ? "var(--mq-text)" : "var(--mq-text-muted)",
-              }}>
-              <MessageSquare className="w-[18px] h-[18px]" />
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowDNA(!showDNA); setShowSimilar(false); setShowLyrics(false); setShowComments(false); }}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: showDNA ? "var(--mq-accent)" : "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: showDNA ? "var(--mq-text)" : "var(--mq-text-muted)",
-              }}>
-              <Dna className="w-[18px] h-[18px]" />
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCanvasMode(!canvasMode)}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: canvasMode ? "var(--mq-accent)" : "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: canvasMode ? "var(--mq-text)" : "var(--mq-text-muted)",
-              }}>
-              <Sparkles className="w-[18px] h-[18px]" />
-            </motion.button>
-            {/* Wave Mode Button */}
-            <motion.button
-              whileTap={{ scale: 0.85 }}
-              onClick={() => toggleRadioMode()}
-              title={radioMode ? "Выключить волну" : "Волна"}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: radioMode ? "var(--mq-accent)" : "var(--mq-card)",
-                border: radioMode ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
-                color: radioMode ? "var(--mq-text)" : "var(--mq-text-muted)",
-              }}
-            >
-              <Waves className="w-[18px] h-[18px]" />
-            </motion.button>
-            <button onClick={() => setVolume(volume > 0 ? 0 : 70)}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: "var(--mq-text-muted)",
-              }}>
-              {volume === 0 ? <VolumeX className="w-[18px] h-[18px]" /> : <Volume2 className="w-[18px] h-[18px]" />}
-            </button>
-            {/* Sleep timer */}
-            <div className="relative">
-              <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowSleepTimer(!showSleepTimer)}
-                className="w-[38px] h-[38px] rounded-full flex items-center justify-center relative"
+          {/* Action buttons — wrap to 2 rows on mobile, single row on desktop */}
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-4 sm:mb-6 px-2 sm:px-0">
+            {/* Row 1: Primary actions — always visible */}
+            <div className="flex items-center justify-center gap-2 sm:gap-3">
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
+                className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
                 style={{
-                  backgroundColor: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-card)",
-                  border: `1px solid ${sleepTimerActive ? "var(--mq-accent)" : "var(--mq-border)"}`,
-                  color: sleepTimerActive ? "var(--mq-text)" : "var(--mq-text-muted)",
+                  backgroundColor: isLiked ? "rgba(239,68,68,0.15)" : "var(--mq-card)",
+                  border: `1px solid ${isLiked ? "rgba(239,68,68,0.4)" : "var(--mq-border)"}`,
+                  color: isLiked ? "#ef4444" : "var(--mq-text-muted)",
                 }}>
-                <Moon className="w-[18px] h-[18px]" />
-                {sleepTimerActive && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full text-[8px] flex items-center justify-center"
-                    style={{ backgroundColor: "var(--mq-text)", color: "var(--mq-accent)" }}>
-                    {Math.floor(sleepTimerRemaining / 60)}
-                  </span>
-                )}
+                <Heart className={`w-[18px] h-[18px] ${isLiked ? "fill-current" : ""}`} />
               </motion.button>
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleDislike(currentTrack.id, currentTrack)}
+                className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+                style={{
+                  backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "var(--mq-card)",
+                  border: `1px solid ${isDisliked ? "rgba(239,68,68,0.4)" : "var(--mq-border)"}`,
+                  color: isDisliked ? "#ef4444" : "var(--mq-text-muted)",
+                }}>
+                <ThumbsDown className={`w-[18px] h-[18px] ${isDisliked ? "fill-current" : ""}`} />
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
+                className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+                style={{
+                  backgroundColor: showSimilar ? "var(--mq-accent)" : "var(--mq-card)",
+                  border: "1px solid var(--mq-border)",
+                  color: showSimilar ? "var(--mq-text)" : "var(--mq-text-muted)",
+                }}>
+                <ListMusic className="w-[18px] h-[18px]" />
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
+                className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+                style={{
+                  backgroundColor: showLyrics ? "var(--mq-accent)" : "var(--mq-card)",
+                  border: "1px solid var(--mq-border)",
+                  color: showLyrics ? "var(--mq-text)" : "var(--mq-text-muted)",
+                }}>
+                <FileText className="w-[18px] h-[18px]" />
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowComments(!showComments); setShowSimilar(false); setShowLyrics(false); setShowDNA(false); }}
+                className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+                style={{
+                  backgroundColor: showComments ? "var(--mq-accent)" : "var(--mq-card)",
+                  border: "1px solid var(--mq-border)",
+                  color: showComments ? "var(--mq-text)" : "var(--mq-text-muted)",
+                }}>
+                <MessageSquare className="w-[18px] h-[18px]" />
+              </motion.button>
+            </div>
+            {/* Row 2: Secondary actions — hidden on mobile, visible on sm+ */}
+            <div className="flex items-center justify-center gap-2 sm:gap-3">
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowDNA(!showDNA); setShowSimilar(false); setShowLyrics(false); setShowComments(false); }}
+                className="w-[38px] h-[38px] rounded-full items-center justify-center hidden sm:flex"
+                style={{
+                  backgroundColor: showDNA ? "var(--mq-accent)" : "var(--mq-card)",
+                  border: "1px solid var(--mq-border)",
+                  color: showDNA ? "var(--mq-text)" : "var(--mq-text-muted)",
+                }}>
+                <Dna className="w-[18px] h-[18px]" />
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCanvasMode(!canvasMode)}
+                className="w-[38px] h-[38px] rounded-full items-center justify-center hidden sm:flex"
+                style={{
+                  backgroundColor: canvasMode ? "var(--mq-accent)" : "var(--mq-card)",
+                  border: "1px solid var(--mq-border)",
+                  color: canvasMode ? "var(--mq-text)" : "var(--mq-text-muted)",
+                }}>
+                <Sparkles className="w-[18px] h-[18px]" />
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.85 }}
+                onClick={() => toggleRadioMode()}
+                title={radioMode ? "Выключить волну" : "Волна"}
+                className="w-[38px] h-[38px] rounded-full items-center justify-center hidden sm:flex"
+                style={{
+                  backgroundColor: radioMode ? "var(--mq-accent)" : "var(--mq-card)",
+                  border: radioMode ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
+                  color: radioMode ? "var(--mq-text)" : "var(--mq-text-muted)",
+                }}
+              >
+                <Waves className="w-[18px] h-[18px]" />
+              </motion.button>
+              <button onClick={() => setVolume(volume > 0 ? 0 : 70)}
+                className="w-[38px] h-[38px] rounded-full items-center justify-center hidden sm:flex"
+                style={{
+                  backgroundColor: "var(--mq-card)",
+                  border: "1px solid var(--mq-border)",
+                  color: "var(--mq-text-muted)",
+                }}>
+                {volume === 0 ? <VolumeX className="w-[18px] h-[18px]" /> : <Volume2 className="w-[18px] h-[18px]" />}
+              </button>
+              <div className="relative hidden sm:block">
+                <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowSleepTimer(!showSleepTimer)}
+                  className="w-[38px] h-[38px] rounded-full flex items-center justify-center relative"
+                  style={{
+                    backgroundColor: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-card)",
+                    border: `1px solid ${sleepTimerActive ? "var(--mq-accent)" : "var(--mq-border)"}`,
+                    color: sleepTimerActive ? "var(--mq-text)" : "var(--mq-text-muted)",
+                  }}>
+                  <Moon className="w-[18px] h-[18px]" />
+                  {sleepTimerActive && (
+                    <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full text-[8px] flex items-center justify-center"
+                      style={{ backgroundColor: "var(--mq-text)", color: "var(--mq-accent)" }}>
+                      {Math.floor(sleepTimerRemaining / 60)}
+                    </span>
+                  )}
+                </motion.button>
               <AnimatePresence>
                 {showSleepTimer && (
                   <motion.div initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}

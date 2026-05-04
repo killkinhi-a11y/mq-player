@@ -1560,28 +1560,29 @@ export default function PlayerBar() {
         </div>
       </div>
 
-      <div className={`flex items-center justify-between ${compactMode ? "px-1.5 py-1 lg:px-4 lg:py-2" : "px-3 py-2 lg:px-6 lg:py-3"} max-w-screen-2xl mx-auto`}>
-        {/* Track info */}
-        <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => setFullTrackViewOpen(true)}>
+      <div className={`flex items-center justify-between ${compactMode ? "px-1.5 py-1 lg:px-4 lg:py-2" : "px-3 py-2 lg:px-6 lg:py-3"} max-w-screen-2xl mx-auto overflow-hidden`}>
+        {/* Track info — fixed flex-basis to prevent layout shift */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 cursor-pointer flex-shrink" style={{ flexBasis: "35%", maxWidth: "40%" }} onClick={() => setFullTrackViewOpen(true)}>
           {currentTrack.cover ? (
-            <img src={currentTrack.cover} alt={currentTrack.album} className={`${compactMode ? "w-8 h-8 lg:w-10 lg:h-10" : "w-10 h-10 lg:w-12 lg:h-12"} rounded-lg object-cover flex-shrink-0`} />
+            <img src={currentTrack.cover} alt={currentTrack.album} className={`${compactMode ? "w-7 h-7 sm:w-9 sm:h-9 lg:w-10 lg:h-10" : "w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12"} rounded-lg object-cover flex-shrink-0`} />
           ) : (
-            <div className={`${compactMode ? "w-8 h-8 lg:w-10 lg:h-10" : "w-10 h-10 lg:w-12 lg:h-12"} rounded-lg flex-shrink-0 flex items-center justify-center`} style={{ backgroundColor: "var(--mq-accent)", opacity: 0.5 }}>
-              <Music className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+            <div className={`${compactMode ? "w-7 h-7 sm:w-9 sm:h-9 lg:w-10 lg:h-10" : "w-9 h-9 sm:w-10 sm:h-10 lg:w-12 lg:h-12"} rounded-lg flex-shrink-0 flex items-center justify-center`} style={{ backgroundColor: "var(--mq-accent)", opacity: 0.5 }}>
+              <Music className="w-4 h-4 sm:w-5 h-5" style={{ color: "var(--mq-text)" }} />
             </div>
           )}
-          <div className="min-w-0">
-            <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
-            <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs sm:text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+            <p className="text-[10px] sm:text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
               {currentTrack.artist}
-              {playError && <span className="ml-1.5 px-1.5 py-0 rounded text-[9px]" style={{ backgroundColor: "rgba(239,68,68,0.2)", color: "#ef4444" }}>Ошибка</span>}
+              {playError && <span className="ml-1.5 px-1.5 py-0 rounded text-[9px] inline-flex-shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.2)", color: "#ef4444" }}>Ошибка</span>}
             </p>
           </div>
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-0.5 sm:gap-2 lg:gap-4 mx-0.5 sm:mx-2 lg:mx-4">
-          <div className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center">
+        {/* Controls — center, essential buttons always visible */}
+        <div className="flex items-center gap-0.5 sm:gap-2 lg:gap-4 mx-0.5 sm:mx-2 lg:mx-4 flex-shrink-0">
+          {/* Shuffle — hidden on mobile */}
+          <div className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] items-center justify-center hidden sm:flex">
             <motion.button whileTap={{ scale: 0.9 }} onClick={toggleShuffle} className="flex items-center justify-center"
               style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
               <Shuffle className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
@@ -1624,18 +1625,19 @@ export default function PlayerBar() {
             className="p-1.5 sm:p-2 min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px] flex items-center justify-center" style={{ color: "var(--mq-text)" }}>
             <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" />
           </motion.button>
-          <motion.button whileTap={{ scale: 0.9 }} onClick={toggleRepeat} className="p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center"
+          {/* Repeat — hidden on mobile */}
+          <motion.button whileTap={{ scale: 0.9 }} onClick={toggleRepeat} className="p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] items-center justify-center hidden sm:flex"
             style={{ color: repeat !== "off" ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
             {repeat === "one" ? <Repeat1 className="w-3 h-3 sm:w-3.5 sm:h-3.5" /> : <Repeat className="w-3 h-3 sm:w-3.5 sm:h-3.5" />}
           </motion.button>
-          {/* Wave Mode Toggle */}
+          {/* Wave Mode Toggle — sm+ only */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => {
               const st = useAppStore.getState();
               st.toggleRadioMode();
             }}
-            className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center hidden sm:flex"
+            className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center hidden md:flex"
             style={{
               color: radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)",
             }}
@@ -1652,7 +1654,7 @@ export default function PlayerBar() {
               />
             )}
           </motion.button>
-          {/* Spatial Audio Toggle */}
+          {/* Spatial Audio Toggle — lg+ only */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => {
@@ -1662,7 +1664,7 @@ export default function PlayerBar() {
                 st.setView("spatial");
               }
             }}
-            className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center hidden sm:flex"
+            className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center hidden lg:flex"
             style={{
               color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
             }}
@@ -1681,9 +1683,9 @@ export default function PlayerBar() {
           </motion.button>
         </div>
 
-        {/* Action buttons — desktop only except like */}
-        <div className="flex items-center gap-1 lg:gap-2 flex-1 justify-end min-w-0">
-          <span className="text-xs hidden lg:block" style={{ color: "var(--mq-text-muted)" }}>
+        {/* Action buttons — right side, progressively shown on larger screens */}
+        <div className="flex items-center gap-1 lg:gap-2 justify-end min-w-0 flex-shrink" style={{ flexBasis: "35%", maxWidth: "40%" }}>
+          <span className="text-xs hidden lg:block flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
             {formatDuration(Math.floor(Math.min(progress, duration || 0)))} / {formatDuration(Math.floor(duration))}
           </span>
 
@@ -1698,7 +1700,7 @@ export default function PlayerBar() {
             );
           })()}
 
-          {/* Dislike button — desktop only */}
+          {/* Dislike button — lg+ only */}
           {(() => {
             const isDisliked = (Array.isArray(dislikedTrackIds) ? dislikedTrackIds : []).includes(currentTrack.id);
             return (
@@ -1709,14 +1711,14 @@ export default function PlayerBar() {
             );
           })()}
 
-          {/* Similar tracks — desktop only */}
+          {/* Similar tracks — lg+ only */}
           <motion.button whileTap={{ scale: 0.9 }} onClick={() => requestShowSimilar()}
             className="p-1 flex-shrink-0 items-center justify-center hidden lg:flex"
             style={{ color: "var(--mq-text-muted)" }} title="Похожие">
             <ListMusic className="w-4 h-4" />
           </motion.button>
 
-          {/* Queue — desktop only */}
+          {/* Queue — lg+ only */}
           <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowQueue(true)}
             className="p-1 flex-shrink-0 items-center justify-center hidden lg:flex relative"
             style={{ color: upNext.length > 0 ? "var(--mq-accent)" : "var(--mq-text-muted)" }} title="Очередь">
@@ -1727,23 +1729,22 @@ export default function PlayerBar() {
             )}
           </motion.button>
 
-          {/* Lyrics — desktop only (moved to full player on mobile) */}
+          {/* Lyrics — lg+ only */}
           <motion.button whileTap={{ scale: 0.9 }}
             onClick={() => { setFullTrackViewOpen(true); requestShowLyrics(); }}
             className="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0 hidden lg:flex"
             style={{ color: "var(--mq-text-muted)", backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
             title="Текст">
             <FileText className="w-3.5 h-3.5" />
-            <span className="text-[10px] hidden lg:inline">Текст</span>
+            <span className="text-[10px] hidden xl:inline">Текст</span>
           </motion.button>
 
-          {/* Download — desktop only */}
+          {/* Download — lg+ only */}
           <motion.button whileTap={{ scale: 0.85 }} onClick={async () => {
             const audio = audioRef.current || getAudioElement();
             const t = useAppStore.getState().currentTrack;
             if (audio && audio.src && t) {
               try {
-                // For proxied tracks, use the direct URL for download
                 let downloadSrc = audio.src;
                 if (t.scTrackId) {
                   const res = await fetch(`/api/music/soundcloud/stream?trackId=${t.scTrackId}`);
@@ -1768,12 +1769,14 @@ export default function PlayerBar() {
             <Download className="w-4 h-4" />
           </motion.button>
 
-          {/* Share — desktop only */}
+          {/* Share — lg+ only */}
           {currentTrack.scTrackId && (
-            <ShareButton scTrackId={currentTrack.scTrackId} />
+            <div className="hidden lg:block flex-shrink-0">
+              <ShareButton scTrackId={currentTrack.scTrackId} />
+            </div>
           )}
 
-          {/* PiP — desktop only (mobile PiP is broken/annoying) */}
+          {/* PiP — lg+ only */}
           <div className="hidden lg:flex p-1 flex-shrink-0 items-center justify-center">
             <motion.button whileTap={{ scale: 0.9 }} onClick={async () => {
               if (isPiPActive) {
@@ -1789,19 +1792,19 @@ export default function PlayerBar() {
             </motion.button>
           </div>
 
-          {/* Volume — mute button always visible, slider & percentage hidden on mobile */}
-          <div ref={volumeSectionRef} className="flex items-center gap-1 flex-shrink-0">
+          {/* Volume — mute button sm+, slider & percentage md+ */}
+          <div ref={volumeSectionRef} className="items-center gap-1 flex-shrink-0 hidden sm:flex">
             <button onClick={() => setVolume(volume > 0 ? 0 : 30)}
               className="p-1 flex-shrink-0"
               style={{ color: "var(--mq-text-muted)" }}>
               {volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
             </button>
             <div ref={volumeRef} onClick={handleVolumeClick}
-              className="w-20 h-1.5 rounded-full cursor-pointer flex-shrink-0 hidden md:block"
+              className="w-16 lg:w-20 h-1.5 rounded-full cursor-pointer flex-shrink-0 hidden md:block"
               style={{ backgroundColor: "var(--mq-border)" }}>
               <div className="h-full rounded-full" style={{ width: `${volume}%`, backgroundColor: "var(--mq-accent)" }} />
             </div>
-            <span className="text-[10px] w-8 flex-shrink-0 text-right hidden md:block"
+            <span className="text-[10px] w-8 flex-shrink-0 text-right hidden lg:block"
               style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}%</span>
           </div>
         </div>
