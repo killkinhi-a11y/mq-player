@@ -1264,11 +1264,6 @@ export default function MessengerView() {
 
   const handleSend = async () => {
     if (!inputText.trim() || !activeChatId || !userId) return;
-    if (sendingRef.current) return;
-    const sendNow = Date.now();
-    if (sendNow - lastSentTimeRef.current < 500) return;
-    lastSentTimeRef.current = sendNow;
-    sendingRef.current = true;
     const text = inputText.trim();
     setInputText("");
     setShowEmojis(false);
@@ -1278,7 +1273,6 @@ export default function MessengerView() {
       await sendMessageOptimistic(encryptedContent, replyingTo ? { replyToId: replyingTo.id } : undefined);
     } catch { await sendMessageOptimistic(text, replyingTo ? { replyToId: replyingTo.id } : undefined); }
     setReplyingTo(null);
-    // sendingRef is released inside sendMessageOptimistic's finally block
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

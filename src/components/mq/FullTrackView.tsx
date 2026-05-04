@@ -16,6 +16,185 @@ import TrackCommentsPanel from "./TrackCommentsPanel";
 import TrackCanvas from "./TrackCanvas";
 import PlaylistArtwork from "./PlaylistArtwork";
 
+// ── Sleep Timer Wheel Picker (scrollable drum-style) ──
+const SLEEP_TIME_OPTIONS = [5, 10, 15, 20, 25, 30, 45, 60, 90, 120, 150, 180];
+
+function formatSleepTime(val: number): string {
+  if (val < 60) return `${val} мин`;
+  const h = Math.floor(val / 60);
+  const m = val % 60;
+  return m > 0 ? `${h} ч ${m} мин` : `${h} ч`;
+}
+
+function SleepTimerWheel({ options, selected, onSelect }: {
+  options: number[];
+  selected: number;
+  onSelect: (v: number) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const itemHeight = 48;
+  const containerHeight = 192;
+  const paddingOffset = 72;
+
+  useEffect(() => {
+    const idx = options.indexOf(selected);
+    if (idx >= 0 && scrollRef.current) {
+      const targetScroll = paddingOffset + idx * itemHeight - (containerHeight / 2 - itemHeight / 2);
+      scrollRef.current.scrollTop = targetScroll;
+    }
+  }, [selected, options]);
+
+  const handleScrollEnd = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const scrollCenter = el.scrollTop + containerHeight / 2;
+    const idx = Math.floor((scrollCenter - paddingOffset) / itemHeight);
+    if (idx >= 0 && idx < options.length) {
+      onSelect(options[idx]);
+      const targetScroll = paddingOffset + idx * itemHeight - (containerHeight / 2 - itemHeight / 2);
+      el.scrollTo({ top: targetScroll, behavior: "smooth" });
+    }
+  }, [options, onSelect]);
+
+  const getOpacity = useCallback((idx: number) => {
+    if (!scrollRef.current) return idx === options.indexOf(selected) ? 1 : 0.35;
+    const scrollCenter = scrollRef.current.scrollTop + containerHeight / 2;
+    const itemCenter = paddingOffset + idx * itemHeight + itemHeight / 2;
+    const distance = Math.abs(scrollCenter - itemCenter);
+    if (distance < itemHeight / 2) return 1;
+    if (distance > itemHeight * 2.5) return 0.15;
+    return 0.35 + 0.65 * Math.max(0, 1 - distance / (itemHeight * 2.5));
+  }, [selected, options]);
+
+  const getScale = useCallback((idx: number) => {
+    if (!scrollRef.current) return idx === options.indexOf(selected) ? 1 : 0.9;
+    const scrollCenter = scrollRef.current.scrollTop + containerHeight / 2;
+    const itemCenter = paddingOffset + idx * itemHeight + itemHeight / 2;
+    const distance = Math.abs(scrollCenter - itemCenter);
+    if (distance < itemHeight / 2) return 1;
+    if (distance > itemHeight * 2) return 0.85;
+    return 0.85 + 0.15 * Math.max(0, 1 - distance / (itemHeight * 2));
+  }, [selected, options]);
+
+  return (
+    <div className="relative rounded-2xl overflow-hidden" style={{ height: containerHeight, backgroundColor: "var(--mq-card)" }}>
+      <div className="absolute top-0 left-0 right-0 h-16 z-10 pointer-events-none rounded-t-2xl"
+        style={{ background: "linear-gradient(var(--mq-card), transparent)" }} />
+      <div className="absolute bottom-0 left-0 right-0 h-16 z-10 pointer-events-none rounded-b-2xl"
+        style={{ background: "linear-gradient(transparent, var(--mq-card))" }} />
+      <div className="absolute left-3 right-3 pointer-events-none z-[5] rounded-xl"
+        style={{ backgroundColor: "var(--mq-accent)", opacity: 0.12, border: "1px solid var(--mq-accent)", height: itemHeight, top: "calc(50% - 24px)" }} />
+      <div ref={scrollRef} onTouchEnd={handleScrollEnd} onMouseUp={handleScrollEnd}
+        className="h-full overflow-y-auto px-4" style={{ scrollbarWidth: "none", WebkitOverflowScrolling: "touch" }}>
+        <div style={{ height: paddingOffset }} />
+        {options.map((val, idx) => (
+          <div key={val} className="h-12 flex items-center justify-center cursor-pointer select-none"
+            style={{ opacity: getOpacity(idx), transform: `scale(${getScale(idx)})`, transition: "opacity 0.15s ease, transform 0.15s ease" }}
+            onClick={() => {
+              onSelect(val);
+              if (scrollRef.current) {
+                const targetScroll = paddingOffset + idx * itemHeight - (containerHeight / 2 - itemHeight / 2);
+                scrollRef.current.scrollTo({ top: targetScroll, behavior: "smooth" });
+              }
+            }}>
+            <span className="text-lg font-semibold tracking-wide"
+              style={{ color: selected === val ? "var(--mq-accent)" : "var(--mq-text)" }}>
+              {formatSleepTime(val)}
+            </span>
+          </div>
+        ))}
+        <div style={{ height: paddingOffset }} />
+      </div>
+    </div>
+  );
+}
+
+function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onStart, onStop }: {
+  show: boolean;
+  onClose: () => void;
+  active: boolean;
+  remaining: number;
+  timerMinutes: number;
+  onStart: (m: number) => void;
+  onStop: () => void;
+}) {
+  const [selected, setSelected] = useState(30);
+  const minutes = Math.floor(remaining / 60);
+  const seconds = remaining % 60;
+
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[200] flex items-center justify-center"
+          onClick={onClose}>
+          <div className="absolute inset-0 bg-black/50" />
+          <motion.div initial={{ opacity: 0, scale: 0.92, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.92, y: 20 }}
+            transition={{ type: "spring", damping: 28, stiffness: 320 }}
+            className="relative z-10 p-5 rounded-3xl w-72 shadow-2xl"
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+            onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Moon className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+                <span className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
+              </div>
+              <button onClick={onClose} className="p-1 rounded-lg" style={{ color: "var(--mq-text-muted)" }}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {!active ? (
+              <>
+                <SleepTimerWheel options={SLEEP_TIME_OPTIONS} selected={selected} onSelect={setSelected} />
+                <div className="flex gap-2 mt-4 flex-wrap justify-center">
+                  {[15, 30, 60, 90].map((val) => (
+                    <button key={val} onClick={() => setSelected(val)}
+                      className="px-3 py-1.5 rounded-full text-xs font-medium"
+                      style={{
+                        backgroundColor: selected === val ? "var(--mq-accent)" : "var(--mq-input-bg)",
+                        color: selected === val ? "var(--mq-bg)" : "var(--mq-text-muted)",
+                        border: `1px solid ${selected === val ? "var(--mq-accent)" : "var(--mq-border)"}`,
+                      }}>
+                      {formatSleepTime(val)}
+                    </button>
+                  ))}
+                </div>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={() => { onStart(selected); onClose(); }}
+                  className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold shadow-lg"
+                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-bg)" }}>
+                  <Play className="w-4 h-4" /> Начать {formatSleepTime(selected)}
+                </motion.button>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-col items-center py-4">
+                  <span className="text-5xl font-bold font-mono tracking-wider" style={{ color: "var(--mq-text)" }}>
+                    {minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}
+                  </span>
+                  <span className="text-xs mt-2" style={{ color: "var(--mq-text-muted)" }}>осталось</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-border)", opacity: 0.4 }}>
+                  <div className="h-full rounded-full" style={{ width: `${timerMinutes > 0 ? ((timerMinutes * 60 - remaining) / (timerMinutes * 60)) * 100 : 0}%`, backgroundColor: "var(--mq-accent)" }} />
+                </div>
+                <p className="text-[10px] mt-2 text-center" style={{ color: "var(--mq-text-muted)" }}>
+                  Время: {formatSleepTime(timerMinutes)}
+                </p>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={() => { onStop(); onClose(); }}
+                  className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold"
+                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}>
+                  <X className="w-4 h-4" /> Отменить
+                </motion.button>
+              </>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 export default function FullTrackView() {
   const {
     currentTrack, isPlaying, volume, progress, duration,
@@ -26,7 +205,7 @@ export default function FullTrackView() {
     similarTracks, setSimilarTracks, similarTracksLoading, setSimilarTracksLoading,
     playTrack, queue, showSimilarRequested, clearShowSimilarRequest,
     showLyricsRequested, clearShowLyricsRequest,
-    sleepTimerActive, sleepTimerRemaining, startSleepTimer, stopSleepTimer, updateSleepTimer,
+    sleepTimerActive, sleepTimerRemaining, sleepTimerMinutes, startSleepTimer, stopSleepTimer, updateSleepTimer,
     currentStyle, styleVariant, currentPlaylistId,
     isPiPActive, setPiPActive, pipMode,
     radioMode, toggleRadioMode, releaseRadarTracks, fetchReleaseRadar, likedTracksData,
@@ -1229,45 +1408,15 @@ export default function FullTrackView() {
                   </span>
                 )}
               </motion.button>
-              <AnimatePresence>
-                {showSleepTimer && (
-                  <motion.div initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                    className="fixed inset-0 z-[200] flex items-center justify-center"
-                    onClick={() => setShowSleepTimer(false)}>
-                    <div className="absolute inset-0 bg-black/40" />
-                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      className="relative z-10 p-4 rounded-2xl w-56 shadow-xl"
-                      style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
-                      onClick={(e) => e.stopPropagation()}>
-                      <p className="text-xs font-medium mb-3 text-center" style={{ color: "var(--mq-text-muted)" }}>Таймер сна</p>
-                      {sleepTimerActive ? (
-                        <div className="space-y-3">
-                          <p className="text-lg text-center font-mono" style={{ color: "var(--mq-accent)" }}>
-                            {Math.floor(sleepTimerRemaining / 60)}:{(sleepTimerRemaining % 60).toString().padStart(2, "0")}
-                          </p>
-                          <button onClick={() => { stopSleepTimer(); setShowSleepTimer(false); }}
-                            className="w-full flex items-center justify-center gap-1 py-2.5 rounded-xl text-sm"
-                            style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b" }}>
-                            <X className="w-4 h-4" /> Отменить
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 gap-2">
-                          {[15, 30, 45, 60].map((m) => (
-                            <button key={m} onClick={() => { startSleepTimer(m); setShowSleepTimer(false); }}
-                              className="flex items-center justify-center gap-1 py-3 rounded-xl text-sm"
-                              style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}>
-                              <Clock className="w-3.5 h-3.5" /> {m} мин
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              <SleepTimerPopover
+                show={showSleepTimer}
+                onClose={() => setShowSleepTimer(false)}
+                active={sleepTimerActive}
+                remaining={sleepTimerRemaining}
+                timerMinutes={sleepTimerMinutes}
+                onStart={startSleepTimer}
+                onStop={stopSleepTimer}
+              />
             </div>
           </div>
 

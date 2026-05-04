@@ -897,7 +897,7 @@ export default function MainView() {
       icon: Heart,
       label: "Избранное",
       value: `${likedTrackIds.length} треков`,
-      onClick: () => setShowLikedTracks(prev => !prev),
+      onClick: () => setView("favorites"),
     },
     {
       icon: MessageCircle,
