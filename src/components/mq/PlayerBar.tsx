@@ -243,7 +243,7 @@ export default function PlayerBar() {
   const animFrameRef = useRef<number>(0);
   const crossfadeRef = useRef(false); // track if crossfade is in progress
   const prevTrackIdForCrossfade = useRef<string | null>(null);
-  const startLoadingTimeoutRef = useRef<(() => void) | null>(null); // bridge to event listener effect
+  const startLoadingTimeoutRef = useRef<((generation: number) => void) | null>(null); // bridge to event listener effect
 
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
@@ -264,6 +264,8 @@ export default function PlayerBar() {
   const retryCountRef = useRef(0);
   const maxRetries = 3;
   const retryingRef = useRef(false); // prevents concurrent retry attempts
+  const loadGenerationRef = useRef(0); // prevents stale timeouts from interfering with new loads
+  const clearLoadingTimeoutRef = useRef<(() => void) | null>(null); // bridge to cancel loading timeout
 
   const prevTrackRef = useRef(prevTrack);
   const nextTrackRef = useRef(nextTrack);
@@ -430,7 +432,16 @@ export default function PlayerBar() {
                 });
                 hls.loadSource(stream.url);
                 hls.attachMedia(a);
+                // Manifest timeout — if HLS doesn't parse within 8s, skip to next
+                const retryManifestTimeout = setTimeout(() => {
+                  if (a.paused && !a.currentTime) {
+                    console.error("[Player] HLS retry manifest timeout — skipping");
+                    hls.destroy(); delete (a as any)._hlsInstance;
+                    skipToNextWithError(`Таймаут загрузки: ${trackTitle}`);
+                  }
+                }, 8000);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                  clearTimeout(retryManifestTimeout);
                   a.play().then(() => {
                     if (wasMidPlayback && isFinite(savedPosition)) {
                       a.currentTime = savedPosition;
@@ -438,7 +449,15 @@ export default function PlayerBar() {
                   }).catch(() => {});
                 });
                 hls.on(Hls.Events.ERROR, (_ev, data) => {
-                  if (data.fatal) { hls.destroy(); delete (a as any)._hlsInstance; }
+                  clearTimeout(retryManifestTimeout);
+                  if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                    console.warn("[Player] Attempting HLS network recovery during retry...");
+                    hls.startLoad();
+                  } else if (data.fatal) {
+                    console.error("[Player] HLS fatal error during retry:", data.type, data.details);
+                    hls.destroy(); delete (a as any)._hlsInstance;
+                    skipToNextWithError(`Ошибка HLS: ${trackTitle}`);
+                  }
                 });
                 (a as any)._hlsInstance = hls;
               } else {
@@ -501,6 +520,10 @@ export default function PlayerBar() {
       setIsLoadingTrack(false);
       setPlayError(false);
       retryCountRef.current = 0; // reset retry count on successful load
+      // Cancel loading timeout — track loaded successfully
+      if (loadingTimeoutId) { clearTimeout(loadingTimeoutId); loadingTimeoutId = null; }
+      // Cancel stall timeout — not stalled anymore
+      if (stallTimeoutId) { clearTimeout(stallTimeoutId); stallTimeoutId = null; }
       // Log error fix
       if (PlayerErrorLogger.logs.length > 0) {
         const st = useAppStore.getState();
@@ -521,6 +544,10 @@ export default function PlayerBar() {
       setIsLoadingTrack(false);
       setPlayError(false);
       retryCountRef.current = 0; // reset on confirmed playback
+      // Cancel loading timeout — playback confirmed
+      if (loadingTimeoutId) { clearTimeout(loadingTimeoutId); loadingTimeoutId = null; }
+      // Cancel stall timeout — playing again
+      if (stallTimeoutId) { clearTimeout(stallTimeoutId); stallTimeoutId = null; }
       // Log error fix
       const lastUnfixed = [...PlayerErrorLogger.getUnfixed()].reverse()[0];
       if (lastUnfixed) {
@@ -543,11 +570,16 @@ export default function PlayerBar() {
     // Listen on both audio elements
     // Safety timeout: if stuck loading for >10s, force retry
     let loadingTimeoutId: ReturnType<typeof setTimeout> | null = null;
-    const startLoadingTimeout = () => {
+    // Stall detection timeout — if audio stalls mid-playback for >8s, force retry
+    let stallTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const startLoadingTimeout = (generation: number) => {
       if (loadingTimeoutId) clearTimeout(loadingTimeoutId);
       loadingTimeoutId = setTimeout(() => {
+        // Guard: only fire if we're still on the same load generation
+        if (loadGenerationRef.current !== generation) return;
         const st = useAppStore.getState();
-        if (st.currentTrack && !playErrorRef.current) {
+        if (st.currentTrack && !playErrorRef.current && isLoadingTrackRef.current) {
           const a = getActive();
           if (a && (a.readyState < 2 || a.paused) && st.isPlaying) {
             console.warn("[Player] Loading timeout — forcing retry");
@@ -568,8 +600,22 @@ export default function PlayerBar() {
                   const hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30, maxMaxBufferLength: 60 });
                   hls.loadSource(stream.url);
                   hls.attachMedia(a);
-                  hls.on(Hls.Events.MANIFEST_PARSED, () => { a.play().catch(() => {}); });
-                  hls.on(Hls.Events.ERROR, (_ev, data) => { if (data.fatal) { hls.destroy(); delete (a as any)._hlsInstance; } });
+                  hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    setIsLoadingTrack(false);
+                    a.play().catch(() => {});
+                  });
+                  hls.on(Hls.Events.ERROR, (_ev, data) => {
+                    if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                      hls.startLoad(); // try recovery
+                    } else if (data.fatal) {
+                      console.error("[Player] HLS fatal after loading timeout retry:", data.type, data.details);
+                      hls.destroy(); delete (a as any)._hlsInstance;
+                      setIsLoadingTrack(false);
+                      setPlayError(true);
+                      prevTrackIdForCrossfade.current = null;
+                      setTimeout(() => nextTrackRef.current(), 1500);
+                    }
+                  });
                   (a as any)._hlsInstance = hls;
                 } else {
                   a.src = stream.url;
@@ -590,6 +636,66 @@ export default function PlayerBar() {
       }, 10000);
     };
     
+    // Stall detection: if audio stalls for >8s mid-playback, force retry/skip
+    const onWaiting = (e: Event) => {
+      const target = e.target as HTMLAudioElement | null;
+      if (target && target !== getActive()) return;
+      // Only detect stalls during active playback (not initial load)
+      if (!isLoadingTrackRef.current && useAppStore.getState().isPlaying) {
+        if (stallTimeoutId) clearTimeout(stallTimeoutId);
+        stallTimeoutId = setTimeout(() => {
+          const a = getActive();
+          if (a && a.paused && useAppStore.getState().isPlaying && !playErrorRef.current) {
+            console.warn("[Player] Stall detected (8s) — forcing retry");
+            PlayerErrorLogger.log(useAppStore.getState().currentTrack?.title || "unknown", "Stall timeout (8s)", "force retry");
+            // Trigger error recovery by firing onError logic
+            const st = useAppStore.getState();
+            if (st.currentTrack?.scTrackId && !retryingRef.current) {
+              retryingRef.current = true;
+              resolveSoundCloudStream(st.currentTrack.scTrackId).then(stream => {
+                retryingRef.current = false;
+                if (!stream?.url || !a) {
+                  setPlayError(true);
+                  setTimeout(() => nextTrackRef.current(), 1500);
+                  return;
+                }
+                if (useAppStore.getState().currentTrack?.scTrackId !== st.currentTrack?.scTrackId) return;
+                const prevHls = (a as any)._hlsInstance;
+                if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
+                a.crossOrigin = 'anonymous';
+                if (stream.isHls && Hls.isSupported()) {
+                  const hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30, maxMaxBufferLength: 60 });
+                  hls.loadSource(stream.url);
+                  hls.attachMedia(a);
+                  hls.on(Hls.Events.MANIFEST_PARSED, () => { a.play().catch(() => {}); });
+                  hls.on(Hls.Events.ERROR, (_ev, data) => {
+                    if (data.fatal) {
+                      console.error("[Player] HLS fatal error after stall retry:", data.type, data.details);
+                      hls.destroy(); delete (a as any)._hlsInstance;
+                      setPlayError(true);
+                      setTimeout(() => nextTrackRef.current(), 1500);
+                    }
+                  });
+                  (a as any)._hlsInstance = hls;
+                } else {
+                  a.src = stream.url;
+                  a.load();
+                  a.play().catch(() => {});
+                }
+              }).catch(() => {
+                retryingRef.current = false;
+                setPlayError(true);
+                setTimeout(() => nextTrackRef.current(), 1500);
+              });
+            } else {
+              setPlayError(true);
+              setTimeout(() => nextTrackRef.current(), 1500);
+            }
+          }
+        }, 8000);
+      }
+    };
+
     const addListeners = (el: HTMLAudioElement) => {
       el.addEventListener("timeupdate", onTimeUpdate);
       el.addEventListener("loadedmetadata", onLoaded);
@@ -598,6 +704,7 @@ export default function PlayerBar() {
       el.addEventListener("ended", onEnded);
       el.addEventListener("error", onError);
       el.addEventListener("playing", onPlaying);
+      el.addEventListener("waiting", onWaiting);
     };
     const removeListeners = (el: HTMLAudioElement) => {
       el.removeEventListener("timeupdate", onTimeUpdate);
@@ -607,6 +714,7 @@ export default function PlayerBar() {
       el.removeEventListener("ended", onEnded);
       el.removeEventListener("error", onError);
       el.removeEventListener("playing", onPlaying);
+      el.removeEventListener("waiting", onWaiting);
     };
 
     // Expose startLoadingTimeout to track change effect
@@ -617,7 +725,15 @@ export default function PlayerBar() {
     const secondary = getInactiveAudio();
     if (secondary) addListeners(secondary);
 
+    // Expose clearLoadingTimeout so onCanPlay/onPlaying can cancel it
+    clearLoadingTimeoutRef.current = () => {
+      if (loadingTimeoutId) { clearTimeout(loadingTimeoutId); loadingTimeoutId = null; }
+      if (stallTimeoutId) { clearTimeout(stallTimeoutId); stallTimeoutId = null; }
+    };
+
     return () => {
+      if (loadingTimeoutId) { clearTimeout(loadingTimeoutId); loadingTimeoutId = null; }
+      if (stallTimeoutId) { clearTimeout(stallTimeoutId); stallTimeoutId = null; }
       removeListeners(audio);
       if (secondary) removeListeners(secondary);
       // Clean up HLS instances
@@ -1029,13 +1145,18 @@ export default function PlayerBar() {
     let cancelled = false;
     const pendingTimeouts: ReturnType<typeof setTimeout>[] = []; // track all timeouts for cleanup
 
+    // Increment load generation — prevents stale timeouts from interfering
+    loadGenerationRef.current++;
+    const currentGeneration = loadGenerationRef.current;
+
     const loadTrack = async () => {
       try {
         setIsLoadingTrack(true);
         setPlayError(false);
         retryCountRef.current = 0;
         // Safety timeout: if stuck loading >10s, force retry
-        if (startLoadingTimeoutRef.current) startLoadingTimeoutRef.current();
+        // Pass current generation so the timeout can check it's still relevant
+        if (startLoadingTimeoutRef.current) startLoadingTimeoutRef.current(currentGeneration);
 
         // Determine if crossfade is possible (needs a previous track that was playing)
         const canCrossfade = prevTrackIdForCrossfade.current !== null
@@ -1176,8 +1297,10 @@ export default function PlayerBar() {
                   console.error("[Player] HLS manifest parse timeout — skipping");
                   setIsLoadingTrack(false);
                   setPlayError(true);
+                  prevTrackIdForCrossfade.current = null; // prevent broken crossfade
                   try { hls.destroy(); } catch {}
                   delete (audioEl as any)._hlsInstance;
+                  PlayerErrorLogger.log(currentTrack?.title || "unknown", "HLS manifest timeout (10s)", "skip");
                   pendingTimeouts.push(setTimeout(() => nextTrackRef.current(), 1500));
                 }
               }, 10000);
@@ -1206,7 +1329,10 @@ export default function PlayerBar() {
                   console.error("[Player] DRM playback timeout — license may be invalid");
                   setIsLoadingTrack(false);
                   setPlayError(true);
-                  hls.destroy();
+                  prevTrackIdForCrossfade.current = null; // prevent broken crossfade
+                  try { hls.destroy(); } catch {}
+                  delete (audioEl as any)._hlsInstance;
+                  PlayerErrorLogger.log(currentTrack?.title || "unknown", "DRM timeout (12s)", "skip");
                   pendingTimeouts.push(setTimeout(() => nextTrackRef.current(), 2000));
                 }
               }, 12000);
@@ -1246,12 +1372,31 @@ export default function PlayerBar() {
                   clearTimeout(drmTimeout);
                   setIsLoadingTrack(false);
                   setPlayError(true);
+                  prevTrackIdForCrossfade.current = null;
+                  // Skip to next — DRM key error is not recoverable
+                  setTimeout(() => nextTrackRef.current(), 2000);
+                  return;
                 }
                 if (data.fatal) {
                   console.error("[Player] HLS fatal error:", data.type, data.details);
                   clearTimeout(drmTimeout);
-                  hls.destroy();
-                  // Let the global onError handler retry
+                  // Try to recover: if it's a network error, HLS.js can sometimes recover
+                  // Otherwise, destroy and skip to next track
+                  if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+                    console.warn("[Player] Attempting HLS network recovery...");
+                    // Try to recover by starting load from last position
+                    hls.startLoad();
+                    // If recovery fails, the next ERROR event will handle it
+                  } else {
+                    // Non-recoverable: frag error, manifest error, etc.
+                    hls.destroy();
+                    delete (audioEl as any)._hlsInstance;
+                    setIsLoadingTrack(false);
+                    setPlayError(true);
+                    prevTrackIdForCrossfade.current = null;
+                    PlayerErrorLogger.log(currentTrack?.title || "unknown", `HLS fatal: ${data.type}/${data.details}`, "skip");
+                    setTimeout(() => nextTrackRef.current(), 1500);
+                  }
                 }
               });
               // Store hls instance for cleanup
