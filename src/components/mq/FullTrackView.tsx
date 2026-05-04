@@ -1300,6 +1300,22 @@ export default function FullTrackView() {
               }}>
               <ThumbsDown className={`w-[18px] h-[18px] ${isDisliked ? "fill-current" : ""}`} />
             </motion.button>
+            {/* Sleep Timer Button - always visible on all screen sizes */}
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              onClick={() => setShowSleepTimer(true)}
+              className="w-[38px] h-[38px] rounded-full flex items-center justify-center relative"
+              style={{
+                backgroundColor: sleepTimerActive ? "rgba(139,92,246,0.15)" : "var(--mq-card)",
+                border: `1px solid ${sleepTimerActive ? "rgba(139,92,246,0.4)" : "var(--mq-border)"}`,
+                color: sleepTimerActive ? "#8b5cf6" : "var(--mq-text-muted)",
+                touchAction: "manipulation",
+              }}>
+              <Moon className="w-[18px] h-[18px]" />
+              {sleepTimerActive && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ backgroundColor: "#8b5cf6" }} />
+              )}
+            </motion.button>
             <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center sm:hidden"
               style={{

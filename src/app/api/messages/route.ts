@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
     }
     const senderId = session.userId;
 
-    const { content, receiverId, encrypted, messageType, replyToId, voiceUrl, voiceDuration } = await req.json();
+    const { content, receiverId, encrypted, messageType, replyToId, voiceUrl, voiceDuration, id: clientProvidedId } = await req.json();
 
     if (!receiverId) {
       return NextResponse.json(
@@ -83,6 +83,7 @@ export async function POST(req: NextRequest) {
 
     const message = await db.message.create({
       data: {
+        id: clientProvidedId || undefined,
         content: content || "",
         senderId,
         receiverId,

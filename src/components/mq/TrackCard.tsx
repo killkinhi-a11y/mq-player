@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { type Track } from "@/lib/musicApi";
 import { useAppStore } from "@/store/useAppStore";
 import { Play, Pause, Heart, ThumbsDown, MoreHorizontal } from "lucide-react";
@@ -26,6 +26,11 @@ export default function TrackCard({ track, index = 0, queue, onArtistClick }: Tr
 
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
   const [ripples, setRipples] = useState<{ x: number; y: number; id: number }[]>([]);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+
+  useEffect(() => {
+    setIsTouchDevice('ontouchstart' in window || navigator.maxTouchPoints > 0);
+  }, []);
 
   // 3D Tilt state
   const cardRef = useRef<HTMLDivElement>(null);
@@ -76,7 +81,7 @@ export default function TrackCard({ track, index = 0, queue, onArtistClick }: Tr
 
   // Mouse handlers for 3D tilt
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!animationsEnabled) return;
+    if (!animationsEnabled || isTouchDevice) return;
     isHovering.current = true;
     const rect = e.currentTarget.getBoundingClientRect();
     tiltX.set((e.clientX - rect.left) / rect.width);
@@ -124,13 +129,13 @@ export default function TrackCard({ track, index = 0, queue, onArtistClick }: Tr
           border: isActive
             ? "1px solid var(--mq-accent)"
             : "1px solid var(--mq-border)",
-          rotateX: animationsEnabled ? rotateX : 0,
-          rotateY: animationsEnabled ? rotateY : 0,
+          rotateX: (animationsEnabled && !isTouchDevice) ? rotateX : 0,
+          rotateY: (animationsEnabled && !isTouchDevice) ? rotateY : 0,
           transformStyle: "preserve-3d",
           perspective: 800,
           boxShadow: isActive ? "0 0 20px rgba(0,0,0,0.15)" : undefined,
         }}
-        whileHover={animationsEnabled ? { scale: 1.01 } : undefined}
+        whileHover={(animationsEnabled && !isTouchDevice) ? { scale: 1.01 } : undefined}
         whileTap={animationsEnabled ? { scale: 0.98 } : undefined}
       >
         {/* Ripple effects */}

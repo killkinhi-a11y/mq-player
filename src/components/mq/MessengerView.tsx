@@ -340,6 +340,14 @@ export default function MessengerView() {
     const state = useAppStore.getState();
     const existing = state.messages.find((em: any) => em.id === m.id);
     if (existing) return;
+    // Also dedup by signature (content + senderId + receiverId) for messages within 5 seconds
+    const recent = state.messages.find((em: any) => {
+      if (em.senderId !== m.senderId || em.receiverId !== m.receiverId) return false;
+      if (em.content !== m.content) return false;
+      const timeDiff = Math.abs(new Date(em.createdAt).getTime() - new Date(m.createdAt).getTime());
+      return timeDiff < 5000; // within 5 seconds = same message
+    });
+    if (recent) return;
 
     const msg = {
       id: m.id,
@@ -632,6 +640,19 @@ export default function MessengerView() {
       el.scrollTop = el.scrollHeight;
     }
   }, [messages, selectedContactId, groupMessages, selectedGroupId]);
+
+  // Force scroll to bottom when entering a new chat
+  useEffect(() => {
+    if (!selectedContactId) return;
+    // Small delay to let messages render after loading from server
+    const timer = setTimeout(() => {
+      const el = scrollRef.current;
+      if (el) {
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [selectedContactId]);
 
   // ── Cross-tab BroadcastChannel for notifications ──
   useEffect(() => {

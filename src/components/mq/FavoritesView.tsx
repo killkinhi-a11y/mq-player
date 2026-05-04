@@ -238,7 +238,7 @@ export default function FavoritesView() {
                     <motion.button
                       whileTap={{ scale: 0.85 }}
                       onClick={() => handleRemoveTrack(track.id, track)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity cursor-pointer"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 opacity-100 transition-opacity cursor-pointer"
                       style={{
                         color: activeTab === "liked" ? "#ef4444" : "var(--mq-text-muted)",
                       }}
