@@ -13,6 +13,7 @@ import { formatDuration } from "@/lib/musicApi";
 import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade } from "@/lib/audioEngine";
 import { getLocalBlobUrl } from "./SearchView";
 import { openPiPPopup, closePiPPopup } from "@/lib/pipManager";
+import { toast } from "@/hooks/use-toast";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 
 import QueueView from "./QueueView";
@@ -332,7 +333,7 @@ export default function PlayerBar() {
       const audioEl = getActive();
       const st = useAppStore.getState();
       const isSCTrack = !!st.currentTrack?.scTrackId;
-      
+
       // Log error for diagnostics
       const trackTitle = st.currentTrack?.title || "unknown";
       const errorCode = audioEl?.error?.code || 0;
@@ -349,6 +350,19 @@ export default function PlayerBar() {
       const savedPosition = audioEl?.currentTime || 0;
       const wasMidPlayback = savedPosition > 1 && !isLoadingTrackRef.current;
 
+      // Helper: skip to next track with toast notification
+      const skipToNextWithError = (message: string) => {
+        setPlayError(true);
+        setIsLoadingTrack(false);
+        try {
+          toast({
+            title: "Ошибка воспроизведения",
+            description: message,
+          });
+        } catch {}
+        setTimeout(() => { nextTrackRef.current(); }, 1500);
+      };
+
       // For SoundCloud tracks: re-resolve stream URL instead of reloading same (possibly expired) URL
       if (isSCTrack && st.currentTrack?.scTrackId && retryCountRef.current < maxRetries) {
         retryCountRef.current++;
@@ -362,9 +376,7 @@ export default function PlayerBar() {
           const currentSt = useAppStore.getState();
           if (currentSt.currentTrack?.scTrackId !== scId) return;
 
-          let finalUrl: string | null = stream?.url || null;
-
-          if (finalUrl) {
+          if (stream?.url) {
             const a = getActive();
             if (a) {
               // Clean up any previous HLS instance before switching source
@@ -372,7 +384,7 @@ export default function PlayerBar() {
               if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
 
               a.crossOrigin = 'anonymous';
-              a.src = finalUrl;
+              a.src = stream.url;
               a.load();
               a.play().then(() => {
                 // Restore position if this was a mid-playback recovery
@@ -382,15 +394,12 @@ export default function PlayerBar() {
               }).catch(() => {});
             }
           } else {
-            setPlayError(true);
-            setIsLoadingTrack(false);
-            setTimeout(() => { nextTrackRef.current(); }, 1500);
+            // Stream resolve returned null — track unavailable
+            skipToNextWithError(`Не удалось загрузить: ${trackTitle}`);
           }
         }).catch(() => {
           retryingRef.current = false;
-          setPlayError(true);
-          setIsLoadingTrack(false);
-          setTimeout(() => { nextTrackRef.current(); }, 1500);
+          skipToNextWithError(`Ошибка сети: ${trackTitle}`);
         });
         return;
       }
@@ -402,6 +411,10 @@ export default function PlayerBar() {
         console.warn(`[Player] Error loading track, retry ${retryCountRef.current}/${maxRetries}`);
         setTimeout(() => {
           retryingRef.current = false;
+          // Check track hasn't changed
+          const currentSt = useAppStore.getState();
+          if (currentSt.currentTrack?.id !== st.currentTrack?.id) return;
+
           // Try clearing src and re-setting to force a fresh network request
           const savedSrc = audioEl.src;
           audioEl.removeAttribute('src');
@@ -412,79 +425,15 @@ export default function PlayerBar() {
             audioEl.play().then(() => {
               // Playback recovered
             }).catch(() => {
-              // Still failing — for SC tracks try one more resolve
-              if (isSCTrack && st.currentTrack?.scTrackId && retryCountRef.current < maxRetries + 1) {
-                retryCountRef.current++;
-                console.warn(`[Player] Extra SC resolve attempt ${retryCountRef.current}`);
-                resolveSoundCloudStream(st.currentTrack.scTrackId).then(stream => {
-                  if (stream?.url && useAppStore.getState().currentTrack?.scTrackId === st.currentTrack?.scTrackId) {
-                    const a = getActive();
-                    if (a) {
-                      a.crossOrigin = 'anonymous';
-                      a.src = stream.url;
-                      a.load();
-                      a.play().catch(() => {
-                        setPlayError(true);
-                        setIsLoadingTrack(false);
-                      });
-                    }
-                  } else {
-                    setPlayError(true);
-                    setIsLoadingTrack(false);
-                  }
-                }).catch(() => {
-                  setPlayError(true);
-                  setIsLoadingTrack(false);
-                });
-              } else {
-                setPlayError(true);
-                setIsLoadingTrack(false);
-              }
+              // Still failing — skip to next
+              skipToNextWithError(`Не удалось воспроизвести: ${trackTitle}`);
             });
           }, 100);
         }, 1000 * retryCountRef.current);
       } else {
-        setPlayError(true);
-        setIsLoadingTrack(false);
-        console.warn(`[Player] Max retries reached, auto-skipping to next track`);
-        // Instead of auto-skip, try the track one final time after a longer delay
-        setTimeout(() => {
-          if (playErrorRef.current && useAppStore.getState().currentTrack) {
-            const st2 = useAppStore.getState();
-            const track = st2.currentTrack;
-            // Final attempt: re-trigger loadTrack by toggling currentTrack
-            if (track?.scTrackId) {
-              console.warn(`[Player] Final retry: re-resolving stream`);
-              retryCountRef.current = 0; // reset for the new load
-              resolveSoundCloudStream(track.scTrackId).then(stream => {
-                if (stream?.url && useAppStore.getState().currentTrack?.scTrackId === track.scTrackId) {
-                  const a = getActive();
-                  if (a) {
-                    const prevHls = (a as any)._hlsInstance;
-                    if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
-                    a.crossOrigin = 'anonymous';
-                    a.src = stream.url;
-                    a.load();
-                    a.play().then(() => {
-                      setPlayError(false);
-                      setIsLoadingTrack(false);
-                    }).catch(() => {
-                      // Truly failed — skip to next
-                      setPlayError(true);
-                      setTimeout(() => { nextTrackRef.current(); }, 1000);
-                    });
-                  }
-                } else {
-                  nextTrackRef.current();
-                }
-              }).catch(() => {
-                nextTrackRef.current();
-              });
-            } else {
-              nextTrackRef.current();
-            }
-          }
-        }, 2000);
+        // Max retries exhausted — always skip to next track
+        console.warn(`[Player] Max retries reached, skipping to next track`);
+        skipToNextWithError(`Не удалось воспроизвести: ${trackTitle}`);
       }
     };
     const onCanPlay = () => {
@@ -1268,8 +1217,13 @@ export default function PlayerBar() {
             }
             prevTrackIdForCrossfade.current = currentTrack.id;
           } else {
+            // No stream URL and no audioUrl — track unavailable
+            console.warn(`[Player] No stream URL for SC track: ${currentTrack.title}`);
             setPlayError(true);
             setIsLoadingTrack(false);
+            try {
+              toast({ title: "Ошибка воспроизведения", description: `Трек недоступен: ${currentTrack.title || "неизвестный"}` });
+            } catch {}
             setTimeout(() => nextTrackRef.current(), 1500);
           }
         } else if (currentTrack.audioUrl || currentTrack.id.startsWith("local_")) {
@@ -1285,6 +1239,9 @@ export default function PlayerBar() {
               // No blob URL available (e.g. page was reloaded)
               setPlayError(true);
               setIsLoadingTrack(false);
+              try {
+                toast({ title: "Ошибка воспроизведения", description: "Локальный файл не найден (перезагрузите страницу)" });
+              } catch {}
               setTimeout(() => nextTrackRef.current(), 1500);
               return;
             }
@@ -1304,14 +1261,22 @@ export default function PlayerBar() {
           }
           prevTrackIdForCrossfade.current = currentTrack.id;
         } else {
+          // No source at all
+          console.warn(`[Player] No audio source for track: ${currentTrack.title}`);
           setPlayError(true);
           setIsLoadingTrack(false);
+          try {
+            toast({ title: "Ошибка воспроизведения", description: `Нет источника: ${currentTrack.title || "неизвестный"}` });
+          } catch {}
           setTimeout(() => nextTrackRef.current(), 1500);
         }
       } catch (err) {
         console.error("loadTrack error:", err);
         setPlayError(true);
         setIsLoadingTrack(false);
+        try {
+          toast({ title: "Ошибка воспроизведения", description: "Произошла ошибка при загрузке трека" });
+        } catch {}
         setTimeout(() => nextTrackRef.current(), 2000);
       }
     };
