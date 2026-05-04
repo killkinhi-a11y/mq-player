@@ -1684,7 +1684,7 @@ export default function PlayerBar() {
         </div>
 
         {/* Action buttons — right side, progressively shown on larger screens */}
-        <div className="flex items-center gap-1 lg:gap-2 justify-end min-w-0 flex-shrink" style={{ flexBasis: "35%", maxWidth: "40%" }}>
+        <div className="flex items-center gap-1 lg:gap-2 justify-end min-w-0 flex-shrink overflow-hidden" style={{ flexBasis: "35%", maxWidth: "40%" }}>
           <span className="text-xs hidden lg:block flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
             {formatDuration(Math.floor(Math.min(progress, duration || 0)))} / {formatDuration(Math.floor(duration))}
           </span>

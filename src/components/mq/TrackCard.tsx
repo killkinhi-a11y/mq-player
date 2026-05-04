@@ -118,7 +118,7 @@ export default function TrackCard({ track, index = 0, queue, onArtistClick }: Tr
         onContextMenu={handleContextMenu}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className={`flex items-center ${compactMode ? "gap-1.5 sm:gap-2 p-2 sm:p-2" : "gap-1.5 sm:gap-2.5 p-2 sm:p-3"} rounded-xl cursor-pointer transition-all duration-200 group relative overflow-hidden`}
+        className={`flex items-center ${compactMode ? "gap-1 sm:gap-2 px-2 py-1 sm:py-2" : "gap-1.5 sm:gap-2.5 p-2 sm:p-3"} rounded-xl cursor-pointer transition-all duration-200 group relative overflow-hidden`}
         style={{
           backgroundColor: isActive ? "var(--mq-accent)" : "var(--mq-card)",
           border: isActive
@@ -157,7 +157,7 @@ export default function TrackCard({ track, index = 0, queue, onArtistClick }: Tr
         )}
 
         {/* Cover — smaller on mobile */}
-        <div className={`relative ${compactMode ? "w-8 h-8 sm:w-10 sm:h-10" : "w-10 h-10 sm:w-12 sm:h-12"} rounded-lg overflow-hidden flex-shrink-0`}>
+        <div className={`${compactMode ? "hidden sm:block" : ""} relative ${compactMode ? "w-8 h-8 sm:w-10 sm:h-10" : "w-10 h-10 sm:w-12 sm:h-12"} rounded-lg overflow-hidden flex-shrink-0`}>
           <img src={track.cover} alt={track.album} className="w-full h-full object-cover" loading="lazy" />
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
             style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
@@ -172,28 +172,30 @@ export default function TrackCard({ track, index = 0, queue, onArtistClick }: Tr
         </div>
 
         {/* Track info — always take remaining space */}
-        <div className="flex-1 min-w-0">
-          <p className="font-medium text-xs sm:text-sm truncate" style={{ color: isActive ? "var(--mq-text)" : "var(--mq-text)" }}>
+        <div className={`${compactMode ? "flex items-baseline gap-1 sm:flex-col sm:gap-0" : ""} flex-1 min-w-0`}>
+          <p className={`font-medium text-xs sm:text-sm truncate ${compactMode ? "min-w-0" : ""}`} style={{ color: isActive ? "var(--mq-text)" : "var(--mq-text)" }}>
             {track.title}
           </p>
           <p
-            className={`text-[10px] sm:text-xs truncate ${onArtistClick ? "cursor-pointer hover:underline" : ""}`}
+            className={`text-[10px] sm:text-xs truncate ${compactMode ? "shrink-0" : ""}`}
             style={{ color: isActive ? "rgba(255,255,255,0.75)" : "var(--mq-text-muted)" }}
-            onClick={(e) => {
-              if (onArtistClick) {
-                e.stopPropagation();
-                onArtistClick(track.artist, track.cover);
-              }
-            }}
           >
-            {track.artist}
+            {onArtistClick ? (
+              <span
+                className="cursor-pointer hover:underline"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onArtistClick(track.artist, track.cover);
+                }}
+              >{track.artist}</span>
+            ) : track.artist}
           </p>
         </div>
 
         {/* Actions — compact on mobile, only show what fits */}
         <div className="flex items-center gap-1 sm:gap-1 flex-shrink-0">
           {/* Duration — sm+ only */}
-          <span className="hidden sm:block text-[11px] tabular-nums w-10 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
+          <span className={`${compactMode ? "hidden" : "hidden sm:block"} text-[11px] tabular-nums w-10 text-right flex-shrink-0`} style={{ color: "var(--mq-text-muted)" }}>
             {formatDuration(track.duration || 0)}
           </span>
           {/* Like — magnetic on hover */}
@@ -202,7 +204,7 @@ export default function TrackCard({ track, index = 0, queue, onArtistClick }: Tr
             onClick={handleLikeClick}
             onMouseMove={handleLikeMouseMove}
             onMouseLeave={handleLikeMouseLeave}
-            className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg active:scale-90"
+            className={`${compactMode ? "min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px]" : "min-w-[44px] min-h-[44px]"} flex items-center justify-center rounded-lg active:scale-90`}
             style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)", touchAction: "manipulation" }}
           >
             <motion.span style={{ x: likeX, y: likeY, display: "inline-block" }}>
@@ -218,7 +220,7 @@ export default function TrackCard({ track, index = 0, queue, onArtistClick }: Tr
           </button>
 
           {/* More — always accessible */}
-          <button onClick={handleMoreClick} className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg sm:opacity-0 sm:group-hover:opacity-100"
+          <button onClick={handleMoreClick} className={`${compactMode ? "min-w-[36px] min-h-[36px] sm:min-w-[44px] sm:min-h-[44px]" : "min-w-[44px] min-h-[44px]"} flex items-center justify-center rounded-lg sm:opacity-0 sm:group-hover:opacity-100`}
             style={{ color: "var(--mq-text-muted)" }}>
             <MoreHorizontal className="w-4 h-4" />
           </button>

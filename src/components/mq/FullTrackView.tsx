@@ -938,9 +938,9 @@ export default function FullTrackView() {
               initial={animationsEnabled ? { scale: 0.8, opacity: 0 } : undefined}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 200 }}
-              className="mb-6 sm:mb-8 flex items-center justify-center"
+              className="mb-3 sm:mb-5 flex items-center justify-center"
             >
-              <div className="w-48 h-48 sm:w-64 sm:h-64 lg:w-80 lg:h-80 rounded-2xl overflow-hidden shadow-2xl relative z-10"
+              <div className="w-44 h-44 sm:w-56 sm:h-56 lg:w-72 lg:h-72 rounded-2xl overflow-hidden shadow-2xl relative z-10"
                 style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
                 {currentPlaylistId ? (
                   <PlaylistArtwork
@@ -961,7 +961,7 @@ export default function FullTrackView() {
           {canvasMode && <div className="mb-8" style={{ height: "clamp(14rem, 40vh, 20rem)" }} />}
 
           {/* Track info */}
-          <div className="text-center mb-4 sm:mb-6 w-full">
+          <div className="text-center mb-2 sm:mb-4 w-full">
             <h2 className="text-xl font-bold mb-1 truncate" style={{ color: "var(--mq-text)" }}>
               {currentTrack.title}
             </h2>
@@ -974,7 +974,7 @@ export default function FullTrackView() {
           </div>
 
           {/* Progress bar */}
-          <div className="w-full mb-4 sm:mb-6">
+          <div className="w-full mb-3 sm:mb-4">
             <div ref={progressRef}
               onMouseDown={handleProgressMouseDown}
               onTouchStart={handleProgressTouchStart}
@@ -992,7 +992,7 @@ export default function FullTrackView() {
           </div>
 
           {/* Action buttons row */}
-          <div className="flex items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-6 overflow-x-auto px-2 sm:px-0" style={{ scrollbarWidth: "none" }}>
+          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3 px-2 sm:px-0">
             <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
@@ -1038,8 +1038,11 @@ export default function FullTrackView() {
               }}>
               <MessageSquare className="w-[18px] h-[18px]" />
             </motion.button>
+          </div>
+          {/* Row 2: Secondary actions — hidden on mobile, visible on sm+ */}
+          <div className="flex items-center justify-center gap-2 sm:gap-3">
             <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowDNA(!showDNA); setShowSimilar(false); setShowLyrics(false); setShowComments(false); }}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+              className="w-[38px] h-[38px] rounded-full items-center justify-center hidden sm:flex"
               style={{
                 backgroundColor: showDNA ? "var(--mq-accent)" : "var(--mq-card)",
                 border: "1px solid var(--mq-border)",
@@ -1048,7 +1051,7 @@ export default function FullTrackView() {
               <Dna className="w-[18px] h-[18px]" />
             </motion.button>
             <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCanvasMode(!canvasMode)}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+              className="w-[38px] h-[38px] rounded-full items-center justify-center hidden sm:flex"
               style={{
                 backgroundColor: canvasMode ? "var(--mq-accent)" : "var(--mq-card)",
                 border: "1px solid var(--mq-border)",
@@ -1061,7 +1064,7 @@ export default function FullTrackView() {
               whileTap={{ scale: 0.85 }}
               onClick={() => toggleRadioMode()}
               title={radioMode ? "Выключить волну" : "Волна"}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+              className="w-[38px] h-[38px] rounded-full items-center justify-center hidden sm:flex"
               style={{
                 backgroundColor: radioMode ? "var(--mq-accent)" : "var(--mq-card)",
                 border: radioMode ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
@@ -1071,7 +1074,7 @@ export default function FullTrackView() {
               <Waves className="w-[18px] h-[18px]" />
             </motion.button>
             <button onClick={() => setVolume(volume > 0 ? 0 : 70)}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+              className="w-[38px] h-[38px] rounded-full items-center justify-center hidden sm:flex"
               style={{
                 backgroundColor: "var(--mq-card)",
                 border: "1px solid var(--mq-border)",
@@ -1080,7 +1083,7 @@ export default function FullTrackView() {
               {volume === 0 ? <VolumeX className="w-[18px] h-[18px]" /> : <Volume2 className="w-[18px] h-[18px]" />}
             </button>
             {/* Sleep timer */}
-            <div className="relative">
+            <div className="relative hidden sm:block">
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowSleepTimer(!showSleepTimer)}
                 className="w-[38px] h-[38px] rounded-full flex items-center justify-center relative"
                 style={{
@@ -1139,7 +1142,7 @@ export default function FullTrackView() {
           </div>
 
           {/* Main playback controls */}
-          <div className="flex items-center gap-4 sm:gap-6 mb-3 sm:mb-4">
+          <div className="flex items-center gap-4 sm:gap-6 mb-2 sm:mb-3">
             <motion.button whileTap={{ scale: 0.9 }} onClick={toggleShuffle}
               style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
               <Shuffle className="w-5 h-5" />

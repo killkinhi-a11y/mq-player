@@ -103,9 +103,9 @@ export const mockContacts: Contact[] = [
 
 export function normalizeDuration(d: number): number {
   // SoundCloud returns duration in milliseconds; detect and convert to seconds
-  // If value looks like milliseconds (> 60000 = 10min), divide by 1000
+  // If value looks like milliseconds (> 100000 ≈ 28h if seconds), divide by 1000
   if (!d || !isFinite(d) || d <= 0) return 0;
-  if (d > 60000) return d / 1000;
+  if (d > 100000) return d / 1000;
   return d;
 }
 
