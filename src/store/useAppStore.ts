@@ -116,7 +116,7 @@ interface AppState {
   duration: number;
   shuffle: boolean;
   repeat: "off" | "all" | "one";
-  playbackMode: "soundcloud" | "idle";
+  playbackMode: "soundcloud" | "spotify" | "idle";
 
   // Sleep timer
   sleepTimerActive: boolean;
@@ -239,7 +239,7 @@ interface AppState {
   prevTrack: () => void;
   toggleShuffle: () => void;
   toggleRepeat: () => void;
-  setPlaybackMode: (mode: "soundcloud" | "idle") => void;
+  setPlaybackMode: (mode: "soundcloud" | "spotify" | "idle") => void;
 
   // Sleep timer actions
   startSleepTimer: (minutes: number) => void;
@@ -440,7 +440,7 @@ const initialState = {
   duration: 0,
   shuffle: false,
   repeat: "off" as "off" | "all" | "one",
-  playbackMode: "idle" as "soundcloud" | "idle",
+  playbackMode: "idle" as "soundcloud" | "spotify" | "idle",
   sleepTimerActive: false,
   sleepTimerMinutes: 30,
   sleepTimerRemaining: 0,

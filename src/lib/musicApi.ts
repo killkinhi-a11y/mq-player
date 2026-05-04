@@ -8,10 +8,13 @@ export interface Track {
   genre: string;
   audioUrl: string;
   previewUrl?: string;
-  source: "soundcloud" | "local";
+  source: "soundcloud" | "local" | "spotify";
   scTrackId?: number;
   scStreamPolicy?: string;
   scIsFull?: boolean;
+  spotifyTrackId?: string;
+  spotifyArtistId?: string;
+  spotifyAlbumId?: string;
 }
 
 export interface Playlist {
@@ -122,11 +125,11 @@ export function formatDuration(seconds: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-export async function searchTracks(query: string): Promise<Track[]> {
+export async function searchTracks(query: string, source: "soundcloud" | "spotify" | "all" = "all"): Promise<Track[]> {
   try {
-    const res = await fetch(
-      `/api/music/search?q=${encodeURIComponent(query)}`
-    );
+    const params = new URLSearchParams({ q: query });
+    if (source !== "all") params.set("source", source);
+    const res = await fetch(`/api/music/search?${params}`);
     if (!res.ok) return [];
     const data = await res.json();
     return data.tracks || [];
