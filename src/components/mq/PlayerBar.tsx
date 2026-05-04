@@ -1325,11 +1325,14 @@ export default function PlayerBar() {
         if (cancelled) return;
 
         // ── Spotify Playback Branch ──
-        // Use the Spotify Web Playback SDK for full track playback when available.
-        // Falls back to preview_url (30 seconds) if SDK is not ready.
+        // Priority order:
+        //   1. Spotify Web Playback SDK (Premium, full track)
+        //   2. YouTube Music fallback (no Premium, full track)
+        //   3. Spotify preview_url (30 seconds, last resort)
         if (currentTrack.source === "spotify" && currentTrack.spotifyTrackId) {
           const trackUri = `spotify:track:${currentTrack.spotifyTrackId}`;
 
+          // 1) Try Spotify Web Playback SDK (requires Premium)
           if (spotifyPlayerReadyRef.current && spotifyPlayRef.current) {
             console.log("[Player] Using Spotify Web Playback SDK for:", currentTrack.title);
 
@@ -1342,15 +1345,53 @@ export default function PlayerBar() {
               setPlaybackMode("spotify");
               setIsLoadingTrack(false);
               prevTrackIdForCrossfade.current = currentTrack.id;
-              // Duration is already set from track metadata
               return;
             } else {
-              // SDK play failed (e.g., no Premium) — fall back to preview
-              console.warn("[Player] Spotify SDK play failed, falling back to preview");
+              console.warn("[Player] Spotify SDK play failed, trying YouTube fallback");
             }
           }
 
-          // Fallback: use preview_url if available
+          // 2) YouTube Music fallback — full track without Premium
+          if (cancelled) return;
+          console.log("[Player] Searching YouTube Music for:", currentTrack.title, "-", currentTrack.artist);
+          try {
+            const ytRes = await fetch(
+              `/api/music/youtube/resolve?title=${encodeURIComponent(currentTrack.title)}&artist=${encodeURIComponent(currentTrack.artist)}`,
+              { signal: AbortSignal.timeout(15000) }
+            );
+            if (ytRes.ok && !cancelled) {
+              const ytData = await ytRes.json();
+              if (ytData.streamUrl) {
+                console.log("[Player] Found YouTube stream for:", currentTrack.title, "(via", ytData.videoId, ")");
+                setPlaybackMode("soundcloud");
+
+                if (canCrossfade) {
+                  crossfadeTo(audioEl, ytData.streamUrl);
+                  prevTrackIdForCrossfade.current = currentTrack.id;
+                } else {
+                  audioEl.crossOrigin = "anonymous";
+                  audioEl.src = ytData.streamUrl;
+                  audioEl.load();
+                  audioEl.play().catch(() => {});
+                  cancelCrossfade();
+                  prevTrackIdForCrossfade.current = currentTrack.id;
+                }
+
+                // Update duration from YouTube if Spotify duration was 0
+                if (ytData.duration && ytData.duration > 0) {
+                  setDurationRef.current(ytData.duration);
+                }
+
+                setIsLoadingTrack(false);
+                return;
+              }
+            }
+          } catch (ytErr) {
+            console.warn("[Player] YouTube fallback failed:", ytErr);
+          }
+
+          // 3) Last resort: Spotify 30-second preview
+          if (cancelled) return;
           if (currentTrack.previewUrl) {
             console.log("[Player] Using Spotify preview (30s):", currentTrack.title);
             setPlaybackMode("soundcloud");
@@ -1361,14 +1402,13 @@ export default function PlayerBar() {
             audioEl.play().catch(() => {});
             prevTrackIdForCrossfade.current = currentTrack.id;
           } else {
-            // No preview URL and SDK not available
             console.warn("[Player] No playback source for Spotify track:", currentTrack.title);
             setPlayError(true);
             setIsLoadingTrack(false);
             try {
               toast({
                 title: "Трек недоступен",
-                description: `Подключите Spotify для полного воспроизведения: ${currentTrack.title || "неизвестный"}`,
+                description: `Не удалось найти "${currentTrack.title || "неизвестный"}" ни на Spotify, ни на YouTube`,
               });
             } catch {}
             setTimeout(() => nextTrackRef.current(), 1500);
@@ -2031,8 +2071,8 @@ export default function PlayerBar() {
               {currentTrack.artist}
               {currentTrack.source === "spotify" && !spotifyPlayer.isReady && (
                 <span className="ml-1.5 px-1.5 py-0 rounded text-[9px] inline-flex items-center gap-0.5 flex-shrink-0"
-                  style={{ backgroundColor: "rgba(29,185,84,0.2)", color: "#1DB954" }}>
-                  <Disc3 className="w-2.5 h-2.5" /> превью
+                  style={{ backgroundColor: "rgba(255,0,0,0.15)", color: "#ff0000" }}>
+                  <Disc3 className="w-2.5 h-2.5" /> YouTube
                 </span>
               )}
               {currentTrack.source === "spotify" && spotifyPlayer.isReady && (

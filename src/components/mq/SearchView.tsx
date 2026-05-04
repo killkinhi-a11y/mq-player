@@ -639,11 +639,11 @@ export default function SearchView() {
         </ScrollReveal>
       )}
 
-      {/* Spotify full playback notice */}
+      {/* Spotify playback notice */}
       {!activeLoading && activeTracks.some(t => t.source === "spotify") && (
         <div className="text-center py-2">
           <p className="text-[10px]" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
-            Для полного воспроизведения Spotify — подключите аккаунт в настройках
+            Spotify треки воспроизводятся через YouTube Music — полное воспроизведение без Premium
           </p>
         </div>
       )}
