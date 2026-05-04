@@ -577,13 +577,6 @@
   background: #d45070 !important;
 }
 
-/* PiP */
-[data-style="japan"] div[class*="fixed"][class*="bottom-"][class*="right-"][class*="z-50"] {
-  border-radius: 8px !important;
-  border: 1px solid #3a2a1a !important;
-  background: #251c15 !important;
-}
-
 /* ── ═══ SUBTLE DECORATIVE: Cherry blossom accent line on header ═══ ──── */
 [data-style="japan"] header::after {
   content: "";
@@ -924,12 +917,6 @@
 }
 [data-style="japan"][data-style-variant="light"] div[class*="fixed"][class*="z-100"] div[style*="background: var(--mq-accent)"][class*="h-1.5"] {
   background: #8b2252 !important;
-}
-
-/* Light: PiP */
-[data-style="japan"][data-style-variant="light"] div[class*="fixed"][class*="bottom-"][class*="right-"][class*="z-50"] {
-  background: #faf7f2 !important;
-  border-color: #ddd5c8 !important;
 }
 
 /* Light: Cherry blossom line — full opacity */

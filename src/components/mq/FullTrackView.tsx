@@ -5,13 +5,12 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
-  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, PictureInPicture2, Waves, Dna, MoreVertical, Headphones, Radio, Mic2
+  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, Waves, Dna, MoreVertical, Headphones, Radio, Mic2
 } from "lucide-react";
 import SongDNA from "./SongDNA";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { getAudioElement, resumeAudioContext } from "@/lib/audioEngine";
-import { openPiPPopup, closePiPPopup } from "@/lib/pipManager";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 import TrackCanvas from "./TrackCanvas";
 import PlaylistArtwork from "./PlaylistArtwork";
@@ -207,7 +206,6 @@ export default function FullTrackView() {
     showLyricsRequested, clearShowLyricsRequest,
     sleepTimerActive, sleepTimerRemaining, sleepTimerMinutes, startSleepTimer, stopSleepTimer, updateSleepTimer,
     currentStyle, styleVariant, currentPlaylistId,
-    isPiPActive, setPiPActive, pipMode,
     radioMode, toggleRadioMode, releaseRadarTracks, fetchReleaseRadar, likedTracksData,
     spatialAudioEnabled, setSpatialAudioEnabled, setView,
   } = useAppStore();
@@ -241,6 +239,7 @@ export default function FullTrackView() {
   const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const lyricsScrollRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLParagraphElement>(null);
+  const lyricsVisCanvasRef = useRef<HTMLCanvasElement>(null);
 
   // Native wheel handler for volume section (fix passive listener issue)
   useEffect(() => {
@@ -319,6 +318,73 @@ export default function FullTrackView() {
       activeLineRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, [activeLineIndex]);
+
+  // Lyrics visualization — circular audio-reactive rings
+  useEffect(() => {
+    const canvas = lyricsVisCanvasRef.current;
+    if (!canvas || !showLyrics) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const draw = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        ctx.scale(dpr, dpr);
+      }
+      ctx.clearRect(0, 0, w, h);
+      const t = performance.now() / 1000;
+      const cx = w / 2;
+      const cy = h / 2;
+      const baseRadius = Math.min(w, h) * 0.18;
+
+      const accentColor = getComputedStyle(document.documentElement).getPropertyValue("--mq-accent").trim() || "#e03131";
+      let r = 224, g = 49, b = 49;
+      if (accentColor.startsWith("#") && accentColor.length >= 7) {
+        r = parseInt(accentColor.slice(1, 3), 16);
+        g = parseInt(accentColor.slice(3, 5), 16);
+        b = parseInt(accentColor.slice(5, 7), 16);
+      }
+
+      // Draw 3 concentric pulsing rings
+      for (let ring = 0; ring < 3; ring++) {
+        const radius = baseRadius + ring * 30;
+        const segments = 60 + ring * 20;
+        ctx.beginPath();
+        for (let i = 0; i <= segments; i++) {
+          const angle = (i / segments) * Math.PI * 2 - Math.PI / 2;
+          const noise = Math.sin(t * (1.5 + ring * 0.5) + i * 0.3 + ring * 2) * (8 + ring * 4);
+          const pulse = isPlaying ? (1 + 0.15 * Math.sin(t * 2 + ring)) : 0.5;
+          const finalR = radius + noise * pulse;
+          const x = cx + Math.cos(angle) * finalR;
+          const y = cy + Math.sin(angle) * finalR;
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        const alpha = (0.08 - ring * 0.02) * (isPlaying ? 1.5 : 0.5);
+        ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+
+      // Central glow
+      const glowAlpha = isPlaying ? 0.04 + 0.02 * Math.sin(t * 1.5) : 0.015;
+      const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseRadius);
+      glow.addColorStop(0, `rgba(${r},${g},${b},${glowAlpha})`);
+      glow.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      ctx.beginPath();
+      ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
+      ctx.fillStyle = glow;
+      ctx.fill();
+
+      requestAnimationFrame(draw);
+    };
+    const animId = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(animId);
+  }, [showLyrics, isPlaying, currentTrack?.id]);
 
   // Fetch similar tracks using the smart similarity algorithm
   useEffect(() => {
@@ -1130,11 +1196,6 @@ export default function FullTrackView() {
                         { icon: Headphones, label: "Spatial Audio", active: spatialAudioEnabled, action: () => { setSpatialAudioEnabled(!spatialAudioEnabled); setShowMoreMenu(false); } },
                         { icon: Waves, label: radioMode ? "Волна вкл" : "Радио режим", active: radioMode, action: () => { toggleRadioMode(); setShowMoreMenu(false); } },
                         { icon: Download, label: "Скачать", active: false, action: () => { handleDownload(); setShowMoreMenu(false); } },
-                        { icon: PictureInPicture2, label: isPiPActive ? "Закрыть мини-плеер" : "Мини-плеер", active: isPiPActive, action: async () => {
-                          if (isPiPActive) { closePiPPopup(); setPiPActive(false); }
-                          else { const opened = await openPiPPopup(); setPiPActive(true, opened ? 'popup' : 'overlay'); }
-                          setShowMoreMenu(false);
-                        } },
                       ].map((item) => {
                         const Icon = item.icon;
                         return (
@@ -1194,11 +1255,6 @@ export default function FullTrackView() {
                     { icon: Headphones, label: "Spatial Audio", active: spatialAudioEnabled, action: () => { setSpatialAudioEnabled(!spatialAudioEnabled); setShowMoreMenu(false); } },
                     { icon: Waves, label: radioMode ? "Волна вкл" : "Радио режим", active: radioMode, action: () => { toggleRadioMode(); setShowMoreMenu(false); } },
                     { icon: Download, label: "Скачать", active: false, action: () => { handleDownload(); setShowMoreMenu(false); } },
-                    { icon: PictureInPicture2, label: isPiPActive ? "Закрыть мини-плеер" : "Мини-плеер", active: isPiPActive, action: async () => {
-                      if (isPiPActive) { closePiPPopup(); setPiPActive(false); }
-                      else { const opened = await openPiPPopup(); setPiPActive(true, opened ? 'popup' : 'overlay'); }
-                      setShowMoreMenu(false);
-                    } },
                   ].map((item) => {
                     const Icon = item.icon;
                     return (
@@ -1456,76 +1512,120 @@ export default function FullTrackView() {
           </div>
         </div>
 
-        {/* Lyrics panel — slides up from bottom */}
+        {/* Immersive Lyrics Panel */}
         <AnimatePresence>
           {showLyrics && (
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="absolute bottom-0 left-0 right-0 z-20 rounded-t-2xl overflow-hidden"
-              style={{ maxHeight: "50vh", backgroundColor: "var(--mq-card)", borderTop: "1px solid var(--mq-border)" }}>
-              <div className="flex items-center justify-between p-4 pb-2">
-                <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Текст песни</h3>
-                <button onClick={() => setShowLyrics(false)} style={{ color: "var(--mq-text-muted)" }}>
-                  <X className="w-4 h-4" />
-                </button>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+              className="absolute inset-0 z-50 flex flex-col"
+              style={{ backgroundColor: "var(--mq-bg)" }}
+            >
+              {/* Background blur + gradient */}
+              <div className="absolute inset-0 z-0 pointer-events-none">
+                {currentTrack.cover && (
+                  <img src={currentTrack.cover} alt="" className="w-full h-full object-cover blur-[80px] opacity-20 scale-125" />
+                )}
+                <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, var(--mq-bg) 0%, transparent 30%, transparent 70%, var(--mq-bg) 100%)", opacity: 0.9 }} />
+                <div className="absolute inset-0" style={{ backgroundColor: "var(--mq-bg)", opacity: 0.6 }} />
               </div>
 
-              {lyricsLoading ? (
-                <div className="px-4 pb-4 space-y-3">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="h-4 rounded animate-pulse" style={{ backgroundColor: "var(--mq-input-bg)", width: `${60 + Math.random() * 40}%` }} />
-                  ))}
+              {/* Visualization canvas behind lyrics */}
+              <canvas
+                ref={lyricsVisCanvasRef}
+                className="absolute inset-0 z-[1] pointer-events-none w-full h-full"
+                style={{ opacity: isPlaying ? 0.5 : 0.15, transition: "opacity 0.5s" }}
+              />
+
+              {/* Header */}
+              <div className="relative z-10 flex items-center justify-between px-5 pt-5 pb-3">
+                <div>
+                  <p className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
+                  <p className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
                 </div>
-              ) : lyricsLines.length > 0 ? (
-                <div ref={lyricsScrollRef} className="overflow-y-auto px-4 pb-4" style={{ maxHeight: "40vh" }}>
-                  {lyricsLines.map((line, i) => (
-                    <p key={i}
-                      ref={activeLineIndex === i ? activeLineRef : undefined}
-                      className="py-1.5 text-sm transition-all duration-300 cursor-pointer hover:opacity-80"
-                      style={{
-                        fontSize: activeLineIndex === i ? "1rem" : "0.875rem",
-                        fontWeight: activeLineIndex === i ? 600 : 400,
-                        color: activeLineIndex === i ? "var(--mq-accent)" :
-                          i < activeLineIndex ? "var(--mq-text-muted)" : "rgba(128,128,128,0.4)",
-                        transform: activeLineIndex === i ? "scale(1.02)" : "scale(1)",
-                      }}
-                      onClick={() => {
-                        const audio = getAudioElement();
-                        if (audio) { audio.currentTime = line.time; setProgress(line.time); }
-                      }}
-                    >
-                      {line.text || "\u266A"}
-                    </p>
-                  ))}
-                </div>
-              ) : lyricsPlainText ? (
-                <div className="overflow-y-auto px-4 pb-4 whitespace-pre-line" style={{ maxHeight: "40vh" }}>
-                  {lyricsPlainText.split("\n").map((line, i) => (
-                    <p key={i} className="py-1 text-sm" style={{ color: "var(--mq-text-muted)" }}>{line}</p>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8">
-                  <FileText className="w-10 h-10 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-                  <p className="text-sm mb-4" style={{ color: "var(--mq-text-muted)" }}>
-                    Текст не найден автоматически
-                  </p>
-                  <div className="flex items-center justify-center gap-3">
-                    <motion.button whileTap={{ scale: 0.95 }}
-                      onClick={() => window.open(`https://genius.com/search?q=${encodeURIComponent((currentTrack?.title || "") + " " + (currentTrack?.artist || ""))}`, "_blank")}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs"
-                      style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
-                      <ExternalLink className="w-3 h-3" /> Genius
-                    </motion.button>
-                    <motion.button whileTap={{ scale: 0.95 }}
-                      onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent((currentTrack?.title || "") + " " + (currentTrack?.artist || "") + " lyrics текст")}`, "_blank")}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-xs"
-                      style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}>
-                      <ExternalLink className="w-3 h-3" /> Google
-                    </motion.button>
+                <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowLyrics(false)}
+                  className="p-2 rounded-full" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+                  <X className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
+                </motion.button>
+              </div>
+
+              {/* Lyrics content */}
+              <div className="relative z-10 flex-1 flex flex-col items-center justify-center overflow-hidden">
+                {lyricsLoading ? (
+                  <div className="px-8 py-12 space-y-4 w-full max-w-md">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div key={i} className="h-5 rounded-full animate-pulse mx-auto" style={{ backgroundColor: "var(--mq-input-bg)", width: `${40 + Math.random() * 50}%` }} />
+                    ))}
                   </div>
+                ) : lyricsLines.length > 0 ? (
+                  <div ref={lyricsScrollRef} className="w-full max-w-lg px-6 overflow-y-auto" style={{ maxHeight: "70vh", scrollbarWidth: "none" }}>
+                    <div className="py-16 flex flex-col items-center gap-2">
+                      {lyricsLines.map((line, i) => (
+                        <motion.p
+                          key={i}
+                          ref={activeLineIndex === i ? activeLineRef : undefined}
+                          className="text-center cursor-pointer transition-all duration-500 py-1 px-4 rounded-xl leading-relaxed"
+                          style={{
+                            fontSize: activeLineIndex === i ? "1.5rem" : "1rem",
+                            fontWeight: activeLineIndex === i ? 700 : 400,
+                            color: activeLineIndex === i ? "var(--mq-accent)" :
+                              i < activeLineIndex ? "var(--mq-text-muted)" : "rgba(128,128,128,0.35)",
+                            opacity: activeLineIndex === i ? 1 : (i < activeLineIndex ? 0.4 : 0.25),
+                            transform: activeLineIndex === i ? "scale(1.05)" : "scale(1)",
+                            textShadow: activeLineIndex === i ? "0 0 30px var(--mq-glow)" : "none",
+                            maxWidth: "100%",
+                          }}
+                          onClick={() => {
+                            const audio = getAudioElement();
+                            if (audio) { audio.currentTime = line.time; setProgress(line.time); }
+                          }}
+                        >
+                          {line.text || "\u266A"}
+                        </motion.p>
+                      ))}
+                    </div>
+                  </div>
+                ) : lyricsPlainText ? (
+                  <div className="overflow-y-auto px-8 py-12 whitespace-pre-line text-center" style={{ maxHeight: "70vh" }}>
+                    {lyricsPlainText.split("\n").map((line, i) => (
+                      <p key={i} className="py-1 text-base leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>{line}</p>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Mic2 className="w-12 h-12 mx-auto mb-4" style={{ color: "var(--mq-text-muted)", opacity: 0.2 }} />
+                    <p className="text-base font-medium mb-2" style={{ color: "var(--mq-text-muted)" }}>
+                      Текст не найден автоматически
+                    </p>
+                    <p className="text-xs mb-6" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
+                      Попробуйте найти текст на одном из сервисов
+                    </p>
+                    <div className="flex items-center justify-center gap-3">
+                      <motion.button whileTap={{ scale: 0.95 }}
+                        onClick={() => window.open(`https://genius.com/search?q=${encodeURIComponent((currentTrack?.title || "") + " " + (currentTrack?.artist || ""))}`, "_blank")}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium"
+                        style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                        <ExternalLink className="w-3.5 h-3.5" /> Genius
+                      </motion.button>
+                      <motion.button whileTap={{ scale: 0.95 }}
+                        onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent((currentTrack?.title || "") + " " + (currentTrack?.artist || "") + " lyrics текст")}`, "_blank")}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium"
+                        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}>
+                        <ExternalLink className="w-3.5 h-3.5" /> Google
+                      </motion.button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Progress indicator at bottom */}
+              <div className="relative z-10 px-8 pb-6">
+                <div className="w-full h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-border)", opacity: 0.3 }}>
+                  <div className="h-full rounded-full" style={{ width: `${progressPct}%`, backgroundColor: "var(--mq-accent)" }} />
                 </div>
-              )}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

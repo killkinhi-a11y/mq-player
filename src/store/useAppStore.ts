@@ -154,10 +154,6 @@ interface AppState {
   likedTracksData: Track[];
   dislikedTracksData: Track[];
 
-  // PiP
-  isPiPActive: boolean;
-  pipMode: 'off' | 'popup' | 'overlay';
-
   // Similar tracks panel
   similarTracks: Track[];
   similarTracksLoading: boolean;
@@ -273,9 +269,6 @@ interface AppState {
   toggleDislike: (trackId: string, trackData?: Track) => void;
   isTrackLiked: (trackId: string) => boolean;
   isTrackDisliked: (trackId: string) => boolean;
-
-  // PiP actions
-  setPiPActive: (active: boolean, mode?: 'popup' | 'overlay') => void;
 
   // Similar tracks actions
   setSimilarTracks: (tracks: Track[]) => void;
@@ -468,8 +461,7 @@ const initialState = {
   dislikedTrackIds: [] as string[],
   dislikedTracksData: [] as Track[],
   likedTracksData: [] as Track[],
-  isPiPActive: false,
-  pipMode: 'off' as const,
+
   similarTracks: [] as Track[],
   similarTracksLoading: false,
   showSimilarRequested: false,
@@ -1030,16 +1022,6 @@ export const useAppStore = create<AppState>()(
       isTrackLiked: (trackId) => get().likedTrackIds.includes(trackId),
 
       isTrackDisliked: (trackId) => get().dislikedTrackIds.includes(trackId),
-
-      setPiPActive: (active, mode?) => {
-        if (!active) {
-          set({ isPiPActive: false, pipMode: 'off' });
-        } else if (mode) {
-          set({ isPiPActive: true, pipMode: mode });
-        } else {
-          set({ isPiPActive: true, pipMode: 'overlay' });
-        }
-      },
 
       setSimilarTracks: (tracks) => set({ similarTracks: tracks }),
       setSimilarTracksLoading: (loading) => set({ similarTracksLoading: loading }),

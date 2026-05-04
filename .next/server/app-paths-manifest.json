@@ -103,7 +103,6 @@
   "/api/users/search/route": "app/api/users/search/route.js",
   "/app/page": "app/app/page.js",
   "/page": "app/page.js",
-  "/pip/page": "app/pip/page.js",
   "/play/page": "app/play/page.js",
   "/track/[id]/page": "app/track/[id]/page.js"
 }

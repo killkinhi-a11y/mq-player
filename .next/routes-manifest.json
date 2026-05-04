@@ -720,12 +720,6 @@
       "namedRegex": "^/app(?:/)?$"
     },
     {
-      "page": "/pip",
-      "regex": "^/pip(?:/)?$",
-      "routeKeys": {},
-      "namedRegex": "^/pip(?:/)?$"
-    },
-    {
       "page": "/play",
       "regex": "^/play(?:/)?$",
       "routeKeys": {},

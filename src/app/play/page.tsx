@@ -37,7 +37,6 @@ const FavoritesView = lazy(() => import("@/components/mq/FavoritesView"));
 const MqCat = lazy(() => import("@/components/mq/MqCat"));
 const PlayerBar = lazy(() => import("@/components/mq/PlayerBar"));
 const FullTrackView = lazy(() => import("@/components/mq/FullTrackView"));
-const PiPPlayer = lazy(() => import("@/components/mq/PiPPlayer"));
 const NavBar = lazy(() => import("@/components/mq/NavBar"));
 const MobileNav = lazy(() => import("@/components/mq/MobileNav"));
 const NotificationPanel = lazy(() => import("@/components/mq/NotificationPanel"));
@@ -293,7 +292,6 @@ function AppShell() {
       <Suspense fallback={null}>{showNav && <PlayerBar />}</Suspense>
       <Suspense fallback={null}><FullTrackView /></Suspense>
       <Suspense fallback={null}><MqCat /></Suspense>
-      <Suspense fallback={null}><PiPPlayer /></Suspense>
       <Suspense fallback={null}>{showNav && <MobileNav />}</Suspense>
       <Suspense fallback={null}>{isAuthenticated && <NotificationPanel isOpen={notifPanelOpen} onClose={() => setNotifPanelOpen(false)} />}</Suspense>
       <Suspense fallback={null}>{

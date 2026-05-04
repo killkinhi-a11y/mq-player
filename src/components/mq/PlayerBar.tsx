@@ -5,14 +5,13 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence, useSpring } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
-  Shuffle, Music, Loader2, PictureInPicture2, ListMusic,
+  Shuffle, Music, Loader2, ListMusic,
   Heart, ThumbsDown, FileText, Download, ListEnd, Share2, Waves, Brain, Headphones
 } from "lucide-react";
 import { initSpatialAudio, enableSpatialAudio, setMoodPreset, detectMoodFromTrack } from "@/lib/spatialAudio";
 import { formatDuration } from "@/lib/musicApi";
 import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade } from "@/lib/audioEngine";
 import { getLocalBlobUrl } from "./SearchView";
-import { openPiPPopup, closePiPPopup } from "@/lib/pipManager";
 import { toast } from "@/hooks/use-toast";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 
@@ -96,7 +95,7 @@ interface StreamResult {
 async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult | null> {
   try {
     const res = await fetch(`/api/music/soundcloud/stream?trackId=${scTrackId}`, {
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(20000),
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -226,7 +225,7 @@ export default function PlayerBar() {
     shuffle, repeat, togglePlay, nextTrack, prevTrack,
     setVolume, setProgress, setDuration, toggleShuffle, toggleRepeat,
     animationsEnabled, compactMode,
-    setFullTrackViewOpen, setPiPActive, isPiPActive, pipMode,
+    setFullTrackViewOpen,
     setPlaybackMode, requestShowSimilar, requestShowLyrics,
     toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
     upNext, currentStyle, radioMode, smartShuffle, toggleRadioMode,
@@ -336,6 +335,10 @@ export default function PlayerBar() {
 
       // Log error for diagnostics
       const trackTitle = st.currentTrack?.title || "unknown";
+
+      // Don't retry if track has already changed
+      if (st.currentTrack?.id !== useAppStore.getState().currentTrack?.id) return;
+
       const errorCode = audioEl?.error?.code || 0;
       const errorMessages: Record<number, string> = {
         1: "MEDIA_ERR_ABORTED",
@@ -407,6 +410,7 @@ export default function PlayerBar() {
       // Non-SC tracks or max retries: try reloading same URL once more
       if (audioEl?.src && retryCountRef.current < maxRetries) {
         retryCountRef.current++;
+        resetCorsState();
         retryingRef.current = true;
         console.warn(`[Player] Error loading track, retry ${retryCountRef.current}/${maxRetries}`);
         setTimeout(() => {
@@ -488,19 +492,41 @@ export default function PlayerBar() {
           if (a && (a.readyState < 2 || a.paused) && st.isPlaying) {
             console.warn("[Player] Loading timeout — forcing retry");
             PlayerErrorLogger.log(st.currentTrack?.title || "unknown", "Loading timeout (10s)", "force retry");
-            // Try play() again
-            a.play().then(() => {
-              console.log("[Player] Force play succeeded after timeout");
-            }).catch((err) => {
-              console.warn("[Player] Force play failed:", err.message);
-              // If still failing, try reloading
-              if (a.src) {
-                const savedSrc = a.src;
-                a.removeAttribute("src");
-                a.load();
-                setTimeout(() => { a.src = savedSrc; a.load(); a.play().catch(() => {}); }, 200);
-              }
-            });
+            // For SC tracks: re-resolve stream URL (may have expired)
+            if (st.currentTrack?.scTrackId && !retryingRef.current) {
+              resolveSoundCloudStream(st.currentTrack.scTrackId).then(stream => {
+                if (stream?.url && a) {
+                  const prevHls = (a as any)._hlsInstance;
+                  if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
+                  a.crossOrigin = 'anonymous';
+                  a.src = stream.url;
+                  a.load();
+                  a.play().catch(() => {});
+                }
+              }).catch(() => {
+                // Fallback: try play() again
+                a.play().then(() => {}).catch(() => {
+                  if (a.src) {
+                    const savedSrc = a.src;
+                    a.removeAttribute("src");
+                    a.load();
+                    setTimeout(() => { a.src = savedSrc; a.load(); a.play().catch(() => {}); }, 200);
+                  }
+                });
+              });
+            } else {
+              a.play().then(() => {
+                console.log("[Player] Force play succeeded after timeout");
+              }).catch((err) => {
+                console.warn("[Player] Force play failed:", err.message);
+                if (a.src) {
+                  const savedSrc = a.src;
+                  a.removeAttribute("src");
+                  a.load();
+                  setTimeout(() => { a.src = savedSrc; a.load(); a.play().catch(() => {}); }, 200);
+                }
+              });
+            }
           }
         }
       }, 10000);
@@ -1741,21 +1767,6 @@ export default function PlayerBar() {
             </div>
           )}
 
-          {/* PiP — lg+ only */}
-          <div className="hidden lg:flex p-1 flex-shrink-0 items-center justify-center">
-            <motion.button whileTap={{ scale: 0.9 }} onClick={async () => {
-              if (isPiPActive) {
-                closePiPPopup();
-                setPiPActive(false);
-              } else {
-                const opened = await openPiPPopup();
-                setPiPActive(true, opened ? 'popup' : 'overlay');
-              }
-            }}
-              style={{ color: isPiPActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-              <PictureInPicture2 className="w-4 h-4" />
-            </motion.button>
-          </div>
 
           {/* Volume — mute button sm+, slider & percentage md+ */}
           <div ref={volumeSectionRef} className="items-center gap-1 flex-shrink-0 hidden sm:flex">

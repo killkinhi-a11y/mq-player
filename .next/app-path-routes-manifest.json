@@ -103,7 +103,6 @@
   "/api/users/search/route": "/api/users/search",
   "/app/page": "/app",
   "/page": "/",
-  "/pip/page": "/pip",
   "/play/page": "/play",
   "/track/[id]/page": "/track/[id]"
 }
