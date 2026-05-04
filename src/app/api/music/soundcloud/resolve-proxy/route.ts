@@ -23,6 +23,7 @@ const CLIENT_IDS = [
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const url = searchParams.get("url");
+  const trackAuthorization = searchParams.get("track_authorization");
 
   if (!url) {
     return NextResponse.json({ error: "missing url parameter" }, {
@@ -51,7 +52,12 @@ export async function GET(request: NextRequest) {
   for (const clientId of CLIENT_IDS) {
     try {
       const separator = url.includes("?") ? "&" : "?";
-      const resolveUrl = `${url}${separator}client_id=${clientId}`;
+      let resolveUrl = `${url}${separator}client_id=${clientId}`;
+
+      // Pass track_authorization for DRM-protected tracks (required by SC since 2025)
+      if (trackAuthorization) {
+        resolveUrl += `&track_authorization=${encodeURIComponent(trackAuthorization)}`;
+      }
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
@@ -89,9 +95,12 @@ export async function OPTIONS(request: NextRequest) {
 }
 
 function corsHeaders(request: NextRequest): HeadersInit {
-  const origin = request.headers.get("origin") || "*";
+  const origin = request.headers.get("origin");
+  const allowedOrigins = [origin].filter(o =>
+    o && (o.endsWith(".vercel.app") || o.endsWith(".soundcloud.com") || o === "http://localhost:3000" || o === "http://localhost:3001")
+  );
   return {
-    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Origin": allowedOrigins[0] || "",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",

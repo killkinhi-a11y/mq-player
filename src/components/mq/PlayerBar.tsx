@@ -118,10 +118,12 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult 
     if (data.resolveUrl) {
       console.warn("[Player] Edge resolve failed, trying CORS proxy...");
       try {
-        const proxyRes = await fetch(
-          `/api/music/soundcloud/resolve-proxy?url=${encodeURIComponent(data.resolveUrl)}`,
-          { signal: AbortSignal.timeout(10000) }
-        );
+        let proxyUrl = `/api/music/soundcloud/resolve-proxy?url=${encodeURIComponent(data.resolveUrl)}`;
+        // Pass track_authorization for DRM-protected tracks
+        if (data.trackAuthorization) {
+          proxyUrl += `&track_authorization=${encodeURIComponent(data.trackAuthorization)}`;
+        }
+        const proxyRes = await fetch(proxyUrl, { signal: AbortSignal.timeout(10000) });
         if (proxyRes.ok) {
           const proxyData = await proxyRes.json();
           if (proxyData.url) {
@@ -240,6 +242,7 @@ export default function PlayerBar() {
   const animFrameRef = useRef<number>(0);
   const crossfadeRef = useRef(false); // track if crossfade is in progress
   const prevTrackIdForCrossfade = useRef<string | null>(null);
+  const startLoadingTimeoutRef = useRef<(() => void) | null>(null); // bridge to event listener effect
 
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
@@ -333,7 +336,13 @@ export default function PlayerBar() {
         nextTrackRef.current();
       }
     };
-    const onError = () => {
+    const onError = (e: Event) => {
+      // Only handle errors from the active audio element.
+      // During crossfade, the old element may error (src cleared, etc.)
+      // — we must ignore those to prevent spurious retries.
+      const target = e.target as HTMLAudioElement | null;
+      if (target && target !== getActive()) return;
+
       // Prevent concurrent retries — only one retry chain at a time
       if (retryingRef.current) return;
 
@@ -365,6 +374,8 @@ export default function PlayerBar() {
       const skipToNextWithError = (message: string) => {
         setPlayError(true);
         setIsLoadingTrack(false);
+        retryingRef.current = false; // safety: ensure not stuck
+        prevTrackIdForCrossfade.current = null; // prevent crossfade from errored track
         try {
           toast({
             title: "Ошибка воспроизведения",
@@ -382,7 +393,9 @@ export default function PlayerBar() {
         console.warn(`[Player] Error on SC track${wasMidPlayback ? ' (mid-playback)' : ''}, re-resolving stream (attempt ${retryCountRef.current}/${maxRetries})`);
 
         resolveSoundCloudStream(scId).then(stream => {
+          // Always reset retryingRef in finally-like pattern to prevent stuck state
           retryingRef.current = false;
+
           // Check if track hasn't changed during retry
           const currentSt = useAppStore.getState();
           if (currentSt.currentTrack?.scTrackId !== scId) return;
@@ -395,21 +408,46 @@ export default function PlayerBar() {
               if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
 
               a.crossOrigin = 'anonymous';
-              a.src = stream.url;
-              a.load();
-              a.play().then(() => {
-                // Restore position if this was a mid-playback recovery
-                if (wasMidPlayback && isFinite(savedPosition)) {
-                  a.currentTime = savedPosition;
-                }
-              }).catch(() => {});
+
+              if (stream.isHls && Hls.isSupported()) {
+                // HLS streams MUST use HLS.js — setting .src directly on .m3u8 will fail in non-Safari
+                const hls = new Hls({
+                  enableWorker: true,
+                  lowLatencyMode: false,
+                  maxBufferLength: 30,
+                  maxMaxBufferLength: 60,
+                });
+                hls.loadSource(stream.url);
+                hls.attachMedia(a);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                  a.play().then(() => {
+                    if (wasMidPlayback && isFinite(savedPosition)) {
+                      a.currentTime = savedPosition;
+                    }
+                  }).catch(() => {});
+                });
+                hls.on(Hls.Events.ERROR, (_ev, data) => {
+                  if (data.fatal) { hls.destroy(); delete (a as any)._hlsInstance; }
+                });
+                (a as any)._hlsInstance = hls;
+              } else {
+                // Progressive stream or native HLS (Safari)
+                a.src = stream.url;
+                a.load();
+                a.play().then(() => {
+                  if (wasMidPlayback && isFinite(savedPosition)) {
+                    a.currentTime = savedPosition;
+                  }
+                }).catch(() => {});
+              }
             }
           } else {
             // Stream resolve returned null — track unavailable
             skipToNextWithError(`Не удалось загрузить: ${trackTitle}`);
           }
-        }).catch(() => {
+        }).catch((err) => {
           retryingRef.current = false;
+          console.warn("[Player] Stream resolve failed:", err);
           skipToNextWithError(`Ошибка сети: ${trackTitle}`);
         });
         return;
@@ -558,6 +596,9 @@ export default function PlayerBar() {
       el.removeEventListener("error", onError);
       el.removeEventListener("playing", onPlaying);
     };
+
+    // Expose startLoadingTimeout to track change effect
+    startLoadingTimeoutRef.current = startLoadingTimeout;
 
     addListeners(audio);
     // Also listen on the secondary audio element for crossfade
@@ -979,6 +1020,8 @@ export default function PlayerBar() {
         setIsLoadingTrack(true);
         setPlayError(false);
         retryCountRef.current = 0;
+        // Safety timeout: if stuck loading >10s, force retry
+        if (startLoadingTimeoutRef.current) startLoadingTimeoutRef.current();
 
         // Determine if crossfade is possible (needs a previous track that was playing)
         const canCrossfade = prevTrackIdForCrossfade.current !== null
@@ -1113,6 +1156,18 @@ export default function PlayerBar() {
               hls.loadSource(stream.url);
               hls.attachMedia(audioEl);
 
+              // Timeout: if HLS manifest never parses within 10s, treat as fatal
+              const hlsManifestTimeout = setTimeout(() => {
+                if (!cancelled && audioEl.paused && !audioEl.currentTime) {
+                  console.error("[Player] HLS manifest parse timeout — skipping");
+                  setIsLoadingTrack(false);
+                  setPlayError(true);
+                  try { hls.destroy(); } catch {}
+                  delete (audioEl as any)._hlsInstance;
+                  setTimeout(() => nextTrackRef.current(), 1500);
+                }
+              }, 10000);
+
               // DRM diagnostic logging
               hls.on(Hls.Events.KEY_LOADING, (_event, data) => {
                 console.log("[Player] DRM key loading:", data.frag?.url?.slice(-40));
@@ -1143,6 +1198,7 @@ export default function PlayerBar() {
 
               hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 if (!cancelled) {
+                  clearTimeout(hlsManifestTimeout); // Manifest loaded OK
                   // Clear timeout if playback starts
                   const clearT = () => { clearTimeout(drmTimeout); };
                   audioEl.addEventListener("playing", clearT, { once: true });

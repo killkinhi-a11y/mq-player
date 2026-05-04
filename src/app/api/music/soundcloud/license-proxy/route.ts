@@ -15,26 +15,54 @@ export async function POST(request: NextRequest) {
   const { licenseUrl, challenge /* base64-encoded */ } = body;
 
   if (!licenseUrl || !challenge) {
-    return NextResponse.json({ error: "missing licenseUrl or challenge" }, { status: 400 });
+    return NextResponse.json({ error: "missing licenseUrl or challenge" }, {
+      status: 400,
+      headers: corsHeaders(request),
+    });
+  }
+
+  // Security: only allow SoundCloud license server URLs
+  try {
+    const parsed = new URL(licenseUrl);
+    if (!parsed.hostname.endsWith("soundcloud.com") && !parsed.hostname.endsWith("soundcloud.cloud")) {
+      return NextResponse.json({ error: "only SoundCloud URLs are allowed" }, {
+        status: 400,
+        headers: corsHeaders(request),
+      });
+    }
+  } catch {
+    return NextResponse.json({ error: "invalid licenseUrl" }, {
+      status: 400,
+      headers: corsHeaders(request),
+    });
   }
 
   try {
-    // Forward the license request to SoundCloud
-    const res = await fetch(licenseUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/octet-stream",
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      },
-      body: Buffer.from(challenge, "base64"),
-    });
+    // Forward the license request to SoundCloud with 8s timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    let res: Response;
+    try {
+      res = await fetch(licenseUrl, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+        body: Buffer.from(challenge, "base64"),
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!res.ok) {
       console.error("[license-proxy] SC license server returned", res.status);
       return NextResponse.json(
         { error: `license server returned ${res.status}` },
-        { status: res.status },
+        { status: res.status, headers: corsHeaders(request) },
       );
     }
 
@@ -42,9 +70,33 @@ export async function POST(request: NextRequest) {
     const licenseBuffer = await res.arrayBuffer();
     const base64 = Buffer.from(licenseBuffer).toString("base64");
 
-    return NextResponse.json({ license: base64 });
-  } catch (err) {
-    console.error("[license-proxy] Error:", err);
-    return NextResponse.json({ error: "license proxy failed" }, { status: 500 });
+    return NextResponse.json({ license: base64 }, {
+      headers: corsHeaders(request),
+    });
+  } catch (err: any) {
+    const isTimeout = err?.name === "AbortError";
+    console.error("[license-proxy] Error:", isTimeout ? "timeout (8s)" : err);
+    return NextResponse.json(
+      { error: isTimeout ? "license server timeout" : "license proxy failed" },
+      { status: isTimeout ? 504 : 500, headers: corsHeaders(request) },
+    );
   }
+}
+
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: corsHeaders(request) });
+}
+
+function corsHeaders(request: NextRequest): HeadersInit {
+  const origin = request.headers.get("origin");
+  // Only echo known safe origins
+  const allowedOrigins = [origin].filter(o =>
+    o && (o.endsWith(".vercel.app") || o.endsWith(".soundcloud.com") || o === "http://localhost:3000" || o === "http://localhost:3001")
+  );
+  return {
+    "Access-Control-Allow-Origin": allowedOrigins[0] || "",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Max-Age": "86400",
+  };
 }
