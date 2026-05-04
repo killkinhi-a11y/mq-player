@@ -1407,34 +1407,18 @@ export default function FullTrackView() {
               }}>
               {volume === 0 ? <VolumeX className="w-[18px] h-[18px]" /> : <Volume2 className="w-[18px] h-[18px]" />}
             </button>
-            {/* Sleep timer */}
-            <div className="relative">
-              <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowSleepTimer(!showSleepTimer)}
-                className="w-[38px] h-[38px] rounded-full flex items-center justify-center relative"
-                style={{
-                  backgroundColor: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-card)",
-                  border: `1px solid ${sleepTimerActive ? "var(--mq-accent)" : "var(--mq-border)"}`,
-                  color: sleepTimerActive ? "var(--mq-text)" : "var(--mq-text-muted)",
-                }}>
-                <Moon className="w-[18px] h-[18px]" />
-                {sleepTimerActive && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full text-[8px] flex items-center justify-center"
-                    style={{ backgroundColor: "var(--mq-text)", color: "var(--mq-accent)" }}>
-                    {Math.floor(sleepTimerRemaining / 60)}
-                  </span>
-                )}
-              </motion.button>
-              <SleepTimerPopover
-                show={showSleepTimer}
-                onClose={() => setShowSleepTimer(false)}
-                active={sleepTimerActive}
-                remaining={sleepTimerRemaining}
-                timerMinutes={sleepTimerMinutes}
-                onStart={startSleepTimer}
-                onStop={stopSleepTimer}
-              />
-            </div>
           </div>
+
+          {/* Sleep Timer Popover — rendered outside desktop-only section so it works on mobile too */}
+          <SleepTimerPopover
+            show={showSleepTimer}
+            onClose={() => setShowSleepTimer(false)}
+            active={sleepTimerActive}
+            remaining={sleepTimerRemaining}
+            timerMinutes={sleepTimerMinutes}
+            onStart={startSleepTimer}
+            onStop={stopSleepTimer}
+          />
 
           {/* Main playback controls */}
           <div className="flex items-center gap-4 sm:gap-6 mb-2 sm:mb-3">

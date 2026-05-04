@@ -73,7 +73,7 @@ export default function FavoritesView() {
               Избранное
             </h1>
             <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-              {likedTrackIds.length} понравившихся · {dislikedTrackIds.length} не понравившихся
+              {likedTracksData.length} понравившихся · {dislikedTracksData.length} не понравившихся
             </p>
           </div>
         </div>
@@ -106,7 +106,7 @@ export default function FavoritesView() {
               backgroundColor: activeTab === "liked" ? "rgba(255,255,255,0.15)" : "var(--mq-border)",
             }}
           >
-            {likedTrackIds.length}
+            {likedTracksData.length}
           </span>
         </button>
         <button
@@ -125,7 +125,7 @@ export default function FavoritesView() {
               backgroundColor: activeTab === "disliked" ? "rgba(255,255,255,0.15)" : "var(--mq-border)",
             }}
           >
-            {dislikedTrackIds.length}
+            {dislikedTracksData.length}
           </span>
         </button>
       </motion.div>
