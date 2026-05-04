@@ -160,38 +160,65 @@ async function resolveUrl(templateUrl: string, trackAuthorization: string): Prom
 
 /**
  * Verify that a resolved CDN URL is actually accessible.
- * Some SC tracks resolve to signed CDN URLs that return 403/404 (e.g. CTR-HLS on certain tracks).
+ * Some SC tracks resolve to signed CDN URLs that return 403/404 (e.g. CTR-HLS init.mp4).
  * This check prevents returning broken URLs to the client.
  *
- * For HLS: fetches the first 512 bytes of the playlist to verify it's a valid m3u8.
+ * For encrypted HLS: also checks init.mp4 accessibility (critical for DRM init).
+ * For plain HLS: fetches the first 512 bytes to verify it's a valid m3u8.
  * For progressive: sends a HEAD request to verify the URL responds with 200.
  */
-async function verifyCdnUrl(url: string, isHls: boolean): Promise<boolean> {
+async function verifyCdnUrl(url: string, isHls: boolean, isEncrypted: boolean): Promise<boolean> {
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const uaHeader = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
     try {
       if (isHls) {
-        // For HLS: GET first 512 bytes to verify playlist is accessible and valid
+        // For HLS: fetch playlist to verify it's a valid m3u8
         const res = await fetch(url, {
           signal: controller.signal,
-          headers: {
-            "Range": "bytes=0-511",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          },
+          headers: { ...uaHeader, "Range": "bytes=0-2047" },
         });
         if (!res.ok) return false;
-        // Check that the response looks like an m3u8 playlist
         const text = await res.text();
-        return text.includes("#EXTM3U") || text.includes("#EXT-X-");
+        const isValidM3u8 = text.includes("#EXTM3U") || text.includes("#EXT-X-");
+        if (!isValidM3u8) return false;
+
+        // For encrypted HLS: also verify init.mp4 is accessible (DRM init segment)
+        // Some tracks return 200 for m3u8 but 403 for init.mp4 → DRM pipeline fails
+        if (isEncrypted) {
+          // Extract the init.mp4 URI from the playlist
+          // Format: #EXT-X-MAP:URI="init.mp4"  or  #EXT-X-MAP:URI="https://..."
+          const initMatch = text.match(/#EXT-X-MAP[^"]*"([^"]+)"/);
+          if (initMatch) {
+            let initUrl = initMatch[1];
+            // Resolve relative URLs against the playlist URL
+            if (initUrl.startsWith("/")) {
+              const playlistUrl = new URL(url);
+              initUrl = `${playlistUrl.origin}${initUrl}`;
+            } else if (!initUrl.startsWith("http")) {
+              const lastSlash = url.lastIndexOf("/");
+              initUrl = url.substring(0, lastSlash + 1) + initUrl;
+            }
+            // HEAD request to check init.mp4 accessibility
+            const initRes = await fetch(initUrl, {
+              method: "HEAD",
+              signal: controller.signal,
+              headers: uaHeader,
+            });
+            if (!initRes.ok) {
+              console.warn(`[stream] init.mp4 returned ${initRes.status} for encrypted stream — skipping`);
+              return false;
+            }
+          }
+        }
+        return true;
       } else {
         // For progressive: HEAD request to verify URL is accessible
         const res = await fetch(url, {
           method: "HEAD",
           signal: controller.signal,
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          },
+          headers: uaHeader,
         });
         return res.ok;
       }
@@ -231,7 +258,7 @@ export async function GET(request: NextRequest) {
 
         if (resolvedUrl) {
           // Verify the CDN URL is actually accessible (not 403/404)
-          const isValid = await verifyCdnUrl(resolvedUrl, tc.isHls);
+          const isValid = await verifyCdnUrl(resolvedUrl, tc.isHls, tc.isEncrypted);
           if (isValid) {
             verifiedStreams.push({
               url: resolvedUrl,
@@ -273,6 +300,10 @@ export async function GET(request: NextRequest) {
         fallbackUrl += `&track_authorization=${encodeURIComponent(info.trackAuthorization)}`;
       }
 
+      // All transcodings failed verification — track may be DRM-only
+      // Check if all transcodings were encrypted (DRM restricted track)
+      const allEncrypted = info.transcodings.every(tc => tc.isEncrypted);
+
       return NextResponse.json({
         url: null,
         resolveUrl: fallbackUrl,
@@ -284,7 +315,9 @@ export async function GET(request: NextRequest) {
         duration: info.duration,
         fullDuration: info.fullDuration,
         ...(fallback.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[fallback.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
-        error: "all_streams_failed_verification",
+        // Flag for client: all streams are DRM-protected and none could be verified
+        drmRestricted: allEncrypted,
+        error: allEncrypted ? "drm_restricted" : "all_streams_failed_verification",
       });
     } catch {}
   }

@@ -97,6 +97,7 @@ interface StreamResult {
     isEncrypted: boolean;
     licenseUrl?: string;
   }>;
+  drmRestricted?: boolean;
 }
 
 async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult | null> {
@@ -119,6 +120,7 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult 
         protocol: data.protocol || null,
         licenseUrl: data.licenseUrl || null,
         fallbackStreams: data.fallbackStreams || null,
+        drmRestricted: !!data.drmRestricted,
       };
     }
 
@@ -1615,8 +1617,16 @@ export default function PlayerBar() {
             console.warn(`[Player] No stream URL for SC track: ${currentTrack.title}`);
             setPlayError(true);
             setIsLoadingTrack(false);
+            prevTrackIdForCrossfade.current = null;
+            const isDrm = stream?.drmRestricted;
+            PlayerErrorLogger.log(currentTrack.title || "unknown", isDrm ? "DRM restricted (no playable stream)" : "No stream URL", "skip");
             try {
-              toast({ title: "Ошибка воспроизведения", description: `Трек недоступен: ${currentTrack.title || "неизвестный"}` });
+              toast({
+                title: "Трек недоступен",
+                description: isDrm
+                  ? `"${currentTrack.title || "неизвестный"}" — защищён DRM, воспроизведение невозможно`
+                  : `Трек недоступен: ${currentTrack.title || "неизвестный"}`,
+              });
             } catch {}
             setTimeout(() => nextTrackRef.current(), 1500);
           }
