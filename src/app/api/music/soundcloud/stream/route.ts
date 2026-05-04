@@ -16,6 +16,10 @@ import { NextRequest, NextResponse } from "next/server";
  * 2. Collect ALL transcodings ordered by priority
  * 3. Try to resolve each one — return the first that succeeds
  * 4. Priority: progressive > ctr-encrypted-hls > cbc-encrypted-hls > hls
+ *
+ * IMPORTANT: We do NOT block CTR-HLS streams just because server-side CDN
+ * verification fails. The client-side HLS.js + Widevine EME pipeline can
+ * often play streams that fail server-side HEAD checks (different IP/geo).
  */
 
 export const runtime = "edge";
@@ -160,59 +164,30 @@ async function resolveUrl(templateUrl: string, trackAuthorization: string): Prom
 
 /**
  * Verify that a resolved CDN URL is actually accessible.
- * Some SC tracks resolve to signed CDN URLs that return 403/404 (e.g. CTR-HLS init.mp4).
- * This check prevents returning broken URLs to the client.
  *
- * For encrypted HLS: also checks init.mp4 accessibility (critical for DRM init).
- * For plain HLS: fetches the first 512 bytes to verify it's a valid m3u8.
- * For progressive: sends a HEAD request to verify the URL responds with 200.
+ * For HLS (plain or encrypted): fetch the first bytes to verify it's a valid m3u8.
+ *   NOTE: We do NOT verify init.mp4 for encrypted streams. The server-side HEAD/GET
+ *   request may get 403 from CDN (different IP/geo than the user, no EME context),
+ *   but the client-side HLS.js + Widevine CDM can successfully fetch it. Let the
+ *   client's EME pipeline handle encrypted stream validation.
+ *
+ * For progressive: send a HEAD request to verify the URL responds with 200.
  */
-async function verifyCdnUrl(url: string, isHls: boolean, isEncrypted: boolean): Promise<boolean> {
+async function verifyCdnUrl(url: string, isHls: boolean): Promise<boolean> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     const uaHeader = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" };
     try {
       if (isHls) {
-        // For HLS: fetch playlist to verify it's a valid m3u8
+        // For HLS: fetch first bytes to verify it's a valid m3u8 playlist
         const res = await fetch(url, {
           signal: controller.signal,
           headers: { ...uaHeader, "Range": "bytes=0-2047" },
         });
         if (!res.ok) return false;
         const text = await res.text();
-        const isValidM3u8 = text.includes("#EXTM3U") || text.includes("#EXT-X-");
-        if (!isValidM3u8) return false;
-
-        // For encrypted HLS: also verify init.mp4 is accessible (DRM init segment)
-        // Some tracks return 200 for m3u8 but 403 for init.mp4 → DRM pipeline fails
-        if (isEncrypted) {
-          // Extract the init.mp4 URI from the playlist
-          // Format: #EXT-X-MAP:URI="init.mp4"  or  #EXT-X-MAP:URI="https://..."
-          const initMatch = text.match(/#EXT-X-MAP[^"]*"([^"]+)"/);
-          if (initMatch) {
-            let initUrl = initMatch[1];
-            // Resolve relative URLs against the playlist URL
-            if (initUrl.startsWith("/")) {
-              const playlistUrl = new URL(url);
-              initUrl = `${playlistUrl.origin}${initUrl}`;
-            } else if (!initUrl.startsWith("http")) {
-              const lastSlash = url.lastIndexOf("/");
-              initUrl = url.substring(0, lastSlash + 1) + initUrl;
-            }
-            // HEAD request to check init.mp4 accessibility
-            const initRes = await fetch(initUrl, {
-              method: "HEAD",
-              signal: controller.signal,
-              headers: uaHeader,
-            });
-            if (!initRes.ok) {
-              console.warn(`[stream] init.mp4 returned ${initRes.status} for encrypted stream — skipping`);
-              return false;
-            }
-          }
-        }
-        return true;
+        return text.includes("#EXTM3U") || text.includes("#EXT-X-");
       } else {
         // For progressive: HEAD request to verify URL is accessible
         const res = await fetch(url, {
@@ -244,7 +219,7 @@ export async function GET(request: NextRequest) {
       const info = await getTrackInfo(trackId, clientId);
       if (!info) continue;
 
-      // Try ALL transcodings in priority order — verify each CDN URL actually works
+      // Try ALL transcodings in priority order — verify each CDN URL
       const verifiedStreams: Array<{
         url: string;
         protocol: string;
@@ -257,8 +232,8 @@ export async function GET(request: NextRequest) {
         const resolvedUrl = await resolveUrl(tc.url, info.trackAuthorization);
 
         if (resolvedUrl) {
-          // Verify the CDN URL is actually accessible (not 403/404)
-          const isValid = await verifyCdnUrl(resolvedUrl, tc.isHls, tc.isEncrypted);
+          // Verify the CDN URL returns a valid m3u8 / responds OK
+          const isValid = await verifyCdnUrl(resolvedUrl, tc.isHls);
           if (isValid) {
             verifiedStreams.push({
               url: resolvedUrl,
@@ -268,7 +243,7 @@ export async function GET(request: NextRequest) {
               ...(tc.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[tc.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
             });
           } else {
-            console.warn(`[stream] CDN URL verification failed for ${tc.protocol} — skipping`);
+            console.warn(`[stream] CDN verification failed for ${tc.protocol} — will try as unverified`);
           }
         }
       }
@@ -287,22 +262,47 @@ export async function GET(request: NextRequest) {
           duration: info.duration,
           fullDuration: info.fullDuration,
           ...(primary.licenseUrl ? { licenseUrl: primary.licenseUrl } : {}),
-          // Include fallback streams for client-side retry if primary fails
           ...(fallbacks.length > 0 ? { fallbackStreams: fallbacks } : {}),
         });
       }
 
-      // All transcodings failed verification — return first template URL for client-side retry
+      // ── No stream passed CDN verification ──
+      // Server-side verification can fail for CTR-HLS due to geo/IP mismatch.
+      // The client-side HLS.js + Widevine EME pipeline often succeeds where
+      // the server fails. Return the best unverified stream for client to try.
+      //
+      // Prefer CTR-HLS (Widevine) over CBC-HLS (FairPlay) since CTR works
+      // in Chrome/Firefox/Edge — the vast majority of users.
+      const hasCtr = info.transcodings.some(tc => tc.protocol === "ctr-encrypted-hls");
+      const bestUnverified = hasCtr
+        ? info.transcodings.find(tc => tc.protocol === "ctr-encrypted-hls") || info.transcodings[0]
+        : info.transcodings[0];
+
+      // Try to resolve the best unverified stream's actual URL
+      const bestUrl = await resolveUrl(bestUnverified.url, info.trackAuthorization);
+      if (bestUrl) {
+        return NextResponse.json({
+          url: bestUrl,
+          trackAuthorization: info.trackAuthorization,
+          isHls: bestUnverified.isHls,
+          isEncrypted: bestUnverified.isEncrypted,
+          protocol: bestUnverified.protocol,
+          isPreview: info.isPreview,
+          duration: info.duration,
+          fullDuration: info.fullDuration,
+          ...(bestUnverified.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[bestUnverified.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
+          // Only truly DRM-restricted if ONLY CBC-HLS (FairPlay/Safari) available
+          drmRestricted: info.transcodings.every(tc => tc.protocol === "cbc-encrypted-hls"),
+        });
+      }
+
+      // Even resolveUrl failed — return template URL for client-side resolve-proxy
       const fallback = info.transcodings[0];
       const separator = fallback.url.includes("?") ? "&" : "?";
       let fallbackUrl = `${fallback.url}${separator}client_id=${clientId}`;
       if (info.trackAuthorization) {
         fallbackUrl += `&track_authorization=${encodeURIComponent(info.trackAuthorization)}`;
       }
-
-      // All transcodings failed verification — track may be DRM-only
-      // Check if all transcodings were encrypted (DRM restricted track)
-      const allEncrypted = info.transcodings.every(tc => tc.isEncrypted);
 
       return NextResponse.json({
         url: null,
@@ -315,9 +315,7 @@ export async function GET(request: NextRequest) {
         duration: info.duration,
         fullDuration: info.fullDuration,
         ...(fallback.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[fallback.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
-        // Flag for client: all streams are DRM-protected and none could be verified
-        drmRestricted: allEncrypted,
-        error: allEncrypted ? "drm_restricted" : "all_streams_failed_verification",
+        drmRestricted: info.transcodings.every(tc => tc.protocol === "cbc-encrypted-hls"),
       });
     } catch {}
   }

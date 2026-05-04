@@ -1338,6 +1338,14 @@ export default function PlayerBar() {
                 lowLatencyMode: false,
                 maxBufferLength: 30,
                 maxMaxBufferLength: 60,
+                // For encrypted HLS: longer manifest loading timeout — EME initialization
+                // and license acquisition add latency before the first segment can play.
+                manifestLoadingMaxRetry: 4,
+                manifestLoadingRetryDelay: 2000,
+                levelLoadingMaxRetry: 4,
+                levelLoadingRetryDelay: 2000,
+                fragLoadingMaxRetry: 6,
+                fragLoadingRetryDelay: 2000,
               };
 
               // Configure EME for encrypted HLS streams via drmSystems (HLS.js 1.5+ API)
@@ -1428,23 +1436,39 @@ export default function PlayerBar() {
                 };
               }
 
+              // Set up XHR for CDN segment loading — SC CDN returns CORS headers
+              // but some edge cases need explicit configuration (encrypted segments)
+              if (stream.isEncrypted) {
+                hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+                  xhr.withCredentials = false;
+                  // Some SC CDN segments may need proper Accept header
+                  if (url.endsWith(".m3u8") || url.includes("playlist")) {
+                    try { xhr.setRequestHeader("Accept", "*/*"); } catch {}
+                  }
+                };
+              }
+
               const hls = new Hls(hlsConfig);
               hls.loadSource(stream.url);
               hls.attachMedia(audioEl);
 
-              // Timeout: if HLS manifest never parses within 10s, treat as fatal
+              // Timeout: if HLS manifest never parses within 15s, treat as fatal
+              // Encrypted streams need more time: EME init + license acquisition before playback
               const hlsManifestTimeout = setTimeout(() => {
                 if (!cancelled && audioEl.paused && !audioEl.currentTime) {
-                  console.error("[Player] HLS manifest parse timeout — skipping");
-                  setIsLoadingTrack(false);
-                  setPlayError(true);
-                  prevTrackIdForCrossfade.current = null; // prevent broken crossfade
+                  console.error("[Player] HLS manifest parse timeout — trying fallback");
                   try { hls.destroy(); } catch {}
                   delete (audioEl as any)._hlsInstance;
-                  PlayerErrorLogger.log(currentTrack?.title || "unknown", "HLS manifest timeout (10s)", "skip");
-                  pendingTimeouts.push(setTimeout(() => nextTrackRef.current(), 1500));
+                  prevTrackIdForCrossfade.current = null;
+                  // Try fallback streams before giving up
+                  if (!tryFallbackStream(audioEl, currentTrack, cancelled)) {
+                    setIsLoadingTrack(false);
+                    setPlayError(true);
+                    PlayerErrorLogger.log(currentTrack?.title || "unknown", "HLS manifest timeout (15s)", "skip");
+                    pendingTimeouts.push(setTimeout(() => nextTrackRef.current(), 1500));
+                  }
                 }
-              }, 10000);
+              }, 15000);
               pendingTimeouts.push(hlsManifestTimeout);
 
               // DRM diagnostic logging
@@ -1464,7 +1488,8 @@ export default function PlayerBar() {
                 }
               });
 
-              // Timeout: if no decrypted audio after 12s, show error and skip
+              // Timeout: if no decrypted audio after 25s, show error and skip
+              // License acquisition via proxy + EME key exchange can be slow
               const drmTimeout = setTimeout(() => {
                 if (audioEl.paused && !audioEl.currentTime && !cancelled) {
                   console.error("[Player] DRM playback timeout — license may be invalid");
@@ -1473,10 +1498,10 @@ export default function PlayerBar() {
                   prevTrackIdForCrossfade.current = null; // prevent broken crossfade
                   try { hls.destroy(); } catch {}
                   delete (audioEl as any)._hlsInstance;
-                  PlayerErrorLogger.log(currentTrack?.title || "unknown", "DRM timeout (12s)", "skip");
+                  PlayerErrorLogger.log(currentTrack?.title || "unknown", "DRM timeout (25s)", "skip");
                   pendingTimeouts.push(setTimeout(() => nextTrackRef.current(), 2000));
                 }
-              }, 12000);
+              }, 25000);
               pendingTimeouts.push(drmTimeout);
 
               hls.on(Hls.Events.MANIFEST_PARSED, () => {

@@ -16,8 +16,7 @@ const CLIENT_IDS = [
   "1Gbi6DBGBMULQH8MuhNvI1HzL9AiX2Pa",
   "qYUIEFbSZdXPABQbuHA2Tv8C9ndesHim",
   "S3TPtG5i3yzBs1BPd50h1N5TW2kNTo5k",
-  "gYfbOmxjDgPKEbOlXIBOAOvFpWkf8SbA",
-  "nDSHHx4FpO2gOGKmGqLaWbDXEmwo4RAC",
+  // NOTE: gYfbOmxj... and nDSHHx4F... removed — both return 401 on all endpoints (2025-05)
 ];
 
 export async function GET(request: NextRequest) {
