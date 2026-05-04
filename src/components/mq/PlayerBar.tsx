@@ -2048,7 +2048,7 @@ export default function PlayerBar() {
               />
             )}
           </motion.button>
-          {/* Spatial Audio Toggle — lg+ only */}
+          {/* Spatial Audio Toggle — visible on all screens */}
           <motion.button
             whileTap={{ scale: 0.9 }}
             onClick={() => {
@@ -2058,13 +2058,13 @@ export default function PlayerBar() {
                 st.setView("spatial");
               }
             }}
-            className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center hidden lg:flex"
+            className="relative p-1 min-w-[28px] min-h-[28px] sm:min-w-[32px] sm:min-h-[32px] flex items-center justify-center"
             style={{
               color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
             }}
             title={spatialAudioEnabled ? "Spatial Audio — ON" : "Spatial Audio"}
           >
-            <Headphones className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <Headphones className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${spatialAudioEnabled ? "fill-current" : ""}`} />
             {spatialAudioEnabled && (
               <motion.div
                 layoutId="spatial-indicator"

@@ -193,7 +193,7 @@ export default function SettingsView() {
   const {
     currentTheme, setTheme, customAccent, setCustomAccent,
     animationsEnabled, setAnimationsEnabled, compactMode, setCompactMode,
-    fontSize, setFontSize, volume, setVolume, logout, username, animationsEnabled: anim, setView,
+    fontSize, setFontSize, volume, setVolume, logout, username, animationsEnabled: anim, setView, spatialAudioEnabled,
     liquidGlassMobile, setLiquidGlassMobile, email, avatar,
     lastSyncAt, isSyncing, syncToServer, syncFromServer,
     favoriteArtists, removeFavoriteArtist, saveFavoriteArtistsToServer,
@@ -631,14 +631,14 @@ export default function SettingsView() {
         className="w-full p-3 rounded-xl text-left text-sm font-medium flex items-center gap-3"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
       >
-        <Headphones className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+        <Headphones className="w-4 h-4" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
         Spatial Audio
-        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full"
+        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full font-medium"
           style={{
-            backgroundColor: useAppStore.getState().spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-surface, #1a1a1a)",
-            color: useAppStore.getState().spatialAudioEnabled ? "#fff" : "var(--mq-text-muted)",
+            backgroundColor: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-surface, #1a1a1a)",
+            color: spatialAudioEnabled ? "#fff" : "var(--mq-text-muted)",
           }}>
-          {useAppStore.getState().spatialAudioEnabled ? "ON" : "OFF"}
+          {spatialAudioEnabled ? "ON" : "OFF"}
         </span>
       </motion.button>
 

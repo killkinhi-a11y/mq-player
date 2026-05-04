@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore, type Mood } from "@/store/useAppStore";
 import {
   initSpatialAudio,
@@ -21,21 +21,16 @@ interface SpatialAudioViewProps {
 const MOOD_INFO = getAvailableMoods();
 
 // Pre-computed positions for 5 bands around a listener in an arc
-// (angle in radians from top, distance factor)
 const BAND_ARC_POSITIONS = [
-  { angle: -Math.PI * 0.7, dist: 0.38 },  // Sub-bass (far left)
-  { angle: -Math.PI * 0.35, dist: 0.32 },  // Bass (mid-left)
-  { angle: 0, dist: 0.42 },                // Mid (top center)
-  { angle: Math.PI * 0.35, dist: 0.32 },   // High-mid (mid-right)
-  { angle: Math.PI * 0.7, dist: 0.38 },    // Treble (far right)
+  { angle: -Math.PI * 0.7, dist: 0.38 },
+  { angle: -Math.PI * 0.35, dist: 0.32 },
+  { angle: 0, dist: 0.42 },
+  { angle: Math.PI * 0.35, dist: 0.32 },
+  { angle: Math.PI * 0.7, dist: 0.38 },
 ];
 
 const BAND_COLORS = [
-  "#f97316", // Sub-bass — orange
-  "#ef4444", // Bass — red
-  "#eab308", // Mid — yellow
-  "#22c55e", // High-mid — green
-  "#3b82f6", // Treble — blue
+  "#f97316", "#ef4444", "#eab308", "#22c55e", "#3b82f6",
 ];
 
 const BAND_LABELS = ["Sub-bass", "Bass", "Mid", "High-mid", "Treble"];
@@ -56,13 +51,14 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
   const animFrameRef = useRef<number>(0);
   const [bandLevels, setBandLevels] = useState<number[]>([0, 0, 0, 0, 0]);
 
+  const activeMoodInfo = MOOD_INFO.find(m => m.mood === spatialMood);
+
   // ── Toggle spatial audio on/off ──
   const handleToggle = useCallback((enabled: boolean) => {
     if (enabled) {
       const ok = initSpatialAudio();
       if (ok) {
         enableSpatialAudio(true);
-        // Apply current or detected mood
         const mood = spatialMood || (currentTrack ? detectMoodFromTrack(currentTrack.title, currentTrack.genre) : "chill");
         setMoodPreset(mood);
         setSpatialMood(mood);
@@ -108,7 +104,6 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
       }
     };
 
-    // Helper: get accent color
     const getAccent = () => {
       const c = getComputedStyle(document.documentElement).getPropertyValue("--mq-accent").trim() || "#e03131";
       if (c.startsWith("#") && c.length >= 7) {
@@ -117,7 +112,6 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
       return { r: 224, g: 49, b: 49 };
     };
 
-    // Smoothed band levels for animation
     const smoothedLevels = [0, 0, 0, 0, 0];
 
     const draw = () => {
@@ -131,22 +125,19 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
       const t = performance.now() / 1000;
       const { r, g, b } = getAccent();
 
-      // Get current levels
       const rawLevels = getFrequencyBandLevels();
       for (let i = 0; i < 5; i++) {
         smoothedLevels[i] += (rawLevels[i] - smoothedLevels[i]) * 0.15;
       }
       setBandLevels([...smoothedLevels]);
 
-      // Get current config (used for band positioning)
       const spatialConfig = getCurrentSpatialConfig();
 
-      // ── Layout ──
       const centerX = w / 2;
       const listenerY = h * 0.78;
       const radius = Math.min(w, h) * 0.4;
 
-      // ── Background grid / atmosphere ──
+      // Background grid
       ctx.strokeStyle = `rgba(${r},${g},${b},0.04)`;
       ctx.lineWidth = 0.5;
       for (let i = 1; i <= 3; i++) {
@@ -155,11 +146,10 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
         ctx.stroke();
       }
 
-      // ── Draw connecting lines from listener to each band ──
+      // Connecting lines
       for (let i = 0; i < 5; i++) {
         const arc = BAND_ARC_POSITIONS[i];
         const bandConfig = spatialConfig?.bands[i];
-        // Pan affects the angle: pan -1 = full left, +1 = full right
         const panOffset = bandConfig ? bandConfig.pan * 0.3 : 0;
         const angle = arc.angle + panOffset;
         const dist = arc.dist + (smoothedLevels[i] / 255) * 0.08;
@@ -176,7 +166,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
         ctx.stroke();
       }
 
-      // ── Draw band circles ──
+      // Band circles
       for (let i = 0; i < 5; i++) {
         const arc = BAND_ARC_POSITIONS[i];
         const bandConfig = spatialConfig?.bands[i];
@@ -192,7 +182,6 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
         const pulseRadius = baseRadius + level * (compactMode ? 10 : 14);
         const glowRadius = pulseRadius + 8 + level * 6;
 
-        // Parse band color
         const bc = BAND_COLORS[i];
         const br = parseInt(bc.slice(1, 3), 16);
         const bg = parseInt(bc.slice(3, 5), 16);
@@ -231,10 +220,9 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
         ctx.fillText(BAND_LABELS[i], bx, by + pulseRadius + 14);
       }
 
-      // ── Listener icon (head silhouette) ──
+      // Listener icon
       const listenerSize = compactMode ? 14 : 18;
 
-      // Listener glow
       const listenerGlow = ctx.createRadialGradient(centerX, listenerY, 0, centerX, listenerY, listenerSize * 2.5);
       listenerGlow.addColorStop(0, `rgba(${r},${g},${b},0.15)`);
       listenerGlow.addColorStop(1, `rgba(${r},${g},${b},0)`);
@@ -243,18 +231,16 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
       ctx.arc(centerX, listenerY, listenerSize * 2.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Head circle
       ctx.fillStyle = `rgba(${r},${g},${b},0.8)`;
       ctx.beginPath();
       ctx.arc(centerX, listenerY - listenerSize * 0.3, listenerSize * 0.35, 0, Math.PI * 2);
       ctx.fill();
 
-      // Shoulders
       ctx.beginPath();
       ctx.ellipse(centerX, listenerY + listenerSize * 0.5, listenerSize * 0.55, listenerSize * 0.35, 0, -Math.PI, 0);
       ctx.fill();
 
-      // ── Floating particles ──
+      // Floating particles
       for (let i = 0; i < 15; i++) {
         const seed = i * 137.5;
         const px = centerX + Math.sin(t * 0.3 + seed) * radius * 0.8;
@@ -276,22 +262,25 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
     };
   }, [spatialAudioEnabled, spatialMood, compactMode]);
 
-  const activeMoodInfo = MOOD_INFO.find(m => m.mood === spatialMood);
+  // ── Parse mood color to RGB ──
+  const moodRgb = activeMoodInfo
+    ? { r: parseInt(activeMoodInfo.color.slice(1, 3), 16), g: parseInt(activeMoodInfo.color.slice(3, 5), 16), b: parseInt(activeMoodInfo.color.slice(5, 7), 16) }
+    : { r: 224, g: 49, b: 49 };
 
   return (
-    <div
-      className={`${compactMode ? "p-3 lg:p-4 pb-40 lg:pb-28 space-y-3" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-4"} max-w-2xl mx-auto`}
-    >
-      {/* Header */}
+    <div className="p-4 lg:p-6 pb-44 lg:pb-28 space-y-5 max-w-2xl mx-auto">
+      {/* ── Header ── */}
       <motion.div
-        initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+        initial={animationsEnabled ? { opacity: 0, y: 16 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         className="flex items-center gap-3"
       >
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
           style={{
-            backgroundColor: spatialAudioEnabled ? `rgba(${activeMoodInfo ? parseInt(activeMoodInfo.color.slice(1,3),16) : 224},${activeMoodInfo ? parseInt(activeMoodInfo.color.slice(3,5),16) : 49},${activeMoodInfo ? parseInt(activeMoodInfo.color.slice(5,7),16) : 49},0.12)` : "rgba(255,255,255,0.04)",
+            backgroundColor: spatialAudioEnabled
+              ? `rgba(${moodRgb.r},${moodRgb.g},${moodRgb.b},0.15)`
+              : "rgba(255,255,255,0.04)",
           }}
         >
           {spatialAudioEnabled ? (
@@ -303,52 +292,161 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
               {activeMoodInfo?.icon || "🌀"}
             </motion.span>
           ) : (
-            <span className="text-lg">🔇</span>
+            <span className="text-lg opacity-40">🎧</span>
           )}
         </div>
-        <h1 className="text-xl font-bold" style={{ color: "var(--mq-text)" }}>
-          Spatial Audio
-        </h1>
+        <div className="min-w-0">
+          <h1 className="text-lg font-bold truncate" style={{ color: "var(--mq-text)" }}>
+            Spatial Audio
+          </h1>
+          <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+            3D-пространственный звук для наушников
+          </p>
+        </div>
       </motion.div>
 
-      {/* Main Toggle */}
+      {/* ── Main Status Card — big, clear ON/OFF ── */}
       <motion.div
-        initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+        initial={animationsEnabled ? { opacity: 0, y: 16 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="flex items-center justify-between py-1"
+        onClick={() => handleToggle(!spatialAudioEnabled)}
+        className="relative cursor-pointer select-none overflow-hidden"
+        style={{
+          borderRadius: 20,
+          border: spatialAudioEnabled
+            ? `1.5px solid rgba(${moodRgb.r},${moodRgb.g},${moodRgb.b},0.35)`
+            : "1.5px solid var(--mq-border)",
+        }}
       >
-        <button
-          onClick={() => handleToggle(!spatialAudioEnabled)}
-          className="relative w-11 h-6 rounded-full transition-colors duration-300"
-          style={{ backgroundColor: spatialAudioEnabled ? (activeMoodInfo?.color || "var(--mq-accent)") : "var(--mq-border)" }}
-        >
-          <div
-            className="absolute top-0.5 w-5 h-5 rounded-full transition-transform duration-300"
+        {/* Animated glow behind the card when ON */}
+        {spatialAudioEnabled && (
+          <motion.div
+            className="absolute inset-0 -z-10"
+            animate={{ opacity: [0.3, 0.6, 0.3], scale: [0.98, 1.02, 0.98] }}
+            transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
             style={{
-              backgroundColor: "#fff",
-              transform: spatialAudioEnabled ? "translateX(22px)" : "translateX(2px)",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+              borderRadius: 22,
+              background: `radial-gradient(ellipse at 50% 50%, rgba(${moodRgb.r},${moodRgb.g},${moodRgb.b},0.15) 0%, transparent 70%)`,
             }}
           />
-        </button>
+        )}
+
+        <div
+          className="flex items-center justify-between px-5 py-4"
+          style={{
+            backgroundColor: spatialAudioEnabled
+              ? `rgba(${moodRgb.r},${moodRgb.g},${moodRgb.b},0.06)`
+              : "var(--mq-card)",
+          }}
+        >
+          <div className="flex items-center gap-3.5 min-w-0">
+            {/* Pulsing ring when ON */}
+            <div className="relative shrink-0">
+              {spatialAudioEnabled && (
+                <motion.div
+                  className="absolute -inset-1.5 rounded-full"
+                  animate={{ scale: [1, 1.15, 1], opacity: [0.4, 0.1, 0.4] }}
+                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+                  style={{ backgroundColor: `rgba(${moodRgb.r},${moodRgb.g},${moodRgb.b},0.25)` }}
+                />
+              )}
+              <div
+                className="relative w-12 h-12 rounded-full flex items-center justify-center"
+                style={{
+                  backgroundColor: spatialAudioEnabled
+                    ? `rgba(${moodRgb.r},${moodRgb.g},${moodRgb.b},0.18)`
+                    : "rgba(255,255,255,0.04)",
+                  border: spatialAudioEnabled
+                    ? `1.5px solid rgba(${moodRgb.r},${moodRgb.g},${moodRgb.b},0.3)`
+                    : "1.5px solid var(--mq-border)",
+                }}
+              >
+                <span className="text-xl">
+                  {spatialAudioEnabled ? (activeMoodInfo?.icon || "🌀") : "🔇"}
+                </span>
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-sm font-semibold"
+                  style={{ color: spatialAudioEnabled ? "var(--mq-text)" : "var(--mq-text-muted)" }}
+                >
+                  {spatialAudioEnabled ? "Включено" : "Выключено"}
+                </span>
+                {spatialAudioEnabled && (
+                  <motion.span
+                    className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor: `rgba(${moodRgb.r},${moodRgb.g},${moodRgb.b},0.15)`,
+                      color: activeMoodInfo?.color || "var(--mq-accent)",
+                    }}
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: activeMoodInfo?.color || "var(--mq-accent)" }}
+                    />
+                    {activeMoodInfo?.label || spatialMood}
+                  </motion.span>
+                )}
+              </div>
+              <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
+                {spatialAudioEnabled
+                  ? `Пространственный звук: ${activeMoodInfo?.label || spatialMood}`
+                  : "Нажмите чтобы включить"}
+              </p>
+            </div>
+          </div>
+
+          {/* Toggle switch */}
+          <div
+            className="relative w-14 h-8 rounded-full transition-colors duration-300 shrink-0"
+            style={{
+              backgroundColor: spatialAudioEnabled
+                ? (activeMoodInfo?.color || "var(--mq-accent)")
+                : "var(--mq-border)",
+            }}
+          >
+            <div
+              className="absolute top-1 w-6 h-6 rounded-full transition-transform duration-300 shadow-md"
+              style={{
+                backgroundColor: "#fff",
+                transform: spatialAudioEnabled ? "translateX(30px)" : "translateX(4px)",
+              }}
+            >
+              {/* ON icon inside the thumb */}
+              {spatialAudioEnabled && (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={activeMoodInfo?.color || "#fff"} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="mt-[6px] ml-[6px]">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              )}
+            </div>
+          </div>
+        </div>
       </motion.div>
 
-      {/* 3D Spatial Canvas */}
+      {/* ── Canvas Visualization ── */}
       <motion.div
-        initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+        initial={animationsEnabled ? { opacity: 0, y: 16 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
         className="rounded-2xl overflow-hidden"
         style={{
           backgroundColor: "var(--mq-card)",
+          border: "1px solid var(--mq-border)",
         }}
       >
         <div
           className="relative"
           style={{
-            height: compactMode ? 220 : 300,
-            background: "radial-gradient(ellipse at 50% 80%, rgba(224,49,49,0.03) 0%, transparent 70%)",
+            height: compactMode ? 200 : 280,
+            background: spatialAudioEnabled
+              ? `radial-gradient(ellipse at 50% 80%, rgba(${moodRgb.r},${moodRgb.g},${moodRgb.b},0.04) 0%, transparent 70%)`
+              : "none",
           }}
         >
           <canvas
@@ -357,61 +455,79 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
             style={{ display: "block" }}
           />
 
-          {!spatialAudioEnabled && (
-            <div
-              className="absolute inset-0 flex flex-col items-center justify-center gap-3"
-              style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-            >
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+          {/* OFF overlay */}
+          <AnimatePresence>
+            {!spatialAudioEnabled && (
+              <motion.div
+                key="off-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
+                className="absolute inset-0 flex flex-col items-center justify-center gap-3"
+                style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
               >
-                <span className="text-2xl">🎧</span>
-              </div>
-              <div className="text-center px-4">
-                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
-                  Spatial Audio выключен
-                </p>
-                <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)" }}>
-                  Включите, чтобы увидеть визуализацию
-                </p>
-              </div>
-            </div>
-          )}
+                <div
+                  className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  <span className="text-3xl opacity-50">🎧</span>
+                </div>
+                <div className="text-center px-6">
+                  <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
+                    Визуализация недоступна
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                    Включите Spatial Audio выше
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Band levels bar */}
         {spatialAudioEnabled && (
-          <div className="flex items-end justify-center gap-1 px-4 pb-3" style={{ height: 28 }}>
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="flex items-end justify-center gap-1.5 px-5 pb-3.5 pt-1"
+            style={{ height: 32 }}
+          >
             {BAND_LABELS.map((label, i) => {
               const level = bandLevels[i] / 255;
               return (
-                <div key={label} className="flex-1">
+                <div key={label} className="flex-1 group relative">
                   <div
                     className="w-full rounded-full transition-all duration-150"
                     style={{
                       height: `${Math.max(3, level * 24)}px`,
                       backgroundColor: BAND_COLORS[i],
-                      opacity: 0.4 + level * 0.6,
+                      opacity: 0.35 + level * 0.65,
                     }}
                   />
                 </div>
               );
             })}
-          </div>
+          </motion.div>
         )}
       </motion.div>
 
-      {/* Mood Selector */}
+      {/* ── Mood Selector ── */}
       <motion.div
-        initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+        initial={animationsEnabled ? { opacity: 0, y: 16 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
       >
-        <div className="flex items-center justify-between mb-2.5 px-0.5">
-          <span className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>
+        <div className="flex items-center justify-between mb-3 px-0.5">
+          <span className="text-xs font-semibold" style={{ color: "var(--mq-text)" }}>
             Настроение
           </span>
+
+          {/* Auto-detect toggle with label */}
           <button
             onClick={() => {
               const next = !spatialAutoDetect;
@@ -422,49 +538,66 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
                 setSpatialMood(mood);
               }
             }}
-            className="relative w-8 h-4 rounded-full transition-colors duration-200"
-            style={{
-              backgroundColor: spatialAutoDetect ? (activeMoodInfo?.color || "var(--mq-accent)") : "var(--mq-border)",
-            }}
+            className="flex items-center gap-2"
           >
+            <span className="text-[11px]" style={{ color: spatialAutoDetect ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
+              Авто
+            </span>
             <div
-              className="absolute top-0.5 w-3 h-3 rounded-full transition-transform duration-200"
+              className="relative w-9 h-5 rounded-full transition-colors duration-200"
               style={{
-                backgroundColor: "#fff",
-                transform: spatialAutoDetect ? "translateX(16px)" : "translateX(2px)",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.3)",
+                backgroundColor: spatialAutoDetect
+                  ? (activeMoodInfo?.color || "var(--mq-accent)")
+                  : "var(--mq-border)",
               }}
-            />
+            >
+              <div
+                className="absolute top-0.5 w-4 h-4 rounded-full transition-transform duration-200 shadow-sm"
+                style={{
+                  backgroundColor: "#fff",
+                  transform: spatialAutoDetect ? "translateX(18px)" : "translateX(2px)",
+                }}
+              />
+            </div>
           </button>
         </div>
 
-        <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-4 gap-2">
           {MOOD_INFO.map((info) => {
             const isActive = spatialMood === info.mood;
+            const infoRgb = { r: parseInt(info.color.slice(1, 3), 16), g: parseInt(info.color.slice(3, 5), 16), b: parseInt(info.color.slice(5, 7), 16) };
+
             return (
               <motion.button
                 key={info.mood}
                 whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => handleSelectMood(info.mood)}
-                className="flex flex-col items-center gap-1 p-2.5 rounded-xl transition-all duration-200"
+                className="relative flex flex-col items-center gap-1.5 py-3 rounded-2xl transition-all duration-200"
                 style={{
-                  backgroundColor: isActive ? `${info.color}18` : "transparent",
-                  border: isActive ? `1.5px solid ${info.color}50` : "1px solid transparent",
+                  backgroundColor: isActive ? `rgba(${infoRgb.r},${infoRgb.g},${infoRgb.b},0.1)` : "var(--mq-card)",
+                  border: isActive
+                    ? `1.5px solid rgba(${infoRgb.r},${infoRgb.g},${infoRgb.b},0.4)`
+                    : "1px solid var(--mq-border)",
                 }}
               >
-                <span className="text-lg">{info.icon}</span>
+                <span className="text-xl">{info.icon}</span>
                 <span
                   className="text-[10px] font-medium"
                   style={{ color: isActive ? info.color : "var(--mq-text-muted)" }}
                 >
                   {info.label}
                 </span>
+
+                {/* Active indicator dot */}
                 {isActive && (
                   <motion.div
                     layoutId="mood-indicator"
-                    className="w-1 h-1 rounded-full"
-                    style={{ backgroundColor: info.color }}
+                    className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full shadow-sm"
+                    style={{
+                      backgroundColor: info.color,
+                      boxShadow: `0 0 8px rgba(${infoRgb.r},${infoRgb.g},${infoRgb.b},0.5)`,
+                    }}
                   />
                 )}
               </motion.button>
