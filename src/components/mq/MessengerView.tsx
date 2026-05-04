@@ -276,6 +276,7 @@ export default function MessengerView() {
   const lastSeenTimeRef = useRef<string>(new Date(Date.now() - 10000).toISOString());
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordingDurationRef = useRef(0);
+  const sendingRef = useRef(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ═══════════════════════════════════════════════════════════
@@ -466,6 +467,12 @@ export default function MessengerView() {
   const sendMessageOptimistic = useCallback(async (content: string, extra?: Record<string, unknown>) => {
     const targetId = selectedGroupId || selectedContactId;
     if (!targetId || !userId) return;
+    // Prevent sending empty text messages
+    if (!extra && (!content || !content.trim())) return;
+    // Prevent duplicate rapid sends
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    try {
     const msgId = crypto.randomUUID();
     const now = new Date().toISOString();
     const msg: any = {
@@ -504,6 +511,9 @@ export default function MessengerView() {
         await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       }
     } catch { /* best-effort */ }
+    } finally {
+      setTimeout(() => { sendingRef.current = false; }, 300);
+    }
   }, [selectedContactId, selectedGroupId, userId, username, addMessage]);
 
   const startRecording = useCallback(async () => {
@@ -1656,9 +1666,9 @@ export default function MessengerView() {
         style={{ borderRight: "1px solid var(--mq-border)", flex: "0 0 auto", overflow: "hidden", ...glassPanel }}
       >
         {/* ── Sidebar header ── */}
-        <div className="p-4 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-          <h2 className="font-bold text-lg" style={{ color: "var(--mq-text)" }}>Мессенджер</h2>
-          <div className="flex items-center gap-2">
+        <div className="p-2.5 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-border)" }}>
+          <h2 className="font-bold text-base" style={{ color: "var(--mq-text)" }}>Мессенджер</h2>
+          <div className="flex items-center gap-1.5">
             <div className="flex items-center gap-1 px-2 py-1 rounded-lg" title="Сквозное шифрование" style={glassPanel}>
               <ShieldCheck className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
               <span className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>E2E</span>
@@ -1698,7 +1708,7 @@ export default function MessengerView() {
 
         {/* ── Stories carousel ── */}
         <div className="flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-          <div className="flex gap-3 overflow-x-auto px-4 py-3" style={{ scrollbarWidth: "none" }}>
+          <div className="flex gap-2.5 overflow-x-auto px-3 py-2" style={{ scrollbarWidth: "none" }}>
             {storyGroupKeys.map((uid) => {
               const userStories = storyGroups[uid];
               const firstStory = userStories[0];
@@ -1752,7 +1762,7 @@ export default function MessengerView() {
         </AnimatePresence>
 
         {/* ── Search contacts ── */}
-        <div className="p-3 flex-shrink-0">
+        <div className="px-2.5 py-2 flex-shrink-0">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
             <Input placeholder="Поиск друзей..." value={searchContact} onChange={(e) => setSearchContact(e.target.value)}
@@ -1761,7 +1771,7 @@ export default function MessengerView() {
         </div>
 
         {/* ── E2E badge ── */}
-        <div className="mx-3 mb-2 p-2.5 rounded-xl text-xs flex items-start gap-2 flex-shrink-0" style={glassPanel}>
+        <div className="mx-2.5 mb-2 p-2 rounded-xl text-xs flex items-start gap-2 flex-shrink-0" style={glassPanel}>
           <Lock className="w-3 h-3 mt-0.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
           <p style={{ color: "var(--mq-text-muted)" }}>Все сообщения защищены шифрованием {getEncryptionStatus()}</p>
         </div>
@@ -1775,7 +1785,7 @@ export default function MessengerView() {
               {/* ── Pinned section ── */}
               {sortedContacts.filter((c) => pinnedChatIds.has(c.id)).length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider px-4 py-2" style={{ color: "var(--mq-text-muted)" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider px-3 py-1.5" style={{ color: "var(--mq-text-muted)" }}>
                     📌 Закреплённые
                   </p>
                   {sortedContacts.filter((c) => pinnedChatIds.has(c.id)).map((contact, i) => (
@@ -1789,7 +1799,7 @@ export default function MessengerView() {
               {/* ── Group chats section ── */}
               {groupChats.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider px-4 py-2 mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider px-3 py-1.5 mt-1" style={{ color: "var(--mq-text-muted)" }}>
                     👥 Группы
                   </p>
                   {groupChats.map((g, i) => {
@@ -1797,9 +1807,9 @@ export default function MessengerView() {
                     return (
                       <motion.button key={g.id} initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
                         onClick={() => handleSelectGroup(g.id)}
-                        className="w-full flex items-center gap-3 p-3 hover:opacity-80 transition-all text-left cursor-pointer"
+                        className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:opacity-80 transition-all text-left cursor-pointer"
                         style={{ backgroundColor: selectedGroupId === g.id ? "var(--mq-accent)" : "transparent", borderBottom: "1px solid var(--mq-border)" }}>
-                        <div className="w-11 h-11 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
                           style={{ background: "linear-gradient(135deg, var(--mq-accent), #f5576c)", color: "#fff" }}>
                           {g.name.charAt(0).toUpperCase()}
                         </div>
@@ -1841,7 +1851,7 @@ export default function MessengerView() {
         {activeChatId ? (
           <>
             {/* ── Chat header ── */}
-            <div className="flex items-center gap-3 p-3 lg:p-4 flex-shrink-0 sticky top-0 z-10" style={{ borderBottom: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)", backdropFilter: "blur(10px)" }}>
+            <div className="flex items-center gap-2.5 p-2.5 lg:p-3 flex-shrink-0 sticky top-0 z-10" style={{ borderBottom: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)", backdropFilter: "blur(10px)" }}>
               <button onClick={() => { setSelectedContact(null); setSelectedGroupId(null); }} className="lg:hidden p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}>
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -2023,7 +2033,7 @@ export default function MessengerView() {
             </AnimatePresence>
 
             {/* ── Messages area ── */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-0" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
               <div className="flex justify-center mb-4">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs" style={glassPanel}>
                   <Shield className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
@@ -2148,7 +2158,7 @@ export default function MessengerView() {
             {/* ═══ INPUT AREA ═══ */}
             {/* ── Voice recording mode: replaces input area ── */}
             {isRecording ? (
-              <div className="px-3 py-2 flex items-center gap-3 flex-shrink-0 relative z-50" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
+              <div className="px-2.5 py-1.5 flex items-center gap-2.5 flex-shrink-0 relative z-50" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
                 {/* Cancel button */}
                 <motion.button whileTap={{ scale: 0.85 }} onClick={cancelRecording}
                   className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
@@ -2182,7 +2192,7 @@ export default function MessengerView() {
               </div>
             ) : (
               /* ── Normal input mode ── */
-              <div className="px-3 py-2 flex items-center gap-2 flex-shrink-0 relative z-50" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
+              <div className="px-2.5 py-1.5 flex items-center gap-2 flex-shrink-0 relative z-50" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
                 {/* Emoji / Sticker toggle */}
                 <motion.button whileTap={{ scale: 0.9 }}
                   onClick={() => { if (showEmojis) { setShowEmojis(false); } else if (showStickers) { setShowStickers(false); } else { setShowEmojis(true); } }}
@@ -2199,7 +2209,7 @@ export default function MessengerView() {
                     onChange={(e) => { if (editingMessage) setEditingMessage({ ...editingMessage, content: e.target.value }); else handleInputChange(e.target.value); }}
                     onKeyDown={(e) => { if (editingMessage) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveEdit(); } return; } handleKeyDown(e); }}
                     placeholder={editingMessage ? "Редактирование..." : replyingTo ? `Ответ для ${replyingTo.senderName}...` : "Сообщение"}
-                    className="min-h-[42px] rounded-full"
+                    className="min-h-[38px] rounded-full"
                     style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)", paddingLeft: 16 }}
                   />
                 </div>

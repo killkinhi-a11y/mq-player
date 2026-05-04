@@ -261,7 +261,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
       ctx.fillStyle = `rgba(${r},${g},${b},0.5)`;
       ctx.font = `${compactMode ? 9 : 10}px system-ui, sans-serif`;
       ctx.textAlign = "center";
-      ctx.fillText("LISTENER", centerX, listenerY + listenerSize + 8);
+      ctx.fillText("СЛУШАТЕЛЬ", centerX, listenerY + listenerSize + 8);
 
       // ── Current mood label ──
       const moodLabel = spatialConfig?.mood || spatialMood || "none";
@@ -296,9 +296,11 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
     };
   }, [spatialAudioEnabled, spatialMood, compactMode]);
 
+  const activeMoodInfo = MOOD_INFO.find(m => m.mood === spatialMood);
+
   return (
     <div
-      className={`${compactMode ? "p-3 lg:p-4 pb-40 lg:pb-28 space-y-4" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-6"} max-w-2xl mx-auto`}
+      className={`${compactMode ? "p-3 lg:p-4 pb-40 lg:pb-28 space-y-3" : "p-4 lg:p-6 pb-40 lg:pb-28 space-y-4"} max-w-2xl mx-auto`}
     >
       {/* Header */}
       <motion.div
@@ -309,7 +311,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
           Spatial Audio
         </h1>
         <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-          3D spatial positioning that adapts to your music&apos;s mood
+          3D пространственное позиционирование, адаптирующееся под настроение музыки
         </p>
       </motion.div>
 
@@ -318,7 +320,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="rounded-2xl p-4"
+        className="rounded-2xl p-3.5"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
         <div className="flex items-center justify-between">
@@ -326,20 +328,24 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center"
               style={{
-                backgroundColor: spatialAudioEnabled ? "rgba(224,49,49,0.15)" : "var(--mq-surface, #1a1a1a)",
-                border: `1px solid ${spatialAudioEnabled ? "rgba(224,49,49,0.3)" : "var(--mq-border)"}`,
+                backgroundColor: spatialAudioEnabled
+                  ? `rgba(${activeMoodInfo ? parseInt(activeMoodInfo.color.slice(1,3),16) : 224},${activeMoodInfo ? parseInt(activeMoodInfo.color.slice(3,5),16) : 49},${activeMoodInfo ? parseInt(activeMoodInfo.color.slice(5,7),16) : 49},0.15)`
+                  : "var(--mq-surface, #1a1a1a)",
+                border: `1px solid ${spatialAudioEnabled
+                  ? `${activeMoodInfo?.color || "#e03131"}50`
+                  : "var(--mq-border)"}`,
               }}
             >
-              <span className="text-lg">{spatialAudioEnabled ? "🌀" : "🔇"}</span>
+              <span className="text-lg">{spatialAudioEnabled ? (activeMoodInfo?.icon || "🌀") : "🔇"}</span>
             </div>
             <div>
               <p className="font-semibold text-sm" style={{ color: "var(--mq-text)" }}>
-                Spatial Audio
+                {spatialAudioEnabled ? activeMoodInfo?.label || spatialMood : "Выключено"}
               </p>
               <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
                 {spatialAudioEnabled
-                  ? `Active — ${spatialMood || "melodic"} mode`
-                  : "Disabled"
+                  ? `${spatialAutoDetect ? "Авто-определение" : "Ручной режим"}`
+                  : "Включите для визуализации"
                 }
               </p>
             </div>
@@ -347,7 +353,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
           <button
             onClick={() => handleToggle(!spatialAudioEnabled)}
             className="relative w-12 h-6 rounded-full transition-colors duration-300"
-            style={{ backgroundColor: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-border)" }}
+            style={{ backgroundColor: spatialAudioEnabled ? (activeMoodInfo?.color || "var(--mq-accent)") : "var(--mq-border)" }}
           >
             <div
               className="absolute top-0.5 w-5 h-5 rounded-full transition-transform duration-300"
@@ -375,7 +381,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
         <div
           className="relative"
           style={{
-            height: compactMode ? 260 : 340,
+            height: compactMode ? 220 : 300,
             background: "radial-gradient(ellipse at 50% 80%, rgba(224,49,49,0.03) 0%, transparent 70%)",
           }}
         >
@@ -387,12 +393,23 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
 
           {!spatialAudioEnabled && (
             <div
-              className="absolute inset-0 flex items-center justify-center"
+              className="absolute inset-0 flex flex-col items-center justify-center gap-3"
               style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
             >
-              <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                Enable Spatial Audio to see the visualization
-              </p>
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}
+              >
+                <span className="text-2xl">🎧</span>
+              </div>
+              <div className="text-center px-4">
+                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
+                  Spatial Audio выключен
+                </p>
+                <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                  Включите, чтобы увидеть визуализацию
+                </p>
+              </div>
             </div>
           )}
         </div>
@@ -427,16 +444,16 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className="rounded-2xl p-4"
+        className="rounded-2xl p-3.5"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
         <div className="flex items-center justify-between mb-3">
           <p className="font-semibold text-sm" style={{ color: "var(--mq-text)" }}>
-            Mood Preset
+            Настроение
           </p>
           <div className="flex items-center gap-2">
             <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-              Auto-detect
+              Авто
             </span>
             <button
               onClick={() => {
@@ -450,7 +467,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
               }}
               className="relative w-8 h-4 rounded-full transition-colors duration-200"
               style={{
-                backgroundColor: spatialAutoDetect ? "var(--mq-accent)" : "var(--mq-border)",
+                backgroundColor: spatialAutoDetect ? (activeMoodInfo?.color || "var(--mq-accent)") : "var(--mq-border)",
               }}
             >
               <div
@@ -477,7 +494,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
                 className="flex flex-col items-center gap-1 p-2.5 rounded-xl transition-all duration-200"
                 style={{
                   backgroundColor: isActive ? `${info.color}18` : "transparent",
-                  border: isActive ? `1px solid ${info.color}50` : "1px solid transparent",
+                  border: isActive ? `1.5px solid ${info.color}50` : "1px solid transparent",
                 }}
               >
                 <span className="text-lg">{info.icon}</span>
@@ -506,13 +523,13 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
           initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="rounded-2xl p-4"
+          className="rounded-2xl p-3.5"
           style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
         >
           <p className="font-semibold text-sm mb-3" style={{ color: "var(--mq-text)" }}>
-            Frequency Band Positioning
+            Позиционирование частот
           </p>
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {config.bands.map((band: SpatialBand, i: number) => (
               <div key={band.name} className="flex items-center gap-3">
                 <div
@@ -533,7 +550,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
                   />
                 </div>
                 <span className="text-[10px] w-20 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
-                  {(band.pan * 45).toFixed(0)}° &middot; {band.frequency}Hz &middot; ×{band.gain.toFixed(1)}
+                  {(band.pan * 45).toFixed(0)}° · {band.frequency}Гц · ×{band.gain.toFixed(1)}
                 </span>
               </div>
             ))}
@@ -546,14 +563,14 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.25 }}
-        className="rounded-2xl p-4"
+        className="rounded-2xl p-3.5"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       >
         <p className="text-xs leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-          Spatial Audio positions each frequency band in a 3D space around you.
-          The system analyzes track metadata to detect mood and automatically adjusts
-          the positioning — bass-heavy genres center the low end, while dreamy
-          tracks spread instruments wide for an ethereal experience.
+          Spatial Audio позиционирует каждую частотную полосу в 3D-пространстве вокруг вас.
+          Система анализирует метаданные трека для определения настроения и автоматически корректирует
+          позиционирование — басовые жанры центрируют низкие частоты, а атмосферные
+          треки раскидывают инструменты широко для создания эфирного звучания.
         </p>
       </motion.div>
     </div>

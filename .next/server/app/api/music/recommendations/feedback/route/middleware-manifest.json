@@ -1,0 +1,41 @@
+{
+  "sorted_middleware": [
+    "/api/music/recommendations/feedback/route"
+  ],
+  "middleware": {},
+  "instrumentation": null,
+  "functions": {
+    "/api/music/recommendations/feedback/route": {
+      "files": [
+        "server/middleware-build-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "required-server-files.js",
+        "server/server-reference-manifest.js",
+        "server/app/api/music/recommendations/feedback/route_client-reference-manifest.js",
+        "server/edge/chunks/0zjb_server_app_api_music_recommendations_feedback_route_actions_11.3u.r.js",
+        "server/edge/chunks/node_modules_next_dist_esm_0r72_2a._.js",
+        "server/edge/chunks/[root-of-the-server]__0w8nc0.._.js",
+        "server/edge/chunks/node_modules_next_dist_esm_build_templates_edge-app-route_0nt7-3b.js",
+        "server/edge/chunks/turbopack-node_modules_next_dist_esm_build_templates_edge-wrapper_02m2gdm.js"
+      ],
+      "name": "app/api/music/recommendations/feedback/route",
+      "page": "/api/music/recommendations/feedback/route",
+      "entrypoint": "server/edge/chunks/turbopack-node_modules_next_dist_esm_build_templates_edge-wrapper_02m2gdm.js",
+      "matchers": [
+        {
+          "regexp": "^/api/music/recommendations/feedback(?:/)?$",
+          "originalSource": "/api/music/recommendations/feedback"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "1777917901537",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "o2/g5nGOaL5YiNvGiBnxdbkyNvnuve48okAQrxIuxJA=",
+        "__NEXT_PREVIEW_MODE_ID": "0416c7604e5c19145934824516410687",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "51ca182a9635bd1641e76a982f9888c2ef556536a056c0a3575aa301414449ed",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "4b18078d96706b8f8e2c2bc5a7bc4436d85f640cc3c98e1c5130c102e65ce544"
+      }
+    }
+  }
+}

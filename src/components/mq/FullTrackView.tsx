@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
-  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, PictureInPicture2, Waves, Dna
+  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, PictureInPicture2, Waves, Dna, MoreVertical, Headphones, Radio, Mic2
 } from "lucide-react";
 import SongDNA from "./SongDNA";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
@@ -30,6 +30,7 @@ export default function FullTrackView() {
     currentStyle, styleVariant, currentPlaylistId,
     isPiPActive, setPiPActive, pipMode,
     radioMode, toggleRadioMode, releaseRadarTracks, fetchReleaseRadar, likedTracksData,
+    spatialAudioEnabled, setSpatialAudioEnabled, setView,
   } = useAppStore();
 
   const progressRef = useRef<HTMLDivElement>(null);
@@ -44,6 +45,7 @@ export default function FullTrackView() {
   const [showComments, setShowComments] = useState(false);
   const [showDNA, setShowDNA] = useState(false);
   const [canvasMode, setCanvasMode] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
   const [lyricsLines, setLyricsLines] = useState<{ time: number; text: string }[]>([]);
   const [lyricsPlainText, setLyricsPlainText] = useState("");
@@ -903,31 +905,67 @@ export default function FullTrackView() {
           <TrackCanvas isActive={canvasMode} isPlaying={isPlaying} currentStyle={currentStyle} styleVariant={styleVariant} />
         )}
 
-        {/* Header */}
+        {/* Header — simplified: back + badge + more */}
         <div className="relative z-10 flex items-center justify-between p-4">
-          <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setFullTrackViewOpen(false); setShowSimilar(false); setShowComments(false); }}
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setFullTrackViewOpen(false); setShowSimilar(false); setShowComments(false); setShowMoreMenu(false); }}
             className="p-2" style={{ color: "var(--mq-text)" }}>
             <ChevronLeft className="w-6 h-6" />
           </motion.button>
           <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}>
             Сейчас играет
           </span>
-          <motion.button whileTap={{ scale: 0.9 }} onClick={async () => {
-            if (isPiPActive) {
-              closePiPPopup();
-              setPiPActive(false);
-            } else {
-              const opened = await openPiPPopup();
-              setPiPActive(true, opened ? 'popup' : 'overlay');
-            }
-          }}
-            className="p-2" style={{ color: isPiPActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} title="Мини-плеер">
-            <PictureInPicture2 className="w-5 h-5" />
-          </motion.button>
-          <motion.button whileTap={{ scale: 0.9 }} onClick={handleDownload}
-            className="p-2" style={{ color: "var(--mq-text-muted)" }} title="Скачать">
-            <Download className="w-5 h-5" />
-          </motion.button>
+          <div className="relative">
+            <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="p-2" style={{ color: "var(--mq-text-muted)" }}>
+              <MoreVertical className="w-5 h-5" />
+            </motion.button>
+            <AnimatePresence>
+              {showMoreMenu && (
+                <>
+                  <div className="fixed inset-0 z-[150]" onClick={() => setShowMoreMenu(false)} />
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                    className="absolute right-0 top-10 z-[160] w-52 rounded-2xl shadow-2xl overflow-hidden"
+                    style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+                  >
+                    <div className="py-1">
+                      {[
+                        { icon: FileText, label: "Текст песни", active: showLyrics, action: () => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); setShowMoreMenu(false); } },
+                        { icon: ListMusic, label: "Похожие треки", active: showSimilar, action: () => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); setShowMoreMenu(false); } },
+                        { icon: Dna, label: "ДНК трека", active: showDNA, action: () => { setShowDNA(!showDNA); setShowSimilar(false); setShowLyrics(false); setShowComments(false); setShowMoreMenu(false); } },
+                        { icon: MessageSquare, label: "Комментарии", active: showComments, action: () => { setShowComments(!showComments); setShowSimilar(false); setShowLyrics(false); setShowDNA(false); setShowMoreMenu(false); } },
+                        { icon: Moon, label: sleepTimerActive ? "Таймер сна вкл" : "Таймер сна", active: sleepTimerActive, action: () => { setShowSleepTimer(true); setShowMoreMenu(false); } },
+                        { icon: Sparkles, label: "Canvas режим", active: canvasMode, action: () => { setCanvasMode(!canvasMode); setShowMoreMenu(false); } },
+                        { icon: Headphones, label: "Spatial Audio", active: spatialAudioEnabled, action: () => { setSpatialAudioEnabled(!spatialAudioEnabled); setShowMoreMenu(false); } },
+                        { icon: Waves, label: radioMode ? "Волна вкл" : "Радио режим", active: radioMode, action: () => { toggleRadioMode(); setShowMoreMenu(false); } },
+                        { icon: Download, label: "Скачать", active: false, action: () => { handleDownload(); setShowMoreMenu(false); } },
+                        { icon: PictureInPicture2, label: isPiPActive ? "Закрыть мини-плеер" : "Мини-плеер", active: isPiPActive, action: async () => {
+                          if (isPiPActive) { closePiPPopup(); setPiPActive(false); }
+                          else { const opened = await openPiPPopup(); setPiPActive(true, opened ? 'popup' : 'overlay'); }
+                          setShowMoreMenu(false);
+                        } },
+                      ].map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <button
+                            key={item.label}
+                            onClick={item.action}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity"
+                            style={{ color: item.active ? "var(--mq-accent)" : "var(--mq-text)" }}
+                          >
+                            <Icon className="w-4 h-4 flex-shrink-0" />
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Content */}
@@ -940,7 +978,7 @@ export default function FullTrackView() {
               transition={{ type: "spring", stiffness: 200 }}
               className="mb-3 sm:mb-5 flex items-center justify-center"
             >
-              <div className="w-44 h-44 sm:w-56 sm:h-56 lg:w-72 lg:h-72 rounded-2xl overflow-hidden shadow-2xl relative z-10"
+              <div className="w-36 h-36 sm:w-52 sm:h-52 lg:w-72 lg:h-72 rounded-2xl overflow-hidden shadow-2xl relative z-10"
                 style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
                 {currentPlaylistId ? (
                   <PlaylistArtwork
@@ -960,15 +998,15 @@ export default function FullTrackView() {
           {/* Invisible spacer to keep layout stable when canvas hides album art */}
           {canvasMode && <div className="mb-8" style={{ height: "clamp(14rem, 40vh, 20rem)" }} />}
 
-          {/* Track info */}
-          <div className="text-center mb-2 sm:mb-4 w-full">
-            <h2 className="text-xl font-bold mb-1 truncate" style={{ color: "var(--mq-text)" }}>
+          {/* Track info — always visible, never truncated on important info */}
+          <div className="text-center mb-2 sm:mb-4 w-full px-2">
+            <h2 className="text-lg sm:text-xl font-bold mb-1" style={{ color: "var(--mq-text)" }}>
               {currentTrack.title}
             </h2>
-            <p className="text-sm mb-1 truncate" style={{ color: "var(--mq-text-muted)" }}>
+            <p className="text-sm mb-0.5" style={{ color: "var(--mq-text-muted)" }}>
               {currentTrack.artist}
             </p>
-            <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+            <p className="text-xs" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
               {currentTrack.album}
             </p>
           </div>
@@ -991,8 +1029,8 @@ export default function FullTrackView() {
             </div>
           </div>
 
-          {/* Action buttons row */}
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3 px-2 sm:px-0">
+          {/* Secondary actions row: like, dislike, more on mobile */}
+          <div className="flex items-center justify-center gap-3 mb-2 sm:mb-3">
             <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
@@ -1011,6 +1049,19 @@ export default function FullTrackView() {
               }}>
               <ThumbsDown className={`w-[18px] h-[18px] ${isDisliked ? "fill-current" : ""}`} />
             </motion.button>
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
+              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+              style={{
+                backgroundColor: "var(--mq-card)",
+                border: "1px solid var(--mq-border)",
+                color: "var(--mq-text-muted)",
+              }}>
+              <MoreVertical className="w-[18px] h-[18px]" />
+            </motion.button>
+          </div>
+
+          {/* Desktop-only secondary actions */}
+          <div className="hidden sm:flex items-center justify-center gap-2 mb-2">
             <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
@@ -1038,11 +1089,8 @@ export default function FullTrackView() {
               }}>
               <MessageSquare className="w-[18px] h-[18px]" />
             </motion.button>
-          </div>
-          {/* Row 2: Secondary actions — hidden on mobile, visible on sm+ */}
-          <div className="flex items-center justify-center gap-2 sm:gap-3">
             <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowDNA(!showDNA); setShowSimilar(false); setShowLyrics(false); setShowComments(false); }}
-              className="w-[38px] h-[38px] rounded-full items-center justify-center hidden sm:flex"
+              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
                 backgroundColor: showDNA ? "var(--mq-accent)" : "var(--mq-card)",
                 border: "1px solid var(--mq-border)",
@@ -1051,7 +1099,7 @@ export default function FullTrackView() {
               <Dna className="w-[18px] h-[18px]" />
             </motion.button>
             <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCanvasMode(!canvasMode)}
-              className="w-[38px] h-[38px] rounded-full items-center justify-center hidden sm:flex"
+              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
                 backgroundColor: canvasMode ? "var(--mq-accent)" : "var(--mq-card)",
                 border: "1px solid var(--mq-border)",
@@ -1059,12 +1107,11 @@ export default function FullTrackView() {
               }}>
               <Sparkles className="w-[18px] h-[18px]" />
             </motion.button>
-            {/* Wave Mode Button */}
             <motion.button
               whileTap={{ scale: 0.85 }}
               onClick={() => toggleRadioMode()}
               title={radioMode ? "Выключить волну" : "Волна"}
-              className="w-[38px] h-[38px] rounded-full items-center justify-center hidden sm:flex"
+              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
                 backgroundColor: radioMode ? "var(--mq-accent)" : "var(--mq-card)",
                 border: radioMode ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
@@ -1074,7 +1121,7 @@ export default function FullTrackView() {
               <Waves className="w-[18px] h-[18px]" />
             </motion.button>
             <button onClick={() => setVolume(volume > 0 ? 0 : 70)}
-              className="w-[38px] h-[38px] rounded-full items-center justify-center hidden sm:flex"
+              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
                 backgroundColor: "var(--mq-card)",
                 border: "1px solid var(--mq-border)",
@@ -1083,7 +1130,7 @@ export default function FullTrackView() {
               {volume === 0 ? <VolumeX className="w-[18px] h-[18px]" /> : <Volume2 className="w-[18px] h-[18px]" />}
             </button>
             {/* Sleep timer */}
-            <div className="relative hidden sm:block">
+            <div className="relative">
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowSleepTimer(!showSleepTimer)}
                 className="w-[38px] h-[38px] rounded-full flex items-center justify-center relative"
                 style={{
