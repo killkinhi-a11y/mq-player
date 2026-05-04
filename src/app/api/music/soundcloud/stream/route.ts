@@ -24,8 +24,7 @@ const CLIENT_IDS = [
   "1Gbi6DBGBMULQH8MuhNvI1HzL9AiX2Pa", // Fresh: extracted from SC website
   "qYUIEFbSZdXPABQbuHA2Tv8C9ndesHim",
   "S3TPtG5i3yzBs1BPd50h1N5TW2kNTo5k",
-  "gYfbOmxjDgPKEbOlXIBOAOvFpWkf8SbA",
-  "nDSHHx4FpO2gOGKmGqLaWbDXEmwo4RAC",
+  // NOTE: gYfbOmxj... and nDSHHx4F... removed — both return 401 on all endpoints (2025-05)
 ];
 
 // SoundCloud DRM license server URLs — each DRM system has its own endpoint
@@ -159,6 +158,51 @@ async function resolveUrl(templateUrl: string, trackAuthorization: string): Prom
   return null;
 }
 
+/**
+ * Verify that a resolved CDN URL is actually accessible.
+ * Some SC tracks resolve to signed CDN URLs that return 403/404 (e.g. CTR-HLS on certain tracks).
+ * This check prevents returning broken URLs to the client.
+ *
+ * For HLS: fetches the first 512 bytes of the playlist to verify it's a valid m3u8.
+ * For progressive: sends a HEAD request to verify the URL responds with 200.
+ */
+async function verifyCdnUrl(url: string, isHls: boolean): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      if (isHls) {
+        // For HLS: GET first 512 bytes to verify playlist is accessible and valid
+        const res = await fetch(url, {
+          signal: controller.signal,
+          headers: {
+            "Range": "bytes=0-511",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          },
+        });
+        if (!res.ok) return false;
+        // Check that the response looks like an m3u8 playlist
+        const text = await res.text();
+        return text.includes("#EXTM3U") || text.includes("#EXT-X-");
+      } else {
+        // For progressive: HEAD request to verify URL is accessible
+        const res = await fetch(url, {
+          method: "HEAD",
+          signal: controller.signal,
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          },
+        });
+        return res.ok;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {
+    return false;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const trackId = searchParams.get("trackId");
@@ -173,28 +217,55 @@ export async function GET(request: NextRequest) {
       const info = await getTrackInfo(trackId, clientId);
       if (!info) continue;
 
-      // Try ALL transcodings in priority order — return the first that resolves
+      // Try ALL transcodings in priority order — verify each CDN URL actually works
+      const verifiedStreams: Array<{
+        url: string;
+        protocol: string;
+        isHls: boolean;
+        isEncrypted: boolean;
+        licenseUrl?: string;
+      }> = [];
+
       for (const tc of info.transcodings) {
         const resolvedUrl = await resolveUrl(tc.url, info.trackAuthorization);
 
         if (resolvedUrl) {
-          // Successfully resolved — return the URL with format metadata
-          return NextResponse.json({
-            url: resolvedUrl,
-            trackAuthorization: info.trackAuthorization,
-            isHls: tc.isHls,
-            isEncrypted: tc.isEncrypted,
-            protocol: tc.protocol,
-            isPreview: info.isPreview,
-            duration: info.duration,
-            fullDuration: info.fullDuration,
-            // For encrypted tracks, include the correct license server URL per DRM system
-            ...(tc.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[tc.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
-          });
+          // Verify the CDN URL is actually accessible (not 403/404)
+          const isValid = await verifyCdnUrl(resolvedUrl, tc.isHls);
+          if (isValid) {
+            verifiedStreams.push({
+              url: resolvedUrl,
+              protocol: tc.protocol,
+              isHls: tc.isHls,
+              isEncrypted: tc.isEncrypted,
+              ...(tc.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[tc.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
+            });
+          } else {
+            console.warn(`[stream] CDN URL verification failed for ${tc.protocol} — skipping`);
+          }
         }
       }
 
-      // All transcodings failed — return the first one as fallback for client-side retry
+      if (verifiedStreams.length > 0) {
+        // Return the best (first verified) stream as primary, plus all alternatives as fallbacks
+        const primary = verifiedStreams[0];
+        const fallbacks = verifiedStreams.slice(1);
+        return NextResponse.json({
+          url: primary.url,
+          trackAuthorization: info.trackAuthorization,
+          isHls: primary.isHls,
+          isEncrypted: primary.isEncrypted,
+          protocol: primary.protocol,
+          isPreview: info.isPreview,
+          duration: info.duration,
+          fullDuration: info.fullDuration,
+          ...(primary.licenseUrl ? { licenseUrl: primary.licenseUrl } : {}),
+          // Include fallback streams for client-side retry if primary fails
+          ...(fallbacks.length > 0 ? { fallbackStreams: fallbacks } : {}),
+        });
+      }
+
+      // All transcodings failed verification — return first template URL for client-side retry
       const fallback = info.transcodings[0];
       const separator = fallback.url.includes("?") ? "&" : "?";
       let fallbackUrl = `${fallback.url}${separator}client_id=${clientId}`;
@@ -213,7 +284,7 @@ export async function GET(request: NextRequest) {
         duration: info.duration,
         fullDuration: info.fullDuration,
         ...(fallback.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[fallback.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
-        error: "cdn_resolve_failed",
+        error: "all_streams_failed_verification",
       });
     } catch {}
   }

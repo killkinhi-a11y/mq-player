@@ -90,6 +90,13 @@ interface StreamResult {
   isEncrypted: boolean;
   protocol?: string;
   licenseUrl?: string;
+  fallbackStreams?: Array<{
+    url: string;
+    protocol: string;
+    isHls: boolean;
+    isEncrypted: boolean;
+    licenseUrl?: string;
+  }>;
 }
 
 async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult | null> {
@@ -111,6 +118,7 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult 
         isEncrypted: !!data.isEncrypted,
         protocol: data.protocol || null,
         licenseUrl: data.licenseUrl || null,
+        fallbackStreams: data.fallbackStreams || null,
       };
     }
 
@@ -266,6 +274,7 @@ export default function PlayerBar() {
   const retryingRef = useRef(false); // prevents concurrent retry attempts
   const loadGenerationRef = useRef(0); // prevents stale timeouts from interfering with new loads
   const clearLoadingTimeoutRef = useRef<(() => void) | null>(null); // bridge to cancel loading timeout
+  const fallbackStreamsRef = useRef<StreamResult['fallbackStreams']>(null); // backup streams if primary fails
 
   const prevTrackRef = useRef(prevTrack);
   const nextTrackRef = useRef(nextTrack);
@@ -1149,11 +1158,139 @@ export default function PlayerBar() {
     loadGenerationRef.current++;
     const currentGeneration = loadGenerationRef.current;
 
+    // Helper: try fallback streams when primary HLS fails (e.g. CTR CDN 403 → try CBC)
+    // Returns true if a fallback was attempted, false if no fallback available
+    const tryFallbackStream = (audioEl: HTMLAudioElement, track: typeof currentTrack, isCancelled: boolean): boolean => {
+      const fallbacks = fallbackStreamsRef.current;
+      if (!fallbacks || fallbacks.length === 0 || isCancelled) return false;
+
+      const fallback = fallbacks[0]; // use first fallback
+      console.warn(`[Player] Primary stream failed, trying fallback: ${fallback.protocol} (${fallback.isEncrypted ? 'encrypted' : 'plain'})`);
+
+      // Shift fallbacks array (consume this one)
+      fallbackStreamsRef.current = fallbacks.slice(1);
+
+      // Clean up current HLS instance
+      const prevHls = (audioEl as any)._hlsInstance;
+      if (prevHls) { try { prevHls.destroy(); } catch {} delete (audioEl as any)._hlsInstance; }
+
+      audioEl.crossOrigin = 'anonymous';
+
+      if (fallback.isHls && Hls.isSupported()) {
+        const hlsConfig: Partial<HlsConfig> = {
+          enableWorker: true,
+          lowLatencyMode: false,
+          maxBufferLength: 30,
+          maxMaxBufferLength: 60,
+        };
+
+        // Set up EME for encrypted fallback (e.g. CBC-HLS with FairPlay)
+        if (fallback.isEncrypted && fallback.licenseUrl) {
+          hlsConfig.emeEnabled = true;
+          const proxyUrl = "/api/music/soundcloud/license-proxy";
+          const realLicenseUrl = fallback.licenseUrl;
+
+          // Determine DRM system from protocol
+          if (fallback.protocol === "ctr-encrypted-hls") {
+            hlsConfig.drmSystems = { "com.widevine.alpha": { licenseUrl: proxyUrl } };
+          } else if (fallback.protocol === "cbc-encrypted-hls") {
+            hlsConfig.drmSystems = { "com.apple.fps": { licenseUrl: proxyUrl } };
+          }
+
+          hlsConfig.licenseXhrSetup = function (xhr: XMLHttpRequest, _url: string, _ctx: any, _challenge: Uint8Array) {
+            const originalOpen = xhr.open.bind(xhr);
+            const originalSend = xhr.send.bind(xhr);
+            originalOpen("POST", proxyUrl, true);
+            xhr.withCredentials = false;
+            try { xhr.setRequestHeader("Content-Type", "application/json"); } catch {}
+            xhr.send = function (body: any) {
+              const rawBody = body instanceof ArrayBuffer ? new Uint8Array(body) : new Uint8Array(body);
+              const challengeBase64 = btoa(String.fromCharCode(...rawBody));
+              originalSend(JSON.stringify({ licenseUrl: realLicenseUrl, challenge: challengeBase64 }));
+            };
+          };
+
+          hlsConfig.licenseResponseCallback = (xhr: XMLHttpRequest): ArrayBuffer => {
+            try {
+              const responseBuf = xhr.response as ArrayBuffer;
+              if (!responseBuf || responseBuf.byteLength === 0) return new ArrayBuffer(0);
+              const responseText = new TextDecoder().decode(new Uint8Array(responseBuf));
+              const data = JSON.parse(responseText);
+              if (data.license) {
+                const decoded = atob(data.license);
+                const bytes = new Uint8Array(decoded.length);
+                for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+                return bytes.buffer as ArrayBuffer;
+              }
+            } catch {}
+            return new ArrayBuffer(0);
+          };
+        }
+
+        const hls = new Hls(hlsConfig);
+        hls.loadSource(fallback.url);
+        hls.attachMedia(audioEl);
+
+        // Manifest timeout for fallback
+        const fbTimeout = setTimeout(() => {
+          if (audioEl.paused && !audioEl.currentTime && !isCancelled) {
+            console.error("[Player] Fallback stream manifest timeout — giving up");
+            hls.destroy(); delete (audioEl as any)._hlsInstance;
+            setIsLoadingTrack(false);
+            setPlayError(true);
+            prevTrackIdForCrossfade.current = null;
+            setTimeout(() => nextTrackRef.current(), 1500);
+          }
+        }, 10000);
+        pendingTimeouts.push(fbTimeout);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          clearTimeout(fbTimeout);
+          if (!isCancelled) {
+            setIsLoadingTrack(false);
+            setPlayError(false);
+            resumeAudioContext();
+            audioEl.play().catch((err) => {
+              if (err.name !== "NotAllowedError") {
+                console.error("[Player] Fallback play() failed:", err.name, err.message);
+              }
+            });
+          }
+        });
+
+        hls.on(Hls.Events.ERROR, (_ev, data) => {
+          clearTimeout(fbTimeout);
+          if (data.fatal) {
+            console.error("[Player] Fallback HLS also failed:", data.type, data.details);
+            hls.destroy(); delete (audioEl as any)._hlsInstance;
+            // Try next fallback if available
+            if (tryFallbackStream(audioEl, track, isCancelled)) return;
+            // No more fallbacks — skip
+            setIsLoadingTrack(false);
+            setPlayError(true);
+            prevTrackIdForCrossfade.current = null;
+            setTimeout(() => nextTrackRef.current(), 1500);
+          }
+        });
+
+        (audioEl as any)._hlsInstance = hls;
+      } else {
+        // Non-HLS fallback (progressive)
+        audioEl.src = fallback.url;
+        audioEl.load();
+        audioEl.play().catch(() => {});
+      }
+
+      PlayerErrorLogger.log(track?.title || "unknown", `Fallback to ${fallback.protocol}`, "fallback");
+      return true;
+    };
+
     const loadTrack = async () => {
       try {
         setIsLoadingTrack(true);
         setPlayError(false);
         retryCountRef.current = 0;
+        fallbackStreamsRef.current = null; // reset fallback streams for new track
         // Safety timeout: if stuck loading >10s, force retry
         // Pass current generation so the timeout can check it's still relevant
         if (startLoadingTimeoutRef.current) startLoadingTimeoutRef.current(currentGeneration);
@@ -1185,6 +1322,8 @@ export default function PlayerBar() {
           if (cancelled) return;
 
           if (stream && stream.url) {
+            // Save fallback streams for retry if primary fails
+            fallbackStreamsRef.current = stream.fallbackStreams || null;
             const isHlsStream = stream.isHls && Hls.isSupported();
 
             if (isHlsStream) {
@@ -1373,7 +1512,8 @@ export default function PlayerBar() {
                   setIsLoadingTrack(false);
                   setPlayError(true);
                   prevTrackIdForCrossfade.current = null;
-                  // Skip to next — DRM key error is not recoverable
+                  // DRM key error — try fallback streams (e.g. CBC-HLS instead of CTR-HLS)
+                  if (tryFallbackStream(audioEl, currentTrack, cancelled)) return;
                   setTimeout(() => nextTrackRef.current(), 2000);
                   return;
                 }
@@ -1381,14 +1521,17 @@ export default function PlayerBar() {
                   console.error("[Player] HLS fatal error:", data.type, data.details);
                   clearTimeout(drmTimeout);
                   // Try to recover: if it's a network error, HLS.js can sometimes recover
-                  // Otherwise, destroy and skip to next track
                   if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
                     console.warn("[Player] Attempting HLS network recovery...");
-                    // Try to recover by starting load from last position
+                    // Try fallback streams first (e.g. CTR CDN returns 403, try CBC)
+                    if (tryFallbackStream(audioEl, currentTrack, cancelled)) return;
+                    // No fallback — try HLS.js recovery
                     hls.startLoad();
                     // If recovery fails, the next ERROR event will handle it
                   } else {
                     // Non-recoverable: frag error, manifest error, etc.
+                    // Try fallback streams before giving up
+                    if (tryFallbackStream(audioEl, currentTrack, cancelled)) return;
                     hls.destroy();
                     delete (audioEl as any)._hlsInstance;
                     setIsLoadingTrack(false);
