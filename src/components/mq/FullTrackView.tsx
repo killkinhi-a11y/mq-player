@@ -10,7 +10,7 @@ import {
 import SongDNA from "./SongDNA";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
-import { getAudioElement, resumeAudioContext } from "@/lib/audioEngine";
+import { getAudioElement, resumeAudioContext, getAnalyser } from "@/lib/audioEngine";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 import TrackCanvas from "./TrackCanvas";
 import PlaylistArtwork from "./PlaylistArtwork";
@@ -319,12 +319,18 @@ export default function FullTrackView() {
     }
   }, [activeLineIndex]);
 
-  // Lyrics visualization — circular audio-reactive rings
+  // Lyrics visualization — audio-reactive frequency bars & wave
   useEffect(() => {
     const canvas = lyricsVisCanvasRef.current;
     if (!canvas || !showLyrics) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    const analyser = getAnalyser();
+    const bufferLength = analyser ? analyser.frequencyBinCount : 128;
+    const dataArray = new Uint8Array(bufferLength);
+
+    let animId: number;
 
     const draw = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -336,11 +342,10 @@ export default function FullTrackView() {
         ctx.scale(dpr, dpr);
       }
       ctx.clearRect(0, 0, w, h);
+
       const t = performance.now() / 1000;
       const cx = w / 2;
       const cy = h / 2;
-      const baseRadius = Math.min(w, h) * 0.18;
-
       const accentColor = getComputedStyle(document.documentElement).getPropertyValue("--mq-accent").trim() || "#e03131";
       let r = 224, g = 49, b = 49;
       if (accentColor.startsWith("#") && accentColor.length >= 7) {
@@ -349,40 +354,120 @@ export default function FullTrackView() {
         b = parseInt(accentColor.slice(5, 7), 16);
       }
 
-      // Draw 3 concentric pulsing rings
-      for (let ring = 0; ring < 3; ring++) {
-        const radius = baseRadius + ring * 30;
-        const segments = 60 + ring * 20;
-        ctx.beginPath();
-        for (let i = 0; i <= segments; i++) {
-          const angle = (i / segments) * Math.PI * 2 - Math.PI / 2;
-          const noise = Math.sin(t * (1.5 + ring * 0.5) + i * 0.3 + ring * 2) * (8 + ring * 4);
-          const pulse = isPlaying ? (1 + 0.15 * Math.sin(t * 2 + ring)) : 0.5;
-          const finalR = radius + noise * pulse;
-          const x = cx + Math.cos(angle) * finalR;
-          const y = cy + Math.sin(angle) * finalR;
-          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-        }
-        ctx.closePath();
-        const alpha = (0.08 - ring * 0.02) * (isPlaying ? 1.5 : 0.5);
-        ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
-        ctx.lineWidth = 1;
-        ctx.stroke();
+      // Get real frequency data
+      if (analyser) {
+        analyser.getByteFrequencyData(dataArray);
       }
 
-      // Central glow
-      const glowAlpha = isPlaying ? 0.04 + 0.02 * Math.sin(t * 1.5) : 0.015;
-      const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseRadius);
+      // Calculate bass, mid, treble averages from frequency data
+      const bassEnd = Math.floor(bufferLength * 0.1);
+      const midEnd = Math.floor(bufferLength * 0.5);
+      let bassAvg = 0, midAvg = 0, trebleAvg = 0;
+      let totalEnergy = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        totalEnergy += dataArray[i];
+        if (i < bassEnd) bassAvg += dataArray[i];
+        else if (i < midEnd) midAvg += dataArray[i];
+        else trebleAvg += dataArray[i];
+      }
+      bassAvg = bassAvg / Math.max(1, bassEnd);
+      midAvg = midAvg / Math.max(1, midEnd - bassEnd);
+      trebleAvg = trebleAvg / Math.max(1, bufferLength - midEnd);
+      totalEnergy = totalEnergy / Math.max(1, bufferLength);
+
+      const energyNorm = totalEnergy / 255; // 0..1
+
+      // ── Layer 1: Central glow ──
+      const glowRadius = Math.min(w, h) * (0.15 + energyNorm * 0.08);
+      const glowAlpha = isPlaying ? (0.04 + energyNorm * 0.06) : 0.015;
+      const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowRadius);
       glow.addColorStop(0, `rgba(${r},${g},${b},${glowAlpha})`);
+      glow.addColorStop(0.5, `rgba(${r},${g},${b},${glowAlpha * 0.3})`);
       glow.addColorStop(1, `rgba(${r},${g},${b},0)`);
       ctx.beginPath();
-      ctx.arc(cx, cy, baseRadius, 0, Math.PI * 2);
+      ctx.arc(cx, cy, glowRadius, 0, Math.PI * 2);
       ctx.fillStyle = glow;
       ctx.fill();
 
-      requestAnimationFrame(draw);
+      // ── Layer 2: Radial frequency bars (circular equalizer) ──
+      const barCount = 64;
+      const innerRadius = Math.min(w, h) * 0.16;
+      const maxBarHeight = Math.min(w, h) * 0.14;
+
+      for (let i = 0; i < barCount; i++) {
+        const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
+        const freqIndex = Math.floor((i / barCount) * bufferLength * 0.7);
+        const value = dataArray[freqIndex] || 0;
+        const barHeight = (value / 255) * maxBarHeight * (isPlaying ? 1 : 0.15);
+
+        const x1 = cx + Math.cos(angle) * innerRadius;
+        const y1 = cy + Math.sin(angle) * innerRadius;
+        const x2 = cx + Math.cos(angle) * (innerRadius + barHeight);
+        const y2 = cy + Math.sin(angle) * (innerRadius + barHeight);
+
+        const barAlpha = isPlaying ? (0.15 + (value / 255) * 0.35) : 0.05;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = `rgba(${r},${g},${b},${barAlpha})`;
+        ctx.lineWidth = Math.max(1, (Math.PI * 2 * innerRadius) / barCount * 0.6);
+        ctx.lineCap = "round";
+        ctx.stroke();
+      }
+
+      // ── Layer 3: Smooth waveform circle (time-domain wave) ──
+      const waveRadius = innerRadius + maxBarHeight + 20;
+      ctx.beginPath();
+      for (let i = 0; i <= 360; i++) {
+        const angle = (i / 360) * Math.PI * 2;
+        const freqIndex = Math.floor((i / 360) * bufferLength * 0.5);
+        const value = dataArray[freqIndex] || 0;
+        const offset = (value / 255) * 12 * (isPlaying ? 1 : 0.1);
+        // Smooth with neighbor averaging
+        const prevIdx = Math.max(0, freqIndex - 2);
+        const nextIdx = Math.min(bufferLength - 1, freqIndex + 2);
+        const smooth = ((dataArray[prevIdx] || 0) + value + (dataArray[nextIdx] || 0)) / 3;
+        const smoothOffset = (smooth / 255) * 12 * (isPlaying ? 1 : 0.1);
+        const radius = waveRadius + smoothOffset;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.strokeStyle = `rgba(${r},${g},${b},${isPlaying ? 0.08 : 0.03})`;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // ── Layer 4: Floating particles reacting to bass ──
+      const particleCount = 12;
+      for (let i = 0; i < particleCount; i++) {
+        const baseAngle = (i / particleCount) * Math.PI * 2;
+        const orbitRadius = waveRadius + 30 + Math.sin(t * 0.5 + i * 1.3) * 20;
+        const bassBoost = (bassAvg / 255) * 25;
+        const px = cx + Math.cos(baseAngle + t * 0.2 * (i % 2 === 0 ? 1 : -1)) * (orbitRadius + bassBoost);
+        const py = cy + Math.sin(baseAngle + t * 0.2 * (i % 2 === 0 ? 1 : -1)) * (orbitRadius + bassBoost);
+        const size = 2 + (midAvg / 255) * 3;
+
+        const particleGlow = ctx.createRadialGradient(px, py, 0, px, py, size * 3);
+        particleGlow.addColorStop(0, `rgba(${r},${g},${b},${isPlaying ? 0.2 : 0.05})`);
+        particleGlow.addColorStop(1, `rgba(${r},${g},${b},0)`);
+        ctx.beginPath();
+        ctx.arc(px, py, size * 3, 0, Math.PI * 2);
+        ctx.fillStyle = particleGlow;
+        ctx.fill();
+
+        // Core dot
+        ctx.beginPath();
+        ctx.arc(px, py, size, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${r},${g},${b},${isPlaying ? 0.5 : 0.1})`;
+        ctx.fill();
+      }
+
+      animId = requestAnimationFrame(draw);
     };
-    const animId = requestAnimationFrame(draw);
+
+    animId = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(animId);
   }, [showLyrics, isPlaying, currentTrack?.id]);
 

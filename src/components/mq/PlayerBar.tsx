@@ -305,7 +305,15 @@ export default function PlayerBar() {
       const a = getActive();
       if (a?.duration && isFinite(a.duration)) setDurationRef.current(a.duration);
     };
-    const onEnded = () => {
+    const onEnded = (e: Event) => {
+      // CRITICAL FIX: Only handle 'ended' from the currently active audio element.
+      // During crossfade, the old fading-out element also fires 'ended',
+      // but we must ignore it — the new track is already playing.
+      // Without this check, every crossfade caused an extra nextTrack() call,
+      // skipping tracks and draining the queue prematurely.
+      const target = e.target as HTMLAudioElement | null;
+      if (target && target !== getActive()) return;
+
       setPlayError(false);
       crossfadeRef.current = false;
       const st = useAppStore.getState();

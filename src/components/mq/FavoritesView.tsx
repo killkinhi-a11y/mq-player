@@ -73,7 +73,7 @@ export default function FavoritesView() {
               Избранное
             </h1>
             <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-              {likedTracksData.length} понравившихся · {dislikedTracksData.length} не понравившихся
+              {likedTrackIds.length} понравившихся · {dislikedTrackIds.length} не понравившихся
             </p>
           </div>
         </div>
