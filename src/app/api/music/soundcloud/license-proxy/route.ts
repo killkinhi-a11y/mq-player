@@ -38,9 +38,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    // Forward the license request to SoundCloud with 8s timeout
+    // Forward the license request to SoundCloud with 15s timeout
+    // DRM license acquisition can be slow — EME key exchange + SC server processing
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 15000);
 
     let res: Response;
     try {
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (err: any) {
     const isTimeout = err?.name === "AbortError";
-    console.error("[license-proxy] Error:", isTimeout ? "timeout (8s)" : err);
+    console.error("[license-proxy] Error:", isTimeout ? "timeout (15s)" : err);
     return NextResponse.json(
       { error: isTimeout ? "license server timeout" : "license proxy failed" },
       { status: isTimeout ? 504 : 500, headers: corsHeaders(request) },

@@ -49,6 +49,7 @@ interface PickedTranscoding {
   protocol: string;
   isHls: boolean;
   isEncrypted: boolean;
+  quality: string;
 }
 
 interface TrackInfo {
@@ -63,33 +64,46 @@ interface TrackInfo {
  * Collect ALL available transcodings ordered by priority.
  * We try each one during resolution — the first that resolves wins.
  * Priority: progressive > ctr-encrypted-hls > cbc-encrypted-hls > hls
+ * Within each group, prefer sq (standard quality) for reliability —
+ * hq (high quality) tracks are more likely to have DRM/CDN issues.
  */
 function collectTranscodings(transcodings: Transcoding[]): PickedTranscoding[] {
   const result: PickedTranscoding[] = [];
 
+  // Quality sort key: sq (standard) before hq (high) for reliability
+  const qualityOrder = (q?: string) => {
+    if (!q) return 1;
+    if (q === "sq") return 0;
+    return 2;
+  };
+
   // 1. Progressive (unencrypted MP3) — best for old tracks
-  for (const t of transcodings) {
-    if (t.format?.protocol === "progressive" && t.url) {
-      result.push({ url: t.url, protocol: "progressive", isHls: false, isEncrypted: false });
-    }
+  const progressive = transcodings
+    .filter(t => t.format?.protocol === "progressive" && t.url)
+    .sort((a, b) => qualityOrder(a.quality) - qualityOrder(b.quality));
+  for (const t of progressive) {
+    result.push({ url: t.url!, protocol: "progressive", isHls: false, isEncrypted: false, quality: t.quality || "" });
   }
   // 2. CTR encrypted HLS — works in Chrome/Firefox/Edge via HLS.js + EME (Widevine)
-  for (const t of transcodings) {
-    if (t.format?.protocol === "ctr-encrypted-hls" && t.url) {
-      result.push({ url: t.url, protocol: "ctr-encrypted-hls", isHls: true, isEncrypted: true });
-    }
+  const ctrHls = transcodings
+    .filter(t => t.format?.protocol === "ctr-encrypted-hls" && t.url)
+    .sort((a, b) => qualityOrder(a.quality) - qualityOrder(b.quality));
+  for (const t of ctrHls) {
+    result.push({ url: t.url!, protocol: "ctr-encrypted-hls", isHls: true, isEncrypted: true, quality: t.quality || "" });
   }
   // 3. CBC encrypted HLS — works in Safari (FairPlay)
-  for (const t of transcodings) {
-    if (t.format?.protocol === "cbc-encrypted-hls" && t.url) {
-      result.push({ url: t.url, protocol: "cbc-encrypted-hls", isHls: true, isEncrypted: true });
-    }
+  const cbcHls = transcodings
+    .filter(t => t.format?.protocol === "cbc-encrypted-hls" && t.url)
+    .sort((a, b) => qualityOrder(a.quality) - qualityOrder(b.quality));
+  for (const t of cbcHls) {
+    result.push({ url: t.url!, protocol: "cbc-encrypted-hls", isHls: true, isEncrypted: true, quality: t.quality || "" });
   }
   // 4. Plain HLS (unencrypted) — may still work for some tracks
-  for (const t of transcodings) {
-    if (t.format?.protocol === "hls" && t.url) {
-      result.push({ url: t.url, protocol: "hls", isHls: true, isEncrypted: false });
-    }
+  const plainHls = transcodings
+    .filter(t => t.format?.protocol === "hls" && t.url)
+    .sort((a, b) => qualityOrder(a.quality) - qualityOrder(b.quality));
+  for (const t of plainHls) {
+    result.push({ url: t.url!, protocol: "hls", isHls: true, isEncrypted: false, quality: t.quality || "" });
   }
 
   return result;
@@ -220,11 +234,21 @@ export async function GET(request: NextRequest) {
       if (!info) continue;
 
       // Try ALL transcodings in priority order — verify each CDN URL
+      // Collect both verified and unverified resolved streams as fallbacks
       const verifiedStreams: Array<{
         url: string;
         protocol: string;
         isHls: boolean;
         isEncrypted: boolean;
+        quality: string;
+        licenseUrl?: string;
+      }> = [];
+      const unverifiedStreams: Array<{
+        url: string;
+        protocol: string;
+        isHls: boolean;
+        isEncrypted: boolean;
+        quality: string;
         licenseUrl?: string;
       }> = [];
 
@@ -232,32 +256,39 @@ export async function GET(request: NextRequest) {
         const resolvedUrl = await resolveUrl(tc.url, info.trackAuthorization);
 
         if (resolvedUrl) {
+          const streamObj = {
+            url: resolvedUrl,
+            protocol: tc.protocol,
+            isHls: tc.isHls,
+            isEncrypted: tc.isEncrypted,
+            quality: tc.quality,
+            ...(tc.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[tc.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
+          };
           // Verify the CDN URL returns a valid m3u8 / responds OK
           const isValid = await verifyCdnUrl(resolvedUrl, tc.isHls);
           if (isValid) {
-            verifiedStreams.push({
-              url: resolvedUrl,
-              protocol: tc.protocol,
-              isHls: tc.isHls,
-              isEncrypted: tc.isEncrypted,
-              ...(tc.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[tc.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
-            });
+            verifiedStreams.push(streamObj);
           } else {
-            console.warn(`[stream] CDN verification failed for ${tc.protocol} — will try as unverified`);
+            console.warn(`[stream] CDN verification failed for ${tc.protocol} (q=${tc.quality}) — keeping as unverified fallback`);
+            unverifiedStreams.push(streamObj);
           }
         }
       }
 
-      if (verifiedStreams.length > 0) {
-        // Return the best (first verified) stream as primary, plus all alternatives as fallbacks
-        const primary = verifiedStreams[0];
-        const fallbacks = verifiedStreams.slice(1);
+      // Merge: verified first, then unverified — ALL become potential fallbacks
+      const allStreams = [...verifiedStreams, ...unverifiedStreams];
+
+      if (allStreams.length > 0) {
+        // Return the best (first) stream as primary, ALL others as fallbacks
+        const primary = allStreams[0];
+        const fallbacks = allStreams.slice(1);
         return NextResponse.json({
           url: primary.url,
           trackAuthorization: info.trackAuthorization,
           isHls: primary.isHls,
           isEncrypted: primary.isEncrypted,
           protocol: primary.protocol,
+          quality: primary.quality,
           isPreview: info.isPreview,
           duration: info.duration,
           fullDuration: info.fullDuration,

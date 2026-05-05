@@ -1536,12 +1536,58 @@ export default function PlayerBar() {
                 if (data.type === Hls.ErrorTypes.KEY_SYSTEM_ERROR) {
                   console.error("[Player] DRM/Key system error:", data.details, data.fatal);
                   clearTimeout(drmTimeout);
-                  setIsLoadingTrack(false);
-                  setPlayError(true);
-                  prevTrackIdForCrossfade.current = null;
-                  // DRM key error — try fallback streams (e.g. CBC-HLS instead of CTR-HLS)
+                  // DRM key error — try fallback streams first (e.g. different quality or CBC-HLS instead of CTR-HLS)
                   if (tryFallbackStream(audioEl, currentTrack, cancelled)) return;
-                  setTimeout(() => nextTrackRef.current(), 2000);
+                  // All fallbacks exhausted — try full re-resolve (fresh CDN URLs)
+                  if (!retryingRef.current && currentTrack.scTrackId) {
+                    retryingRef.current = true;
+                    console.warn("[Player] DRM failed, all fallbacks exhausted — re-resolving stream...");
+                    resolveSoundCloudStream(currentTrack.scTrackId).then(freshStream => {
+                      if (cancelled) return;
+                      if (freshStream && freshStream.url) {
+                        fallbackStreamsRef.current = freshStream.fallbackStreams || null;
+                        const prevHls = (audioEl as any)._hlsInstance;
+                        if (prevHls) { try { prevHls.destroy(); } catch {} delete (audioEl as any)._hlsInstance; }
+                        audioEl.crossOrigin = 'anonymous';
+                        const fbConfig: Partial<HlsConfig> = {
+                          enableWorker: true, lowLatencyMode: false, maxBufferLength: 30, maxMaxBufferLength: 60,
+                          manifestLoadingMaxRetry: 4, manifestLoadingRetryDelay: 2000,
+                          levelLoadingMaxRetry: 4, levelLoadingRetryDelay: 2000,
+                          fragLoadingMaxRetry: 6, fragLoadingRetryDelay: 2000,
+                        };
+                        const fbHls = new Hls(fbConfig);
+                        fbHls.loadSource(freshStream.url);
+                        fbHls.attachMedia(audioEl);
+                        (audioEl as any)._hlsInstance = fbHls;
+                        fbHls.on(Hls.Events.MANIFEST_PARSED, () => {
+                          if (!cancelled) {
+                            resumeAudioContext();
+                            audioEl.play().catch(() => {});
+                          }
+                        });
+                        fbHls.on(Hls.Events.ERROR, (_ev2, data2) => {
+                          if (data2.fatal) {
+                            fbHls.destroy(); delete (audioEl as any)._hlsInstance;
+                            setIsLoadingTrack(false); setPlayError(true);
+                            prevTrackIdForCrossfade.current = null;
+                            setTimeout(() => nextTrackRef.current(), 1500);
+                          }
+                        });
+                      } else {
+                        setIsLoadingTrack(false); setPlayError(true);
+                        prevTrackIdForCrossfade.current = null;
+                        setTimeout(() => nextTrackRef.current(), 2000);
+                      }
+                    }).catch(() => {
+                      setIsLoadingTrack(false); setPlayError(true);
+                      setTimeout(() => nextTrackRef.current(), 2000);
+                    });
+                  } else {
+                    setIsLoadingTrack(false);
+                    setPlayError(true);
+                    prevTrackIdForCrossfade.current = null;
+                    setTimeout(() => nextTrackRef.current(), 2000);
+                  }
                   return;
                 }
                 if (data.fatal) {
