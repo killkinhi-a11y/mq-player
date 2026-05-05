@@ -103,11 +103,10 @@ export async function OPTIONS(request: NextRequest) {
 
 function corsHeaders(request: NextRequest): HeadersInit {
   const origin = request.headers.get("origin");
-  const allowedOrigins = [origin].filter(o =>
-    o && (o.endsWith(".vercel.app") || o.endsWith(".soundcloud.com") || o === "http://localhost:3000" || o === "http://localhost:3001")
-  );
+  // Allow ANY origin — the resolve proxy needs to work from any deployment URL
+  // (custom domains, preview URLs, localhost, etc.)
   return {
-    "Access-Control-Allow-Origin": allowedOrigins[0] || "",
+    "Access-Control-Allow-Origin": origin || "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",

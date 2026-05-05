@@ -25,10 +25,20 @@ async function handler(request: NextRequest) {
     return NextResponse.json({ error: "missing url parameter" }, { status: 400 });
   }
 
-  // Only allow SoundCloud CDN URLs for security
+  // Only allow SoundCloud-related URLs for security.
+  // SC uses multiple CDN domains: cf-media.sndcdn.com, cf-preview-media.sndcdn.com,
+  // api-media.sndcdn.com, soundcloud.com, media-streaming.soundcloud.cloud, etc.
   try {
     const parsed = new URL(audioUrl);
-    if (!parsed.hostname.endsWith("sndcdn.com")) {
+    const h = parsed.hostname;
+    const isSCDomain =
+      h.endsWith("sndcdn.com") ||
+      h.endsWith("soundcloud.com") ||
+      h.endsWith("soundcloud.cloud") ||
+      h === "soundcloud.com" ||
+      h === "api.soundcloud.com" ||
+      h === "api-v2.soundcloud.com";
+    if (!isSCDomain) {
       return NextResponse.json({ error: "only SoundCloud CDN URLs are allowed" }, { status: 400 });
     }
   } catch {
@@ -56,6 +66,9 @@ async function handler(request: NextRequest) {
           method: rangeHeader ? undefined : "HEAD",
           signal: AbortSignal.timeout(8000),
           redirect: "follow",
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+          },
         });
 
         if (headRes.ok) {
@@ -98,6 +111,7 @@ async function handler(request: NextRequest) {
         const scResponse = await fetch(audioUrl, {
           headers: {
             Range: `bytes=${start}-${effectiveEnd}`,
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
           },
           signal: AbortSignal.timeout(30000),
           redirect: "follow",
@@ -143,6 +157,9 @@ async function handler(request: NextRequest) {
     const scResponse = await fetch(audioUrl, {
       signal: AbortSignal.timeout(60000),
       redirect: "follow",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+      },
     });
 
     if (!scResponse.ok) {

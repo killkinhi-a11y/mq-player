@@ -19,7 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
  * Strategy:
  * 1. Get track info from SC API (with track_authorization JWT)
  * 2. Collect ALL transcodings ordered by priority
- * 3. Try to resolve each one — return the first that succeeds
+ * 3. Resolve ALL transcodings in PARALLEL — much faster than sequential
  * 4. Priority: progressive > ctr-encrypted-hls > cbc-encrypted-hls > hls
  * 5. For encrypted HLS, skip server-side CDN verification (unreliable without EME)
  *    and always return the resolved URL for client-side HLS.js + Widevine playback
@@ -265,16 +265,54 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ url: null, resolveUrl: null, error: "missing trackId" });
   }
 
+  const diagnostics: string[] = [];
+
   // Try each client ID until one returns track info
   for (const clientId of CLIENT_IDS) {
     try {
       const info = await getTrackInfo(trackId, clientId);
       if (!info) continue;
 
-      // ── Resolve all transcodings ──
-      // For each transcoding: resolve template URL → get CDN URL + licenseAuthToken
-      // Encrypted HLS streams are trusted without CDN verification (server lacks EME context)
+      diagnostics.push(`track_info_ok: clientId=${clientId.substring(0, 8)}, policy=${info.policy}, transcodings=${info.transcodings.length}, duration=${info.duration}s, auth=${info.trackAuthorization.length > 0}`);
+
+      // ── Resolve ALL transcodings IN PARALLEL ──
+      // This is dramatically faster than sequential — if the first transcoding
+      // fails, we don't waste 24s (3 IDs × 8s) before trying the next one.
       console.log(`[stream] Track ${trackId}: ${info.transcodings.length} transcodings, policy=${info.policy}, duration=${info.duration}s`);
+
+      const resolvePromises = info.transcodings.map(async (tc) => {
+        try {
+          const resolved = await resolveStream(tc.url, info.trackAuthorization);
+          if (!resolved) {
+            return { tc, resolved: null, error: "resolve_failed" };
+          }
+
+          // For encrypted HLS: skip server-side CDN verification — unreliable without EME.
+          // The client's HLS.js + Widevine will handle validation.
+          // For plain streams: verify CDN accessibility.
+          let verified = false;
+          if (!tc.isEncrypted) {
+            verified = await verifyCdnUrl(resolved.url, tc.isHls);
+          } else {
+            verified = true;
+            console.log(`[stream] Encrypted ${tc.protocol} (q=${tc.quality}) resolved — skipping CDN verify (needs EME)`);
+          }
+
+          console.log(`[stream] Resolved ${tc.protocol} (q=${tc.quality}): verified=${verified}, encrypted=${tc.isEncrypted}, url=${resolved.url.substring(0, 60)}...`);
+
+          return {
+            tc,
+            resolved,
+            verified,
+            error: null,
+          };
+        } catch (err: any) {
+          return { tc, resolved: null, error: err?.message || "unknown" };
+        }
+      });
+
+      const results = await Promise.all(resolvePromises);
+
       const resolvedStreams: Array<{
         url: string;
         protocol: string;
@@ -286,34 +324,22 @@ export async function GET(request: NextRequest) {
         verified: boolean;
       }> = [];
 
-      for (const tc of info.transcodings) {
-        const resolved = await resolveStream(tc.url, info.trackAuthorization);
-
-        if (resolved) {
-          // For encrypted HLS: skip server-side CDN verification — unreliable without EME.
-          // The client's HLS.js + Widevine will handle validation.
-          // For plain streams: verify CDN accessibility.
-          let verified = false;
-          if (!tc.isEncrypted) {
-            verified = await verifyCdnUrl(resolved.url, tc.isHls);
-          } else {
-            // Trust encrypted streams from the SC API — they require client-side EME
-            verified = true;
-            console.log(`[stream] Encrypted ${tc.protocol} (q=${tc.quality}) resolved — skipping CDN verify (needs EME)`);
-          }
-
-          console.log(`[stream] Resolved ${tc.protocol} (q=${tc.quality}): verified=${verified}, encrypted=${tc.isEncrypted}, url=${resolved.url.substring(0, 60)}...`);
+      for (const r of results) {
+        if (r.resolved) {
+          diagnostics.push(`resolved: ${r.tc.protocol}/${r.tc.quality}, verified=${r.verified}, encrypted=${r.tc.isEncrypted}`);
 
           resolvedStreams.push({
-            url: resolved.url,
-            protocol: tc.protocol,
-            isHls: tc.isHls,
-            isEncrypted: tc.isEncrypted,
-            quality: tc.quality,
-            ...(tc.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[tc.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
-            ...(resolved.licenseAuthToken ? { licenseAuthToken: resolved.licenseAuthToken } : {}),
-            verified,
+            url: r.resolved.url,
+            protocol: r.tc.protocol,
+            isHls: r.tc.isHls,
+            isEncrypted: r.tc.isEncrypted,
+            quality: r.tc.quality,
+            ...(r.tc.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[r.tc.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
+            ...(r.resolved.licenseAuthToken ? { licenseAuthToken: r.resolved.licenseAuthToken } : {}),
+            verified: r.verified,
           });
+        } else {
+          diagnostics.push(`failed: ${r.tc.protocol}/${r.tc.quality}, error=${r.error}`);
         }
       }
 
@@ -350,11 +376,13 @@ export async function GET(request: NextRequest) {
           ...(primary.licenseUrl ? { licenseUrl: primary.licenseUrl } : {}),
           ...(primary.licenseAuthToken ? { licenseAuthToken: primary.licenseAuthToken } : {}),
           ...(fallbacks.length > 0 ? { fallbackStreams: fallbacks } : {}),
+          _diag: diagnostics,
         });
       }
 
       // ── All resolves failed — return template URL for client-side resolve-proxy ──
       console.warn(`[stream] All ${info.transcodings.length} resolves failed for track ${trackId} — returning template URL`);
+      diagnostics.push(`all_resolves_failed: returning template URL for client-side fallback`);
       const fallback = info.transcodings[0];
       const separator = fallback.url.includes("?") ? "&" : "?";
       let fallbackUrl = `${fallback.url}${separator}client_id=${clientId}`;
@@ -374,11 +402,14 @@ export async function GET(request: NextRequest) {
         fullDuration: info.fullDuration,
         ...(fallback.isEncrypted ? { licenseUrl: SC_LICENSE_URLS[fallback.protocol] || SC_LICENSE_URL_FALLBACK } : {}),
         drmRestricted: info.transcodings.every(tc => tc.protocol === "cbc-encrypted-hls"),
+        _diag: diagnostics,
       });
     } catch (err) {
+      diagnostics.push(`error: ${err}`);
       console.error(`[stream] Error processing track ${trackId}:`, err);
     }
   }
 
-  return NextResponse.json({ url: null, resolveUrl: null, error: "resolve_failed" });
+  diagnostics.push("all_client_ids_failed: no track info retrieved");
+  return NextResponse.json({ url: null, resolveUrl: null, error: "resolve_failed", _diag: diagnostics });
 }

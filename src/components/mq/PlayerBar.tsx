@@ -128,9 +128,12 @@ function buildEmeHlsConfig(stream: {
   // CRITICAL FIX: Route ALL SoundCloud CDN requests through our server proxy.
   // Direct CDN access (sndcdn.com / media-streaming.soundcloud.cloud) may be blocked
   // or slow in certain regions (e.g. Russia). The proxy relay avoids these issues.
+  // Also handles: cf-media.sndcdn.com, cf-preview-media.sndcdn.com, api-media.sndcdn.com,
+  // soundcloud.com, api-v2.soundcloud.com, media-streaming.soundcloud.cloud
   const cdnProxy = "/api/music/soundcloud/proxy";
+  const scDomainPatterns = ['sndcdn.com', 'soundcloud.cloud', 'soundcloud.com'];
   config.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
-    if (url.includes('sndcdn.com') || url.includes('soundcloud.cloud') || url.includes('soundcloud.com')) {
+    if (scDomainPatterns.some(domain => url.includes(domain))) {
       xhr.open('GET', `${cdnProxy}?url=${encodeURIComponent(url)}`, true);
     }
   };
@@ -209,8 +212,11 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult 
     }
     const data = await res.json();
 
-    // Debug: log what the stream route returned
+    // Debug: log what the stream route returned (including diagnostics)
     console.log(`[resolveStream] track=${scTrackId}, url=${data.url ? 'yes' : 'no'}, resolveUrl=${data.resolveUrl ? 'yes' : 'no'}, error=${data.error || 'none'}, protocol=${data.protocol}, isHls=${data.isHls}, isEncrypted=${data.isEncrypted}, policy=${data.isPreview ? 'SNIP' : 'ALLOW'}, fallbacks=${(data.fallbackStreams || []).length}`);
+    if (data._diag) {
+      console.log(`[resolveStream] diagnostics:`, data._diag);
+    }
 
     // Best case: Edge Function resolved the URL directly
     if (data.url) {
@@ -262,7 +268,8 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult 
     }
 
     // No URL available — log detailed error
-    console.error(`[resolveStream] No URL for track ${scTrackId}:`, JSON.stringify(data).substring(0, 200));
+    const diagInfo = data._diag ? ` | diag: ${(data._diag as string[]).join(', ')}` : '';
+    console.error(`[resolveStream] No URL for track ${scTrackId}: error=${data.error || 'none'}, resolveUrl=${data.resolveUrl ? 'yes' : 'no'}${diagInfo}`);
     return null;
   } catch (err) {
     console.warn("[resolveSoundCloudStream] failed:", err);
