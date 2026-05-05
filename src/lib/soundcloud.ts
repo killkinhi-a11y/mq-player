@@ -10,10 +10,9 @@
 /*  Client ID pool — rotated on 401 errors                            */
 /* ------------------------------------------------------------------ */
 const CLIENT_IDS = [
+  "1Gbi6DBGBMULQH8MuhNvI1HzL9AiX2Pa", // Fresh: extracted from SC website (2025-05)
   "qYUIEFbSZdXPABQbuHA2Tv8C9ndesHim",
   "S3TPtG5i3yzBs1BPd50h1N5TW2kNTo5k",
-  "gYfbOmxjDgPKEbOlXIBOAOvFpWkf8SbA",
-  "nDSHHx4FpO2gOGKmGqLaWbDXEmwo4RAC",
 ];
 
 let activeIndex = 0;
@@ -132,7 +131,10 @@ export async function searchSCArtists(
       query
     )}&client_id=${clientId}&limit=${limit}&facet=genre`;
     const res = await fetch(url, {
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+      },
       signal: AbortSignal.timeout(12000),
     });
 
@@ -195,7 +197,7 @@ export async function resolveSCStreamUrl(scTrackId: number): Promise<string | nu
     try {
       const trackRes = await fetch(
         `https://api-v2.soundcloud.com/tracks/${scTrackId}?client_id=${clientId}`,
-        { signal: AbortSignal.timeout(4000), headers: { Accept: "application/json" } }
+        { signal: AbortSignal.timeout(4000), headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36" } }
       );
       if (!trackRes.ok) continue;
 
@@ -280,7 +282,10 @@ export async function getSCUserTracks(
 
     const url = `https://api-v2.soundcloud.com/users/${userId}/tracks?client_id=${clientId}&limit=${limit}&sort=created_at&direction=desc`;
     const res = await fetch(url, {
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+      },
       signal: AbortSignal.timeout(12000),
     });
 
@@ -353,7 +358,10 @@ export async function searchSCTracks(
       query
     )}&client_id=${clientId}&limit=${limit}&facet=genre`;
     const res = await fetch(url, {
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+      },
       signal: AbortSignal.timeout(12000),
     });
 

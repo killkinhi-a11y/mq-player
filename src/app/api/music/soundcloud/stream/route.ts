@@ -116,7 +116,13 @@ async function getTrackInfo(trackId: string, clientId: string): Promise<TrackInf
   try {
     const trackRes = await fetch(
       `https://api-v2.soundcloud.com/tracks/${trackId}?client_id=${clientId}`,
-      { signal: controller.signal }
+      {
+        signal: controller.signal,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+          "Accept": "application/json",
+        },
+      }
     );
     if (!trackRes.ok) return null;
     const track = await trackRes.json();
