@@ -593,13 +593,14 @@ export default function MainView() {
         const likedSc = useAppStore.getState().likedTracksData.map((t: any) => t.scTrackId).filter((id: any): id is number => !!id).slice(0, 3).join(",");
         if (likedSc) curatedParams.set("likedScIds", likedSc);
         if (languagePreference !== "mixed") curatedParams.set("lang", languagePreference);
+        if (dislikedGenres) curatedParams.set("dislikedGenres", dislikedGenres);
 
         const [trendingRes, curatedRes] = await Promise.all([
           fetch(`/api/music/trending?${trendingParams}`),
           fetch(`/api/playlists/curated?${curatedParams}`),
         ]);
 
-        if (!cancelled) {
+        if (!cancelled && trendingRes.ok) {
           const trendingData = await trendingRes.json();
           const excludeSet = new Set(excludeIds.split(",").filter(Boolean));
           const filtered = (trendingData.tracks || []).filter((t: Track) => !excludeSet.has(t.id));

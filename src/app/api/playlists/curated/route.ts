@@ -787,6 +787,15 @@ async function buildPopularPlaylist(
 
 const cache = new Map<string, { playlists: CuratedPlaylist[]; timestamp: number }>();
 const CACHE_TTL = CFG.curated.cacheTtl;
+const CACHE_MAX = 80;
+
+function evictExpiredCache(): void {
+  if (cache.size <= CACHE_MAX) return;
+  const now = Date.now();
+  for (const [k, v] of cache) {
+    if (now - v.timestamp > CACHE_TTL) cache.delete(k);
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /*  Playlist coherence scoring                                          */
@@ -829,6 +838,7 @@ async function handler(req: NextRequest) {
     const topArtists = req.nextUrl.searchParams.get("artists")?.split(",").filter(Boolean) || [];
     const likedScIdsParam = req.nextUrl.searchParams.get("likedScIds") || "";
     const likedScIds = likedScIdsParam.split(",").filter(Boolean).map(Number).filter(n => !isNaN(n) && n > 0);
+    const dislikedGenres = (req.nextUrl.searchParams.get("dislikedGenres") || "").split(",").filter(Boolean).map(g => normalizeGenre(g));
     const lang = req.nextUrl.searchParams.get("lang") || null;
 
     // Compute cache key from all inputs
@@ -837,6 +847,7 @@ async function handler(req: NextRequest) {
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       return NextResponse.json({ playlists: cached.playlists });
     }
+    evictExpiredCache();
 
     const playlists: CuratedPlaylist[] = [];
 
@@ -946,7 +957,7 @@ async function handler(req: NextRequest) {
     }
 
     // ── 6. "Популярное" — filtered by language and disliked genres ──
-    const popularTracks = await buildPopularPlaylist(lang, []);
+    const popularTracks = await buildPopularPlaylist(lang, dislikedGenres);
     if (popularTracks.length >= 3) {
       const coherence = calculatePlaylistCoherence(popularTracks);
       playlists.push({

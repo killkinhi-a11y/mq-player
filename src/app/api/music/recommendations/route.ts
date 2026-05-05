@@ -330,7 +330,11 @@ async function fetchSCTrackRelated(scTrackId: number): Promise<SCTrack[]> {
     if (!res.ok) return [];
     const data = await res.json();
     const raw = Array.isArray(data) ? data : (data.collection || []);
-    return raw.filter((t: Record<string, unknown>) => (t.kind as string) === "track").map((t: Record<string, unknown>) => {
+    return raw.filter((t: Record<string, unknown>) => {
+      if ((t.kind as string) !== "track") return false;
+      if ((t.policy as string) === "BLOCK") return false;
+      return true;
+    }).map((t: Record<string, unknown>) => {
       const user = t.user as Record<string, unknown> | undefined;
       const artwork = (t.artwork_url as string) || "";
       const rawCover = artwork ? artwork.replace("-large.", "-t500x500.") : (user?.avatar_url as string || "").replace("-large.", "-t500x500.") || "";

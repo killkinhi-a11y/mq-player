@@ -500,6 +500,7 @@ export default function FullTrackView() {
           artist: currentTrack.artist || "",
           genre: currentTrack.genre || "",
           duration: String(currentTrack.duration || 0),
+          scTrackId: String(currentTrack.scTrackId || ""),
           excludeId: currentTrack.id,
           limit: "8",
           dislikedIds: dislikedIds.join(","),

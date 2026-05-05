@@ -165,6 +165,32 @@ function titleHashtagGenreMismatch(title: string, referenceGenres: string[]): bo
   return false;
 }
 
+// ── Fetch track metadata by ID (direct API, NOT text search) ─────────────
+async function fetchSCTrackMetadata(scTrackId: number): Promise<{
+  artist: string; genre: string; duration: number; energy: number;
+} | null> {
+  try {
+    const clientId = await getSoundCloudClientId();
+    if (!clientId) return null;
+    const res = await fetch(
+      `https://api-v2.soundcloud.com/tracks/${scTrackId}?client_id=${clientId}`,
+      { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(8000) },
+    );
+    if (!res.ok) return null;
+    const t = await res.json();
+    const user = t.user as Record<string, unknown> | undefined;
+    const duration = Math.round(((t.full_duration as number) || (t.duration as number) || 30000) / 1000);
+    return {
+      artist: ((user?.username as string) || "").toLowerCase().trim(),
+      genre: (t.genre as string) || "",
+      duration,
+      energy: estimateEnergy({ duration } as SCTrack),
+    };
+  } catch {
+    return null;
+  }
+}
+
 // ── SoundCloud related tracks fetcher ──────────────────────────────────────────
 async function fetchSCTrackRelated(scTrackId: number): Promise<SCTrack[]> {
   try {
@@ -179,7 +205,11 @@ async function fetchSCTrackRelated(scTrackId: number): Promise<SCTrack[]> {
     const data = await res.json();
     const raw = Array.isArray(data) ? data : data.collection || [];
     return raw
-      .filter((t: Record<string, unknown>) => (t.kind as string) === "track")
+      .filter((t: Record<string, unknown>) => {
+        if ((t.kind as string) !== "track") return false;
+        if ((t.policy as string) === "BLOCK") return false;
+        return true;
+      })
       .map((t: Record<string, unknown>) => {
         const user = t.user as Record<string, unknown> | undefined;
         const artwork = (t.artwork_url as string) || "";
@@ -591,16 +621,16 @@ async function handler(request: NextRequest) {
     // STEP 0: Fetch seed track metadata + history track metadata (parallel)
     // ══════════════════════════════════════════════════════════════════════════
 
-    // Search for the current track to get its artist, genre, duration
-    const currentTrackPromise = searchSCTracks(String(scTrackId), 1);
+    // Fetch seed track metadata directly by ID (not text search which can't find by numeric ID)
+    const currentTrackPromise = fetchSCTrackMetadata(scTrackId);
 
-    // Search for history tracks (last 2) to extract their artists for scoring
+    // Fetch history track metadata (last 2) for scoring context
     const last2History = historyScIds.slice(0, 2);
     const historyMetadataPromises = last2History.map(
-      (hid) => searchSCTracks(String(hid), 1),
+      (hid) => fetchSCTrackMetadata(hid),
     );
 
-    const [currentTrackResult, ...historyMetadataResults] = await Promise.allSettled([
+    const [currentTrackMeta, ...historyMetadataResults] = await Promise.allSettled([
       currentTrackPromise,
       ...historyMetadataPromises,
     ]);
@@ -611,12 +641,12 @@ async function handler(request: NextRequest) {
     let currentEnergy = 0.5;
     let currentDuration = 200;
 
-    if (currentTrackResult.status === "fulfilled" && currentTrackResult.value.length > 0) {
-      const ct = currentTrackResult.value[0];
-      currentArtist = ct.artist || "";
-      currentGenre = ct.genre || "";
-      currentEnergy = estimateEnergy(ct);
-      currentDuration = ct.duration || 200;
+    if (currentTrackMeta.status === "fulfilled" && currentTrackMeta.value) {
+      const ct = currentTrackMeta.value;
+      currentArtist = ct.artist;
+      currentGenre = ct.genre;
+      currentEnergy = ct.energy;
+      currentDuration = ct.duration;
     }
 
     // If energy preference is provided, blend it with the detected energy
@@ -627,8 +657,8 @@ async function handler(request: NextRequest) {
     // Extract history artists (for +CFG.radio.historyArtist scoring bonus)
     const historyArtists = new Set<string>();
     for (const result of historyMetadataResults) {
-      if (result.status === "fulfilled" && result.value.length > 0) {
-        const artist = (result.value[0].artist || "").toLowerCase().trim();
+      if (result.status === "fulfilled" && result.value) {
+        const artist = result.value.artist;
         if (artist) historyArtists.add(artist);
       }
     }

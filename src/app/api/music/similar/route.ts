@@ -185,7 +185,11 @@ async function fetchSCRelated(scTrackId: number): Promise<SCTrack[]> {
     if (!res.ok) return [];
     const data = await res.json();
     const raw = Array.isArray(data) ? data : (data.collection || []);
-    return raw.filter((t: Record<string, unknown>) => (t.kind as string) === "track").map((t: Record<string, unknown>) => {
+    return raw.filter((t: Record<string, unknown>) => {
+      if ((t.kind as string) !== "track") return false;
+      if ((t.policy as string) === "BLOCK") return false;
+      return true;
+    }).map((t: Record<string, unknown>) => {
       const user = t.user as Record<string, unknown> | undefined;
       const artwork = (t.artwork_url as string) || "";
       const rawCover = artwork ? artwork.replace("-large.", "-t500x500.") : (user?.avatar_url as string || "").replace("-large.", "-t500x500.") || "";
@@ -292,7 +296,7 @@ async function handler(request: NextRequest) {
   const dislikedArtists = new Set(dislikedArtistsParam.split(",").filter(Boolean).map(a => a.toLowerCase()));
   const dislikedGenres = new Set(dislikedGenresParam.split(",").filter(Boolean).map(g => normalizeGenre(g)));
 
-  const cacheKey = `similar:v2:${trackArtist}:${trackTitle}:${trackGenre}:${trackScId}:${limit}:${dislikedIdsParam}:${dislikedArtistsParam}`;
+  const cacheKey = `similar:v2:${trackArtist}:${trackTitle}:${trackGenre}:${trackScId}:${limit}:${dislikedIdsParam}:${dislikedArtistsParam}:${dislikedGenresParam}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 

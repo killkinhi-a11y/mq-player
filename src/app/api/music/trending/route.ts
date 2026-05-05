@@ -211,6 +211,16 @@ async function handler(request: NextRequest) {
       for (const track of result.value) {
         if (!track.cover) continue; // Filter tracks without artwork (low quality signal)
 
+        // Filter non-music content (DJ sets, podcasts, comedy, ASMR, etc.)
+        const titleLower = (track.title || "").toLowerCase();
+        const genreLower = (track.genre || "").toLowerCase();
+        const nonMusicKeywords = ["dj set", "podcast", "sermon", "standup", "stand-up", "white noise", "rain sounds", "asmr", "sleep meditation", "guided meditation", "audiobook", "audio book", "talk show", "interview"];
+        const nonMusicGenres = ["podcast", "comedy", "education", "news", "non-music", "spoken word"];
+        if (nonMusicKeywords.some(kw => titleLower.includes(kw))) continue;
+        if (nonMusicGenres.some(g => genreLower.includes(g))) continue;
+        if (track.duration > 1800) continue; // Skip tracks > 30 min (likely DJ sets/mixes)
+        if (track.duration < 15) continue; // Skip very short clips
+
         // Filter disliked content
         if (dislikedIds.has(track.id) || dislikedIds.has(String(track.scTrackId))) continue;
         if (dislikedArtists.size > 0 && track.artist && dislikedArtists.has(track.artist.toLowerCase())) continue;
