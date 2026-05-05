@@ -371,13 +371,15 @@ model TelegramAuthCode {
 
 // Telegram bot conversation state (serverless-safe, replaces in-memory Map)
 model TelegramBotState {
-  id        String   @id @default(cuid())
-  chatId    String   @unique          // Telegram chat ID
-  state     String   @default("idle") // current conversation state
-  data      String   @default("{}")   // JSON blob for PendingImport data
-  results   String   @default("[]")   // JSON blob for search results
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  id                   String   @id @default(cuid())
+  chatId               String   @unique          // Telegram chat ID
+  state                String   @default("idle") // current conversation state
+  data                 String   @default("{}")   // JSON blob for PendingImport data
+  results              String   @default("[]")   // JSON blob for search results
+  audioBatch           String   @default("[]")   // JSON blob for batch audio collection
+  collectingMessageId  Int?                      // Message ID of the collecting prompt
+  updatedAt            DateTime @updatedAt
+  createdAt            DateTime @default(now())
 
   @@index([chatId])
 }

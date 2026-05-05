@@ -53,7 +53,8 @@ type BotState =
   | "awaiting_search_query"
   | "awaiting_new_playlist"
   | "awaiting_add_to_playlist"
-  | "awaiting_preview_choice";
+  | "awaiting_preview_choice"
+  | "collecting_audios";
 
 interface PendingImport {
   fileId?: string;
@@ -64,10 +65,19 @@ interface PendingImport {
   scData?: Record<string, unknown>;
 }
 
+interface AudioBatchItem {
+  fileId?: string;
+  fileUrl: string | null;
+  fileDuration: number;
+  originalFilename: string;
+}
+
 interface ChatState {
   state: BotState;
   data: PendingImport;
   searchResults?: any[];
+  audioBatch?: AudioBatchItem[];
+  collectingMessageId?: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -88,6 +98,8 @@ async function getChatState(chatId: string): Promise<ChatState | null> {
       state: (row.state as BotState) || "idle",
       data: JSON.parse(row.data || "{}"),
       searchResults: JSON.parse(row.results || "[]"),
+      audioBatch: JSON.parse(row.audioBatch || "[]"),
+      collectingMessageId: row.collectingMessageId || undefined,
     };
   } catch {
     return null;
@@ -98,7 +110,9 @@ async function setChatState(
   chatId: string,
   state: BotState,
   data: PendingImport = { fileUrl: null, fileDuration: 0, originalFilename: "" },
-  searchResults?: any[]
+  searchResults?: any[],
+  audioBatch?: AudioBatchItem[],
+  collectingMessageId?: number,
 ): Promise<void> {
   await db.telegramBotState.upsert({
     where: { chatId },
@@ -107,11 +121,15 @@ async function setChatState(
       state,
       data: JSON.stringify(data),
       results: JSON.stringify(searchResults || []),
+      audioBatch: JSON.stringify(audioBatch || []),
+      collectingMessageId: collectingMessageId || null,
     },
     update: {
       state,
       data: JSON.stringify(data),
       results: JSON.stringify(searchResults || []),
+      audioBatch: JSON.stringify(audioBatch || []),
+      collectingMessageId: collectingMessageId || null,
     },
   });
 }
@@ -331,12 +349,37 @@ export async function handleTelegramMessage(body: Record<string, any>) {
       await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code для получения кода входа.");
       return;
     }
+    // Check if already collecting — if so, add to batch
+    const existingState = await getChatState(chatId);
+    if (existingState && existingState.state === "collecting_audios") {
+      await addToAudioBatch(chatId, message, existingState);
+      return;
+    }
+    // Start new batch collection
     await handleAudioMessage(chatId, message);
     return;
   }
 
   // ---- Handle conversation states ----
   const chatState = await getChatState(chatId);
+
+  // If in collecting_audios state, handle user text
+  if (chatState && chatState.state === "collecting_audios") {
+    if (text === "/cancel" || text.toLowerCase() === "стоп") {
+      // Cancel collection
+      await clearChatState(chatId);
+      if (chatState.collectingMessageId) {
+        await editMessageText(chatId, chatState.collectingMessageId, "Коллекция отменена.");
+      }
+      return;
+    }
+    if (text.toLowerCase() === "добавить" || text.toLowerCase() === "готово") {
+      await handleFinishBatchCollection(chatId, chatState);
+      return;
+    }
+    // Otherwise ignore — user is still collecting audios
+    return;
+  }
 
   // Non-command text with no active state → auth code
   if (!chatState && !text.startsWith("/")) {
@@ -399,6 +442,7 @@ export async function handleCallbackQuery(body: Record<string, any>) {
   if (data === "cmd_import") {
     await editMessageText(chatId, messageId,
       "Отправьте аудио файл или голосовое сообщение, чтобы импортировать его в плеер.\n\n" +
+      "Вы можете отправить сразу несколько аудио — бот соберёт их все и предложит добавить в плейлист.\n\n" +
       "Поддерживаются форматы: MP3, OGG, M4A, WAV и другие.",
       { parseMode: "HTML" }
     );
@@ -425,6 +469,16 @@ export async function handleCallbackQuery(body: Record<string, any>) {
 
   // ---- State-dependent callbacks ----
   const state = await getChatState(chatId);
+
+  // Batch add: user clicked "Add all to playlist" during collection
+  if (data === "batch_add") {
+    if (!state || state.state !== "collecting_audios") {
+      await editMessageText(chatId, messageId, "Сессия истекла. Отправьте аудио заново.");
+      return;
+    }
+    await handleFinishBatchCollection(chatId, state);
+    return;
+  }
 
   // Preview: user wants to listen to a track before adding
   if (data.startsWith("preview:")) {
@@ -477,7 +531,12 @@ export async function handleCallbackQuery(body: Record<string, any>) {
       return;
     }
     await clearChatState(chatId);
-    await handleImportToPlaylist(chatId, playlistId, state.data);
+    // Check if this is a batch import (audioBatch exists)
+    if (state.audioBatch && state.audioBatch.length > 0) {
+      await handleBatchImportToPlaylist(chatId, messageId, playlistId, state.audioBatch);
+    } else {
+      await handleImportToPlaylist(chatId, playlistId, state.data);
+    }
     return;
   }
 
@@ -653,23 +712,208 @@ async function handleAudioMessage(chatId: string, message: Record<string, any>) 
   }
 
   const importTitle = (title && performer) ? `${title} — ${performer}` : title || fileName;
-  const pendingData: PendingImport = { fileId, fileUrl: null, fileDuration: duration, originalFilename: importTitle };
+  const batchItem: AudioBatchItem = { fileId, fileUrl: null, fileDuration: duration, originalFilename: importTitle };
 
-  await setChatState(chatId, "awaiting_import_playlist", pendingData);
+  // Start batch collection mode
+  const pendingData: PendingImport = { fileId, fileUrl: null, fileDuration: duration, originalFilename: importTitle };
 
   // Auto-create playlist if user has none
   const result = await getUserPlaylistsOrCreate(chatId);
   if (!result) return;
 
+  // Set state to collecting_audios with the first item
+  await setChatState(chatId, "collecting_audios", pendingData, undefined, [batchItem]);
+
   const playlists = result.playlists;
   const wasAutoCreated = playlists.length === 1 && playlists[0].name === "Избранное";
 
-  await sendTelegramMessage(chatId,
+  const collectingKeyboard = {
+    inline_keyboard: [
+      [{ text: `Добавить 1 трек в плейлист`, callback_data: "batch_add" }],
+      [{ text: "Отмена", callback_data: "cancel" }],
+    ],
+  };
+
+  const sentMsg = await sendTelegramMessage(chatId,
     `Аудио получено: <b>${importTitle}</b> (${formatDuration(duration)})\n\n` +
-    (wasAutoCreated ? `Плейлист <b>Избранное</b> создан автоматически.\n\n` : "") +
-    `В какой плейлист добавить?`,
-    { parseMode: "HTML", replyMarkup: buildPlaylistKeyboard(playlists, "import_playlist") }
+    `Отправьте ещё аудио или нажмите кнопку, чтобы добавить.\n` +
+    (wasAutoCreated ? `Плейлист <b>Избранное</b> создан автоматически.\n\n` : ""),
+    { parseMode: "HTML", replyMarkup: collectingKeyboard }
   );
+
+  // Store the message ID for later editing
+  const sentMsgId = sentMsg?.result?.message_id || sentMsg?.message_id;
+  if (sentMsgId) {
+    await setChatState(chatId, "collecting_audios", pendingData, undefined, [batchItem], sentMsgId);
+  }
+}
+
+/* ================================================================== */
+/*  Add to audio batch (when already collecting)                       */
+/* ================================================================== */
+
+async function addToAudioBatch(chatId: string, message: Record<string, any>, existingState: ChatState) {
+  const audio = message.audio || message.voice;
+  const fileId = audio.file_id;
+  const duration = audio.duration || 0;
+  const title = audio.title || "";
+  const performer = audio.performer || "";
+  const fileName = audio.file_name || (message.voice ? "Голосовое сообщение" : "audio");
+
+  if (duration > 600) {
+    await sendTelegramMessage(chatId, "Это аудио слишком длинное (максимум 10 минут). Пропущено.");
+    return;
+  }
+
+  const importTitle = (title && performer) ? `${title} — ${performer}` : title || fileName;
+  const batchItem: AudioBatchItem = { fileId, fileUrl: null, fileDuration: duration, originalFilename: importTitle };
+
+  const batch = [...(existingState.audioBatch || []), batchItem];
+  const count = batch.length;
+
+  // Update state with new batch
+  await setChatState(chatId, "collecting_audios", existingState.data, undefined, batch, existingState.collectingMessageId);
+
+  // Update the collecting message
+  const collectingKeyboard = {
+    inline_keyboard: [
+      [{ text: `Добавить ${count} ${getTrackWord(count)} в плейлист`, callback_data: "batch_add" }],
+      [{ text: "Отмена", callback_data: "cancel" }],
+    ],
+  };
+
+  if (existingState.collectingMessageId) {
+    const trackList = batch.slice(-5).map((t, i) => `${batch.length - 4 + i > 0 ? (i === 0 && batch.length > 5 ? "...\\n" : "") : ""}${count - Math.min(batch.length - 1, 4) + i}. ${t.originalFilename} (${formatDuration(t.fileDuration)})`).join("\\n");
+    const lastTracks = batch.slice(-3).map((t) => `  - ${t.originalFilename}`).join("\n");
+
+    await editMessageText(chatId, existingState.collectingMessageId,
+      `Получено <b>${count}</b> ${getTrackWord(count)}.\n\n` +
+      `Последние:\n${lastTracks}\n\n` +
+      `Отправьте ещё или нажмите кнопку, чтобы добавить.`,
+      { parseMode: "HTML", replyMarkup: collectingKeyboard }
+    );
+  } else {
+    await sendTelegramMessage(chatId, `Получено <b>${count}</b> ${getTrackWord(count)}. Отправьте ещё или нажмите кнопку.`, { parseMode: "HTML" });
+  }
+}
+
+/* ================================================================== */
+/*  Finish batch collection — show playlist picker                     */
+/* ================================================================== */
+
+async function handleFinishBatchCollection(chatId: string, chatState: ChatState) {
+  const batch = chatState.audioBatch || [];
+  if (batch.length === 0) {
+    await clearChatState(chatId);
+    return;
+  }
+
+  const result = await getUserPlaylistsOrCreate(chatId);
+  if (!result) {
+    await clearChatState(chatId);
+    return;
+  }
+
+  const count = batch.length;
+  const totalDuration = batch.reduce((s, t) => s + t.fileDuration, 0);
+
+  // Transition to awaiting_import_playlist with batch data
+  await setChatState(
+    chatId,
+    "awaiting_import_playlist",
+    chatState.data,
+    undefined,
+    batch,
+  );
+
+  // Send fresh message with playlist picker (since we can't reliably edit with new keyboard type)
+  const msgText =
+    `<b>${count}</b> ${getTrackWord(count)} (${formatDuration(totalDuration)}) готово к добавлению.\n\n` +
+    `В какой плейлист добавить?`;
+
+  // Delete old collecting message if exists
+  if (chatState.collectingMessageId) {
+    try {
+      // Telegram doesn't have a deleteMessage in our lib, so just edit it
+      await editMessageText(chatId, chatState.collectingMessageId, "Выбираем плейлист...");
+    } catch {}
+  }
+
+  await sendTelegramMessage(chatId, msgText, {
+    parseMode: "HTML",
+    replyMarkup: buildPlaylistKeyboard(result.playlists, "import_playlist"),
+  });
+}
+
+/* ================================================================== */
+/*  Batch import to playlist (save multiple tracks)                    */
+/* ================================================================== */
+
+async function handleBatchImportToPlaylist(chatId: string, messageId: number, playlistId: string, batch: AudioBatchItem[]) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+
+  const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
+  if (!playlist || playlist.userId !== user.id) {
+    await sendTelegramMessage(chatId, "Плейлист не найден.");
+    return;
+  }
+
+  let tracks: any[] = [];
+  try { tracks = JSON.parse(playlist.tracksJson || "[]"); } catch { tracks = []; }
+
+  const existingTitles = new Set(tracks.map((t: any) => `${t.title}|||${t.artist}`));
+  const added: string[] = [];
+  const skipped: string[] = [];
+
+  for (const item of batch) {
+    const parts = item.originalFilename.includes(" — ")
+      ? item.originalFilename.split(" — ") : [item.originalFilename];
+    const trackTitle = (parts[0] || "").trim();
+    const trackArtist = (parts[1] || "").trim() || "Неизвестный";
+
+    const key = `${trackTitle}|||${trackArtist}`;
+    if (existingTitles.has(key)) {
+      skipped.push(trackTitle);
+      continue;
+    }
+    existingTitles.add(key);
+
+    const proxyAudioUrl = `${getSiteOrigin()}/api/telegram/audio-proxy?fileId=${encodeURIComponent(item.fileId || "")}`;
+
+    tracks.push({
+      id: `tg_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      title: trackTitle,
+      artist: trackArtist,
+      album: "",
+      duration: item.fileDuration,
+      cover: "",
+      genre: "",
+      audioUrl: proxyAudioUrl,
+      previewUrl: "",
+      source: "telegram",
+      telegramFileId: item.fileId,
+      scTrackId: null,
+      scStreamPolicy: "ALLOW",
+      scIsFull: true,
+    });
+    added.push(`${trackTitle} — ${trackArtist}`);
+  }
+
+  if (added.length === 0) {
+    await sendTelegramMessage(chatId, `Все ${batch.length} ${getTrackWord(batch.length)} уже есть в плейлисте "${playlist.name}".`);
+    return;
+  }
+
+  await db.playlist.update({ where: { id: playlistId }, data: { tracksJson: JSON.stringify(tracks) } });
+
+  let resultText = `В <b>${playlist.name}</b> добавлено <b>${added.length}</b> ${getTrackWord(added.length)}:\n`;
+  for (const t of added.slice(0, 5)) resultText += `+ ${t}\n`;
+  if (added.length > 5) resultText += `... и ещё ${added.length - 5}\n`;
+  if (skipped.length > 0) resultText += `\nПропущено (уже есть): ${skipped.length}`;
+  resultText += `\n\nВсего треков: ${tracks.length}`;
+
+  await sendTelegramMessage(chatId, resultText, { parseMode: "HTML" });
 }
 
 /* ================================================================== */
@@ -896,4 +1140,10 @@ function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function getTrackWord(count: number): string {
+  if (count === 1) return "трек";
+  if (count >= 2 && count <= 4) return "трека";
+  return "треков";
 }

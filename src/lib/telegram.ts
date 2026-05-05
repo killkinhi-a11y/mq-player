@@ -41,7 +41,7 @@ export async function sendTelegramMessage(
     parseMode?: "HTML" | "Markdown";
     replyMarkup?: any;
   }
-): Promise<{ ok: boolean; description?: string }> {
+): Promise<{ ok: boolean; description?: string; message_id?: number; result?: any }> {
   if (!TELEGRAM_API_URL) {
     console.error("[TELEGRAM] Bot not configured — TELEGRAM_BOT_TOKEN not set");
     return { ok: false, description: "Bot not configured" };

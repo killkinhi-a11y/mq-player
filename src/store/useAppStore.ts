@@ -211,6 +211,7 @@ interface AppState {
   logout: () => void;
   syncToServer: () => Promise<void>;
   syncFromServer: () => Promise<void>;
+  scheduleSyncToServer: () => void;
   setView: (view: ViewType) => void;
   setAuthStep: (step: AuthStep) => void;
 
@@ -723,9 +724,10 @@ export const useAppStore = create<AppState>()(
         if (shuffle) {
           if (queue.length <= 1) { nextIdx = 0; }
           else if (smartShuffle && currentTrack) {
-            // Smart Shuffle: score each candidate by transition smoothness
+            // Smart Shuffle: score each candidate by transition smoothness + likes/dislikes
             const currentEnergy = estimateTrackEnergy(currentTrack);
             const currentGenre = (currentTrack.genre || "").toLowerCase();
+            const st = get();
 
             let bestIdx = -1;
             let bestScore = -Infinity;
@@ -734,16 +736,28 @@ export const useAppStore = create<AppState>()(
               Math.floor(Math.random() * queue.length)
             ).filter(i => i !== queueIndex);
 
+            // Pre-compute disliked/liked artists and genres for performance
+            const dislikedArtistsSet = new Set(st.dislikedTracksData.map(t => t.artist.toLowerCase()));
+            const dislikedGenresSet = new Set(st.dislikedTracksData.map(t => (t.genre || "").toLowerCase()).filter(Boolean));
+            const likedArtistsSet = new Set(st.likedTracksData.map(t => t.artist.toLowerCase()));
+
             for (const candidateIdx of candidates) {
               const candidate = queue[candidateIdx];
               if (!candidate) continue;
 
               let score = Math.random() * 10; // base randomness
 
-              // Energy transition penalty (Spotify: smooth transitions)
+              // ── Likes/Dislikes signals (strongest factor) ──
+              if (st.likedTrackIds.includes(candidate.id)) score += 25;
+              if (st.dislikedTrackIds.includes(candidate.id)) score -= 50;
+              if (dislikedArtistsSet.has((candidate.artist || "").toLowerCase())) score -= 30;
+              if (candidate.genre && dislikedGenresSet.has(candidate.genre.toLowerCase())) score -= 20;
+              if (likedArtistsSet.has((candidate.artist || "").toLowerCase())) score += 15;
+
+              // Energy transition penalty (smooth transitions)
               const candidateEnergy = estimateTrackEnergy(candidate);
               const energyDiff = Math.abs(candidateEnergy - currentEnergy);
-              score -= energyDiff * 20; // penalize jarring energy jumps
+              score -= energyDiff * 20;
 
               // Same artist penalty (but not as harsh — allow occasionally)
               if (candidate.artist === currentTrack.artist) score -= 15;
@@ -798,11 +812,57 @@ export const useAppStore = create<AppState>()(
                   const entry = st.history.find(h => h.track.id === id);
                   return entry?.track.artist;
                 }).filter(Boolean).slice(0, 5).join(",");
+
+                // ── Include disliked artists from likes/dislikes (user's explicit preference) ──
+                const dislikedArtistsFromLikes = st.dislikedTracksData
+                  .map(t => t.artist)
+                  .filter(Boolean)
+                  .slice(0, 10);
+                // Combine feedback-skipped + disliked into one list
+                const allSkippedArtists = [...new Set([
+                  ...skippedArtists.split(",").filter(Boolean),
+                  ...dislikedArtistsFromLikes,
+                ])].join(",");
+
+                // ── Include disliked genres from likes/dislikes ──
+                const dislikedGenresFromLikes = st.dislikedTracksData
+                  .map(t => t.genre)
+                  .filter(Boolean)
+                  .slice(0, 5);
+                const skippedGenresParam = st.feedbackBatch.skippedGenres.length > 0
+                  ? [...new Set([...st.feedbackBatch.skippedGenres, ...dislikedGenresFromLikes])].join(",")
+                  : dislikedGenresFromLikes.join(",");
+                
+                // ── Include liked artists as positive signals ──
+                const likedArtistsFromLikes = st.likedTracksData
+                  .map(t => t.artist)
+                  .filter(Boolean)
+                  .slice(0, 5);
+
+                // ── Include liked genres as positive signals ──
+                const likedGenresFromLikes = st.likedTracksData
+                  .map(t => t.genre)
+                  .filter(Boolean)
+                  .slice(0, 5);
+                // Also extract genres from history for better signal
+                const historyGenres = st.history.slice(0, 30)
+                  .map(h => h.track.genre)
+                  .filter(Boolean);
+                const genreCount: Record<string, number> = {};
+                for (const g of historyGenres) genreCount[g] = (genreCount[g] || 0) + 1;
+                const topHistoryGenres = Object.entries(genreCount)
+                  .sort((a, b) => b[1] - a[1])
+                  .slice(0, 3)
+                  .map(([g]) => g);
+                const allLikedGenres = [...new Set([...likedGenresFromLikes, ...topHistoryGenres])].join(",");
                 
                 const params = new URLSearchParams();
                 params.set("scTrackId", String(currentT.scTrackId));
                 if (recentHistory) params.set("historyScIds", recentHistory);
-                if (skippedArtists) params.set("skippedArtists", skippedArtists);
+                if (allSkippedArtists) params.set("skippedArtists", allSkippedArtists);
+                if (skippedGenresParam) params.set("skippedGenres", skippedGenresParam);
+                if (likedArtistsFromLikes.length > 0) params.set("likedArtists", likedArtistsFromLikes.join(","));
+                if (allLikedGenres) params.set("likedGenres", allLikedGenres);
                 
                 // Detect language from history
                 const langCounts: Record<string, number> = { russian: 0, english: 0 };
@@ -996,6 +1056,8 @@ export const useAppStore = create<AppState>()(
               : likedTracksData,
           });
         }
+        // Debounced sync to server
+        get().scheduleSyncToServer();
       },
 
       toggleDislike: (trackId, trackData) => {
@@ -1017,6 +1079,8 @@ export const useAppStore = create<AppState>()(
             likedTracksData: likedTracksData.filter((t) => t.id !== trackId),
           });
         }
+        // Debounced sync to server
+        get().scheduleSyncToServer();
       },
 
       isTrackLiked: (trackId) => get().likedTrackIds.includes(trackId),
@@ -1369,6 +1433,8 @@ export const useAppStore = create<AppState>()(
             history: [{ track, playedAt: Date.now(), playCount: 1 }, ...s.history].slice(0, 200),
           };
         });
+        // Debounced sync to server
+        get().scheduleSyncToServer();
       },
 
       clearHistory: () => set({ history: [] }),
@@ -1556,6 +1622,17 @@ export const useAppStore = create<AppState>()(
       },
 
       // ── Server sync actions ──
+      scheduleSyncToServer: () => {
+        // Debounced sync: wait 5 seconds after the last change, then sync once
+        if (typeof window !== "undefined") {
+          const w = window as Window & { _mqSyncTimer?: ReturnType<typeof setTimeout> };
+          if (w._mqSyncTimer) clearTimeout(w._mqSyncTimer);
+          w._mqSyncTimer = setTimeout(() => {
+            get().syncToServer();
+          }, 5000);
+        }
+      },
+
       syncToServer: async () => {
         const state = get();
         if (!state.userId) return;

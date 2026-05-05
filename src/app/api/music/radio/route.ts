@@ -17,6 +17,8 @@ import { RECOMMENDATIONS_CONFIG as CFG } from "@/config/recommendations";
  *   &historyScIds=111,222,333      (optional) recently played SC IDs
  *   &skippedGenres=pop,edm         (optional) genres user keeps skipping
  *   &skippedArtists=DJ Foo,Bar Baz (optional) artists user keeps skipping
+ *   &likedArtists=Artist1,Artist2  (optional) artists user has liked
+ *   &likedGenres=rock,indie        (optional) genres user has liked
  *   &lang=russian                  (optional) language preference
  *   &energy=medium                 (optional) desired energy level
  *   &recentSkipCount=3             (optional) number of consecutive recent skips
@@ -255,6 +257,8 @@ function scoreCandidate(
     historyArtists: Set<string>;
     skippedArtists: Set<string>;
     skippedGenres: Set<string>;
+    likedArtists: Set<string>;
+    likedGenres: Set<string>;
     langPref: string | null;
   },
 ): number {
@@ -301,6 +305,10 @@ function scoreCandidate(
     const trackLang = detectLanguage(trackText);
     if (trackLang === ctx.langPref) score += CFG.radio.languageMatch;
   }
+
+  // ── LIKED ARTISTS/GENRES (positive personalization signals) ──
+  if (ctx.likedArtists.has(trackArtist)) score += CFG.radio.historyArtist * 1.5;
+  if (trackGenre && ctx.likedGenres.has(trackGenre)) score += CFG.radio.genreMatch * 1.5;
 
   // ── QUALITY GATES ──
   if (track.scIsFull) score += CFG.radio.playability;
@@ -501,6 +509,8 @@ async function handler(request: NextRequest) {
   const historyScIdsParam = searchParams.get("historyScIds") || "";
   const skippedGenresParam = searchParams.get("skippedGenres") || "";
   const skippedArtistsParam = searchParams.get("skippedArtists") || "";
+  const likedArtistsParam = searchParams.get("likedArtists") || "";
+  const likedGenresParam = searchParams.get("likedGenres") || "";
   const langParam = searchParams.get("lang") || "";
   const energyParam = searchParams.get("energy") || "";
   const recentSkipCount = parseInt(searchParams.get("recentSkipCount") || "0", 10);
@@ -545,6 +555,20 @@ async function handler(request: NextRequest) {
       .map((a) => a.toLowerCase().trim()),
   );
 
+  const likedArtists = new Set(
+    likedArtistsParam
+      .split(",")
+      .filter(Boolean)
+      .map((a) => a.toLowerCase().trim()),
+  );
+
+  const likedGenres = new Set(
+    likedGenresParam
+      .split(",")
+      .filter(Boolean)
+      .map((g) => normalizeGenre(g)),
+  );
+
   // Language preference: only accept known values
   const langPref: "russian" | "english" | "latin" | null =
     langParam === "russian" || langParam === "english" || langParam === "latin"
@@ -558,7 +582,7 @@ async function handler(request: NextRequest) {
   else if (energyParam === "low") energyPref = 0.2;
 
   // ── Cache check ───────────────────────────────────────────────────────────
-  const cacheKey = `radio:${scTrackId}:${historyScIdsParam}:${skippedGenresParam}:${skippedArtistsParam}:${langParam}:${energyParam}:${recentSkipCount}`;
+  const cacheKey = `radio:${scTrackId}:${historyScIdsParam}:${skippedGenresParam}:${skippedArtistsParam}:${likedArtistsParam}:${likedGenresParam}:${langParam}:${energyParam}:${recentSkipCount}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 
@@ -647,6 +671,20 @@ async function handler(request: NextRequest) {
       allFetchPromises.push(searchSCTracks(`${currentArtist} ${currentGenre}`, 10));
     }
 
+    // ── Source 6: Liked artist search — find more from user's favorite artists (~10 per artist, top 2)
+    const topLikedArtists = [...likedArtists].slice(0, 2);
+    for (const la of topLikedArtists) {
+      sourceMap.push("artist_search");
+      allFetchPromises.push(searchSCTracks(`"${la}"`, 10));
+    }
+
+    // ── Source 7: Liked genre search — find trending in liked genres (~5 per genre, top 2)
+    const topLikedGenres = [...likedGenres].slice(0, 2);
+    for (const lg of topLikedGenres) {
+      sourceMap.push("genre_search");
+      allFetchPromises.push(searchSCTracks(`${lg} ${year}`, 5));
+    }
+
     // Execute ALL fetches in parallel
     const fetchResults = await Promise.allSettled(allFetchPromises);
 
@@ -720,6 +758,8 @@ async function handler(request: NextRequest) {
         historyArtists,
         skippedArtists,
         skippedGenres,
+        likedArtists,
+        likedGenres,
         langPref,
       });
 
