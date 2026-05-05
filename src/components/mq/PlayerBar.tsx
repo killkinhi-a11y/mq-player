@@ -146,16 +146,74 @@ function buildEmeHlsConfig(stream: {
     }
   };
 
-  // DISABLE HLS.js's built-in EME controller — it was never completing the license
-  // exchange (licenseXhrSetup never called → keySystemNoKeys).
-  // We handle EME manually via setupManualEME() which is called separately.
-  config.emeEnabled = false;
+  // For encrypted streams: enable HLS.js built-in EME controller.
+  // The license challenge/response is routed through our proxy so the browser
+  // can reach SoundCloud's license server (which has no CORS headers).
+  //
+  // Previous approach (emeEnabled=false + manual setupManualEME) did NOT work
+  // because HLS.js uses MSE internally — the 'encrypted' event never fires on
+  // the <audio> element. Only HLS.js's own EME controller can decrypt SAMPLE-AES.
+  if (stream.isEncrypted && stream.licenseUrl) {
+    config.emeEnabled = true;
+    // Route the Widevine license request through our edge proxy.
+    // HLS.js will POST the raw CDM challenge to this URL.
+    const proxyParams = new URLSearchParams();
+    proxyParams.set('licenseUrl', stream.licenseUrl);
+    if (stream.licenseAuthToken) {
+      proxyParams.set('licenseAuthToken', stream.licenseAuthToken);
+    }
+    config.widevineLicenseUrl = '/api/music/soundcloud/license-proxy?' + proxyParams.toString();
+  } else {
+    config.emeEnabled = false;
+  }
 
   return config;
 }
 
 // ══════════════════════════════════════════════════════════════════
-// Manual EME Setup — bypasses HLS.js's broken EME controller
+// Firefox EME Compatibility — element replacement
+// ══════════════════════════════════════════════════════════════════
+// In Firefox, once an audio element is captured by createMediaElementSource()
+// (Web Audio), calling setMediaKeys() on it permanently throws NotSupportedError.
+// HLS.js's EME controller calls setMediaKeys() internally, so we must ensure
+// the element is NOT captured before hls.attachMedia().
+//
+// Chrome does NOT have this limitation — createMediaElementSource and setMediaKeys
+// coexist fine.
+//
+// For encrypted content in Firefox: replace the element with a fresh uncaptured one.
+// Trade-off: no Web Audio visualization (analyser) for encrypted tracks in Firefox.
+// Non-encrypted tracks are unaffected.
+
+const _isFirefox = typeof navigator !== 'undefined' && /Firefox/i.test(navigator.userAgent);
+
+/**
+ * Prepare an audio element for encrypted HLS playback.
+ * In Firefox: replaces the element if it's captured by Web Audio.
+ * In Chrome: returns the element unchanged.
+ * Does NOT connect the element to Web Audio after replacement.
+ */
+function prepareEncryptedElement(el: HTMLAudioElement): HTMLAudioElement {
+  if (!_isFirefox) return el;
+  // Check if the element is captured by Web Audio
+  // mozAudioCaptured is Firefox-specific (deprecated but reliable for detection)
+  if ((el as any).mozAudioCaptured) {
+    console.log("[Player] Firefox: replacing Web Audio captured element for EME compatibility");
+    const newEl = replaceAudioElement(el);
+    // Do NOT connect to Web Audio — it would re-capture and block setMediaKeys
+    return newEl;
+  }
+  return el;
+}
+
+/**
+ * Ensure an audio element is connected to the Web Audio graph.
+ * Call this for non-encrypted content (and after switching back from encrypted).
+ * Safe to call multiple times — no-op if already connected.
+ */
+function ensureWebAudioConnected(el: HTMLAudioElement): void {
+  connectElementToAudioGraph(el);
+}
 // ══════════════════════════════════════════════════════════════════
 // Call this AFTER audioEl is created and BEFORE HLS starts loading.
 // Sets up MediaKeys on the element, then listens for 'encrypted' events
@@ -873,19 +931,15 @@ export default function PlayerBar() {
                 // CRITICAL: Use buildEmeHlsConfig so encrypted streams get DRM support on retry
                 const hlsConfig = buildEmeHlsConfig(stream);
                 if (stream.isEncrypted) {
-                  const emeEl = await setupManualEME(a, stream);
-                  if (!emeEl) {
-                    console.error("[Player] Manual EME setup returned null for encrypted stream during error retry — skipping");
-                    skipToNextWithError(`Ошибка EME: ${trackTitle}`);
-                    return;
-                  }
-                  a = emeEl || a;
+                  a = prepareEncryptedElement(a);
                   const origXhrSetup = hlsConfig.xhrSetup;
                   const manifestInterceptor = createManifestInterceptor(a);
                   hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                     manifestInterceptor(xhr, url);
                     if (origXhrSetup) origXhrSetup(xhr, url);
                   };
+                } else {
+                  ensureWebAudioConnected(a);
                 }
                 const hls = new Hls(hlsConfig);
                 hls.loadSource(stream.url);
@@ -1062,22 +1116,15 @@ export default function PlayerBar() {
                   // HLS streams MUST use HLS.js — use buildEmeHlsConfig for DRM support
                   const hlsConfig = buildEmeHlsConfig(stream);
                   if (stream.isEncrypted) {
-                    const emeEl = await setupManualEME(activeEl, stream);
-                    if (!emeEl) {
-                      console.error("[Player] Manual EME setup returned null for encrypted stream during loading timeout retry — skipping");
-                      setIsLoadingTrack(false);
-                      setPlayError(true);
-                      prevTrackIdForCrossfade.current = null;
-                      setTimeout(() => nextTrackRef.current(), 1500);
-                      return;
-                    }
-                    activeEl = emeEl || activeEl;
+                    activeEl = prepareEncryptedElement(activeEl);
                     const origXhrSetup = hlsConfig.xhrSetup;
                     const manifestInterceptor = createManifestInterceptor(activeEl);
                     hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                       manifestInterceptor(xhr, url);
                       if (origXhrSetup) origXhrSetup(xhr, url);
                     };
+                  } else {
+                    ensureWebAudioConnected(activeEl);
                   }
                   const hls = new Hls(hlsConfig);
                   hls.loadSource(stream.url);
@@ -1153,21 +1200,15 @@ export default function PlayerBar() {
                 if (stream.isHls && Hls.isSupported()) {
                   const hlsConfig = buildEmeHlsConfig(stream);
                   if (stream.isEncrypted) {
-                    const emeEl = await setupManualEME(activeEl, stream);
-                    if (!emeEl) {
-                      console.error("[Player] Manual EME setup returned null for encrypted stream during stall retry — skipping");
-                      setPlayError(true);
-                      prevTrackIdForCrossfade.current = null;
-                      setTimeout(() => nextTrackRef.current(), 1500);
-                      return;
-                    }
-                    activeEl = emeEl || activeEl;
+                    activeEl = prepareEncryptedElement(activeEl);
                     const origXhrSetup = hlsConfig.xhrSetup;
                     const manifestInterceptor = createManifestInterceptor(activeEl);
                     hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                       manifestInterceptor(xhr, url);
                       if (origXhrSetup) origXhrSetup(xhr, url);
                     };
+                  } else {
+                    ensureWebAudioConnected(activeEl);
                   }
                   const hls = new Hls(hlsConfig);
                   hls.loadSource(stream.url);
@@ -1680,24 +1721,17 @@ export default function PlayerBar() {
         // Use shared EME helper — handles both encrypted and plain HLS
         const hlsConfig = buildEmeHlsConfig(fallback);
 
-        // For encrypted fallbacks: set up manual EME
+        // For encrypted fallbacks: ensure element is not captured (Firefox)
         if (fallback.isEncrypted) {
-          const emeEl = await setupManualEME(activeEl, fallback);
-          if (!emeEl) {
-            console.error("[Player] Manual EME setup returned null for encrypted fallback — skipping");
-            setIsLoadingTrack(false);
-            setPlayError(true);
-            prevTrackIdForCrossfade.current = null;
-            setTimeout(() => nextTrackRef.current(), 1500);
-            return false;
-          }
-          activeEl = emeEl || activeEl;
+          activeEl = prepareEncryptedElement(activeEl);
           const origXhrSetup = hlsConfig.xhrSetup;
           const manifestInterceptor = createManifestInterceptor(activeEl);
           hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
             manifestInterceptor(xhr, url);
             if (origXhrSetup) origXhrSetup(xhr, url);
           };
+        } else {
+          ensureWebAudioConnected(activeEl);
         }
 
         const hls = new Hls(hlsConfig);
@@ -1809,30 +1843,16 @@ export default function PlayerBar() {
               // Support encrypted HLS via EME (Widevine/FairPlay)
               audioEl.crossOrigin = "anonymous";
 
-              // Build HLS config — EME is now handled manually (not by HLS.js)
+              // Build HLS config — EME handled by HLS.js built-in controller
               const hlsConfig = buildEmeHlsConfig(stream);
 
-              // For encrypted streams: set up manual EME BEFORE HLS starts loading
-              // This ensures MediaKeys are on the audio element before encrypted data arrives
+              // For encrypted streams: ensure the audio element is not captured
+              // by Web Audio (Firefox blocks setMediaKeys on captured elements).
+              // HLS.js's EME controller will call setMediaKeys internally.
               if (stream.isEncrypted) {
-                console.log("[Player] Encrypted stream detected — setting up manual EME");
+                console.log("[Player] Encrypted stream detected — HLS.js EME enabled, preparing element");
                 console.log("[Player]   protocol:", stream.protocol, "| hasLicenseUrl:", !!stream.licenseUrl, "| hasAuthToken:", !!stream.licenseAuthToken);
-                const emeEl = await setupManualEME(audioEl, stream);
-                if (!emeEl) {
-                  console.error("[Player] Manual EME setup returned null for encrypted stream — skipping");
-                  setIsLoadingTrack(false);
-                  setPlayError(true);
-                  prevTrackIdForCrossfade.current = null;
-                  PlayerErrorLogger.log(currentTrack?.title || "unknown", "EME setup failed", "skip");
-                  pendingTimeouts.push(setTimeout(() => nextTrackRef.current(), 2000));
-                  return;
-                }
-                if (emeEl !== audioEl) {
-                  console.log("[Player] Manual EME setup SUCCESS (audio element replaced for Firefox compatibility)");
-                } else {
-                  console.log("[Player] Manual EME setup SUCCESS");
-                }
-                audioEl = emeEl;
+                audioEl = prepareEncryptedElement(audioEl);
 
                 // Attach manifest interceptor to capture #EXT-X-KEY tags
                 const origXhrSetup = hlsConfig.xhrSetup;
@@ -1841,6 +1861,9 @@ export default function PlayerBar() {
                   manifestInterceptor(xhr, url);
                   if (origXhrSetup) origXhrSetup(xhr, url);
                 };
+              } else {
+                // Non-encrypted: ensure element is connected to Web Audio for visualization
+                ensureWebAudioConnected(audioEl);
               }
 
               const hls = new Hls(hlsConfig);
@@ -1953,21 +1976,15 @@ export default function PlayerBar() {
                         // CRITICAL: Use buildEmeHlsConfig so encrypted streams get DRM support
                         const fbConfig = buildEmeHlsConfig(freshStream);
                         if (freshStream.isEncrypted) {
-                          const emeEl = await setupManualEME(activeEl, freshStream);
-                          if (!emeEl) {
-                            console.error("[Player] Manual EME setup returned null during DRM re-resolve — skipping");
-                            setIsLoadingTrack(false); setPlayError(true);
-                            prevTrackIdForCrossfade.current = null;
-                            setTimeout(() => nextTrackRef.current(), 2000);
-                            return;
-                          }
-                          activeEl = emeEl || activeEl;
+                          activeEl = prepareEncryptedElement(activeEl);
                           const origXhrSetup = fbConfig.xhrSetup;
                           const manifestInterceptor = createManifestInterceptor(activeEl);
                           fbConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                             manifestInterceptor(xhr, url);
                             if (origXhrSetup) origXhrSetup(xhr, url);
                           };
+                        } else {
+                          ensureWebAudioConnected(activeEl);
                         }
                         const fbHls = new Hls(fbConfig);
                         fbHls.loadSource(freshStream.url);
