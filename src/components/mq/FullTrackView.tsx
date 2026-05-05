@@ -481,7 +481,7 @@ export default function FullTrackView() {
         // Build params for the similarity API
         const store = useAppStore.getState();
         const dislikedIds = store.dislikedTrackIds || [];
-        const dislikedTracksData = store.likedTracksData || [];
+        const dislikedTracksData = store.dislikedTracksData || [];
         const historyData = store.history || [];
 
         // Collect disliked artists and genres

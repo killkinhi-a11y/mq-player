@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, ListPlus, Heart, ThumbsDown, User, Copy, ListMusic, Plus, Download } from "lucide-react";
+import { Play, ListPlus, Heart, ThumbsDown, User, Copy, ListMusic, Plus, Download, Users } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { searchTracks, type Track } from "@/lib/musicApi";
 import { getAudioElement } from "@/lib/audioEngine";
@@ -19,11 +19,15 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
     playTrack, queue, toggleLike, toggleDislike,
     isTrackLiked, isTrackDisliked, setFullTrackViewOpen,
     playlists, addToPlaylist, createPlaylist, requestShowSimilar,
+    setSelectedArtist, favoriteArtists, addFavoriteArtist, removeFavoriteArtist,
   } = useAppStore();
 
   const menuRef = useRef<HTMLDivElement>(null);
   const isLiked = isTrackLiked(track.id);
   const isDisliked = isTrackDisliked(track.id);
+  const isSubscribed = favoriteArtists.some(
+    (a) => a.username.toLowerCase() === track.artist.toLowerCase()
+  );
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
 
   // Close on click outside
@@ -46,7 +50,7 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
 
   // Adjust position to stay within viewport
   const adjustedX = Math.min(x, window.innerWidth - 220);
-  const adjustedY = Math.min(y, window.innerHeight - 280);
+  const adjustedY = Math.min(y, window.innerHeight - 350);
 
   const handlePlay = () => {
     playTrack(track, [...queue, track]);
@@ -97,8 +101,33 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
     createPlaylist(name);
     // Get the newly created playlist id
     const state = useAppStore.getState();
- const newPl = state.playlists[state.playlists.length - 1];
+    const newPl = state.playlists[state.playlists.length - 1];
     if (newPl) addToPlaylist(newPl.id, track);
+    onClose();
+  };
+
+  const handleGoToArtist = () => {
+    setSelectedArtist({
+      name: track.artist,
+      avatar: track.cover || undefined,
+    });
+    onClose();
+  };
+
+  const handleToggleSubscribe = () => {
+    if (isSubscribed) {
+      const fav = favoriteArtists.find((a) => a.username.toLowerCase() === track.artist.toLowerCase());
+      if (fav) removeFavoriteArtist(fav.id);
+    } else {
+      addFavoriteArtist({
+        id: Date.now(),
+        username: track.artist,
+        avatar: track.cover || "",
+        genre: track.genre || "",
+        followers: 0,
+        trackCount: 0,
+      });
+    }
     onClose();
   };
 
@@ -162,6 +191,8 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
     { icon: ListMusic, label: "Добавить в плейлист", action: () => setShowPlaylistPicker(true), accent: false },
     { icon: Heart, label: isLiked ? "Убрать лайк" : "❤ Лайк", action: handleToggleLike, accent: isLiked },
     { icon: ThumbsDown, label: isDisliked ? "Убрать дизлайк" : "👎 Дизлайк", action: handleToggleDislike, accent: isDisliked },
+    { icon: User, label: "Перейти к артисту", action: handleGoToArtist, accent: false },
+    { icon: Users, label: isSubscribed ? "Отписаться" : "Подписаться", action: handleToggleSubscribe, accent: isSubscribed },
     { icon: Copy, label: "Копировать название", action: handleCopyTitle, accent: false },
     { icon: Download, label: "Скачать", action: async () => {
       const audio = getAudioElement();

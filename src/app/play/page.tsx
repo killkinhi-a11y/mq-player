@@ -184,6 +184,7 @@ function AppShell() {
             likedTracks: s.likedTrackIds,
             dislikedTracks: s.dislikedTrackIds,
             likedTracksData: s.likedTracksData,
+            dislikedTracksData: s.dislikedTracksData,
             settings: {
               volume: s.volume,
               compactMode: s.compactMode,
@@ -191,6 +192,8 @@ function AppShell() {
               animationsEnabled: s.animationsEnabled,
               liquidGlassEnabled: s.liquidGlassEnabled,
               liquidGlassMobile: s.liquidGlassMobile,
+              shuffle: s.shuffle,
+              repeat: s.repeat,
             },
           },
         };

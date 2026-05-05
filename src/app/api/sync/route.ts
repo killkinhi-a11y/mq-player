@@ -59,6 +59,7 @@ async function postHandler(req: NextRequest) {
       "likedTracks",
       "dislikedTracks",
       "likedTracksData",
+      "dislikedTracksData",
       "settings",
     ]);
 

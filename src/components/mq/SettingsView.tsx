@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download, Sun
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download, Sun, ThumbsDown
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
@@ -198,6 +198,7 @@ export default function SettingsView() {
     lastSyncAt, isSyncing, syncToServer, syncFromServer,
     favoriteArtists, removeFavoriteArtist, saveFavoriteArtistsToServer,
     dislikedTags, removeDislikedTag,
+    dislikedTrackIds, dislikedTracksData,
     currentStyle, setStyle, styleVariant, setStyleVariant,
     catEnabled, setCatEnabled, catFrequency, setCatFrequency, catMood, setCatMood, catSize, setCatSize, catPetCount,
   } = useAppStore();
@@ -1403,6 +1404,45 @@ export default function SettingsView() {
           Очистить кэш
         </motion.button>
       </motion.div>
+
+      {/* Clear disliked tracks */}
+      {dislikedTrackIds.length > 0 && (
+        <motion.div
+          initial={anim ? { opacity: 0, y: 20 } : undefined}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.28 }}
+          className="rounded-2xl p-4"
+          style={{ backgroundColor: "var(--mq-card)" }}
+        >
+          <div className="flex items-center gap-2 mb-3">
+            <ThumbsDown className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+            <h2 className="font-semibold" style={{ color: "var(--mq-text)" }}>Непонравившиеся треки</h2>
+            <span className="ml-auto text-sm font-mono" style={{ color: "var(--mq-accent)" }}>
+              {dislikedTrackIds.length}
+            </span>
+          </div>
+          <p className="text-xs mb-3" style={{ color: "var(--mq-text-muted)" }}>
+            Дизлайки помогают улучшать рекомендации. Сброс удалит все дизлайки и уменьшит точность подбора.
+          </p>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => {
+              useAppStore.setState({ dislikedTrackIds: [], dislikedTracksData: [] });
+              useAppStore.getState().scheduleSyncToServer();
+            }}
+            className="w-full py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5"
+            style={{
+              backgroundColor: "rgba(239,68,68,0.1)",
+              color: "#ef4444",
+              border: "1px solid rgba(239,68,68,0.2)",
+            }}
+          >
+            <Trash2 className="w-3 h-3" />
+            Очистить все дизлайки ({dislikedTrackIds.length})
+          </motion.button>
+        </motion.div>
+      )}
 
       {/* Font size */}
       <motion.div
