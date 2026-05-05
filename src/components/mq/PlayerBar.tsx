@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { initSpatialAudio, enableSpatialAudio, setMoodPreset, detectMoodFromTrack } from "@/lib/spatialAudio";
 import { formatDuration } from "@/lib/musicApi";
-import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade, replaceAudioElement, onAudioElementReplaced } from "@/lib/audioEngine";
+import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade, replaceAudioElement, connectElementToAudioGraph, onAudioElementReplaced } from "@/lib/audioEngine";
 import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
 import TrackCommentsPanel from "./TrackCommentsPanel";
@@ -262,14 +262,20 @@ async function setupManualEME(
         // Element has NO keys but setMediaKeys failed.
         // This is the Firefox EME + MediaElementAudioSourceNode conflict.
         // The element is "captured" by Web Audio and can't accept MediaKeys.
-        // Solution: replace the element with a fresh un-captured one.
+        // Solution: replace the element with a fresh un-captured one,
+        // set MediaKeys on it, THEN connect to Web Audio graph.
         console.warn("[ManualEME] setMediaKeys NotSupportedError — element is captured by MediaElementAudioSource (Firefox)");
         console.warn("[ManualEME] Replacing with fresh un-captured element via replaceAudioElement...");
         try {
           targetEl = replaceAudioElement(audioEl);
+          // CRITICAL: setMediaKeys BEFORE connectElementToAudioGraph.
+          // In Firefox, createMediaElementSource permanently blocks setMediaKeys.
           await targetEl.setMediaKeys(newMediaKeys);
           mediaKeys = newMediaKeys;
           console.log("[ManualEME] ★ setMediaKeys succeeded on fresh element ✓");
+          // NOW connect to Web Audio graph (after DRM keys are attached)
+          connectElementToAudioGraph(targetEl);
+          console.log("[ManualEME] ★ Element connected to Web Audio graph after MediaKeys ✓");
         } catch (replaceErr: any) {
           console.error("[ManualEME] Element replacement + setMediaKeys FAILED:", replaceErr?.name, replaceErr?.message);
           return null;

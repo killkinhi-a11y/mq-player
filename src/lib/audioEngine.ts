@@ -319,9 +319,10 @@ export function resetCorsState(): void {
 // NotSupportedError. This is because Firefox routes the element through the
 // Web Audio graph and the CDM can't intercept the encrypted data.
 //
-// The fix: replace the captured element with a fresh un-captured one,
-// set MediaKeys on the new element, then create a new MediaElementAudioSourceNode
-// from it and reconnect to the existing gain node.
+// The fix is a two-step process:
+//   1. replaceAudioElement() — creates a fresh element WITHOUT connecting to Web Audio
+//   2. setMediaKeys() — attaches DRM keys to the fresh un-captured element
+//   3. connectElementToAudioGraph() — THEN creates MediaElementAudioSourceNode
 //
 // Registered listener callbacks are invoked on the new element so that
 // PlayerBar can re-attach event listeners (timeupdate, ended, error, etc.).
@@ -337,16 +338,18 @@ export function onAudioElementReplaced(callback: (el: HTMLAudioElement) => void)
 }
 
 /**
- * Replace an audio element with a fresh one and reconnect to Web Audio graph.
+ * Replace an audio element with a fresh one WITHOUT connecting it to the
+ * Web Audio graph. The caller must call connectElementToAudioGraph() after
+ * setting MediaKeys on the returned element.
  *
- * Used when setMediaKeys() fails because the element is already captured
- * by MediaElementAudioSourceNode (Firefox EME limitation).
+ * In Firefox, createMediaElementSource() and setMediaKeys() are mutually
+ * exclusive on the same element — once captured, setMediaKeys() permanently
+ * throws NotSupportedError. So the order MUST be:
+ *   1. replaceAudioElement()  → fresh un-captured element
+ *   2. setMediaKeys()          → attach DRM keys
+ *   3. connectElementToAudioGraph() → THEN connect to Web Audio
  *
- * The old element is abandoned. A new element is created, MediaElementAudioSourceNode
- * is created from it and connected to the existing gain node in the same slot.
- * All registered listener callbacks are invoked on the new element.
- *
- * @returns The new audio element (with MediaElementAudioSourceNode connected to Web Audio)
+ * @returns The new audio element (NOT yet connected to Web Audio)
  */
 export function replaceAudioElement(oldElement: HTMLAudioElement): HTMLAudioElement {
   const slot: "A" | "B" | null =
@@ -358,7 +361,7 @@ export function replaceAudioElement(oldElement: HTMLAudioElement): HTMLAudioElem
     return oldElement;
   }
 
-  console.log("[AudioEngine] Replacing element in slot", slot, "(Firefox EME compatibility)");
+  console.log("[AudioEngine] Replacing element in slot", slot, "(Firefox EME compatibility — no Web Audio yet)");
 
   // Create a fresh audio element
   const newElement = createAudioElement();
@@ -369,18 +372,14 @@ export function replaceAudioElement(oldElement: HTMLAudioElement): HTMLAudioElem
     try { oldSource.disconnect(); } catch {}
   }
 
-  // Create new MediaElementAudioSourceNode from the new element
-  const newSource = _audioCtx.createMediaElementSource(newElement);
-  const gain = slot === "A" ? _gainA : _gainB;
-  if (gain) newSource.connect(gain);
-
-  // Update internal references
+  // Update internal references — but do NOT create MediaElementAudioSourceNode yet!
+  // setMediaKeys() must be called first (Firefox limitation).
   if (slot === "A") {
     _audioA = newElement;
-    _sourceA = newSource;
+    _sourceA = null; // will be created in connectElementToAudioGraph()
   } else {
     _audioB = newElement;
-    _sourceB = newSource;
+    _sourceB = null; // will be created in connectElementToAudioGraph()
   }
 
   // Re-attach registered listener callbacks on the new element
@@ -391,4 +390,43 @@ export function replaceAudioElement(oldElement: HTMLAudioElement): HTMLAudioElem
   }
 
   return newElement;
+}
+
+/**
+ * Connect an audio element to the Web Audio graph by creating a
+ * MediaElementAudioSourceNode and wiring it into the appropriate gain node.
+ *
+ * MUST be called AFTER setMediaKeys() when dealing with encrypted content
+ * (Firefox requires setMediaKeys before createMediaElementSource).
+ *
+ * For non-encrypted content, this is automatically done during initAudioEngine().
+ */
+export function connectElementToAudioGraph(element: HTMLAudioElement): void {
+  const slot: "A" | "B" | null =
+    _audioA === element ? "A" :
+    _audioB === element ? "B" : null;
+
+  if (!slot || !_audioCtx || !_analyser) {
+    console.warn("[AudioEngine] connectElementToAudioGraph: engine not initialized or element not in a slot");
+    return;
+  }
+
+  // Already connected?
+  const existingSource = slot === "A" ? _sourceA : _sourceB;
+  if (existingSource) {
+    console.log("[AudioEngine] connectElementToAudioGraph: element already connected in slot", slot);
+    return;
+  }
+
+  console.log("[AudioEngine] Connecting element in slot", slot, "to Web Audio graph");
+
+  const newSource = _audioCtx.createMediaElementSource(element);
+  const gain = slot === "A" ? _gainA : _gainB;
+  if (gain) newSource.connect(gain);
+
+  if (slot === "A") {
+    _sourceA = newSource;
+  } else {
+    _sourceB = newSource;
+  }
 }
