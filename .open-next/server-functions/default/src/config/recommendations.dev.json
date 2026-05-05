@@ -1,0 +1,120 @@
+{
+  "phases": {
+    "relatedApi": {
+      "weight": 0.6,
+      "maxLikedTracks": 5,
+      "maxHistoryTracks": 3,
+      "cacheTtl": 360000
+    },
+    "artistSearch": {
+      "weight": 0.25,
+      "maxArtists": 3,
+      "maxQueriesPerArtist": 2
+    },
+    "genreFallback": {
+      "weight": 0.15,
+      "minLikedForSkip": 3,
+      "minHistoryForSkip": 5
+    },
+    "bridgeGenres": {
+      "maxFirstHop": 4,
+      "maxSecondHop": 2
+    }
+  },
+  "scoring": {
+    "relatedLiked": 100,
+    "relatedHistory": 70,
+    "artistExact": 50,
+    "artistPartial": 40,
+    "genreExact": 30,
+    "genrePartial": 20,
+    "languageMatch": 25,
+    "playability": 20,
+    "coverArt": 15,
+    "noisePenalty": 100,
+    "hashtagMismatchPenalty": 50,
+    "skipGenrePenalty": 60,
+    "completedGenreBonus": 15,
+    "serendipityBonus": 0,
+    "serendipityThreshold": 0,
+    "maxJitter": 8,
+    "highConfidenceJitter": 0
+  },
+  "feedback": {
+    "timeDecayHalfLife": 720,
+    "minSignalsForBoost": 2,
+    "laplaceSmoothing": false
+  },
+  "radio": {
+    "relatedCurrent": 150,
+    "relatedHistory": 80,
+    "sameArtist": 60,
+    "historyArtist": 40,
+    "genreMatch": 30,
+    "energyClose": 25,
+    "energyCloseRange": 0.2,
+    "energyShiftRange": 0.4,
+    "energyFarPenalty": 15,
+    "energyFarThreshold": 0.5,
+    "energyFlowUp": 0,
+    "energyFlowDown": 0,
+    "energyStable": 0,
+    "languageMatch": 20,
+    "playability": 30,
+    "coverArt": 15,
+    "skippedArtistPenalty": 80,
+    "skippedGenrePenalty": 50,
+    "noisePenalty": 200,
+    "momentumSkipThreshold": 0,
+    "momentumPenalty": 0,
+    "targetMin": 10,
+    "targetMax": 12,
+    "closeBucketMax": 4,
+    "shiftBucketMax": 3,
+    "wildcardBucketMax": 3
+  },
+  "trending": {
+    "categoryWeights": {
+      "charts": 1.3,
+      "rising": 1.1,
+      "social": 1.0,
+      "genres": 0.8
+    },
+    "crossQueryBonus": 120,
+    "fullPlayableBonus": 400,
+    "previewPenalty": 100,
+    "optimalDurationMin": 120,
+    "optimalDurationMax": 360,
+    "optimalDurationBonus": 80,
+    "sweetSpotBonus": 30,
+    "sweetSpotMin": 180,
+    "sweetSpotMax": 240,
+    "coverBonus": 50,
+    "shortClipPenalty": 200,
+    "shortClipThreshold": 30,
+    "freshnessBonus7d": 25,
+    "freshnessBonus30d": 0,
+    "maxArtistDefault": 2,
+    "maxArtistTop": 3,
+    "topScoredLimit": 20,
+    "uniqueArtistsLimit": 40,
+    "targetTracks": 50
+  },
+  "curated": {
+    "trackLimit": 50,
+    "maxArtistsPerPlaylist": 2,
+    "artistDiversityRelaxation": [3, 4, 5, 10],
+    "cacheTtl": 300000,
+    "minTracksForPlaylist": 3,
+    "qualityMinDuration": 30
+  },
+  "diversity": {
+    "maxPerArtist": 3,
+    "explorationRate": 0
+  },
+  "coldStart": {
+    "minLikedForFullMode": 3,
+    "minHistoryForFullMode": 5,
+    "explorationBoost": 0
+  }
+}

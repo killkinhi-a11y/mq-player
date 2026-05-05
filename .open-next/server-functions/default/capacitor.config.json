@@ -1,0 +1,21 @@
+{
+  "appId": "com.mq.player",
+  "appName": "MQ Player",
+  "webDir": "out",
+  "server": {
+    "url": "https://mq1.vercel.app",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#0e0e0e"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "backgroundColor": "#0e0e0e",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP"
+    }
+  }
+}
