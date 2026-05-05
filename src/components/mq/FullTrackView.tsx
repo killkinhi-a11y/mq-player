@@ -1239,7 +1239,10 @@ export default function FullTrackView() {
           )}
         </div>
 
-        {/* Canvas visualization replaces album art (not background) */}
+        {/* Canvas visualization (full-screen background) */}
+        {canvasMode && (
+          <TrackCanvas isActive={canvasMode} isPlaying={isPlaying} currentStyle={currentStyle} styleVariant={styleVariant} />
+        )}
 
         {/* Header — simplified: back + badge + more */}
         <div className="relative z-10 flex items-center justify-between p-4">
@@ -1359,36 +1362,33 @@ export default function FullTrackView() {
 
         {/* Content */}
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 max-w-lg mx-auto w-full">
-          {/* Album art / Canvas visualization area */}
-          <motion.div
-            initial={animationsEnabled ? { scale: 0.8, opacity: 0 } : undefined}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 200 }}
-            className="mb-3 sm:mb-5 flex items-center justify-center"
-          >
-            <div
-              className="w-36 h-36 sm:w-52 sm:h-52 lg:w-72 lg:h-72 rounded-2xl overflow-hidden shadow-2xl relative z-10"
-              style={{ boxShadow: canvasMode
-                ? "0 0 40px rgba(var(--mq-accent-rgb, 224,49,49), 0.3), 0 20px 60px rgba(0,0,0,0.5)"
-                : "0 20px 60px rgba(0,0,0,0.5)"
-              }}
+          {/* Album art — hidden when canvas mode is active */}
+          {!canvasMode && (
+            <motion.div
+              initial={animationsEnabled ? { scale: 0.8, opacity: 0 } : undefined}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 200 }}
+              className="mb-3 sm:mb-5 flex items-center justify-center"
             >
-              {canvasMode ? (
-                <TrackCanvas isActive={canvasMode} isPlaying={isPlaying} currentStyle={currentStyle} styleVariant={styleVariant} />
-              ) : currentPlaylistId ? (
-                <PlaylistArtwork
-                  playlistId={currentPlaylistId}
-                  size={320}
-                  rounded="rounded-none"
-                  className="!w-full !h-full"
-                  animated={true}
-                  isPlaying={isPlaying}
-                />
-              ) : (
-                <img src={currentTrack.cover} alt={currentTrack.album} className="w-full h-full object-cover" />
-              )}
-            </div>
-          </motion.div>
+              <div className="w-36 h-36 sm:w-52 sm:h-52 lg:w-72 lg:h-72 rounded-2xl overflow-hidden shadow-2xl relative z-10"
+                style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
+                {currentPlaylistId ? (
+                  <PlaylistArtwork
+                    playlistId={currentPlaylistId}
+                    size={320}
+                    rounded="rounded-none"
+                    className="!w-full !h-full"
+                    animated={true}
+                    isPlaying={isPlaying}
+                  />
+                ) : (
+                  <img src={currentTrack.cover} alt={currentTrack.album} className="w-full h-full object-cover" />
+                )}
+              </div>
+            </motion.div>
+          )}
+          {/* Invisible spacer to keep layout stable when canvas hides album art */}
+          {canvasMode && <div className="mb-8" style={{ height: "clamp(14rem, 40vh, 20rem)" }} />}
 
           {/* Track info — always visible, never truncated on important info */}
           <div className="text-center mb-2 sm:mb-4 w-full px-2">
@@ -1479,76 +1479,7 @@ export default function FullTrackView() {
             </motion.button>
           </div>
 
-          {/* Desktop-only secondary actions */}
-          <div className="hidden sm:flex items-center justify-center gap-2 mb-2">
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: showSimilar ? "var(--mq-accent)" : "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: showSimilar ? "var(--mq-text)" : "var(--mq-text-muted)",
-              }}>
-              <ListMusic className="w-[18px] h-[18px]" />
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: showLyrics ? "var(--mq-accent)" : "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: showLyrics ? "var(--mq-text)" : "var(--mq-text-muted)",
-              }}>
-              <FileText className="w-[18px] h-[18px]" />
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowComments(!showComments); setShowSimilar(false); setShowLyrics(false); setShowDNA(false); }}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: showComments ? "var(--mq-accent)" : "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: showComments ? "var(--mq-text)" : "var(--mq-text-muted)",
-              }}>
-              <MessageSquare className="w-[18px] h-[18px]" />
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowDNA(!showDNA); setShowSimilar(false); setShowLyrics(false); setShowComments(false); }}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: showDNA ? "var(--mq-accent)" : "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: showDNA ? "var(--mq-text)" : "var(--mq-text-muted)",
-              }}>
-              <Dna className="w-[18px] h-[18px]" />
-            </motion.button>
-            <motion.button whileTap={{ scale: 0.85 }} onClick={() => setCanvasMode(!canvasMode)}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: canvasMode ? "var(--mq-accent)" : "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: canvasMode ? "var(--mq-text)" : "var(--mq-text-muted)",
-              }}>
-              <Sparkles className="w-[18px] h-[18px]" />
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.85 }}
-              onClick={() => toggleRadioMode()}
-              title={radioMode ? "Выключить волну" : "Волна"}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: radioMode ? "var(--mq-accent)" : "var(--mq-card)",
-                border: radioMode ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
-                color: radioMode ? "var(--mq-text)" : "var(--mq-text-muted)",
-              }}
-            >
-              <Waves className="w-[18px] h-[18px]" />
-            </motion.button>
-            <button onClick={() => setVolume(volume > 0 ? 0 : 70)}
-              className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
-              style={{
-                backgroundColor: "var(--mq-card)",
-                border: "1px solid var(--mq-border)",
-                color: "var(--mq-text-muted)",
-              }}>
-              {volume === 0 ? <VolumeX className="w-[18px] h-[18px]" /> : <Volume2 className="w-[18px] h-[18px]" />}
-            </button>
-          </div>
+          {/* Desktop-only secondary actions — removed, accessible via header more menu */}
 
           {/* Sleep Timer Popover — rendered outside desktop-only section so it works on mobile too */}
           <SleepTimerPopover
