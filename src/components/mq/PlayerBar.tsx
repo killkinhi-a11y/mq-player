@@ -227,18 +227,69 @@ async function setupManualEME(
       return false;
     }
 
-    // Step 3: Create media keys
+    // Step 3: Create media keys (or reuse existing ones on the element)
     console.log("[ManualEME] Creating MediaKeys...");
-    const mediaKeys = await keySystemAccess.createMediaKeys();
+    let mediaKeys = await keySystemAccess.createMediaKeys();
     console.log("[ManualEME] MediaKeys created successfully");
 
     // Step 4: Set media keys on audio element
-    await audioEl.setMediaKeys(mediaKeys);
-    console.log("[ManualEME] MediaKeys set on audio element ✓");
+    // IMPORTANT: The audio element is shared across tracks (dual-element crossfade).
+    // If this element already has MediaKeys from a previous encrypted track,
+    // setMediaKeys() will throw NotSupportedError. We handle this gracefully.
+    try {
+      // Check if element already has mediaKeys set
+      const existingKeys = audioEl.mediaKeys;
+      if (existingKeys) {
+        console.log("[ManualEME] Audio element already has MediaKeys set — reusing existing keys");
+        // If the existing keys support our key system, reuse them.
+        // createMediaKeys() is cheap — we discard the new one.
+        mediaKeys = existingKeys;
+      } else {
+        await audioEl.setMediaKeys(mediaKeys);
+        console.log("[ManualEME] MediaKeys set on audio element ✓");
+      }
+    } catch (e: any) {
+      if (e?.name === "NotSupportedError" && audioEl.mediaKeys) {
+        // Element already has keys from a previous track — reuse them
+        console.warn("[ManualEME] setMediaKeys threw NotSupportedError, but element already has keys — reusing");
+        mediaKeys = audioEl.mediaKeys;
+      } else if (e?.name === "NotSupportedError") {
+        console.error("[ManualEME] setMediaKeys threw NotSupportedError and element has NO keys.");
+        console.error("[ManualEME] This may indicate the audio element is in an incompatible state.");
+        console.error("[ManualEME] Trying to clear element state and retry...");
+        try {
+          // Clear the element's src to reset its state, then retry setMediaKeys
+          audioEl.removeAttribute("src");
+          audioEl.load();
+          await audioEl.setMediaKeys(mediaKeys);
+          console.log("[ManualEME] setMediaKeys succeeded after clearing element state ✓");
+        } catch (retryErr: any) {
+          console.error("[ManualEME] setMediaKeys retry also FAILED:", retryErr?.name, retryErr?.message);
+          return false;
+        }
+      } else {
+        console.error("[ManualEME] setMediaKeys FAILED:", e?.name, e?.message);
+        return false;
+      }
+    }
 
     // Step 5: Listen for 'encrypted' event — fired when SourceBuffer receives encrypted data
+    // IMPORTANT: Remove previous encrypted listener if any (element is shared across tracks).
+    // Without cleanup, each call stacks a new listener → duplicate license requests.
+    const prevEncryptedHandler = (audioEl as any)._emeEncryptedHandler;
+    if (prevEncryptedHandler) {
+      audioEl.removeEventListener("encrypted", prevEncryptedHandler);
+      (audioEl as any)._emeEncryptedHandler = null;
+    }
+    // Also clear previous PSSH fallback timeout
+    const prevPsshTimeout = (audioEl as any)._emePsshTimeout;
+    if (prevPsshTimeout) {
+      clearTimeout(prevPsshTimeout);
+      (audioEl as any)._emePsshTimeout = null;
+    }
+
     let emeDone = false;
-    audioEl.addEventListener("encrypted", async (event: MediaEncryptedEvent) => {
+    const encryptedHandler = async (event: MediaEncryptedEvent) => {
       if (emeDone) return; // prevent double-processing
       emeDone = true;
 
@@ -322,12 +373,14 @@ async function setupManualEME(
           }
         });
       });
-    });
+    };
+    audioEl.addEventListener("encrypted", encryptedHandler);
+    (audioEl as any)._emeEncryptedHandler = encryptedHandler; // store for cleanup on next call
 
     // Step 12: Fallback — if 'encrypted' event doesn't fire within 5s,
     // try manually triggering with a constructed PSSH from manifest KEYID.
     // This handles cases where the SourceBuffer doesn't fire 'encrypted' for HLS SAMPLE-AES-CTR.
-    setTimeout(async () => {
+    const psshTimeout = setTimeout(async () => {
       if (emeDone) return; // already handled via encrypted event
       console.warn("[ManualEME] 'encrypted' event did NOT fire within 5s — trying PSSH fallback from manifest KEYID");
 
@@ -381,6 +434,7 @@ async function setupManualEME(
         });
       });
     }, 5000);
+    (audioEl as any)._emePsshTimeout = psshTimeout; // store for cleanup on next call
 
     console.log("[ManualEME] Setup complete — waiting for 'encrypted' event from media element");
     return true;
