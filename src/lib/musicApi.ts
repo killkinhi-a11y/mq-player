@@ -8,13 +8,11 @@ export interface Track {
   genre: string;
   audioUrl: string;
   previewUrl?: string;
-  source: "soundcloud" | "local" | "spotify";
+  source: "soundcloud" | "local";
   scTrackId?: number;
   scStreamPolicy?: string;
   scIsFull?: boolean;
-  spotifyTrackId?: string;
-  spotifyArtistId?: string;
-  spotifyAlbumId?: string;
+
 }
 
 export interface Playlist {
@@ -125,7 +123,7 @@ export function formatDuration(seconds: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-export async function searchTracks(query: string, source: "soundcloud" | "spotify" | "all" = "all"): Promise<Track[]> {
+export async function searchTracks(query: string, source: "soundcloud" | "all" = "all"): Promise<Track[]> {
   try {
     const params = new URLSearchParams({ q: query });
     if (source !== "all") params.set("source", source);

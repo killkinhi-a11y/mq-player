@@ -22,7 +22,7 @@ interface CuratedPlaylist {
   tracks: Track[];
 }
 
-// ── Spotify-style horizontal recommendation row ──
+// ── Horizontal recommendation row ──
 const ICON_MAP: Record<string, React.ReactNode> = {
   Sparkles: <Sparkles className="w-4 h-4" />,
   Mic2: <Mic2 className="w-4 h-4" />,
@@ -1962,7 +1962,7 @@ export default function MainView() {
       )}
       </ScrollReveal>
 
-      {/* Smart Recommendations — Categorized Rows (Spotify-style) */}
+      {/* Smart Recommendations — Categorized Rows */}
       <ScrollReveal direction="up" delay={0.4}>
       {!isRecLoading && recCategories.length > 0 ? (
         recCategories.slice(0, 4).map((cat, catIdx) => (

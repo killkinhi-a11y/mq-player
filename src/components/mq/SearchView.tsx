@@ -8,7 +8,7 @@ import TrackCard from "./TrackCard";
 import ScrollReveal from "./ScrollReveal";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, X, SlidersHorizontal, Music, Play, Upload, Clock, Trash2, CheckCircle2, AlertCircle, Loader2, Disc3, UserCircle, Headphones } from "lucide-react";
+import { Search, X, SlidersHorizontal, Music, Play, Upload, Clock, Trash2, CheckCircle2, AlertCircle, Loader2, Headphones } from "lucide-react";
 
 const SEARCH_HISTORY_KEY = "mq-search-history";
 const MAX_HISTORY = 15;
@@ -35,31 +35,10 @@ function saveSearchHistory(items: string[]) {
   try { localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(items.slice(0, MAX_HISTORY))); } catch {}
 }
 
-/* ── Spotify types (inline to avoid import issues) ── */
-interface SpArtist { id: string; name: string; avatar: string; followers: number; genres: string[]; popularity: number; }
-interface SpAlbum { id: string; name: string; artist: string; artistId: string; cover: string; releaseDate: string; totalTracks: number; type: string; }
-
-type SearchSource = "all" | "soundcloud" | "spotify";
-
-const SOURCE_LABELS: Record<SearchSource, string> = {
-  all: "Все",
-  soundcloud: "SoundCloud",
-  spotify: "Spotify",
-};
-
-const SOURCE_ICONS: Record<SearchSource, typeof Headphones> = {
-  all: Headphones,
-  soundcloud: Music,
-  spotify: Disc3,
-};
-
 export default function SearchView() {
   const { searchQuery, setSearchQuery, selectedGenre, setSelectedGenre, animationsEnabled, playTrack, toggleLike, currentView, compactMode, setSelectedArtist, setView } = useAppStore();
   const [showFilters, setShowFilters] = useState(false);
-  const [searchSource, setSearchSource] = useState<SearchSource>("all");
   const [searchResults, setSearchResults] = useState<Track[]>([]);
-  const [spArtists, setSpArtists] = useState<SpArtist[]>([]);
-  const [spAlbums, setSpAlbums] = useState<SpAlbum[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -69,14 +48,6 @@ export default function SearchView() {
     successCount: number; failCount: number; fileProgress: number;
   } | null>(null);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const [selectedSpArtist, setSelectedSpArtist] = useState<SpArtist | null>(null);
-  const [artistDetail, setArtistDetail] = useState<{
-    artist: SpArtist | null;
-    topTracks: Track[];
-    albums: SpAlbum[];
-    relatedArtists: SpArtist[];
-  } | null>(null);
-  const [artistLoading, setArtistLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -97,8 +68,6 @@ export default function SearchView() {
       setSearchQuery("");
       setSearchResults([]);
       setHasSearched(false);
-      setSpArtists([]);
-      setSpAlbums([]);
     }
   }, [currentView, setSearchQuery]);
 
@@ -109,8 +78,6 @@ export default function SearchView() {
       if (!selectedGenre) {
         setSearchResults([]);
         setHasSearched(false);
-        setSpArtists([]);
-        setSpAlbums([]);
       }
       return;
     }
@@ -123,13 +90,10 @@ export default function SearchView() {
 
       try {
         const params = new URLSearchParams({ q: searchQuery.trim() });
-        if (searchSource !== "all") params.set("source", searchSource);
         const res = await fetch(`/api/music/search?${params}`, { signal: controller.signal });
         if (!controller.signal.aborted) {
           const data = await res.json();
           setSearchResults(data.tracks || []);
-          setSpArtists(data.artists || []);
-          setSpAlbums(data.albums || []);
           const query = searchQuery.trim();
           if (query) {
             const updated = [query, ...getSearchHistory().filter(h => h.toLowerCase() !== query.toLowerCase())].slice(0, MAX_HISTORY);
@@ -140,8 +104,6 @@ export default function SearchView() {
       } catch {
         if (!controller.signal.aborted) {
           setSearchResults([]);
-          setSpArtists([]);
-          setSpAlbums([]);
         }
       } finally {
         if (!controller.signal.aborted) setIsLoading(false);
@@ -149,7 +111,7 @@ export default function SearchView() {
     }, 300);
 
     return () => { clearTimeout(timer); if (abortRef.current) abortRef.current.abort(); };
-  }, [searchQuery, searchSource, selectedGenre]);
+  }, [searchQuery, selectedGenre]);
 
   // Genre filter
   useEffect(() => {
@@ -167,31 +129,10 @@ export default function SearchView() {
     return () => controller.abort();
   }, [selectedGenre]);
 
-  // Fetch artist detail when a Spotify artist is selected
-  useEffect(() => {
-    if (!selectedSpArtist) { setArtistDetail(null); return; }
-    setArtistLoading(true);
-    fetch(`/api/spotify/artist/${selectedSpArtist.id}`)
-      .then(r => r.json())
-      .then(data => {
-        setArtistDetail({
-          artist: data.artist,
-          topTracks: data.topTracks || [],
-          albums: data.albums || [],
-          relatedArtists: data.relatedArtists || [],
-        });
-      })
-      .catch(() => setArtistDetail(null))
-      .finally(() => setArtistLoading(false));
-  }, [selectedSpArtist]);
-
   const handleClearSearch = useCallback(() => {
     setSearchQuery("");
     setSearchResults([]);
     setHasSearched(false);
-    setSpArtists([]);
-    setSpAlbums([]);
-    setSelectedSpArtist(null);
   }, [setSearchQuery]);
 
   const handleHistoryClick = useCallback((query: string) => {
@@ -208,32 +149,6 @@ export default function SearchView() {
     const tracksToPlay = searchResults.length > 0 ? searchResults : genreTracks;
     if (tracksToPlay.length > 0) playTrack(tracksToPlay[0], tracksToPlay);
   }, [searchResults, genreTracks, playTrack]);
-
-  const handleArtistClick = useCallback(async (artist: SpArtist) => {
-    setSelectedSpArtist(artist);
-  }, []);
-
-  const handleAlbumClick = useCallback(async (album: SpAlbum) => {
-    try {
-      const res = await fetch(`/api/spotify/album/${album.id}`);
-      if (res.ok) {
-        const data = await res.json();
-        const tracks: Track[] = data.tracks || [];
-        if (tracks.length > 0) {
-          playTrack(tracks[0], tracks);
-        }
-      }
-    } catch {}
-  }, [playTrack]);
-
-  const handlePlayArtistTopTrack = useCallback((track: Track) => {
-    const st = artistDetail;
-    if (st) playTrack(track, st.topTracks);
-  }, [artistDetail, playTrack]);
-
-  const handleBackFromArtist = useCallback(() => {
-    setSelectedSpArtist(null);
-  }, []);
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -291,123 +206,6 @@ export default function SearchView() {
   const activeTracks = selectedGenre ? genreTracks : searchResults;
   const activeLoading = selectedGenre ? isGenreLoading : isLoading;
   const activeHasSearched = selectedGenre || hasSearched;
-
-  const formatFollowers = (n: number) => {
-    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-    if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-    return String(n);
-  };
-
-  // ── Artist Detail View ──
-  if (selectedSpArtist) {
-    if (artistLoading) {
-      return (
-        <div className="p-4 sm:p-6 pb-32 max-w-4xl mx-auto space-y-4">
-          <div className="flex items-center gap-4 p-4 rounded-2xl" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
-            <Skeleton className="w-20 h-20 rounded-full" />
-            <div className="flex-1 space-y-2">
-              <Skeleton className="h-6 w-48" />
-              <Skeleton className="h-4 w-32" />
-            </div>
-          </div>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 rounded-xl" style={{ backgroundColor: "var(--mq-card)" }} />
-          ))}
-        </div>
-      );
-    }
-
-    return (
-      <div className="p-3 sm:p-4 lg:p-6 pb-36 max-w-4xl mx-auto space-y-5">
-        {/* Back button */}
-        <motion.button whileTap={{ scale: 0.95 }} onClick={handleBackFromArtist}
-          className="flex items-center gap-2 text-sm font-medium px-3 py-2 rounded-xl"
-          style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border)" }}>
-          <X className="w-4 h-4" /> Назад к поиску
-        </motion.button>
-
-        {artistDetail && (
-          <>
-            {/* Artist header */}
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-4 p-4 rounded-2xl"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden flex-shrink-0 shadow-lg">
-                <img src={artistDetail.artist?.avatar || selectedSpArtist.avatar} alt={selectedSpArtist.name} className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-xl sm:text-2xl font-bold truncate" style={{ color: "var(--mq-text)" }}>{selectedSpArtist.name}</h1>
-                <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
-                  {artistDetail.artist?.followers ? `${formatFollowers(artistDetail.artist.followers)} подписчиков` : ""}
-                </p>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {(artistDetail.artist?.genres || []).slice(0, 4).map(g => (
-                    <span key={g} className="px-2 py-0.5 rounded-full text-[10px] font-medium"
-                      style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", opacity: 0.85 }}>{g}</span>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Top Tracks */}
-            {artistDetail.topTracks.length > 0 && (
-              <div>
-                <h2 className="text-base font-bold mb-2" style={{ color: "var(--mq-text)" }}>Популярные треки</h2>
-                <div className="space-y-1.5">
-                  {artistDetail.topTracks.slice(0, 10).map((track, i) => (
-                    <TrackCard key={track.id} track={track} index={i} queue={artistDetail.topTracks} />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Albums */}
-            {artistDetail.albums.length > 0 && (
-              <div>
-                <h2 className="text-base font-bold mb-2" style={{ color: "var(--mq-text)" }}>Альбомы</h2>
-                <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
-                  {artistDetail.albums.slice(0, 10).map(album => (
-                    <motion.div key={album.id} whileTap={{ scale: 0.95 }} onClick={() => handleAlbumClick(album)}
-                      className="flex-shrink-0 w-36 sm:w-40 cursor-pointer group" style={{ color: "var(--mq-text)" }}>
-                      <div className="relative aspect-square rounded-xl overflow-hidden mb-2" style={{ backgroundColor: "var(--mq-card)" }}>
-                        <img src={album.cover} alt={album.name} className="w-full h-full object-cover" loading="lazy" />
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                          <Play className="w-8 h-8" style={{ color: "#fff" }} />
-                        </div>
-                      </div>
-                      <p className="text-xs font-medium truncate">{album.name}</p>
-                      <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>
-                        {album.releaseDate ? new Date(album.releaseDate).getFullYear() : ""} &middot; {album.type === "single" ? "Сингл" : album.type === "compilation" ? "Сборник" : "Альбом"}
-                      </p>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Related Artists */}
-            {artistDetail.relatedArtists.length > 0 && (
-              <div>
-                <h2 className="text-base font-bold mb-2" style={{ color: "var(--mq-text)" }}>Похожие артисты</h2>
-                <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
-                  {artistDetail.relatedArtists.slice(0, 10).map(artist => (
-                    <motion.div key={artist.id} whileTap={{ scale: 0.95 }} onClick={() => handleArtistClick(artist)}
-                      className="flex-shrink-0 w-28 sm:w-32 cursor-pointer text-center">
-                      <div className="aspect-square rounded-full overflow-hidden mb-1.5 mx-auto" style={{ backgroundColor: "var(--mq-card)", width: 96, height: 96 }}>
-                        <img src={artist.avatar} alt={artist.name} className="w-full h-full object-cover" loading="lazy" />
-                      </div>
-                      <p className="text-xs font-medium truncate">{artist.name}</p>
-                      <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{artist.genres[0] || ""}</p>
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    );
-  }
 
   // ── Main Search View ──
   return (
@@ -468,27 +266,10 @@ export default function SearchView() {
         <input ref={fileInputRef} type="file" accept="audio/*" multiple onChange={handleFileUpload} className="hidden" />
       </motion.div>
 
-      {/* Source toggle + Genre filters */}
+      {/* Genre filters */}
       {showFilters && (
         <ScrollReveal direction="up" delay={0.05}>
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="space-y-3">
-            {/* Source toggle */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>Источник:</span>
-              <div className="flex gap-1.5">
-                {(Object.keys(SOURCE_LABELS) as SearchSource[]).map(src => {
-                  const Icon = SOURCE_ICONS[src];
-                  return (
-                    <motion.button key={src} whileTap={{ scale: 0.95 }} onClick={() => setSearchSource(src)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium min-h-[32px]"
-                      style={{ backgroundColor: searchSource === src ? "var(--mq-accent)" : "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border)" }}>
-                      <Icon className="w-3 h-3" />
-                      {SOURCE_LABELS[src]}
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </div>
             {/* Genre pills */}
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setSelectedGenre("")} className="px-3 py-1.5 rounded-full text-xs font-medium min-h-[32px]"
@@ -504,10 +285,9 @@ export default function SearchView() {
       )}
 
       {/* Source indicator */}
-      {activeHasSearched && !activeLoading && (searchSource !== "all" || spArtists.length > 0 || spAlbums.length > 0) && (
+      {activeHasSearched && !activeLoading && (
         <div className="flex items-center gap-2 text-xs" style={{ color: "var(--mq-text-muted)" }}>
-          {(searchSource === "all" || searchSource === "spotify") && <Disc3 className="w-3 h-3" style={{ color: "#1DB954" }} />}
-          <span>{searchSource === "all" ? "SoundCloud + Spotify" : SOURCE_LABELS[searchSource]}</span>
+          <span>SoundCloud</span>
         </div>
       )}
 
@@ -526,56 +306,6 @@ export default function SearchView() {
                 <motion.button key={query} whileTap={{ scale: 0.95 }} onClick={() => handleHistoryClick(query)}
                   className="px-3 py-1.5 rounded-full text-xs font-medium"
                   style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border)" }}>{query}</motion.button>
-              ))}
-            </div>
-          </div>
-        </ScrollReveal>
-      )}
-
-      {/* Spotify Artists */}
-      {!activeLoading && spArtists.length > 0 && !selectedGenre && (
-        <ScrollReveal direction="up" delay={0.06}>
-          <div>
-            <h2 className="text-base font-bold mb-2 flex items-center gap-2" style={{ color: "var(--mq-text)" }}>
-              <UserCircle className="w-4 h-4" style={{ color: "#1DB954" }} /> Артисты
-            </h2>
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
-              {spArtists.slice(0, 10).map(artist => (
-                <motion.div key={artist.id} whileTap={{ scale: 0.95 }} onClick={() => handleArtistClick(artist)}
-                  className="flex-shrink-0 w-28 sm:w-32 cursor-pointer text-center group">
-                  <div className="aspect-square rounded-full overflow-hidden mb-1.5 mx-auto shadow-lg group-hover:shadow-xl transition-shadow"
-                    style={{ backgroundColor: "var(--mq-card)", width: 96, height: 96 }}>
-                    <img src={artist.avatar} alt={artist.name} className="w-full h-full object-cover" loading="lazy" />
-                  </div>
-                  <p className="text-xs font-medium truncate">{artist.name}</p>
-                  <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{artist.genres[0] || ""}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </ScrollReveal>
-      )}
-
-      {/* Spotify Albums */}
-      {!activeLoading && spAlbums.length > 0 && !selectedGenre && (
-        <ScrollReveal direction="up" delay={0.08}>
-          <div>
-            <h2 className="text-base font-bold mb-2 flex items-center gap-2" style={{ color: "var(--mq-text)" }}>
-              <Disc3 className="w-4 h-4" style={{ color: "#1DB954" }} /> Альбомы и плейлисты
-            </h2>
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: "none" }}>
-              {spAlbums.slice(0, 10).map(album => (
-                <motion.div key={album.id} whileTap={{ scale: 0.95 }} onClick={() => handleAlbumClick(album)}
-                  className="flex-shrink-0 w-36 sm:w-40 cursor-pointer group" style={{ color: "var(--mq-text)" }}>
-                  <div className="relative aspect-square rounded-xl overflow-hidden mb-2 shadow-lg group-hover:shadow-xl transition-shadow" style={{ backgroundColor: "var(--mq-card)" }}>
-                    <img src={album.cover} alt={album.name} className="w-full h-full object-cover" loading="lazy" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <Play className="w-8 h-8" style={{ color: "#fff" }} />
-                    </div>
-                  </div>
-                  <p className="text-xs font-medium truncate">{album.name}</p>
-                  <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{album.artist}</p>
-                </motion.div>
               ))}
             </div>
           </div>
@@ -612,12 +342,12 @@ export default function SearchView() {
       )}
 
       {/* Empty state */}
-      {!activeLoading && activeHasSearched && activeTracks.length === 0 && spArtists.length === 0 && spAlbums.length === 0 && (
+      {!activeLoading && activeHasSearched && activeTracks.length === 0 && (
         <div className="text-center py-12">
           <Search className="w-12 h-12 mx-auto mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
           <p style={{ color: "var(--mq-text-muted)" }}>Ничего не найдено</p>
           <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
-            Попробуйте изменить запрос или переключить источник
+            Попробуйте изменить запрос
           </p>
         </div>
       )}
@@ -637,15 +367,6 @@ export default function SearchView() {
             </div>
           </div>
         </ScrollReveal>
-      )}
-
-      {/* Spotify playback notice */}
-      {!activeLoading && activeTracks.some(t => t.source === "spotify") && (
-        <div className="text-center py-2">
-          <p className="text-[10px]" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
-            Spotify треки воспроизводятся через YouTube Music — полное воспроизведение без Premium
-          </p>
-        </div>
       )}
 
       {/* Default state */}

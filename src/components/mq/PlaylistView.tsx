@@ -971,7 +971,7 @@ export default function PlaylistView() {
             ) : (
               <>
                 <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-                  Вставьте ссылку на плейлист (VK, Яндекс.Музыка, Spotify, YouTube, Apple Music, SoundCloud):
+                  Вставьте ссылку на плейлист (VK, Яндекс.Музыка, YouTube, Apple Music, SoundCloud):
                 </p>
                 <div className="flex gap-2">
                   <input
@@ -979,7 +979,7 @@ export default function PlaylistView() {
                     type="url"
                     value={importUrl}
                     onChange={(e) => { setImportUrl(e.target.value); setImportError(""); setImportHint(""); }}
-                    placeholder="https://open.spotify.com/playlist/..."
+                    placeholder="https://music.youtube.com/playlist/..."
                     className="flex-1 rounded-lg px-3 py-2 text-sm"
                     style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !importing && importUrl.trim()) triggerUrlImport(); }}
@@ -1037,7 +1037,7 @@ export default function PlaylistView() {
                   </div>
                 )}
                 <p className="text-[10px]" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
-                  Поддержка: VK, Яндекс.Музыка, Spotify, YouTube Music, Apple Music, SoundCloud
+                  Поддержка: VK, Яндекс.Музыка, YouTube Music, Apple Music, SoundCloud
                 </p>
               </>
             )}

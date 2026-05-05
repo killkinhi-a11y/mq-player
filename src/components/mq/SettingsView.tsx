@@ -13,7 +13,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import ScrollReveal from "./ScrollReveal";
 import TasteProfileView from "./TasteProfileView";
-import SpotifyConnect from "./SpotifyConnect";
 
 // ── Inline mascot preview for settings ──
 function MascotPreview({ size, isSelected }: { size: number; isSelected: boolean }) {
@@ -642,14 +641,6 @@ export default function SettingsView() {
           {spatialAudioEnabled ? "ON" : "OFF"}
         </span>
       </motion.button>
-
-      {/* Spotify Connect */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <h3 className="text-xs font-semibold" style={{ color: "var(--mq-text-muted)" }}>Spotify</h3>
-        </div>
-        <SpotifyConnect />
-      </div>
 
       {showAdminLink && (
         <motion.a

@@ -1239,7 +1239,7 @@ export default function FullTrackView() {
           )}
         </div>
 
-        {/* Canvas visualization (Spotify-like video background) */}
+        {/* Canvas visualization (video background) */}
         {canvasMode && (
           <TrackCanvas isActive={canvasMode} isPlaying={isPlaying} currentStyle={currentStyle} styleVariant={styleVariant} />
         )}

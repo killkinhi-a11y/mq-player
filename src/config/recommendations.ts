@@ -226,7 +226,7 @@ export const RECOMMENDATIONS_CONFIG: RecommendationsConfig = {
     historyArtist: 40,             // +40: Same artist as a recently played history track
     genreMatch: 30,                // +30: Genre match with current track's genre
 
-    // Energy transition quality (Spotify Smart Shuffle style)
+    // Energy transition quality (Smart Shuffle style)
     energyClose: 25,               // +25: Energy close to current (within energyCloseRange)
     energyCloseRange: 0.2,         // Max energy distance for "close" classification
     energyShiftRange: 0.4,         // Max energy distance for "shift" classification

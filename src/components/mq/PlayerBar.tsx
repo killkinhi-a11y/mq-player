@@ -7,7 +7,6 @@ import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
   Shuffle, Music, Loader2, ListMusic,
   Heart, ThumbsDown, FileText, Download, ListEnd, Share2, Waves, Brain, Headphones,
-  Disc3
 } from "lucide-react";
 import { initSpatialAudio, enableSpatialAudio, setMoodPreset, detectMoodFromTrack } from "@/lib/spatialAudio";
 import { formatDuration } from "@/lib/musicApi";
@@ -19,7 +18,6 @@ import TrackCommentsPanel from "./TrackCommentsPanel";
 import QueueView from "./QueueView";
 import Hls from "hls.js";
 import type { HlsConfig } from "hls.js";
-import { useSpotifyPlayer } from "@/hooks/useSpotifyPlayer";
 
 // ── Error Logger ──
 const PlayerErrorLogger = {
@@ -246,13 +244,6 @@ export default function PlayerBar() {
     upNext, currentStyle, radioMode, smartShuffle, toggleRadioMode,
     spatialAudioEnabled, setSpatialAudioEnabled, setSpatialMood, spatialAutoDetect, spatialMood,
   } = useAppStore();
-
-  // ── Spotify Web Playback SDK ──
-  const spotifyPlayer = useSpotifyPlayer();
-  const spotifyPlayerReadyRef = useRef(spotifyPlayer.isReady);
-  const spotifyPlayRef = useRef(spotifyPlayer.play);
-  useEffect(() => { spotifyPlayerReadyRef.current = spotifyPlayer.isReady; }, [spotifyPlayer.isReady]);
-  useEffect(() => { spotifyPlayRef.current = spotifyPlayer.play; }, [spotifyPlayer.play]);
 
   const [showQueue, setShowQueue] = useState(false);
 
@@ -1324,98 +1315,6 @@ export default function PlayerBar() {
 
         if (cancelled) return;
 
-        // ── Spotify Playback Branch ──
-        // Priority order:
-        //   1. Spotify Web Playback SDK (Premium, full track)
-        //   2. YouTube Music fallback (no Premium, full track)
-        //   3. Spotify preview_url (30 seconds, last resort)
-        if (currentTrack.source === "spotify" && currentTrack.spotifyTrackId) {
-          const trackUri = `spotify:track:${currentTrack.spotifyTrackId}`;
-
-          // 1) Try Spotify Web Playback SDK (requires Premium)
-          if (spotifyPlayerReadyRef.current && spotifyPlayRef.current) {
-            console.log("[Player] Using Spotify Web Playback SDK for:", currentTrack.title);
-
-            const success = await spotifyPlayRef.current({
-              spotify_uri: trackUri,
-              position_ms: 0,
-            });
-
-            if (success) {
-              setPlaybackMode("spotify");
-              setIsLoadingTrack(false);
-              prevTrackIdForCrossfade.current = currentTrack.id;
-              return;
-            } else {
-              console.warn("[Player] Spotify SDK play failed, trying YouTube fallback");
-            }
-          }
-
-          // 2) YouTube Music fallback — full track without Premium
-          if (cancelled) return;
-          console.log("[Player] Searching YouTube Music for:", currentTrack.title, "-", currentTrack.artist);
-          try {
-            const ytRes = await fetch(
-              `/api/music/youtube/resolve?title=${encodeURIComponent(currentTrack.title)}&artist=${encodeURIComponent(currentTrack.artist)}`,
-              { signal: AbortSignal.timeout(15000) }
-            );
-            if (ytRes.ok && !cancelled) {
-              const ytData = await ytRes.json();
-              if (ytData.streamUrl) {
-                console.log("[Player] Found YouTube stream for:", currentTrack.title, "(via", ytData.videoId, ")");
-                setPlaybackMode("soundcloud");
-
-                if (canCrossfade) {
-                  crossfadeTo(audioEl, ytData.streamUrl);
-                  prevTrackIdForCrossfade.current = currentTrack.id;
-                } else {
-                  audioEl.crossOrigin = "anonymous";
-                  audioEl.src = ytData.streamUrl;
-                  audioEl.load();
-                  audioEl.play().catch(() => {});
-                  cancelCrossfade();
-                  prevTrackIdForCrossfade.current = currentTrack.id;
-                }
-
-                // Update duration from YouTube if Spotify duration was 0
-                if (ytData.duration && ytData.duration > 0) {
-                  setDurationRef.current(ytData.duration);
-                }
-
-                setIsLoadingTrack(false);
-                return;
-              }
-            }
-          } catch (ytErr) {
-            console.warn("[Player] YouTube fallback failed:", ytErr);
-          }
-
-          // 3) Last resort: Spotify 30-second preview
-          if (cancelled) return;
-          if (currentTrack.previewUrl) {
-            console.log("[Player] Using Spotify preview (30s):", currentTrack.title);
-            setPlaybackMode("soundcloud");
-            audioEl.crossOrigin = "anonymous";
-            audioEl.src = currentTrack.previewUrl;
-            audioEl.load();
-            cancelCrossfade();
-            audioEl.play().catch(() => {});
-            prevTrackIdForCrossfade.current = currentTrack.id;
-          } else {
-            console.warn("[Player] No playback source for Spotify track:", currentTrack.title);
-            setPlayError(true);
-            setIsLoadingTrack(false);
-            try {
-              toast({
-                title: "Трек недоступен",
-                description: `Не удалось найти "${currentTrack.title || "неизвестный"}" ни на Spotify, ни на YouTube`,
-              });
-            } catch {}
-            setTimeout(() => nextTrackRef.current(), 1500);
-          }
-          return;
-        }
-
         if (currentTrack.source === "soundcloud" && currentTrack.scTrackId) {
           // Inline SoundCloud stream resolution (no separate callback to avoid extra async hop)
           setPlaybackMode("soundcloud");
@@ -2069,18 +1968,6 @@ export default function PlayerBar() {
             <p className="text-xs sm:text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
             <p className="text-[10px] sm:text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
               {currentTrack.artist}
-              {currentTrack.source === "spotify" && !spotifyPlayer.isReady && (
-                <span className="ml-1.5 px-1.5 py-0 rounded text-[9px] inline-flex items-center gap-0.5 flex-shrink-0"
-                  style={{ backgroundColor: "rgba(255,0,0,0.15)", color: "#ff0000" }}>
-                  <Disc3 className="w-2.5 h-2.5" /> YouTube
-                </span>
-              )}
-              {currentTrack.source === "spotify" && spotifyPlayer.isReady && (
-                <span className="ml-1.5 px-1.5 py-0 rounded text-[9px] inline-flex items-center gap-0.5 flex-shrink-0"
-                  style={{ backgroundColor: "rgba(29,185,84,0.2)", color: "#1DB954" }}>
-                  <Disc3 className="w-2.5 h-2.5" /> Spotify
-                </span>
-              )}
               {playError && <span className="ml-1.5 px-1.5 py-0 rounded text-[9px] inline-flex-shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.2)", color: "#ef4444" }}>Ошибка</span>}
             </p>
           </div>

@@ -760,7 +760,7 @@ async function buildPopularPlaylist(
       "viral hits",
       "mainstream hits",
       "billboard top 100",
-      "spotify top hits",
+      "top hits",
       "new music friday",
     ];
   } else {
