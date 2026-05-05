@@ -1061,7 +1061,7 @@ export const useAppStore = create<AppState>()(
       },
 
       toggleDislike: (trackId, trackData) => {
-        const { dislikedTrackIds, dislikedTracksData, likedTrackIds, likedTracksData } = get();
+        const { dislikedTrackIds, dislikedTracksData, likedTrackIds, likedTracksData, currentTrack } = get();
         if (dislikedTrackIds.includes(trackId)) {
           // Un-dislike: remove from both lists
           set({
@@ -1078,6 +1078,10 @@ export const useAppStore = create<AppState>()(
             likedTrackIds: likedTrackIds.filter((id) => id !== trackId),
             likedTracksData: likedTracksData.filter((t) => t.id !== trackId),
           });
+          // Skip to next track if the disliked track is currently playing
+          if (currentTrack && currentTrack.id === trackId) {
+            get().nextTrack();
+          }
         }
         // Debounced sync to server
         get().scheduleSyncToServer();
@@ -1328,6 +1332,7 @@ export const useAppStore = create<AppState>()(
           if (s.favoriteArtists.some(a => a.id === artist.id)) return s;
           return { favoriteArtists: [...s.favoriteArtists, artist] };
         });
+        get().saveFavoriteArtistsToServer();
       },
 
       // ── Artist detail view ──
@@ -1342,6 +1347,7 @@ export const useAppStore = create<AppState>()(
         set((s) => ({
           favoriteArtists: s.favoriteArtists.filter(a => a.id !== artistId),
         }));
+        get().saveFavoriteArtistsToServer();
       },
       setOnboardingComplete: (complete) => set({ onboardingComplete: complete }),
       saveFavoriteArtistsToServer: async () => {
