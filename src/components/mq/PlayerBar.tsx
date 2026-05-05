@@ -90,12 +90,14 @@ interface StreamResult {
   isEncrypted: boolean;
   protocol?: string;
   licenseUrl?: string;
+  licenseAuthToken?: string;
   fallbackStreams?: Array<{
     url: string;
     protocol: string;
     isHls: boolean;
     isEncrypted: boolean;
     licenseUrl?: string;
+    licenseAuthToken?: string;
   }>;
   drmRestricted?: boolean;
 }
@@ -107,6 +109,7 @@ function buildEmeHlsConfig(stream: {
   isEncrypted?: boolean;
   protocol?: string | null;
   licenseUrl?: string | null;
+  licenseAuthToken?: string | null;
 }): Partial<HlsConfig> {
   const config: Partial<HlsConfig> = {
     enableWorker: true,
@@ -127,6 +130,7 @@ function buildEmeHlsConfig(stream: {
   config.emeEnabled = true;
   const proxyUrl = "/api/music/soundcloud/license-proxy";
   const realLicenseUrl = stream.licenseUrl;
+  const authToken = stream.licenseAuthToken;
 
   if (stream.protocol === "ctr-encrypted-hls") {
     config.drmSystems = {
@@ -139,6 +143,7 @@ function buildEmeHlsConfig(stream: {
   }
 
   // Intercept XHR: wrap CDM challenge as JSON POST to our CORS proxy
+  // CRITICAL: Include licenseAuthToken — SC license server requires it to authorize the request
   config.licenseXhrSetup = function (xhr: XMLHttpRequest, _url: string, _ctx: any, _challenge: Uint8Array) {
     const originalOpen = xhr.open.bind(xhr);
     const originalSend = xhr.send.bind(xhr);
@@ -148,7 +153,9 @@ function buildEmeHlsConfig(stream: {
     xhr.send = function (body: any) {
       const rawBody = body instanceof ArrayBuffer ? new Uint8Array(body) : new Uint8Array(body);
       const challengeBase64 = btoa(String.fromCharCode(...rawBody));
-      originalSend(JSON.stringify({ licenseUrl: realLicenseUrl, challenge: challengeBase64 }));
+      const payload: Record<string, string> = { licenseUrl: realLicenseUrl!, challenge: challengeBase64 };
+      if (authToken) payload.licenseAuthToken = authToken;
+      originalSend(JSON.stringify(payload));
     };
   };
 
@@ -200,6 +207,7 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult 
         isEncrypted: !!data.isEncrypted,
         protocol: data.protocol || null,
         licenseUrl: data.licenseUrl || null,
+        licenseAuthToken: data.licenseAuthToken || null,
         fallbackStreams: data.fallbackStreams || null,
         drmRestricted: !!data.drmRestricted,
       };
@@ -227,6 +235,7 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult 
               isEncrypted: !!data.isEncrypted,
               protocol: data.protocol || null,
               licenseUrl: data.licenseUrl || null,
+              licenseAuthToken: data.licenseAuthToken || proxyData.licenseAuthToken || null,
             };
           }
         }

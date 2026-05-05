@@ -7,12 +7,16 @@ import { NextRequest, NextResponse } from "next/server";
  * does not return CORS headers, so browsers cannot call it directly.
  * This Edge Function proxies the license challenge/response between
  * HLS.js EME and SoundCloud's Widevine/FairPlay license server.
+ *
+ * CRITICAL: The `licenseAuthToken` (JWE token from the stream resolve response)
+ * MUST be included in the license request. Without it, SC's license server
+ * rejects the request. The client sends this token alongside the CDM challenge.
  */
 export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
-  const { licenseUrl, challenge /* base64-encoded */ } = body;
+  const { licenseUrl, challenge /* base64-encoded */, licenseAuthToken /* JWE from resolve */ } = body;
 
   if (!licenseUrl || !challenge) {
     return NextResponse.json({ error: "missing licenseUrl or challenge" }, {
@@ -45,7 +49,15 @@ export async function POST(request: NextRequest) {
 
     let res: Response;
     try {
-      res = await fetch(licenseUrl, {
+      // Build the license URL with auth token as query parameter
+      // SC's license server expects the token in the URL
+      let licenseFetchUrl = licenseUrl;
+      if (licenseAuthToken) {
+        const sep = licenseUrl.includes("?") ? "&" : "?";
+        licenseFetchUrl += `${sep}license-auth-token=${encodeURIComponent(licenseAuthToken)}`;
+      }
+
+      res = await fetch(licenseFetchUrl, {
         method: "POST",
         signal: controller.signal,
         headers: {
@@ -55,6 +67,8 @@ export async function POST(request: NextRequest) {
           // Some SC license servers check Referer/Origin for legitimacy
           "Referer": "https://w.soundcloud.com/",
           "Origin": "https://w.soundcloud.com",
+          // Forward the license auth token as a header too (belt and suspenders)
+          ...(licenseAuthToken ? { "X-License-Auth-Token": licenseAuthToken } : {}),
         },
         body: Buffer.from(challenge, "base64"),
       });
@@ -63,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!res.ok) {
-      console.error("[license-proxy] SC license server returned", res.status);
+      console.error("[license-proxy] SC license server returned", res.status, licenseAuthToken ? "(with auth token)" : "(NO auth token)");
       return NextResponse.json(
         { error: `license server returned ${res.status}` },
         { status: res.status, headers: corsHeaders(request) },
@@ -93,12 +107,9 @@ export async function OPTIONS(request: NextRequest) {
 
 function corsHeaders(request: NextRequest): HeadersInit {
   const origin = request.headers.get("origin");
-  // Only echo known safe origins
-  const allowedOrigins = [origin].filter(o =>
-    o && (o.endsWith(".vercel.app") || o.endsWith(".soundcloud.com") || o === "http://localhost:3000" || o === "http://localhost:3001")
-  );
+  // Allow any origin — the license proxy needs to work from any deployment URL
   return {
-    "Access-Control-Allow-Origin": allowedOrigins[0] || "",
+    "Access-Control-Allow-Origin": origin || "*",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",

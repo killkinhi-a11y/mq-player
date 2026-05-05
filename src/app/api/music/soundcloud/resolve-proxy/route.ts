@@ -8,6 +8,9 @@ import { NextRequest, NextResponse } from "next/server";
  * and returns the response with proper CORS headers.
  *
  * Used as a fallback when the Edge stream route can't resolve the CDN URL.
+ *
+ * CRITICAL: Also returns licenseAuthToken from the resolve response — needed
+ * for encrypted tracks to acquire DRM licenses.
  */
 
 export const runtime = "edge";
@@ -73,7 +76,12 @@ export async function GET(request: NextRequest) {
         if (res.ok) {
           const data = await res.json();
           if (data.url) {
-            return NextResponse.json({ url: data.url }, {
+            const response: Record<string, string> = { url: data.url };
+            // Forward licenseAuthToken for encrypted tracks
+            if (data.licenseAuthToken) {
+              response.licenseAuthToken = data.licenseAuthToken;
+            }
+            return NextResponse.json(response, {
               headers: corsHeaders(request),
             });
           }
