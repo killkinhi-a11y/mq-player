@@ -298,7 +298,7 @@ export async function GET(request: NextRequest) {
             console.log(`[stream] Encrypted ${tc.protocol} (q=${tc.quality}) resolved — skipping CDN verify (needs EME)`);
           }
 
-          console.log(`[stream] Resolved ${tc.protocol} (q=${tc.quality}): verified=${verified}, encrypted=${tc.isEncrypted}, url=${resolved.url.substring(0, 60)}...`);
+          console.log(`[stream] Resolved ${tc.protocol} (q=${tc.quality}): verified=${verified}, encrypted=${tc.isEncrypted}, hasAuthToken=${!!resolved.licenseAuthToken}, url=${resolved.url.substring(0, 60)}...`);
 
           return {
             tc,
@@ -326,7 +326,7 @@ export async function GET(request: NextRequest) {
 
       for (const r of results) {
         if (r.resolved) {
-          diagnostics.push(`resolved: ${r.tc.protocol}/${r.tc.quality}, verified=${r.verified}, encrypted=${r.tc.isEncrypted}`);
+          diagnostics.push(`resolved: ${r.tc.protocol}/${r.tc.quality}, verified=${r.verified}, encrypted=${r.tc.isEncrypted}, hasAuthToken=${!!r.resolved.licenseAuthToken}`);
 
           resolvedStreams.push({
             url: r.resolved.url,

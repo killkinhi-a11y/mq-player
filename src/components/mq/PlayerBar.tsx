@@ -103,7 +103,17 @@ interface StreamResult {
 }
 
 // ── EME/DRM Helper ──
-// Builds HLS config with proper EME setup for encrypted SoundCloud streams.
+// Builds HLS config for encrypted SoundCloud streams.
+//
+// STRATEGY: We DISABLE HLS.js's built-in EME controller and handle EME manually.
+// HLS.js's EME controller was consistently failing to reach the license exchange
+// step (licenseXhrSetup never called), causing keySystemNoKeys errors.
+//
+// Manual EME gives us full control over:
+// 1. MediaKeys creation and timing
+// 2. License challenge/response handling
+// 3. Diagnostic logging at every step
+//
 // Used everywhere we create an HLS instance so retries also get DRM support.
 function buildEmeHlsConfig(stream: {
   isEncrypted?: boolean;
@@ -128,8 +138,6 @@ function buildEmeHlsConfig(stream: {
   // CRITICAL FIX: Route ALL SoundCloud CDN requests through our server proxy.
   // Direct CDN access (sndcdn.com / media-streaming.soundcloud.cloud) may be blocked
   // or slow in certain regions (e.g. Russia). The proxy relay avoids these issues.
-  // Also handles: cf-media.sndcdn.com, cf-preview-media.sndcdn.com, api-media.sndcdn.com,
-  // soundcloud.com, api-v2.soundcloud.com, media-streaming.soundcloud.cloud
   const cdnProxy = "/api/music/soundcloud/proxy";
   const scDomainPatterns = ['sndcdn.com', 'soundcloud.cloud', 'soundcloud.com'];
   config.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
@@ -138,51 +146,293 @@ function buildEmeHlsConfig(stream: {
     }
   };
 
-  if (!stream.isEncrypted || !stream.licenseUrl) return config;
-
-  config.emeEnabled = true;
-  const realLicenseUrl = stream.licenseUrl;
-  const authToken = stream.licenseAuthToken;
-
-  // ═══════════════════════════════════════════════════════════
-  // BINARY LICENSE MODE — simple, reliable, no JSON wrapping
-  // ═══════════════════════════════════════════════════════════
-  // HLS.js sends raw CDM challenge → proxy forwards to SC → returns raw license key.
-  // No send() override, no responseType override, no licenseResponseCallback needed.
-  // The proxy extracts licenseUrl and licenseAuthToken from URL query params,
-  // receives the raw challenge as POST body, and returns raw license bytes.
-  const licenseProxyParams = new URLSearchParams();
-  licenseProxyParams.set("licenseUrl", realLicenseUrl);
-  if (authToken) licenseProxyParams.set("licenseAuthToken", authToken);
-  const licenseProxyUrl = "/api/music/soundcloud/license-proxy?" + licenseProxyParams.toString();
-
-  if (stream.protocol === "ctr-encrypted-hls") {
-    config.drmSystems = {
-      "com.widevine.alpha": { licenseUrl: licenseProxyUrl },
-    };
-  } else if (stream.protocol === "cbc-encrypted-hls") {
-    config.drmSystems = {
-      "com.apple.fps": { licenseUrl: licenseProxyUrl },
-    };
-  }
-
-  // Minimal licenseXhrSetup: diagnostic logging only.
-  // HLS.js handles responseType='arraybuffer' and send() internally.
-  // We do NOT override send() or responseType — that caused keySystemNoKeys.
-  config.licenseXhrSetup = function (xhr: XMLHttpRequest, url: string) {
-    console.log("[DRM] License XHR setup, url:", url.substring(0, 100));
-    // Diagnostic: log when the license request completes
-    const onLoad = () => {
-      console.log("[DRM] License XHR response: status=" + xhr.status + ", bytes=" + (xhr.response instanceof ArrayBuffer ? xhr.response.byteLength : "not-arraybuffer(" + typeof xhr.response + ")"));
-    };
-    const onError = () => {
-      console.error("[DRM] License XHR network error");
-    };
-    xhr.addEventListener("load", onLoad);
-    xhr.addEventListener("error", onError);
-  };
+  // DISABLE HLS.js's built-in EME controller — it was never completing the license
+  // exchange (licenseXhrSetup never called → keySystemNoKeys).
+  // We handle EME manually via setupManualEME() which is called separately.
+  config.emeEnabled = false;
 
   return config;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Manual EME Setup — bypasses HLS.js's broken EME controller
+// ══════════════════════════════════════════════════════════════════
+// Call this AFTER audioEl is created and BEFORE HLS starts loading.
+// Sets up MediaKeys on the element, then listens for 'encrypted' events
+// to perform the Widevine/FairPlay license exchange via our proxy.
+
+// Build Widevine PSSH box from a KEYID (16 bytes)
+function buildWidevinePssh(keyId: Uint8Array): Uint8Array {
+  const WIDEVINE_SYSTEM_ID = new Uint8Array([
+    0xed, 0xef, 0x8b, 0xa9, 0x79, 0xd6, 0x4a, 0xce,
+    0xa3, 0xc8, 0x27, 0xdc, 0xd5, 0x1d, 0x21, 0xed,
+  ]);
+  // PSSH box: [size 4B][type 'pssh' 4B][version 4B][flags 4B][system_id 16B][key_count 4B][key_id 16B]
+  const psshSize = 4 + 4 + 4 + 4 + 16 + 4 + 16; // 52 bytes
+  const pssh = new Uint8Array(psshSize);
+  const dv = new DataView(pssh.buffer);
+  dv.setUint32(0, psshSize, false);          // size (big-endian)
+  pssh[4] = 0x70; pssh[5] = 0x73; pssh[6] = 0x73; pssh[7] = 0x68; // 'pssh'
+  dv.setUint32(8, 1, false);                 // version = 1
+  dv.setUint32(12, 0, false);                // flags = 0
+  pssh.set(WIDEVINE_SYSTEM_ID, 16);          // system ID
+  dv.setUint32(32, 1, false);                // key count = 1
+  pssh.set(keyId, 36);                       // key ID (16 bytes)
+  return pssh;
+}
+
+async function setupManualEME(
+  audioEl: HTMLAudioElement,
+  stream: { isEncrypted?: boolean; protocol?: string | null; licenseUrl?: string | null; licenseAuthToken?: string | null },
+): Promise<boolean> {
+  if (!stream.isEncrypted || !stream.licenseUrl) {
+    console.log("[ManualEME] Not encrypted or no licenseUrl — skipping");
+    return false;
+  }
+
+  const keySystem = stream.protocol === "cbc-encrypted-hls"
+    ? "com.apple.fps"
+    : "com.widevine.alpha";
+
+  console.log("[ManualEME] Setting up manual EME for", keySystem);
+  console.log("[ManualEME] licenseUrl:", stream.licenseUrl);
+  console.log("[ManualEME] hasAuthToken:", !!stream.licenseAuthToken, stream.licenseAuthToken ? ("len=" + stream.licenseAuthToken.length) : "");
+
+  // Build license proxy URL
+  const licenseProxyParams = new URLSearchParams();
+  licenseProxyParams.set("licenseUrl", stream.licenseUrl);
+  if (stream.licenseAuthToken) {
+    licenseProxyParams.set("licenseAuthToken", stream.licenseAuthToken);
+  }
+  const licenseProxyUrl = "/api/music/soundcloud/license-proxy?" + licenseProxyParams.toString();
+
+  try {
+    // Step 1: Check key system support
+    if (!navigator.requestMediaKeySystemAccess) {
+      console.error("[ManualEME] navigator.requestMediaKeySystemAccess NOT available — EME not supported in this browser");
+      return false;
+    }
+
+    // Step 2: Request key system access
+    console.log("[ManualEME] Requesting key system access for", keySystem);
+    let keySystemAccess: MediaKeySystemAccess;
+    try {
+      keySystemAccess = await navigator.requestMediaKeySystemAccess(keySystem, [{
+        initDataTypes: ["cenc"],
+        audioCapabilities: [{ contentType: "audio/mp4; codecs=\"mp4a.40.2\"", robustness: "SW_SECURE_CRYPTO" }],
+      }]);
+      console.log("[ManualEME] Key system access GRANTED for", keySystem);
+    } catch (e: any) {
+      console.error("[ManualEME] Key system access DENIED for", keySystem, "—", e?.name, e?.message);
+      return false;
+    }
+
+    // Step 3: Create media keys
+    console.log("[ManualEME] Creating MediaKeys...");
+    const mediaKeys = await keySystemAccess.createMediaKeys();
+    console.log("[ManualEME] MediaKeys created successfully");
+
+    // Step 4: Set media keys on audio element
+    await audioEl.setMediaKeys(mediaKeys);
+    console.log("[ManualEME] MediaKeys set on audio element ✓");
+
+    // Step 5: Listen for 'encrypted' event — fired when SourceBuffer receives encrypted data
+    let emeDone = false;
+    audioEl.addEventListener("encrypted", async (event: MediaEncryptedEvent) => {
+      if (emeDone) return; // prevent double-processing
+      emeDone = true;
+
+      console.log("[ManualEME] ★ 'encrypted' event fired!");
+      console.log("[ManualEME]   initDataType:", event.initDataType);
+      console.log("[ManualEME]   initData length:", event.initData?.byteLength || 0);
+
+      // Step 6: Create key session
+      let session: MediaKeySession;
+      try {
+        session = mediaKeys.createSession();
+        console.log("[ManualEME] Key session created, sessionId:", session.sessionId || "(pending)");
+      } catch (e: any) {
+        console.error("[ManualEME] Failed to create key session:", e?.name, e?.message);
+        return;
+      }
+
+      // Step 7: generateRequest — tells CDM to process the initData and prepare a license challenge
+      try {
+        if (!event.initData) {
+          console.error("[ManualEME] initData is null — cannot generateRequest");
+          return;
+        }
+        console.log("[ManualEME] Calling generateRequest(", event.initDataType, ", initData[" + event.initData.byteLength + "])");
+        await session.generateRequest(event.initDataType, event.initData);
+        console.log("[ManualEME] generateRequest() succeeded ✓");
+      } catch (e: any) {
+        console.error("[ManualEME] generateRequest() FAILED:", e?.name, e?.message);
+        return;
+      }
+
+      // Step 8: Handle CDM challenge (message event)
+      session.addEventListener("message", async (msgEvent: MediaKeyMessageEvent) => {
+        console.log("[ManualEME] ★ CDM challenge received!");
+        console.log("[ManualEME]   messageType:", msgEvent.messageType);
+        console.log("[ManualEME]   challenge length:", msgEvent.message.byteLength, "bytes");
+
+        // Step 9: Send challenge to our license proxy
+        try {
+          console.log("[ManualEME] Sending challenge to license proxy...");
+          const response = await fetch(licenseProxyUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: msgEvent.message,
+          });
+
+          if (!response.ok) {
+            const errorText = await response.text().catch(() => "");
+            console.error("[ManualEME] License proxy returned HTTP", response.status, errorText.substring(0, 200));
+            return;
+          }
+
+          const license = await response.arrayBuffer();
+          console.log("[ManualEME] ★ License received from proxy!");
+          console.log("[ManualEME]   license length:", license.byteLength, "bytes");
+
+          if (license.byteLength === 0) {
+            console.error("[ManualEME] License is EMPTY — SC license server returned no data");
+            return;
+          }
+
+          // Step 10: Feed license to CDM
+          try {
+            await session.update(new Uint8Array(license));
+            console.log("[ManualEME] ★ session.update() succeeded ✓ — key should be usable now");
+          } catch (e: any) {
+            console.error("[ManualEME] session.update() FAILED:", e?.name, e?.message);
+          }
+        } catch (e: any) {
+          console.error("[ManualEME] License exchange FAILED:", e?.name, e?.message);
+        }
+      });
+
+      // Step 11: Monitor key statuses
+      session.addEventListener("keystatuseschange", () => {
+        session.keyStatuses.forEach((status: MediaKeyStatus, keyId: BufferSource) => {
+          const hex = Array.from(new Uint8Array(keyId as ArrayBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+          console.log("[ManualEME] Key status:", status, "keyId:", hex);
+          if (status === "usable") {
+            console.log("[ManualEME] ★★★ KEY IS USABLE — decryption should work! ★★★");
+          }
+        });
+      });
+    });
+
+    // Step 12: Fallback — if 'encrypted' event doesn't fire within 5s,
+    // try manually triggering with a constructed PSSH from manifest KEYID.
+    // This handles cases where the SourceBuffer doesn't fire 'encrypted' for HLS SAMPLE-AES-CTR.
+    setTimeout(async () => {
+      if (emeDone) return; // already handled via encrypted event
+      console.warn("[ManualEME] 'encrypted' event did NOT fire within 5s — trying PSSH fallback from manifest KEYID");
+
+      // The KEYID should have been captured by the manifest interceptor (set up separately)
+      const keyIdHex = (audioEl as any)._drmKeyId;
+      if (!keyIdHex) {
+        console.error("[ManualEME] No KEYID captured from manifest — cannot build PSSH fallback");
+        return;
+      }
+
+      const keyId = new Uint8Array(keyIdHex.match(/.{2}/g)!.map(b => parseInt(b, 16)));
+      const pssh = buildWidevinePssh(keyId);
+      console.log("[ManualEME] Built PSSH box from KEYID:", keyIdHex, "size:", pssh.byteLength);
+
+      emeDone = true;
+      let session: MediaKeySession;
+      try {
+        session = mediaKeys.createSession();
+        await session.generateRequest("cenc", pssh.buffer as ArrayBuffer);
+        console.log("[ManualEME] PSSH fallback: generateRequest succeeded");
+      } catch (e: any) {
+        console.error("[ManualEME] PSSH fallback: generateRequest FAILED:", e?.name, e?.message);
+        return;
+      }
+
+      session.addEventListener("message", async (msgEvent: MediaKeyMessageEvent) => {
+        console.log("[ManualEME] PSSH fallback: CDM challenge received, length:", msgEvent.message.byteLength);
+        try {
+          const response = await fetch(licenseProxyUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/octet-stream" },
+            body: msgEvent.message,
+          });
+          if (!response.ok) {
+            console.error("[ManualEME] PSSH fallback: License proxy returned HTTP", response.status);
+            return;
+          }
+          const license = await response.arrayBuffer();
+          console.log("[ManualEME] PSSH fallback: License received, length:", license.byteLength);
+          await session.update(new Uint8Array(license));
+          console.log("[ManualEME] PSSH fallback: session.update() succeeded ✓");
+        } catch (e: any) {
+          console.error("[ManualEME] PSSH fallback: License exchange FAILED:", e);
+        }
+      });
+
+      session.addEventListener("keystatuseschange", () => {
+        session.keyStatuses.forEach((status: MediaKeyStatus, keyId: BufferSource) => {
+          const hex = Array.from(new Uint8Array(keyId as ArrayBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+          console.log("[ManualEME] PSSH fallback: Key status:", status, "keyId:", hex);
+        });
+      });
+    }, 5000);
+
+    console.log("[ManualEME] Setup complete — waiting for 'encrypted' event from media element");
+    return true;
+  } catch (e: any) {
+    console.error("[ManualEME] Setup FAILED:", e?.name, e?.message);
+    return false;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// Manifest interceptor — captures #EXT-X-KEY info for diagnostic logging
+// and extracts KEYID for manual PSSH construction fallback.
+// ══════════════════════════════════════════════════════════════════
+function createManifestInterceptor(audioEl: HTMLAudioElement): (xhr: XMLHttpRequest, url: string) => void {
+  return function (xhr: XMLHttpRequest, url: string) {
+    // Only intercept manifest requests (typically .m3u8 URLs)
+    if (!url.includes(".m3u8") && !url.includes("playlist")) return;
+
+    const origOnLoad = xhr.onload;
+    xhr.addEventListener("load", () => {
+      try {
+        if (xhr.responseText && xhr.responseText.includes("#EXT-X-KEY")) {
+          const keyLines = xhr.responseText.split("\n")
+            .filter(line => line.startsWith("#EXT-X-KEY:"));
+          console.log("[Manifest] #EXT-X-KEY tags found:", keyLines.length);
+          for (const line of keyLines) {
+            console.log("[Manifest]   ", line.substring(0, 300));
+          }
+
+          // Extract KEYID from #EXT-X-KEY for PSSH fallback
+          for (const line of keyLines) {
+            const kidMatch = line.match(/KEYID=0x([0-9a-fA-F]+)/);
+            if (kidMatch) {
+              const keyId = kidMatch[1];
+              console.log("[Manifest] ★ Extracted KEYID:", keyId);
+              (audioEl as any)._drmKeyId = keyId;
+            }
+            // Also try KEYID="..." format
+            const kidMatch2 = line.match(/KEYID="?([^",\s]+)"?/);
+            if (kidMatch2 && kidMatch2[1] && !kidMatch2[1].startsWith("0x")) {
+              console.log("[Manifest] ★ Extracted KEYID (alt format):", kidMatch2[1]);
+              (audioEl as any)._drmKeyId = kidMatch2[1].replace(/-/g, "");
+            }
+          }
+        }
+      } catch (e) {
+        // Don't let manifest parsing errors break playback
+      }
+      // Call original onload if it existed
+      if (origOnLoad) (origOnLoad as EventListener).call(xhr, new Event("load"));
+    });
+  };
 }
 
 async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult | null> {
@@ -543,7 +793,17 @@ export default function PlayerBar() {
               if (stream.isHls && Hls.isSupported()) {
                 // HLS streams MUST use HLS.js — setting .src directly on .m3u8 will fail in non-Safari
                 // CRITICAL: Use buildEmeHlsConfig so encrypted streams get DRM support on retry
-                const hls = new Hls(buildEmeHlsConfig(stream));
+                const hlsConfig = buildEmeHlsConfig(stream);
+                if (stream.isEncrypted) {
+                  setupManualEME(a, stream);
+                  const origXhrSetup = hlsConfig.xhrSetup;
+                  const manifestInterceptor = createManifestInterceptor(a);
+                  hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+                    manifestInterceptor(xhr, url);
+                    if (origXhrSetup) origXhrSetup(xhr, url);
+                  };
+                }
+                const hls = new Hls(hlsConfig);
                 hls.loadSource(stream.url);
                 hls.attachMedia(a);
                 // Manifest timeout — if HLS doesn't parse within 8s, skip to next
@@ -715,7 +975,17 @@ export default function PlayerBar() {
                 a.crossOrigin = 'anonymous';
                 if (stream.isHls && Hls.isSupported()) {
                   // HLS streams MUST use HLS.js — use buildEmeHlsConfig for DRM support
-                  const hls = new Hls(buildEmeHlsConfig(stream));
+                  const hlsConfig = buildEmeHlsConfig(stream);
+                  if (stream.isEncrypted) {
+                    setupManualEME(a, stream);
+                    const origXhrSetup = hlsConfig.xhrSetup;
+                    const manifestInterceptor = createManifestInterceptor(a);
+                    hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+                      manifestInterceptor(xhr, url);
+                      if (origXhrSetup) origXhrSetup(xhr, url);
+                    };
+                  }
+                  const hls = new Hls(hlsConfig);
                   hls.loadSource(stream.url);
                   hls.attachMedia(a);
                   hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -786,7 +1056,17 @@ export default function PlayerBar() {
                 if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
                 a.crossOrigin = 'anonymous';
                 if (stream.isHls && Hls.isSupported()) {
-                  const hls = new Hls(buildEmeHlsConfig(stream));
+                  const hlsConfig = buildEmeHlsConfig(stream);
+                  if (stream.isEncrypted) {
+                    setupManualEME(a, stream);
+                    const origXhrSetup = hlsConfig.xhrSetup;
+                    const manifestInterceptor = createManifestInterceptor(a);
+                    hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+                      manifestInterceptor(xhr, url);
+                      if (origXhrSetup) origXhrSetup(xhr, url);
+                    };
+                  }
+                  const hls = new Hls(hlsConfig);
                   hls.loadSource(stream.url);
                   hls.attachMedia(a);
                   hls.on(Hls.Events.MANIFEST_PARSED, () => { a.play().catch(() => {}); });
@@ -1293,6 +1573,17 @@ export default function PlayerBar() {
         // Use shared EME helper — handles both encrypted and plain HLS
         const hlsConfig = buildEmeHlsConfig(fallback);
 
+        // For encrypted fallbacks: set up manual EME
+        if (fallback.isEncrypted) {
+          setupManualEME(audioEl, fallback);
+          const origXhrSetup = hlsConfig.xhrSetup;
+          const manifestInterceptor = createManifestInterceptor(audioEl);
+          hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+            manifestInterceptor(xhr, url);
+            if (origXhrSetup) origXhrSetup(xhr, url);
+          };
+        }
+
         const hls = new Hls(hlsConfig);
         hls.loadSource(fallback.url);
         hls.attachMedia(audioEl);
@@ -1401,8 +1692,26 @@ export default function PlayerBar() {
               // Support encrypted HLS via EME (Widevine/FairPlay)
               audioEl.crossOrigin = "anonymous";
 
-              // Build HLS config with EME/DRM support using shared helper
+              // Build HLS config — EME is now handled manually (not by HLS.js)
               const hlsConfig = buildEmeHlsConfig(stream);
+
+              // For encrypted streams: set up manual EME BEFORE HLS starts loading
+              // This ensures MediaKeys are on the audio element before encrypted data arrives
+              if (stream.isEncrypted) {
+                console.log("[Player] Encrypted stream detected — setting up manual EME");
+                console.log("[Player]   protocol:", stream.protocol, "| hasLicenseUrl:", !!stream.licenseUrl, "| hasAuthToken:", !!stream.licenseAuthToken);
+                setupManualEME(audioEl, stream).then(ok => {
+                  console.log("[Player] Manual EME setup result:", ok ? "SUCCESS" : "FAILED");
+                });
+
+                // Attach manifest interceptor to capture #EXT-X-KEY tags
+                const origXhrSetup = hlsConfig.xhrSetup;
+                const manifestInterceptor = createManifestInterceptor(audioEl);
+                hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+                  manifestInterceptor(xhr, url);
+                  if (origXhrSetup) origXhrSetup(xhr, url);
+                };
+              }
 
               const hls = new Hls(hlsConfig);
               hls.loadSource(stream.url);
@@ -1511,7 +1820,17 @@ export default function PlayerBar() {
                         if (prevHls) { try { prevHls.destroy(); } catch {} delete (audioEl as any)._hlsInstance; }
                         audioEl.crossOrigin = 'anonymous';
                         // CRITICAL: Use buildEmeHlsConfig so encrypted streams get DRM support
-                        const fbHls = new Hls(buildEmeHlsConfig(freshStream));
+                        const fbConfig = buildEmeHlsConfig(freshStream);
+                        if (freshStream.isEncrypted) {
+                          setupManualEME(audioEl, freshStream);
+                          const origXhrSetup = fbConfig.xhrSetup;
+                          const manifestInterceptor = createManifestInterceptor(audioEl);
+                          fbConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+                            manifestInterceptor(xhr, url);
+                            if (origXhrSetup) origXhrSetup(xhr, url);
+                          };
+                        }
+                        const fbHls = new Hls(fbConfig);
                         fbHls.loadSource(freshStream.url);
                         fbHls.attachMedia(audioEl);
                         (audioEl as any)._hlsInstance = fbHls;

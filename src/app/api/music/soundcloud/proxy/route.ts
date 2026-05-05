@@ -14,6 +14,13 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 const CHUNK_SIZE = 512 * 1024; // 512KB chunks
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB max
 
+// SoundCloud CDN headers — CloudFront-signed URLs may require Referer/Origin
+const SC_FETCH_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+  "Referer": "https://w.soundcloud.com/",
+  "Origin": "https://w.soundcloud.com",
+};
+
 // Cache Content-Length for tracks to avoid HEAD requests
 const lengthCache = new Map<string, { length: number; contentType: string; expiry: number }>();
 
@@ -66,9 +73,7 @@ async function handler(request: NextRequest) {
           method: rangeHeader ? undefined : "HEAD",
           signal: AbortSignal.timeout(8000),
           redirect: "follow",
-          headers: {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-          },
+          headers: SC_FETCH_HEADERS,
         });
 
         if (headRes.ok) {
@@ -111,7 +116,7 @@ async function handler(request: NextRequest) {
         const scResponse = await fetch(audioUrl, {
           headers: {
             Range: `bytes=${start}-${effectiveEnd}`,
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+            ...SC_FETCH_HEADERS,
           },
           signal: AbortSignal.timeout(30000),
           redirect: "follow",
@@ -157,9 +162,7 @@ async function handler(request: NextRequest) {
     const scResponse = await fetch(audioUrl, {
       signal: AbortSignal.timeout(60000),
       redirect: "follow",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-      },
+      headers: SC_FETCH_HEADERS,
     });
 
     if (!scResponse.ok) {
