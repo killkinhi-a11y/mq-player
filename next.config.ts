@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
   generateBuildId: async () => {
     return Date.now().toString();
   },
+  serverExternalPackages: ['@opennextjs/cloudflare'],
   experimental: {
     // Allow uploads up to 200MB (default is 10MB)
     proxyClientMaxBodySize: 200 * 1024 * 1024,

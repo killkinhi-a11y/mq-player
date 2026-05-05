@@ -88,6 +88,8 @@ export async function POST(request: NextRequest) {
     const licenseBuffer = await res.arrayBuffer();
     const base64 = Buffer.from(licenseBuffer).toString("base64");
 
+    console.log("[license-proxy] License acquired:", licenseBuffer.byteLength, "bytes, hasAuthToken:", !!licenseAuthToken, "status:", res.status, "contentType:", res.headers.get("content-type"));
+
     return NextResponse.json({ license: base64 }, {
       headers: corsHeaders(request),
     });

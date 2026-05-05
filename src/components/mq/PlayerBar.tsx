@@ -162,10 +162,20 @@ function buildEmeHlsConfig(stream: {
     const originalSend = xhr.send.bind(xhr);
     originalOpen("POST", proxyUrl, true);
     xhr.withCredentials = false;
+    // CRITICAL: Must set responseType to 'arraybuffer' so that xhr.response
+    // returns an ArrayBuffer, not a DOMString. Without this, licenseResponseCallback
+    // receives a string instead of binary data → new Uint8Array(string) throws
+    // → empty ArrayBuffer returned → keySystemNoKeys error.
+    xhr.responseType = "arraybuffer";
     try { xhr.setRequestHeader("Content-Type", "application/json"); } catch {}
     xhr.send = function (body: any) {
-      const rawBody = body instanceof ArrayBuffer ? new Uint8Array(body) : new Uint8Array(body);
-      const challengeBase64 = btoa(String.fromCharCode(...rawBody));
+      const rawBody = body instanceof ArrayBuffer ? new Uint8Array(body) : (body instanceof Uint8Array ? body : new Uint8Array(body));
+      // CRITICAL: Do NOT use spread operator for large arrays — it overflows the call stack
+      // ("Maximum call stack size exceeded" for Widevine challenges > ~1KB).
+      // Use a loop-based approach instead.
+      let binary = "";
+      for (let i = 0; i < rawBody.length; i++) binary += String.fromCharCode(rawBody[i]);
+      const challengeBase64 = btoa(binary);
       const payload: Record<string, string> = { licenseUrl: realLicenseUrl!, challenge: challengeBase64 };
       if (authToken) payload.licenseAuthToken = authToken;
       originalSend(JSON.stringify(payload));
@@ -175,12 +185,12 @@ function buildEmeHlsConfig(stream: {
   // Decode proxy response: { license: "<base64>" } → ArrayBuffer for CDM
   config.licenseResponseCallback = (xhr: XMLHttpRequest): ArrayBuffer => {
     try {
-      const responseBuf = xhr.response as ArrayBuffer;
-      if (!responseBuf || responseBuf.byteLength === 0) {
-        console.error("[Player] Empty license response");
+      const responseBuf = xhr.response;
+      if (!responseBuf || !(responseBuf instanceof ArrayBuffer) || responseBuf.byteLength === 0) {
+        console.error("[Player] Empty license response, type=", typeof responseBuf);
         return new ArrayBuffer(0);
       }
-      const responseText = new TextDecoder().decode(new Uint8Array(responseBuf));
+      const responseText = new TextDecoder().decode(responseBuf);
       const data = JSON.parse(responseText);
       if (data.license) {
         const decoded = atob(data.license);
