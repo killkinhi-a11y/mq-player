@@ -116,13 +116,23 @@ function buildEmeHlsConfig(stream: {
     lowLatencyMode: false,
     maxBufferLength: 30,
     maxMaxBufferLength: 60,
-    // Encrypted HLS: longer retries — EME init + license acquisition add latency
+    // Longer retries — proxy adds latency, EME init + license acquisition for encrypted
     manifestLoadingMaxRetry: 4,
     manifestLoadingRetryDelay: 2000,
     levelLoadingMaxRetry: 4,
     levelLoadingRetryDelay: 2000,
     fragLoadingMaxRetry: 6,
     fragLoadingRetryDelay: 2000,
+  };
+
+  // CRITICAL FIX: Route ALL SoundCloud CDN requests through our server proxy.
+  // Direct CDN access (sndcdn.com / media-streaming.soundcloud.cloud) may be blocked
+  // or slow in certain regions (e.g. Russia). The proxy relay avoids these issues.
+  const cdnProxy = "/api/music/soundcloud/proxy";
+  config.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+    if (url.includes('sndcdn.com') || url.includes('soundcloud.cloud') || url.includes('soundcloud.com')) {
+      xhr.open('GET', `${cdnProxy}?url=${encodeURIComponent(url)}`, true);
+    }
   };
 
   if (!stream.isEncrypted || !stream.licenseUrl) return config;
@@ -193,8 +203,14 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult 
     const res = await fetch(`/api/music/soundcloud/stream?trackId=${scTrackId}`, {
       signal: AbortSignal.timeout(20000),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error(`[resolveStream] HTTP ${res.status} for track ${scTrackId}`);
+      return null;
+    }
     const data = await res.json();
+
+    // Debug: log what the stream route returned
+    console.log(`[resolveStream] track=${scTrackId}, url=${data.url ? 'yes' : 'no'}, resolveUrl=${data.resolveUrl ? 'yes' : 'no'}, error=${data.error || 'none'}, protocol=${data.protocol}, isHls=${data.isHls}, isEncrypted=${data.isEncrypted}, policy=${data.isPreview ? 'SNIP' : 'ALLOW'}, fallbacks=${(data.fallbackStreams || []).length}`);
 
     // Best case: Edge Function resolved the URL directly
     if (data.url) {
@@ -226,6 +242,7 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult 
         if (proxyRes.ok) {
           const proxyData = await proxyRes.json();
           if (proxyData.url) {
+            console.log(`[resolveStream] CORS proxy succeeded: url=${proxyData.url.substring(0, 60)}...`);
             return {
               url: proxyData.url,
               isPreview: !!data.isPreview,
@@ -244,6 +261,8 @@ async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult 
       }
     }
 
+    // No URL available — log detailed error
+    console.error(`[resolveStream] No URL for track ${scTrackId}:`, JSON.stringify(data).substring(0, 200));
     return null;
   } catch (err) {
     console.warn("[resolveSoundCloudStream] failed:", err);
@@ -1394,18 +1413,6 @@ export default function PlayerBar() {
               // Build HLS config with EME/DRM support using shared helper
               const hlsConfig = buildEmeHlsConfig(stream);
 
-              // Set up XHR for CDN segment loading — SC CDN returns CORS headers
-              // but some edge cases need explicit configuration (encrypted segments)
-              if (stream.isEncrypted) {
-                hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
-                  xhr.withCredentials = false;
-                  // Some SC CDN segments may need proper Accept header
-                  if (url.endsWith(".m3u8") || url.includes("playlist")) {
-                    try { xhr.setRequestHeader("Accept", "*/*"); } catch {}
-                  }
-                };
-              }
-
               const hls = new Hls(hlsConfig);
               hls.loadSource(stream.url);
               hls.attachMedia(audioEl);
@@ -1583,9 +1590,12 @@ export default function PlayerBar() {
               }
             } else {
               // Standard progressive stream or native HLS (Safari)
-              // SC CDN returns CORS headers — play directly for reliability
+              // Route through server proxy to avoid geo/CORS blocks on SC CDN
               audioEl.crossOrigin = "anonymous";
-              audioEl.src = stream.url;
+              const playUrl = stream.url.includes('sndcdn.com') || stream.url.includes('soundcloud.cloud')
+                ? `/api/music/soundcloud/proxy?url=${encodeURIComponent(stream.url)}`
+                : stream.url;
+              audioEl.src = playUrl;
 
               // Wait for audio to be ready before playing/crossfading
               let loadFailed = false;
@@ -1630,7 +1640,11 @@ export default function PlayerBar() {
             }
           } else if (currentTrack.audioUrl) {
             resetCorsState();
-            audioEl.src = currentTrack.audioUrl;
+            // Route SC CDN URLs through proxy to avoid geo blocks
+            const srcUrl = currentTrack.audioUrl;
+            audioEl.src = (srcUrl.includes('sndcdn.com') || srcUrl.includes('soundcloud.cloud'))
+              ? `/api/music/soundcloud/proxy?url=${encodeURIComponent(srcUrl)}`
+              : srcUrl;
             audioEl.load();
             if (canCrossfade) {
               crossfadeRef.current = true;

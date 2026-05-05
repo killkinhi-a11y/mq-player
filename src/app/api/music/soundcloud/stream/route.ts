@@ -274,6 +274,7 @@ export async function GET(request: NextRequest) {
       // ── Resolve all transcodings ──
       // For each transcoding: resolve template URL → get CDN URL + licenseAuthToken
       // Encrypted HLS streams are trusted without CDN verification (server lacks EME context)
+      console.log(`[stream] Track ${trackId}: ${info.transcodings.length} transcodings, policy=${info.policy}, duration=${info.duration}s`);
       const resolvedStreams: Array<{
         url: string;
         protocol: string;
@@ -300,6 +301,8 @@ export async function GET(request: NextRequest) {
             verified = true;
             console.log(`[stream] Encrypted ${tc.protocol} (q=${tc.quality}) resolved — skipping CDN verify (needs EME)`);
           }
+
+          console.log(`[stream] Resolved ${tc.protocol} (q=${tc.quality}): verified=${verified}, encrypted=${tc.isEncrypted}, url=${resolved.url.substring(0, 60)}...`);
 
           resolvedStreams.push({
             url: resolved.url,
@@ -351,7 +354,7 @@ export async function GET(request: NextRequest) {
       }
 
       // ── All resolves failed — return template URL for client-side resolve-proxy ──
-      console.warn(`[stream] All resolves failed for track ${trackId} — returning template URL`);
+      console.warn(`[stream] All ${info.transcodings.length} resolves failed for track ${trackId} — returning template URL`);
       const fallback = info.transcodings[0];
       const separator = fallback.url.includes("?") ? "&" : "?";
       let fallbackUrl = `${fallback.url}${separator}client_id=${clientId}`;
