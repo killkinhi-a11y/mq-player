@@ -1179,8 +1179,8 @@ export default function TrackCanvas({ isActive, isPlaying, currentStyle, styleVa
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 w-full h-full"
-      style={{ zIndex: 2 }}
+      className="w-full h-full block"
+      style={{ borderRadius: "inherit" }}
     />
   );
 }

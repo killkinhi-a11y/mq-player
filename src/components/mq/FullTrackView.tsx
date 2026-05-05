@@ -1239,10 +1239,7 @@ export default function FullTrackView() {
           )}
         </div>
 
-        {/* Canvas visualization (video background) */}
-        {canvasMode && (
-          <TrackCanvas isActive={canvasMode} isPlaying={isPlaying} currentStyle={currentStyle} styleVariant={styleVariant} />
-        )}
+        {/* Canvas visualization replaces album art (not background) */}
 
         {/* Header — simplified: back + badge + more */}
         <div className="relative z-10 flex items-center justify-between p-4">
@@ -1362,33 +1359,36 @@ export default function FullTrackView() {
 
         {/* Content */}
         <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 sm:px-6 max-w-lg mx-auto w-full">
-          {/* Album art — hidden when canvas mode is active (canvas draws its own cover) */}
-          {!canvasMode && (
-            <motion.div
-              initial={animationsEnabled ? { scale: 0.8, opacity: 0 } : undefined}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 200 }}
-              className="mb-3 sm:mb-5 flex items-center justify-center"
+          {/* Album art / Canvas visualization area */}
+          <motion.div
+            initial={animationsEnabled ? { scale: 0.8, opacity: 0 } : undefined}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 200 }}
+            className="mb-3 sm:mb-5 flex items-center justify-center"
+          >
+            <div
+              className="w-36 h-36 sm:w-52 sm:h-52 lg:w-72 lg:h-72 rounded-2xl overflow-hidden shadow-2xl relative z-10"
+              style={{ boxShadow: canvasMode
+                ? "0 0 40px rgba(var(--mq-accent-rgb, 224,49,49), 0.3), 0 20px 60px rgba(0,0,0,0.5)"
+                : "0 20px 60px rgba(0,0,0,0.5)"
+              }}
             >
-              <div className="w-36 h-36 sm:w-52 sm:h-52 lg:w-72 lg:h-72 rounded-2xl overflow-hidden shadow-2xl relative z-10"
-                style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
-                {currentPlaylistId ? (
-                  <PlaylistArtwork
-                    playlistId={currentPlaylistId}
-                    size={320}
-                    rounded="rounded-none"
-                    className="!w-full !h-full"
-                    animated={true}
-                    isPlaying={isPlaying}
-                  />
-                ) : (
-                  <img src={currentTrack.cover} alt={currentTrack.album} className="w-full h-full object-cover" />
-                )}
-              </div>
-            </motion.div>
-          )}
-          {/* Invisible spacer to keep layout stable when canvas hides album art */}
-          {canvasMode && <div className="mb-8" style={{ height: "clamp(14rem, 40vh, 20rem)" }} />}
+              {canvasMode ? (
+                <TrackCanvas isActive={canvasMode} isPlaying={isPlaying} currentStyle={currentStyle} styleVariant={styleVariant} />
+              ) : currentPlaylistId ? (
+                <PlaylistArtwork
+                  playlistId={currentPlaylistId}
+                  size={320}
+                  rounded="rounded-none"
+                  className="!w-full !h-full"
+                  animated={true}
+                  isPlaying={isPlaying}
+                />
+              ) : (
+                <img src={currentTrack.cover} alt={currentTrack.album} className="w-full h-full object-cover" />
+              )}
+            </div>
+          </motion.div>
 
           {/* Track info — always visible, never truncated on important info */}
           <div className="text-center mb-2 sm:mb-4 w-full px-2">
