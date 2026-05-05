@@ -141,71 +141,45 @@ function buildEmeHlsConfig(stream: {
   if (!stream.isEncrypted || !stream.licenseUrl) return config;
 
   config.emeEnabled = true;
-  const proxyUrl = "/api/music/soundcloud/license-proxy";
   const realLicenseUrl = stream.licenseUrl;
   const authToken = stream.licenseAuthToken;
 
+  // ═══════════════════════════════════════════════════════════
+  // BINARY LICENSE MODE — simple, reliable, no JSON wrapping
+  // ═══════════════════════════════════════════════════════════
+  // HLS.js sends raw CDM challenge → proxy forwards to SC → returns raw license key.
+  // No send() override, no responseType override, no licenseResponseCallback needed.
+  // The proxy extracts licenseUrl and licenseAuthToken from URL query params,
+  // receives the raw challenge as POST body, and returns raw license bytes.
+  const licenseProxyParams = new URLSearchParams();
+  licenseProxyParams.set("licenseUrl", realLicenseUrl);
+  if (authToken) licenseProxyParams.set("licenseAuthToken", authToken);
+  const licenseProxyUrl = "/api/music/soundcloud/license-proxy?" + licenseProxyParams.toString();
+
   if (stream.protocol === "ctr-encrypted-hls") {
     config.drmSystems = {
-      "com.widevine.alpha": { licenseUrl: proxyUrl },
+      "com.widevine.alpha": { licenseUrl: licenseProxyUrl },
     };
   } else if (stream.protocol === "cbc-encrypted-hls") {
     config.drmSystems = {
-      "com.apple.fps": { licenseUrl: proxyUrl },
+      "com.apple.fps": { licenseUrl: licenseProxyUrl },
     };
   }
 
-  // Intercept XHR: wrap CDM challenge as JSON POST to our CORS proxy
-  // CRITICAL: Include licenseAuthToken — SC license server requires it to authorize the request
-  config.licenseXhrSetup = function (xhr: XMLHttpRequest, _url: string, _ctx: any, _challenge: Uint8Array) {
-    const originalOpen = xhr.open.bind(xhr);
-    const originalSend = xhr.send.bind(xhr);
-    originalOpen("POST", proxyUrl, true);
-    xhr.withCredentials = false;
-    // CRITICAL: Must set responseType to 'arraybuffer' so that xhr.response
-    // returns an ArrayBuffer, not a DOMString. Without this, licenseResponseCallback
-    // receives a string instead of binary data → new Uint8Array(string) throws
-    // → empty ArrayBuffer returned → keySystemNoKeys error.
-    xhr.responseType = "arraybuffer";
-    try { xhr.setRequestHeader("Content-Type", "application/json"); } catch {}
-    xhr.send = function (body: any) {
-      const rawBody = body instanceof ArrayBuffer ? new Uint8Array(body) : (body instanceof Uint8Array ? body : new Uint8Array(body));
-      // CRITICAL: Do NOT use spread operator for large arrays — it overflows the call stack
-      // ("Maximum call stack size exceeded" for Widevine challenges > ~1KB).
-      // Use a loop-based approach instead.
-      let binary = "";
-      for (let i = 0; i < rawBody.length; i++) binary += String.fromCharCode(rawBody[i]);
-      const challengeBase64 = btoa(binary);
-      const payload: Record<string, string> = { licenseUrl: realLicenseUrl!, challenge: challengeBase64 };
-      if (authToken) payload.licenseAuthToken = authToken;
-      originalSend(JSON.stringify(payload));
+  // Minimal licenseXhrSetup: diagnostic logging only.
+  // HLS.js handles responseType='arraybuffer' and send() internally.
+  // We do NOT override send() or responseType — that caused keySystemNoKeys.
+  config.licenseXhrSetup = function (xhr: XMLHttpRequest, url: string) {
+    console.log("[DRM] License XHR setup, url:", url.substring(0, 100));
+    // Diagnostic: log when the license request completes
+    const onLoad = () => {
+      console.log("[DRM] License XHR response: status=" + xhr.status + ", bytes=" + (xhr.response instanceof ArrayBuffer ? xhr.response.byteLength : "not-arraybuffer(" + typeof xhr.response + ")"));
     };
-  };
-
-  // Decode proxy response: { license: "<base64>" } → ArrayBuffer for CDM
-  config.licenseResponseCallback = (xhr: XMLHttpRequest): ArrayBuffer => {
-    try {
-      const responseBuf = xhr.response;
-      if (!responseBuf || !(responseBuf instanceof ArrayBuffer) || responseBuf.byteLength === 0) {
-        console.error("[Player] Empty license response, type=", typeof responseBuf);
-        return new ArrayBuffer(0);
-      }
-      const responseText = new TextDecoder().decode(responseBuf);
-      const data = JSON.parse(responseText);
-      if (data.license) {
-        const decoded = atob(data.license);
-        const bytes = new Uint8Array(decoded.length);
-        for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
-        console.log("[Player] License acquired via proxy,", bytes.length, "bytes");
-        return bytes.buffer as ArrayBuffer;
-      }
-      if (data.error) {
-        console.error("[Player] License proxy error:", data.error);
-      }
-    } catch (e) {
-      console.error("[Player] Failed to parse license proxy response", e);
-    }
-    return new ArrayBuffer(0);
+    const onError = () => {
+      console.error("[DRM] License XHR network error");
+    };
+    xhr.addEventListener("load", onLoad);
+    xhr.addEventListener("error", onError);
   };
 
   return config;
