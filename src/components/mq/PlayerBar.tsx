@@ -100,6 +100,87 @@ interface StreamResult {
   drmRestricted?: boolean;
 }
 
+// ── EME/DRM Helper ──
+// Builds HLS config with proper EME setup for encrypted SoundCloud streams.
+// Used everywhere we create an HLS instance so retries also get DRM support.
+function buildEmeHlsConfig(stream: {
+  isEncrypted?: boolean;
+  protocol?: string | null;
+  licenseUrl?: string | null;
+}): Partial<HlsConfig> {
+  const config: Partial<HlsConfig> = {
+    enableWorker: true,
+    lowLatencyMode: false,
+    maxBufferLength: 30,
+    maxMaxBufferLength: 60,
+    // Encrypted HLS: longer retries — EME init + license acquisition add latency
+    manifestLoadingMaxRetry: 4,
+    manifestLoadingRetryDelay: 2000,
+    levelLoadingMaxRetry: 4,
+    levelLoadingRetryDelay: 2000,
+    fragLoadingMaxRetry: 6,
+    fragLoadingRetryDelay: 2000,
+  };
+
+  if (!stream.isEncrypted || !stream.licenseUrl) return config;
+
+  config.emeEnabled = true;
+  const proxyUrl = "/api/music/soundcloud/license-proxy";
+  const realLicenseUrl = stream.licenseUrl;
+
+  if (stream.protocol === "ctr-encrypted-hls") {
+    config.drmSystems = {
+      "com.widevine.alpha": { licenseUrl: proxyUrl },
+    };
+  } else if (stream.protocol === "cbc-encrypted-hls") {
+    config.drmSystems = {
+      "com.apple.fps": { licenseUrl: proxyUrl },
+    };
+  }
+
+  // Intercept XHR: wrap CDM challenge as JSON POST to our CORS proxy
+  config.licenseXhrSetup = function (xhr: XMLHttpRequest, _url: string, _ctx: any, _challenge: Uint8Array) {
+    const originalOpen = xhr.open.bind(xhr);
+    const originalSend = xhr.send.bind(xhr);
+    originalOpen("POST", proxyUrl, true);
+    xhr.withCredentials = false;
+    try { xhr.setRequestHeader("Content-Type", "application/json"); } catch {}
+    xhr.send = function (body: any) {
+      const rawBody = body instanceof ArrayBuffer ? new Uint8Array(body) : new Uint8Array(body);
+      const challengeBase64 = btoa(String.fromCharCode(...rawBody));
+      originalSend(JSON.stringify({ licenseUrl: realLicenseUrl, challenge: challengeBase64 }));
+    };
+  };
+
+  // Decode proxy response: { license: "<base64>" } → ArrayBuffer for CDM
+  config.licenseResponseCallback = (xhr: XMLHttpRequest): ArrayBuffer => {
+    try {
+      const responseBuf = xhr.response as ArrayBuffer;
+      if (!responseBuf || responseBuf.byteLength === 0) {
+        console.error("[Player] Empty license response");
+        return new ArrayBuffer(0);
+      }
+      const responseText = new TextDecoder().decode(new Uint8Array(responseBuf));
+      const data = JSON.parse(responseText);
+      if (data.license) {
+        const decoded = atob(data.license);
+        const bytes = new Uint8Array(decoded.length);
+        for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+        console.log("[Player] License acquired via proxy,", bytes.length, "bytes");
+        return bytes.buffer as ArrayBuffer;
+      }
+      if (data.error) {
+        console.error("[Player] License proxy error:", data.error);
+      }
+    } catch (e) {
+      console.error("[Player] Failed to parse license proxy response", e);
+    }
+    return new ArrayBuffer(0);
+  };
+
+  return config;
+}
+
 async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult | null> {
   try {
     const res = await fetch(`/api/music/soundcloud/stream?trackId=${scTrackId}`, {
@@ -277,6 +358,8 @@ export default function PlayerBar() {
   const loadGenerationRef = useRef(0); // prevents stale timeouts from interfering with new loads
   const clearLoadingTimeoutRef = useRef<(() => void) | null>(null); // bridge to cancel loading timeout
   const fallbackStreamsRef = useRef<StreamResult['fallbackStreams']>(null); // backup streams if primary fails
+  // Store current stream EME info so retries can rebuild HLS with DRM support
+  const currentStreamEmeRef = useRef<{ isEncrypted: boolean; protocol: string; licenseUrl: string } | null>(null);
 
   const prevTrackRef = useRef(prevTrack);
   const nextTrackRef = useRef(nextTrack);
@@ -424,6 +507,11 @@ export default function PlayerBar() {
           if (currentSt.currentTrack?.scTrackId !== scId) return;
 
           if (stream?.url) {
+            // Update EME info for future retries
+            currentStreamEmeRef.current = stream.isEncrypted && stream.licenseUrl
+              ? { isEncrypted: stream.isEncrypted, protocol: stream.protocol || '', licenseUrl: stream.licenseUrl }
+              : null;
+
             // Use audioEl captured at error time, not getActive() which may have changed
             const a = audioEl;
             if (a) {
@@ -435,12 +523,8 @@ export default function PlayerBar() {
 
               if (stream.isHls && Hls.isSupported()) {
                 // HLS streams MUST use HLS.js — setting .src directly on .m3u8 will fail in non-Safari
-                const hls = new Hls({
-                  enableWorker: true,
-                  lowLatencyMode: false,
-                  maxBufferLength: 30,
-                  maxMaxBufferLength: 60,
-                });
+                // CRITICAL: Use buildEmeHlsConfig so encrypted streams get DRM support on retry
+                const hls = new Hls(buildEmeHlsConfig(stream));
                 hls.loadSource(stream.url);
                 hls.attachMedia(a);
                 // Manifest timeout — if HLS doesn't parse within 8s, skip to next
@@ -603,12 +687,16 @@ export default function PlayerBar() {
                 if (!stream?.url || !a) return;
                 // Check track hasn't changed
                 if (useAppStore.getState().currentTrack?.scTrackId !== st.currentTrack?.scTrackId) return;
+                // Update EME info for future retries
+                currentStreamEmeRef.current = stream.isEncrypted && stream.licenseUrl
+                  ? { isEncrypted: stream.isEncrypted, protocol: stream.protocol || '', licenseUrl: stream.licenseUrl }
+                  : null;
                 const prevHls = (a as any)._hlsInstance;
                 if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
                 a.crossOrigin = 'anonymous';
                 if (stream.isHls && Hls.isSupported()) {
-                  // HLS streams MUST use HLS.js
-                  const hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30, maxMaxBufferLength: 60 });
+                  // HLS streams MUST use HLS.js — use buildEmeHlsConfig for DRM support
+                  const hls = new Hls(buildEmeHlsConfig(stream));
                   hls.loadSource(stream.url);
                   hls.attachMedia(a);
                   hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -671,11 +759,15 @@ export default function PlayerBar() {
                   return;
                 }
                 if (useAppStore.getState().currentTrack?.scTrackId !== st.currentTrack?.scTrackId) return;
+                // Update EME info for future retries
+                currentStreamEmeRef.current = stream.isEncrypted && stream.licenseUrl
+                  ? { isEncrypted: stream.isEncrypted, protocol: stream.protocol || '', licenseUrl: stream.licenseUrl }
+                  : null;
                 const prevHls = (a as any)._hlsInstance;
                 if (prevHls) { try { prevHls.destroy(); } catch {} delete (a as any)._hlsInstance; }
                 a.crossOrigin = 'anonymous';
                 if (stream.isHls && Hls.isSupported()) {
-                  const hls = new Hls({ enableWorker: true, lowLatencyMode: false, maxBufferLength: 30, maxMaxBufferLength: 60 });
+                  const hls = new Hls(buildEmeHlsConfig(stream));
                   hls.loadSource(stream.url);
                   hls.attachMedia(a);
                   hls.on(Hls.Events.MANIFEST_PARSED, () => { a.play().catch(() => {}); });
@@ -1179,55 +1271,8 @@ export default function PlayerBar() {
       audioEl.crossOrigin = 'anonymous';
 
       if (fallback.isHls && Hls.isSupported()) {
-        const hlsConfig: Partial<HlsConfig> = {
-          enableWorker: true,
-          lowLatencyMode: false,
-          maxBufferLength: 30,
-          maxMaxBufferLength: 60,
-        };
-
-        // Set up EME for encrypted fallback (e.g. CBC-HLS with FairPlay)
-        if (fallback.isEncrypted && fallback.licenseUrl) {
-          hlsConfig.emeEnabled = true;
-          const proxyUrl = "/api/music/soundcloud/license-proxy";
-          const realLicenseUrl = fallback.licenseUrl;
-
-          // Determine DRM system from protocol
-          if (fallback.protocol === "ctr-encrypted-hls") {
-            hlsConfig.drmSystems = { "com.widevine.alpha": { licenseUrl: proxyUrl } };
-          } else if (fallback.protocol === "cbc-encrypted-hls") {
-            hlsConfig.drmSystems = { "com.apple.fps": { licenseUrl: proxyUrl } };
-          }
-
-          hlsConfig.licenseXhrSetup = function (xhr: XMLHttpRequest, _url: string, _ctx: any, _challenge: Uint8Array) {
-            const originalOpen = xhr.open.bind(xhr);
-            const originalSend = xhr.send.bind(xhr);
-            originalOpen("POST", proxyUrl, true);
-            xhr.withCredentials = false;
-            try { xhr.setRequestHeader("Content-Type", "application/json"); } catch {}
-            xhr.send = function (body: any) {
-              const rawBody = body instanceof ArrayBuffer ? new Uint8Array(body) : new Uint8Array(body);
-              const challengeBase64 = btoa(String.fromCharCode(...rawBody));
-              originalSend(JSON.stringify({ licenseUrl: realLicenseUrl, challenge: challengeBase64 }));
-            };
-          };
-
-          hlsConfig.licenseResponseCallback = (xhr: XMLHttpRequest): ArrayBuffer => {
-            try {
-              const responseBuf = xhr.response as ArrayBuffer;
-              if (!responseBuf || responseBuf.byteLength === 0) return new ArrayBuffer(0);
-              const responseText = new TextDecoder().decode(new Uint8Array(responseBuf));
-              const data = JSON.parse(responseText);
-              if (data.license) {
-                const decoded = atob(data.license);
-                const bytes = new Uint8Array(decoded.length);
-                for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
-                return bytes.buffer as ArrayBuffer;
-              }
-            } catch {}
-            return new ArrayBuffer(0);
-          };
-        }
+        // Use shared EME helper — handles both encrypted and plain HLS
+        const hlsConfig = buildEmeHlsConfig(fallback);
 
         const hls = new Hls(hlsConfig);
         hls.loadSource(fallback.url);
@@ -1326,6 +1371,10 @@ export default function PlayerBar() {
           if (stream && stream.url) {
             // Save fallback streams for retry if primary fails
             fallbackStreamsRef.current = stream.fallbackStreams || null;
+            // Store EME info so retries can rebuild HLS with DRM support
+            currentStreamEmeRef.current = stream.isEncrypted && stream.licenseUrl
+              ? { isEncrypted: stream.isEncrypted, protocol: stream.protocol || '', licenseUrl: stream.licenseUrl }
+              : null;
             const isHlsStream = stream.isHls && Hls.isSupported();
 
             if (isHlsStream) {
@@ -1333,108 +1382,8 @@ export default function PlayerBar() {
               // Support encrypted HLS via EME (Widevine/FairPlay)
               audioEl.crossOrigin = "anonymous";
 
-              const hlsConfig: Partial<HlsConfig> = {
-                enableWorker: true,
-                lowLatencyMode: false,
-                maxBufferLength: 30,
-                maxMaxBufferLength: 60,
-                // For encrypted HLS: longer manifest loading timeout — EME initialization
-                // and license acquisition add latency before the first segment can play.
-                manifestLoadingMaxRetry: 4,
-                manifestLoadingRetryDelay: 2000,
-                levelLoadingMaxRetry: 4,
-                levelLoadingRetryDelay: 2000,
-                fragLoadingMaxRetry: 6,
-                fragLoadingRetryDelay: 2000,
-              };
-
-              // Configure EME for encrypted HLS streams via drmSystems (HLS.js 1.5+ API)
-              // SoundCloud uses separate license endpoints per DRM system
-              // CRITICAL: SC license server has NO CORS headers — must proxy through our API
-              //
-              // HLS.js 1.6 sets xhr.responseType='arraybuffer' BEFORE calling licenseXhrSetup,
-              // so xhr.responseText is UNAVAILABLE in licenseResponseCallback.
-              // We must read xhr.response (ArrayBuffer) and decode it manually.
-              if (stream.isEncrypted && stream.licenseUrl) {
-                hlsConfig.emeEnabled = true;
-                const proxyUrl = "/api/music/soundcloud/license-proxy";
-                const realLicenseUrl = stream.licenseUrl;
-
-                if (stream.protocol === "ctr-encrypted-hls") {
-                  // Widevine (CTR) — Chrome/Firefox/Edge
-                  hlsConfig.drmSystems = {
-                    "com.widevine.alpha": {
-                      licenseUrl: proxyUrl,
-                    },
-                  };
-                } else if (stream.protocol === "cbc-encrypted-hls") {
-                  // FairPlay (CBC) — Safari
-                  hlsConfig.drmSystems = {
-                    "com.apple.fps": {
-                      licenseUrl: proxyUrl,
-                    },
-                  };
-                }
-
-                // Intercept XHR: wrap the CDM challenge in our proxy format.
-                // HLS.js 1.6 calls: setupLicenseXHR() → licenseXhrSetup(xhr, url, ctx, challenge)
-                // After our callback, it sends the challenge (or our return value) via xhr.send().
-                // We override send to POST JSON { licenseUrl, challenge } to our proxy.
-                // HLS.js 1.6 signature: (xhr, url, keyContext, licenseChallenge)
-                hlsConfig.licenseXhrSetup = function (xhr: XMLHttpRequest, _url: string, _ctx: any, _challenge: Uint8Array) {
-                  const originalOpen = xhr.open.bind(xhr);
-                  const originalSend = xhr.send.bind(xhr);
-
-                  // Re-open XHR pointing to our same-origin proxy
-                  originalOpen("POST", proxyUrl, true);
-                  xhr.withCredentials = false;
-
-                  // Set Content-Type so our proxy can parse JSON body
-                  try { xhr.setRequestHeader("Content-Type", "application/json"); } catch {}
-
-                  // Override send: wrap raw binary challenge as base64 JSON for our proxy
-                  xhr.send = function (body: any) {
-                    const rawBody = body instanceof ArrayBuffer ? new Uint8Array(body) : new Uint8Array(body);
-                    const challengeBase64 = btoa(
-                      String.fromCharCode(...rawBody),
-                    );
-                    const payload = JSON.stringify({
-                      licenseUrl: realLicenseUrl,
-                      challenge: challengeBase64,
-                    });
-                    originalSend(payload);
-                  };
-                };
-
-                // Our proxy returns { license: "<base64>" } — decode to ArrayBuffer.
-                // CRITICAL: xhr.responseType is 'arraybuffer' (set by HLS.js before our setup),
-                // so we MUST use xhr.response, NOT xhr.responseText (which is empty/throws).
-                hlsConfig.licenseResponseCallback = (xhr: XMLHttpRequest): ArrayBuffer => {
-                  try {
-                    // Decode the ArrayBuffer response to a string, then parse JSON
-                    const responseBuf = xhr.response as ArrayBuffer;
-                    if (!responseBuf || responseBuf.byteLength === 0) {
-                      console.error("[Player] Empty license response");
-                      return new ArrayBuffer(0);
-                    }
-                    const responseText = new TextDecoder().decode(new Uint8Array(responseBuf));
-                    const data = JSON.parse(responseText);
-                    if (data.license) {
-                      const decoded = atob(data.license);
-                      const bytes = new Uint8Array(decoded.length);
-                      for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
-                      console.log("[Player] License acquired via proxy,", bytes.length, "bytes");
-                      return bytes.buffer as ArrayBuffer;
-                    }
-                    if (data.error) {
-                      console.error("[Player] License proxy error:", data.error);
-                    }
-                  } catch (e) {
-                    console.error("[Player] Failed to parse license proxy response", e);
-                  }
-                  return new ArrayBuffer(0);
-                };
-              }
+              // Build HLS config with EME/DRM support using shared helper
+              const hlsConfig = buildEmeHlsConfig(stream);
 
               // Set up XHR for CDN segment loading — SC CDN returns CORS headers
               // but some edge cases need explicit configuration (encrypted segments)
@@ -1543,19 +1492,19 @@ export default function PlayerBar() {
                     retryingRef.current = true;
                     console.warn("[Player] DRM failed, all fallbacks exhausted — re-resolving stream...");
                     resolveSoundCloudStream(currentTrack.scTrackId).then(freshStream => {
+                      retryingRef.current = false;
                       if (cancelled) return;
                       if (freshStream && freshStream.url) {
+                        // Update EME info for this re-resolved stream
+                        currentStreamEmeRef.current = freshStream.isEncrypted && freshStream.licenseUrl
+                          ? { isEncrypted: freshStream.isEncrypted, protocol: freshStream.protocol || '', licenseUrl: freshStream.licenseUrl }
+                          : null;
                         fallbackStreamsRef.current = freshStream.fallbackStreams || null;
                         const prevHls = (audioEl as any)._hlsInstance;
                         if (prevHls) { try { prevHls.destroy(); } catch {} delete (audioEl as any)._hlsInstance; }
                         audioEl.crossOrigin = 'anonymous';
-                        const fbConfig: Partial<HlsConfig> = {
-                          enableWorker: true, lowLatencyMode: false, maxBufferLength: 30, maxMaxBufferLength: 60,
-                          manifestLoadingMaxRetry: 4, manifestLoadingRetryDelay: 2000,
-                          levelLoadingMaxRetry: 4, levelLoadingRetryDelay: 2000,
-                          fragLoadingMaxRetry: 6, fragLoadingRetryDelay: 2000,
-                        };
-                        const fbHls = new Hls(fbConfig);
+                        // CRITICAL: Use buildEmeHlsConfig so encrypted streams get DRM support
+                        const fbHls = new Hls(buildEmeHlsConfig(freshStream));
                         fbHls.loadSource(freshStream.url);
                         fbHls.attachMedia(audioEl);
                         (audioEl as any)._hlsInstance = fbHls;
