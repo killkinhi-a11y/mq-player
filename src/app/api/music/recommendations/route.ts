@@ -448,6 +448,17 @@ function scoreTrackV8(
     }
   }
 
+  // ── SAME ARTIST PENALTY (diversity enforcement) ──
+  // Penalize tracks from the same artist as the seed to encourage variety.
+  // The topArtists array often contains the current track's artist,
+  // so we need to balance discovery with familiarity.
+  if (trackArtist && topArtists.length > 0) {
+    const isTopArtist = topArtists.some(a => trackArtist === a.toLowerCase().trim());
+    if (isTopArtist && meta.isFromArtistSearch) {
+      score -= 20; // Soft penalty for top artist found via artist search (too much repetition)
+    }
+  }
+
   // ── GENRE MATCH ──
   // Config: CFG.scoring.genreExact / genrePartial
   if (trackGenre) {
@@ -574,11 +585,12 @@ function shouldExcludeTrack(
 // Reorders tracks so that no more than `maxConsecutive` tracks from the same
 // artist appear back-to-back. Preserves the overall score ranking as much as
 // possible while improving listening variety.
-function interleaveByArtist<T extends { artist: string }>(tracks: T[], maxConsecutive: number = 1): T[] {
+function interleaveByArtist<T extends { artist: string }>(tracks: T[], maxConsecutive: number = 1, maxPerArtist: number = 2): T[] {
   if (tracks.length <= 2) return tracks;
 
   const result: T[] = [];
   const recentArtists: string[] = []; // circular buffer of recent artist names
+  const artistFrequency = new Map<string, number>(); // total count per artist in result
 
   // Work with a mutable copy so we can remove picked tracks
   const remaining = [...tracks];
@@ -592,29 +604,36 @@ function interleaveByArtist<T extends { artist: string }>(tracks: T[], maxConsec
       ? recentArtists.filter(a => a === tailArtist).length
       : 0;
 
-    // Find the best (first = highest score) track that is NOT from the tail artist
-    // (or is from tail artist but we haven't hit the consecutive limit)
+    // Find the best (first = highest score) track that satisfies diversity constraints
     let pickedIdx = -1;
     for (let i = 0; i < remaining.length; i++) {
       const artist = (remaining[i].artist || "").toLowerCase().trim();
-      if (artist === tailArtist) {
-        if (consecutiveCount < maxConsecutive) {
-          pickedIdx = i;
-          break;
-        }
-        // skip — too many consecutive
-      } else {
-        pickedIdx = i;
-        break;
-      }
+      // Skip if already at max total frequency for this artist
+      const freq = artistFrequency.get(artist) || 0;
+      if (freq >= maxPerArtist) continue;
+      // Skip if consecutive limit reached
+      if (artist === tailArtist && consecutiveCount >= maxConsecutive) continue;
+      // Accept this track
+      pickedIdx = i;
+      break;
     }
 
-    // Fallback: if all remaining are from the same artist as tail, just take the next one
+    // Fallback: if all remaining are from same artist or at frequency limit, take the first non-consecutive
+    if (pickedIdx === -1) {
+      for (let i = 0; i < remaining.length; i++) {
+        const artist = (remaining[i].artist || "").toLowerCase().trim();
+        if (artist !== tailArtist) { pickedIdx = i; break; }
+      }
+    }
+    // Ultimate fallback: take the first remaining
     if (pickedIdx === -1) pickedIdx = 0;
 
     const picked = remaining.splice(pickedIdx, 1)[0];
     const pickedArtist = (picked.artist || "").toLowerCase().trim();
     result.push(picked);
+
+    // Update frequency tracking
+    artistFrequency.set(pickedArtist, (artistFrequency.get(pickedArtist) || 0) + 1);
 
     // Update recent artists circular buffer
     recentArtists.push(pickedArtist);
@@ -981,7 +1000,7 @@ async function handler(request: NextRequest) {
         for (const item of artistTracks) {
           if (selected.length >= maxTracksPerArtistInRow) break;
           const a = (item.track.artist || "").toLowerCase().trim();
-          if ((artistLocalCount.get(a) || 0) >= 10) continue;
+          if ((artistLocalCount.get(a) || 0) >= Math.max(CFG.diversity.maxPerArtist, 3)) continue;
           artistLocalCount.set(a, (artistLocalCount.get(a) || 0) + 1);
           selected.push(item);
         }
@@ -1004,12 +1023,12 @@ async function handler(request: NextRequest) {
       if (usedInCategory.has(track.scTrackId)) continue;
       if (meta.isFromBridgeGenre) continue;
       const artist = (track.artist || "").toLowerCase().trim();
-      if ((forYouArtistCount.get(artist) || 0) >= 2) continue;
+      if ((forYouArtistCount.get(artist) || 0) >= CFG.diversity.maxPerArtist) continue;
       forYouArtistCount.set(artist, (forYouArtistCount.get(artist) || 0) + 1);
       forYouTracks.push({ track, score, meta });
     }
     // Interleave to prevent consecutive same-artist tracks
-    const forYouInterleaved = interleaveByArtist(forYouTracks.map(({ track }) => track), 1);
+    const forYouInterleaved = interleaveByArtist(forYouTracks.map(({ track }) => track), 1, CFG.diversity.maxPerArtist);
     const forYouInterleavedIds = new Set(forYouInterleaved.map(t => t.scTrackId));
     for (const { track } of forYouTracks) usedInCategory.add(track.scTrackId);
 
@@ -1022,7 +1041,7 @@ async function handler(request: NextRequest) {
       if (!meta.isFromBridgeGenre) continue;
       if (usedInCategory.has(track.scTrackId)) continue;
       const artist = (track.artist || "").toLowerCase().trim();
-      if ((discoveryArtistCount.get(artist) || 0) >= 2) continue;
+      if ((discoveryArtistCount.get(artist) || 0) >= CFG.diversity.maxPerArtist) continue;
       discoveryArtistCount.set(artist, (discoveryArtistCount.get(artist) || 0) + 1);
       discoveryTracks.push({ track, score, meta });
     }
@@ -1045,7 +1064,7 @@ async function handler(request: NextRequest) {
     }
 
     // ── INTERLEAVE: prevent consecutive same-artist tracks in flat list ──
-    const interleavedFlat = interleaveByArtist(flatTracks, 1);
+    const interleavedFlat = interleaveByArtist(flatTracks, 1, CFG.diversity.maxPerArtist);
     // Replace flatTracks with the interleaved version
     flatTracks.length = 0;
     flatTracks.push(...interleavedFlat);
@@ -1121,7 +1140,7 @@ async function handler(request: NextRequest) {
     }
 
     // ── Re-interleave after supplementary fill ──
-    const reinterleavedFlat = interleaveByArtist(flatTracks, 1);
+    const reinterleavedFlat = interleaveByArtist(flatTracks, 1, CFG.diversity.maxPerArtist);
     flatTracks.length = 0;
     flatTracks.push(...reinterleavedFlat);
 
@@ -1199,7 +1218,7 @@ async function handler(request: NextRequest) {
 
     // "Открытия" (interleaved)
     if (discoveryTracks.length >= 3) {
-      const discoveryInterleaved = interleaveByArtist(discoveryTracks.map(({ track }) => track), 1);
+      const discoveryInterleaved = interleaveByArtist(discoveryTracks.map(({ track }) => track), 1, CFG.diversity.maxPerArtist);
       categories.push({
         id: "discover",
         title: "Открытия",

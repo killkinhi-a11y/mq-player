@@ -427,7 +427,7 @@ async function handler(request: NextRequest) {
     for (const track of scoredTracks) {
       if (topTracks.length >= limit) break;
       const artist = (track.artist || "").toLowerCase().trim();
-      if ((artistCount.get(artist) || 0) >= 2) continue;
+      if ((artistCount.get(artist) || 0) >= 1) continue;
       artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
       topTracks.push(track);
     }

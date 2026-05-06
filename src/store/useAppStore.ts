@@ -883,7 +883,34 @@ export const useAppStore = create<AppState>()(
                     const newTracks = data.tracks.slice(0, 12);
                     const state = get();
                     const existingIds = new Set(state.queue.map(t => t.id));
-                    const fresh = newTracks.filter(t => !existingIds.has(t.id));
+
+                    // ── Cross-batch artist dedup ──
+                    // Count artists in current queue + recent history to prevent
+                    // the same artist from appearing too frequently across batches
+                    const recentArtists = new Map<string, number>();
+                    for (const t of state.queue) {
+                      const a = (t.artist || "").toLowerCase().trim();
+                      if (a) recentArtists.set(a, (recentArtists.get(a) || 0) + 1);
+                    }
+                    // Weight recent history artists (last 20 tracks)
+                    for (const h of state.history.slice(0, 20)) {
+                      const a = (h.track.artist || "").toLowerCase().trim();
+                      if (a) recentArtists.set(a, (recentArtists.get(a) || 0) + 1);
+                    }
+                    // Also count current track's artist (already playing)
+                    if (currentT?.artist) {
+                      const curA = currentT.artist.toLowerCase().trim();
+                      recentArtists.set(curA, (recentArtists.get(curA) || 0) + 3);
+                    }
+
+                    const MAX_ARTIST_FREQUENCY = 3; // Max times an artist can appear across queue+history
+                    const fresh = newTracks.filter(t => {
+                      if (existingIds.has(t.id)) return false;
+                      const a = (t.artist || "").toLowerCase().trim();
+                      if (a && (recentArtists.get(a) || 0) >= MAX_ARTIST_FREQUENCY) return false;
+                      return true;
+                    });
+
                     if (fresh.length === 0) return;
                     set({ queue: [...state.queue, ...fresh] });
                   })
