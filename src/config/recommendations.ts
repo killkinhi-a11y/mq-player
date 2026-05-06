@@ -188,9 +188,9 @@ export const RECOMMENDATIONS_CONFIG: RecommendationsConfig = {
     skipGenrePenalty: 60,         // -60: Genre with high skip rate from user feedback
     completedGenreBonus: 15,      // +15: Genre with completions from user feedback
 
-    // Serendipity (reserved for future use)
-    serendipityBonus: 0,          // Bonus for novel genres/artists outside user's bubble
-    serendipityThreshold: 0,      // Minimum score distance to be considered "serendipitous"
+    // Serendipity — reward novel genres/artists outside user's bubble
+    serendipityBonus: 25,          // +25: Bonus for tracks from genres/artists not in user's profile
+    serendipityThreshold: 15,      // Min score distance from top to count as "serendipitous"
 
     // Random jitter for freshness (prevents identical results each request)
     maxJitter: 8,                 // ±8 random points (applied as Math.random() * 16 - 8)
@@ -222,7 +222,7 @@ export const RECOMMENDATIONS_CONFIG: RecommendationsConfig = {
     // Primary similarity signals
     relatedCurrent: 150,           // +150: From SC Related API for the CURRENT track
     relatedHistory: 80,            // +80: From SC Related API for a HISTORY track
-    sameArtist: 60,                // +60: Same artist as the currently playing track
+    sameArtist: -40,               // -40: Same artist as currently playing (penalty to prevent repetition)
     historyArtist: 40,             // +40: Same artist as a recently played history track
     genreMatch: 30,                // +30: Genre match with current track's genre
 
@@ -250,9 +250,9 @@ export const RECOMMENDATIONS_CONFIG: RecommendationsConfig = {
     // Anti-spam
     noisePenalty: 200,             // -200: Noise/spam keywords in title/artist
 
-    // Momentum detection (reserved for future use)
-    momentumSkipThreshold: 0,      // Reserved: consecutive skips before applying penalty
-    momentumPenalty: 0,            // Reserved: penalty for momentum skip patterns
+    // Momentum detection — penalize same artist after user skips repeatedly
+    momentumSkipThreshold: 2,      // After 2 consecutive skips, apply penalty
+    momentumPenalty: 120,          // -120: Strong penalty for same artist when user is skipping
 
     // Target track count per radio batch
     targetMin: 10,                 // Minimum tracks in response
@@ -316,8 +316,8 @@ export const RECOMMENDATIONS_CONFIG: RecommendationsConfig = {
   // ═══════════════════════════════════════════════════════════════════════════
   curated: {
     trackLimit: 50,                // TRACK_LIMIT — max tracks per curated playlist
-    maxArtistsPerPlaylist: 2,      // MAX_TRACKS_PER_ARTIST — strict initial artist diversity
-    artistDiversityRelaxation: [3, 4, 5, 10],
+    maxArtistsPerPlaylist: 1,      // MAX_TRACKS_PER_ARTIST — strict artist diversity (max 1 per artist)
+    artistDiversityRelaxation: [2, 3, 4, 6],
     // If strict diversity drops us below minTarget, relax to 3, then 4, 5, 10 per artist
     cacheTtl: 5 * 60 * 1000,      // 5 minutes — force fresh diversity on each load
     minTracksForPlaylist: 3,       // Minimum tracks required to include a playlist in response
@@ -329,8 +329,8 @@ export const RECOMMENDATIONS_CONFIG: RecommendationsConfig = {
   // Source: /app/api/music/recommendations/route.ts
   // ═══════════════════════════════════════════════════════════════════════════
   diversity: {
-    maxPerArtist: 3,               // Max tracks per artist in the flat recommendation list
-    explorationRate: 0,            // Epsilon for epsilon-greedy exploration (reserved, currently 0)
+    maxPerArtist: 1,               // Max tracks per artist in the flat recommendation list (strict for variety)
+    explorationRate: 0.1,          // 10% epsilon for epsilon-greedy exploration (discovery)
   },
 
   // ═══════════════════════════════════════════════════════════════════════════

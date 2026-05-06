@@ -759,8 +759,8 @@ export const useAppStore = create<AppState>()(
               const energyDiff = Math.abs(candidateEnergy - currentEnergy);
               score -= energyDiff * 20;
 
-              // Same artist penalty (but not as harsh — allow occasionally)
-              if (candidate.artist === currentTrack.artist) score -= 15;
+              // Same artist penalty — STRONG to prevent repetition in queues/playlists
+              if (candidate.artist === currentTrack.artist) score -= 60;
 
               // Genre match bonus
               if (candidate.genre && currentGenre &&

@@ -302,13 +302,13 @@ function scoreCandidate(
   if (source === "current_related") score += CFG.radio.relatedCurrent;
   // +CFG.radio.relatedHistory: From SC Related API for a HISTORY track
   else if (source === "history_related") score += CFG.radio.relatedHistory;
-  // +CFG.radio.sameArtist: Same artist as current track (different track)
+  // -CFG.radio.sameArtist: Same artist as current track → PENALTY to prevent repetition
   if (trackArtist && trackArtist === ctx.currentArtist.toLowerCase().trim()) {
-    score += CFG.radio.sameArtist;
+    score += CFG.radio.sameArtist; // -40 penalty (was +60 bonus)
   }
-  // +CFG.radio.historyArtist: Same artist as a recently played track
+  // -CFG.radio.historyArtist: Same artist as recently played → soft penalty for variety
   if (trackArtist && ctx.historyArtists.has(trackArtist)) {
-    score += CFG.radio.historyArtist;
+    score -= 15; // soft penalty for recently played artist (was +40 bonus)
   }
   // +CFG.radio.genreMatch: Genre match with current track's genre
   if (trackGenre && ctx.currentGenre) {
@@ -425,7 +425,7 @@ function selectWithEnergyDiversity(
   const result: Candidate[] = [];
   const used = new Set<number>();
   const artistCount = new Map<string, number>();
-  const MAX_PER_ARTIST = 2; // Artist diversity: max 2 tracks per artist per radio batch
+  const MAX_PER_ARTIST = 1; // Artist diversity: max 1 track per artist per radio batch (strict)
   const totalTarget = targetCount.min + Math.floor(Math.random() * (targetCount.max - targetCount.min + 1));
 
   const pick = (
@@ -677,10 +677,12 @@ async function handler(request: NextRequest) {
     sourceMap.push("current_related");
     allFetchPromises.push(fetchSCTrackRelated(scTrackId));
 
-    // ── Source 2: Current artist name search (~10 tracks)
-    if (currentArtist) {
-      sourceMap.push("artist_search");
-      allFetchPromises.push(searchSCTracks(`"${currentArtist}"`, 10));
+    // ── Source 2: Genre discovery search (~10 tracks)
+    // REMOVED: current artist name search (was flooding results with same artist)
+    // Instead, search for fresh tracks in the same genre to discover NEW artists
+    if (currentGenre) {
+      sourceMap.push("genre_search");
+      allFetchPromises.push(searchSCTracks(`${currentGenre} new artists`, 10));
     }
 
     // ── Source 3: SC Related for last 2 history tracks (~20 each, up to 40)
@@ -695,10 +697,11 @@ async function handler(request: NextRequest) {
     sourceMap.push("genre_year_search");
     allFetchPromises.push(searchSCTracks(genreYearQuery, 10));
 
-    // ── Source 5: "{artist} {genre}" search (~10 tracks)
-    if (currentArtist && currentGenre) {
-      sourceMap.push("artist_genre_search");
-      allFetchPromises.push(searchSCTracks(`${currentArtist} ${currentGenre}`, 10));
+    // ── Source 5: "{genre} mix" search for variety (~10 tracks)
+    // REMOVED: "{artist} {genre}" which returned more tracks from the same artist
+    if (currentGenre) {
+      sourceMap.push("genre_year_search");
+      allFetchPromises.push(searchSCTracks(`${currentGenre} mix`, 10));
     }
 
     // ── Source 6: Liked artist search — find more from user's favorite artists (~10 per artist, top 2)
@@ -720,6 +723,7 @@ async function handler(request: NextRequest) {
 
     // ── Aggregate candidates ────────────────────────────────────────────────
     const candidateMap = new Map<number, Candidate>();
+    const candidateArtistCount = new Map<string, number>(); // Per-artist frequency tracking
 
     // Source priority for deduplication upgrades
     const sourcePriority: Record<CandidateSource, number> = {
@@ -734,6 +738,16 @@ async function handler(request: NextRequest) {
     const addCandidate = (track: SCTrack, source: CandidateSource) => {
       // Skip the current track itself
       if (track.scTrackId === scTrackId) return;
+
+      // ── ARTIST DEDUP: Skip tracks by the current artist (prevents flooding) ──
+      const trackArtistLower = (track.artist || "").toLowerCase().trim();
+      if (trackArtistLower && currentArtist && trackArtistLower === currentArtist) return;
+
+      // ── ARTIST FREQUENCY CAP: Track per-artist count during generation ──
+      // (This is a soft pre-filter; hard cap enforced in selectWithEnergyDiversity)
+      const artistCount = candidateArtistCount.get(trackArtistLower) || 0;
+      if (artistCount >= 3) return; // Max 3 candidates per artist in the pool
+      candidateArtistCount.set(trackArtistLower, artistCount + 1);
 
       // Hard exclusion filter
       if (shouldExclude(track, {
