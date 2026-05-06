@@ -32,7 +32,7 @@ export function isEncrypted(text: string): boolean {
 }
 
 export function getEncryptionStatus(): string {
-  return "AES-256-GCM";
+  return "XOR Obfuscation (demo)";
 }
 
 export function generateMockFingerprint(): string {

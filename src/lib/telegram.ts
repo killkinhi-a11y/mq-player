@@ -11,6 +11,8 @@
  *   4. Set webhook: POST https://api.telegram.org/bot<TOKEN>/setWebhook?url=<YOUR_DOMAIN>/api/telegram/webhook
  */
 
+import { createHash, createHmac } from "crypto";
+
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 
 const TELEGRAM_API_URL = TELEGRAM_BOT_TOKEN
@@ -83,11 +85,9 @@ export function verifyTelegramWebhook(
   if (!TELEGRAM_BOT_TOKEN) return false;
   if (!signatureHeader) return false;
 
-  const crypto = require("crypto");
-  const secretKey = crypto.createHash("sha256").update(TELEGRAM_BOT_TOKEN).digest();
+  const secretKey = createHash("sha256").update(TELEGRAM_BOT_TOKEN).digest();
 
-  const hmac = crypto
-    .createHmac("sha256", secretKey)
+  const hmac = createHmac("sha256", secretKey)
     .update(body)
     .digest("hex");
 

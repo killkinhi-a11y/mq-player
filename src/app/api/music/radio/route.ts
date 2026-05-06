@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks, getSoundCloudClientId, type SCTrack } from "@/lib/soundcloud";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { RECOMMENDATIONS_CONFIG as CFG } from "@/config/recommendations";
+import {
+  normalizeGenre, estimateEnergy, detectLanguage,
+  hasNoiseKeywords, titleHashtagGenreMismatch,
+  fetchSCTrackRelated, getFromCache, setCache,
+} from "@/lib/music-utils";
 
 /**
  * "Моя волна" (My Wave) Radio API — YouTube Music / Yandex Music style.
@@ -28,142 +33,6 @@ import { RECOMMENDATIONS_CONFIG as CFG } from "@/config/recommendations";
 const cache = new Map<string, { data: unknown; expiry: number }>();
 const CACHE_TTL = 4 * 60 * 1000; // 4 minutes
 
-function getFromCache(key: string): unknown | null {
-  const entry = cache.get(key);
-  if (entry && entry.expiry > Date.now()) return entry.data;
-  cache.delete(key);
-  return null;
-}
-
-function setCache(key: string, data: unknown): void {
-  // Evict expired entries when map grows large
-  if (cache.size > 100) {
-    const now = Date.now();
-    for (const [k, v] of cache) {
-      if (v.expiry <= now) cache.delete(k);
-    }
-  }
-  cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
-}
-
-// ── Genre normalization ────────────────────────────────────────────────────────
-function normalizeGenre(genre: string): string {
-  return genre
-    .toLowerCase()
-    .trim()
-    .replace(/ & /g, " and ")
-    .replace(/r&b/g, "rnb")
-    .replace(/r 'n' b/gi, "rnb")
-    .replace(/hip hop/g, "hip-hop")
-    .replace(/drum 'n' bass/gi, "drum and bass")
-    .replace(/d 'n' b/gi, "drum and bass");
-}
-
-// ── Language detection ──────────────────────────────────────────────────────────
-function detectLanguage(text: string): "russian" | "english" | "latin" | "other" {
-  if (!text) return "other";
-  const cyrillic = (text.match(/[\u0400-\u04FF]/g) || []).length;
-  const latin = (text.match(/[a-zA-Z]/g) || []).length;
-  const total = cyrillic + latin;
-  if (total === 0) return "other";
-  if (cyrillic / total > 0.4) return "russian";
-  if (latin / total > 0.6) return "english";
-  return "latin";
-}
-
-// ── Energy estimation ──────────────────────────────────────────────────────────
-function estimateEnergy(track: SCTrack): number {
-  const title = (track.title || "").toLowerCase();
-  const genre = normalizeGenre(track.genre || "");
-  const dur = track.duration || 0;
-
-  const highKeywords = [
-    "remix", "edit", "mix", "club", "bass boosted", "radio edit", "extended",
-    "hard", "rush", "hype", "banger", "drop", "festival", "rave", "workout",
-    "gym", "bootleg", "vip", "original mix",
-  ];
-  const lowKeywords = [
-    "acoustic", "live", "unplugged", "piano", "lullaby", "reprise",
-    "ambient", "sleep", "meditation", "relax", "chill", "lo-fi", "lofi",
-    "slow", "ballad",
-  ];
-
-  let s = 0;
-  for (const kw of highKeywords) {
-    if (title.includes(kw)) { s += 1; break; }
-  }
-  for (const kw of lowKeywords) {
-    if (title.includes(kw)) { s -= 1; break; }
-  }
-
-  const highG = [
-    "edm", "techno", "dubstep", "drum and bass", "hardstyle", "trap",
-    "reggaeton", "dance pop", "hardcore", "trance", "psytrance", "garage",
-    "grime", "drill",
-  ];
-  const midG = [
-    "house", "pop", "hip hop", "rap", "indie", "rock", "alternative",
-    "synthwave", "afrobeats",
-  ];
-  const lowG = [
-    "ambient", "classical", "lo-fi", "lofi", "piano", "bossa nova",
-    "downtempo", "jazz", "blues", "new age",
-  ];
-
-  if (highG.some((g) => genre.includes(g))) s += 2;
-  else if (midG.some((g) => genre.includes(g))) s += 1;
-  if (lowG.some((g) => genre.includes(g))) s -= 2;
-
-  if (dur > 0) {
-    if (dur < 150) s += 1;
-    else if (dur > 360) s -= 1;
-  }
-
-  if (s >= 2) return 1;
-  if (s <= -2) return 0;
-  if (s >= 1) return 0.75;
-  if (s <= -1) return 0.25;
-  return 0.5;
-}
-
-// ── Noise / spam keyword filter ────────────────────────────────────────────────
-const NOISE_KEYWORDS = [
-  "bible", "christian", "gospel", "worship", "praise", "sermon",
-  "jesus", "lord", "hymn", "church", "scripture", "psalm",
-  "devotional", "prayer song", "faith", "religious", "spiritual music",
-];
-
-function hasNoiseKeywords(text: string): boolean {
-  const lower = text.toLowerCase();
-  return NOISE_KEYWORDS.some((kw) => lower.includes(kw));
-}
-
-// ── Hashtag genre mismatch detection ───────────────────────────────────────────
-const HASHTAG_GENRE_PATTERN = /#(\w+(\s+\w+)*)/g;
-const KNOWN_GENRE_HASHTAGS = [
-  "deephouse", "deep house", "tech house", "techhouse",
-  "soulful house", "club house", "progressive house",
-  "tropical house", "future house", "afro house",
-  "melodic house", "jackin house", "acid house",
-];
-
-function titleHashtagGenreMismatch(title: string, referenceGenres: string[]): boolean {
-  const hashtags: string[] = [];
-  const matches = title.matchAll(HASHTAG_GENRE_PATTERN);
-  for (const match of matches) {
-    const tag = match[1].toLowerCase().trim();
-    if (KNOWN_GENRE_HASHTAGS.includes(tag)) hashtags.push(tag);
-  }
-  if (hashtags.length === 0) return false;
-  const refLower = referenceGenres.map((g) => normalizeGenre(g));
-  for (const hg of hashtags) {
-    const hgNorm = normalizeGenre(hg);
-    if (!refLower.some((tg) => tg === hgNorm || tg.includes(hgNorm) || hgNorm.includes(tg))) {
-      return true;
-    }
-  }
-  return false;
-}
 
 // ── Fetch track metadata by ID (direct API, NOT text search) ─────────────
 async function fetchSCTrackMetadata(scTrackId: number): Promise<{
@@ -191,64 +60,12 @@ async function fetchSCTrackMetadata(scTrackId: number): Promise<{
   }
 }
 
-// ── SoundCloud related tracks fetcher ──────────────────────────────────────────
-async function fetchSCTrackRelated(scTrackId: number): Promise<SCTrack[]> {
-  try {
-    const clientId = await getSoundCloudClientId();
-    if (!clientId) return [];
-    const url = `https://api-v2.soundcloud.com/tracks/${scTrackId}/related?client_id=${clientId}&limit=20&offset=0`;
-    const res = await fetch(url, {
-      headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    const raw = Array.isArray(data) ? data : data.collection || [];
-    return raw
-      .filter((t: Record<string, unknown>) => {
-        if ((t.kind as string) !== "track") return false;
-        if ((t.policy as string) === "BLOCK") return false;
-        return true;
-      })
-      .map((t: Record<string, unknown>) => {
-        const user = t.user as Record<string, unknown> | undefined;
-        const artwork = (t.artwork_url as string) || "";
-        const rawCover = artwork
-          ? artwork.replace("-large.", "-t500x500.")
-          : ((user?.avatar_url as string) || "").replace("-large.", "-t500x500.") || "";
-        const cover = rawCover
-          ? `/api/music/soundcloud/image-proxy?url=${encodeURIComponent(rawCover)}`
-          : "";
-        const fullDuration = (t.full_duration as number) || (t.duration as number) || 30000;
-        const policy = (t.policy as string) || "ALLOW";
-        return {
-          id: `sc_${t.id}`,
-          title: (t.title as string) || "Unknown",
-          artist: user?.username || "Unknown",
-          album: "",
-          duration: Math.round(fullDuration / 1000),
-          cover,
-          genre: (t.genre as string) || "",
-          audioUrl: "",
-          previewUrl: "",
-          source: "soundcloud" as const,
-          scTrackId: t.id as number,
-          scStreamPolicy: policy,
-          scIsFull: policy === "ALLOW",
-        };
-      });
-  } catch {
-    return [];
-  }
-}
-
 // ── Internal candidate with provenance ─────────────────────────────────────────
 type CandidateSource =
   | "current_related"    // From SC Related for the currently playing track
   | "history_related"    // From SC Related for a history track
   | "artist_search"      // Found via artist name search
   | "genre_year_search"  // Found via "{genre} {year}" search
-  | "artist_genre_search" // Found via "{artist} {genre}" search
   | "genre_search";       // Generic genre search fallback
 
 interface Candidate {
@@ -368,6 +185,15 @@ function scoreCandidate(
       score -= CFG.radio.momentumPenalty;
     }
   }
+
+  // ── SERENDIPITY — reward novel discovery tracks outside user's bubble ──
+  const trackArtistNorm = (track.artist || "").toLowerCase().trim();
+  const isNewArtist = !ctx.historyArtists.has(trackArtistNorm)
+    && trackArtistNorm !== ctx.currentArtist.toLowerCase().trim()
+    && !ctx.likedArtists.has(trackArtistNorm);
+  const isNewGenre = trackGenre && !ctx.likedGenres.has(trackGenre) && trackGenre !== normalizeGenre(ctx.currentGenre);
+  if (isNewArtist && isNewGenre) score += CFG.scoring.serendipityBonus;
+  else if (isNewArtist) score += Math.floor(CFG.scoring.serendipityBonus / 2);
 
   // ── FRESHNESS ──
   score += Math.random() * 16 - 8; // ±8 jitter
@@ -613,7 +439,7 @@ async function handler(request: NextRequest) {
 
   // ── Cache check ───────────────────────────────────────────────────────────
   const cacheKey = `radio:${scTrackId}:${historyScIdsParam}:${skippedGenresParam}:${skippedArtistsParam}:${likedArtistsParam}:${likedGenresParam}:${langParam}:${energyParam}:${recentSkipCount}`;
-  const cached = getFromCache(cacheKey);
+  const cached = getFromCache(cacheKey, cache);
   if (cached) return NextResponse.json(cached);
 
   try {
@@ -698,9 +524,8 @@ async function handler(request: NextRequest) {
     allFetchPromises.push(searchSCTracks(genreYearQuery, 10));
 
     // ── Source 5: "{genre} mix" search for variety (~10 tracks)
-    // REMOVED: "{artist} {genre}" which returned more tracks from the same artist
     if (currentGenre) {
-      sourceMap.push("genre_year_search");
+      sourceMap.push("genre_search");
       allFetchPromises.push(searchSCTracks(`${currentGenre} mix`, 10));
     }
 
@@ -730,9 +555,8 @@ async function handler(request: NextRequest) {
       current_related: 5,
       history_related: 4,
       artist_search: 3,
-      artist_genre_search: 2,
-      genre_year_search: 1,
-      genre_search: 0,
+      genre_year_search: 2,
+      genre_search: 1,
     };
 
     const addCandidate = (track: SCTrack, source: CandidateSource) => {
@@ -847,7 +671,7 @@ async function handler(request: NextRequest) {
       },
     };
 
-    setCache(cacheKey, responseData);
+    setCache(cacheKey, responseData, cache, 100, CACHE_TTL);
     return NextResponse.json(responseData);
   } catch (err) {
     console.error("[radio] Unexpected error:", err);

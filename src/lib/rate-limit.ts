@@ -126,12 +126,12 @@ export const RATE_LIMITS = {
 //   export const GET = withRateLimit(RATE_LIMITS.read, async (req) => { ... });
 //   export const POST = withRateLimit(RATE_LIMITS.write, async (req) => { ... });
 
+import type { NextRequest } from "next/server";
+
 type HandlerFunction = (
   req: NextRequest,
   ctx?: { params: Promise<Record<string, string>> }
 ) => Promise<Response>;
-
-import type { NextRequest } from "next/server";
 
 export function withRateLimit(
   preset: { limit: number; window: number },

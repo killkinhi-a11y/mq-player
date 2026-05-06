@@ -233,10 +233,10 @@ export const RECOMMENDATIONS_CONFIG: RecommendationsConfig = {
     energyFarPenalty: 15,          // -15: Energy very different from current
     energyFarThreshold: 0.5,       // Energy distance threshold for far penalty
 
-    // Energy flow direction bonuses (reserved for future use)
-    energyFlowUp: 0,               // Reserved: bonus for transitioning to higher energy
-    energyFlowDown: 0,             // Reserved: bonus for transitioning to lower energy
-    energyStable: 0,               // Reserved: bonus for staying at same energy level
+    // Energy flow direction bonuses — smooth DJ-like transitions
+    energyFlowUp: 8,               // +8: Smooth upward energy transition
+    energyFlowDown: 8,             // +8: Smooth downward energy transition
+    energyStable: 5,               // +5: Stable energy level (comfortable listening)
 
     // Language & quality
     languageMatch: 20,             // +20: Track language matches user preference

@@ -35,8 +35,8 @@
     "hashtagMismatchPenalty": 50,
     "skipGenrePenalty": 60,
     "completedGenreBonus": 15,
-    "serendipityBonus": 0,
-    "serendipityThreshold": 0,
+    "serendipityBonus": 25,
+    "serendipityThreshold": 15,
     "maxJitter": 8,
     "highConfidenceJitter": 0
   },
@@ -48,7 +48,7 @@
   "radio": {
     "relatedCurrent": 150,
     "relatedHistory": 80,
-    "sameArtist": 60,
+    "sameArtist": -40,
     "historyArtist": 40,
     "genreMatch": 30,
     "energyClose": 25,
@@ -65,8 +65,8 @@
     "skippedArtistPenalty": 80,
     "skippedGenrePenalty": 50,
     "noisePenalty": 200,
-    "momentumSkipThreshold": 0,
-    "momentumPenalty": 0,
+    "momentumSkipThreshold": 2,
+    "momentumPenalty": 120,
     "targetMin": 10,
     "targetMax": 12,
     "closeBucketMax": 4,
@@ -102,15 +102,15 @@
   },
   "curated": {
     "trackLimit": 50,
-    "maxArtistsPerPlaylist": 2,
-    "artistDiversityRelaxation": [3, 4, 5, 10],
+    "maxArtistsPerPlaylist": 1,
+    "artistDiversityRelaxation": [2, 3, 4, 6],
     "cacheTtl": 300000,
     "minTracksForPlaylist": 3,
     "qualityMinDuration": 30
   },
   "diversity": {
-    "maxPerArtist": 3,
-    "explorationRate": 0
+    "maxPerArtist": 1,
+    "explorationRate": 0.1
   },
   "coldStart": {
     "minLikedForFullMode": 3,
