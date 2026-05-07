@@ -863,7 +863,30 @@ export const useAppStore = create<AppState>()(
                 if (skippedGenresParam) params.set("skippedGenres", skippedGenresParam);
                 if (likedArtistsFromLikes.length > 0) params.set("likedArtists", likedArtistsFromLikes.join(","));
                 if (allLikedGenres) params.set("likedGenres", allLikedGenres);
-                
+
+                // ── Include completed genres from feedback (genres user actually finishes) ──
+                const completedGenresFromFeedback = st.feedbackBatch.completedGenres.length > 0
+                  ? st.feedbackBatch.completedGenres : [];
+                // Also derive from trackFeedback: tracks with more completes than skips
+                const fbEntries = Object.entries(st.trackFeedback);
+                if (fbEntries.length > 0) {
+                  const completedFromFB = new Map<string, number>();
+                  for (const [trackId, fb] of fbEntries) {
+                    if (fb.completes > fb.skips && fb.completes >= 1) {
+                      const historyEntry = st.history.find(h => h.track.id === trackId);
+                      if (historyEntry?.track.genre) {
+                        const g = historyEntry.track.genre.toLowerCase().trim();
+                        completedFromFB.set(g, (completedFromFB.get(g) || 0) + 1);
+                      }
+                    }
+                  }
+                  for (const [g, count] of completedFromFB) {
+                    if (count >= 1) completedGenresFromFeedback.push(g);
+                  }
+                }
+                const uniqueCompletedGenres = [...new Set(completedGenresFromFeedback)].slice(0, 5);
+                if (uniqueCompletedGenres.length > 0) params.set("completedGenres", uniqueCompletedGenres.join(","));
+
                 // Detect language from history
                 const langCounts: Record<string, number> = { russian: 0, english: 0 };
                 for (const h of st.history.slice(0, 20)) {
