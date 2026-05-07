@@ -2,6 +2,8 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { type Track, type Message as ChatMessage } from "@/lib/musicApi";
 import { themes, applyThemeToDOM } from "@/lib/themes";
+import { enableEQ as engineEnableEQ, disableEQ as engineDisableEQ, setEQBand as engineSetEQBand, setAllEQBands as engineSetAllEQBands, resetEQBands as engineResetEQBands } from "@/lib/audioEngine";
+import { EQ_PRESETS } from "@/lib/eq";
 
 // ── Storage versioning ──
 // Bump this number to force a fresh store for all users with old data.
@@ -416,6 +418,19 @@ interface AppState {
   setCatSize: (size: "small" | "medium" | "large") => void;
   petCat: () => void;
 
+  // EQ (5-band equalizer)
+  eqEnabled: boolean;
+  eqBands: number[]; // [bass, lowMid, mid, highMid, treble] each -12 to +12
+  eqPreset: string;
+  setEqEnabled: (enabled: boolean) => void;
+  setEqBand: (bandIndex: number, value: number) => void;
+  setEqPreset: (preset: string) => void;
+
+  // A-B Repeat (loop section)
+  abRepeat: { pointA: number | null; pointB: number | null; active: boolean };
+  setAbRepeatPoint: (point: 'A' | 'B') => void;
+  clearAbRepeat: () => void;
+
   // Reset
   reset: () => void;
 }
@@ -553,6 +568,14 @@ const initialState = {
   catSize: "medium" as "small" | "medium" | "large",
   catLastSeen: 0 as number,
   catPetCount: 0 as number,
+
+  // EQ
+  eqEnabled: false,
+  eqBands: [0, 0, 0, 0, 0] as number[],
+  eqPreset: "flat",
+
+  // A-B Repeat
+  abRepeat: { pointA: null as number | null, pointB: null as number | null, active: false },
 };
 
 // Simple energy estimation for smart shuffle
@@ -1987,6 +2010,55 @@ export const useAppStore = create<AppState>()(
       petCat: () => set((s) => ({ catPetCount: s.catPetCount + 1, catLastSeen: Date.now() })),
 
       reset: () => set(initialState),
+
+      // ── EQ actions ──
+      setEqEnabled: (enabled) => {
+        set({ eqEnabled: enabled });
+        if (enabled) {
+          engineEnableEQ();
+          engineSetAllEQBands(useAppStore.getState().eqBands);
+        } else {
+          engineDisableEQ();
+          engineResetEQBands();
+        }
+      },
+      setEqBand: (bandIndex, value) => {
+        set((s) => {
+          const bands = [...s.eqBands];
+          bands[bandIndex] = value;
+          return { eqBands: bands, eqPreset: 'flat' };
+        });
+        if (useAppStore.getState().eqEnabled) {
+          engineSetEQBand(bandIndex, value);
+        }
+      },
+      setEqPreset: (preset) => {
+        const p = EQ_PRESETS.find(pr => pr.id === preset);
+        if (p) {
+          set({ eqBands: [...p.bands], eqPreset: preset });
+          if (useAppStore.getState().eqEnabled) {
+            engineSetAllEQBands(p.bands);
+          }
+        }
+      },
+
+      // ── A-B Repeat actions ──
+      setAbRepeatPoint: (point) => {
+        const st = useAppStore.getState();
+        const currentTime = st.progress;
+        if (point === 'A') {
+          // Set point A, clear point B
+          set({ abRepeat: { pointA: currentTime, pointB: null, active: false } });
+        } else {
+          // Set point B — if pointA exists and currentTime > pointA, activate loop
+          if (st.abRepeat.pointA !== null && currentTime > st.abRepeat.pointA) {
+            set({ abRepeat: { pointA: st.abRepeat.pointA, pointB: currentTime, active: true } });
+          }
+        }
+      },
+      clearAbRepeat: () => {
+        set({ abRepeat: { pointA: null, pointB: null, active: false } });
+      },
     }),
     {
       name: STORAGE_KEY,
@@ -2043,6 +2115,10 @@ export const useAppStore = create<AppState>()(
         catSize: state.catSize,
         catLastSeen: state.catLastSeen,
         catPetCount: state.catPetCount,
+        // EQ
+        eqEnabled: state.eqEnabled,
+        eqBands: state.eqBands,
+        eqPreset: state.eqPreset,
         // typingUsers is intentionally excluded — it's ephemeral real-time state
       }),
       migrate: (persisted: unknown, version: number) => {

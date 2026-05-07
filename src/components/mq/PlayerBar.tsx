@@ -730,6 +730,7 @@ export default function PlayerBar() {
     upNext, currentStyle, radioMode, smartShuffle, toggleRadioMode,
     spatialAudioEnabled, setSpatialAudioEnabled, setSpatialMood, spatialAutoDetect, spatialMood,
     setSelectedArtist, currentView,
+    abRepeat, setAbRepeatPoint, clearAbRepeat,
   } = useAppStore();
 
   const [showQueue, setShowQueue] = useState(false);
@@ -800,6 +801,15 @@ export default function PlayerBar() {
     const onTimeUpdate = () => {
       const a = getActive();
       if (a && a.duration && isFinite(a.duration) && a.currentTime > a.duration) return;
+
+      // A-B Repeat: if active and currentTime >= pointB, seek to pointA
+      const abState = useAppStore.getState().abRepeat;
+      if (abState.active && abState.pointB !== null && abState.pointA !== null && a) {
+        if (a.currentTime >= abState.pointB) {
+          a.currentTime = abState.pointA;
+        }
+      }
+
       if (!isDraggingRef.current && a) setProgressRef.current(a.currentTime);
       // Update MediaSession position state for lock-screen progress bar
       if ("mediaSession" in navigator && navigator.mediaSession && a?.duration && isFinite(a.duration)) {
@@ -2424,6 +2434,20 @@ export default function PlayerBar() {
         className={`w-full ${compactMode ? "h-1 sm:h-1.5" : "h-1.5"} cursor-pointer group relative`}
         style={{ backgroundColor: "var(--mq-border)" }}
       >
+        {/* A-B Repeat highlighted section */}
+        {duration > 0 && abRepeat.pointA !== null && (
+          <div
+            className="absolute top-0 h-full rounded-sm pointer-events-none"
+            style={{
+              left: `${(abRepeat.pointA / duration) * 100}%`,
+              width: abRepeat.pointB !== null
+                ? `${((abRepeat.pointB - abRepeat.pointA) / duration) * 100}%`
+                : `${((progress - abRepeat.pointA) / duration) * 100}%`,
+              backgroundColor: abRepeat.active ? "var(--mq-accent)" : "rgba(139,92,246,0.3)",
+              opacity: abRepeat.active ? 0.2 : 0.1,
+            }}
+          />
+        )}
         <div className="h-full transition-all duration-100" style={{
           width: `${progressPct}%`,
           backgroundColor: playError ? "#ef4444" : "var(--mq-accent)",
@@ -2442,6 +2466,27 @@ export default function PlayerBar() {
         <div className="absolute top-full right-1 text-[9px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
           {formatDuration(Math.floor(duration))}
         </div>
+        {/* A-B markers */}
+        {duration > 0 && abRepeat.pointA !== null && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-1.5 h-3 rounded-sm pointer-events-none z-[2]"
+            style={{
+              left: `${(abRepeat.pointA / duration) * 100}%`,
+              backgroundColor: "#8b5cf6",
+              opacity: 0.7,
+            }}
+          />
+        )}
+        {duration > 0 && abRepeat.pointB !== null && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 w-1.5 h-3 rounded-sm pointer-events-none z-[2]"
+            style={{
+              left: `${(abRepeat.pointB / duration) * 100}%`,
+              backgroundColor: "#8b5cf6",
+              opacity: 0.7,
+            }}
+          />
+        )}
       </div>
 
       <div className={`flex items-center justify-between ${compactMode ? "px-1.5 py-1 lg:px-4 lg:py-2" : "px-3 py-2 lg:px-6 lg:py-3"} max-w-screen-2xl mx-auto overflow-hidden`}>

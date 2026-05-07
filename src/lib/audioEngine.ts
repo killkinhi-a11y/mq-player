@@ -25,6 +25,9 @@ let _gainB: GainNode | null = null;
 let _sourceA: MediaElementAudioSourceNode | null = null;
 let _sourceB: MediaElementAudioSourceNode | null = null;
 
+// EQ filter chain (created but not connected until user enables EQ)
+let _eqFilters: BiquadFilterNode[] = [];
+
 // Crossfade settings
 let _crossfadeEnabled = true;
 let _crossfadeDuration = 2.0; // seconds
@@ -123,7 +126,32 @@ export function initAudioEngine(audio: HTMLAudioElement): AnalyserNode | null {
     _analyser.fftSize = 512;
     _analyser.smoothingTimeConstant = 0.85;
 
+    // Create 5-band EQ filters (pre-create but keep disconnected until enabled)
+    const eqBandDefs = [
+      { frequency: 60,   type: 'lowshelf' as BiquadFilterType, Q: 0.7 },
+      { frequency: 250,  type: 'peaking'  as BiquadFilterType, Q: 1.0 },
+      { frequency: 1000, type: 'peaking'  as BiquadFilterType, Q: 1.0 },
+      { frequency: 4000, type: 'peaking'  as BiquadFilterType, Q: 1.0 },
+      { frequency: 16000,type: 'highshelf' as BiquadFilterType, Q: 0.7 },
+    ];
+    _eqFilters = eqBandDefs.map(def => {
+      const f = ctx.createBiquadFilter();
+      f.type = def.type;
+      f.frequency.value = def.frequency;
+      f.Q.value = def.Q;
+      f.gain.value = 0; // flat by default
+      return f;
+    });
+    // Chain: filter[0] → filter[1] → ... → filter[4]
+    for (let i = 0; i < _eqFilters.length - 1; i++) {
+      _eqFilters[i].connect(_eqFilters[i + 1]);
+    }
+    // Last filter → analyser (always connected, but gains don't feed into first filter unless EQ is enabled)
+    // We only connect the last filter to analyser; the chain is dormant until gains connect to filter[0]
+    _eqFilters[_eqFilters.length - 1].connect(_analyser);
+
     // Connect: source → gain → analyser → destination
+    // (EQ chain exists in parallel but is dormant — gains connect directly to analyser)
     _sourceA.connect(_gainA);
     _sourceB.connect(_gainB);
     _gainA.connect(_analyser);
@@ -310,6 +338,54 @@ export function getFrequencyData(dataArray: Uint8Array<ArrayBuffer>): Uint8Array
  */
 export function resetCorsState(): void {
   _isCorsBlocked = true;
+}
+
+// ── EQ Audio Graph Management ──
+
+/** Get the pre-created EQ filter nodes (5 BiquadFilters) */
+export function getEQFilters(): BiquadFilterNode[] {
+  return _eqFilters;
+}
+
+/** Get gainA and gainB for EQ rewiring */
+export function getGainNodes(): { gainA: GainNode | null; gainB: GainNode | null } {
+  return { gainA: _gainA, gainB: _gainB };
+}
+
+/** Enable EQ: disconnect gains from analyser, connect gains to first EQ filter */
+export function enableEQ(): void {
+  if (!_gainA || !_gainB || !_analyser || _eqFilters.length === 0) return;
+  try { _gainA.disconnect(_analyser); } catch {}
+  try { _gainB.disconnect(_analyser); } catch {}
+  try { _gainA.connect(_eqFilters[0]); } catch {}
+  try { _gainB.connect(_eqFilters[0]); } catch {}
+}
+
+/** Disable EQ: disconnect gains from EQ chain, reconnect to analyser */
+export function disableEQ(): void {
+  if (!_gainA || !_gainB || !_analyser || _eqFilters.length === 0) return;
+  try { _gainA.disconnect(_eqFilters[0]); } catch {}
+  try { _gainB.disconnect(_eqFilters[0]); } catch {}
+  try { _gainA.connect(_analyser); } catch {}
+  try { _gainB.connect(_analyser); } catch {}
+}
+
+/** Set a single EQ band gain (-12 to +12 dB) */
+export function setEQBand(bandIndex: number, gain: number): void {
+  if (bandIndex < 0 || bandIndex >= _eqFilters.length) return;
+  _eqFilters[bandIndex].gain.value = Math.max(-12, Math.min(12, gain));
+}
+
+/** Set all EQ bands at once */
+export function setAllEQBands(bands: number[]): void {
+  for (let i = 0; i < Math.min(bands.length, _eqFilters.length); i++) {
+    _eqFilters[i].gain.value = Math.max(-12, Math.min(12, bands[i]));
+  }
+}
+
+/** Reset all EQ bands to 0dB */
+export function resetEQBands(): void {
+  for (const f of _eqFilters) f.gain.value = 0;
 }
 
 // ── Element Replacement (Firefox EME compatibility) ──

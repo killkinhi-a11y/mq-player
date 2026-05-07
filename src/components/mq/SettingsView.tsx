@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import ScrollReveal from "./ScrollReveal";
 import TasteProfileView from "./TasteProfileView";
 import { setCrossfadeEnabled as engineSetCrossfadeEnabled, setCrossfadeDuration as engineSetCrossfadeDuration } from "@/lib/audioEngine";
+import EqualizerView from "./EqualizerView";
 
 // ── Inline mascot preview for settings ──
 function MascotPreview({ size, isSelected }: { size: number; isSelected: boolean }) {
@@ -203,6 +204,7 @@ export default function SettingsView() {
     currentStyle, setStyle, styleVariant, setStyleVariant,
     catEnabled, setCatEnabled, catFrequency, setCatFrequency, catMood, setCatMood, catSize, setCatSize, catPetCount,
     crossfadeEnabled, setCrossfadeEnabled, crossfadeDuration, setCrossfadeDuration,
+    eqEnabled, eqPreset,
   } = useAppStore();
 
   const ADMIN_EMAILS = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_ADMIN_EMAILS) 
@@ -242,6 +244,7 @@ export default function SettingsView() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [showCatSettings, setShowCatSettings] = useState(false);
   const [showCrossfadeSettings, setShowCrossfadeSettings] = useState(false);
+  const [showEQ, setShowEQ] = useState(false);
   const [showFullTaste, setShowFullTaste] = useState(false);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const styleList = [
@@ -728,6 +731,33 @@ export default function SettingsView() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Sleep Timer — desktop only */}
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setShowEQ(true)}
+        className="w-full p-3 rounded-xl text-left text-sm font-medium flex items-center gap-3"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="flex-shrink-0">
+          <rect x="1" y="10" width="2" height="4" rx="1" fill={eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)"} />
+          <rect x="5" y="7" width="2" height="7" rx="1" fill={eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)"} />
+          <rect x="9" y="4" width="2" height="10" rx="1" fill={eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)"} />
+          <rect x="13" y="2" width="2" height="12" rx="1" fill={eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)"} />
+        </svg>
+        Эквалайзер
+        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full font-medium"
+          style={{
+            backgroundColor: eqEnabled ? "var(--mq-accent)" : "var(--mq-surface, #1a1a1a)",
+            color: eqEnabled ? "#fff" : "var(--mq-text-muted)",
+          }}>
+          {eqEnabled ? eqPreset : "ВЫКЛ"}
+        </span>
+      </motion.button>
+
+      {/* EQ Modal */}
+      <EqualizerView show={showEQ} onClose={() => setShowEQ(false)} />
 
       {/* Sleep Timer — desktop only */}
       <motion.button

@@ -21,6 +21,7 @@ import { useAppStore } from "@/store/useAppStore";
  * | m / M        | Toggle mute / unmute      |
  * | l / L        | Toggle like on current track |
  * | f / F        | Toggle full track view    |
+ * | b / B        | Toggle A-B repeat           |
  * | Escape       | Close full track view     |
  */
 export function useKeyboardShortcuts() {
@@ -166,6 +167,20 @@ export function useKeyboardShortcuts() {
       case "f":
       case "F": {
         setFullTrackViewOpen(!isFullTrackViewOpen);
+        break;
+      }
+
+      // ── b / B: toggle A-B repeat ──
+      case "b":
+      case "B": {
+        const abState = useAppStore.getState().abRepeat;
+        if (abState.active) {
+          useAppStore.getState().clearAbRepeat();
+        } else if (abState.pointA !== null) {
+          useAppStore.getState().setAbRepeatPoint('B');
+        } else {
+          useAppStore.getState().setAbRepeatPoint('A');
+        }
         break;
       }
 
