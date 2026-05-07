@@ -613,12 +613,15 @@ export const useAppStore = create<AppState>()(
       setView: (view) => {
         // When navigating to "main", close all overlays/panels without stopping music
         if (view === "main") {
+          const state = get();
+          const alreadyOnMain = state.currentView === "main";
           set({
             currentView: view,
             isFullTrackViewOpen: false,
             showSimilarRequested: false,
             showLyricsRequested: false,
-            selectedArtist: null,
+            // Close artist card only when clicking Home while already on main
+            ...(alreadyOnMain ? { selectedArtist: null } : {}),
             notifPanelOpen: false,
             searchQuery: "",
             selectedGenre: "",
@@ -1404,8 +1407,9 @@ export const useAppStore = create<AppState>()(
       // ── Artist detail view ──
       setSelectedArtist: (artist) => {
         set({ selectedArtist: artist });
-        // Auto-switch to main view where artist detail is rendered
-        if (artist) {
+        // Auto-switch to main view only if not already there
+        // (avoids setView("main") clearing the artist we just set)
+        if (artist && get().currentView !== "main") {
           get().setView("main");
         }
       },
