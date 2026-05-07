@@ -2435,11 +2435,11 @@ export default function PlayerBar() {
           transform: "translate(-50%, -50%)",
           boxShadow: "0 0 6px var(--mq-glow)",
         }} />
-        {/* Time text - always visible (not just sm:block) */}
-        <div className="absolute top-full left-1 text-[9px] mt-0.5 hidden sm:block" style={{ color: "var(--mq-text-muted)" }}>
+        {/* Time text - visible on all screen sizes */}
+        <div className="absolute top-full left-1 text-[9px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
           {formatDuration(Math.floor(Math.min(progress, duration || 0)))}
         </div>
-        <div className="absolute top-full right-1 text-[9px] mt-0.5 hidden sm:block" style={{ color: "var(--mq-text-muted)" }}>
+        <div className="absolute top-full right-1 text-[9px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
           {formatDuration(Math.floor(duration))}
         </div>
       </div>

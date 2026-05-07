@@ -179,6 +179,10 @@ interface AppState {
   spatialMood: Mood | null;
   spatialAutoDetect: boolean;
 
+  // Crossfade
+  crossfadeEnabled: boolean;
+  crossfadeDuration: number;
+
   // Radio mode — "Моя волна" (Yandex Music style)
   radioMode: boolean;
   radioSeedTrack: Track | null;
@@ -370,6 +374,10 @@ interface AppState {
   setSpatialMood: (mood: Mood | null) => void;
   setSpatialAutoDetect: (enabled: boolean) => void;
 
+  // Crossfade actions
+  setCrossfadeEnabled: (enabled: boolean) => void;
+  setCrossfadeDuration: (duration: number) => void;
+
   // Radio mode actions
   toggleRadioMode: () => void;
 
@@ -496,6 +504,10 @@ const initialState = {
   spatialAudioEnabled: false,
   spatialMood: null as Mood | null,
   spatialAutoDetect: true,
+
+  // Crossfade
+  crossfadeEnabled: true,
+  crossfadeDuration: 2,
 
   // Radio mode
   radioMode: false,
@@ -1519,6 +1531,10 @@ export const useAppStore = create<AppState>()(
       setSpatialAudioEnabled: (enabled) => set({ spatialAudioEnabled: enabled }),
       setSpatialMood: (mood) => set({ spatialMood: mood }),
       setSpatialAutoDetect: (enabled) => set({ spatialAutoDetect: enabled }),
+
+      // ── Crossfade actions ──
+      setCrossfadeEnabled: (enabled) => set({ crossfadeEnabled: enabled }),
+      setCrossfadeDuration: (duration) => set({ crossfadeDuration: Math.max(0.5, Math.min(8, duration)) }),
 
       // ── Radio mode actions ──
       toggleRadioMode: () => {

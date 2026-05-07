@@ -5,13 +5,13 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
-  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, Waves, Dna, MoreVertical, Headphones, Radio, Mic2, Sunrise, Star
+  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, Waves, Dna, MoreVertical, Headphones, Radio, Mic2, Sunrise, Star, Gauge
 } from "lucide-react";
 import SongDNA from "./SongDNA";
 import { Slider } from "@/components/ui/slider";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
-import { getAudioElement, resumeAudioContext, getAnalyser } from "@/lib/audioEngine";
+import { getAudioElement, resumeAudioContext, getAnalyser, getInactiveAudio } from "@/lib/audioEngine";
 import TrackCommentsPanel from "./TrackCommentsPanel";
 import TrackCanvas from "./TrackCanvas";
 import PlaylistArtwork from "./PlaylistArtwork";
@@ -543,6 +543,29 @@ export default function FullTrackView() {
   const [canvasMode, setCanvasMode] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+
+  const PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+  // Reset playback speed when track changes
+  useEffect(() => {
+    setPlaybackSpeed(1.0);
+    const audio = getAudioElement();
+    if (audio) audio.playbackRate = 1.0;
+    const inactive = getInactiveAudio();
+    if (inactive) inactive.playbackRate = 1.0;
+  }, [currentTrack?.id]);
+
+  const cyclePlaybackSpeed = () => {
+    const currentIdx = PLAYBACK_SPEEDS.indexOf(playbackSpeed);
+    const nextIdx = (currentIdx + 1) % PLAYBACK_SPEEDS.length;
+    const nextSpeed = PLAYBACK_SPEEDS[nextIdx];
+    setPlaybackSpeed(nextSpeed);
+    const audio = getAudioElement();
+    if (audio) audio.playbackRate = nextSpeed;
+    const inactive = getInactiveAudio();
+    if (inactive) inactive.playbackRate = nextSpeed;
+  };
 
   // Track mobile viewport
   useEffect(() => {
@@ -1635,6 +1658,7 @@ export default function FullTrackView() {
                         { icon: Sparkles, label: "Canvas режим", active: canvasMode, action: () => { setCanvasMode(!canvasMode); setShowMoreMenu(false); } },
                         { icon: Headphones, label: "Spatial Audio", active: spatialAudioEnabled, action: () => { setSpatialAudioEnabled(!spatialAudioEnabled); setShowMoreMenu(false); } },
                         { icon: Waves, label: radioMode ? "Волна вкл" : "Радио режим", active: radioMode, action: () => { toggleRadioMode(); setShowMoreMenu(false); } },
+                        { icon: Gauge, label: `Скорость ${playbackSpeed.toFixed(1)}x`, active: playbackSpeed !== 1.0, action: () => { cyclePlaybackSpeed(); setShowMoreMenu(false); } },
                         { icon: Download, label: "Скачать", active: false, action: () => { handleDownload(); setShowMoreMenu(false); } },
                       ].map((item) => {
                         const Icon = item.icon;
@@ -1694,6 +1718,7 @@ export default function FullTrackView() {
                     { icon: Sparkles, label: "Canvas режим", active: canvasMode, action: () => { setCanvasMode(!canvasMode); setShowMoreMenu(false); } },
                     { icon: Headphones, label: "Spatial Audio", active: spatialAudioEnabled, action: () => { setSpatialAudioEnabled(!spatialAudioEnabled); setShowMoreMenu(false); } },
                     { icon: Waves, label: radioMode ? "Волна вкл" : "Радио режим", active: radioMode, action: () => { toggleRadioMode(); setShowMoreMenu(false); } },
+                    { icon: Gauge, label: `Скорость ${playbackSpeed.toFixed(1)}x`, active: playbackSpeed !== 1.0, action: () => { cyclePlaybackSpeed(); setShowMoreMenu(false); } },
                     { icon: Download, label: "Скачать", active: false, action: () => { handleDownload(); setShowMoreMenu(false); } },
                   ].map((item) => {
                     const Icon = item.icon;

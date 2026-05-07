@@ -7,6 +7,7 @@ import type { ViewType } from "@/store/useAppStore";
 import { themes, applyThemeToDOM } from "@/lib/themes";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { useListenSessionSync } from "@/hooks/useListenSessionSync";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import "@/styles/ipod-2001.css";
 import "@/styles/japan.css";
 import "@/styles/swag.css";
@@ -217,6 +218,7 @@ function AppShell() {
   // ── Global notifications: polling-based, works on ALL tabs ──
   useGlobalNotifications();
   useListenSessionSync();
+  useKeyboardShortcuts();
 
   useEffect(() => {
     if (prevViewRef.current === "search" && currentView !== "search" && searchQuery) {

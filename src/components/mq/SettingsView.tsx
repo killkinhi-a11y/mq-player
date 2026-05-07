@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download, Sun, ThumbsDown
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download, Sun, ThumbsDown, ArrowLeftRight
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import ScrollReveal from "./ScrollReveal";
 import TasteProfileView from "./TasteProfileView";
+import { setCrossfadeEnabled as engineSetCrossfadeEnabled, setCrossfadeDuration as engineSetCrossfadeDuration } from "@/lib/audioEngine";
 
 // ── Inline mascot preview for settings ──
 function MascotPreview({ size, isSelected }: { size: number; isSelected: boolean }) {
@@ -201,6 +202,7 @@ export default function SettingsView() {
     dislikedTrackIds, dislikedTracksData,
     currentStyle, setStyle, styleVariant, setStyleVariant,
     catEnabled, setCatEnabled, catFrequency, setCatFrequency, catMood, setCatMood, catSize, setCatSize, catPetCount,
+    crossfadeEnabled, setCrossfadeEnabled, crossfadeDuration, setCrossfadeDuration,
   } = useAppStore();
 
   const ADMIN_EMAILS = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_ADMIN_EMAILS) 
@@ -239,6 +241,7 @@ export default function SettingsView() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [showCatSettings, setShowCatSettings] = useState(false);
+  const [showCrossfadeSettings, setShowCrossfadeSettings] = useState(false);
   const [showFullTaste, setShowFullTaste] = useState(false);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const styleList = [
@@ -642,6 +645,89 @@ export default function SettingsView() {
           {spatialAudioEnabled ? "ON" : "OFF"}
         </span>
       </motion.button>
+
+      {/* Crossfade */}
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setShowCrossfadeSettings(!showCrossfadeSettings)}
+        className="w-full p-3 rounded-xl text-left text-sm font-medium flex items-center gap-3"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+      >
+        <ArrowLeftRight className="w-4 h-4" style={{ color: crossfadeEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+        Кроссфейд
+        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full font-medium"
+          style={{
+            backgroundColor: crossfadeEnabled ? "var(--mq-accent)" : "var(--mq-surface, #1a1a1a)",
+            color: crossfadeEnabled ? "#fff" : "var(--mq-text-muted)",
+          }}>
+          {crossfadeEnabled ? `${crossfadeDuration}s` : "ВЫКЛ"}
+        </span>
+        {showCrossfadeSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </motion.button>
+
+      <AnimatePresence>
+        {showCrossfadeSettings && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+            className="overflow-hidden"
+          >
+            <div
+              className="rounded-2xl p-4 space-y-4"
+              style={{ backgroundColor: "var(--mq-card)" }}
+            >
+              {/* Enable/Disable toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Включить кроссфейд</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Плавный переход между треками</p>
+                </div>
+                <Switch
+                  checked={crossfadeEnabled}
+                  onCheckedChange={(checked) => {
+                    setCrossfadeEnabled(checked);
+                    engineSetCrossfadeEnabled(checked);
+                  }}
+                />
+              </div>
+
+              {/* Duration slider */}
+              <div className={crossfadeEnabled ? "" : "opacity-40 pointer-events-none"}>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Длительность</p>
+                  <span className="text-xs font-mono px-2 py-0.5 rounded-md" style={{ backgroundColor: "var(--mq-surface, #1a1a1a)", color: "var(--mq-accent)" }}>
+                    {crossfadeDuration}s
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0.5}
+                  max={8}
+                  step={0.5}
+                  value={crossfadeDuration}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setCrossfadeDuration(val);
+                    engineSetCrossfadeDuration(val);
+                  }}
+                  className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                  style={{
+                    backgroundColor: "var(--mq-border)",
+                    accentColor: "var(--mq-accent)",
+                  }}
+                />
+                <div className="flex justify-between mt-1">
+                  <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>0.5s</span>
+                  <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>8s</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Sleep Timer — desktop only */}
       <motion.button

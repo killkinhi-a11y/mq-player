@@ -11,6 +11,7 @@ import {
   Music,
   Play,
   Pause,
+  Trash2,
 } from "lucide-react";
 
 interface QueueViewProps {
@@ -28,6 +29,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
     playTrack,
     removeFromUpNext,
     moveInUpNext,
+    clearUpNext,
     animationsEnabled,
   } = useAppStore();
 
@@ -133,12 +135,25 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
 
               {/* Section 1: Up Next (manually added) */}
               <div className="px-4 pt-2 pb-1">
-                <p
-                  className="text-[11px] font-semibold uppercase tracking-wider mb-2"
-                  style={{ color: "var(--mq-text-muted)" }}
-                >
-                  Следующие
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p
+                    className="text-[11px] font-semibold uppercase tracking-wider"
+                    style={{ color: "var(--mq-text-muted)" }}
+                  >
+                    Слушать дальше
+                  </p>
+                  {upNext.length > 0 && (
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={clearUpNext}
+                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors hover:opacity-80"
+                      style={{ color: "var(--mq-text-muted)" }}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Очистить
+                    </motion.button>
+                  )}
+                </div>
                 {upNext.length > 0 ? (
                   <div className="space-y-1">
                     <AnimatePresence initial={false}>

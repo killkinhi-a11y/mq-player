@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Play, ListPlus, Heart, ThumbsDown, User, Copy, ListMusic, Plus, Download, Users } from "lucide-react";
+import { Play, ListPlus, Heart, ThumbsDown, User, Copy, ListMusic, Plus, Download, Users, Share2 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { searchTracks, type Track } from "@/lib/musicApi";
 import { getAudioElement } from "@/lib/audioEngine";
@@ -29,6 +29,7 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
     (a) => a.username.toLowerCase() === track.artist.toLowerCase()
   );
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState(false);
 
   // Close on click outside
   useEffect(() => {
@@ -88,6 +89,22 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
 
   const handleCopyTitle = () => {
     navigator.clipboard.writeText(`${track.title} — ${track.artist}`).catch(() => {});
+    onClose();
+  };
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/track/${track.scTrackId}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${track.title} — ${track.artist}`, url: shareUrl });
+      } catch {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareFeedback(true);
+        setTimeout(() => setShareFeedback(false), 1500);
+      } catch {}
+    }
     onClose();
   };
 
@@ -194,6 +211,7 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
     { icon: User, label: "Перейти к артисту", action: handleGoToArtist, accent: false },
     { icon: Users, label: isSubscribed ? "Отписаться" : "Подписаться", action: handleToggleSubscribe, accent: isSubscribed },
     { icon: Copy, label: "Копировать название", action: handleCopyTitle, accent: false },
+    ...(track.scTrackId ? [{ icon: Share2, label: shareFeedback ? "Ссылка скопирована!" : "Поделиться", action: handleShare, accent: shareFeedback }] : []),
     { icon: Download, label: "Скачать", action: async () => {
       const audio = getAudioElement();
       if (audio && audio.src) {
