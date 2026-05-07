@@ -611,7 +611,23 @@ export const useAppStore = create<AppState>()(
       },
 
       setView: (view) => {
-        set({ currentView: view });
+        // When navigating to "main", close all overlays/panels without stopping music
+        if (view === "main") {
+          set({
+            currentView: view,
+            isFullTrackViewOpen: false,
+            showSimilarRequested: false,
+            showLyricsRequested: false,
+            selectedArtist: null,
+            notifPanelOpen: false,
+            searchQuery: "",
+            selectedGenre: "",
+            selectedContactId: null,
+            selectedGroupId: null,
+          });
+        } else {
+          set({ currentView: view });
+        }
         // Sync with browser history for back/forward button support
         if (typeof window !== "undefined") {
           const url = view === "main" ? "/play" : `/play?v=${view}`;

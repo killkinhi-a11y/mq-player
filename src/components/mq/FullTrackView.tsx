@@ -552,6 +552,21 @@ export default function FullTrackView() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  // Close all local panels when navigating away from full track view
+  const prevFullTrackOpenRef = useRef(isFullTrackViewOpen);
+  useEffect(() => {
+    if (prevFullTrackOpenRef.current && !isFullTrackViewOpen) {
+      setShowSimilar(false);
+      setShowLyrics(false);
+      setShowSleepTimer(false);
+      setShowComments(false);
+      setShowDNA(false);
+      setCanvasMode(false);
+      setShowMoreMenu(false);
+    }
+    prevFullTrackOpenRef.current = isFullTrackViewOpen;
+  }, [isFullTrackViewOpen]);
+
   const [lyricsLines, setLyricsLines] = useState<{ time: number; text: string }[]>([]);
   const [lyricsPlainText, setLyricsPlainText] = useState("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
@@ -1586,7 +1601,7 @@ export default function FullTrackView() {
 
         {/* Header — simplified: back + badge + more */}
         <div className="relative z-10 flex items-center justify-between p-4">
-          <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setFullTrackViewOpen(false); setShowSimilar(false); setShowComments(false); setShowMoreMenu(false); }}
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setFullTrackViewOpen(false); setShowSimilar(false); setShowLyrics(false); setShowSleepTimer(false); setShowComments(false); setShowDNA(false); setCanvasMode(false); setShowMoreMenu(false); }}
             className="p-2" style={{ color: "var(--mq-text)" }}>
             <ChevronLeft className="w-6 h-6" />
           </motion.button>
@@ -1742,7 +1757,11 @@ export default function FullTrackView() {
                 e.stopPropagation();
                 setFullTrackViewOpen(false);
                 setShowSimilar(false);
+                setShowLyrics(false);
+                setShowSleepTimer(false);
                 setShowComments(false);
+                setShowDNA(false);
+                setCanvasMode(false);
                 setShowMoreMenu(false);
                 setSelectedArtist({ name: currentTrack.artist, avatar: currentTrack.cover });
               }}

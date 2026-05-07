@@ -729,10 +729,15 @@ export default function PlayerBar() {
     toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
     upNext, currentStyle, radioMode, smartShuffle, toggleRadioMode,
     spatialAudioEnabled, setSpatialAudioEnabled, setSpatialMood, spatialAutoDetect, spatialMood,
-    setSelectedArtist,
+    setSelectedArtist, currentView,
   } = useAppStore();
 
   const [showQueue, setShowQueue] = useState(false);
+
+  // Close queue panel when navigating to main
+  useEffect(() => {
+    if (currentView === "main") setShowQueue(false);
+  }, [currentView]);
 
   const progressRef = useRef<HTMLDivElement>(null);
   const volumeRef = useRef<HTMLDivElement>(null);
