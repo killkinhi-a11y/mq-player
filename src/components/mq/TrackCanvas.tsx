@@ -933,6 +933,286 @@ function drawMinimalCanvas(
   }
 }
 
+// ── Liquid Glass: Aurora / translucent glass orbs with soft chromatic effect ──
+
+interface GlassParticle {
+  x: number; y: number; vx: number; vy: number;
+  size: number; life: number; maxLife: number;
+  alpha: number; hue: number;
+}
+
+const liquidGlassSmoothed = new Float32Array(32);
+const liquidGlassParticles: GlassParticle[] = [];
+
+// Glass orb configuration
+interface GlassOrb {
+  hue: number; sat: number; light: number;
+  baseRadiusFrac: number;
+  xPhase: number; yPhase: number;
+  xSpeed: number; ySpeed: number;
+  xAmp: number; yAmp: number;
+  pulsePhase: number; pulseSpeed: number;
+}
+
+const GLASS_ORB_CONFIGS: GlassOrb[] = [
+  { hue: 210, sat: 0.7, light: 0.45, baseRadiusFrac: 0.42, xPhase: 0,   yPhase: 1.2, xSpeed: 0.08, ySpeed: 0.06, xAmp: 0.20, yAmp: 0.16, pulsePhase: 0,   pulseSpeed: 0.3 },
+  { hue: 240, sat: 0.6, light: 0.40, baseRadiusFrac: 0.36, xPhase: 2.1, yPhase: 0.6, xSpeed: 0.10, ySpeed: 0.09, xAmp: 0.22, yAmp: 0.18, pulsePhase: 1.2, pulseSpeed: 0.35 },
+  { hue: 270, sat: 0.55, light: 0.38, baseRadiusFrac: 0.32, xPhase: 4.2, yPhase: 3.1, xSpeed: 0.07, ySpeed: 0.11, xAmp: 0.16, yAmp: 0.20, pulsePhase: 2.8, pulseSpeed: 0.25 },
+  { hue: 290, sat: 0.5, light: 0.35, baseRadiusFrac: 0.28, xPhase: 1.1, yPhase: 4.4, xSpeed: 0.12, ySpeed: 0.05, xAmp: 0.18, yAmp: 0.14, pulsePhase: 4.2, pulseSpeed: 0.4 },
+  { hue: 195, sat: 0.65, light: 0.42, baseRadiusFrac: 0.34, xPhase: 3.5, yPhase: 2.3, xSpeed: 0.09, ySpeed: 0.08, xAmp: 0.24, yAmp: 0.15, pulsePhase: 1.8, pulseSpeed: 0.32 },
+  { hue: 330, sat: 0.45, light: 0.40, baseRadiusFrac: 0.26, xPhase: 5.0, yPhase: 0.9, xSpeed: 0.06, ySpeed: 0.10, xAmp: 0.14, yAmp: 0.22, pulsePhase: 3.5, pulseSpeed: 0.28 },
+];
+
+function drawLiquidGlassCanvas(
+  ctx: CanvasRenderingContext2D,
+  w: number, h: number,
+  freqData: Uint8Array<ArrayBuffer>,
+  bass: number, mid: number, high: number,
+  t: number,
+  particles: GlassParticle[],
+  lastBassHit: { value: number },
+) {
+  const cx = w * 0.5;
+  const cy = h * 0.5;
+  const minDim = Math.min(w, h);
+
+  // ── 1. Deep dark background with subtle blue-purple gradient ───────────
+  const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.7);
+  bgGrad.addColorStop(0, "#0c0818");
+  bgGrad.addColorStop(0.5, "#080e1a");
+  bgGrad.addColorStop(1, "#060a14");
+  ctx.fillStyle = bgGrad;
+  ctx.fillRect(0, 0, w, h);
+
+  // ── 2. Large translucent glass orbs (5-7) ─────────────────────────────
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+
+  for (const orb of GLASS_ORB_CONFIGS) {
+    // Smoothed frequency data for audio reactivity
+    const freqIdx = Math.floor(((orb.hue / 360)) * freqData.length * 0.6);
+    const raw = freqData[Math.min(freqIdx, freqData.length - 1)] / 255;
+    liquidGlassSmoothed[GLASS_ORB_CONFIGS.indexOf(orb)] += (raw - liquidGlassSmoothed[GLASS_ORB_CONFIGS.indexOf(orb)]) * 0.1;
+
+    // Audio-reactive size pulsing (bass swell)
+    const pulseFactor = 1 + bass * 0.35 * Math.sin(t * orb.pulseSpeed + orb.pulsePhase);
+    const radius = Math.max(10, minDim * orb.baseRadiusFrac * pulseFactor);
+
+    // Slow organic drift
+    const driftBoost = 1 + mid * 0.3;
+    const ox = w * (0.5 + orb.xAmp * driftBoost * Math.sin(t * orb.xSpeed + orb.xPhase));
+    const oy = h * (0.5 + orb.yAmp * driftBoost * Math.cos(t * orb.ySpeed + orb.yPhase));
+
+    // Lightness reacts to audio
+    const lightBoost = orb.light + high * 0.08;
+    // Very low alpha for softness
+    const alpha = 0.03 + bass * 0.04 + high * 0.02;
+
+    const grad = ctx.createRadialGradient(ox, oy, 0, ox, oy, radius);
+    grad.addColorStop(0, hslToRgba(orb.hue, orb.sat, Math.min(0.55, lightBoost + 0.1), Math.min(0.12, alpha * 1.2)));
+    grad.addColorStop(0.3, hslToRgba(orb.hue, orb.sat, lightBoost, Math.min(0.08, alpha * 0.8)));
+    grad.addColorStop(0.6, hslToRgba(orb.hue, orb.sat * 0.7, lightBoost * 0.7, Math.min(0.04, alpha * 0.4)));
+    grad.addColorStop(1, hslToRgba(orb.hue, orb.sat * 0.5, lightBoost * 0.4, 0));
+
+    ctx.beginPath();
+    ctx.arc(ox, oy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  ctx.restore();
+
+  // ── 3. Frosted glass overlay — soft blending with multiple gradients ──
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  const frostPositions = [
+    { x: cx * 0.6, y: cy * 0.7, hue: 220 },
+    { x: cx * 1.4, y: cy * 1.3, hue: 260 },
+    { x: cx, y: cy * 0.5, hue: 195 },
+    { x: cx * 1.2, y: cy * 0.8, hue: 280 },
+  ];
+  for (const fp of frostPositions) {
+    const frostR = minDim * (0.3 + bass * 0.08);
+    const frostGrad = ctx.createRadialGradient(fp.x, fp.y, 0, fp.x, fp.y, frostR);
+    frostGrad.addColorStop(0, hslToRgba(fp.hue, 0.5, 0.5, 0.02 + bass * 0.02));
+    frostGrad.addColorStop(0.5, hslToRgba(fp.hue, 0.4, 0.4, 0.015 + mid * 0.01));
+    frostGrad.addColorStop(1, hslToRgba(fp.hue, 0.3, 0.3, 0));
+    ctx.fillStyle = frostGrad;
+    ctx.fillRect(0, 0, w, h);
+  }
+  ctx.restore();
+
+  // ── 4. Horizontal aurora/gradient bands ────────────────────────────────
+  ctx.save();
+  const auroraBands = [
+    { yFrac: 0.3, hue1: 210, hue2: 260, speed: 0.15, alpha: 0.025 },
+    { yFrac: 0.5, hue1: 240, hue2: 290, speed: 0.2, alpha: 0.03 },
+    { yFrac: 0.7, hue1: 270, hue2: 330, speed: 0.12, alpha: 0.02 },
+  ];
+
+  for (const band of auroraBands) {
+    const baseY = h * band.yFrac + Math.sin(t * band.speed) * h * 0.05;
+    const bandH = h * (0.06 + mid * 0.1);
+
+    ctx.beginPath();
+    ctx.moveTo(0, baseY);
+    // Wavy bezier top edge
+    const wave1 = Math.sin(t * 0.3 + band.yFrac * 5) * 20;
+    const wave2 = Math.cos(t * 0.2 + band.yFrac * 3) * 15;
+    ctx.bezierCurveTo(
+      w * 0.33, baseY + wave1 - bandH * 0.5,
+      w * 0.66, baseY + wave2 + bandH * 0.3,
+      w, baseY - wave1 * 0.5
+    );
+    ctx.lineTo(w, baseY + bandH);
+    ctx.bezierCurveTo(
+      w * 0.66, baseY + bandH + wave2 * 0.5,
+      w * 0.33, baseY + bandH - wave1 * 0.3,
+      0, baseY + bandH
+    );
+    ctx.closePath();
+
+    const auroraGrad = ctx.createLinearGradient(0, baseY - bandH, w, baseY + bandH);
+    const a1 = band.alpha + mid * 0.02;
+    auroraGrad.addColorStop(0, hslToRgba(band.hue1, 0.6, 0.5, a1 * 0.5));
+    auroraGrad.addColorStop(0.3, hslToRgba(band.hue1, 0.7, 0.55, a1));
+    auroraGrad.addColorStop(0.5, hslToRgba((band.hue1 + band.hue2) / 2, 0.65, 0.5, a1 * 1.2));
+    auroraGrad.addColorStop(0.7, hslToRgba(band.hue2, 0.6, 0.5, a1));
+    auroraGrad.addColorStop(1, hslToRgba(band.hue2, 0.5, 0.45, a1 * 0.5));
+    ctx.fillStyle = auroraGrad;
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // ── 5. Subtle glass ring — center, audio-reactive ──────────────────────
+  const ringR = minDim * (0.18 + bass * 0.05);
+  // Soft glow
+  const ringGlowGrad = ctx.createRadialGradient(cx, cy, ringR - 8, cx, cy, ringR + 8);
+  ringGlowGrad.addColorStop(0, `rgba(180,200,255,0)`);
+  ringGlowGrad.addColorStop(0.5, `rgba(180,200,255,${0.015 + bass * 0.025})`);
+  ringGlowGrad.addColorStop(1, `rgba(180,200,255,0)`);
+  ctx.fillStyle = ringGlowGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, ringR + 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Thin ring stroke
+  ctx.beginPath();
+  ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(180,200,255,${0.03 + bass * 0.04 + mid * 0.02})`;
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+
+  // Inner soft ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, ringR * 0.7, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(160,180,240,${0.015 + mid * 0.02})`;
+  ctx.lineWidth = 0.4;
+  ctx.stroke();
+
+  // ── 6. Glass particles — spawn on bass hits ────────────────────────────
+  if (bass > 0.5 && bass - lastBassHit.value > 0.08 && particles.length < 40) {
+    const count = 1 + Math.floor(Math.random() * 2);
+    for (let j = 0; j < count; j++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = ringR * 0.5 + Math.random() * minDim * 0.2;
+      const hues = [210, 240, 270, 290, 195, 330];
+      particles.push({
+        x: cx + Math.cos(angle) * dist,
+        y: cy + Math.sin(angle) * dist,
+        vx: Math.cos(angle) * (0.05 + Math.random() * 0.15),
+        vy: Math.sin(angle) * (0.05 + Math.random() * 0.15) - 0.05,
+        size: 1.5 + Math.random() * 3,
+        life: 0,
+        maxLife: 80 + Math.random() * 100,
+        alpha: 0.04 + Math.random() * 0.06,
+        hue: hues[Math.floor(Math.random() * hues.length)],
+      });
+    }
+  }
+  lastBassHit.value = bass;
+
+  // Update & draw glass particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vx *= 0.998;
+    p.vy *= 0.998;
+    p.vy += 0.002; // gentle float upward
+    p.life++;
+    if (p.life > p.maxLife) {
+      particles.splice(i, 1);
+      continue;
+    }
+    const lifeRatio = 1 - p.life / p.maxLife;
+    // Smooth fade in/out
+    const fade = lifeRatio < 0.2 ? lifeRatio / 0.2 : (lifeRatio > 0.6 ? (1 - lifeRatio) / 0.4 : 1);
+    const a = fade * p.alpha;
+
+    // Translucent circle with radial gradient
+    const pGrad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * fade);
+    pGrad.addColorStop(0, hslToRgba(p.hue, 0.6, 0.6, a));
+    pGrad.addColorStop(0.5, hslToRgba(p.hue, 0.5, 0.5, a * 0.5));
+    pGrad.addColorStop(1, hslToRgba(p.hue, 0.4, 0.4, 0));
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size * fade, 0, Math.PI * 2);
+    ctx.fillStyle = pGrad;
+    ctx.fill();
+  }
+  if (particles.length > 40) particles.splice(0, particles.length - 40);
+
+  // ── 7. Chromatic softness — extra soft vignette ────────────────────────
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  const vigGrad = ctx.createRadialGradient(cx, cy, minDim * 0.15, cx, cy, Math.max(w, h) * 0.65);
+  vigGrad.addColorStop(0, `rgba(120,100,200,${0.01 + bass * 0.015})`);
+  vigGrad.addColorStop(0.5, `rgba(80,60,160,${0.008 + mid * 0.008})`);
+  vigGrad.addColorStop(1, "rgba(6,10,20,0)");
+  ctx.fillStyle = vigGrad;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+
+  // ── 8. Light refraction lines — subtle curved white lines ──────────────
+  ctx.save();
+  const refractionLines = [
+    { yOff: -0.12, xAmp: 0.3, freq: 1.2, phase: 0, alpha: 0.035 },
+    { yOff: 0.08, xAmp: 0.25, freq: 1.8, phase: 2, alpha: 0.03 },
+    { yOff: 0.02, xAmp: 0.2, freq: 2.5, phase: 4.5, alpha: 0.04 },
+  ];
+
+  for (const rl of refractionLines) {
+    const baseY = cy + h * rl.yOff + Math.sin(t * 0.15 + rl.phase) * 10;
+    ctx.beginPath();
+    for (let x = 0; x <= w; x += 4) {
+      const xn = x / w;
+      const y = baseY
+        + Math.sin(xn * rl.freq * Math.PI + t * 0.2 + rl.phase) * h * rl.xAmp
+        + Math.cos(xn * rl.freq * 0.5 * Math.PI + t * 0.15) * 8;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    const lineAlpha = rl.alpha + high * 0.02 + bass * 0.01;
+    ctx.strokeStyle = `rgba(200,210,255,${lineAlpha})`;
+    ctx.lineWidth = 1.5 + bass * 1;
+    ctx.lineCap = "round";
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // ── Additional soft noise/grain overlay ─────────────────────────────────
+  ctx.save();
+  ctx.globalCompositeOperation = "overlay";
+  const noiseGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, minDim * 0.5);
+  noiseGrad.addColorStop(0, `rgba(100,120,200,${0.01 + bass * 0.01})`);
+  noiseGrad.addColorStop(1, "rgba(100,120,200,0)");
+  ctx.fillStyle = noiseGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, minDim * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 // ── Default: Enhanced gradient orbs + frequency ring + particles ───────────
 
 // Default particle trails
@@ -1066,6 +1346,8 @@ export default function TrackCanvas({ isActive, isPlaying, currentStyle, styleVa
   const swagBassHitRef = useRef({ value: 0 });
   const neonParticlesRef = useRef<NeonParticle[]>([]);
   const neonBassHitRef = useRef({ value: 0 });
+  const glassParticlesRef = useRef<GlassParticle[]>([]);
+  const glassBassHitRef = useRef({ value: 0 });
 
   const getAccentColor = useCallback(() => {
     try {
@@ -1143,6 +1425,10 @@ export default function TrackCanvas({ isActive, isPlaying, currentStyle, styleVa
 
         case "neon":
           drawNeonCanvas(ctx, w, h, freqData, bass, mid, high, t, neonParticlesRef.current, neonBassHitRef.current, isLight);
+          break;
+
+        case "liquid-glass":
+          drawLiquidGlassCanvas(ctx, w, h, freqData, bass, mid, high, t, glassParticlesRef.current, glassBassHitRef.current);
           break;
 
         case "minimal":

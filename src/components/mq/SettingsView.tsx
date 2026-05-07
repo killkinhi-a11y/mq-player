@@ -254,6 +254,7 @@ export default function SettingsView() {
     { id: "swag", name: "Silver" },
     { id: "neon", name: "Neon" },
     { id: "minimal", name: "Minimal" },
+    { id: "liquid-glass", name: "Liquid Glass" },
   ];
   const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
 
@@ -1267,6 +1268,33 @@ export default function SettingsView() {
                     <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Минимализм, чистота, шрифт</p>
                   </div>
                   {currentStyle === "minimal" && (
+                    <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+                  )}
+                </motion.button>
+
+                {/* ── Liquid Glass ── */}
+                <motion.button
+                  whileHover={{ scale: 1.01 }}
+                  whileTap={{ scale: 0.99 }}
+                  onClick={() => setStyle("liquid-glass")}
+                  className="w-full p-3 text-left relative flex items-center gap-3"
+                  style={{
+                    backgroundColor: currentStyle === "liquid-glass" ? "var(--mq-input-bg)" : "transparent",
+                    border: currentStyle === "liquid-glass" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
+                  }}
+                >
+                  {/* Mini preview: Glass orbs with blue-purple glow */}
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#0a0f1a", borderRadius: 6 }}>
+                    <div className="absolute" style={{ top: "30%", left: "20%", width: 14, height: 10, borderRadius: "50%", background: "radial-gradient(ellipse, rgba(96,165,250,0.5) 0%, transparent 70%)", filter: "blur(2px)" }} />
+                    <div className="absolute" style={{ top: "35%", left: "45%", width: 12, height: 8, borderRadius: "50%", background: "radial-gradient(ellipse, rgba(168,85,247,0.4) 0%, transparent 70%)", filter: "blur(2px)" }} />
+                    <div className="absolute" style={{ top: "25%", left: "65%", width: 10, height: 7, borderRadius: "50%", background: "radial-gradient(ellipse, rgba(236,72,153,0.3) 0%, transparent 70%)", filter: "blur(2px)" }} />
+                    <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 50%)", borderRadius: 6 }} />
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Liquid Glass</span>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Стеклянные сферы, аврора, рефракция</p>
+                  </div>
+                  {currentStyle === "liquid-glass" && (
                     <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                   )}
                 </motion.button>

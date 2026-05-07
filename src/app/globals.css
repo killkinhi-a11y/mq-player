@@ -234,6 +234,13 @@ nav, header, .fixed, [style*="background"] {
   transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
+/* ── Liquid Glass smooth theme change transition ── */
+html { transition: background-color 0.6s ease; }
+html.liquid-glass-theme,
+html.liquid-glass-theme * {
+  transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
 /* Framer Motion managed elements — no CSS transition interference */
 [data-framer-motion-id],
 [data-framer-motion-id] *,
@@ -296,13 +303,13 @@ html, body {
   color: var(--mq-text);
 }
 
-/* Liquid Glass effect for nav, menus, modals */
 /* Liquid Glass effect — iOS style glassmorphism */
 .liquid-glass {
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
   background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
   position: relative;
   overflow: hidden;
 }
@@ -317,12 +324,90 @@ html, body {
   z-index: 0;
 }
 
+/* Subtle animated shimmer effect */
+.liquid-glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255,255,255,0.03) 45%,
+    rgba(255,255,255,0.07) 50%,
+    rgba(255,255,255,0.03) 55%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  animation: liquid-glass-shimmer 6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes liquid-glass-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 .liquid-glass > * {
   position: relative;
   z-index: 1;
 }
 
+/* Liquid Glass accent class */
+.liquid-glass-accent {
+  position: relative;
+  box-shadow: 0 0 20px rgba(120,140,255,0.12), 0 0 40px rgba(180,120,255,0.06);
+  animation: liquid-glass-accent-pulse 4s ease-in-out infinite;
+}
+
+@keyframes liquid-glass-accent-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(120,140,255,0.12), 0 0 40px rgba(180,120,255,0.06); }
+  50% { box-shadow: 0 0 28px rgba(120,140,255,0.18), 0 0 56px rgba(180,120,255,0.1); }
+}
+
 /* Liquid Glass theme global */
+html.liquid-glass-theme body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    135deg,
+    #060a14 0%,
+    #0c0818 15%,
+    #0a0f20 30%,
+    #080e1a 45%,
+    #0d0a1e 60%,
+    #060a14 75%,
+    #0b0d1c 90%,
+    #060a14 100%
+  );
+  background-size: 200% 200%;
+  animation: liquid-glass-bg-drift 20s ease-in-out infinite;
+  pointer-events: none;
+}
+
+html.liquid-glass-theme body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  pointer-events: none;
+}
+
+@keyframes liquid-glass-bg-drift {
+  0% { background-position: 0% 0%; }
+  25% { background-position: 100% 50%; }
+  50% { background-position: 50% 100%; }
+  75% { background-position: 0% 50%; }
+  100% { background-position: 0% 0%; }
+}
+
 .liquid-glass-theme .fixed,
 .liquid-glass-theme nav {
   backdrop-filter: blur(40px) saturate(180%);
@@ -334,6 +419,7 @@ html, body {
   backdrop-filter: blur(24px) saturate(160%);
   -webkit-backdrop-filter: blur(24px) saturate(160%);
   border: 1px solid rgba(255,255,255,0.1) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
 .liquid-glass-theme .rounded-2xl::before,
@@ -342,7 +428,7 @@ html, body {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, transparent 50%);
+  background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(120,140,255,0.04) 40%, transparent 70%);
   pointer-events: none;
 }
 
