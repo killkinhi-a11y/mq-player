@@ -230,7 +230,7 @@ function contentQualityScore(
 }
 
 // Minimum quality score for a track to pass filtering
-const QUALITY_THRESHOLD = 40;
+const QUALITY_THRESHOLD = 45; // v14: raised from 40 to match recommendations config
 
 
 // ── Fetch track metadata by ID (direct API, NOT text search) ─────────────
@@ -385,6 +385,20 @@ function scoreCandidate(
   if (hasNoiseKeywords(titleArtistNoise)) score -= CFG.radio.noisePenalty;
   if (titleHashtagGenreMismatch(track.title || "", [ctx.currentGenre])) score -= CFG.radio.noisePenalty / 2;
 
+  // v14: Quality scoring — prefer tracks with proper titles, real artists, etc.
+  // This supplements the hard filter above by scoring borderline content
+  const radioTitle = (track.title || "").trim();
+  const radioArtist = (track.artist || "").trim();
+  const radioTitleLen = radioTitle.length;
+  // Good title length (not too short, not too long)
+  if (radioTitleLen >= 5 && radioTitleLen <= 60) score += 5;
+  // Has genre metadata
+  if (track.genre && track.genre.trim().length > 0) score += 3;
+  // Reasonable duration (2-6 min = proper track)
+  if (track.duration >= 120 && track.duration <= 360) score += 5;
+  // Full playable track (massive bonus — preview-only from unknown artist is usually garbage)
+  if (!track.scIsFull) score -= 25;
+
   // ── MOMENTUM PENALTY ──
   if (ctx.recentSkipCount >= CFG.radio.momentumSkipThreshold) {
     if (trackArtist && trackArtist === ctx.currentArtist.toLowerCase().trim()) {
@@ -441,56 +455,10 @@ function shouldExclude(
   // Too short to be a real track
   if (track.duration && track.duration < 30) return true;
 
-  // Too long (not a real track — DJ set, podcast, etc.)
-  if (track.duration && track.duration > 1200) return true;
-
-  // ── Content quality filters (ported from recommendations v13) ──
-
-  const titleArtist = `${track.title || ""} ${track.artist || ""}`.toLowerCase();
-  const title = (track.title || "").trim();
-
-  // Noise / religious spam
-  if (hasNoiseKeywords(titleArtist)) return true;
-
-  // Hashtag genre mismatch
-  if (titleHashtagGenreMismatch(track.title || "", [ctx.currentGenre])) return true;
-
-  // Promo/spam/low-effort content
-  if (hasPromoSpamKeywords(titleArtist)) return true;
-
-  // AI-generated content → instant reject
-  if (isAIGeneratedContent(titleArtist)) return true;
-
-  // Generic/boring title
-  if (isGenericTitle(title)) return true;
-
-  // Title contains URL/domain
-  if (titleContainsUrl(title)) return true;
-
-  // Spam artist name
-  if (isSpamArtistName(track.artist || "")) return true;
-
-  // Low-quality genre (unless user's genre)
-  if (isLowQualityGenre(track.genre || "") && genre !== normalizeGenre(ctx.currentGenre)) {
-    // Also check if the user likes this genre
-    const userLikesLQ = [...ctx.likedArtists].some(a => {
-      // Not directly genre-matched, but skip filter for user's own genre preference
-      return false;
-    });
-    if (!userLikesLQ) return true;
-  }
-
-  // Extremely short titles
-  if (title.length > 0 && title.length < 3) return true;
-
-  // Title consists of only special characters
-  if (title.length > 0 && /^[^a-zA-Zа-яА-Я0-9]+$/.test(title)) return true;
-
-  // Excessive special character density
-  if (title.length > 10) {
-    const specialCount = title.split('').filter(c => /[^a-zA-Zа-яА-Я0-9\s]/.test(c)).length;
-    if (specialCount / title.length > 0.3) return true;
-  }
+  // v14: Content quality filter — now uses the same comprehensive quality check
+  // as the recommendations API (contentQualityScore with threshold)
+  // This is the second layer of defense after shouldExclude's own checks
+  // Note: contentQualityScore is called separately in addCandidate with QUALITY_THRESHOLD
 
   return false;
 }

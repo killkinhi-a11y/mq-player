@@ -244,7 +244,7 @@ const NOISE_KEYWORDS = [
   "devotional", "prayer song", "faith", "religious", "spiritual music",
 ];
 
-// v12: Promo / spam / low-effort content keywords
+// v14: Promo / spam / low-effort content keywords (expanded)
 const PROMO_SPAM_KEYWORDS = [
   // Generic promotional phrases
   "free download", "free beat", "free instrumental", "type beat", "type beat free",
@@ -272,6 +272,15 @@ const PROMO_SPAM_KEYWORDS = [
   "explicit", "clean version", "radio edit", "album version",
   "out now", "available now", "stream now", "new song",
   "x original", "original song", "official song", "debut single",
+  // v14: MORE spam patterns from SoundCloud
+  "free dl", "free download link", "download free", "grab free",
+  "feat. prod", "instrumental produced", "beat produced",
+  "snapchat", "onlyfans", "patreon", "donate", "support the artist",
+  "snippet", "teaser", "coming soon", "dropping soon",
+  "visualizer", "visualiser", "animated video",
+  "gemini ai", "claude ai", "gemini music", "ai track", "ai sing",
+  "covers ep", "covers album", "tribute to", "in the style of",
+  "mashup pack", "remix pack", "bootleg pack", "edit pack",
 ];
 
 // v13: Keywords that indicate AI-generated or very low-quality content
@@ -1255,9 +1264,9 @@ async function handler(request: NextRequest) {
     // v10: Cold start users get exploration boost for bridge genre tracks
     const scoredTracks: { track: SCTrack; score: number; meta: InternalTrack; qualityScore: number }[] = [];
     for (const [scTrackId, meta] of trackMap.entries()) {
-      // v13: Content quality gate — filter out obviously bad content BEFORE scoring
+      // v14: Content quality gate — filter out obviously bad content BEFORE scoring
       const quality = contentQualityScore(meta.track, allGenres, artists);
-      if (quality < 30) continue; // Hard minimum: below 30 = garbage
+      if (quality < 45) continue; // Hard minimum: below 45 = garbage (raised from 30)
 
       let score = scoreTrackV8(meta.track, meta, allGenres, artists, languagePreference, feedbackData, timeContext);
       if (isColdStart && meta.isFromBridgeGenre) {
@@ -1444,9 +1453,10 @@ async function handler(request: NextRequest) {
         }
       }
 
-      // Score supplementary tracks
+      // Score supplementary tracks — v14: also apply contentQualityScore to fill tracks
       const fillMeta = (t: SCTrack): InternalTrack => ({ track: t, isFromLikedRelated: false, isFromHistoryRelated: false, isFromArtistSearch: false, isFromGenreFallback: true, isFromBridgeGenre: false, sourceQuery: "fill" });
       const fillScored = Array.from(fillMap.values())
+        .filter(t => contentQualityScore(t, allGenres, artists) >= 45) // v14: quality gate for fill tracks too
         .map(t => { const m = fillMeta(t); return { track: t, meta: m, score: scoreTrackV8(t, m, allGenres, artists, languagePreference, feedbackData, timeContext) }; })
         .sort((a, b) => b.score - a.score);
 
@@ -1495,22 +1505,32 @@ async function handler(request: NextRequest) {
           for (const t of result.value) {
             if (flatIds.has(t.scTrackId) || sourceScIds.has(t.scTrackId)) continue;
             if (shouldExcludeTrack(t, allGenres, excludeIds, dislikedIds, recentIds, dislikedArtists, dislikedGenres)) continue;
+            // v14: Quality gate for exploration tracks — no more garbage discoveries
+            if (contentQualityScore(t, allGenres, artists) < 45) continue;
             const eMeta: InternalTrack = { track: t, isFromLikedRelated: false, isFromHistoryRelated: false, isFromArtistSearch: false, isFromGenreFallback: false, isFromBridgeGenre: true, sourceQuery: "explore" };
             // Give exploration tracks a small score bonus so they don't get cut
             exploreTracks.push({ track: t, meta: eMeta, score: 30 + Math.random() * 20 });
           }
         }
 
-        // Replace last 5 slots with exploration tracks
+        // v14: Only replace if exploration tracks pass quality AND target slot is low-confidence
         const exploreCount = Math.min(5, exploreTracks.length);
         if (exploreCount > 0) {
+          // Only replace tracks with low confidence scores (not high-confidence recommendations)
           const replaceStart = Math.max(TARGET_TRACKS - exploreCount, flatTracks.length - exploreCount);
-          for (let i = 0; i < exploreCount && i < exploreTracks.length; i++) {
-            const idx = replaceStart + i;
+          let replaced = 0;
+          for (let i = 0; i < exploreTracks.length && replaced < exploreCount; i++) {
+            const idx = replaceStart + replaced;
             if (idx < flatTracks.length) {
-              flatTracks[idx] = mapTrack(exploreTracks[i].track, exploreTracks[i].score, exploreTracks[i].meta);
+              const existing = flatTracks[idx];
+              // Only replace low-confidence fallback tracks, never high-confidence ones
+              if (existing._confidence === "low" || !existing._confidence) {
+                flatTracks[idx] = mapTrack(exploreTracks[i].track, exploreTracks[i].score, exploreTracks[i].meta);
+                replaced++;
+              }
             } else {
               flatTracks.push(mapTrack(exploreTracks[i].track, exploreTracks[i].score, exploreTracks[i].meta));
+              replaced++;
             }
           }
         }
@@ -1576,7 +1596,7 @@ async function handler(request: NextRequest) {
       tracks: flatTracks.slice(0, TARGET_TRACKS),
       categories,
       _meta: {
-        version: 11,
+        version: 14,
         timeContext,
         phase1Count: scoredTracksFinal.filter(({ meta }) => meta.isFromLikedRelated || meta.isFromHistoryRelated).length,
         phase2Count: scoredTracksFinal.filter(({ meta }) => meta.isFromArtistSearch).length,

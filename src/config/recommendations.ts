@@ -107,6 +107,11 @@ export interface RecommendationsConfig {
     maxPerArtist: number;
     explorationRate: number; // epsilon for epsilon-greedy
   };
+  quality: {
+    minimumScore: number;
+    fillMinimumScore: number;
+    exploreMinimumScore: number;
+  };
   coldStart: {
     minLikedForFullMode: number;
     minHistoryForFullMode: number;
@@ -331,6 +336,15 @@ export const RECOMMENDATIONS_CONFIG: RecommendationsConfig = {
   diversity: {
     maxPerArtist: 1,               // Max tracks per artist in the flat recommendation list (strict for variety)
     explorationRate: 0.1,          // 10% epsilon for epsilon-greedy exploration (discovery)
+  },
+  // v14: Content quality minimum threshold (0-100)
+  // Tracks below this score are hard-filtered BEFORE scoring
+  quality: {
+    minimumScore: 45,              // Raised from 30 — significantly stricter filtering
+    // Supplementary fill tracks also use this threshold
+    fillMinimumScore: 45,          // Quality gate for supplementary fill tracks
+    // Exploration injection tracks also use this threshold
+    exploreMinimumScore: 45,       // Quality gate for discovery/exploration tracks
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
