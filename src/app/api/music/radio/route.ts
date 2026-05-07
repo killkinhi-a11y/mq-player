@@ -37,7 +37,7 @@ import {
 
 // ── In-memory cache (4 min TTL) ────────────────────────────────────────────────
 const cache = new Map<string, { data: unknown; expiry: number }>();
-const CACHE_TTL = 2 * 60 * 1000; // 2 minutes (reduced from 4 to prevent repeated tracks)
+const CACHE_TTL = 60 * 1000; // 1 minute (reduced from 4 to prevent repeated tracks from cache)
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CONTENT QUALITY FILTERS (ported from recommendations API v13)
@@ -429,14 +429,15 @@ function scoreCandidate(
     }
   }
 
-  // ── SERENDIPITY — reward novel discovery tracks ──
+  // ── SERENDIPITY — reward novel discovery tracks (strengthened for Wave diversity) ──
   const trackArtistNorm = (track.artist || "").toLowerCase().trim();
   const isNewArtist = !ctx.historyArtists.has(trackArtistNorm)
     && trackArtistNorm !== ctx.currentArtist.toLowerCase().trim()
     && !ctx.likedArtists.has(trackArtistNorm);
   const isNewGenre = trackGenre && !ctx.likedGenres.has(trackGenre) && trackGenre !== normalizeGenre(ctx.currentGenre);
-  if (isNewArtist && isNewGenre) score += CFG.scoring.serendipityBonus;
-  else if (isNewArtist) score += Math.floor(CFG.scoring.serendipityBonus / 2);
+  if (isNewArtist && isNewGenre) score += CFG.scoring.serendipityBonus * 2; // x2 for Wave
+  else if (isNewArtist) score += CFG.scoring.serendipityBonus; // full bonus for new artist alone
+  else if (isNewGenre) score += Math.floor(CFG.scoring.serendipityBonus / 2);
 
   // ── FRESHNESS (confidence-proportional jitter) ──
   // Higher-confidence sources get less jitter for stable rankings
@@ -444,7 +445,9 @@ function scoreCandidate(
     : source === "history_related" ? 0.8
     : source === "artist_search" ? 0.6
     : 0.4;
-  const maxJitter = confidence >= 0.8 ? CFG.scoring.highConfidenceJitter : CFG.scoring.maxJitter;
+  // Increased jitter for more variety in Wave
+  const jitterBase = confidence >= 0.8 ? CFG.scoring.highConfidenceJitter : CFG.scoring.maxJitter;
+  const maxJitter = Math.max(jitterBase, 12); // at least ±12 for Wave variety
   score += (Math.random() - 0.5) * 2 * maxJitter;
 
   return score;
@@ -797,25 +800,43 @@ async function handler(request: NextRequest) {
       allFetchPromises.push(searchSCTracks(`${currentGenre} mix`, 10));
     }
 
-    // ── Source 6: Liked artist search — top 3 artists (increased from 2)
+    // ── Source 6: Liked artist search — top 3 artists (increased from 2) ──
     const topLikedArtists = [...likedArtists].slice(0, 3);
     for (const la of topLikedArtists) {
       sourceMap.push("artist_search");
       allFetchPromises.push(searchSCTracks(`"${la}"`, 10));
     }
 
-    // ── Source 7: Liked genre search — top 3 genres (increased from 2)
+    // ── Source 7: Liked genre search — top 3 genres with randomized queries ──
     const topLikedGenres = [...likedGenres].slice(0, 3);
     for (const lg of topLikedGenres) {
+      const likedGenreVariants = [`${lg} ${year}`, `${lg} new`, `${lg} playlist`, `${lg} mix`];
+      const likedGenreQuery = likedGenreVariants[Math.floor(Math.random() * likedGenreVariants.length)];
       sourceMap.push("genre_search");
-      allFetchPromises.push(searchSCTracks(`${lg} ${year}`, 8));
+      allFetchPromises.push(searchSCTracks(likedGenreQuery, 10));
     }
 
-    // ── Source 8: Completed genres bonus — search in genres user actually finishes
-    const topCompletedGenres = [...completedGenres].slice(0, 2);
+    // ── Source 8: Completed genres bonus — search in genres user actually finishes ──
+    const topCompletedGenres = [...completedGenres].slice(0, 3);
     for (const cg of topCompletedGenres) {
+      const completedVariants = [`${cg} best`, `${cg} new artists`, `${cg} ${year}`];
+      const completedQuery = completedVariants[Math.floor(Math.random() * completedVariants.length)];
       sourceMap.push("genre_search");
-      allFetchPromises.push(searchSCTracks(`${cg} best`, 5));
+      allFetchPromises.push(searchSCTracks(completedQuery, 8));
+    }
+
+    // ── Source 9: Exploration — random broad discovery queries ──
+    const explorationQueries = [
+      `indie ${year} new`, `alternative rock ${year}`, `electronic new release`,
+      `hip hop new ${year}`, `r&b soul new`, `jazz modern new`,
+      `pop new artists ${year}`, `ambient chill new`, `punk new release`,
+      `folk acoustic new`, `latin new music`, `african new artists`,
+    ];
+    // Pick 2 random exploration queries for variety
+    const shuffled = explorationQueries.sort(() => Math.random() - 0.5);
+    for (const eq of shuffled.slice(0, 2)) {
+      sourceMap.push("genre_search");
+      allFetchPromises.push(searchSCTracks(eq, 8));
     }
 
     // Execute ALL fetches in parallel

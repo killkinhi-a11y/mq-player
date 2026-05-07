@@ -16,7 +16,6 @@ import TrackCommentsPanel from "./TrackCommentsPanel";
 import TrackCanvas from "./TrackCanvas";
 import PlaylistArtwork from "./PlaylistArtwork";
 import EqualizerView from "./EqualizerView";
-import { getFrequencyData } from "@/lib/audioEngine";
 
 // ── Sleep Timer Wheel Picker (scrollable drum-style) ──
 const SLEEP_TIME_OPTIONS = [5, 10, 15, 20, 25, 30, 45, 60, 90, 120, 150, 180];
@@ -550,10 +549,6 @@ export default function FullTrackView() {
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const [showEQ, setShowEQ] = useState(false);
 
-  // Audio visualizer canvas ref
-  const vizCanvasRef = useRef<HTMLCanvasElement>(null);
-  const vizAnimRef = useRef<number>(0);
-
   const PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
   // ── A-B Repeat toggle handler ──
@@ -570,110 +565,6 @@ export default function FullTrackView() {
       st.setAbRepeatPoint('A');
     }
   }, []);
-
-  // ── Audio Visualizer for Full Player ──
-  useEffect(() => {
-    if (!isFullTrackViewOpen || canvasMode) return;
-    const canvas = vizCanvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const analyser = getAnalyser();
-    const bufferLength = analyser ? analyser.frequencyBinCount : 128;
-    const dataArray = new Uint8Array(bufferLength);
-
-    let animId: number;
-    const BAR_COUNT = 64;
-
-    const draw = () => {
-      const dpr = window.devicePixelRatio || 1;
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
-        canvas.width = w * dpr;
-        canvas.height = h * dpr;
-        ctx.scale(dpr, dpr);
-      }
-      ctx.clearRect(0, 0, w, h);
-
-      // Get frequency data
-      if (analyser) {
-        getFrequencyData(dataArray);
-      }
-
-      // Parse accent color
-      const accentColor = getComputedStyle(document.documentElement).getPropertyValue("--mq-accent").trim() || "#e03131";
-      let r = 224, g = 49, b = 49;
-      if (accentColor.startsWith("#") && accentColor.length >= 7) {
-        r = parseInt(accentColor.slice(1, 3), 16);
-        g = parseInt(accentColor.slice(3, 5), 16);
-        b = parseInt(accentColor.slice(5, 7), 16);
-      }
-
-      const barWidth = (w / BAR_COUNT) * 0.7;
-      const gap = (w / BAR_COUNT) * 0.3;
-      const maxBarHeight = h * 0.55;
-      const baseY = h * 0.65;
-
-      for (let i = 0; i < BAR_COUNT; i++) {
-        const freqIndex = Math.floor((i / BAR_COUNT) * bufferLength * 0.75);
-        const value = dataArray[freqIndex] || 0;
-        const barHeight = (value / 255) * maxBarHeight * (isPlaying ? 1 : 0.12);
-        const x = i * (barWidth + gap) + gap / 2;
-
-        // Main bar
-        const gradient = ctx.createLinearGradient(0, baseY, 0, baseY - barHeight);
-        gradient.addColorStop(0, `rgba(${r},${g},${b},0.6)`);
-        gradient.addColorStop(0.5, `rgba(${r},${g},${b},0.9)`);
-        gradient.addColorStop(1, `rgba(${r},${g},${b},1)`);
-
-        ctx.beginPath();
-        const radius = Math.min(barWidth / 2, 3);
-        const bh = Math.max(1, barHeight);
-        // Rounded top rectangle
-        ctx.moveTo(x, baseY);
-        ctx.lineTo(x, baseY - bh + radius);
-        ctx.quadraticCurveTo(x, baseY - bh, x + radius, baseY - bh);
-        ctx.lineTo(x + barWidth - radius, baseY - bh);
-        ctx.quadraticCurveTo(x + barWidth, baseY - bh, x + barWidth, baseY - bh + radius);
-        ctx.lineTo(x + barWidth, baseY);
-        ctx.closePath();
-        ctx.fillStyle = gradient;
-        ctx.fill();
-
-        // Glow effect
-        if (value > 100 && isPlaying) {
-          ctx.shadowColor = `rgba(${r},${g},${b},0.5)`;
-          ctx.shadowBlur = 8;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-        }
-
-        // Reflection (mirrored, faded)
-        if (isPlaying && barHeight > 4) {
-          const reflHeight = barHeight * 0.3;
-          const reflGradient = ctx.createLinearGradient(0, baseY + 2, 0, baseY + 2 + reflHeight);
-          reflGradient.addColorStop(0, `rgba(${r},${g},${b},0.15)`);
-          reflGradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
-
-          ctx.beginPath();
-          ctx.rect(x, baseY + 2, barWidth, reflHeight);
-          ctx.fillStyle = reflGradient;
-          ctx.fill();
-        }
-      }
-
-      animId = requestAnimationFrame(draw);
-    };
-
-    animId = requestAnimationFrame(draw);
-    vizAnimRef.current = animId;
-
-    return () => {
-      cancelAnimationFrame(animId);
-    };
-  }, [isFullTrackViewOpen, canvasMode, isPlaying]);
 
 
   // Reset playback speed when track changes
@@ -1886,12 +1777,6 @@ export default function FullTrackView() {
               transition={{ type: "spring", stiffness: 200 }}
               className="mb-3 sm:mb-5 flex items-center justify-center relative"
             >
-              {/* Audio visualizer canvas behind album art */}
-              <canvas
-                ref={vizCanvasRef}
-                className="absolute inset-0 w-full h-full pointer-events-none"
-                style={{ width: "clamp(14rem, 50vw, 20rem)", height: "clamp(14rem, 50vw, 20rem)" }}
-              />
               <div className="w-36 h-36 sm:w-52 sm:h-52 lg:w-72 lg:h-72 rounded-2xl overflow-hidden shadow-2xl relative z-10"
                 style={{ boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}>
                 {currentPlaylistId ? (

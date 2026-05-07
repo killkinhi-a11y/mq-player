@@ -260,13 +260,13 @@ export const RECOMMENDATIONS_CONFIG: RecommendationsConfig = {
     momentumPenalty: 120,          // -120: Strong penalty for same artist when user is skipping
 
     // Target track count per radio batch
-    targetMin: 10,                 // Minimum tracks in response
-    targetMax: 12,                 // Maximum tracks in response
+    targetMin: 12,                 // Minimum tracks in response (increased from 10)
+    targetMax: 15,                 // Maximum tracks in response (increased from 12)
 
     // Energy diversity bucket sizes (for selectWithEnergyDiversity)
     closeBucketMax: 4,             // Max tracks with energy close to current (3 + random 0-1)
-    shiftBucketMax: 3,             // Max tracks with slight energy shift (2 + random 0-1)
-    wildcardBucketMax: 3,          // Max wildcard tracks for variety (2 + random 0-1)
+    shiftBucketMax: 4,             // Max tracks with slight energy shift (increased from 3)
+    wildcardBucketMax: 4,          // Max wildcard tracks for variety (increased from 3)
   },
 
   // ═══════════════════════════════════════════════════════════════════════════
