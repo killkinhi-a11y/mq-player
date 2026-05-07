@@ -124,7 +124,7 @@ export function initAudioEngine(audio: HTMLAudioElement): AnalyserNode | null {
     // Create analyser
     _analyser = ctx.createAnalyser();
     _analyser.fftSize = 512;
-    _analyser.smoothingTimeConstant = 0.85;
+    _analyser.smoothingTimeConstant = 0.75;
 
     // Create 5-band EQ filters (pre-create but keep disconnected until enabled)
     const eqBandDefs = [
@@ -269,8 +269,9 @@ export function getFrequencyData(dataArray: Uint8Array<ArrayBuffer>): Uint8Array
   const isPlaying = (audioA && !audioA.paused && !audioA.ended) || (audioB && !audioB.paused && !audioB.ended);
 
   if (!isPlaying) {
+    // Gentle exponential decay toward zero for smooth silence
     for (let i = 0; i < dataArray.length; i++) {
-      dataArray[i] = Math.floor(dataArray[i] * 0.85);
+      dataArray[i] = Math.floor(dataArray[i] * 0.82);
     }
     return dataArray;
   }
@@ -283,15 +284,8 @@ export function getFrequencyData(dataArray: Uint8Array<ArrayBuffer>): Uint8Array
 
     if (sum > 0) {
       if (_isCorsBlocked) _isCorsBlocked = false;
-
-      const temp = new Uint8Array(dataArray.length);
-      for (let i = 0; i < dataArray.length; i++) {
-        const prev = i > 0 ? dataArray[i - 1] : dataArray[i];
-        const curr = dataArray[i];
-        const next = i < dataArray.length - 1 ? dataArray[i + 1] : dataArray[i];
-        temp[i] = Math.round(curr * 0.5 + prev * 0.25 + next * 0.25);
-      }
-      dataArray.set(temp);
+      // Pass raw data through — the analyser's built-in smoothingTimeConstant
+      // handles temporal smoothing. PlayerBar will do its own additional smoothing.
       return dataArray;
     }
 
@@ -300,33 +294,34 @@ export function getFrequencyData(dataArray: Uint8Array<ArrayBuffer>): Uint8Array
     }
   }
 
-  // Simulated fallback
+  // Simulated fallback — clean envelope with beat detection simulation
+  // Produces smooth, realistic-looking frequency data without random spikes
   const now = performance.now() / 1000;
   const bufLen = dataArray.length;
   const t = now + (activeAudio?.currentTime || 0) * 0.3;
+  const bpm = 2.1; // simulated BPM
+  const beatT = t * bpm;
+  const beatFrac = beatT % 1;
+  // Smooth beat envelope: sharp attack, exponential decay
+  const beatEnv = beatFrac < 0.05 ? Math.pow(1 - beatFrac / 0.05, 0.5) : Math.exp(-beatFrac * 4);
+  // Sub-beat accent (offbeat, softer)
+  const offBeatFrac = (beatT + 0.5) % 1;
+  const offBeatEnv = offBeatFrac < 0.04 ? Math.pow(1 - offBeatFrac / 0.04, 0.6) * 0.5 : 0;
+  const totalBeatEnv = Math.min(1, beatEnv + offBeatEnv);
 
   for (let i = 0; i < bufLen; i++) {
     const freq = i / bufLen;
-    const bassEnvelope = Math.max(0, 1 - freq * 7);
-    const bassPulse = 0.6 + 0.4 * Math.sin(t * 3.5 + Math.floor(t * 2.2) * 1.7);
-    const bass = bassEnvelope * bassPulse;
-    const lowMidEnv = Math.max(0, Math.min(1, (freq - 0.1) * 5)) * Math.max(0, 1 - (freq - 0.15) * 4);
-    const lowMid = lowMidEnv * (0.4 + 0.3 * Math.sin(t * 5.3 + i * 0.15));
-    const highMidEnv = Math.max(0, Math.min(1, (freq - 0.3) * 4)) * Math.max(0, 1 - (freq - 0.4) * 5);
-    const highMid = highMidEnv * (0.3 + 0.25 * Math.sin(t * 7.1 + i * 0.25));
-    const trebleEnv = Math.max(0, freq - 0.6) * 2.5;
-    const treble = trebleEnv * (0.15 + 0.15 * Math.sin(t * 11.3 + i * 0.4));
-    const combined = bass + lowMid + highMid + treble;
-    const noise = 0.06 * Math.sin(t * 17.3 + i * 2.1) + 0.04 * Math.sin(t * 23.7 + i * 3.3);
-    const beatPhase = (t * 2.2) % 1;
-    const beat = beatPhase < 0.08 ? (1 - beatPhase / 0.08) * 0.3 * bassEnvelope : 0;
-    const value = Math.max(0, Math.min(255, (combined + noise + beat) * 220));
+    // Logarithmic frequency envelope — more bass energy, natural rolloff
+    const logFreq = Math.max(0, 1 - Math.log(1 + freq * 20) / Math.log(21));
+    // Band-specific envelopes with smooth transitions (no hard edges)
+    const bassBand = Math.exp(-freq * freq * 80) * totalBeatEnv;
+    const lowMidBand = Math.exp(-Math.pow(freq - 0.15, 2) * 30) * (0.4 + 0.2 * totalBeatEnv);
+    const midBand = Math.exp(-Math.pow(freq - 0.3, 2) * 20) * (0.25 + 0.15 * totalBeatEnv);
+    const highBand = Math.exp(-Math.pow(freq - 0.55, 2) * 15) * (0.12 + 0.08 * totalBeatEnv);
+    const trebleBand = Math.exp(-Math.pow(freq - 0.8, 2) * 10) * (0.06 + 0.04 * totalBeatEnv);
+    const combined = bassBand + lowMidBand + midBand + highBand + trebleBand;
+    const value = Math.max(0, Math.min(255, combined * 255 * logFreq));
     dataArray[i] = Math.floor(value);
-  }
-
-  for (let i = Math.floor(bufLen * 0.6); i < bufLen; i++) {
-    const boost = 1.0 + ((i - bufLen * 0.6) / (bufLen * 0.4)) * 0.8;
-    dataArray[i] = Math.min(255, Math.floor(dataArray[i] * boost));
   }
 
   return dataArray;

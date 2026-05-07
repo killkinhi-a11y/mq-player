@@ -1372,11 +1372,27 @@ export default function PlayerBar() {
     };
 
     // ── Shared audio data helpers ──
-    const FFT_SIZE = 128;
+    // analyser fftSize=512 → frequencyBinCount=256. Use all available bins.
+    const FFT_SIZE = 256;
     const freqDataRaw = new Uint8Array(FFT_SIZE);
-    const freqDataSmooth = new Float32Array(FFT_SIZE); // smoothed for fluid motion
-    let prevBassEnergy = 0;
+    const freqDataSmooth = new Float32Array(FFT_SIZE);
     let bassHitCooldown = 0;
+    let rmsHistory = 0;
+
+    // Pre-computed logarithmic frequency bin lookup table.
+    // Maps linear visual index [0..totalBins-1] → logarithmic frequency bin [1..maxBin].
+    // Gives more resolution to bass/mids, less to treble — matching human hearing.
+    const buildLogBinLookup = (totalBins: number, maxBin: number): Uint8Array => {
+      const lookup = new Uint8Array(totalBins);
+      const minLog = Math.log(1);
+      const maxLog = Math.log(maxBin);
+      for (let i = 0; i < totalBins; i++) {
+        lookup[i] = Math.max(1, Math.min(maxBin, Math.floor(Math.pow(Math.E, minLog + (maxLog - minLog) * (i / (totalBins - 1))))));
+      }
+      return lookup;
+    };
+    // Build for common bar/segment counts (used across all draw functions)
+    const MAX_FREQ_BIN = FFT_SIZE - 1;
 
     /** Fill frequency data arrays; returns true when analyser is active */
     const fetchAudioData = (): boolean => {
@@ -1384,9 +1400,34 @@ export default function PlayerBar() {
       if (analyser) {
         getFrequencyData(freqDataRaw);
       }
-      // Lerp smooth
+      // Adaptive smoothing — bass responds faster (attacks), treble is smoother
       for (let i = 0; i < FFT_SIZE; i++) {
-        freqDataSmooth[i] += ((freqDataRaw[i] || 0) - freqDataSmooth[i]) * 0.22;
+        const freqRatio = i / FFT_SIZE;
+        // Bass: fast attack (0.35), Treble: smooth (0.15)
+        const attackSpeed = 0.35 - freqRatio * 0.20;
+        const raw = freqDataRaw[i] || 0;
+        const diff = raw - freqDataSmooth[i];
+        // Faster attack, slower release for natural decay
+        const speed = diff > 0 ? attackSpeed : attackSpeed * 0.5;
+        freqDataSmooth[i] += diff * speed;
+      }
+      // Noise gate: zero out values below the noise floor
+      const NOISE_FLOOR = 3;
+      for (let i = 0; i < FFT_SIZE; i++) {
+        if (freqDataSmooth[i] < NOISE_FLOOR) freqDataSmooth[i] = 0;
+      }
+      // Auto-normalization (RMS-based) for consistent visual amplitude across tracks
+      let rmsSum = 0;
+      for (let i = 0; i < FFT_SIZE; i++) rmsSum += freqDataSmooth[i] * freqDataSmooth[i];
+      const rms = Math.sqrt(rmsSum / FFT_SIZE);
+      rmsHistory += (rms - rmsHistory) * 0.01;
+      const targetRms = 80;
+      if (rmsHistory > 5) {
+        const gain = targetRms / rmsHistory;
+        const clampedGain = Math.min(2.5, Math.max(0.5, gain));
+        for (let i = 0; i < FFT_SIZE; i++) {
+          freqDataSmooth[i] = Math.min(255, freqDataSmooth[i] * clampedGain);
+        }
       }
       return !!analyser;
     };
@@ -1399,12 +1440,20 @@ export default function PlayerBar() {
       return sum / count / 255;
     };
 
-    /** Simple beat detection: returns 1.0 on a bass hit, decays to 0 */
+    // Beat detection using energy history comparison over a longer window
+    const bassHistory = new Float32Array(30); // ~0.5s at 60fps
+    let bassHistoryIdx = 0;
     const detectBassHit = (bass: number): number => {
+      bassHistory[bassHistoryIdx] = bass;
+      bassHistoryIdx = (bassHistoryIdx + 1) % bassHistory.length;
+      // Calculate average of recent history
+      let avg = 0;
+      for (let i = 0; i < bassHistory.length; i++) avg += bassHistory[i];
+      avg /= bassHistory.length;
+      // Beat = current bass significantly above recent average
       if (bassHitCooldown > 0) bassHitCooldown--;
-      const hit = bass > 0.55 && bass - prevBassEnergy > 0.12 && bassHitCooldown <= 0;
-      if (hit) bassHitCooldown = 12;
-      prevBassEnergy += (bass - prevBassEnergy) * 0.3;
+      const hit = bass > 0.35 && bass > avg * 1.4 && bassHitCooldown <= 0;
+      if (hit) bassHitCooldown = 10;
       return hit ? 1.0 : 0.0;
     };
 
@@ -1431,11 +1480,12 @@ export default function PlayerBar() {
       const barCount = Math.min(Math.floor(w / 4), 80);
       const barW = 2;
       const gap = (w - barCount * barW) / (barCount + 1);
+      const ipodBinLookup = buildLogBinLookup(barCount, MAX_FREQ_BIN);
 
       for (let i = 0; i < barCount; i++) {
         const x = gap + i * (barW + gap);
-        // Map bar index to frequency bin
-        const binIdx = Math.floor((i / barCount) * (FFT_SIZE * 0.7)); // skip highest bins
+        // Logarithmic frequency mapping via lookup
+        const binIdx = ipodBinLookup[i];
         let norm: number;
         if (playing && hasAnalyser) {
           norm = freqDataSmooth[binIdx] / 255;
@@ -1509,8 +1559,8 @@ export default function PlayerBar() {
       const playing = isPlayingRef.current;
       const hasAnalyser = fetchAudioData();
 
-      const bass = playing && hasAnalyser ? bandEnergy(0, 10) : idleVal(t, 0, 5) * 0.5;
-      const mid = playing && hasAnalyser ? bandEnergy(10, 50) : idleVal(t, 5, 8) * 0.5;
+      const bass = playing && hasAnalyser ? bandEnergy(1, 18) : idleVal(t, 0, 5) * 0.5;
+      const mid = playing && hasAnalyser ? bandEnergy(18, 80) : idleVal(t, 5, 8) * 0.5;
       const bassHit = playing && hasAnalyser ? detectBassHit(bass) : 0;
 
       // Spawn ink splash on bass hits
@@ -1645,7 +1695,7 @@ export default function PlayerBar() {
       const playing = isPlayingRef.current;
       const hasAnalyser = fetchAudioData();
 
-      const bass = playing && hasAnalyser ? bandEnergy(0, 10) : idleVal(t, 0, 3) * 0.4;
+      const bass = playing && hasAnalyser ? bandEnergy(1, 18) : idleVal(t, 0, 3) * 0.4;
       const bassHit = playing && hasAnalyser ? detectBassHit(bass) : 0;
 
       // Burst particles on bass hit
@@ -1673,12 +1723,13 @@ export default function PlayerBar() {
       const barW = totalBarW / barCount * 0.7;
       const barGap = totalBarW / barCount * 0.3;
       const startX = (w - totalBarW) / 2;
+      const swagBinLookup = buildLogBinLookup(barCount, MAX_FREQ_BIN);
 
       for (let i = 0; i < barCount; i++) {
         const dist = Math.abs(i - barCount / 2) / (barCount / 2);
         let norm: number;
         if (playing && hasAnalyser) {
-          const binIdx = Math.floor((i / barCount) * FFT_SIZE * 0.7);
+          const binIdx = swagBinLookup[i];
           norm = freqDataSmooth[binIdx] / 255;
           barSmoothSwag[i] += (norm - barSmoothSwag[i]) * 0.25;
           norm = barSmoothSwag[i];
@@ -1777,18 +1828,19 @@ export default function PlayerBar() {
       const playing = isPlayingRef.current;
       const hasAnalyser = fetchAudioData();
 
-      const bass = playing && hasAnalyser ? bandEnergy(0, 10) : idleVal(t, 0, 7) * 0.3;
-      const mid = playing && hasAnalyser ? bandEnergy(10, 50) : idleVal(t, 3, 9) * 0.3;
-      const high = playing && hasAnalyser ? bandEnergy(50, 90) : idleVal(t, 6, 11) * 0.3;
+      const bass = playing && hasAnalyser ? bandEnergy(1, 18) : idleVal(t, 0, 7) * 0.3;
+      const mid = playing && hasAnalyser ? bandEnergy(18, 80) : idleVal(t, 3, 9) * 0.3;
+      const high = playing && hasAnalyser ? bandEnergy(80, 180) : idleVal(t, 6, 11) * 0.3;
 
       // ── Horizontal frequency bars with neon glow ──
       const barCount = Math.min(Math.floor(w / 6), 64);
       const barW = 3;
       const gap = (w - barCount * barW) / (barCount + 1);
+      const neonBinLookup = buildLogBinLookup(barCount, MAX_FREQ_BIN);
 
       for (let i = 0; i < barCount; i++) {
         const x = gap + i * (barW + gap);
-        const binIdx = Math.floor((i / barCount) * FFT_SIZE * 0.7);
+        const binIdx = neonBinLookup[i];
         let norm: number;
         if (playing && hasAnalyser) {
           norm = freqDataSmooth[binIdx] / 255;
@@ -1832,11 +1884,12 @@ export default function PlayerBar() {
         speedMul: number, phaseOff: number, freqStart: number, freqEnd: number
       ) => {
         const segs = 60;
+        const neonLineLookup = buildLogBinLookup(segs, MAX_FREQ_BIN);
         ctx.beginPath();
         for (let i = 0; i <= segs; i++) {
           const xn = i / segs;
           const x = xn * w;
-          const binIdx = Math.floor(xn * (freqEnd - freqStart) + freqStart);
+          const binIdx = Math.floor(neonLineLookup[Math.min(i, segs - 1)] * (freqEnd - freqStart) / MAX_FREQ_BIN) + freqStart;
           const fVal = playing && hasAnalyser
             ? freqDataSmooth[Math.min(binIdx, FFT_SIZE - 1)] / 255
             : idleVal(t, i, phaseOff) * 0.4;
@@ -1856,8 +1909,8 @@ export default function PlayerBar() {
         ctx.shadowBlur = 0;
       };
 
-      drawNeonLine("#00ff88", "rgba(0,255,136,0.5)", 0.5, 1.0, 0, 0, 50);
-      drawNeonLine("#ff0066", "rgba(255,0,102,0.5)", 0.55, 1.3, 2.0, 20, 80);
+      drawNeonLine("#00ff88", "rgba(0,255,136,0.5)", 0.5, 1.0, 0, 1, 80);
+      drawNeonLine("#ff0066", "rgba(255,0,102,0.5)", 0.55, 1.3, 2.0, 30, 180);
 
       // ── Neon sparkle dots on bass hits ──
       const bassHit = playing && hasAnalyser ? detectBassHit(bass) : 0;
@@ -1882,13 +1935,16 @@ export default function PlayerBar() {
     // 5 layered waves mapped to frequency bands with gradient fill,
     // glow/bloom, sparkle particles on peaks, and reflection
     // ═══════════════════════════════════════════════════════════════════
-    // Wave config: each maps to a frequency band range
+    // Wave config: each maps to a non-overlapping frequency band range
+    // fftSize=512, sampleRate≈44100 → bin Hz = 44100/1024 ≈ 43 Hz per bin
+    // Sub-bass: bins 1-6 (20-260 Hz), Bass: 6-18 (260-780 Hz), Mid: 18-50 (780-2150 Hz),
+    // High-mid: 50-120 (2150-5160 Hz), Treble: 120-220 (5160-9460 Hz)
     const waveBands = [
-      { freqStart: 0,   freqEnd: 8,   segs: 48, speed: 0.4, amp: 0.42, phase: 0,   yOff: 0.52, alpha: 0.55, lw: 1.8, lerp: 0.18 },   // Sub-bass / Bass
-      { freqStart: 6,   freqEnd: 20,  segs: 55, speed: 0.65, amp: 0.32, phase: 1.2, yOff: 0.50, alpha: 0.38, lw: 1.4, lerp: 0.20 },   // Low-mid
-      { freqStart: 15,  freqEnd: 45,  segs: 65, speed: 0.85, amp: 0.24, phase: 2.5, yOff: 0.48, alpha: 0.28, lw: 1.1, lerp: 0.22 },   // Mid
-      { freqStart: 35,  freqEnd: 70,  segs: 75, speed: 1.1,  amp: 0.16, phase: 3.8, yOff: 0.50, alpha: 0.18, lw: 0.9, lerp: 0.24 },   // High-mid
-      { freqStart: 55,  freqEnd: 100, segs: 80, speed: 1.4,  amp: 0.10, phase: 5.0, yOff: 0.50, alpha: 0.12, lw: 0.7, lerp: 0.26 },   // Treble
+      { freqStart: 1,   freqEnd: 6,   segs: 48, speed: 0.4, amp: 0.42, phase: 0,   yOff: 0.52, alpha: 0.55, lw: 1.8, lerp: 0.18 },   // Sub-bass
+      { freqStart: 6,   freqEnd: 18,  segs: 55, speed: 0.65, amp: 0.32, phase: 1.2, yOff: 0.50, alpha: 0.38, lw: 1.4, lerp: 0.20 },   // Bass
+      { freqStart: 18,  freqEnd: 50,  segs: 65, speed: 0.85, amp: 0.24, phase: 2.5, yOff: 0.48, alpha: 0.28, lw: 1.1, lerp: 0.22 },   // Mid
+      { freqStart: 50,  freqEnd: 120, segs: 75, speed: 1.1,  amp: 0.16, phase: 3.8, yOff: 0.50, alpha: 0.18, lw: 0.9, lerp: 0.24 },   // High-mid
+      { freqStart: 120, freqEnd: 220, segs: 80, speed: 1.4,  amp: 0.10, phase: 5.0, yOff: 0.50, alpha: 0.12, lw: 0.7, lerp: 0.26 },   // Treble
     ];
     // Per-wave smoothed data
     const waveSmooth = waveBands.map(() => new Float32Array(128));
