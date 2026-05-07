@@ -8,6 +8,7 @@ import {
   Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, Waves, Dna, MoreVertical, Headphones, Radio, Mic2
 } from "lucide-react";
 import SongDNA from "./SongDNA";
+import { Slider } from "@/components/ui/slider";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { getAudioElement, resumeAudioContext, getAnalyser } from "@/lib/audioEngine";
@@ -211,6 +212,8 @@ export default function FullTrackView() {
   } = useAppStore();
 
   const progressRef = useRef<HTMLDivElement>(null);
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const [hoverTime, setHoverTime] = useState<number | null>(null);
   const volumeRef = useRef<HTMLDivElement>(null);
   const volumeSectionRef = useRef<HTMLDivElement>(null);
   const waveCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -1126,6 +1129,26 @@ export default function FullTrackView() {
     if (audio) audio.currentTime = pct * duration;
   }, [duration, setProgress]);
 
+  const handleSliderChange = useCallback((value: number[]) => {
+    if (!duration) return;
+    const newTime = value[0];
+    setProgress(newTime);
+    const audio = getAudioElement();
+    if (audio) audio.currentTime = newTime;
+  }, [duration, setProgress]);
+
+  const handleSliderCommit = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const handleSliderHover = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!sliderRef.current || !duration) return;
+    const rect = sliderRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, x / rect.width));
+    setHoverTime(pct * duration);
+  }, [duration]);
+
   const handleProgressMouseDown = useCallback((e: React.MouseEvent) => {
     setIsDragging(true);
     seekToPosition(e.clientX);
@@ -1404,21 +1427,30 @@ export default function FullTrackView() {
             </p>
           </div>
 
-          {/* Progress bar */}
+          {/* Progress bar — interactive Shadcn Slider */}
           <div className="w-full mb-3 sm:mb-4">
-            <div ref={progressRef}
-              onMouseDown={handleProgressMouseDown}
-              onTouchStart={handleProgressTouchStart}
-              className="w-full h-2 rounded-full cursor-pointer relative"
-              style={{ backgroundColor: "var(--mq-border)" }}>
-              <div className="h-full rounded-full transition-all duration-100"
-                style={{ width: `${progressPct}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 8px var(--mq-glow)" }} />
-              <div className="absolute top-1/2 w-4 h-4 rounded-full"
-                style={{ left: `${progressPct}%`, backgroundColor: "var(--mq-accent)", transform: "translate(-50%, -50%)", boxShadow: "0 0 8px var(--mq-glow)" }} />
+            <div ref={sliderRef} onMouseMove={handleSliderHover} onMouseLeave={() => setHoverTime(null)} className="relative group">
+              <Slider
+                value={[progress]}
+                min={0}
+                max={duration || 100}
+                step={0.1}
+                onPointerDown={() => setIsDragging(true)}
+                onValueChange={handleSliderChange}
+                onValueCommit={handleSliderCommit}
+                className="w-full [&_[data-slot=slider-track]]:h-2 [&_[data-slot=slider-track]]:bg-[var(--mq-border)] [&_[data-slot=slider-range]]:bg-[var(--mq-accent)] [&_[data-slot=slider-range]]:shadow-[0_0_8px_var(--mq-glow)] [&_[data-slot=slider-thumb]]:opacity-0 group-hover:[&_[data-slot=slider-thumb]]:opacity-100 [&_[data-slot=slider-thumb]]:transition-opacity [&_[data-slot=slider-thumb]]:duration-200 [&_[data-slot=slider-thumb]]:bg-[var(--mq-accent)] [&_[data-slot=slider-thumb]]:shadow-[0_0_8px_var(--mq-glow)] [&_[data-slot=slider-thumb]]:border-[var(--mq-accent)] [&_[data-slot=slider-thumb]]:w-4 [&_[data-slot=slider-thumb]]:h-4 [&_[data-slot=slider-thumb]]:border-0"
+              />
+              {hoverTime !== null && !isDragging && (
+                <div className="absolute -top-8 pointer-events-none px-2 py-1 rounded text-xs font-mono"
+                  style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)",
+                    left: `${(hoverTime / (duration || 1)) * 100}%`, transform: "translateX(-50%)" }}>
+                  {formatDuration(Math.floor(hoverTime))}
+                </div>
+              )}
             </div>
             <div className="flex justify-between mt-2">
-              <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(Math.floor(progress))}</span>
-              <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(Math.floor(duration))}</span>
+              <span className="text-xs tabular-nums" style={{ color: isDragging ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{formatDuration(Math.floor(progress))}</span>
+              <span className="text-xs tabular-nums" style={{ color: "var(--mq-text-muted)" }}>-{formatDuration(Math.floor(Math.max(0, duration - progress)))}</span>
             </div>
           </div>
 
