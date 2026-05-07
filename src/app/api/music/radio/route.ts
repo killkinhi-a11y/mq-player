@@ -39,6 +39,57 @@ import {
 const cache = new Map<string, { data: unknown; expiry: number }>();
 const CACHE_TTL = 60 * 1000; // 1 minute (reduced from 4 to prevent repeated tracks from cache)
 
+// ── Mood extraction helper ──────────────────────────────────────────────────
+function extractTrackMoods(title: string, genre: string): string[] {
+  const text = `${title} ${genre}`.toLowerCase();
+  const moods: string[] = [];
+  const moodKeywords: Record<string, string[]> = {
+    chill: ["chill", "relax", "calm", "mellow", "smooth", "soft", "gentle", "slow", "peaceful", "serene", "laid back", "cozy"],
+    bassy: ["bass", "bass boosted", "sub bass", "808", "banger", "drop", "wobble"],
+    melodic: ["melodic", "melody", "piano", "guitar", "harmonic", "orchestral", "strings", "keys", "ambient", "ethereal"],
+    dark: ["dark", "grimy", "gritty", "raw", "underground", "shadow", "sinister", "noir", "midnight"],
+    upbeat: ["upbeat", "happy", "energetic", "hype", "feel good", "party", "dance", "fun", "bright", "summer", "sunny"],
+    romantic: ["love", "heart", "kiss", "romance", "baby", "darling", "miss you", "tender", "intimate"],
+    aggressive: ["hard", "heavy", "aggressive", "intense", "brutal", "rage", "fury", "smash", "destroy", "war"],
+    dreamy: ["dream", "float", "cloud", "space", "cosmic", "ethereal", "haze", "glow", "atmospheric", "euphoric"],
+  };
+  for (const [mood, keywords] of Object.entries(moodKeywords)) {
+    for (const kw of keywords) {
+      if (text.includes(kw)) {
+        moods.push(mood);
+        break;
+      }
+    }
+  }
+  return moods;
+}
+
+// ── Time-of-day context for radio ───────────────────────────────────────────
+function getRadioTimeContext(): "morning" | "afternoon" | "evening" | "night" | "weekend" | "friday_evening" {
+  const now = new Date();
+  const hour = now.getHours();
+  const day = now.getDay();
+  if (day === 5 && hour >= 18) return "friday_evening";
+  if (day === 0 || day === 6) return "weekend";
+  if (hour >= 6 && hour < 12) return "morning";
+  if (hour >= 12 && hour < 17) return "afternoon";
+  if (hour >= 17 && hour < 23) return "evening";
+  return "night";
+}
+
+function getRadioTimeEnergyBonus(energy: number): number {
+  const ctx = getRadioTimeContext();
+  switch (ctx) {
+    case "morning": return energy >= 0.4 && energy <= 0.9 ? 12 : -5;
+    case "afternoon": return energy >= 0.3 && energy <= 0.85 ? 8 : -3;
+    case "evening": return energy >= 0.15 && energy <= 0.65 ? 12 : -5;
+    case "night": return energy >= 0.05 && energy <= 0.4 ? 15 : -8;
+    case "weekend": return 0;
+    case "friday_evening": return energy >= 0.5 ? 15 : -5;
+    default: return 0;
+  }
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // CONTENT QUALITY FILTERS (ported from recommendations API v13)
 // ══════════════════════════════════════════════════════════════════════════════
@@ -327,6 +378,11 @@ function scoreCandidate(
     likedGenres: Set<string>;
     completedGenres: Set<string>;
     langPref: string | null;
+    tasteGenres: Map<string, number>;
+    tasteArtists: Map<string, number>;
+    tasteMoods: Map<string, number>;
+    sessionMinutes: number;
+    radioTimeContext: string;
   },
 ): number {
   let score = 0;
@@ -355,7 +411,15 @@ function scoreCandidate(
   }
 
   // ── ENERGY FLOW ──
-  const energyDiff = estimateEnergy(track) - ctx.currentEnergy;
+  // Session mood momentum — longer sessions gradually shift energy preference
+  let sessionEnergyShift = 0;
+  if (ctx.sessionMinutes > 20) {
+    sessionEnergyShift = Math.sin(ctx.sessionMinutes / 60 * Math.PI) * 0.15;
+  }
+
+  const trackE = estimateEnergy(track);
+  const effectiveEnergy = ctx.currentEnergy + sessionEnergyShift;
+  const energyDiff = trackE - effectiveEnergy;
   if (energyDiff > 0 && energyDiff <= 0.3) {
     score += CFG.radio.energyFlowUp;
   } else if (energyDiff < 0 && energyDiff >= -0.3) {
@@ -382,6 +446,68 @@ function scoreCandidate(
   // ── COMPLETED GENRES (feedback signal — user actually listens to these) ──
   if (trackGenre && ctx.completedGenres.has(trackGenre)) {
     score += CFG.scoring.completedGenreBonus;
+  }
+
+  // ── TASTE PROFILE GENRE MATCH (user's explicit preference sliders) ──
+  if (trackGenre && ctx.tasteGenres.size > 0) {
+    const tasteLevel = ctx.tasteGenres.get(trackGenre);
+    if (tasteLevel !== undefined) {
+      // Scale: level 100 = +80 points, level 50 = +40, level 20 = +16
+      score += Math.round(tasteLevel * 0.8);
+    } else {
+      // Check for partial match
+      for (const [tg, level] of ctx.tasteGenres) {
+        if (trackGenre.includes(tg) || tg.includes(trackGenre)) {
+          score += Math.round(level * 0.4); // half bonus for partial match
+          break;
+        }
+      }
+    }
+  }
+
+  // ── TASTE PROFILE ARTIST MATCH (user's explicit artist preferences) ──
+  if (trackArtist && ctx.tasteArtists.size > 0) {
+    const tasteArtistLevel = ctx.tasteArtists.get(trackArtist);
+    if (tasteArtistLevel !== undefined) {
+      // Scale: level 100 = +100 points
+      score += tasteArtistLevel;
+    } else {
+      // Partial artist name match
+      for (const [ta, level] of ctx.tasteArtists) {
+        if (trackArtist.includes(ta) || ta.includes(trackArtist)) {
+          score += Math.round(level * 0.5);
+          break;
+        }
+      }
+    }
+  }
+
+  // ── TASTE PROFILE MOOD MATCH ──
+  if (ctx.tasteMoods.size > 0) {
+    const trackMoods = extractTrackMoods(track.title || "", track.genre || "");
+    for (const mood of trackMoods) {
+      const moodLevel = ctx.tasteMoods.get(mood);
+      if (moodLevel !== undefined) {
+        score += Math.round(moodLevel * 0.3); // +30 max per mood match
+      }
+    }
+  }
+
+  // ── TIME-OF-DAY ENERGY BONUS ──
+  score += getRadioTimeEnergyBonus(trackE);
+
+  // ── SESSION DURATION ADAPTATION ──
+  // After 30+ minutes, gradually boost discovery tracks to prevent fatigue
+  const trackArtistNorm = (track.artist || "").toLowerCase().trim();
+  const isNewArtist = !ctx.historyArtists.has(trackArtistNorm)
+    && trackArtistNorm !== ctx.currentArtist.toLowerCase().trim()
+    && !ctx.likedArtists.has(trackArtistNorm);
+  const isNewGenre = trackGenre && !ctx.likedGenres.has(trackGenre) && trackGenre !== normalizeGenre(ctx.currentGenre);
+
+  if (ctx.sessionMinutes > 30) {
+    const explorationBoost = Math.min(20, Math.floor((ctx.sessionMinutes - 30) / 10) * 3);
+    if (isNewArtist) score += explorationBoost;
+    if (isNewGenre) score += Math.floor(explorationBoost * 0.7);
   }
 
   // ── QUALITY GATES ──
@@ -430,11 +556,6 @@ function scoreCandidate(
   }
 
   // ── SERENDIPITY — reward novel discovery tracks (strengthened for Wave diversity) ──
-  const trackArtistNorm = (track.artist || "").toLowerCase().trim();
-  const isNewArtist = !ctx.historyArtists.has(trackArtistNorm)
-    && trackArtistNorm !== ctx.currentArtist.toLowerCase().trim()
-    && !ctx.likedArtists.has(trackArtistNorm);
-  const isNewGenre = trackGenre && !ctx.likedGenres.has(trackGenre) && trackGenre !== normalizeGenre(ctx.currentGenre);
   if (isNewArtist && isNewGenre) score += CFG.scoring.serendipityBonus * 2; // x2 for Wave
   else if (isNewArtist) score += CFG.scoring.serendipityBonus; // full bonus for new artist alone
   else if (isNewGenre) score += Math.floor(CFG.scoring.serendipityBonus / 2);
@@ -625,6 +746,10 @@ async function handler(request: NextRequest) {
   const recentSkipCount = parseInt(searchParams.get("recentSkipCount") || "0", 10);
   const completedGenresParam = searchParams.get("completedGenres") || "";
   const dislikedScIdsParam = searchParams.get("dislikedScIds") || "";
+  const tasteGenresParam = searchParams.get("tasteGenres") || "";
+  const tasteArtistsParam = searchParams.get("tasteArtists") || "";
+  const tasteMoodsParam = searchParams.get("tasteMoods") || "";
+  const sessionDurationParam = searchParams.get("sessionDuration") || "";
 
   // Validate required parameter
   if (!scTrackIdParam) {
@@ -687,8 +812,38 @@ async function handler(request: NextRequest) {
   else if (energyParam === "medium") energyPref = 0.5;
   else if (energyParam === "low") energyPref = 0.2;
 
+  // ── Parse taste profile params ──────────────────────────────────────────
+  const tasteGenres: Map<string, number> = new Map();
+  for (const entry of tasteGenresParam.split(",").filter(Boolean)) {
+    const [genre, levelStr] = entry.split(":");
+    if (genre && levelStr) {
+      const level = parseInt(levelStr, 10);
+      if (!isNaN(level)) tasteGenres.set(normalizeGenre(genre), level);
+    }
+  }
+
+  const tasteArtists: Map<string, number> = new Map();
+  for (const entry of tasteArtistsParam.split(",").filter(Boolean)) {
+    const [artist, levelStr] = entry.split(":");
+    if (artist && levelStr) {
+      const level = parseInt(levelStr, 10);
+      if (!isNaN(level)) tasteArtists.set(artist.toLowerCase().trim(), level);
+    }
+  }
+
+  const tasteMoods: Map<string, number> = new Map();
+  for (const entry of tasteMoodsParam.split(",").filter(Boolean)) {
+    const [mood, levelStr] = entry.split(":");
+    if (mood && levelStr) {
+      const level = parseInt(levelStr, 10);
+      if (!isNaN(level)) tasteMoods.set(mood.toLowerCase().trim(), level);
+    }
+  }
+
+  const sessionMinutes = parseInt(sessionDurationParam, 10) || 0;
+
   // ── Cache check ───────────────────────────────────────────────────────────
-  const cacheKey = `radio:${scTrackId}:${historyScIdsParam}:${skippedGenresParam}:${skippedArtistsParam}:${likedArtistsParam}:${likedGenresParam}:${langParam}:${energyParam}:${recentSkipCount}:${completedGenresParam}:${dislikedScIdsParam}`;
+  const cacheKey = `radio:${scTrackId}:${historyScIdsParam}:${skippedGenresParam}:${skippedArtistsParam}:${likedArtistsParam}:${likedGenresParam}:${langParam}:${energyParam}:${recentSkipCount}:${completedGenresParam}:${dislikedScIdsParam}:${tasteGenresParam}:${tasteArtistsParam}:${tasteMoodsParam}:${sessionDurationParam}`;
   const cached = getFromCache(cacheKey, cache);
   if (cached) return NextResponse.json(cached);
 
@@ -839,6 +994,30 @@ async function handler(request: NextRequest) {
       allFetchPromises.push(searchSCTracks(eq, 8));
     }
 
+    // ── Source 10: Taste profile genre searches (user's explicit slider preferences) ──
+    const topTasteGenres = [...tasteGenres.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    for (const [tg, level] of topTasteGenres) {
+      if (level >= 40) {
+        const tasteVariants = [`${tg} best`, `${tg} ${year}`, `${tg} new artists`, `${tg} essential`];
+        const tasteQuery = tasteVariants[Math.floor(Math.random() * tasteVariants.length)];
+        sourceMap.push("genre_search");
+        allFetchPromises.push(searchSCTracks(tasteQuery, 10));
+      }
+    }
+
+    // ── Source 11: Taste profile artist searches (user's favorite artists) ──
+    const topTasteArtists = [...tasteArtists.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
+    for (const [ta, level] of topTasteArtists) {
+      if (level >= 40) {
+        sourceMap.push("artist_search");
+        allFetchPromises.push(searchSCTracks(`"${ta}"`, 10));
+      }
+    }
+
     // Execute ALL fetches in parallel
     const fetchResults = await Promise.allSettled(allFetchPromises);
 
@@ -937,6 +1116,11 @@ async function handler(request: NextRequest) {
         likedGenres,
         completedGenres,
         langPref,
+        tasteGenres,
+        tasteArtists,
+        tasteMoods,
+        sessionMinutes,
+        radioTimeContext: getRadioTimeContext(),
       });
 
       scoredCandidates.push({ candidate, score });

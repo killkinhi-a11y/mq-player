@@ -399,6 +399,7 @@ interface AppState {
   tasteArtists: Record<string, number>;
   tasteMoods: Record<string, number>;
   excludedArtists: string[];
+  sessionStartTime: number | null;
   setTasteGenre: (genre: string, level: number) => void;
   setTasteArtist: (artist: string, level: number) => void;
   setTasteMood: (mood: string, level: number) => void;
@@ -560,6 +561,7 @@ const initialState = {
   tasteArtists: {} as Record<string, number>,
   tasteMoods: {} as Record<string, number>,
   excludedArtists: [] as string[],
+  sessionStartTime: null as number | null,
 
   // Cat mascot
   catEnabled: false as boolean,
@@ -741,6 +743,8 @@ export const useAppStore = create<AppState>()(
           duration: track.duration,
           // Clear upNext when a new queue is explicitly set
           ...(queue ? { upNext: [] as Track[] } : {}),
+          // Start session timer on first play
+          ...(state.sessionStartTime === null ? { sessionStartTime: Date.now() } : {}),
         });
         // Auto-add to history
         get().addToHistory(track);
@@ -922,6 +926,38 @@ export const useAppStore = create<AppState>()(
                 if (skippedGenresParam) params.set("skippedGenres", skippedGenresParam);
                 if (likedArtistsFromLikes.length > 0) params.set("likedArtists", likedArtistsFromLikes.join(","));
                 if (allLikedGenres) params.set("likedGenres", allLikedGenres);
+
+                // ── Taste Profile: genre/artist/mood sliders from TasteProfileView ──
+                const tasteG = st.tasteGenres;
+                const tasteGenreEntries = Object.entries(tasteG).filter(([, v]) => v >= 20);
+                if (tasteGenreEntries.length > 0) {
+                  tasteGenreEntries.sort((a, b) => b[1] - a[1]);
+                  const topTasteGenres = tasteGenreEntries.slice(0, 8);
+                  params.set("tasteGenres", topTasteGenres.map(([g, v]) => `${g}:${v}`).join(","));
+                }
+
+                const tasteA = st.tasteArtists;
+                const tasteArtistEntries = Object.entries(tasteA).filter(([, v]) => v >= 20);
+                if (tasteArtistEntries.length > 0) {
+                  tasteArtistEntries.sort((a, b) => b[1] - a[1]);
+                  const topTasteArtists = tasteArtistEntries.slice(0, 5);
+                  params.set("tasteArtists", topTasteArtists.map(([a, v]) => `${a}:${v}`).join(","));
+                }
+
+                // ── Taste Profile: mood preferences ──
+                const tasteM = st.tasteMoods;
+                const tasteMoodEntries = Object.entries(tasteM || {}).filter(([, v]) => v >= 30);
+                if (tasteMoodEntries.length > 0) {
+                  tasteMoodEntries.sort((a, b) => b[1] - a[1]);
+                  params.set("tasteMoods", tasteMoodEntries.slice(0, 3).map(([m, v]) => `${m}:${v}`).join(","));
+                }
+
+                // ── Session context: listening duration for mood adaptation ──
+                const sessionStart = st.sessionStartTime;
+                if (sessionStart) {
+                  const sessionMinutes = Math.floor((Date.now() - sessionStart) / 60000);
+                  if (sessionMinutes > 0) params.set("sessionDuration", String(sessionMinutes));
+                }
 
                 // ── Pass disliked track SC IDs for hard exclusion on server ──
                 const dislikedScIds = st.dislikedTracksData
