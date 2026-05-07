@@ -621,6 +621,7 @@ async function handler(request: NextRequest) {
   const energyParam = searchParams.get("energy") || "";
   const recentSkipCount = parseInt(searchParams.get("recentSkipCount") || "0", 10);
   const completedGenresParam = searchParams.get("completedGenres") || "";
+  const dislikedScIdsParam = searchParams.get("dislikedScIds") || "";
 
   // Validate required parameter
   if (!scTrackIdParam) {
@@ -645,7 +646,13 @@ async function handler(request: NextRequest) {
     .map(Number)
     .filter((n) => !isNaN(n) && n > 0);
 
-  const excludedScIds = new Set<number>([scTrackId, ...historyScIds]);
+  const dislikedScIds: number[] = dislikedScIdsParam
+    .split(",")
+    .filter(Boolean)
+    .map(Number)
+    .filter((n) => !isNaN(n) && n > 0);
+
+  const excludedScIds = new Set<number>([scTrackId, ...historyScIds, ...dislikedScIds]);
 
   const skippedGenres = new Set(
     skippedGenresParam.split(",").filter(Boolean).map((g) => normalizeGenre(g)),
@@ -678,7 +685,7 @@ async function handler(request: NextRequest) {
   else if (energyParam === "low") energyPref = 0.2;
 
   // ── Cache check ───────────────────────────────────────────────────────────
-  const cacheKey = `radio:${scTrackId}:${historyScIdsParam}:${skippedGenresParam}:${skippedArtistsParam}:${likedArtistsParam}:${likedGenresParam}:${langParam}:${energyParam}:${recentSkipCount}:${completedGenresParam}`;
+  const cacheKey = `radio:${scTrackId}:${historyScIdsParam}:${skippedGenresParam}:${skippedArtistsParam}:${likedArtistsParam}:${likedGenresParam}:${langParam}:${energyParam}:${recentSkipCount}:${completedGenresParam}:${dislikedScIdsParam}`;
   const cached = getFromCache(cacheKey, cache);
   if (cached) return NextResponse.json(cached);
 

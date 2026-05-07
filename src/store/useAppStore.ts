@@ -895,6 +895,14 @@ export const useAppStore = create<AppState>()(
                 if (likedArtistsFromLikes.length > 0) params.set("likedArtists", likedArtistsFromLikes.join(","));
                 if (allLikedGenres) params.set("likedGenres", allLikedGenres);
 
+                // ── Pass disliked track SC IDs for hard exclusion on server ──
+                const dislikedScIds = st.dislikedTracksData
+                  .map(t => t.scTrackId)
+                  .filter((id): id is number => !!id)
+                  .slice(0, 50)
+                  .join(",");
+                if (dislikedScIds) params.set("dislikedScIds", dislikedScIds);
+
                 // ── Include completed genres from feedback (genres user actually finishes) ──
                 const completedGenresFromFeedback = st.feedbackBatch.completedGenres.length > 0
                   ? st.feedbackBatch.completedGenres : [];
@@ -958,10 +966,25 @@ export const useAppStore = create<AppState>()(
                     }
 
                     const MAX_ARTIST_FREQUENCY = 3; // Max times an artist can appear across queue+history
+                    // Client-side dislike sets for double-filtering (safety net)
+                    const dislikedIdsSet = new Set(st.dislikedTrackIds);
+                    const dislikedArtistsSet = new Set(
+                      st.dislikedTracksData.map(t => (t.artist || "").toLowerCase().trim()).filter(Boolean),
+                    );
+                    const dislikedGenresSet = new Set(
+                      st.dislikedTracksData.map(t => (t.genre || "").toLowerCase().trim()).filter(Boolean),
+                    );
+
                     const fresh = newTracks.filter(t => {
                       if (existingIds.has(t.id)) return false;
-                      const a = (t.artist || "").toLowerCase().trim();
-                      if (a && (recentArtists.get(a) || 0) >= MAX_ARTIST_FREQUENCY) return false;
+                      // Hard-exclude disliked tracks (by ID, artist, and genre)
+                      if (dislikedIdsSet.has(t.id)) return false;
+                      const ta = (t.artist || "").toLowerCase().trim();
+                      if (ta && dislikedArtistsSet.has(ta)) return false;
+                      const tg = (t.genre || "").toLowerCase().trim();
+                      if (tg && dislikedGenresSet.has(tg)) return false;
+                      // Artist frequency cap
+                      if (ta && (recentArtists.get(ta) || 0) >= MAX_ARTIST_FREQUENCY) return false;
                       return true;
                     });
 
