@@ -643,6 +643,25 @@ export default function SettingsView() {
         </span>
       </motion.button>
 
+      {/* Sleep Timer — desktop only */}
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => setView("sleepTimer")}
+        className="hidden lg:flex w-full p-3 rounded-xl text-left text-sm font-medium items-center gap-3"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+      >
+        <Moon className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+        Таймер сна
+        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full font-medium"
+          style={{
+            backgroundColor: "var(--mq-surface, #1a1a1a)",
+            color: "var(--mq-text-muted)",
+          }}>
+          Настроить
+        </span>
+      </motion.button>
+
       {showAdminLink && (
         <motion.a
           whileHover={{ scale: 1.02 }}

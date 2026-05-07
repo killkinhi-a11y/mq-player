@@ -1055,7 +1055,7 @@ export default function PlaylistView() {
               initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05 }}
-              whileHover={{ scale: 1.03 }}
+              whileHover={{ y: -4 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => setSelectedPlaylistId(pl.id)}
               className="rounded-xl p-4 cursor-pointer relative group"

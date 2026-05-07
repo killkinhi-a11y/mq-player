@@ -396,7 +396,9 @@ function PlaylistCard({ playlist, index, onClick, onLike, onDislikeTags, animati
     <motion.div
       initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
+      transition={{ delay: index * 0.05 }}
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.98 }}
       className="rounded-xl overflow-hidden cursor-pointer group"
       style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
       onClick={onClick}

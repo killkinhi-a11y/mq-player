@@ -355,17 +355,24 @@ export default function SearchView() {
       {/* Track results */}
       {!activeLoading && activeTracks.length > 0 && (
         <ScrollReveal direction="up" delay={0.1}>
-          <div>
+          <motion.div layout>
             <h2 className="text-lg font-bold mb-3" style={{ color: "var(--mq-text)" }}>
               {selectedGenre ? `Жанр: ${selectedGenre}` : "Треки"}
             </h2>
             <div className="space-y-1.5 sm:space-y-2">
               {activeTracks.map((track, i) => (
-                <TrackCard key={track.id} track={track} index={i} queue={activeTracks}
-                  onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })} />
+                <motion.div
+                  key={track.id}
+                  initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                >
+                  <TrackCard track={track} index={i} queue={activeTracks}
+                    onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })} />
+                </motion.div>
               ))}
             </div>
-          </div>
+          </motion.div>
         </ScrollReveal>
       )}
 

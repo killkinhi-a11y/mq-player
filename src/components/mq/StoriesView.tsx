@@ -306,7 +306,9 @@ export default function StoriesView() {
             key={story.id}
             initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.03 }}
+            transition={{ delay: i * 0.06 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => setViewingIndex(i)}
             className="w-full flex items-center gap-4 p-4 rounded-xl text-left cursor-pointer"
             style={{

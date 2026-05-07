@@ -13,7 +13,7 @@ const USERNAME_RULES = "Буквы, цифры, _ и -. 2-20 символов.";
 export default function ProfileView() {
   const {
     username, telegramUsername, email, avatar, likedTrackIds, dislikedTrackIds,
-    messages, setView, logout, userId, compactMode,
+    messages, setView, logout, userId, compactMode, animationsEnabled,
   } = useAppStore();
   const safeLiked = Array.isArray(likedTrackIds) ? likedTrackIds : [];
   const safeDisliked = Array.isArray(dislikedTrackIds) ? dislikedTrackIds : [];
@@ -211,7 +211,10 @@ export default function ProfileView() {
         transition={{ delay: 0.1 }}
         className="flex flex-col items-center"
       >
-        <div className="relative group">
+        <motion.div
+          className="relative group"
+          whileHover={{ scale: 1.05 }}
+        >
           <div
             className="w-28 h-28 rounded-full overflow-hidden flex items-center justify-center"
             style={{ backgroundColor: avatar ? "transparent" : "var(--mq-accent)" }}
@@ -236,7 +239,7 @@ export default function ProfileView() {
             onChange={handleAvatarChange}
             className="hidden"
           />
-        </div>
+        </motion.div>
         <button
           onClick={() => fileInputRef.current?.click()}
           className="mt-3 text-sm flex items-center gap-1"
@@ -251,8 +254,11 @@ export default function ProfileView() {
       {/* Username */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.15 }}
+        animate={{ opacity: 1, y: 0, boxShadow: isEditingName
+          ? ["0 0 0px rgba(224,49,49,0)", "0 0 12px rgba(224,49,49,0.2)", "0 0 0px rgba(224,49,49,0)"]
+          : "0 0 0px rgba(224,49,49,0)"
+        }}
+        transition={{ delay: 0.15, boxShadow: { duration: 2, repeat: Infinity, ease: "easeInOut" } }}
         className="rounded-2xl p-4"
         style={{ backgroundColor: "var(--mq-card)" }}
       >
@@ -381,8 +387,13 @@ export default function ProfileView() {
         transition={{ delay: 0.25 }}
         className="grid grid-cols-2 gap-3"
       >
-        <div className="rounded-2xl p-4 flex items-center gap-3"
-          style={{ backgroundColor: "var(--mq-card)" }}>
+        <motion.div
+          className="rounded-2xl p-4 flex items-center gap-3"
+          style={{ backgroundColor: "var(--mq-card)" }}
+          initial={animationsEnabled ? { opacity: 0, y: 15 } : undefined}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 * 0 }}
+        >
           <div className="w-10 h-10 rounded-lg flex items-center justify-center"
             style={{ backgroundColor: "var(--mq-accent)", opacity: 0.8 }}>
             <Heart className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
@@ -391,10 +402,15 @@ export default function ProfileView() {
             <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>{safeLiked.length}</p>
             <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Избранных</p>
           </div>
-        </div>
+        </motion.div>
 
-        <div className="rounded-2xl p-4 flex items-center gap-3"
-          style={{ backgroundColor: "var(--mq-card)" }}>
+        <motion.div
+          className="rounded-2xl p-4 flex items-center gap-3"
+          style={{ backgroundColor: "var(--mq-card)" }}
+          initial={animationsEnabled ? { opacity: 0, y: 15 } : undefined}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08 * 1 }}
+        >
           <div className="w-10 h-10 rounded-lg flex items-center justify-center"
             style={{ backgroundColor: "var(--mq-accent)", opacity: 0.8 }}>
             <MessageCircle className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
@@ -403,7 +419,7 @@ export default function ProfileView() {
             <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>{safeMessages.length}</p>
             <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Сообщений</p>
           </div>
-        </div>
+        </motion.div>
       </motion.div>
       </ScrollReveal>
 

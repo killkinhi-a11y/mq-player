@@ -301,7 +301,8 @@ export default function FriendsView() {
               key={friend.id}
               initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.03 }}
+              transition={{ delay: i * 0.05 }}
+              whileHover={{ y: -2 }}
               className="flex items-center gap-3 p-3 rounded-xl"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
             >
@@ -309,7 +310,7 @@ export default function FriendsView() {
                 <AvatarImg src={friend.avatar} alt={friend.username} />
                 {friend.online && (
                   <div
-                    className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
+                    className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 online-pulse"
                     style={{ backgroundColor: "#22c55e", borderColor: "var(--mq-card)" }}
                   />
                 )}

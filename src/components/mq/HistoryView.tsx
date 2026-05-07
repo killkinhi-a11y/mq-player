@@ -108,9 +108,15 @@ export default function HistoryView() {
                 </h3>
                 <div className="space-y-2">
                   {group.items.map((entry, i) => (
-                    <div key={entry.track.id + "_" + entry.playedAt}>
+                    <motion.div
+                      key={entry.track.id + "_" + entry.playedAt}
+                      initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      whileHover={{ scale: 1.02 }}
+                    >
                       <TrackCard track={entry.track} index={gi * 10 + i} queue={history.map(h => h.track)} onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })} />
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               </div>
