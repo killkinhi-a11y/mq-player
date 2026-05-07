@@ -524,6 +524,7 @@ export default function FullTrackView() {
     currentStyle, styleVariant, currentPlaylistId,
     radioMode, toggleRadioMode, releaseRadarTracks, fetchReleaseRadar, likedTracksData,
     spatialAudioEnabled, setSpatialAudioEnabled, setView,
+    setSelectedArtist,
   } = useAppStore();
 
   const progressRef = useRef<HTMLDivElement>(null);
@@ -1734,9 +1735,20 @@ export default function FullTrackView() {
             <h2 className="text-lg sm:text-xl font-bold mb-1" style={{ color: "var(--mq-text)" }}>
               {currentTrack.title}
             </h2>
-            <p className="text-sm mb-0.5" style={{ color: "var(--mq-text-muted)" }}>
+            <button
+              className="text-sm mb-0.5 cursor-pointer hover:underline transition-colors"
+              style={{ color: "var(--mq-text-muted)", background: "none", border: "none", padding: 0, font: "inherit" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setFullTrackViewOpen(false);
+                setShowSimilar(false);
+                setShowComments(false);
+                setShowMoreMenu(false);
+                setSelectedArtist({ name: currentTrack.artist, avatar: currentTrack.cover });
+              }}
+            >
               {currentTrack.artist}
-            </p>
+            </button>
             <p className="text-xs" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
               {currentTrack.album}
             </p>

@@ -6,7 +6,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending, X } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending, X, Check } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
 import HeroParticles from "./HeroParticles";
 import CursorSpotlight from "./CursorSpotlight";
@@ -1078,106 +1078,161 @@ export default function MainView() {
       { id: "releases" as const, label: "Релизы" },
     ];
 
-    return (
-      <div className={`${compactMode ? "p-3 lg:p-4 pb-36 lg:pb-24" : "p-4 lg:p-6 pb-40 lg:pb-28"} max-w-4xl mx-auto`}>
-        <motion.button
-          initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
-          animate={{ opacity: 1, x: 0 }}
-          whileTap={{ scale: 0.9 }}
-          onClick={() => setSelectedArtist(null)}
-          className="flex items-center gap-2 mb-5 cursor-pointer"
-          style={{ color: "var(--mq-accent)" }}
-        >
-          <ChevronLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">Назад</span>
-        </motion.button>
+    // Format play count for display
+    const formatPlayCount = (count: number) => {
+      if (!count || count <= 0) return null;
+      if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+      if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
+      return count.toString();
+    };
 
-        {/* Artist header card */}
-        <motion.div
-          initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl overflow-hidden relative"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
-        >
-          <div className="absolute inset-0 opacity-[0.08]" style={{ background: "var(--mq-accent)" }} />
-          <div className="relative z-10 p-5 lg:p-8">
-            <div className="flex items-start gap-5">
-              <div className="w-24 h-24 lg:w-32 lg:h-32 rounded-full overflow-hidden flex-shrink-0 shadow-xl shadow-black/30 flex items-center justify-center"
-                style={{ backgroundColor: "var(--mq-accent)", opacity: 0.7 }}>
-                {selectedArtist.avatar ? (
-                  <img src={selectedArtist.avatar} alt={selectedArtist.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-2xl lg:text-3xl font-bold" style={{ color: "var(--mq-text)" }}>
-                    {selectedArtist.name.split(" ").map(w => w[0]).slice(0, 2).join("")}
-                  </span>
-                )}
-              </div>
-              <div className="flex-1 min-w-0 pt-1">
-                <p className="text-xs font-medium uppercase tracking-wider mb-1" style={{ color: "var(--mq-text-muted)" }}>Артист</p>
-                <h1 className="text-2xl lg:text-3xl font-bold mb-2 truncate" style={{ color: "var(--mq-text)" }}>
-                  {selectedArtist.name}
-                </h1>
-                <div className="flex flex-wrap items-center gap-2 mt-1">
-                  {selectedArtist.followers != null && selectedArtist.followers > 0 && (
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", opacity: 0.8 }}>
-                      {selectedArtist.followers >= 1000000 ? `${(selectedArtist.followers / 1000000).toFixed(1)}M` : selectedArtist.followers >= 1000 ? `${(selectedArtist.followers / 1000).toFixed(1)}K` : selectedArtist.followers} подписчиков
-                    </span>
-                  )}
-                  {selectedArtist.genre && (
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}>
-                      {selectedArtist.genre}
-                    </span>
-                  )}
-                  {selectedArtist.trackCount != null && selectedArtist.trackCount > 0 && (
-                    <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-                      {selectedArtist.trackCount} треков
-                    </span>
-                  )}
+    // Determine if artist is "verified" (popular enough)
+    const isVerified = (selectedArtist.followers || 0) >= 100_000;
+
+    return (
+      <div className={`${compactMode ? "pb-36 lg:pb-24" : "pb-40 lg:pb-28"} max-w-4xl mx-auto`}>
+        {/* Hero header with blurred background */}
+        <div className="relative overflow-hidden">
+          {/* Blurred avatar background */}
+          {selectedArtist.avatar && (
+            <div className="absolute inset-0 z-0">
+              <img
+                src={selectedArtist.avatar}
+                alt=""
+                className="w-full h-full object-cover scale-110 blur-3xl opacity-30"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--mq-bg)]/60 to-[var(--mq-bg)]" />
+            </div>
+          )}
+
+          <div className="relative z-10">
+            {/* Back button */}
+            <motion.button
+              initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
+              animate={{ opacity: 1, x: 0 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setSelectedArtist(null)}
+              className="flex items-center gap-2 mb-5 cursor-pointer px-1"
+              style={{ color: "var(--mq-accent)" }}
+            >
+              <ChevronLeft className="w-5 h-5" />
+              <span className="text-sm font-medium">Назад</span>
+            </motion.button>
+
+            {/* Artist header card */}
+            <motion.div
+              initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+              animate={{ opacity: 1, y: 0 }}
+              className="rounded-2xl overflow-hidden relative mb-6"
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+            >
+              <div className="absolute inset-0 opacity-[0.05]" style={{ background: "linear-gradient(135deg, var(--mq-accent), transparent 70%)" }} />
+
+              <div className="relative z-10 p-5 lg:p-8">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                  {/* Avatar */}
+                  <div
+                    className="w-28 h-28 sm:w-32 sm:h-32 lg:w-36 lg:h-36 rounded-2xl overflow-hidden flex-shrink-0 shadow-2xl shadow-black/40 flex items-center justify-center"
+                    style={{ backgroundColor: "var(--mq-accent)", opacity: 0.7 }}
+                  >
+                    {selectedArtist.avatar ? (
+                      <img src={selectedArtist.avatar} alt={selectedArtist.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-3xl lg:text-4xl font-bold" style={{ color: "var(--mq-text)" }}>
+                        {selectedArtist.name.split(" ").map(w => w[0]).slice(0, 2).join("")}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0 text-center sm:text-left">
+                    <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                      <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
+                        Артист
+                      </span>
+                      {isVerified && (
+                        <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
+                          style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                          <Check className="w-2.5 h-2.5" />
+                          Verified
+                        </span>
+                      )}
+                    </div>
+                    <h1 className="text-2xl lg:text-4xl font-bold mb-2 truncate" style={{ color: "var(--mq-text)" }}>
+                      {selectedArtist.name}
+                    </h1>
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-1">
+                      {selectedArtist.followers != null && selectedArtist.followers > 0 && (
+                        <span className="text-xs px-2.5 py-1 rounded-full font-medium flex items-center gap-1"
+                          style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "var(--mq-text)" }}>
+                          <Users className="w-3 h-3" />
+                          {selectedArtist.followers >= 1_000_000
+                            ? `${(selectedArtist.followers / 1_000_000).toFixed(1)}M`
+                            : selectedArtist.followers >= 1_000
+                              ? `${(selectedArtist.followers / 1_000).toFixed(1)}K`
+                              : selectedArtist.followers} подписчиков
+                        </span>
+                      )}
+                      {selectedArtist.genre && (
+                        <span className="text-xs px-2.5 py-1 rounded-full"
+                          style={{ border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}>
+                          {selectedArtist.genre}
+                        </span>
+                      )}
+                      {selectedArtist.trackCount != null && selectedArtist.trackCount > 0 && (
+                        <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                          {selectedArtist.trackCount} треков
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex items-center justify-center sm:justify-start gap-3 mt-6">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => { if (displayTracks.length > 0) playTrack(displayTracks[0], displayTracks); }}
+                    disabled={artistTracks.length === 0 || artistTracksLoading}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-40 transition-all"
+                    style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }}
+                  >
+                    <Play className="w-4 h-4" style={{ marginLeft: 1 }} />
+                    Слушать
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleToggleSubscribe}
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium cursor-pointer transition-all"
+                    style={{
+                      backgroundColor: isSubscribed ? "var(--mq-accent)" : "transparent",
+                      color: isSubscribed ? "var(--mq-text)" : "var(--mq-text-muted)",
+                      border: `1px solid ${isSubscribed ? "var(--mq-accent)" : "var(--mq-border)"}`,
+                    }}
+                  >
+                    {isSubscribed ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                    {isSubscribed ? "Подписка" : "Подписаться"}
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => { if (displayTracks.length > 0) { const s = [...displayTracks]; for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [s[i], s[j]] = [s[j], s[i]]; } playTrack(s[0], s); } }}
+                    disabled={artistTracks.length === 0 || artistTracksLoading}
+                    className="flex items-center justify-center w-11 h-11 rounded-xl text-sm cursor-pointer disabled:opacity-40 transition-all"
+                    style={{ border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}
+                  >
+                    <Shuffle className="w-4 h-4" />
+                  </motion.button>
                 </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3 mt-6">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => { if (displayTracks.length > 0) playTrack(displayTracks[0], displayTracks); }}
-                disabled={artistTracks.length === 0 || artistTracksLoading}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-40"
-                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
-              >
-                <Play className="w-4 h-4" style={{ marginLeft: 1 }} />
-                Слушать
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleToggleSubscribe}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium cursor-pointer transition-all"
-                style={{
-                  backgroundColor: isSubscribed ? "var(--mq-accent)" : "transparent",
-                  color: isSubscribed ? "var(--mq-text)" : "var(--mq-text-muted)",
-                  border: `1px solid ${isSubscribed ? "var(--mq-accent)" : "var(--mq-border)"}`,
-                }}
-              >
-                {isSubscribed ? <UserCheck className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
-                {isSubscribed ? "Подписка" : "Подписаться"}
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => { if (displayTracks.length > 0) { const s = [...displayTracks]; for (let i = s.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [s[i], s[j]] = [s[j], s[i]]; } playTrack(s[0], s); } }}
-                disabled={artistTracks.length === 0 || artistTracksLoading}
-                className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium cursor-pointer disabled:opacity-40"
-                style={{ border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}
-              >
-                <Shuffle className="w-4 h-4" />
-              </motion.button>
-            </div>
+            </motion.div>
           </div>
-        </motion.div>
+        </div>
 
         {/* Tabs */}
-        <div className="flex items-center gap-1 mt-6 mb-4 p-1 rounded-xl" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+        <div className={`flex items-center gap-1 mt-6 mb-4 p-1 rounded-xl ${compactMode ? "px-3 lg:px-4" : "px-4 lg:px-6"}`} style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
           {artistTabs.map(tab => (
             <button
               key={tab.id}
@@ -1197,6 +1252,7 @@ export default function MainView() {
         </div>
 
         {/* Track list */}
+        <div className={compactMode ? "px-3 lg:px-4" : "px-4 lg:px-6"}>
         {artistTracksLoading ? (
           <div className="space-y-2">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -1217,10 +1273,11 @@ export default function MainView() {
             <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Треки не найдены</p>
           </div>
         )}
+        </div>
 
         {/* Similar artists — "Вам может понравиться" */}
         {!similarArtistsLoading && similarArtists.length > 0 && (
-          <div className="mt-10">
+          <div className={`mt-10 ${compactMode ? "px-3 lg:px-4" : "px-4 lg:px-6"}`}>
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: "var(--mq-text)" }}>
               <Users className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
               Вам может понравиться

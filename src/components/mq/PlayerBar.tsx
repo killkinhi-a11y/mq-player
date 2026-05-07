@@ -729,6 +729,7 @@ export default function PlayerBar() {
     toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
     upNext, currentStyle, radioMode, smartShuffle, toggleRadioMode,
     spatialAudioEnabled, setSpatialAudioEnabled, setSpatialMood, spatialAutoDetect, spatialMood,
+    setSelectedArtist,
   } = useAppStore();
 
   const [showQueue, setShowQueue] = useState(false);
@@ -2450,10 +2451,17 @@ export default function PlayerBar() {
           )}
           <div className="min-w-0 flex-1">
             <p className="text-xs sm:text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
-            <p className="text-[10px] sm:text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+            <button
+              className="text-[10px] sm:text-xs truncate block w-full text-left cursor-pointer hover:underline"
+              style={{ color: "var(--mq-text-muted)", background: "none", border: "none", padding: 0, font: "inherit" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedArtist({ name: currentTrack.artist, avatar: currentTrack.cover });
+              }}
+            >
               {currentTrack.artist}
-              {playError && <span className="ml-1.5 px-1.5 py-0 rounded text-[9px] inline-flex-shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.2)", color: "#ef4444" }}>Ошибка</span>}
-            </p>
+            </button>
+            {playError && <span className="ml-1.5 px-1.5 py-0 rounded text-[9px] inline-flex-shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.2)", color: "#ef4444" }}>Ошибка</span>}
           </div>
         </div>
 
