@@ -6,7 +6,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending, X, Check } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending, X, Check, Square } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
 import HeroParticles from "./HeroParticles";
 import CursorSpotlight from "./CursorSpotlight";
@@ -406,7 +406,7 @@ export default function MainView() {
     animationsEnabled, playTrack, likedTrackIds, dislikedTrackIds, likedTracksData, dislikedTracksData,
     history, playlists, setView, contacts, messages, userId, compactMode, currentTrack, isPlaying,
     setSearchQuery, favoriteArtists, selectedArtist, setSelectedArtist,
-    addFavoriteArtist, removeFavoriteArtist, radioMode,
+    addFavoriteArtist, removeFavoriteArtist, radioMode, upNext, queue, progress, duration,
   } = useAppStore();
 
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
@@ -1754,117 +1754,472 @@ export default function MainView() {
         )}
       </AnimatePresence>
 
-      {/* Wave — personalized endless stream */}
+      {/* Wave — personalized endless stream — PREMIUM HERO CARD */}
       <ScrollReveal direction="up" delay={0.05}>
         <motion.button
-          whileHover={{ scale: 1.02, y: -2 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleStartWave}
+          whileHover={{ scale: 1.015, y: -4 }}
+          whileTap={{ scale: 0.975 }}
+          onClick={radioMode ? () => useAppStore.getState().toggleRadioMode() : handleStartWave}
           disabled={waveLoading}
-          className="w-full rounded-2xl p-3 sm:p-4 lg:p-5 relative overflow-hidden cursor-pointer text-left transition-all"
+          className="w-full rounded-2xl relative overflow-hidden cursor-pointer text-left transition-all group"
           style={{
-            backgroundColor: "var(--mq-card)",
-            border: "1px solid var(--mq-border)",
+            background: "var(--mq-card)",
+            padding: 0,
+            border: "none",
           }}
         >
-          {/* Animated wave background */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ opacity: 0.12 }}>
-            <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 800 60" preserveAspectRatio="none" style={{ height: 40 }}>
-              <motion.path
-                d="M0,30 C100,10 200,50 300,30 C400,10 500,50 600,30 C700,10 800,50 800,30 L800,60 L0,60 Z"
-                fill="var(--mq-accent)"
-                animate={{
-                  d: [
-                    "M0,30 C100,10 200,50 300,30 C400,10 500,50 600,30 C700,10 800,50 800,30 L800,60 L0,60 Z",
-                    "M0,35 C100,50 200,10 300,35 C400,50 500,10 600,35 C700,50 800,10 800,35 L800,60 L0,60 Z",
-                    "M0,25 C100,40 200,15 300,35 C400,20 500,45 600,25 C700,40 800,15 800,30 L800,60 L0,60 Z",
-                    "M0,30 C100,10 200,50 300,30 C400,10 500,50 600,30 C700,10 800,50 800,30 L800,60 L0,60 Z",
-                  ],
-                }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              />
-            </svg>
-            <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 800 60" preserveAspectRatio="none" style={{ height: 30, opacity: 0.6 }}>
-              <motion.path
-                d="M0,35 C150,15 350,55 500,30 C650,5 750,45 800,35 L800,60 L0,60 Z"
-                fill="var(--mq-accent)"
-                animate={{
-                  d: [
-                    "M0,35 C150,15 350,55 500,30 C650,5 750,45 800,35 L800,60 L0,60 Z",
-                    "M0,25 C150,50 350,15 500,40 C650,55 750,20 800,30 L800,60 L0,60 Z",
-                    "M0,40 C150,20 350,45 500,25 C650,45 750,15 800,35 L800,60 L0,60 Z",
-                    "M0,35 C150,15 350,55 500,30 C650,5 750,45 800,35 L800,60 L0,60 Z",
-                  ],
-                }}
-                transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
-              />
-            </svg>
+          {/* ── Animated gradient border ── */}
+          <div className="absolute inset-0 rounded-2xl pointer-events-none" style={{ padding: radioMode && currentTrack ? "2px" : "1px" }}>
+            <motion.div
+              className="w-full h-full rounded-2xl"
+              animate={radioMode && currentTrack
+                ? { backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"] }
+                : {}}
+              transition={radioMode && currentTrack
+                ? { duration: 4, repeat: Infinity, ease: "linear" }
+                : {}}
+              style={{
+                background: radioMode && currentTrack
+                  ? `linear-gradient(90deg, var(--mq-accent), var(--mq-text-muted), var(--mq-accent), var(--mq-text-muted), var(--mq-accent))`
+                  : "var(--mq-border)",
+                backgroundSize: radioMode && currentTrack ? "300% 100%" : "100% 100%",
+              }}
+            />
           </div>
 
-          {/* Glow */}
-          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full pointer-events-none"
-            style={{ background: "var(--mq-accent)", filter: "blur(60px)", opacity: 0.08 }} />
+          {/* ── Inner content wrapper with bg to cover border gradient ── */}
+          <div className="relative rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--mq-card)" }}>
 
-          <div className="relative z-10 flex items-center gap-4">
-            {/* Wave icon with animated rings */}
-            <div className="relative flex-shrink-0">
-              <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-xl flex items-center justify-center"
-                style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
-                {waveLoading ? (
-                  <div className="w-5 h-5 border-2 rounded-full animate-spin"
-                    style={{ borderColor: "var(--mq-text)", borderTopColor: "transparent" }} />
-                ) : (
-                  <Waves className="w-6 h-6 lg:w-7 lg:h-7" style={{ color: "var(--mq-text)" }} />
-                )}
-              </div>
-              {/* Animated pulse ring */}
-              {!waveLoading && (
-                <motion.div
-                  className="absolute inset-0 rounded-xl"
-                  style={{ border: "2px solid var(--mq-accent)" }}
-                  animate={{ scale: [1, 1.2, 1], opacity: [0.6, 0, 0.6] }}
-                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+            {/* ── Mesh gradient overlay at top ── */}
+            <div className="absolute top-0 left-0 right-0 pointer-events-none" style={{ height: "60%", opacity: 0.07 }}>
+              <motion.div
+                className="absolute inset-0"
+                animate={{
+                  background: [
+                    "radial-gradient(ellipse at 20% 50%, var(--mq-accent), transparent 60%), radial-gradient(ellipse at 80% 30%, var(--mq-text-muted), transparent 50%)",
+                    "radial-gradient(ellipse at 60% 30%, var(--mq-accent), transparent 60%), radial-gradient(ellipse at 30% 60%, var(--mq-text-muted), transparent 50%)",
+                    "radial-gradient(ellipse at 20% 50%, var(--mq-accent), transparent 60%), radial-gradient(ellipse at 80% 30%, var(--mq-text-muted), transparent 50%)",
+                  ],
+                }}
+                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </div>
+
+            {/* ── 3-layer animated wave background ── */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ opacity: 0.1 }}>
+              {/* Wave layer 1 (back, slow) */}
+              <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: 70 }}>
+                <defs>
+                  <linearGradient id="waveGrad1" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" style={{ stopColor: "var(--mq-accent)", stopOpacity: 0.4 }} />
+                    <stop offset="50%" style={{ stopColor: "var(--mq-accent)", stopOpacity: 1 }} />
+                    <stop offset="100%" style={{ stopColor: "var(--mq-accent)", stopOpacity: 0.4 }} />
+                  </linearGradient>
+                </defs>
+                <motion.path
+                  d="M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z"
+                  fill="url(#waveGrad1)"
+                  animate={{
+                    d: [
+                      "M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z",
+                      "M0,50 C150,65 300,20 450,45 C600,65 750,20 900,50 C1050,65 1200,20 1200,45 L1200,80 L0,80 Z",
+                      "M0,30 C150,50 300,20 450,45 C600,15 750,60 900,35 C1050,50 1200,20 1200,40 L1200,80 L0,80 Z",
+                      "M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z",
+                    ],
+                  }}
+                  transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                 />
+              </svg>
+              {/* Wave layer 2 (mid, medium) */}
+              <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: 50, opacity: 0.7 }}>
+                <motion.path
+                  d="M0,45 C200,20 400,70 600,40 C800,10 1000,60 1200,45 L1200,80 L0,80 Z"
+                  fill="var(--mq-accent)"
+                  animate={{
+                    d: [
+                      "M0,45 C200,20 400,70 600,40 C800,10 1000,60 1200,45 L1200,80 L0,80 Z",
+                      "M0,35 C200,60 400,15 600,50 C800,70 1000,25 1200,40 L1200,80 L0,80 Z",
+                      "M0,50 C200,25 400,55 600,30 C800,55 1000,15 1200,50 L1200,80 L0,80 Z",
+                      "M0,45 C200,20 400,70 600,40 C800,10 1000,60 1200,45 L1200,80 L0,80 Z",
+                    ],
+                  }}
+                  transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut", delay: 0.8 }}
+                />
+              </svg>
+              {/* Wave layer 3 (front, fast) */}
+              <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: 35, opacity: 0.5 }}>
+                <motion.path
+                  d="M0,50 C100,30 250,65 400,45 C550,25 700,60 850,40 C1000,20 1100,55 1200,35 L1200,80 L0,80 Z"
+                  fill="var(--mq-accent)"
+                  animate={{
+                    d: [
+                      "M0,50 C100,30 250,65 400,45 C550,25 700,60 850,40 C1000,20 1100,55 1200,35 L1200,80 L0,80 Z",
+                      "M0,35 C100,55 250,25 400,50 C550,65 700,30 850,55 C1000,65 1100,30 1200,50 L1200,80 L0,80 Z",
+                      "M0,55 C100,35 250,55 400,35 C550,50 700,25 850,50 C1000,35 1100,60 1200,40 L1200,80 L0,80 Z",
+                      "M0,50 C100,30 250,65 400,45 C550,25 700,60 850,40 C1000,20 1100,55 1200,35 L1200,80 L0,80 Z",
+                    ],
+                  }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 1.5 }}
+                />
+              </svg>
+            </div>
+
+            {/* ── Sparkle particles ── */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ opacity: radioMode && currentTrack ? 0.6 : 0.25 }}>
+              {[...Array(12)].map((_, i) => {
+                const left = `${8 + (i * 7.8) % 85}%`;
+                const top = `${10 + (i * 13) % 60}%`;
+                const size = 1.5 + (i % 3);
+                const dur = 2.5 + (i * 0.3);
+                const delay = i * 0.25;
+                return (
+                  <motion.div
+                    key={i}
+                    className="absolute rounded-full"
+                    style={{
+                      left,
+                      top,
+                      width: size,
+                      height: size,
+                      backgroundColor: "var(--mq-accent)",
+                    }}
+                    animate={{
+                      opacity: [0, 0.8, 0],
+                      scale: [0.5, 1.2, 0.5],
+                      y: [0, -6, 0],
+                    }}
+                    transition={{
+                      duration: dur,
+                      repeat: Infinity,
+                      ease: "easeInOut",
+                      delay,
+                    }}
+                  />
+                );
+              })}
+            </div>
+
+            {/* ── Shimmer/shine sweep effect ── */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
+              <motion.div
+                className="absolute inset-0"
+                style={{
+                  background: "linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.04) 45%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 55%, transparent 60%)",
+                  transformOrigin: "left center",
+                }}
+                animate={{ x: ["-200%", "200%"] }}
+                transition={{ duration: 5, repeat: Infinity, repeatDelay: 4, ease: "easeInOut" }}
+              />
+            </div>
+
+            {/* ── Glow orbs ── */}
+            <div className="absolute -top-16 -right-16 w-52 h-52 rounded-full pointer-events-none"
+              style={{ background: "var(--mq-accent)", filter: "blur(80px)", opacity: radioMode && currentTrack ? 0.15 : 0.06 }} />
+            <div className="absolute -bottom-8 -left-8 w-36 h-36 rounded-full pointer-events-none"
+              style={{ background: "var(--mq-accent)", filter: "blur(60px)", opacity: 0.04 }} />
+
+            {/* ── Card content ── */}
+            <div className="relative z-10 p-5 sm:p-6 lg:p-7">
+
+              {/* Top row: Icon + Title + Action */}
+              <div className="flex items-center gap-4 sm:gap-5">
+                {/* Wave icon with animated concentric rings */}
+                <div className="relative flex-shrink-0" onClick={(e) => { e.stopPropagation(); }} title="">
+                  {/* Concentric rings */}
+                  {!waveLoading && (
+                    <>
+                      <motion.div
+                        className="absolute rounded-2xl pointer-events-none"
+                        style={{
+                          inset: "-6px",
+                          border: "1.5px solid var(--mq-accent)",
+                          borderRadius: "16px",
+                        }}
+                        animate={{ scale: [1, 1.25, 1], opacity: [0.5, 0, 0.5] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                      />
+                      <motion.div
+                        className="absolute rounded-2xl pointer-events-none"
+                        style={{
+                          inset: "-12px",
+                          border: "1px solid var(--mq-accent)",
+                          borderRadius: "20px",
+                        }}
+                        animate={{ scale: [1, 1.35, 1], opacity: [0.3, 0, 0.3] }}
+                        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut", delay: 0.5 }}
+                      />
+                    </>
+                  )}
+                  {/* Icon container */}
+                  <div
+                    className="w-14 h-14 sm:w-15 sm:h-15 lg:w-16 lg:h-16 rounded-2xl flex items-center justify-center relative overflow-hidden"
+                    style={{
+                      background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 70%, var(--mq-text-muted)))",
+                      boxShadow: radioMode && currentTrack
+                        ? "0 4px 24px rgba(0,0,0,0.3), 0 0 20px color-mix(in srgb, var(--mq-accent) 30%, transparent)"
+                        : "0 4px 20px rgba(0,0,0,0.2)",
+                    }}
+                  >
+                    {/* Glassmorphism inner highlight */}
+                    <div className="absolute inset-0 rounded-2xl" style={{
+                      background: "linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%)",
+                    }} />
+                    {waveLoading ? (
+                      <div className="flex items-end gap-[3px] h-5">
+                        {[0, 1, 2, 3].map((i) => (
+                          <motion.div
+                            key={i}
+                            className="w-[2.5px] rounded-full"
+                            style={{ backgroundColor: "var(--mq-text)" }}
+                            animate={{ height: [4, 16, 8, 18, 4] }}
+                            transition={{ duration: 0.8 + i * 0.15, repeat: Infinity, ease: "easeInOut", delay: i * 0.1 }}
+                          />
+                        ))}
+                      </div>
+                    ) : radioMode && currentTrack ? (
+                      <Waves className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 relative z-10" style={{ color: "var(--mq-text)" }} />
+                    ) : (
+                      <Waves className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 relative z-10" style={{ color: "var(--mq-text)" }} />
+                    )}
+                  </div>
+                </div>
+
+                {/* Title + Subtitle */}
+                <div className="flex-1 min-w-0">
+                  <h3
+                    className="text-lg sm:text-xl lg:text-2xl font-extrabold tracking-tight truncate"
+                    style={{
+                      color: "var(--mq-text)",
+                      backgroundImage: waveLoading ? "none" : "linear-gradient(135deg, var(--mq-text) 0%, var(--mq-text-muted) 100%)",
+                      backgroundClip: waveLoading ? "unset" : "text",
+                      WebkitBackgroundClip: waveLoading ? "unset" : "text",
+                      WebkitTextFillColor: waveLoading ? "var(--mq-text)" : "transparent",
+                    }}
+                  >
+                    {waveLoading ? "Составляем волну..." : "Волна"}
+                  </h3>
+                  <p className="text-xs sm:text-sm truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+                    {waveLoading
+                      ? "Подбираем треки по вашему вкусу"
+                      : radioMode && currentTrack
+                        ? "Бесконечный поток"
+                        : hasTasteData
+                          ? "Персональный поток на основе ваших прослушиваний"
+                          : "Бесконечный поток музыки, подобранной для вас"}
+                  </p>
+
+                  {/* Genre tags when taste data available and not in radio mode */}
+                  {hasTasteData && !radioMode && !waveLoading && tasteProfile.topGenres.length > 0 && (
+                    <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                      {tasteProfile.topGenres.slice(0, 3).map((genre, i) => (
+                        <span
+                          key={genre}
+                          className="text-[10px] sm:text-[11px] px-2 py-0.5 rounded-full font-medium"
+                          style={{
+                            backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+                            color: "var(--mq-accent)",
+                          }}
+                        >
+                          {genre}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Play / Stop button */}
+                <div className="flex-shrink-0">
+                  {waveLoading ? (
+                    <div className="w-12 h-12 sm:w-13 sm:h-13 lg:w-14 lg:h-14 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 20%, transparent)" }}>
+                      <motion.div
+                        className="w-6 h-6 border-2 rounded-full"
+                        style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }}
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+                      />
+                    </div>
+                  ) : radioMode && currentTrack ? (
+                    <motion.div
+                      className="w-12 h-12 sm:w-13 sm:h-13 lg:w-14 lg:h-14 rounded-full flex items-center justify-center"
+                      style={{
+                        background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 70%, var(--mq-text-muted)))",
+                        boxShadow: "0 4px 20px rgba(0,0,0,0.3), 0 0 16px color-mix(in srgb, var(--mq-accent) 25%, transparent)",
+                      }}
+                      whileHover={{ scale: 1.08 }}
+                      whileTap={{ scale: 0.92 }}
+                    >
+                      <Square className="w-5 h-5 sm:w-6 sm:h-6 relative z-10" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      className="w-12 h-12 sm:w-13 sm:h-13 lg:w-14 lg:h-14 rounded-full flex items-center justify-center"
+                      style={{
+                        background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 70%, var(--mq-text-muted)))",
+                        boxShadow: "0 4px 20px rgba(0,0,0,0.3)",
+                      }}
+                      whileHover={{ scale: 1.08 }}
+                      whileTap={{ scale: 0.92 }}
+                    >
+                      <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5 relative z-10" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Active Radio Mode: NOW PLAYING section ── */}
+              {radioMode && currentTrack && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  className="mt-5 pt-4"
+                  style={{ borderTop: "1px solid var(--mq-border)" }}
+                >
+                  <div className="flex items-center gap-3">
+                    {/* Mini artwork */}
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg overflow-hidden flex-shrink-0 relative"
+                      style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}>
+                      {currentTrack.cover ? (
+                        <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 20%, var(--mq-card))" }}>
+                          <Music2 className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+                        </div>
+                      )}
+                      {/* Playing indicator overlay */}
+                      {isPlaying && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                          <div className="flex items-end gap-[2px] h-4">
+                            {[0, 1, 2, 3, 4].map((i) => (
+                              <motion.div
+                                key={i}
+                                className="w-[2px] rounded-full bg-white"
+                                animate={{ height: [2, 12, 4, 14, 2] }}
+                                transition={{ duration: 0.6 + i * 0.1, repeat: Infinity, ease: "easeInOut", delay: i * 0.07 }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Track info */}
+                    <div className="flex-1 min-w-0">
+                      <motion.p
+                        key={currentTrack.id}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.35, ease: "easeOut" }}
+                        className="text-sm sm:text-base font-semibold truncate"
+                        style={{ color: "var(--mq-text)" }}
+                      >
+                        {currentTrack.title}
+                      </motion.p>
+                      <motion.p
+                        key={`artist-${currentTrack.id}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.35, delay: 0.08, ease: "easeOut" }}
+                        className="text-xs sm:text-[13px] truncate"
+                        style={{ color: "var(--mq-text-muted)" }}
+                      >
+                        {currentTrack.artist}
+                      </motion.p>
+                    </div>
+
+                    {/* Equalizer bars */}
+                    <div className="flex items-end gap-[2px] h-5 flex-shrink-0">
+                      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                        <motion.div
+                          key={i}
+                          className="w-[2.5px] rounded-full"
+                          style={{ backgroundColor: "var(--mq-accent)" }}
+                          animate={isPlaying
+                            ? { height: [3, 6 + (i % 3) * 3, 4, 8 + (i % 2) * 4, 3] }
+                            : { height: 3 }
+                          }
+                          transition={isPlaying
+                            ? { duration: 0.5 + i * 0.08, repeat: Infinity, ease: "easeInOut", delay: i * 0.06 }
+                            : { duration: 0.2 }
+                          }
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  {isPlaying && duration > 0 && (
+                    <div className="mt-3 h-[3px] rounded-full overflow-hidden" style={{ backgroundColor: "color-mix(in srgb, var(--mq-border) 60%, transparent)" }}>
+                      <motion.div
+                        className="h-full rounded-full"
+                        style={{ backgroundColor: "var(--mq-accent)" }}
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min((progress / duration) * 100, 100)}%` }}
+                        transition={{ duration: 0.3, ease: "linear" }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Track counter badge */}
+                  <div className="flex items-center gap-3 mt-3">
+                    <span className="text-[11px] font-medium flex items-center gap-1" style={{ color: "var(--mq-accent)" }}>
+                      <Zap className="w-3 h-3" />
+                      Бесконечная волна
+                    </span>
+                    {upNext.length > 0 && (
+                      <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                        {upNext.length}{" "}
+                        {upNext.length === 1 ? "трек в очереди" : upNext.length < 5 ? "трека в очереди" : "треков в очереди"}
+                      </span>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* ── Loading state equalizer animation ── */}
+              {waveLoading && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="mt-5 pt-4 flex flex-col items-center gap-3"
+                  style={{ borderTop: "1px solid var(--mq-border)" }}
+                >
+                  <div className="flex items-end gap-[3px] h-8">
+                    {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+                      <motion.div
+                        key={i}
+                        className="w-[3px] rounded-full"
+                        style={{ backgroundColor: "var(--mq-accent)", opacity: 0.5 + (i % 3) * 0.15 }}
+                        animate={{ height: [4, 10 + (i % 4) * 5, 6, 20 + (i % 3) * 4, 4] }}
+                        transition={{ duration: 0.7 + i * 0.1, repeat: Infinity, ease: "easeInOut", delay: i * 0.07 }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                    Составляем волну...
+                  </span>
+                </motion.div>
               )}
             </div>
 
-            <div className="flex-1 min-w-0">
-              <h3 className="text-base lg:text-lg font-bold truncate" style={{ color: "var(--mq-text)" }}>
-                {waveLoading ? "Составляем волну..." : "Волна"}
-              </h3>
-              <p className="text-xs lg:text-sm truncate" style={{ color: "var(--mq-text-muted)" }}>
-                {waveLoading ? "Подбираем треки по вашему вкусу" : hasTasteData
-                  ? "Персональный поток треков на основе ваших прослушиваний"
-                  : "Бесконечный поток музыки, подобранной для вас"}
-              </p>
-            </div>
-
-            {/* Play indicator */}
-            <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: "var(--mq-accent)", opacity: 0.9 }}>
-              <Play className="w-4 h-4 ml-0.5" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-            </div>
-          </div>
-
-          {/* Active wave indicator when radio mode is on */}
-          {radioMode && currentTrack && (
-            <div className="relative z-10 mt-3 flex items-center gap-2">
-              <div className="flex items-end gap-0.5 h-3">
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <motion.div
-                    key={i}
-                    animate={isPlaying ? { height: [3, 10, 5, 12, 3] } : { height: 3 }}
-                    transition={isPlaying ? { duration: 0.7 + i * 0.12, repeat: Infinity, ease: "easeInOut", delay: i * 0.08 } : {}}
-                    className="w-[2px] rounded-full"
-                    style={{ backgroundColor: "var(--mq-accent)" }}
-                  />
-                ))}
+            {/* ── Bottom progress shimmer for active wave ── */}
+            {radioMode && currentTrack && isPlaying && (
+              <div className="absolute bottom-0 left-0 right-0 h-[2px] overflow-hidden">
+                <motion.div
+                  className="h-full"
+                  style={{
+                    background: "linear-gradient(90deg, transparent, var(--mq-accent), transparent)",
+                    backgroundSize: "200% 100%",
+                  }}
+                  animate={{ backgroundPosition: ["200% 0%", "-200% 0%"] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                />
               </div>
-              <span className="text-[11px] font-medium" style={{ color: "var(--mq-accent)" }}>
-                Волна воспроизводится
-              </span>
-            </div>
-          )}
+            )}
+          </div>
         </motion.button>
       </ScrollReveal>
 
