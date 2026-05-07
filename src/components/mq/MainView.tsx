@@ -1225,32 +1225,39 @@ export default function MainView() {
               <Users className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
               Вам может понравиться
             </h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {similarArtists.map(artist => (
-                <motion.button
-                  key={artist.name}
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setSelectedArtist({ name: artist.name, avatar: artist.avatar })}
-                  className="flex items-center gap-3 p-3 rounded-xl cursor-pointer text-left transition-all"
-                  style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
-                >
-                  <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center"
-                    style={{ backgroundColor: "var(--mq-accent)", opacity: 0.6 }}>
-                    {artist.avatar ? (
-                      <img src={artist.avatar} alt={artist.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-xs font-bold" style={{ color: "var(--mq-text)" }}>
-                        {artist.name.split(" ").map(w => w[0]).slice(0, 2).join("")}
-                      </span>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{artist.name}</p>
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Артист</p>
-                  </div>
-                </motion.button>
-              ))}
+            <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+              {similarArtists.map((artist, idx) => {
+                const sub = favoriteArtists.some(a => a.username.toLowerCase() === artist.name.toLowerCase());
+                return (
+                  <ArtistCard
+                    key={artist.name}
+                    avatar={artist.avatar}
+                    username={artist.name}
+                    followers={artist.followers}
+                    isSubscribed={sub}
+                    index={idx}
+                    animationsEnabled={animationsEnabled}
+                    size="md"
+                    onClick={() => setSelectedArtist({ name: artist.name, avatar: artist.avatar })}
+                    onSubscribeClick={(e) => {
+                      e.stopPropagation();
+                      if (sub) {
+                        const fav = favoriteArtists.find(a => a.username.toLowerCase() === artist.name.toLowerCase());
+                        if (fav) removeFavoriteArtist(fav.id);
+                      } else {
+                        addFavoriteArtist({
+                          id: Date.now(),
+                          username: artist.name,
+                          avatar: artist.avatar || "",
+                          genre: "",
+                          followers: artist.followers || 0,
+                          trackCount: 0,
+                        });
+                      }
+                    }}
+                  />
+                );
+              })}
             </div>
           </div>
         )}
