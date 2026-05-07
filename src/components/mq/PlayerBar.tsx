@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { initSpatialAudio, enableSpatialAudio, setMoodPreset, detectMoodFromTrack } from "@/lib/spatialAudio";
 import { formatDuration } from "@/lib/musicApi";
-import { getAudioElement, initAudioEngine, getAnalyser, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade, replaceAudioElement, connectElementToAudioGraph, onAudioElementReplaced } from "@/lib/audioEngine";
+import { getAudioElement, initAudioEngine, getAnalyser, getFrequencyData, resumeAudioContext, resetCorsState, getInactiveAudio, crossfadeTo, cancelCrossfade, replaceAudioElement, connectElementToAudioGraph, onAudioElementReplaced } from "@/lib/audioEngine";
 import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
 import TrackCommentsPanel from "./TrackCommentsPanel";
@@ -1371,10 +1371,52 @@ export default function PlayerBar() {
       return { r: 224, g: 49, b: 49 };
     };
 
+    // ── Shared audio data helpers ──
+    const FFT_SIZE = 128;
+    const freqDataRaw = new Uint8Array(FFT_SIZE);
+    const freqDataSmooth = new Float32Array(FFT_SIZE); // smoothed for fluid motion
+    let prevBassEnergy = 0;
+    let bassHitCooldown = 0;
+
+    /** Fill frequency data arrays; returns true when analyser is active */
+    const fetchAudioData = (): boolean => {
+      const analyser = getAnalyser();
+      if (analyser) {
+        getFrequencyData(freqDataRaw);
+      }
+      // Lerp smooth
+      for (let i = 0; i < FFT_SIZE; i++) {
+        freqDataSmooth[i] += ((freqDataRaw[i] || 0) - freqDataSmooth[i]) * 0.22;
+      }
+      return !!analyser;
+    };
+
+    /** Get average energy of a frequency range [start..end) normalized to 0-1 */
+    const bandEnergy = (start: number, end: number) => {
+      let sum = 0;
+      const count = Math.max(1, end - start);
+      for (let i = start; i < end && i < FFT_SIZE; i++) sum += freqDataSmooth[i];
+      return sum / count / 255;
+    };
+
+    /** Simple beat detection: returns 1.0 on a bass hit, decays to 0 */
+    const detectBassHit = (bass: number): number => {
+      if (bassHitCooldown > 0) bassHitCooldown--;
+      const hit = bass > 0.55 && bass - prevBassEnergy > 0.12 && bassHitCooldown <= 0;
+      if (hit) bassHitCooldown = 12;
+      prevBassEnergy += (bass - prevBassEnergy) * 0.3;
+      return hit ? 1.0 : 0.0;
+    };
+
+    /** Generate a gentle idle value (used when not playing or no analyser) */
+    const idleVal = (t: number, i: number, seed: number) =>
+      0.5 + Math.sin(t * 0.6 + seed + i * 0.3) * 0.2 + Math.sin(t * 0.9 + seed * 2 + i * 0.15) * 0.1;
+
     // ═══════════════════════════════════════════════════════════════════
     // iPod 2001 — Monochrome Equalizer Bars
-    // Like the classic iPod battery/signal meter: thin vertical bars
+    // Audio-reactive thin vertical bars with smooth lerp + glow tops
     // ═══════════════════════════════════════════════════════════════════
+    const barSmooth = new Float32Array(128); // smoothed bar heights
     const drawIpod = () => {
       animFrameRef.current = requestAnimationFrame(drawIpod);
       resize();
@@ -1383,40 +1425,64 @@ export default function PlayerBar() {
       ctx.clearRect(0, 0, w, h);
 
       const t = performance.now() / 1000;
-      const barCount = Math.floor(w / 4);
+      const playing = isPlayingRef.current;
+      const hasAnalyser = fetchAudioData();
+
+      const barCount = Math.min(Math.floor(w / 4), 80);
       const barW = 2;
       const gap = (w - barCount * barW) / (barCount + 1);
 
       for (let i = 0; i < barCount; i++) {
         const x = gap + i * (barW + gap);
-        // Pseudo-random height based on sine waves
-        const freq1 = Math.sin(t * 2.0 + i * 0.3) * 0.3;
-        const freq2 = Math.sin(t * 3.5 + i * 0.15) * 0.2;
-        const freq3 = Math.cos(t * 1.5 + i * 0.5) * 0.15;
-        const norm = 0.5 + freq1 + freq2 + freq3;
-        const barH = Math.max(2, Math.min(h * 0.9, norm * h));
+        // Map bar index to frequency bin
+        const binIdx = Math.floor((i / barCount) * (FFT_SIZE * 0.7)); // skip highest bins
+        let norm: number;
+        if (playing && hasAnalyser) {
+          norm = freqDataSmooth[binIdx] / 255;
+          // Additional lerp for ultra-smooth bars
+          barSmooth[i] += (norm - barSmooth[i]) * 0.28;
+          norm = barSmooth[i];
+        } else {
+          norm = idleVal(t, i, 0);
+          barSmooth[i] += (norm - barSmooth[i]) * 0.08;
+          norm = barSmooth[i];
+        }
+        const barH = Math.max(1.5, norm * h * 0.95);
 
         // Blue gradient from bottom: bright to dim
         const grad = ctx.createLinearGradient(x, h, x, h - barH);
-        grad.addColorStop(0, "rgba(42,127,255,0.8)");
-        grad.addColorStop(0.5, "rgba(42,127,255,0.4)");
-        grad.addColorStop(1, "rgba(42,127,255,0.1)");
+        grad.addColorStop(0, "rgba(42,127,255,0.85)");
+        grad.addColorStop(0.5, "rgba(42,127,255,0.45)");
+        grad.addColorStop(1, "rgba(100,170,255,0.15)");
         ctx.fillStyle = grad;
         ctx.fillRect(x, h - barH, barW, barH);
+
+        // Glow dot on top of each bar
+        if (norm > 0.15) {
+          ctx.beginPath();
+          ctx.arc(x + barW / 2, h - barH, 1.5, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(100,180,255,${Math.min(1, norm * 1.2)})`;
+          ctx.shadowColor = "rgba(42,127,255,0.6)";
+          ctx.shadowBlur = 3;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
       }
     };
 
     // ═══════════════════════════════════════════════════════════════════
     // Japan — Cherry Blossom Petals Falling
-    // Soft pink petals drifting down with gentle sway + ripple circles
+    // Audio-reactive wave amplitude, petals respond to frequency,
+    // ink splash on bass hits
     // ═══════════════════════════════════════════════════════════════════
     interface Petal {
-      x: number; y: number; size: number; speed: number; sway: number;
+      x: number; y: number; size: number; baseSize: number; speed: number; sway: number;
       phase: number; rot: number; rotSpeed: number; opacity: number;
     }
     const petals: Petal[] = Array.from({ length: 25 }, () => ({
       x: Math.random() * 1200,
       y: Math.random() * 60 - 60,
+      baseSize: 2 + Math.random() * 4,
       size: 2 + Math.random() * 4,
       speed: 0.3 + Math.random() * 0.5,
       sway: 0.3 + Math.random() * 0.6,
@@ -1426,6 +1492,12 @@ export default function PlayerBar() {
       opacity: 0.2 + Math.random() * 0.5,
     }));
 
+    // Ink splash particles
+    interface InkDot {
+      x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number;
+    }
+    const inkDots: InkDot[] = [];
+
     const drawJapan = () => {
       animFrameRef.current = requestAnimationFrame(drawJapan);
       resize();
@@ -1434,19 +1506,44 @@ export default function PlayerBar() {
       ctx.clearRect(0, 0, w, h);
 
       const t = performance.now() / 1000;
+      const playing = isPlayingRef.current;
+      const hasAnalyser = fetchAudioData();
 
-      // Subtle ink wash wave at bottom
+      const bass = playing && hasAnalyser ? bandEnergy(0, 10) : idleVal(t, 0, 5) * 0.5;
+      const mid = playing && hasAnalyser ? bandEnergy(10, 50) : idleVal(t, 5, 8) * 0.5;
+      const bassHit = playing && hasAnalyser ? detectBassHit(bass) : 0;
+
+      // Spawn ink splash on bass hits
+      if (bassHit > 0) {
+        const sx = Math.random() * w;
+        const sy = h * 0.6 + Math.random() * h * 0.3;
+        for (let d = 0; d < 8; d++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 0.5 + Math.random() * 2;
+          inkDots.push({
+            x: sx, y: sy,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 0.5,
+            life: 0, maxLife: 30 + Math.random() * 30,
+            size: 1 + Math.random() * 2,
+          });
+        }
+        if (inkDots.length > 80) inkDots.splice(0, inkDots.length - 80);
+      }
+
+      // Ink wash wave at bottom — amplitude driven by audio
+      const waveAmp = 0.08 + (playing && hasAnalyser ? mid * 0.15 : 0.03);
       ctx.beginPath();
       ctx.moveTo(0, h);
       for (let x = 0; x <= w; x += 3) {
-        const y = h * 0.7 + Math.sin(t * 0.8 + x * 0.008) * h * 0.12
-          + Math.sin(t * 1.3 + x * 0.015) * h * 0.06;
+        const y = h * 0.7 + Math.sin(t * 0.8 + x * 0.008) * h * waveAmp
+          + Math.sin(t * 1.3 + x * 0.015) * h * waveAmp * 0.5;
         ctx.lineTo(x, y);
       }
       ctx.lineTo(w, h);
       ctx.closePath();
       const waveGrad = ctx.createLinearGradient(0, h * 0.5, 0, h);
-      waveGrad.addColorStop(0, "rgba(139,34,82,0.04)");
+      waveGrad.addColorStop(0, `rgba(139,34,82,${0.03 + mid * 0.06})`);
       waveGrad.addColorStop(1, "rgba(139,34,82,0.01)");
       ctx.fillStyle = waveGrad;
       ctx.fill();
@@ -1454,20 +1551,38 @@ export default function PlayerBar() {
       // Thin red accent line
       ctx.beginPath();
       for (let x = 0; x <= w; x += 3) {
-        const y = h * 0.55 + Math.sin(t * 0.8 + x * 0.008) * h * 0.12
-          + Math.sin(t * 1.3 + x * 0.015) * h * 0.06;
+        const y = h * 0.55 + Math.sin(t * 0.8 + x * 0.008) * h * waveAmp
+          + Math.sin(t * 1.3 + x * 0.015) * h * waveAmp * 0.5;
         if (x === 0) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = "rgba(139,34,82,0.2)";
+      ctx.strokeStyle = `rgba(139,34,82,${0.15 + bass * 0.3})`;
       ctx.lineWidth = 0.8;
       ctx.stroke();
 
-      // Falling petals
+      // Draw ink splash dots
+      for (let d = inkDots.length - 1; d >= 0; d--) {
+        const dot = inkDots[d];
+        dot.x += dot.vx;
+        dot.y += dot.vy;
+        dot.vy += 0.02; // gravity
+        dot.life++;
+        if (dot.life > dot.maxLife) { inkDots.splice(d, 1); continue; }
+        const fade = 1 - dot.life / dot.maxLife;
+        ctx.beginPath();
+        ctx.arc(dot.x, dot.y, dot.size * fade, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(139,34,82,${fade * 0.4})`;
+        ctx.fill();
+      }
+
+      // Falling petals — size/speed respond to frequency
+      const audioBoost = playing && hasAnalyser ? 1 + bass * 0.8 : 1;
       for (const p of petals) {
-        p.y += p.speed;
-        p.x += Math.sin(t * p.sway + p.phase) * 0.4;
+        p.y += p.speed * audioBoost;
+        p.x += Math.sin(t * p.sway + p.phase) * 0.4 * audioBoost;
         p.rot += p.rotSpeed;
+        // Audio-reactive size
+        p.size += (p.baseSize * (1 + mid * 0.6) - p.size) * 0.1;
 
         if (p.y > h + 10) {
           p.y = -10;
@@ -1498,11 +1613,12 @@ export default function PlayerBar() {
 
     // ═══════════════════════════════════════════════════════════════════
     // Swag — Gold Particle Storm + EQ Bars
-    // Bold gold particles shooting up, thick EQ bars, street energy
+    // Audio-reactive EQ bars, particles burst on bass hits, glow trails
     // ═══════════════════════════════════════════════════════════════════
     interface GoldParticle {
       x: number; y: number; vx: number; vy: number; size: number;
       life: number; maxLife: number; bright: boolean;
+      trail: Array<{ x: number; y: number }>;
     }
     const goldParticles: GoldParticle[] = Array.from({ length: 35 }, () => ({
       x: Math.random() * 1200,
@@ -1513,7 +1629,10 @@ export default function PlayerBar() {
       life: Math.random() * 100,
       maxLife: 60 + Math.random() * 80,
       bright: Math.random() > 0.7,
+      trail: [],
     }));
+
+    const barSmoothSwag = new Float32Array(64);
 
     const drawSwag = () => {
       animFrameRef.current = requestAnimationFrame(drawSwag);
@@ -1523,8 +1642,32 @@ export default function PlayerBar() {
       ctx.clearRect(0, 0, w, h);
 
       const t = performance.now() / 1000;
+      const playing = isPlayingRef.current;
+      const hasAnalyser = fetchAudioData();
 
-      // Thick EQ bars from center, spreading outward
+      const bass = playing && hasAnalyser ? bandEnergy(0, 10) : idleVal(t, 0, 3) * 0.4;
+      const bassHit = playing && hasAnalyser ? detectBassHit(bass) : 0;
+
+      // Burst particles on bass hit
+      if (bassHit > 0) {
+        const burstCount = 5 + Math.floor(Math.random() * 6);
+        for (let b = 0; b < burstCount; b++) {
+          goldParticles.push({
+            x: w * 0.2 + Math.random() * w * 0.6,
+            y: h,
+            vx: (Math.random() - 0.5) * 4,
+            vy: -(1.5 + Math.random() * 3),
+            size: 1.5 + Math.random() * 2,
+            life: 0,
+            maxLife: 40 + Math.random() * 50,
+            bright: Math.random() > 0.4,
+            trail: [],
+          });
+        }
+        if (goldParticles.length > 80) goldParticles.splice(0, goldParticles.length - 80);
+      }
+
+      // Thick EQ bars from center, spreading outward — now audio reactive
       const barCount = 32;
       const totalBarW = w * 0.8;
       const barW = totalBarW / barCount * 0.7;
@@ -1532,12 +1675,21 @@ export default function PlayerBar() {
       const startX = (w - totalBarW) / 2;
 
       for (let i = 0; i < barCount; i++) {
-        // Symmetric from center
         const dist = Math.abs(i - barCount / 2) / (barCount / 2);
-        const f1 = Math.sin(t * 3.0 + i * 0.4) * 0.35;
-        const f2 = Math.sin(t * 5.0 + i * 0.2) * 0.2;
-        const f3 = Math.cos(t * 2.0 + i * 0.6) * 0.15;
-        const norm = Math.max(0.05, 0.5 + f1 + f2 + f3);
+        let norm: number;
+        if (playing && hasAnalyser) {
+          const binIdx = Math.floor((i / barCount) * FFT_SIZE * 0.7);
+          norm = freqDataSmooth[binIdx] / 255;
+          barSmoothSwag[i] += (norm - barSmoothSwag[i]) * 0.25;
+          norm = barSmoothSwag[i];
+        } else {
+          const f1 = Math.sin(t * 3.0 + i * 0.4) * 0.35;
+          const f2 = Math.sin(t * 5.0 + i * 0.2) * 0.2;
+          const f3 = Math.cos(t * 2.0 + i * 0.6) * 0.15;
+          norm = Math.max(0.05, 0.5 + f1 + f2 + f3);
+          barSmoothSwag[i] += (norm - barSmoothSwag[i]) * 0.06;
+          norm = barSmoothSwag[i];
+        }
         const barH = Math.max(1, norm * h * (1 - dist * 0.4));
 
         const x = startX + i * (barW + barGap);
@@ -1551,54 +1703,198 @@ export default function PlayerBar() {
         ctx.fillRect(x, h - barH, barW, barH);
 
         // Glow on top of tall bars
-        if (norm > 0.6) {
-          ctx.fillStyle = "rgba(255,215,0,0.15)";
+        if (norm > 0.5) {
+          ctx.fillStyle = `rgba(255,215,0,${0.1 + norm * 0.15})`;
+          ctx.shadowColor = "rgba(255,215,0,0.4)";
+          ctx.shadowBlur = 4;
           ctx.fillRect(x - 1, h - barH - 2, barW + 2, 4);
+          ctx.shadowBlur = 0;
         }
       }
 
-      // Gold particles rising up
-      for (const p of goldParticles) {
+      // Gold particles with glow trails
+      for (let pi = goldParticles.length - 1; pi >= 0; pi--) {
+        const p = goldParticles[pi];
+        // Store trail position
+        p.trail.push({ x: p.x, y: p.y });
+        if (p.trail.length > 5) p.trail.shift();
+
         p.x += p.vx;
         p.y += p.vy;
+        p.vy += 0.01; // slight gravity
         p.life++;
 
-        if (p.life > p.maxLife || p.y < -10) {
-          p.x = Math.random() * w;
-          p.y = h + 5;
-          p.life = 0;
-          p.maxLife = 60 + Math.random() * 80;
-          p.vy = -(0.5 + Math.random() * 1.5);
-          p.vx = (Math.random() - 0.5) * 1.5;
+        if (p.life > p.maxLife || p.y < -20) {
+          goldParticles.splice(pi, 1);
+          continue;
         }
 
         const lifeRatio = 1 - p.life / p.maxLife;
         const alpha = lifeRatio < 0.3 ? lifeRatio / 0.3 : (lifeRatio > 0.7 ? (1 - lifeRatio) / 0.3 : 1);
 
+        // Draw trail
+        for (let ti = 0; ti < p.trail.length; ti++) {
+          const tp = p.trail[ti];
+          const ta = (ti / p.trail.length) * alpha * 0.3;
+          ctx.beginPath();
+          ctx.arc(tp.x, tp.y, p.size * 0.5, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(212,175,55,${ta})`;
+          ctx.fill();
+        }
+
+        // Draw particle
         if (p.bright) {
           ctx.fillStyle = `rgba(255,215,0,${alpha * 0.8})`;
           ctx.shadowColor = "rgba(212,175,55,0.5)";
-          ctx.shadowBlur = 4;
+          ctx.shadowBlur = 5;
         } else {
           ctx.fillStyle = `rgba(212,175,55,${alpha * 0.5})`;
           ctx.shadowBlur = 0;
         }
-        ctx.fillRect(p.x, p.y, p.size, p.size);
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
         ctx.shadowBlur = 0;
       }
     };
 
     // ═══════════════════════════════════════════════════════════════════
-    // Default — Composite sinusoidal waves (original)
+    // Neon — Cyberpunk Neon Glow
+    // Thin bright lines with neon glow, frequency bars, scanlines
+    // Green (#00ff88) and pink (#ff0066) neon colors
     // ═══════════════════════════════════════════════════════════════════
-    const waves = [
-      { segs: 40, speed: 0.6, amp: 0.35, phase: 0, yOff: 0.5, alpha: 0.5, lw: 1.5 },
-      { segs: 55, speed: 0.9, amp: 0.25, phase: 1.2, yOff: 0.5, alpha: 0.3, lw: 1.0 },
-      { segs: 30, speed: 0.4, amp: 0.45, phase: 2.5, yOff: 0.5, alpha: 0.2, lw: 1.0 },
-      { segs: 70, speed: 1.2, amp: 0.15, phase: 3.8, yOff: 0.5, alpha: 0.15, lw: 0.8 },
+    const neonBarSmooth = new Float32Array(64);
+    const neonScanOffset = { v: 0 };
+
+    const drawNeon = () => {
+      animFrameRef.current = requestAnimationFrame(drawNeon);
+      resize();
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+      ctx.clearRect(0, 0, w, h);
+
+      const t = performance.now() / 1000;
+      const playing = isPlayingRef.current;
+      const hasAnalyser = fetchAudioData();
+
+      const bass = playing && hasAnalyser ? bandEnergy(0, 10) : idleVal(t, 0, 7) * 0.3;
+      const mid = playing && hasAnalyser ? bandEnergy(10, 50) : idleVal(t, 3, 9) * 0.3;
+      const high = playing && hasAnalyser ? bandEnergy(50, 90) : idleVal(t, 6, 11) * 0.3;
+
+      // ── Horizontal frequency bars with neon glow ──
+      const barCount = Math.min(Math.floor(w / 6), 64);
+      const barW = 3;
+      const gap = (w - barCount * barW) / (barCount + 1);
+
+      for (let i = 0; i < barCount; i++) {
+        const x = gap + i * (barW + gap);
+        const binIdx = Math.floor((i / barCount) * FFT_SIZE * 0.7);
+        let norm: number;
+        if (playing && hasAnalyser) {
+          norm = freqDataSmooth[binIdx] / 255;
+          neonBarSmooth[i] += (norm - neonBarSmooth[i]) * 0.28;
+          norm = neonBarSmooth[i];
+        } else {
+          norm = idleVal(t, i, 4) * 0.4;
+          neonBarSmooth[i] += (norm - neonBarSmooth[i]) * 0.06;
+          norm = neonBarSmooth[i];
+        }
+        const barH = Math.max(1, norm * h * 0.95);
+
+        // Color shifts from green to pink across the spectrum
+        const ratio = i / barCount;
+        const cr = Math.floor(255 * ratio);
+        const cg = Math.floor(255 * (1 - ratio) * 0.53 + 136 * ratio);
+        const cb = Math.floor(136 * (1 - ratio) + 102 * ratio);
+
+        // Glow (thick, semi-transparent)
+        ctx.fillStyle = `rgba(${cr},${cg},${cb},${norm * 0.25})`;
+        ctx.shadowColor = `rgba(${cr},${cg},${cb},0.6)`;
+        ctx.shadowBlur = 6;
+        ctx.fillRect(x, h - barH, barW, barH);
+
+        // Bright core (thin, bright)
+        ctx.fillStyle = `rgba(${Math.min(255, cr + 80)},${Math.min(255, cg + 80)},${Math.min(255, cb + 80)},${0.6 + norm * 0.4})`;
+        ctx.fillRect(x, h - barH, barW, barH);
+        ctx.shadowBlur = 0;
+      }
+
+      // ── Scanline effect overlay ──
+      neonScanOffset.v = (neonScanOffset.v + 0.5) % 4;
+      ctx.fillStyle = "rgba(0,0,0,0.08)";
+      for (let y = neonScanOffset.v; y < h; y += 4) {
+        ctx.fillRect(0, y, w, 1);
+      }
+
+      // ── Two thin neon wave lines (green and pink) ──
+      const drawNeonLine = (
+        color: string, shadowColor: string, yBase: number,
+        speedMul: number, phaseOff: number, freqStart: number, freqEnd: number
+      ) => {
+        const segs = 60;
+        ctx.beginPath();
+        for (let i = 0; i <= segs; i++) {
+          const xn = i / segs;
+          const x = xn * w;
+          const binIdx = Math.floor(xn * (freqEnd - freqStart) + freqStart);
+          const fVal = playing && hasAnalyser
+            ? freqDataSmooth[Math.min(binIdx, FFT_SIZE - 1)] / 255
+            : idleVal(t, i, phaseOff) * 0.4;
+          const y = yBase * h - fVal * h * 0.35
+            + Math.sin(t * speedMul + xn * Math.PI * 3 + phaseOff) * h * 0.04;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = shadowColor;
+        ctx.lineWidth = 3;
+        ctx.shadowColor = shadowColor;
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      };
+
+      drawNeonLine("#00ff88", "rgba(0,255,136,0.5)", 0.5, 1.0, 0, 0, 50);
+      drawNeonLine("#ff0066", "rgba(255,0,102,0.5)", 0.55, 1.3, 2.0, 20, 80);
+
+      // ── Neon sparkle dots on bass hits ──
+      const bassHit = playing && hasAnalyser ? detectBassHit(bass) : 0;
+      if (bassHit > 0) {
+        for (let s = 0; s < 6; s++) {
+          const sx = Math.random() * w;
+          const sy = h * 0.3 + Math.random() * h * 0.4;
+          const sc = Math.random() > 0.5 ? "#00ff88" : "#ff0066";
+          ctx.beginPath();
+          ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
+          ctx.fillStyle = sc;
+          ctx.shadowColor = sc;
+          ctx.shadowBlur = 6;
+          ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      }
+    };
+
+    // ═══════════════════════════════════════════════════════════════════
+    // Default — Audio-Reactive Multi-Band Waves
+    // 5 layered waves mapped to frequency bands with gradient fill,
+    // glow/bloom, sparkle particles on peaks, and reflection
+    // ═══════════════════════════════════════════════════════════════════
+    // Wave config: each maps to a frequency band range
+    const waveBands = [
+      { freqStart: 0,   freqEnd: 8,   segs: 48, speed: 0.4, amp: 0.42, phase: 0,   yOff: 0.52, alpha: 0.55, lw: 1.8, lerp: 0.18 },   // Sub-bass / Bass
+      { freqStart: 6,   freqEnd: 20,  segs: 55, speed: 0.65, amp: 0.32, phase: 1.2, yOff: 0.50, alpha: 0.38, lw: 1.4, lerp: 0.20 },   // Low-mid
+      { freqStart: 15,  freqEnd: 45,  segs: 65, speed: 0.85, amp: 0.24, phase: 2.5, yOff: 0.48, alpha: 0.28, lw: 1.1, lerp: 0.22 },   // Mid
+      { freqStart: 35,  freqEnd: 70,  segs: 75, speed: 1.1,  amp: 0.16, phase: 3.8, yOff: 0.50, alpha: 0.18, lw: 0.9, lerp: 0.24 },   // High-mid
+      { freqStart: 55,  freqEnd: 100, segs: 80, speed: 1.4,  amp: 0.10, phase: 5.0, yOff: 0.50, alpha: 0.12, lw: 0.7, lerp: 0.26 },   // Treble
     ];
-    const particles = Array.from({ length: 20 }, () => ({
-      waveIdx: Math.floor(Math.random() * waves.length),
+    // Per-wave smoothed data
+    const waveSmooth = waveBands.map(() => new Float32Array(128));
+
+    const sparkleParticles = Array.from({ length: 25 }, () => ({
+      waveIdx: Math.floor(Math.random() * waveBands.length),
       xFrac: Math.random(),
       size: 1 + Math.random() * 2,
       phase: Math.random() * Math.PI * 2,
@@ -1614,28 +1910,55 @@ export default function PlayerBar() {
 
       const { r, g, b } = getAccent();
       const t = performance.now() / 1000;
+      const playing = isPlayingRef.current;
+      const hasAnalyser = fetchAudioData();
 
-      for (const wave of waves) {
-        const points: { x: number; y: number }[] = [];
+      for (let wi = 0; wi < waveBands.length; wi++) {
+        const wave = waveBands[wi];
+        const smooth = waveSmooth[wi];
+
+        // Build wave points
+        const points: { x: number; y: number; val: number }[] = [];
         for (let i = 0; i < wave.segs; i++) {
-          const x = (i / (wave.segs - 1)) * w;
           const xn = i / (wave.segs - 1);
-          const yNorm = 0.6 * Math.sin(t * wave.speed + wave.phase + 0.7 * xn * Math.PI * 2)
-            + 0.3 * Math.sin(t * wave.speed * 1.7 + 0.5 * wave.phase + 1.3 * xn * Math.PI * 2)
-            + 0.1 * Math.cos(t * wave.speed * 0.5 + 2.1 * xn * Math.PI * 2);
+          const x = xn * w;
+
+          let yNorm: number;
+          if (playing && hasAnalyser) {
+            // Map segment to frequency bin range
+            const binIdx = Math.floor(xn * (wave.freqEnd - wave.freqStart)) + wave.freqStart;
+            const raw = freqDataSmooth[Math.min(binIdx, FFT_SIZE - 1)] / 255;
+            smooth[i] += (raw - smooth[i]) * wave.lerp;
+            yNorm = smooth[i];
+            // Add subtle time-based wobble for organic feel
+            yNorm += Math.sin(t * wave.speed * 0.3 + wave.phase + xn * Math.PI * 2) * 0.05;
+          } else {
+            // Gentle idle animation
+            const idle = 0.08
+              + Math.sin(t * wave.speed * 0.5 + wave.phase + 0.7 * xn * Math.PI * 2) * 0.06
+              + Math.sin(t * wave.speed * 0.3 + 0.5 * wave.phase + 1.3 * xn * Math.PI * 2) * 0.03;
+            smooth[i] += (idle - smooth[i]) * 0.05;
+            yNorm = smooth[i];
+          }
+
           const y = wave.yOff * h - yNorm * wave.amp * h;
-          points.push({ x, y });
+          points.push({ x, y, val: yNorm });
         }
 
+        // ── Glow layer (thick, semi-transparent) ──
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
-        ctx.strokeStyle = `rgba(${r},${g},${b},${wave.alpha * 0.3})`;
-        ctx.lineWidth = wave.lw + 4;
+        ctx.strokeStyle = `rgba(${r},${g},${b},${wave.alpha * 0.25})`;
+        ctx.lineWidth = wave.lw + 5;
         ctx.lineJoin = "bevel";
         ctx.lineCap = "round";
+        ctx.shadowColor = `rgba(${r},${g},${b},${wave.alpha * 0.3})`;
+        ctx.shadowBlur = 6;
         ctx.stroke();
+        ctx.shadowBlur = 0;
 
+        // ── Main bright line ──
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
@@ -1643,8 +1966,10 @@ export default function PlayerBar() {
         ctx.lineWidth = wave.lw;
         ctx.stroke();
 
+        // ── Gradient fill under wave ──
         const gradient = ctx.createLinearGradient(0, wave.yOff * h - wave.amp * h, 0, h);
-        gradient.addColorStop(0, `rgba(${r},${g},${b},${wave.alpha * 0.12})`);
+        gradient.addColorStop(0, `rgba(${r},${g},${b},${wave.alpha * 0.15})`);
+        gradient.addColorStop(0.6, `rgba(${r},${g},${b},${wave.alpha * 0.05})`);
         gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
         ctx.beginPath();
         ctx.moveTo(points[0].x, points[0].y);
@@ -1654,23 +1979,56 @@ export default function PlayerBar() {
         ctx.closePath();
         ctx.fillStyle = gradient;
         ctx.fill();
+
+        // ── Reflection (mirrored, faded) ──
+        ctx.save();
+        ctx.globalAlpha = wave.alpha * 0.12;
+        ctx.beginPath();
+        for (let i = 0; i < points.length; i++) {
+          const reflY = 2 * h - points[i].y; // mirror around bottom
+          const clampedY = Math.min(reflY, h);
+          if (i === 0) ctx.moveTo(points[i].x, clampedY);
+          else ctx.lineTo(points[i].x, clampedY);
+        }
+        ctx.strokeStyle = `rgba(${r},${g},${b},0.6)`;
+        ctx.lineWidth = wave.lw * 0.6;
+        ctx.stroke();
+        ctx.restore();
       }
 
-      for (const p of particles) {
-        const wave = waves[p.waveIdx];
+      // ── Sparkle particles on wave peaks ──
+      for (const p of sparkleParticles) {
+        const wi = p.waveIdx;
+        const wave = waveBands[wi];
+        const smooth = waveSmooth[wi];
         const xn = p.xFrac;
-        const yNorm = 0.6 * Math.sin(t * wave.speed + wave.phase + 0.7 * xn * Math.PI * 2)
-          + 0.3 * Math.sin(t * wave.speed * 1.7 + 0.5 * wave.phase + 1.3 * xn * Math.PI * 2)
-          + 0.1 * Math.cos(t * wave.speed * 0.5 + 2.1 * xn * Math.PI * 2);
+        const si = Math.min(Math.floor(xn * (wave.segs - 1)), wave.segs - 1);
+        const val = smooth[si];
+
+        // Calculate y position using same logic as above
+        let yNorm: number;
+        if (playing && hasAnalyser) {
+          yNorm = val + Math.sin(t * wave.speed * 0.3 + wave.phase + xn * Math.PI * 2) * 0.05;
+        } else {
+          yNorm = val;
+        }
         const px = xn * w;
         const py = wave.yOff * h - yNorm * wave.amp * h;
+
+        // Only show sparkles when there's energy (peaks)
+        const energyBoost = playing && hasAnalyser ? val : 0.3;
         const tw = 0.3 + 0.7 * Math.pow(Math.sin(t * p.twinkle + p.phase), 2);
-        const alpha = tw * (0.3 + wave.alpha * 0.5);
-        const size = p.size * (0.5 + tw * 0.5);
+        const alpha = tw * energyBoost * wave.alpha * 0.8;
+        if (alpha < 0.05) continue;
+        const size = p.size * (0.4 + tw * 0.6) * (0.5 + energyBoost);
+
         ctx.beginPath();
         ctx.arc(px, py, size, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+        ctx.fillStyle = `rgba(${Math.min(255, r + 60)},${Math.min(255, g + 60)},${Math.min(255, b + 60)},${alpha})`;
+        ctx.shadowColor = `rgba(${r},${g},${b},${alpha * 0.5})`;
+        ctx.shadowBlur = 3;
         ctx.fill();
+        ctx.shadowBlur = 0;
       }
     };
 
@@ -1679,6 +2037,7 @@ export default function PlayerBar() {
       case "ipod-2001": drawIpod(); break;
       case "japan": drawJapan(); break;
       case "swag": drawSwag(); break;
+      case "neon": drawNeon(); break;
       default: drawDefault(); break;
     }
 
