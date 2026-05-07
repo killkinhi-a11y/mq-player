@@ -37,7 +37,7 @@ import {
 
 // ── In-memory cache (4 min TTL) ────────────────────────────────────────────────
 const cache = new Map<string, { data: unknown; expiry: number }>();
-const CACHE_TTL = 4 * 60 * 1000; // 4 minutes
+const CACHE_TTL = 2 * 60 * 1000; // 2 minutes (reduced from 4 to prevent repeated tracks)
 
 // ══════════════════════════════════════════════════════════════════════════════
 // CONTENT QUALITY FILTERS (ported from recommendations API v13)
@@ -342,9 +342,9 @@ function scoreCandidate(
   if (trackArtist && trackArtist === ctx.currentArtist.toLowerCase().trim()) {
     score += CFG.radio.sameArtist; // -40
   }
-  // Same artist as recently played → soft penalty
+  // Same artist as recently played → soft penalty (strengthened to -25 for more diversity)
   if (trackArtist && ctx.historyArtists.has(trackArtist)) {
-    score -= 15;
+    score -= 25;
   }
   // Genre match with current track
   if (trackGenre && ctx.currentGenre) {
@@ -696,7 +696,7 @@ async function handler(request: NextRequest) {
 
     const currentTrackPromise = fetchSCTrackMetadata(scTrackId);
 
-    const last2History = historyScIds.slice(0, 2);
+    const last2History = historyScIds.slice(0, 3);
     const historyMetadataPromises = last2History.map(
       (hid) => fetchSCTrackMetadata(hid),
     );
@@ -742,23 +742,54 @@ async function handler(request: NextRequest) {
     sourceMap.push("current_related");
     allFetchPromises.push(fetchSCTrackRelated(scTrackId));
 
-    // ── Source 2: Genre discovery search (~15 tracks, increased from 10)
+    // ── Source 2: Genre discovery search — randomized queries for diversity ──
     if (currentGenre) {
+      const genreVariants = [
+        `${currentGenre} new artists`,
+        `${currentGenre} trending`,
+        `${currentGenre} fresh`,
+        `${currentGenre} underground`,
+        `${currentGenre} emerging`,
+      ];
+      const genreQuery = genreVariants[Math.floor(Math.random() * genreVariants.length)];
       sourceMap.push("genre_search");
-      allFetchPromises.push(searchSCTracks(`${currentGenre} new artists`, 15));
+      allFetchPromises.push(searchSCTracks(genreQuery, 15));
     }
 
-    // ── Source 3: SC Related for last 2 history tracks (~20 each, up to 40)
-    for (const hid of last2History) {
+    // ── Source 3: SC Related for last 3 history tracks (~20 each, up to 60)
+    const historyForRelated = historyScIds.slice(0, 3);
+    for (const hid of historyForRelated) {
       sourceMap.push("history_related");
       allFetchPromises.push(fetchSCTrackRelated(hid));
     }
 
-    // ── Source 4: "{genre} {year}" search (~15 tracks, increased from 10)
+    // ── Source 4: Randomized year search ──
     const year = new Date().getFullYear();
-    const genreYearQuery = currentGenre ? `${currentGenre} ${year}` : `new music ${year}`;
+    const yearVariants = [
+      `${currentGenre || "indie"} ${year}`,
+      `new music ${year}`,
+      `best new ${year}`,
+      `${currentGenre || ""} hits ${year}`.trim(),
+      `popular ${year}`,
+    ];
+    const yearQuery = yearVariants[Math.floor(Math.random() * yearVariants.length)];
     sourceMap.push("genre_year_search");
-    allFetchPromises.push(searchSCTracks(genreYearQuery, 15));
+    allFetchPromises.push(searchSCTracks(yearQuery, 15));
+
+    // ── Source 5: Randomized mood/vibe search for more variety ──
+    const vibeQueries = [
+      "chill vibes new",
+      "deep focus",
+      "late night drive",
+      "summer playlist new",
+      "workout energy",
+      "lo-fi study",
+      "indie discovery",
+      "alternative new artists",
+    ];
+    const vibeQuery = vibeQueries[Math.floor(Math.random() * vibeQueries.length)];
+    sourceMap.push("genre_search");
+    allFetchPromises.push(searchSCTracks(vibeQuery, 10));
 
     // ── Source 5: "{genre} mix" search (~10 tracks)
     if (currentGenre) {

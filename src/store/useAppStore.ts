@@ -855,8 +855,13 @@ export const useAppStore = create<AppState>()(
               const currentT = get().currentTrack;
               const st = get();
               if (currentT?.scTrackId) {
-                // Build history of recently played SC IDs for the radio API
-                const recentHistory = st.history.slice(0, 5).map(h => h.track.scTrackId).filter((id): id is number => !!id).join(",");
+                // Build history of played SC IDs for the radio API — expanded to 80 tracks
+                // to prevent repetition across multiple radio batches
+                const playedScIds = [
+                  ...st.history.map(h => h.track.scTrackId).filter((id): id is number => !!id),
+                  ...st.queue.map(t => t.scTrackId).filter((id): id is number => !!id),
+                ];
+                const uniquePlayedScIds = [...new Set(playedScIds)].slice(0, 80).join(",");
                 // Build skipped genres/artists from feedback data
                 const fb = st.trackFeedback;
                 const skippedIds = Object.entries(fb)
@@ -912,7 +917,7 @@ export const useAppStore = create<AppState>()(
                 
                 const params = new URLSearchParams();
                 params.set("scTrackId", String(currentT.scTrackId));
-                if (recentHistory) params.set("historyScIds", recentHistory);
+                if (uniquePlayedScIds) params.set("historyScIds", uniquePlayedScIds);
                 if (allSkippedArtists) params.set("skippedArtists", allSkippedArtists);
                 if (skippedGenresParam) params.set("skippedGenres", skippedGenresParam);
                 if (likedArtistsFromLikes.length > 0) params.set("likedArtists", likedArtistsFromLikes.join(","));
