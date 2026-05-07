@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { seasonalThemes } from "@/lib/themes";
 import { motion } from "framer-motion";
+import { LiquidGlassToggle } from "@/components/ui/liquid-glass-toggle";
 
 interface FeatureFlag {
   id: string;
@@ -314,26 +315,13 @@ export default function AdminFlagsPage() {
         }}
       >
         <div className="flex items-center gap-4 px-5 py-4">
-          <button
-            onClick={handleMaintenanceToggle}
+          <LiquidGlassToggle
+            checked={!!maintenanceFlag?.enabled}
+            onCheckedChange={handleMaintenanceToggle}
+            size="sm"
+            color="#eab308"
             disabled={toggleLoading === maintenanceFlag?.id || toggleLoading === "new_maintenance"}
-            className="flex-shrink-0 relative w-11 h-6 rounded-full transition-colors"
-            style={{
-              backgroundColor: maintenanceFlag?.enabled ? "#eab308" : "var(--mq-border)",
-            }}
-          >
-            {toggleLoading === maintenanceFlag?.id || toggleLoading === "new_maintenance" ? (
-              <Loader2 className="absolute top-1 left-1 w-4 h-4 animate-spin" style={{ color: "#fff" }} />
-            ) : (
-              <div
-                className="absolute top-1 w-4 h-4 rounded-full transition-transform"
-                style={{
-                  backgroundColor: "#fff",
-                  transform: maintenanceFlag?.enabled ? "translateX(20px)" : "translateX(0)",
-                }}
-              />
-            )}
-          </button>
+          />
 
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{
@@ -430,8 +418,9 @@ export default function AdminFlagsPage() {
                   borderRight: "1px solid var(--mq-border)",
                 }}
               >
-                <button
-                  onClick={() => {
+                <LiquidGlassToggle
+                  checked={isEnabled}
+                  onCheckedChange={() => {
                     if (flag) {
                       handleToggle(flag);
                     } else {
@@ -458,24 +447,9 @@ export default function AdminFlagsPage() {
                       createSeasonalFlag();
                     }
                   }}
+                  size="sm"
                   disabled={toggleLoading === flag?.id || toggleLoading === `new_${st.key}`}
-                  className="flex-shrink-0 relative w-11 h-6 rounded-full transition-colors"
-                  style={{
-                    backgroundColor: isEnabled ? "var(--mq-accent)" : "var(--mq-border)",
-                  }}
-                >
-                  {toggleLoading === flag?.id || toggleLoading === `new_${st.key}` ? (
-                    <Loader2 className="absolute top-1 left-1 w-4 h-4 animate-spin" style={{ color: "#fff" }} />
-                  ) : (
-                    <div
-                      className="absolute top-1 w-4 h-4 rounded-full transition-transform"
-                      style={{
-                        backgroundColor: "#fff",
-                        transform: isEnabled ? "translateX(20px)" : "translateX(0)",
-                      }}
-                    />
-                  )}
-                </button>
+                />
 
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <span className="text-lg flex-shrink-0">{st.icon}</span>
@@ -549,26 +523,12 @@ export default function AdminFlagsPage() {
                 borderBottom: idx < regularFlags.length - 1 ? "1px solid var(--mq-border)" : "none",
               }}
             >
-              <button
-                onClick={() => handleToggle(flag)}
+              <LiquidGlassToggle
+                checked={flag.enabled}
+                onCheckedChange={() => handleToggle(flag)}
+                size="sm"
                 disabled={toggleLoading === flag.id}
-                className="flex-shrink-0 relative w-11 h-6 rounded-full transition-colors"
-                style={{
-                  backgroundColor: flag.enabled ? "var(--mq-accent)" : "var(--mq-border)",
-                }}
-              >
-                {toggleLoading === flag.id ? (
-                  <Loader2 className="absolute top-1 left-1 w-4 h-4 animate-spin" style={{ color: "#fff" }} />
-                ) : (
-                  <div
-                    className="absolute top-1 w-4 h-4 rounded-full transition-transform"
-                    style={{
-                      backgroundColor: "#fff",
-                      transform: flag.enabled ? "translateX(20px)" : "translateX(0)",
-                    }}
-                  />
-                )}
-              </button>
+              />
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">

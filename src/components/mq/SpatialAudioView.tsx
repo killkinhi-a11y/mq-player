@@ -13,6 +13,7 @@ import {
   getAvailableMoods,
 } from "@/lib/spatialAudio";
 import type { Track } from "@/lib/musicApi";
+import { LiquidGlassToggle } from "@/components/ui/liquid-glass-toggle";
 
 interface SpatialAudioViewProps {
   currentTrack: Track | null;
@@ -403,32 +404,13 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
           </div>
 
           {/* Toggle switch */}
-          <motion.div
-            className="relative w-[50px] h-[28px] rounded-full shrink-0"
-            style={{
-              backgroundColor: spatialAudioEnabled ? moodColor : "var(--mq-border)",
-            }}
-            layout
-          >
-            <motion.div
-              className="absolute top-[3px] w-[22px] h-[22px] rounded-full bg-white shadow-md"
-              animate={{ x: spatialAudioEnabled ? 25 : 3 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-            >
-              {spatialAudioEnabled && (
-                <motion.svg
-                  width="12" height="12" viewBox="0 0 24 24" fill="none"
-                  stroke={moodColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-                  className="mt-[5px] ml-[5px]"
-                  initial={{ pathLength: 0 }}
-                  animate={{ pathLength: 1 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <motion.polyline points="20 6 9 17 4 12" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.25, delay: 0.05 }} />
-                </motion.svg>
-              )}
-            </motion.div>
-          </motion.div>
+          <LiquidGlassToggle
+            checked={spatialAudioEnabled}
+            onCheckedChange={handleToggle}
+            size="md"
+            color={moodColor}
+            showCheck
+          />
         </div>
       </motion.div>
 

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
+import { LiquidGlassToggle } from "@/components/ui/liquid-glass-toggle";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import ScrollReveal from "./ScrollReveal";
@@ -869,20 +870,11 @@ export default function SettingsView() {
                     Маскот будет появляться и давать советы
                   </p>
                 </div>
-                <button
-                  onClick={() => setCatEnabled(!catEnabled)}
-                  className="relative w-10 h-5 rounded-full transition-colors duration-200"
-                  style={{ backgroundColor: catEnabled ? "var(--mq-accent)" : "var(--mq-border)" }}
-                >
-                  <div
-                    className="absolute top-0.5 w-4 h-4 rounded-full transition-transform duration-200"
-                    style={{
-                      backgroundColor: "#fff",
-                      transform: catEnabled ? "translateX(20px)" : "translateX(2px)",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                    }}
-                  />
-                </button>
+                <LiquidGlassToggle
+                  checked={catEnabled}
+                  onCheckedChange={setCatEnabled}
+                  size="sm"
+                />
               </div>
 
               {catEnabled && (
@@ -1097,20 +1089,11 @@ export default function SettingsView() {
                         {!styleVariant ? "Тёмная" : "Светлая"}
                       </span>
                     </div>
-                    <button
-                      onClick={() => setStyleVariant(styleVariant === "light" ? "" : "light")}
-                      className="relative w-10 h-5 rounded-full transition-colors duration-200"
-                      style={{ backgroundColor: styleVariant === "light" ? "var(--mq-accent)" : "var(--mq-border)" }}
-                    >
-                      <div
-                        className="absolute top-0.5 w-4 h-4 rounded-full transition-transform duration-200"
-                        style={{
-                          backgroundColor: "#fff",
-                          transform: styleVariant === "light" ? "translateX(20px)" : "translateX(2px)",
-                          boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                        }}
-                      />
-                    </button>
+                    <LiquidGlassToggle
+                      checked={styleVariant === "light"}
+                      onCheckedChange={(v) => setStyleVariant(v ? "light" : "")}
+                      size="sm"
+                    />
                   </div>
                 )}
 

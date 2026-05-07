@@ -7,6 +7,7 @@ import {
   User, Camera, Edit3, Check, X, LogOut, Heart, MessageCircle, Music, Loader2, AlertCircle, EyeOff, Eye
 } from "lucide-react";
 import ScrollReveal from "./ScrollReveal";
+import { LiquidGlassToggle } from "@/components/ui/liquid-glass-toggle";
 
 const USERNAME_RULES = "Буквы, цифры, _ и -. 2-20 символов.";
 
@@ -367,16 +368,11 @@ export default function ProfileView() {
             </p>
           </div>
         </div>
-        <button
-          onClick={toggleHideOnline}
-          className="relative w-12 h-7 rounded-full transition-colors duration-200 cursor-pointer flex-shrink-0"
-          style={{ backgroundColor: hideOnline ? "var(--mq-accent)" : "var(--mq-border)" }}
-        >
-          <div
-            className="absolute top-0.5 w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-200"
-            style={{ transform: hideOnline ? "translateX(22px)" : "translateX(2px)" }}
-          />
-        </button>
+        <LiquidGlassToggle
+          checked={hideOnline}
+          onCheckedChange={toggleHideOnline}
+          size="md"
+        />
       </motion.div>
 
       {/* Stats */}
