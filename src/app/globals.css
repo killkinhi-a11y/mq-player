@@ -274,6 +274,16 @@ motion-div, motion-button, motion-span {
   animation: glow-pulse 2s ease-in-out infinite;
 }
 
+/* Sleep timer circular glow (PC) */
+@keyframes timer-glow-pulse {
+  0%, 100% { filter: drop-shadow(0 0 8px var(--mq-glow)); }
+  50% { filter: drop-shadow(0 0 24px var(--mq-glow)); }
+}
+
+.timer-glow-pc {
+  animation: timer-glow-pulse 2s ease-in-out infinite;
+}
+
 /* Prevent horizontal scroll on mobile */
 html, body {
   overflow-x: hidden;

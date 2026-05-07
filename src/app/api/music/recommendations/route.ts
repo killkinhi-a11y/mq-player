@@ -412,7 +412,21 @@ function buildSessionMood(sessionTracks: SessionTrack[]): {
   return { avgEnergy, dominantMoods, dominantGenres, languagePreference };
 }
 
-// ── v10 Scoring: config-driven weights + confidence-proportional jitter + serendipity ──
+// ── Time-of-day energy weighting ──
+// Returns preferred energy range based on time of day
+function getTimeEnergyPreference(timeContext: TimeContext): { minEnergy: number; maxEnergy: number; weight: number } {
+  switch (timeContext) {
+    case "morning": return { minEnergy: 0.4, maxEnergy: 0.9, weight: 12 };      // Upbeat, energizing
+    case "afternoon": return { minEnergy: 0.3, maxEnergy: 0.85, weight: 8 };     // Moderate energy, focus-friendly
+    case "evening": return { minEnergy: 0.15, maxEnergy: 0.65, weight: 12 };    // Winding down, calmer
+    case "night": return { minEnergy: 0.05, maxEnergy: 0.4, weight: 15 };       // Very calm, ambient
+    case "weekend": return { minEnergy: 0.3, maxEnergy: 0.8, weight: 6 };       // Relaxed but varied
+    case "friday_evening": return { minEnergy: 0.5, maxEnergy: 1.0, weight: 10 }; // High energy, party mood
+    default: return { minEnergy: 0, maxEnergy: 1, weight: 0 };
+  }
+}
+
+// ── v11 Scoring: config-driven weights + confidence-proportional jitter + serendipity + time-of-day energy ──
 function scoreTrackV8(
   track: SCTrack,
   meta: InternalTrack,
@@ -425,6 +439,7 @@ function scoreTrackV8(
     skipGenrePenalty: Set<string>;
     completedGenres: Set<string>;
   },
+  timeContext?: TimeContext,
 ): number {
   let score = 0;
   const trackGenre = normalizeGenre(track.genre || "");
@@ -524,7 +539,23 @@ function scoreTrackV8(
     }
   }
 
-  // ── Confidence-proportional jitter (v10) ──
+  // ── TIME-OF-DAY ENERGY MATCHING (v11) ──
+  // Prefer tracks with energy matching the time of day
+  if (timeContext) {
+    const energyPref = getTimeEnergyPreference(timeContext);
+    const trackEnergy = estimateEnergy(track);
+    if (trackEnergy >= energyPref.minEnergy && trackEnergy <= energyPref.maxEnergy) {
+      score += energyPref.weight;
+    } else {
+      // Mild penalty for energy mismatch (not too harsh — allow variety)
+      const distance = trackEnergy < energyPref.minEnergy
+        ? energyPref.minEnergy - trackEnergy
+        : trackEnergy - energyPref.maxEnergy;
+      if (distance > 0.3) score -= Math.min(energyPref.weight * 0.5, distance * 10);
+    }
+  }
+
+  // ── Confidence-proportional jitter (v11) ──
   // Higher-confidence matches get less jitter for more stable rankings
   const confidence = meta.isFromLikedRelated ? 1.0 : meta.isFromHistoryRelated ? 0.8 : meta.isFromArtistSearch ? 0.6 : meta.isFromGenreFallback ? 0.4 : 0.3;
   const maxJitter = confidence >= 0.8 ? CFG.scoring.highConfidenceJitter : CFG.scoring.maxJitter;
@@ -962,9 +993,10 @@ async function handler(request: NextRequest) {
     // v10: Cold start users get exploration boost for bridge genre tracks
     const scoredTracks: { track: SCTrack; score: number; meta: InternalTrack }[] = [];
     for (const [scTrackId, meta] of trackMap.entries()) {
-      let score = scoreTrackV8(meta.track, meta, allGenres, artists, languagePreference, feedbackData);
+      let score = scoreTrackV8(meta.track, meta, allGenres, artists, languagePreference, feedbackData, timeContext);
       if (isColdStart && meta.isFromBridgeGenre) {
-        score += CFG.coldStart.explorationBoost;
+        // v11: Significant exploration boost for cold-start users (15 points, up from 0)
+        score += 15;
       }
       scoredTracks.push({ track: meta.track, score, meta });
     }
@@ -1127,7 +1159,7 @@ async function handler(request: NextRequest) {
       // Score supplementary tracks
       const fillMeta = (t: SCTrack): InternalTrack => ({ track: t, isFromLikedRelated: false, isFromHistoryRelated: false, isFromArtistSearch: false, isFromGenreFallback: true, isFromBridgeGenre: false, sourceQuery: "fill" });
       const fillScored = Array.from(fillMap.values())
-        .map(t => { const m = fillMeta(t); return { track: t, meta: m, score: scoreTrackV8(t, m, allGenres, artists, languagePreference, feedbackData) }; })
+        .map(t => { const m = fillMeta(t); return { track: t, meta: m, score: scoreTrackV8(t, m, allGenres, artists, languagePreference, feedbackData, timeContext) }; })
         .sort((a, b) => b.score - a.score);
 
       for (const { track, score, meta } of fillScored) {
@@ -1200,6 +1232,28 @@ async function handler(request: NextRequest) {
     // ── Build categories array ──
     const categories: { id: string; title: string; icon: string; tracks: MappedTrack[] }[] = [];
 
+    // v11: Time-of-day category (e.g., "Вечерний вайб", "Ночной calm")
+    const timeCategoryTitles: Record<string, { title: string; icon: string }> = {
+      morning: { title: "Утренний подъём", icon: "Sunrise" },
+      afternoon: { title: "Фокус и работа", icon: "Zap" },
+      evening: { title: "Вечерний вайб", icon: "Sunset" },
+      night: { title: "Ночной calm", icon: "Moon" },
+      weekend: { title: "Выходные", icon: "Coffee" },
+      friday_evening: { title: "Пятничный вайб", icon: "PartyPopper" },
+    };
+    const timeCat = timeCategoryTitles[timeContext];
+    if (timeCat && flatTracks.length >= 5) {
+      // Pick top 8 tracks that have energy matching the time of day
+      const energyPref = getTimeEnergyPreference(timeContext);
+      const timeMatched = flatTracks.filter(t => {
+        const e = estimateEnergy({ genre: t.genre, title: t.title, duration: t.duration } as SCTrack);
+        return e >= energyPref.minEnergy && e <= energyPref.maxEnergy;
+      }).slice(0, 8);
+      if (timeMatched.length >= 3) {
+        categories.push({ id: "time_of_day", title: timeCat.title, icon: timeCat.icon, tracks: timeMatched });
+      }
+    }
+
     // Artist-based rows first (most personalized)
     categories.push(...artistRows);
 
@@ -1234,7 +1288,7 @@ async function handler(request: NextRequest) {
       tracks: flatTracks.slice(0, TARGET_TRACKS),
       categories,
       _meta: {
-        version: 10,
+        version: 11,
         timeContext,
         phase1Count: scoredTracks.filter(({ meta }) => meta.isFromLikedRelated || meta.isFromHistoryRelated).length,
         phase2Count: scoredTracks.filter(({ meta }) => meta.isFromArtistSearch).length,
