@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Repeat, Repeat1,
-  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, Waves, Dna, MoreVertical, Headphones, Radio, Mic2
+  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, Waves, Dna, MoreVertical, Headphones, Radio, Mic2, Sunrise, Star
 } from "lucide-react";
 import SongDNA from "./SongDNA";
 import { Slider } from "@/components/ui/slider";
@@ -109,6 +109,49 @@ function SleepTimerWheel({ options, selected, onSelect }: {
   );
 }
 
+// ── Sleep cycle helpers ──
+const SLEEP_CYCLE_MIN = 90;
+const FALL_ASLEEP_MIN = 14;
+
+interface SleepCycleRec {
+  cycles: number;
+  totalMin: number;
+  wakeTime: string;
+  quality: string;
+  qualityColor: string;
+}
+
+function getSleepCycleRecs(): SleepCycleRec[] {
+  const now = new Date();
+  const results: SleepCycleRec[] = [];
+  const qMap: Record<number, { quality: string; qualityColor: string }> = {
+    3: { quality: "Мало", qualityColor: "#f87171" },
+    4: { quality: "Нормально", qualityColor: "#fbbf24" },
+    5: { quality: "Хорошо", qualityColor: "#34d399" },
+    6: { quality: "Отлично", qualityColor: "#60a5fa" },
+    7: { quality: "Много", qualityColor: "#a78bfa" },
+  };
+  for (let c = 3; c <= 7; c++) {
+    const total = c * SLEEP_CYCLE_MIN;
+    const wake = new Date(now.getTime() + (FALL_ASLEEP_MIN + total) * 60000);
+    const q = qMap[c] || qMap[5];
+    results.push({
+      cycles: c,
+      totalMin: total,
+      wakeTime: wake.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+      quality: q.quality,
+      qualityColor: q.qualityColor,
+    });
+  }
+  return results;
+}
+
+function getWakeTimeForMinutes(minutes: number): string {
+  const now = new Date();
+  const wake = new Date(now.getTime() + minutes * 60000);
+  return wake.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
 function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onStart, onStop }: {
   show: boolean;
   onClose: () => void;
@@ -119,8 +162,19 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
   onStop: () => void;
 }) {
   const [selected, setSelected] = useState(30);
+  const [customMin, setCustomMin] = useState("");
+  const [tab, setTab] = useState<"presets" | "cycles" | "custom">("presets");
+  const cycleRecs = useMemo(() => getSleepCycleRecs(), []);
   const minutes = Math.floor(remaining / 60);
   const seconds = remaining % 60;
+  const progress = timerMinutes > 0 ? ((timerMinutes * 60 - remaining) / (timerMinutes * 60)) : 0;
+
+  const applyCustom = () => {
+    const val = parseInt(customMin, 10);
+    if (val >= 1 && val <= 480) {
+      setSelected(val);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -128,65 +182,326 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           className="fixed inset-0 z-[200] flex items-center justify-center"
           onClick={onClose}>
-          <div className="absolute inset-0 bg-black/50" />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
           <motion.div initial={{ opacity: 0, scale: 0.92, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: 20 }}
             transition={{ type: "spring", damping: 28, stiffness: 320 }}
-            className="relative z-10 p-5 rounded-3xl w-72 shadow-2xl"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+            className="relative z-10 rounded-3xl shadow-2xl overflow-hidden"
+            style={{
+              backgroundColor: "var(--mq-card)",
+              border: "1px solid var(--mq-border)",
+              width: "min(480px, 92vw)",
+            }}
             onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Moon className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                <span className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
-              </div>
-              <button onClick={onClose} className="p-1 rounded-lg" style={{ color: "var(--mq-text-muted)" }}>
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+
             {!active ? (
-              <>
-                <SleepTimerWheel options={SLEEP_TIME_OPTIONS} selected={selected} onSelect={setSelected} />
-                <div className="flex gap-2 mt-4 flex-wrap justify-center">
-                  {[15, 30, 60, 90].map((val) => (
-                    <button key={val} onClick={() => setSelected(val)}
-                      className="px-3 py-1.5 rounded-full text-xs font-medium"
+              /* ═══════ PICKER MODE (desktop-optimized) ═══════ */
+              <div className="p-5 sm:p-6">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(139,92,246,0.12)" }}>
+                      <Moon className="w-4 h-4" style={{ color: "#8b5cf6" }} />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold block" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
+                      <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                        {new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })} сейчас
+                      </span>
+                    </div>
+                  </div>
+                  <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-white/5" style={{ color: "var(--mq-text-muted)" }}>
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Tab switcher (desktop only) */}
+                <div className="hidden sm:flex gap-1 p-1 rounded-xl mb-5" style={{ backgroundColor: "var(--mq-input-bg)" }}>
+                  {([
+                    { id: "presets" as const, label: "Пресеты" },
+                    { id: "cycles" as const, label: "Циклы сна" },
+                    { id: "custom" as const, label: "Вручную" },
+                  ]).map((t) => (
+                    <button key={t.id} onClick={() => setTab(t.id)}
+                      className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
                       style={{
-                        backgroundColor: selected === val ? "var(--mq-accent)" : "var(--mq-input-bg)",
-                        color: selected === val ? "var(--mq-bg)" : "var(--mq-text-muted)",
-                        border: `1px solid ${selected === val ? "var(--mq-accent)" : "var(--mq-border)"}`,
+                        backgroundColor: tab === t.id ? "var(--mq-accent)" : "transparent",
+                        color: tab === t.id ? "var(--mq-bg)" : "var(--mq-text-muted)",
                       }}>
-                      {formatSleepTime(val)}
+                      {t.label}
                     </button>
                   ))}
                 </div>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={() => { onStart(selected); onClose(); }}
-                  className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold shadow-lg"
+
+                {/* Desktop: Tab content */}
+                {tab === "presets" && (
+                  <div className="hidden sm:block">
+                    {/* Preset grid */}
+                    <div className="grid grid-cols-4 gap-2 mb-4">
+                      {SLEEP_TIME_OPTIONS.map((val) => (
+                        <motion.button key={val} whileHover={{ scale: 1.04, y: -1 }} whileTap={{ scale: 0.96 }}
+                          onClick={() => setSelected(val)}
+                          className="py-3 rounded-xl text-sm font-semibold transition-all"
+                          style={{
+                            backgroundColor: selected === val ? "var(--mq-accent)" : "var(--mq-input-bg)",
+                            color: selected === val ? "var(--mq-bg)" : "var(--mq-text-muted)",
+                            border: `1px solid ${selected === val ? "var(--mq-accent)" : "transparent"}`,
+                            boxShadow: selected === val ? "0 4px 16px rgba(139,92,246,0.25)" : "none",
+                          }}>
+                          {formatSleepTime(val)}
+                        </motion.button>
+                      ))}
+                    </div>
+                    {/* Wake-up preview */}
+                    <div className="flex items-center justify-between px-3 py-2.5 rounded-xl mb-4" style={{ backgroundColor: "var(--mq-input-bg)" }}>
+                      <div className="flex items-center gap-2">
+                        <Sunrise className="w-4 h-4" style={{ color: "#fbbf24" }} />
+                        <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Пробуждение</span>
+                      </div>
+                      <span className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>
+                        {getWakeTimeForMinutes(selected)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {tab === "cycles" && (
+                  <div className="hidden sm:block">
+                    <p className="text-xs mb-3" style={{ color: "var(--mq-text-muted)" }}>
+                      Научные циклы сна по 90 мин + ~14 мин на засыпание
+                    </p>
+                    <div className="space-y-2 mb-4">
+                      {cycleRecs.map((rec) => (
+                        <motion.button key={rec.cycles} whileHover={{ scale: 1.01, x: 2 }} whileTap={{ scale: 0.98 }}
+                          onClick={() => setSelected(rec.totalMin)}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all"
+                          style={{
+                            backgroundColor: selected === rec.totalMin ? "rgba(139,92,246,0.1)" : "var(--mq-input-bg)",
+                            border: `1px solid ${selected === rec.totalMin ? "rgba(139,92,246,0.4)" : "transparent"}`,
+                          }}>
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold"
+                            style={{ backgroundColor: `${rec.qualityColor}20`, color: rec.qualityColor }}>
+                            {rec.cycles}
+                          </div>
+                          <div className="flex-1 text-left">
+                            <span className="text-sm font-semibold block" style={{ color: "var(--mq-text)" }}>
+                              {formatSleepTime(rec.totalMin)}
+                            </span>
+                            <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                              {rec.cycles} циклов
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-base font-bold block" style={{ color: "var(--mq-text)" }}>
+                              {rec.wakeTime}
+                            </span>
+                            <span className="text-[10px] font-medium" style={{ color: rec.qualityColor }}>
+                              {rec.quality}
+                            </span>
+                          </div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {tab === "custom" && (
+                  <div className="hidden sm:block">
+                    <p className="text-xs mb-3" style={{ color: "var(--mq-text-muted)" }}>
+                      Введите время в минутах (1 – 480)
+                    </p>
+                    <div className="flex gap-2 mb-4">
+                      <input type="number" min={1} max={480} placeholder="Например: 45"
+                        value={customMin} onChange={(e) => setCustomMin(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") { applyCustom(); } }}
+                        className="flex-1 px-4 py-3 rounded-xl text-sm font-semibold outline-none"
+                        style={{
+                          backgroundColor: "var(--mq-input-bg)",
+                          border: "1px solid var(--mq-border)",
+                          color: "var(--mq-text)",
+                        }} />
+                      <motion.button whileTap={{ scale: 0.95 }} onClick={applyCustom}
+                        className="px-4 rounded-xl text-xs font-semibold"
+                        style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-bg)" }}>
+                        Применить
+                      </motion.button>
+                    </div>
+                    {parseInt(customMin, 10) >= 1 && parseInt(customMin, 10) <= 480 && (
+                      <div className="flex items-center justify-between px-3 py-2.5 rounded-xl mb-4" style={{ backgroundColor: "var(--mq-input-bg)" }}>
+                        <div className="flex items-center gap-2">
+                          <Sunrise className="w-4 h-4" style={{ color: "#fbbf24" }} />
+                          <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Пробуждение</span>
+                        </div>
+                        <span className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>
+                          {getWakeTimeForMinutes(parseInt(customMin, 10))}
+                        </span>
+                      </div>
+                    )}
+                    {/* Quick custom shortcuts */}
+                    <div className="flex gap-2 flex-wrap">
+                      {[10, 20, 45, 75, 120, 180, 240, 360].map((val) => (
+                        <button key={val} onClick={() => { setSelected(val); setCustomMin(String(val)); }}
+                          className="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                          style={{
+                            backgroundColor: selected === val ? "rgba(139,92,246,0.15)" : "var(--mq-input-bg)",
+                            color: selected === val ? "#8b5cf6" : "var(--mq-text-muted)",
+                            border: `1px solid ${selected === val ? "rgba(139,92,246,0.3)" : "transparent"}`,
+                          }}>
+                          {formatSleepTime(val)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Mobile: Scroll picker + quick presets */}
+                <div className="sm:hidden">
+                  <SleepTimerWheel options={SLEEP_TIME_OPTIONS} selected={selected} onSelect={setSelected} />
+                  <div className="flex gap-2 mt-4 flex-wrap justify-center">
+                    {[15, 30, 60, 90].map((val) => (
+                      <button key={val} onClick={() => setSelected(val)}
+                        className="px-3 py-1.5 rounded-full text-xs font-medium"
+                        style={{
+                          backgroundColor: selected === val ? "var(--mq-accent)" : "var(--mq-input-bg)",
+                          color: selected === val ? "var(--mq-bg)" : "var(--mq-text-muted)",
+                          border: `1px solid ${selected === val ? "var(--mq-accent)" : "var(--mq-border)"}`,
+                        }}>
+                        {formatSleepTime(val)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Start button */}
+                <motion.button whileHover={{ scale: 1.02, boxShadow: "0 8px 24px rgba(139,92,246,0.3)" }}
+                  whileTap={{ scale: 0.97 }} onClick={() => { onStart(selected); onClose(); }}
+                  className="w-full mt-5 flex items-center justify-center gap-2.5 py-3.5 rounded-2xl text-sm font-semibold shadow-lg"
                   style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-bg)" }}>
-                  <Play className="w-4 h-4" /> Начать {formatSleepTime(selected)}
+                  <Play className="w-4 h-4" />
+                  Начать {formatSleepTime(selected)}
+                  <span className="text-xs opacity-70 ml-1">→ {getWakeTimeForMinutes(selected)}</span>
                 </motion.button>
-              </>
+              </div>
             ) : (
-              <>
-                <div className="flex flex-col items-center py-4">
+              /* ═══════ ACTIVE MODE (desktop-optimized) ═══════ */
+              <div className="p-5 sm:p-6">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-2.5">
+                    <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
+                      <Moon className="w-5 h-5" style={{ color: "#8b5cf6" }} />
+                    </motion.div>
+                    <div>
+                      <span className="text-sm font-bold block" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
+                      <div className="flex items-center gap-1.5">
+                        <motion.div animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}><Star className="w-2.5 h-2.5" fill="#8b5cf6" style={{ color: "#8b5cf6" }} /></motion.div>
+                        <span className="text-[11px] font-medium" style={{ color: "#8b5cf6" }}>Активен</span>
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={onClose} className="p-1.5 rounded-lg transition-colors hover:bg-white/5" style={{ color: "var(--mq-text-muted)" }}>
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Timer + info side by side on desktop */}
+                <div className="hidden sm:flex items-center gap-6 mb-5">
+                  {/* Circular timer */}
+                  <div className="relative flex-shrink-0">
+                    <svg width="160" height="160" className="transform -rotate-90">
+                      <circle cx="80" cy="80" r="70" fill="none" stroke="var(--mq-border)" strokeWidth="5" opacity={0.25} />
+                      <circle cx="80" cy="80" r="70" fill="none" stroke="url(#stGrad)" strokeWidth="5"
+                        strokeLinecap="round" strokeDasharray={2 * Math.PI * 70}
+                        strokeDashoffset={2 * Math.PI * 70 * (1 - progress)}
+                        className="transition-all duration-1000 ease-linear" />
+                      <circle cx="80" cy="80" r="70" fill="none" stroke="url(#stGrad)" strokeWidth="2"
+                        strokeLinecap="round" strokeDasharray={2 * Math.PI * 70}
+                        strokeDashoffset={2 * Math.PI * 70 * (1 - progress)}
+                        className="transition-all duration-1000 ease-linear"
+                        style={{ filter: "blur(5px)", opacity: 0.35 }} />
+                      <defs>
+                        <linearGradient id="stGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor="#8b5cf6" />
+                          <stop offset="50%" stopColor="#6366f1" />
+                          <stop offset="100%" stopColor="#06b6d4" />
+                        </linearGradient>
+                      </defs>
+                    </svg>
+                    {/* Center time */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-3xl font-bold font-mono tracking-wider" style={{ color: "var(--mq-text)", lineHeight: 1 }}>
+                        {minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}
+                      </span>
+                      <span className="text-[10px] mt-1" style={{ color: "var(--mq-text-muted)" }}>осталось</span>
+                    </div>
+                  </div>
+
+                  {/* Info cards */}
+                  <div className="flex-1 space-y-2.5">
+                    <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)" }}>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Sunrise className="w-3 h-3" style={{ color: "#fbbf24" }} />
+                        <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Пробуждение</span>
+                      </div>
+                      <span className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
+                        {getWakeTimeForMinutes(timerMinutes)}
+                      </span>
+                    </div>
+                    <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)" }}>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Clock className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
+                        <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Длительность</span>
+                      </div>
+                      <span className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
+                        {formatSleepTime(timerMinutes)}
+                      </span>
+                    </div>
+                    {/* Sleep cycles info */}
+                    <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)" }}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <Moon className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
+                          <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Циклы</span>
+                        </div>
+                        <span className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)" }}>
+                          ~{Math.round(timerMinutes / SLEEP_CYCLE_MIN)} циклов
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mobile: Simple countdown */}
+                <div className="sm:hidden flex flex-col items-center py-4">
                   <span className="text-5xl font-bold font-mono tracking-wider" style={{ color: "var(--mq-text)" }}>
                     {minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}
                   </span>
                   <span className="text-xs mt-2" style={{ color: "var(--mq-text-muted)" }}>осталось</span>
                 </div>
-                <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-border)", opacity: 0.4 }}>
-                  <div className="h-full rounded-full" style={{ width: `${timerMinutes > 0 ? ((timerMinutes * 60 - remaining) / (timerMinutes * 60)) * 100 : 0}%`, backgroundColor: "var(--mq-accent)" }} />
+
+                {/* Progress bar (shared) */}
+                <div className="w-full h-1.5 rounded-full overflow-hidden mb-2" style={{ backgroundColor: "var(--mq-border)", opacity: 0.3 }}>
+                  <div className="h-full rounded-full transition-all duration-1000 ease-linear"
+                    style={{ width: `${progress * 100}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 8px var(--mq-glow)" }} />
                 </div>
-                <p className="text-[10px] mt-2 text-center" style={{ color: "var(--mq-text-muted)" }}>
-                  Время: {formatSleepTime(timerMinutes)}
-                </p>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={() => { onStop(); onClose(); }}
-                  className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold"
+                <div className="flex justify-between mb-5 sm:mb-4">
+                  <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                    Пробуждение: {getWakeTimeForMinutes(timerMinutes)}
+                  </span>
+                  <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                    {formatSleepTime(timerMinutes)}
+                  </span>
+                </div>
+
+                {/* Stop button */}
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                  onClick={() => { onStop(); onClose(); }}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold"
                   style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}>
-                  <X className="w-4 h-4" /> Отменить
+                  <X className="w-4 h-4" /> Отменить таймер
                 </motion.button>
-              </>
+              </div>
             )}
           </motion.div>
         </motion.div>
