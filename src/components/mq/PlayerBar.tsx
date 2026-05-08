@@ -1462,475 +1462,6 @@ export default function PlayerBar() {
       0.5 + Math.sin(t * 0.6 + seed + i * 0.3) * 0.2 + Math.sin(t * 0.9 + seed * 2 + i * 0.15) * 0.1;
 
     // ═══════════════════════════════════════════════════════════════════
-    // iPod 2001 — Monochrome Equalizer Bars
-    // Audio-reactive thin vertical bars with smooth lerp + glow tops
-    // ═══════════════════════════════════════════════════════════════════
-    const barSmooth = new Float32Array(128); // smoothed bar heights
-    const drawIpod = () => {
-      animFrameRef.current = requestAnimationFrame(drawIpod);
-      resize();
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      ctx.clearRect(0, 0, w, h);
-
-      const t = performance.now() / 1000;
-      const playing = isPlayingRef.current;
-      const hasAnalyser = fetchAudioData();
-
-      const barCount = Math.min(Math.floor(w / 4), 80);
-      const barW = 2;
-      const gap = (w - barCount * barW) / (barCount + 1);
-      const ipodBinLookup = buildLogBinLookup(barCount, MAX_FREQ_BIN);
-
-      for (let i = 0; i < barCount; i++) {
-        const x = gap + i * (barW + gap);
-        // Logarithmic frequency mapping via lookup
-        const binIdx = ipodBinLookup[i];
-        let norm: number;
-        if (playing && hasAnalyser) {
-          norm = freqDataSmooth[binIdx] / 255;
-          // Additional lerp for ultra-smooth bars
-          barSmooth[i] += (norm - barSmooth[i]) * 0.28;
-          norm = barSmooth[i];
-        } else {
-          norm = idleVal(t, i, 0);
-          barSmooth[i] += (norm - barSmooth[i]) * 0.08;
-          norm = barSmooth[i];
-        }
-        const barH = Math.max(1.5, norm * h * 0.95);
-
-        // Blue gradient from bottom: bright to dim
-        const grad = ctx.createLinearGradient(x, h, x, h - barH);
-        grad.addColorStop(0, "rgba(42,127,255,0.85)");
-        grad.addColorStop(0.5, "rgba(42,127,255,0.45)");
-        grad.addColorStop(1, "rgba(100,170,255,0.15)");
-        ctx.fillStyle = grad;
-        ctx.fillRect(x, h - barH, barW, barH);
-
-        // Glow dot on top of each bar
-        if (norm > 0.15) {
-          ctx.beginPath();
-          ctx.arc(x + barW / 2, h - barH, 1.5, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(100,180,255,${Math.min(1, norm * 1.2)})`;
-          ctx.shadowColor = "rgba(42,127,255,0.6)";
-          ctx.shadowBlur = 3;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-        }
-      }
-    };
-
-    // ═══════════════════════════════════════════════════════════════════
-    // Japan — Cherry Blossom Petals Falling
-    // Audio-reactive wave amplitude, petals respond to frequency,
-    // ink splash on bass hits
-    // ═══════════════════════════════════════════════════════════════════
-    interface Petal {
-      x: number; y: number; size: number; baseSize: number; speed: number; sway: number;
-      phase: number; rot: number; rotSpeed: number; opacity: number;
-    }
-    const petals: Petal[] = Array.from({ length: 25 }, () => ({
-      x: Math.random() * 1200,
-      y: Math.random() * 60 - 60,
-      baseSize: 2 + Math.random() * 4,
-      size: 2 + Math.random() * 4,
-      speed: 0.3 + Math.random() * 0.5,
-      sway: 0.3 + Math.random() * 0.6,
-      phase: Math.random() * Math.PI * 2,
-      rot: Math.random() * Math.PI * 2,
-      rotSpeed: (Math.random() - 0.5) * 0.03,
-      opacity: 0.2 + Math.random() * 0.5,
-    }));
-
-    // Ink splash particles
-    interface InkDot {
-      x: number; y: number; vx: number; vy: number; life: number; maxLife: number; size: number;
-    }
-    const inkDots: InkDot[] = [];
-
-    const drawJapan = () => {
-      animFrameRef.current = requestAnimationFrame(drawJapan);
-      resize();
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      ctx.clearRect(0, 0, w, h);
-
-      const t = performance.now() / 1000;
-      const playing = isPlayingRef.current;
-      const hasAnalyser = fetchAudioData();
-
-      const bass = playing && hasAnalyser ? bandEnergy(1, 18) : idleVal(t, 0, 5) * 0.5;
-      const mid = playing && hasAnalyser ? bandEnergy(18, 80) : idleVal(t, 5, 8) * 0.5;
-      const bassHit = playing && hasAnalyser ? detectBassHit(bass) : 0;
-
-      // Spawn ink splash on bass hits
-      if (bassHit > 0) {
-        const sx = Math.random() * w;
-        const sy = h * 0.6 + Math.random() * h * 0.3;
-        for (let d = 0; d < 8; d++) {
-          const angle = Math.random() * Math.PI * 2;
-          const speed = 0.5 + Math.random() * 2;
-          inkDots.push({
-            x: sx, y: sy,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - 0.5,
-            life: 0, maxLife: 30 + Math.random() * 30,
-            size: 1 + Math.random() * 2,
-          });
-        }
-        if (inkDots.length > 80) inkDots.splice(0, inkDots.length - 80);
-      }
-
-      // Ink wash wave at bottom — amplitude driven by audio
-      const waveAmp = 0.08 + (playing && hasAnalyser ? mid * 0.15 : 0.03);
-      ctx.beginPath();
-      ctx.moveTo(0, h);
-      for (let x = 0; x <= w; x += 3) {
-        const y = h * 0.7 + Math.sin(t * 0.8 + x * 0.008) * h * waveAmp
-          + Math.sin(t * 1.3 + x * 0.015) * h * waveAmp * 0.5;
-        ctx.lineTo(x, y);
-      }
-      ctx.lineTo(w, h);
-      ctx.closePath();
-      const waveGrad = ctx.createLinearGradient(0, h * 0.5, 0, h);
-      waveGrad.addColorStop(0, `rgba(139,34,82,${0.03 + mid * 0.06})`);
-      waveGrad.addColorStop(1, "rgba(139,34,82,0.01)");
-      ctx.fillStyle = waveGrad;
-      ctx.fill();
-
-      // Thin red accent line
-      ctx.beginPath();
-      for (let x = 0; x <= w; x += 3) {
-        const y = h * 0.55 + Math.sin(t * 0.8 + x * 0.008) * h * waveAmp
-          + Math.sin(t * 1.3 + x * 0.015) * h * waveAmp * 0.5;
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.strokeStyle = `rgba(139,34,82,${0.15 + bass * 0.3})`;
-      ctx.lineWidth = 0.8;
-      ctx.stroke();
-
-      // Draw ink splash dots
-      for (let d = inkDots.length - 1; d >= 0; d--) {
-        const dot = inkDots[d];
-        dot.x += dot.vx;
-        dot.y += dot.vy;
-        dot.vy += 0.02; // gravity
-        dot.life++;
-        if (dot.life > dot.maxLife) { inkDots.splice(d, 1); continue; }
-        const fade = 1 - dot.life / dot.maxLife;
-        ctx.beginPath();
-        ctx.arc(dot.x, dot.y, dot.size * fade, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(139,34,82,${fade * 0.4})`;
-        ctx.fill();
-      }
-
-      // Falling petals — size/speed respond to frequency
-      const audioBoost = playing && hasAnalyser ? 1 + bass * 0.8 : 1;
-      for (const p of petals) {
-        p.y += p.speed * audioBoost;
-        p.x += Math.sin(t * p.sway + p.phase) * 0.4 * audioBoost;
-        p.rot += p.rotSpeed;
-        // Audio-reactive size
-        p.size += (p.baseSize * (1 + mid * 0.6) - p.size) * 0.1;
-
-        if (p.y > h + 10) {
-          p.y = -10;
-          p.x = Math.random() * w;
-        }
-        if (p.x < -20) p.x = w + 10;
-        if (p.x > w + 20) p.x = -10;
-
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rot);
-        ctx.globalAlpha = p.opacity;
-
-        // Petal shape: two overlapping ellipses
-        ctx.fillStyle = "rgba(232,180,188,0.6)";
-        ctx.beginPath();
-        ctx.ellipse(0, 0, p.size, p.size * 0.55, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "rgba(245,210,215,0.4)";
-        ctx.beginPath();
-        ctx.ellipse(p.size * 0.3, 0, p.size * 0.6, p.size * 0.35, 0.3, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.globalAlpha = 1;
-        ctx.restore();
-      }
-    };
-
-    // ═══════════════════════════════════════════════════════════════════
-    // Swag — Gold Particle Storm + EQ Bars
-    // Audio-reactive EQ bars, particles burst on bass hits, glow trails
-    // ═══════════════════════════════════════════════════════════════════
-    interface GoldParticle {
-      x: number; y: number; vx: number; vy: number; size: number;
-      life: number; maxLife: number; bright: boolean;
-      trail: Array<{ x: number; y: number }>;
-    }
-    const goldParticles: GoldParticle[] = Array.from({ length: 35 }, () => ({
-      x: Math.random() * 1200,
-      y: 60 + Math.random() * 20,
-      vx: (Math.random() - 0.5) * 1.5,
-      vy: -(0.5 + Math.random() * 1.5),
-      size: 1 + Math.random() * 2.5,
-      life: Math.random() * 100,
-      maxLife: 60 + Math.random() * 80,
-      bright: Math.random() > 0.7,
-      trail: [],
-    }));
-
-    const barSmoothSwag = new Float32Array(64);
-
-    const drawSwag = () => {
-      animFrameRef.current = requestAnimationFrame(drawSwag);
-      resize();
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      ctx.clearRect(0, 0, w, h);
-
-      const t = performance.now() / 1000;
-      const playing = isPlayingRef.current;
-      const hasAnalyser = fetchAudioData();
-
-      const bass = playing && hasAnalyser ? bandEnergy(1, 18) : idleVal(t, 0, 3) * 0.4;
-      const bassHit = playing && hasAnalyser ? detectBassHit(bass) : 0;
-
-      // Burst particles on bass hit
-      if (bassHit > 0) {
-        const burstCount = 5 + Math.floor(Math.random() * 6);
-        for (let b = 0; b < burstCount; b++) {
-          goldParticles.push({
-            x: w * 0.2 + Math.random() * w * 0.6,
-            y: h,
-            vx: (Math.random() - 0.5) * 4,
-            vy: -(1.5 + Math.random() * 3),
-            size: 1.5 + Math.random() * 2,
-            life: 0,
-            maxLife: 40 + Math.random() * 50,
-            bright: Math.random() > 0.4,
-            trail: [],
-          });
-        }
-        if (goldParticles.length > 80) goldParticles.splice(0, goldParticles.length - 80);
-      }
-
-      // Thick EQ bars from center, spreading outward — now audio reactive
-      const barCount = 32;
-      const totalBarW = w * 0.8;
-      const barW = totalBarW / barCount * 0.7;
-      const barGap = totalBarW / barCount * 0.3;
-      const startX = (w - totalBarW) / 2;
-      const swagBinLookup = buildLogBinLookup(barCount, MAX_FREQ_BIN);
-
-      for (let i = 0; i < barCount; i++) {
-        const dist = Math.abs(i - barCount / 2) / (barCount / 2);
-        let norm: number;
-        if (playing && hasAnalyser) {
-          const binIdx = swagBinLookup[i];
-          norm = freqDataSmooth[binIdx] / 255;
-          barSmoothSwag[i] += (norm - barSmoothSwag[i]) * 0.25;
-          norm = barSmoothSwag[i];
-        } else {
-          const f1 = Math.sin(t * 3.0 + i * 0.4) * 0.35;
-          const f2 = Math.sin(t * 5.0 + i * 0.2) * 0.2;
-          const f3 = Math.cos(t * 2.0 + i * 0.6) * 0.15;
-          norm = Math.max(0.05, 0.5 + f1 + f2 + f3);
-          barSmoothSwag[i] += (norm - barSmoothSwag[i]) * 0.06;
-          norm = barSmoothSwag[i];
-        }
-        const barH = Math.max(1, norm * h * (1 - dist * 0.4));
-
-        const x = startX + i * (barW + barGap);
-
-        // Gold gradient: bright core, dark edges
-        const grad = ctx.createLinearGradient(x, h, x, h - barH);
-        grad.addColorStop(0, "rgba(184,151,46,0.9)");
-        grad.addColorStop(0.4, "rgba(212,175,55,0.7)");
-        grad.addColorStop(1, "rgba(212,175,55,0.2)");
-        ctx.fillStyle = grad;
-        ctx.fillRect(x, h - barH, barW, barH);
-
-        // Glow on top of tall bars
-        if (norm > 0.5) {
-          ctx.fillStyle = `rgba(255,215,0,${0.1 + norm * 0.15})`;
-          ctx.shadowColor = "rgba(255,215,0,0.4)";
-          ctx.shadowBlur = 4;
-          ctx.fillRect(x - 1, h - barH - 2, barW + 2, 4);
-          ctx.shadowBlur = 0;
-        }
-      }
-
-      // Gold particles with glow trails
-      for (let pi = goldParticles.length - 1; pi >= 0; pi--) {
-        const p = goldParticles[pi];
-        // Store trail position
-        p.trail.push({ x: p.x, y: p.y });
-        if (p.trail.length > 5) p.trail.shift();
-
-        p.x += p.vx;
-        p.y += p.vy;
-        p.vy += 0.01; // slight gravity
-        p.life++;
-
-        if (p.life > p.maxLife || p.y < -20) {
-          goldParticles.splice(pi, 1);
-          continue;
-        }
-
-        const lifeRatio = 1 - p.life / p.maxLife;
-        const alpha = lifeRatio < 0.3 ? lifeRatio / 0.3 : (lifeRatio > 0.7 ? (1 - lifeRatio) / 0.3 : 1);
-
-        // Draw trail
-        for (let ti = 0; ti < p.trail.length; ti++) {
-          const tp = p.trail[ti];
-          const ta = (ti / p.trail.length) * alpha * 0.3;
-          ctx.beginPath();
-          ctx.arc(tp.x, tp.y, p.size * 0.5, 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(212,175,55,${ta})`;
-          ctx.fill();
-        }
-
-        // Draw particle
-        if (p.bright) {
-          ctx.fillStyle = `rgba(255,215,0,${alpha * 0.8})`;
-          ctx.shadowColor = "rgba(212,175,55,0.5)";
-          ctx.shadowBlur = 5;
-        } else {
-          ctx.fillStyle = `rgba(212,175,55,${alpha * 0.5})`;
-          ctx.shadowBlur = 0;
-        }
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-    };
-
-    // ═══════════════════════════════════════════════════════════════════
-    // Neon — Cyberpunk Neon Glow
-    // Thin bright lines with neon glow, frequency bars, scanlines
-    // Green (#00ff88) and pink (#ff0066) neon colors
-    // ═══════════════════════════════════════════════════════════════════
-    const neonBarSmooth = new Float32Array(64);
-    const neonScanOffset = { v: 0 };
-
-    const drawNeon = () => {
-      animFrameRef.current = requestAnimationFrame(drawNeon);
-      resize();
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      ctx.clearRect(0, 0, w, h);
-
-      const t = performance.now() / 1000;
-      const playing = isPlayingRef.current;
-      const hasAnalyser = fetchAudioData();
-
-      const bass = playing && hasAnalyser ? bandEnergy(1, 18) : idleVal(t, 0, 7) * 0.3;
-      const mid = playing && hasAnalyser ? bandEnergy(18, 80) : idleVal(t, 3, 9) * 0.3;
-      const high = playing && hasAnalyser ? bandEnergy(80, 180) : idleVal(t, 6, 11) * 0.3;
-
-      // ── Horizontal frequency bars with neon glow ──
-      const barCount = Math.min(Math.floor(w / 6), 64);
-      const barW = 3;
-      const gap = (w - barCount * barW) / (barCount + 1);
-      const neonBinLookup = buildLogBinLookup(barCount, MAX_FREQ_BIN);
-
-      for (let i = 0; i < barCount; i++) {
-        const x = gap + i * (barW + gap);
-        const binIdx = neonBinLookup[i];
-        let norm: number;
-        if (playing && hasAnalyser) {
-          norm = freqDataSmooth[binIdx] / 255;
-          neonBarSmooth[i] += (norm - neonBarSmooth[i]) * 0.28;
-          norm = neonBarSmooth[i];
-        } else {
-          norm = idleVal(t, i, 4) * 0.4;
-          neonBarSmooth[i] += (norm - neonBarSmooth[i]) * 0.06;
-          norm = neonBarSmooth[i];
-        }
-        const barH = Math.max(1, norm * h * 0.95);
-
-        // Color shifts from green to pink across the spectrum
-        const ratio = i / barCount;
-        const cr = Math.floor(255 * ratio);
-        const cg = Math.floor(255 * (1 - ratio) * 0.53 + 136 * ratio);
-        const cb = Math.floor(136 * (1 - ratio) + 102 * ratio);
-
-        // Glow (thick, semi-transparent)
-        ctx.fillStyle = `rgba(${cr},${cg},${cb},${norm * 0.25})`;
-        ctx.shadowColor = `rgba(${cr},${cg},${cb},0.6)`;
-        ctx.shadowBlur = 6;
-        ctx.fillRect(x, h - barH, barW, barH);
-
-        // Bright core (thin, bright)
-        ctx.fillStyle = `rgba(${Math.min(255, cr + 80)},${Math.min(255, cg + 80)},${Math.min(255, cb + 80)},${0.6 + norm * 0.4})`;
-        ctx.fillRect(x, h - barH, barW, barH);
-        ctx.shadowBlur = 0;
-      }
-
-      // ── Scanline effect overlay ──
-      neonScanOffset.v = (neonScanOffset.v + 0.5) % 4;
-      ctx.fillStyle = "rgba(0,0,0,0.08)";
-      for (let y = neonScanOffset.v; y < h; y += 4) {
-        ctx.fillRect(0, y, w, 1);
-      }
-
-      // ── Two thin neon wave lines (green and pink) ──
-      const drawNeonLine = (
-        color: string, shadowColor: string, yBase: number,
-        speedMul: number, phaseOff: number, freqStart: number, freqEnd: number
-      ) => {
-        const segs = 60;
-        const neonLineLookup = buildLogBinLookup(segs, MAX_FREQ_BIN);
-        ctx.beginPath();
-        for (let i = 0; i <= segs; i++) {
-          const xn = i / segs;
-          const x = xn * w;
-          const binIdx = Math.floor(neonLineLookup[Math.min(i, segs - 1)] * (freqEnd - freqStart) / MAX_FREQ_BIN) + freqStart;
-          const fVal = playing && hasAnalyser
-            ? freqDataSmooth[Math.min(binIdx, FFT_SIZE - 1)] / 255
-            : idleVal(t, i, phaseOff) * 0.4;
-          const y = yBase * h - fVal * h * 0.35
-            + Math.sin(t * speedMul + xn * Math.PI * 3 + phaseOff) * h * 0.04;
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.strokeStyle = shadowColor;
-        ctx.lineWidth = 3;
-        ctx.shadowColor = shadowColor;
-        ctx.shadowBlur = 8;
-        ctx.stroke();
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-      };
-
-      drawNeonLine("#00ff88", "rgba(0,255,136,0.5)", 0.5, 1.0, 0, 1, 80);
-      drawNeonLine("#ff0066", "rgba(255,0,102,0.5)", 0.55, 1.3, 2.0, 30, 180);
-
-      // ── Neon sparkle dots on bass hits ──
-      const bassHit = playing && hasAnalyser ? detectBassHit(bass) : 0;
-      if (bassHit > 0) {
-        for (let s = 0; s < 6; s++) {
-          const sx = Math.random() * w;
-          const sy = h * 0.3 + Math.random() * h * 0.4;
-          const sc = Math.random() > 0.5 ? "#00ff88" : "#ff0066";
-          ctx.beginPath();
-          ctx.arc(sx, sy, 1.5, 0, Math.PI * 2);
-          ctx.fillStyle = sc;
-          ctx.shadowColor = sc;
-          ctx.shadowBlur = 6;
-          ctx.fill();
-          ctx.shadowBlur = 0;
-        }
-      }
-    };
-
-    // ═══════════════════════════════════════════════════════════════════
     // Default — Audio-Reactive Multi-Band Waves
     // 5 layered waves mapped to frequency bands with gradient fill,
     // glow/bloom, sparkle particles on peaks, and reflection
@@ -2088,12 +1619,229 @@ export default function PlayerBar() {
       }
     };
 
+    // ═══════════════════════════════════════════════════════════════════
+    // Pixel Flower — Pixelated Garden Visualization
+    // Pixel art flowers with lavender/purple/pink petals, golden center,
+    // dark purple stems on a clean background. Audio-reactive bloom & drift.
+    // ═══════════════════════════════════════════════════════════════════
+    const PETAL_COLORS = ["#B8A9C9", "#9B7DB8", "#D4A5B5"];
+    const CENTER_COLOR = "#E8C547";
+    const STEM_COLOR = "#6B4C7A";
+    const LEAF_COLOR = "#8BAF7A";
+    const BG_COLOR = "#FAFAFA";
+
+    // Pixel flower data structure
+    interface PixelFlower {
+      xFrac: number;      // x position as fraction of canvas width
+      yFrac: number;      // y base position as fraction of canvas height
+      baseScale: number;  // base pixel size for this flower
+      petalCount: number; // number of petal rings
+      phase: number;      // animation phase offset
+    }
+
+    // 5 pre-positioned pixel flowers at various sizes
+    const pixelFlowers: PixelFlower[] = [
+      { xFrac: 0.15, yFrac: 0.72, baseScale: 1.1, petalCount: 3, phase: 0 },
+      { xFrac: 0.38, yFrac: 0.65, baseScale: 1.6, petalCount: 4, phase: 1.2 },
+      { xFrac: 0.55, yFrac: 0.75, baseScale: 0.9, petalCount: 3, phase: 2.5 },
+      { xFrac: 0.75, yFrac: 0.68, baseScale: 1.3, petalCount: 4, phase: 3.8 },
+      { xFrac: 0.92, yFrac: 0.73, baseScale: 1.0, petalCount: 3, phase: 5.0 },
+    ];
+
+    // Drifting petal particles spawned by bass hits
+    interface DriftPetal {
+      x: number; y: number; vx: number; vy: number;
+      size: number; color: string; life: number; maxLife: number;
+    }
+    const driftPetals: DriftPetal[] = [];
+
+    /** Draw a single pixel flower at a given position and scale */
+    const drawSinglePixelFlower = (
+      cx: number, cy: number, px: number, scale: number,
+      audioBass: number, audioMid: number
+    ) => {
+      const s = Math.max(1, Math.round(px * scale));
+
+      // Stem (3px wide, going down)
+      const stemH = Math.round(s * (6 + audioBass * 3));
+      ctx.fillStyle = STEM_COLOR;
+      ctx.fillRect(cx - s, cy + s * 2, s * 3, stemH);
+      // Small leaves on stem
+      ctx.fillStyle = LEAF_COLOR;
+      ctx.fillRect(cx + s * 2, cy + s * 4, s * 2, s);
+      ctx.fillRect(cx + s * 2, cy + s * 5, s, s);
+      ctx.fillRect(cx - s * 3, cy + s * 6, s * 2, s);
+      ctx.fillRect(cx - s * 2, cy + s * 7, s, s);
+
+      // Determine extra petals based on mid frequency
+      const extraRings = Math.floor(audioMid * 3);
+      const totalRings = 2 + extraRings;
+
+      // Draw petal rings from outermost to innermost
+      for (let ring = totalRings; ring >= 1; ring--) {
+        const ringScale = ring === 1 ? 1.0 : 0.65 + (ring / totalRings) * 0.45;
+        const petalSize = Math.round(s * ringScale * (1.2 + audioBass * 0.5));
+        const dist = Math.round(s * ringScale * (1.0 + ring * 0.3));
+        const colorIdx = (ring - 1) % PETAL_COLORS.length;
+        const color = PETAL_COLORS[colorIdx];
+
+        // Draw 6 petals around the center for each ring
+        for (let p = 0; p < 6; p++) {
+          const angle = (p / 6) * Math.PI * 2 + ring * 0.3;
+          const px2 = cx + Math.round(Math.cos(angle) * dist) * s / s;
+          const py2 = cy + Math.round(Math.sin(angle) * dist) * s / s;
+
+          // Pixel-art petal: a cross/diamond shape made of small rects
+          ctx.fillStyle = color;
+          const half = Math.max(1, Math.round(petalSize / 2));
+          // Center pixel
+          ctx.fillRect(px2 * 1 - half * s / 2, py2 * 1 - half * s / 2, half, half);
+          // Top
+          ctx.fillRect(px2 * 1 - half * s / 2, py2 * 1 - half * s / 2 - s, half, s);
+          // Bottom
+          ctx.fillRect(px2 * 1 - half * s / 2, py2 * 1 + half * s / 2, half, s);
+          // Left
+          ctx.fillRect(px2 * 1 - half * s / 2 - s, py2 * 1 - half * s / 2, s, half);
+          // Right
+          ctx.fillRect(px2 * 1 + half * s / 2, py2 * 1 - half * s / 2, s, half);
+          // Diagonal corners for rounder pixel look
+          ctx.fillRect(px2 * 1 - half * s / 2 - s, py2 * 1 - half * s / 2 - s, s, s);
+          ctx.fillRect(px2 * 1 + half * s / 2, py2 * 1 - half * s / 2 - s, s, s);
+          ctx.fillRect(px2 * 1 - half * s / 2 - s, py2 * 1 + half * s / 2, s, s);
+          ctx.fillRect(px2 * 1 + half * s / 2, py2 * 1 + half * s / 2, s, s);
+        }
+      }
+
+      // Golden center stamen — cross pattern
+      const centerSize = Math.max(1, Math.round(s * (0.8 + audioBass * 0.4)));
+      ctx.fillStyle = CENTER_COLOR;
+      ctx.fillRect(cx - centerSize, cy - centerSize, centerSize * 2 + 1, centerSize * 2 + 1);
+      // Inner darker gold ring
+      ctx.fillStyle = "#D4A832";
+      ctx.fillRect(cx - Math.max(1, centerSize - s), cy - Math.max(1, centerSize - s),
+        Math.max(1, (centerSize - s) * 2 + 1), Math.max(1, (centerSize - s) * 2 + 1));
+      // Bright center dot
+      ctx.fillStyle = "#F5DC6A";
+      const dotR = Math.max(1, Math.round(s * 0.4));
+      ctx.fillRect(cx - dotR, cy - dotR, dotR * 2 + 1, dotR * 2 + 1);
+    };
+
+    const drawPixelFlower = () => {
+      animFrameRef.current = requestAnimationFrame(drawPixelFlower);
+      resize();
+      const w = canvas.clientWidth;
+      const h = canvas.clientHeight;
+
+      const t = performance.now() / 1000;
+      const playing = isPlayingRef.current;
+      const hasAnalyser = fetchAudioData();
+
+      const bass = playing && hasAnalyser ? bandEnergy(1, 18) : idleVal(t, 0, 20) * 0.3;
+      const mid = playing && hasAnalyser ? bandEnergy(18, 80) : idleVal(t, 5, 21) * 0.3;
+      const high = playing && hasAnalyser ? bandEnergy(80, 180) : idleVal(t, 8, 22) * 0.2;
+      const bassHit = playing && hasAnalyser ? detectBassHit(bass) : 0;
+
+      // ── Clean background ──
+      ctx.fillStyle = BG_COLOR;
+      ctx.fillRect(0, 0, w, h);
+
+      // ── Subtle pixel grid overlay ──
+      const gridSize = 4;
+      ctx.fillStyle = "rgba(0,0,0,0.03)";
+      for (let gx = 0; gx < w; gx += gridSize) {
+        for (let gy = 0; gy < h; gy += gridSize) {
+          // Only draw grid dots at intersections for a cleaner look
+          if ((Math.floor(gx / gridSize) + Math.floor(gy / gridSize)) % 3 === 0) {
+            ctx.fillRect(gx, gy, 1, 1);
+          }
+        }
+      }
+
+      // ── Spawn drifting petals on bass hits ──
+      if (bassHit > 0) {
+        const spawnCount = 3 + Math.floor(Math.random() * 5);
+        for (let sp = 0; sp < spawnCount; sp++) {
+          const sx = Math.random() * w;
+          const sy = h * 0.3 + Math.random() * h * 0.4;
+          driftPetals.push({
+            x: sx, y: sy,
+            vx: (Math.random() - 0.5) * 2,
+            vy: -(0.3 + Math.random() * 1.2),
+            size: 2 + Math.random() * 3,
+            color: PETAL_COLORS[Math.floor(Math.random() * PETAL_COLORS.length)],
+            life: 0,
+            maxLife: 40 + Math.random() * 50,
+          });
+        }
+        if (driftPetals.length > 60) driftPetals.splice(0, driftPetals.length - 60);
+      }
+
+      // ── Update and draw drifting petals ──
+      for (let di = driftPetals.length - 1; di >= 0; di--) {
+        const dp = driftPetals[di];
+        dp.x += dp.vx;
+        dp.y += dp.vy;
+        dp.vy += 0.015; // gentle gravity
+        dp.vx += Math.sin(t * 2 + dp.x * 0.01) * 0.02; // sway
+        dp.life++;
+        if (dp.life > dp.maxLife) { driftPetals.splice(di, 1); continue; }
+        const fade = 1 - dp.life / dp.maxLife;
+        const alpha = fade * 0.7;
+        // Pixel-art style: draw as a small filled rectangle
+        const ps = Math.max(1, Math.round(dp.size * fade));
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = dp.color;
+        // Cross-shaped pixel petal
+        ctx.fillRect(dp.x - ps, dp.y, ps * 2 + 1, ps);
+        ctx.fillRect(dp.x, dp.y - ps, ps, ps * 2 + 1);
+        ctx.globalAlpha = 1;
+      }
+
+      // ── Draw pixel flowers ──
+      const basePixel = Math.max(2, Math.round(Math.min(w, h) / 40));
+      for (const flower of pixelFlowers) {
+        const cx = flower.xFrac * w;
+        const cy = flower.yFrac * h;
+        // Audio-reactive scale: pulse with bass, bloom with mids
+        const scalePulse = 1 + bass * 0.5 + Math.sin(t * 1.5 + flower.phase) * 0.08;
+        const scale = flower.baseScale * scalePulse;
+        // Gentle sway
+        const swayX = Math.sin(t * 0.8 + flower.phase) * basePixel * 0.5;
+        drawSinglePixelFlower(cx + swayX, cy, basePixel, scale, bass, mid);
+      }
+
+      // ── Ground grass pixels ──
+      const grassY = h * 0.82;
+      ctx.fillStyle = "#C8D8B8";
+      for (let gx = 0; gx < w; gx += gridSize) {
+        const grassH = 2 + Math.floor(Math.sin(gx * 0.05 + t * 0.5) * 1.5 + 1.5);
+        ctx.fillRect(gx, grassY - grassH, gridSize - 1, grassH + Math.floor(h * 0.18));
+      }
+      // Darker grass patches
+      ctx.fillStyle = "#A8C498";
+      for (let gx = gridSize * 2; gx < w; gx += gridSize * 4) {
+        const grassH = 1 + Math.floor(Math.sin(gx * 0.03 + t * 0.3 + 1) * 1);
+        ctx.fillRect(gx, grassY - grassH, gridSize * 2 - 1, grassH + Math.floor(h * 0.18) + gridSize);
+      }
+
+      // ── Tiny floating pollen/sparkle pixels ──
+      const sparkleCount = playing && hasAnalyser ? 8 + Math.floor(high * 15) : 4;
+      for (let sp = 0; sp < sparkleCount; sp++) {
+        const sx = (Math.sin(t * 0.4 + sp * 2.1) * 0.5 + 0.5) * w;
+        const sy = (Math.cos(t * 0.3 + sp * 1.7) * 0.5 + 0.5) * h * 0.7;
+        const twinkle = Math.pow(Math.sin(t * 2.5 + sp * 1.3), 2);
+        const alpha = twinkle * (playing && hasAnalyser ? 0.4 + high * 0.5 : 0.2);
+        if (alpha < 0.05) continue;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = CENTER_COLOR;
+        ctx.fillRect(Math.round(sx / gridSize) * gridSize, Math.round(sy / gridSize) * gridSize, gridSize, gridSize);
+        ctx.globalAlpha = 1;
+      }
+    };
+
     // ── Choose renderer based on style ──
     switch (currentStyle) {
-      case "ipod-2001": drawIpod(); break;
-      case "japan": drawJapan(); break;
-      case "swag": drawSwag(); break;
-      case "neon": drawNeon(); break;
+      case "pixel-flower": drawPixelFlower(); break;
       default: drawDefault(); break;
     }
 

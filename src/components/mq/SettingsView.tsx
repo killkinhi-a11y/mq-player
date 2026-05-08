@@ -249,12 +249,7 @@ export default function SettingsView() {
   const [showFullTaste, setShowFullTaste] = useState(false);
   const [showStyleMenu, setShowStyleMenu] = useState(false);
   const styleList = [
-    { id: "ipod-2001", name: "iPod 2001" },
-    { id: "japan", name: "Japan" },
-    { id: "swag", name: "Silver" },
-    { id: "neon", name: "Neon" },
-    { id: "minimal", name: "Minimal" },
-    { id: "liquid-glass", name: "Liquid Glass" },
+    { id: "pixel-flower", name: "Pixel Flower" },
   ];
   const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
 
@@ -1124,180 +1119,44 @@ export default function SettingsView() {
                   )}
                 </motion.button>
 
-                {/* iPod 2001 */}
+                {/* Pixel Flower */}
                 <motion.button
                   whileHover={{ scale: 1.01 }}
                   whileTap={{ scale: 0.99 }}
-                  onClick={() => setStyle("ipod-2001")}
+                  onClick={() => setStyle("pixel-flower")}
                   className="w-full p-3 text-left relative flex items-center gap-3"
                   style={{
-                    backgroundColor: currentStyle === "ipod-2001" ? "var(--mq-input-bg)" : "transparent",
-                    border: currentStyle === "ipod-2001" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
+                    backgroundColor: currentStyle === "pixel-flower" ? "var(--mq-input-bg)" : "transparent",
+                    border: currentStyle === "pixel-flower" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
                   }}
                 >
-                  {/* Mini preview: iPod 2001 dark LCD screen */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#000000", borderRadius: 6, border: "1px solid #333333" }}>
-                    <div className="absolute top-0.5 left-1.5 right-1.5 h-2.5" style={{ backgroundColor: "#2a7fff", borderRadius: 0 }} />
-                    <div className="absolute top-0.5 left-2.5 h-2.5" style={{ backgroundColor: "#ffffff", borderRadius: 0, opacity: 0.9, width: 14 }} />
-                    <div className="absolute top-3.5 left-1.5" style={{ color: "#ffffff", fontSize: 6, lineHeight: 1 }}>Song</div>
-                    <div className="absolute top-4.5 left-1.5" style={{ color: "#666666", fontSize: 4, lineHeight: 1 }}>Artist</div>
-                    <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5" style={{ backgroundColor: "#1a1a1a", borderRadius: 0 }} />
-                    <div className="absolute bottom-1 left-1.5 w-3 h-0.5" style={{ backgroundColor: "#2a7fff", borderRadius: 0 }} />
+                  {/* Mini preview: Pixel flower style */}
+                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#fafafa", borderRadius: 6, border: "1px solid #e0dce4" }}>
+                    {/* Pixel flower petals - small colored squares */}
+                    <div className="absolute" style={{ top: 3, left: 3, width: 2, height: 2, backgroundColor: "#B8A9C9" }} />
+                    <div className="absolute" style={{ top: 3, left: 5, width: 2, height: 2, backgroundColor: "#9B7DB8" }} />
+                    <div className="absolute" style={{ top: 5, left: 2, width: 2, height: 2, backgroundColor: "#D4A5B5" }} />
+                    <div className="absolute" style={{ top: 5, left: 4, width: 2, height: 2, backgroundColor: "#E8C547" }} />
+                    <div className="absolute" style={{ top: 5, left: 6, width: 2, height: 2, backgroundColor: "#D4A5B5" }} />
+                    <div className="absolute" style={{ top: 2, left: 4, width: 2, height: 2, backgroundColor: "#B8A9C9" }} />
+                    <div className="absolute" style={{ top: 6, left: 4, width: 2, height: 2, backgroundColor: "#9B7DB8" }} />
+                    {/* Stem */}
+                    <div className="absolute" style={{ top: 7, left: 4, width: 1, height: 1, backgroundColor: "#4A6741" }} />
+                    <div className="absolute" style={{ top: 8, left: 4, width: 1, height: 1, backgroundColor: "#3D5A35" }} />
+                    {/* Second small flower */}
+                    <div className="absolute" style={{ top: 2, left: 8, width: 2, height: 2, backgroundColor: "#E8C5D0" }} />
+                    <div className="absolute" style={{ top: 2, left: 10, width: 2, height: 2, backgroundColor: "#B8A9C9" }} />
+                    <div className="absolute" style={{ top: 4, left: 9, width: 2, height: 2, backgroundColor: "#E8C547" }} />
                   </div>
                   <div>
-                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>iPod 2001</span>
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Оригинальный Apple iPod</p>
+                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Pixel Flower</span>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Пиксельные цветы, ретро, блюз</p>
                   </div>
-                  {currentStyle === "ipod-2001" && (
+                  {currentStyle === "pixel-flower" && (
                     <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                   )}
                 </motion.button>
 
-                {/* Japan */}
-                <motion.button
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => setStyle("japan")}
-                  className="w-full p-3 text-left relative flex items-center gap-3"
-                  style={{
-                    backgroundColor: currentStyle === "japan" ? "var(--mq-input-bg)" : "transparent",
-                    border: currentStyle === "japan" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
-                  }}
-                >
-                  {/* Mini preview: Japan zen style */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#f0ebe3", borderRadius: 6, border: "1px solid #ddd5c8" }}>
-                    <div className="absolute top-0 left-0 right-0 h-0.5" style={{ background: "linear-gradient(90deg, transparent, #e8b4bc, #8b2252, #e8b4bc, transparent)", opacity: 0.5 }} />
-                    <div className="absolute top-1.5 left-1.5" style={{ color: "#1a1a1a", fontSize: 5, fontFamily: "serif", lineHeight: 1 }}>Song</div>
-                    <div className="absolute top-3 left-1.5" style={{ color: "#8a7e72", fontSize: 3.5, fontFamily: "serif", lineHeight: 1 }}>Artist</div>
-                    <div className="absolute bottom-1 left-1.5 right-1.5 h-0.5" style={{ backgroundColor: "#ddd5c8", borderRadius: 1 }} />
-                    <div className="absolute bottom-1 left-1.5 w-2 h-0.5" style={{ backgroundColor: "#8b2252", borderRadius: 1 }} />
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Japan</span>
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Дзен, бумага, киноварь</p>
-                  </div>
-                  {currentStyle === "japan" && (
-                    <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-                  )}
-                </motion.button>
-
-                {/* Swag */}
-                <motion.button
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => setStyle("swag")}
-                  className="w-full p-3 text-left relative flex items-center gap-3"
-                  style={{
-                    backgroundColor: currentStyle === "swag" ? "var(--mq-input-bg)" : "transparent",
-                    border: currentStyle === "swag" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
-                  }}
-                >
-                  {/* Mini preview: Silver chromium — radial ring + geometric shapes */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#07070a", borderRadius: 6, border: "1px solid #222229" }}>
-                    {/* Center ring */}
-                    <div className="absolute" style={{ top: "50%", left: "50%", width: 18, height: 18, marginTop: -9, marginLeft: -9, border: "0.5px solid rgba(176,176,184,0.2)", borderRadius: "50%" }} />
-                    {/* Radial bars (decorative) */}
-                    <div className="absolute" style={{ top: "50%", left: "50%", width: 1, height: 4, marginTop: -10, marginLeft: -0.5, backgroundColor: "rgba(176,176,184,0.35)", transform: "rotate(0deg)", transformOrigin: "center 10px" }} />
-                    <div className="absolute" style={{ top: "50%", left: "50%", width: 1, height: 3, marginTop: -9, marginLeft: -0.5, backgroundColor: "rgba(176,176,184,0.25)", transform: "rotate(60deg)", transformOrigin: "center 9px" }} />
-                    <div className="absolute" style={{ top: "50%", left: "50%", width: 1, height: 5, marginTop: -11, marginLeft: -0.5, backgroundColor: "rgba(176,176,184,0.3)", transform: "rotate(120deg)", transformOrigin: "center 11px" }} />
-                    <div className="absolute" style={{ top: "50%", left: "50%", width: 1, height: 3, marginTop: -9, marginLeft: -0.5, backgroundColor: "rgba(176,176,184,0.2)", transform: "rotate(180deg)", transformOrigin: "center 9px" }} />
-                    <div className="absolute" style={{ top: "50%", left: "50%", width: 1, height: 4, marginTop: -10, marginLeft: -0.5, backgroundColor: "rgba(176,176,184,0.3)", transform: "rotate(240deg)", transformOrigin: "center 10px" }} />
-                    <div className="absolute" style={{ top: "50%", left: "50%", width: 1, height: 2, marginTop: -8, marginLeft: -0.5, backgroundColor: "rgba(176,176,184,0.2)", transform: "rotate(300deg)", transformOrigin: "center 8px" }} />
-                    {/* Song text */}
-                    <div className="absolute top-0.5 left-1" style={{ color: "#e8e8ec", fontSize: 4.5, fontFamily: "var(--font-space-grotesk), system-ui, sans-serif", fontWeight: 600, lineHeight: 1, letterSpacing: "-0.02em" }}>S</div>
-                    <div className="absolute bottom-0.5 right-0.5" style={{ color: "#4a4a56", fontSize: 3, lineHeight: 1 }}>A</div>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Silver</span>
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Хром, созвездие, геометрия</p>
-                  </div>
-                  {currentStyle === "swag" && (
-                    <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-                  )}
-                </motion.button>
-
-                {/* Neon */}
-                <motion.button
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => setStyle("neon")}
-                  className="w-full p-3 text-left relative flex items-center gap-3"
-                  style={{
-                    backgroundColor: currentStyle === "neon" ? "var(--mq-input-bg)" : "transparent",
-                    border: currentStyle === "neon" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
-                  }}
-                >
-                  {/* Mini preview: Cyberpunk neon glow */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#0a0a14", borderRadius: 6, border: "1px solid #1e1e33" }}>
-                    {/* Thin neon green line */}
-                    <div className="absolute" style={{ top: "50%", left: 1.5, right: 1.5, height: 1, marginTop: -0.5, background: "linear-gradient(90deg, transparent, #00ff88, transparent)", opacity: 0.6 }} />
-                    {/* Small green dot */}
-                    <div className="absolute" style={{ top: 3.5, left: 5, width: 3, height: 3, backgroundColor: "#00ff88", borderRadius: "50%", boxShadow: "0 0 4px rgba(0,255,136,0.6)" }} />
-                    {/* Faint pink dot */}
-                    <div className="absolute" style={{ bottom: 2.5, right: 3, width: 2, height: 2, backgroundColor: "#ff0066", borderRadius: "50%", boxShadow: "0 0 3px rgba(255,0,102,0.4)" }} />
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Neon</span>
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Киберпанк, неон, пульс</p>
-                  </div>
-                  {currentStyle === "neon" && (
-                    <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-                  )}
-                </motion.button>
-
-                {/* Minimal */}
-                <motion.button
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => setStyle("minimal")}
-                  className="w-full p-3 text-left relative flex items-center gap-3"
-                  style={{
-                    backgroundColor: currentStyle === "minimal" ? "var(--mq-input-bg)" : "transparent",
-                    border: currentStyle === "minimal" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
-                  }}
-                >
-                  {/* Mini preview: Ultra-clean stark white */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#ffffff", borderRadius: 6, border: "1px solid #e5e5e5" }}>
-                    {/* Thin black line */}
-                    <div className="absolute" style={{ top: "50%", left: 2, right: 2, height: 1, marginTop: -0.5, backgroundColor: "#111111", opacity: 0.3 }} />
-                    {/* Small black dot */}
-                    <div className="absolute" style={{ top: "50%", left: "50%", width: 3, height: 3, marginTop: -1.5, marginLeft: -1.5, backgroundColor: "#111111", borderRadius: "50%" }} />
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Minimal</span>
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Минимализм, чистота, шрифт</p>
-                  </div>
-                  {currentStyle === "minimal" && (
-                    <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-                  )}
-                </motion.button>
-
-                {/* ── Liquid Glass ── */}
-                <motion.button
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={() => setStyle("liquid-glass")}
-                  className="w-full p-3 text-left relative flex items-center gap-3"
-                  style={{
-                    backgroundColor: currentStyle === "liquid-glass" ? "var(--mq-input-bg)" : "transparent",
-                    border: currentStyle === "liquid-glass" ? `2px solid var(--mq-accent)` : "1px solid var(--mq-border)",
-                  }}
-                >
-                  {/* Mini preview: Glass orbs with blue-purple glow */}
-                  <div className="w-12 h-8 flex-shrink-0 relative overflow-hidden" style={{ backgroundColor: "#0a0f1a", borderRadius: 6 }}>
-                    <div className="absolute" style={{ top: "30%", left: "20%", width: 14, height: 10, borderRadius: "50%", background: "radial-gradient(ellipse, rgba(96,165,250,0.5) 0%, transparent 70%)", filter: "blur(2px)" }} />
-                    <div className="absolute" style={{ top: "35%", left: "45%", width: 12, height: 8, borderRadius: "50%", background: "radial-gradient(ellipse, rgba(168,85,247,0.4) 0%, transparent 70%)", filter: "blur(2px)" }} />
-                    <div className="absolute" style={{ top: "25%", left: "65%", width: 10, height: 7, borderRadius: "50%", background: "radial-gradient(ellipse, rgba(236,72,153,0.3) 0%, transparent 70%)", filter: "blur(2px)" }} />
-                    <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 50%)", borderRadius: 6 }} />
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Liquid Glass</span>
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Стеклянные сферы, аврора, рефракция</p>
-                  </div>
-                  {currentStyle === "liquid-glass" && (
-                    <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-                  )}
-                </motion.button>
               </div>
               </ScrollReveal>
             </motion.div>
