@@ -131,15 +131,31 @@ function drawPixelFlowerCanvas(
   t: number,
   flowers: PixelFlower[],
   lastBassHit: { value: number },
+  isDark: boolean = true,
 ) {
   const PX = 3; // pixel block size for retro feel
 
-  // ── Warm white background ────────────────────────────────────────────
-  ctx.fillStyle = "#FAFAFA";
-  ctx.fillRect(0, 0, w, h);
+  // ── Background ────────────────────────────────────────────────────
+  if (isDark) {
+    // Deep dark purple-black background
+    ctx.fillStyle = "#0d0b11";
+    ctx.fillRect(0, 0, w, h);
+
+    // Subtle radial vignette glow
+    const vigGrad = ctx.createRadialGradient(w * 0.5, h * 0.4, 0, w * 0.5, h * 0.4, Math.max(w, h) * 0.7);
+    vigGrad.addColorStop(0, "rgba(155,109,255,0.03)");
+    vigGrad.addColorStop(0.5, "rgba(100,60,180,0.02)");
+    vigGrad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = vigGrad;
+    ctx.fillRect(0, 0, w, h);
+  } else {
+    // Warm white background
+    ctx.fillStyle = "#FAFAFA";
+    ctx.fillRect(0, 0, w, h);
+  }
 
   // ── Subtle pixel grid overlay ────────────────────────────────────────
-  ctx.fillStyle = "rgba(0,0,0,0.018)";
+  ctx.fillStyle = isDark ? "rgba(155,109,255,0.02)" : "rgba(0,0,0,0.018)";
   for (let gx = 0; gx < w; gx += PX) {
     ctx.fillRect(gx, 0, 1, h);
   }
@@ -147,12 +163,24 @@ function drawPixelFlowerCanvas(
     ctx.fillRect(0, gy, w, 1);
   }
 
-  // ── Color palette ────────────────────────────────────────────────────
-  const petalColors = ["#B8A9C9", "#9B7DB8", "#D4A5B5", "#E8C5D0"];
-  const centerColors = ["#E8C547", "#D4A830"];
-  const stemColors = ["#4A6741", "#3D5A35"];
-  const leafColors = ["#5A7A4F", "#4A6741", "#6B8C5E"];
-  const sparkleColors = ["#E8C547", "#D4A5B5", "#B8A9C9", "#FFFFFF"];
+  // ── Color palette (inspired by Figma pixel flower screenshot) ────────
+  // Dark: deeper violet, rich purple, warm accents
+  // Light: pastel lavender, soft pink
+  const petalColors = isDark
+    ? ["#9B6DFF", "#7B4DCC", "#B88DFF", "#C4A0FF", "#6B3FA0"]
+    : ["#B8A9C9", "#9B7DB8", "#D4A5B5", "#E8C5D0"];
+  const centerColors = isDark
+    ? ["#E8C547", "#FFB030", "#FF9500"]
+    : ["#E8C547", "#D4A830"];
+  const stemColors = isDark
+    ? ["#3D5A35", "#2E4A28"]
+    : ["#4A6741", "#3D5A35"];
+  const leafColors = isDark
+    ? ["#2E5A28", "#3D6B35", "#1E4A1A"]
+    : ["#5A7A4F", "#4A6741", "#6B8C5E"];
+  const sparkleColors = isDark
+    ? ["#FFD700", "#9B6DFF", "#B88DFF", "#FFFFFF", "#FFB030"]
+    : ["#E8C547", "#D4A5B5", "#B8A9C9", "#FFFFFF"];
 
   // ── Smoothing some frequency bands ───────────────────────────────────
   for (let i = 0; i < 8; i++) {
@@ -232,7 +260,7 @@ function drawPixelFlowerCanvas(
     const centerR = flowerR * 0.2;
 
     // ── Soft shadow under flower ────────────────────────────────────
-    ctx.fillStyle = "rgba(0,0,0,0.04)";
+    ctx.fillStyle = isDark ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.04)";
     const shadowOffX = flowerR * 0.08;
     const shadowOffY = flowerR * 0.12;
     for (let si = -2; si <= 2; si++) {
@@ -420,7 +448,7 @@ function drawPixelFlowerCanvas(
     // ── Subtle pulsing glow ring around flower (bass reactive) ──────
     if (bass > 0.3) {
       const glowR = flowerR + PX * 2;
-      ctx.globalAlpha = bass * 0.06;
+      ctx.globalAlpha = isDark ? bass * 0.12 : bass * 0.06;
       ctx.strokeStyle = petalColors[0];
       ctx.lineWidth = PX;
       ctx.beginPath();
@@ -434,13 +462,41 @@ function drawPixelFlowerCanvas(
       }
       ctx.globalAlpha = 1;
     }
+
+    // ── Ambient glow under flower (dark mode only) ─────────────────
+    if (isDark) {
+      const glowGrad = ctx.createRadialGradient(fl.x, fl.y, 0, fl.x, fl.y, flowerR * 1.8);
+      glowGrad.addColorStop(0, "rgba(155,109,255,0.06)");
+      glowGrad.addColorStop(0.5, "rgba(100,60,180,0.03)");
+      glowGrad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = glowGrad;
+      ctx.fillRect(
+        Math.floor(fl.x - flowerR * 2),
+        Math.floor(fl.y - flowerR * 2),
+        Math.floor(flowerR * 4),
+        Math.floor(flowerR * 4)
+      );
+    }
   }
 
-  // ── Ground line at bottom (subtle) ───────────────────────────────────
-  ctx.fillStyle = "rgba(74,103,65,0.08)";
+  // ── Ground line at bottom ───────────────────────────────────────────
+  ctx.fillStyle = isDark ? "rgba(61,90,53,0.15)" : "rgba(74,103,65,0.08)";
   ctx.fillRect(0, Math.floor(h * 0.88), w, PX);
-  ctx.fillStyle = "rgba(74,103,65,0.04)";
+  ctx.fillStyle = isDark ? "rgba(61,90,53,0.08)" : "rgba(74,103,65,0.04)";
   ctx.fillRect(0, Math.floor(h * 0.88) + PX, w, PX);
+
+  // ── Floating pixel particles (dark mode ambient) ─────────────────────
+  if (isDark) {
+    for (let i = 0; i < 12; i++) {
+      const px = (Math.sin(t * 0.3 + i * 1.7) * 0.5 + 0.5) * w;
+      const py = (Math.cos(t * 0.2 + i * 2.3) * 0.5 + 0.5) * h;
+      const sparkleAlpha = (Math.sin(t * 0.8 + i) * 0.5 + 0.5) * 0.15;
+      ctx.globalAlpha = sparkleAlpha;
+      ctx.fillStyle = sparkleColors[i % sparkleColors.length];
+      ctx.fillRect(Math.floor(px), Math.floor(py), PX, PX);
+    }
+    ctx.globalAlpha = 1;
+  }
 
   // ── Idle sway animation (when no music) ─────────────────────────────
   for (const fl of flowers) {
@@ -637,9 +693,11 @@ export default function TrackCanvas({ isActive, isPlaying, currentStyle, styleVa
 
       // ── Style-specific rendering ─────────────────────────────────────
       switch (currentStyle) {
-        case "pixel-flower":
-          drawPixelFlowerCanvas(ctx, w, h, freqData, bass, mid, high, t, pixelFlowersRef.current, pixelFlowerLastBassHitRef.current);
+        case "pixel-flower": {
+          const isLight = styleVariant === "light";
+          drawPixelFlowerCanvas(ctx, w, h, freqData, bass, mid, high, t, pixelFlowersRef.current, pixelFlowerLastBassHitRef.current, !isLight);
           break;
+        }
 
         default: {
           // Default: enhanced orb visualization

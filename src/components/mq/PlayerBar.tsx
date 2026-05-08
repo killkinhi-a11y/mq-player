@@ -727,7 +727,7 @@ export default function PlayerBar() {
     setFullTrackViewOpen,
     setPlaybackMode, requestShowSimilar, requestShowLyrics,
     toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
-    upNext, currentStyle, radioMode, smartShuffle, toggleRadioMode,
+    upNext, currentStyle, styleVariant, radioMode, smartShuffle, toggleRadioMode,
     spatialAudioEnabled, setSpatialAudioEnabled, setSpatialMood, spatialAutoDetect, spatialMood,
     setSelectedArtist, currentView,
     abRepeat, setAbRepeatPoint, clearAbRepeat,
@@ -1624,11 +1624,20 @@ export default function PlayerBar() {
     // Pixel art flowers with lavender/purple/pink petals, golden center,
     // dark purple stems on a clean background. Audio-reactive bloom & drift.
     // ═══════════════════════════════════════════════════════════════════
-    const PETAL_COLORS = ["#B8A9C9", "#9B7DB8", "#D4A5B5"];
-    const CENTER_COLOR = "#E8C547";
-    const STEM_COLOR = "#6B4C7A";
-    const LEAF_COLOR = "#8BAF7A";
-    const BG_COLOR = "#FAFAFA";
+    // Dark/light color palettes
+    const isDarkPF = styleVariant !== "light";
+    const PETAL_COLORS = isDarkPF
+      ? ["#9B6DFF", "#7B4DCC", "#B88DFF", "#C4A0FF"]
+      : ["#B8A9C9", "#9B7DB8", "#D4A5B5"];
+    const CENTER_COLOR = isDarkPF ? "#FFB030" : "#E8C547";
+    const CENTER_COLOR_INNER = isDarkPF ? "#FF9500" : "#D4A832";
+    const CENTER_DOT = isDarkPF ? "#FFD700" : "#F5DC6A";
+    const STEM_COLOR = isDarkPF ? "#3D5A35" : "#6B4C7A";
+    const LEAF_COLOR = isDarkPF ? "#2E5A28" : "#8BAF7A";
+    const BG_COLOR = isDarkPF ? "#0d0b11" : "#FAFAFA";
+    const GRID_COLOR = isDarkPF ? "rgba(155,109,255,0.03)" : "rgba(0,0,0,0.03)";
+    const GRASS_COLOR_1 = isDarkPF ? "#2E4A28" : "#C8D8B8";
+    const GRASS_COLOR_2 = isDarkPF ? "#1E3A1A" : "#A8C498";
 
     // Pixel flower data structure
     interface PixelFlower {
@@ -1717,11 +1726,11 @@ export default function PlayerBar() {
       ctx.fillStyle = CENTER_COLOR;
       ctx.fillRect(cx - centerSize, cy - centerSize, centerSize * 2 + 1, centerSize * 2 + 1);
       // Inner darker gold ring
-      ctx.fillStyle = "#D4A832";
+      ctx.fillStyle = CENTER_COLOR_INNER;
       ctx.fillRect(cx - Math.max(1, centerSize - s), cy - Math.max(1, centerSize - s),
         Math.max(1, (centerSize - s) * 2 + 1), Math.max(1, (centerSize - s) * 2 + 1));
       // Bright center dot
-      ctx.fillStyle = "#F5DC6A";
+      ctx.fillStyle = CENTER_DOT;
       const dotR = Math.max(1, Math.round(s * 0.4));
       ctx.fillRect(cx - dotR, cy - dotR, dotR * 2 + 1, dotR * 2 + 1);
     };
@@ -1747,7 +1756,7 @@ export default function PlayerBar() {
 
       // ── Subtle pixel grid overlay ──
       const gridSize = 4;
-      ctx.fillStyle = "rgba(0,0,0,0.03)";
+      ctx.fillStyle = GRID_COLOR;
       for (let gx = 0; gx < w; gx += gridSize) {
         for (let gy = 0; gy < h; gy += gridSize) {
           // Only draw grid dots at intersections for a cleaner look
@@ -1812,13 +1821,13 @@ export default function PlayerBar() {
 
       // ── Ground grass pixels ──
       const grassY = h * 0.82;
-      ctx.fillStyle = "#C8D8B8";
+      ctx.fillStyle = GRASS_COLOR_1;
       for (let gx = 0; gx < w; gx += gridSize) {
         const grassH = 2 + Math.floor(Math.sin(gx * 0.05 + t * 0.5) * 1.5 + 1.5);
         ctx.fillRect(gx, grassY - grassH, gridSize - 1, grassH + Math.floor(h * 0.18));
       }
       // Darker grass patches
-      ctx.fillStyle = "#A8C498";
+      ctx.fillStyle = GRASS_COLOR_2;
       for (let gx = gridSize * 2; gx < w; gx += gridSize * 4) {
         const grassH = 1 + Math.floor(Math.sin(gx * 0.03 + t * 0.3 + 1) * 1);
         ctx.fillRect(gx, grassY - grassH, gridSize * 2 - 1, grassH + Math.floor(h * 0.18) + gridSize);
@@ -1848,7 +1857,7 @@ export default function PlayerBar() {
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [currentTrack?.id, currentStyle]);
+  }, [currentTrack?.id, currentStyle, styleVariant]);
 
   // ── Handle track change ─────────────────────────────────
   const prevTrackIdRef = useRef<string | null>(null);

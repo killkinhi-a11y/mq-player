@@ -13,6 +13,7 @@ import "@/styles/japan.css";
 import "@/styles/swag.css";
 import "@/styles/neon.css";
 import "@/styles/minimal.css";
+import "@/styles/pixel-flower.css";
 
 declare global {
   interface Window {

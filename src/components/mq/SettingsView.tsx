@@ -1150,7 +1150,7 @@ export default function SettingsView() {
                   </div>
                   <div>
                     <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Pixel Flower</span>
-                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Пиксельные цветы, ретро, блюз</p>
+                    <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Пиксельные цветы, ретро, фиолет</p>
                   </div>
                   {currentStyle === "pixel-flower" && (
                     <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
