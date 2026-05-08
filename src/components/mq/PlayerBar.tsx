@@ -1627,11 +1627,11 @@ export default function PlayerBar() {
     // Dark/light color palettes
     const isDarkPF = styleVariant !== "light";
     const PETAL_COLORS = isDarkPF
-      ? ["#9B6DFF", "#7B4DCC", "#B88DFF", "#C4A0FF"]
+      ? ["#a693af", "#8e7ea3", "#724774", "#93778d"]
       : ["#B8A9C9", "#9B7DB8", "#D4A5B5"];
-    const CENTER_COLOR = isDarkPF ? "#FFB030" : "#E8C547";
-    const CENTER_COLOR_INNER = isDarkPF ? "#FF9500" : "#D4A832";
-    const CENTER_DOT = isDarkPF ? "#FFD700" : "#F5DC6A";
+    const CENTER_COLOR = isDarkPF ? "#c88c68" : "#E8C547";
+    const CENTER_COLOR_INNER = isDarkPF ? "#ba8163" : "#D4A832";
+    const CENTER_DOT = isDarkPF ? "#d49570" : "#F5DC6A";
     const STEM_COLOR = isDarkPF ? "#3D5A35" : "#6B4C7A";
     const LEAF_COLOR = isDarkPF ? "#2E5A28" : "#8BAF7A";
     const BG_COLOR = isDarkPF ? "#0d0b11" : "#FAFAFA";

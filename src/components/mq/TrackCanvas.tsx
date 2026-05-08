@@ -85,6 +85,8 @@ const ORB_CONFIGS: Orb[] = [
 ];
 
 // ── Pixel Flower: Pixelated flower garden visualization ────────────────────
+// Inspired by the Figma pixel-effect flower: large visible pixel blocks,
+// soft lavender / mauve / purple petals, warm peach center, mosaic color variation.
 
 interface PixelFlower {
   x: number; y: number; size: number; petalCount: number;
@@ -100,17 +102,20 @@ interface DriftPetal {
 const pixelFlowerSmooth = new Float32Array(16);
 const driftPetals: DriftPetal[] = [];
 
-// Pre-configured flower positions (normalized 0-1)
+// Simple seeded pseudo-random for deterministic color variation per flower
+function seededRand(seed: number): number {
+  let x = Math.sin(seed) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+// Pre-configured flower positions (normalized 0-1) — fewer, bigger, more prominent
 function createInitialFlowers(w: number, h: number): PixelFlower[] {
   const positions = [
-    { xf: 0.15, yf: 0.25, size: 22, petals: 6, hue: 270, phase: 0, rot: 0.3 },
-    { xf: 0.35, yf: 0.18, size: 28, petals: 7, hue: 330, phase: 1.2, rot: -0.2 },
-    { xf: 0.55, yf: 0.22, size: 20, petals: 5, hue: 290, phase: 2.5, rot: 0.15 },
-    { xf: 0.78, yf: 0.20, size: 25, petals: 6, hue: 310, phase: 0.8, rot: -0.35 },
-    { xf: 0.22, yf: 0.55, size: 18, petals: 8, hue: 280, phase: 3.1, rot: 0.25 },
-    { xf: 0.50, yf: 0.50, size: 32, petals: 7, hue: 340, phase: 1.7, rot: -0.1 },
-    { xf: 0.75, yf: 0.52, size: 24, petals: 5, hue: 300, phase: 4.0, rot: 0.4 },
-    { xf: 0.90, yf: 0.38, size: 16, petals: 6, hue: 320, phase: 2.2, rot: -0.28 },
+    { xf: 0.20, yf: 0.28, size: 36, petals: 6, hue: 270, phase: 0, rot: 0.08 },
+    { xf: 0.50, yf: 0.22, size: 44, petals: 7, hue: 310, phase: 1.5, rot: -0.05 },
+    { xf: 0.80, yf: 0.30, size: 32, petals: 5, hue: 290, phase: 3.0, rot: 0.10 },
+    { xf: 0.35, yf: 0.58, size: 28, petals: 6, hue: 330, phase: 4.2, rot: -0.07 },
+    { xf: 0.65, yf: 0.55, size: 38, petals: 7, hue: 280, phase: 5.5, rot: 0.06 },
   ];
   return positions.map(p => ({
     x: Math.floor(w * p.xf),
@@ -133,44 +138,31 @@ function drawPixelFlowerCanvas(
   lastBassHit: { value: number },
   isDark: boolean = true,
 ) {
-  const PX = 3; // pixel block size for retro feel
+  const PX = 5; // larger pixel blocks for visible retro pixelation
 
   // ── Background ────────────────────────────────────────────────────
   if (isDark) {
-    // Deep dark purple-black background
     ctx.fillStyle = "#0d0b11";
     ctx.fillRect(0, 0, w, h);
-
-    // Subtle radial vignette glow
+    // Soft radial vignette
     const vigGrad = ctx.createRadialGradient(w * 0.5, h * 0.4, 0, w * 0.5, h * 0.4, Math.max(w, h) * 0.7);
-    vigGrad.addColorStop(0, "rgba(155,109,255,0.03)");
-    vigGrad.addColorStop(0.5, "rgba(100,60,180,0.02)");
+    vigGrad.addColorStop(0, "rgba(114,71,116,0.04)");
+    vigGrad.addColorStop(0.5, "rgba(90,60,100,0.02)");
     vigGrad.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = vigGrad;
     ctx.fillRect(0, 0, w, h);
   } else {
-    // Warm white background
     ctx.fillStyle = "#FAFAFA";
     ctx.fillRect(0, 0, w, h);
   }
 
-  // ── Subtle pixel grid overlay ────────────────────────────────────────
-  ctx.fillStyle = isDark ? "rgba(155,109,255,0.02)" : "rgba(0,0,0,0.018)";
-  for (let gx = 0; gx < w; gx += PX) {
-    ctx.fillRect(gx, 0, 1, h);
-  }
-  for (let gy = 0; gy < h; gy += PX) {
-    ctx.fillRect(0, gy, w, 1);
-  }
-
-  // ── Color palette (inspired by Figma pixel flower screenshot) ────────
-  // Dark: deeper violet, rich purple, warm accents
-  // Light: pastel lavender, soft pink
+  // ── Color palette — soft lavender / mauve / purple, warm peach center ──
+  // Matched to the Figma pixel-effect screenshot palette
   const petalColors = isDark
-    ? ["#9B6DFF", "#7B4DCC", "#B88DFF", "#C4A0FF", "#6B3FA0"]
-    : ["#B8A9C9", "#9B7DB8", "#D4A5B5", "#E8C5D0"];
+    ? ["#a693af", "#8e7ea3", "#724774", "#93778d", "#7c6899"]
+    : ["#B8A9C9", "#9B7DB8", "#D4A5B5", "#E8C5D0", "#a792b3"];
   const centerColors = isDark
-    ? ["#E8C547", "#FFB030", "#FF9500"]
+    ? ["#c88c68", "#ba8163", "#d49570"]
     : ["#E8C547", "#D4A830"];
   const stemColors = isDark
     ? ["#3D5A35", "#2E4A28"]
@@ -178,9 +170,6 @@ function drawPixelFlowerCanvas(
   const leafColors = isDark
     ? ["#2E5A28", "#3D6B35", "#1E4A1A"]
     : ["#5A7A4F", "#4A6741", "#6B8C5E"];
-  const sparkleColors = isDark
-    ? ["#FFD700", "#9B6DFF", "#B88DFF", "#FFFFFF", "#FFB030"]
-    : ["#E8C547", "#D4A5B5", "#B8A9C9", "#FFFFFF"];
 
   // ── Smoothing some frequency bands ───────────────────────────────────
   for (let i = 0; i < 8; i++) {
@@ -195,21 +184,19 @@ function drawPixelFlowerCanvas(
     flowers.push(...init);
   }
 
-  // ── Bass hit detection — spawn drifting petals ──────────────────────
-  // We use a local mutable array for drift petals stored on the module
+  // ── Bass hit — spawn drifting petals ────────────────────────────────
   if (bass > 0.5 && bass - lastBassHit.value > 0.1) {
-    // Pick a random flower to spawn petals from
     const fi = Math.floor(Math.random() * flowers.length);
     const fl = flowers[fi];
-    const count = 2 + Math.floor(bass * 4);
+    const count = 2 + Math.floor(bass * 3);
     for (let j = 0; j < count; j++) {
       const angle = Math.random() * Math.PI * 2;
       const dist = fl.size * (0.8 + Math.random() * 0.6);
       driftPetals.push({
         x: fl.x + Math.cos(angle) * dist,
         y: fl.y + Math.sin(angle) * dist,
-        vx: Math.cos(angle) * (0.3 + Math.random() * 0.8),
-        vy: -0.2 - Math.random() * 0.6,
+        vx: Math.cos(angle) * (0.3 + Math.random() * 0.6),
+        vy: -0.2 - Math.random() * 0.5,
         color: petalColors[Math.floor(Math.random() * petalColors.length)],
         life: 0,
         maxLife: 80 + Math.random() * 60,
@@ -224,7 +211,7 @@ function drawPixelFlowerCanvas(
     const dp = driftPetals[i];
     dp.x += dp.vx;
     dp.y += dp.vy;
-    dp.vy += 0.005; // gentle gravity
+    dp.vy += 0.005;
     dp.vx *= 0.995;
     dp.life++;
     if (dp.life > dp.maxLife) {
@@ -233,62 +220,36 @@ function drawPixelFlowerCanvas(
     }
     const lifeRatio = 1 - dp.life / dp.maxLife;
     const fade = lifeRatio < 0.2 ? lifeRatio / 0.2 : lifeRatio > 0.6 ? (1 - lifeRatio) / 0.4 : 1;
-    ctx.globalAlpha = fade * 0.7;
+    ctx.globalAlpha = fade * 0.6;
     ctx.fillStyle = dp.color;
-    // Slight rotation drift
     const wobble = Math.sin(dp.life * 0.15) * PX * 0.5;
-    ctx.fillRect(
-      Math.floor(dp.x + wobble),
-      Math.floor(dp.y),
-      dp.size,
-      dp.size
-    );
+    ctx.fillRect(Math.floor(dp.x + wobble), Math.floor(dp.y), dp.size, dp.size);
   }
   ctx.globalAlpha = 1;
-  if (driftPetals.length > 80) driftPetals.splice(0, driftPetals.length - 80);
+  if (driftPetals.length > 60) driftPetals.splice(0, driftPetals.length - 60);
 
   // ── Draw each flower ────────────────────────────────────────────────
-  for (const fl of flowers) {
-    const bloomScale = 1 + bass * 0.35 + pixelFlowerSmooth[0] * 0.2;
-    const glowIntensity = mid * 0.6;
-    const sparkleChance = high * 0.8;
+  for (let fi = 0; fi < flowers.length; fi++) {
+    const fl = flowers[fi];
+    const bloomScale = 1 + bass * 0.25 + pixelFlowerSmooth[0] * 0.15;
     const rotation = t * fl.rotSpeed + fl.phase;
 
     // Flower radius in pixels
     const flowerR = fl.size * bloomScale;
-    const petalR = flowerR * 0.55;
-    const centerR = flowerR * 0.2;
-
-    // ── Soft shadow under flower ────────────────────────────────────
-    ctx.fillStyle = isDark ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.04)";
-    const shadowOffX = flowerR * 0.08;
-    const shadowOffY = flowerR * 0.12;
-    for (let si = -2; si <= 2; si++) {
-      for (let sj = -1; sj <= 1; sj++) {
-        ctx.fillRect(
-          Math.floor(fl.x - centerR + shadowOffX + si * PX),
-          Math.floor(fl.y - centerR + shadowOffY + sj * PX),
-          PX, PX
-        );
-      }
-    }
 
     // ── Stem (going downward) ───────────────────────────────────────
-    const stemLen = flowerR * 2.5 + PX * 4;
-    const stemW = PX;
-    const stemSway = Math.sin(t * 0.5 + fl.phase) * PX * 2;
+    const stemLen = flowerR * 2.2 + PX * 3;
+    const stemSway = Math.sin(t * 0.5 + fl.phase) * PX * 1.5;
 
     ctx.fillStyle = stemColors[0];
-    // Draw stem with slight curve using stacked rectangles
     for (let sy = 0; sy < stemLen; sy += PX) {
       const progress = sy / stemLen;
       const sway = stemSway * progress;
       ctx.fillRect(
-        Math.floor(fl.x - stemW / 2 + sway),
+        Math.floor(fl.x - PX / 2 + sway),
         Math.floor(fl.y + flowerR * 0.3 + sy),
-        stemW, PX
+        PX, PX
       );
-      // Alternate stem color for texture
       if (sy % (PX * 3) === 0) {
         ctx.fillStyle = stemColors[1];
       } else if (sy % (PX * 3) === PX) {
@@ -297,83 +258,54 @@ function drawPixelFlowerCanvas(
     }
 
     // ── Leaves on stem ──────────────────────────────────────────────
-    const leafPositions = [0.25, 0.55];
+    const leafPositions = [0.3, 0.6];
     for (const leafFrac of leafPositions) {
       const ly = Math.floor(fl.y + flowerR * 0.3 + stemLen * leafFrac);
-      const lxProgress = leafFrac;
-      const lxSway = stemSway * lxProgress;
+      const lxSway = stemSway * leafFrac;
       const lxBase = Math.floor(fl.x + lxSway);
-      const leafSide = leafFrac === 0.25 ? 1 : -1;
-      const leafSize = PX * 2 + Math.floor(mid * PX);
+      const leafSide = leafFrac === 0.3 ? 1 : -1;
 
       ctx.fillStyle = leafColors[0];
-      // Main leaf body (3 pixel wide branch)
-      ctx.fillRect(
-        Math.floor(lxBase + leafSide * PX),
-        ly - PX, PX * 2, PX
-      );
-      ctx.fillRect(
-        Math.floor(lxBase + leafSide * PX * 2),
-        ly - PX * 2, PX, PX
-      );
+      ctx.fillRect(lxBase + leafSide * PX, ly - PX, PX * 2, PX);
       ctx.fillStyle = leafColors[1];
-      // Leaf tip
-      ctx.fillRect(
-        Math.floor(lxBase + leafSide * PX * 3),
-        ly - PX * 3, PX, PX
-      );
-      // Extra leaf pixel
+      ctx.fillRect(lxBase + leafSide * PX * 2, ly - PX * 2, PX, PX);
       ctx.fillStyle = leafColors[2];
-      ctx.fillRect(
-        Math.floor(lxBase + leafSide * PX),
-        ly, PX, PX
-      );
+      ctx.fillRect(lxBase + leafSide * PX, ly, PX, PX);
     }
 
-    // ── Petals (pixel art circle around center) ─────────────────────
-    const petalColorIdx = Math.floor(fl.hue / 90) % petalColors.length;
-    const petalGlow = glowIntensity * 0.3;
+    // ── Petals — large mosaic pixel blocks ──────────────────────────
+    // Draw a filled pixel-art flower shape: ring of petal clusters
+    const petalColorIdx = fi % petalColors.length;
+    const petalDist = flowerR * 0.45;
 
     for (let pi = 0; pi < fl.petalCount; pi++) {
       const petalAngle = (pi / fl.petalCount) * Math.PI * 2 + rotation;
-      // Each petal is a cluster of overlapping rectangles
-      const petalDist = flowerR * 0.45;
 
+      // Each petal is a 3x3 block of pixel squares
+      // with slight color variation for mosaic effect
       for (let px = -1; px <= 1; px++) {
         for (let py = -1; py <= 1; py++) {
           const dist = Math.sqrt(px * px + py * py);
           if (dist > 1.3) continue;
 
-          const bx = Math.floor(
-            fl.x + Math.cos(petalAngle) * petalDist + px * PX
-          );
-          const by = Math.floor(
-            fl.y + Math.sin(petalAngle) * petalDist + py * PX
-          );
+          const bx = Math.floor(fl.x + Math.cos(petalAngle) * petalDist + px * PX);
+          const by = Math.floor(fl.y + Math.sin(petalAngle) * petalDist + py * PX);
 
-          // Petal color with optional glow
-          const baseColor = petalColors[(petalColorIdx + pi) % petalColors.length];
-          ctx.fillStyle = baseColor;
-
-          // Glow: draw a slightly larger dim pixel behind
-          if (petalGlow > 0.1 && dist < 0.8) {
-            ctx.globalAlpha = petalGlow * (1 - dist);
-            ctx.fillRect(bx - 1, by - 1, PX + 2, PX + 2);
-            ctx.globalAlpha = 1;
-          }
-
-          ctx.fillStyle = baseColor;
+          // Mosaic color variation: pick slightly different shade per pixel
+          const colorSeed = fi * 100 + pi * 10 + px * 3 + py * 7;
+          const colorShift = seededRand(colorSeed);
+          const baseIdx = (petalColorIdx + pi + Math.floor(colorShift * 2)) % petalColors.length;
+          ctx.fillStyle = petalColors[baseIdx];
           ctx.fillRect(bx, by, PX, PX);
         }
       }
 
-      // Extra petal extension pixels for roundness
-      const extAngle = petalAngle;
-      const extDist = petalDist + PX * 0.8;
-      const ebx = Math.floor(fl.x + Math.cos(extAngle) * extDist);
-      const eby = Math.floor(fl.y + Math.sin(extAngle) * extDist);
-      const extColor = petalColors[(petalColorIdx + pi + 1) % petalColors.length];
-      ctx.globalAlpha = 0.6;
+      // Outer extension pixel — slightly transparent for softness
+      const extDist = petalDist + PX;
+      const ebx = Math.floor(fl.x + Math.cos(petalAngle) * extDist);
+      const eby = Math.floor(fl.y + Math.sin(petalAngle) * extDist);
+      const extColor = petalColors[(petalColorIdx + pi + 2) % petalColors.length];
+      ctx.globalAlpha = 0.5;
       ctx.fillStyle = extColor;
       ctx.fillRect(ebx, eby, PX, PX);
       ctx.globalAlpha = 1;
@@ -383,19 +315,18 @@ function drawPixelFlowerCanvas(
     const innerPetalCount = Math.max(3, fl.petalCount - 1);
     for (let pi = 0; pi < innerPetalCount; pi++) {
       const petalAngle = (pi / innerPetalCount) * Math.PI * 2 + rotation + Math.PI / fl.petalCount;
-      const petalDist = flowerR * 0.25;
+      const petalDist = flowerR * 0.22;
 
       const bx = Math.floor(fl.x + Math.cos(petalAngle) * petalDist);
       const by = Math.floor(fl.y + Math.sin(petalAngle) * petalDist);
 
-      const lightColor = petalColors[(petalColorIdx + pi + 2) % petalColors.length];
+      const lightColor = petalColors[(petalColorIdx + pi + 3) % petalColors.length];
       ctx.fillStyle = lightColor;
       ctx.fillRect(bx, by, PX, PX);
     }
 
-    // ── Flower center (golden) ──────────────────────────────────────
+    // ── Flower center — warm peach / orange (matching screenshot) ───
     ctx.fillStyle = centerColors[0];
-    // Center cluster of gold pixels
     for (let cx = -1; cx <= 1; cx++) {
       for (let cy = -1; cy <= 1; cy++) {
         if (Math.abs(cx) + Math.abs(cy) > 1.5) continue;
@@ -406,68 +337,25 @@ function drawPixelFlowerCanvas(
         );
       }
     }
-    // Darker gold accent
+    // Darker peach ring
     ctx.fillStyle = centerColors[1];
+    ctx.fillRect(Math.floor(fl.x - PX), Math.floor(fl.y), PX, PX);
+    ctx.fillRect(Math.floor(fl.x + PX), Math.floor(fl.y), PX, PX);
+    ctx.fillRect(Math.floor(fl.x), Math.floor(fl.y - PX), PX, PX);
+    ctx.fillRect(Math.floor(fl.x), Math.floor(fl.y + PX), PX, PX);
+    // Bright center dot
+    ctx.fillStyle = centerColors[2];
     ctx.fillRect(
-      Math.floor(fl.x - PX),
-      Math.floor(fl.y),
-      PX, PX
-    );
-    ctx.fillRect(
-      Math.floor(fl.x + PX),
-      Math.floor(fl.y),
-      PX, PX
-    );
-    ctx.fillRect(
-      Math.floor(fl.x),
-      Math.floor(fl.y - PX),
-      PX, PX
-    );
-    ctx.fillRect(
-      Math.floor(fl.x),
-      Math.floor(fl.y + PX),
+      Math.floor(fl.x - PX * 0.5),
+      Math.floor(fl.y - PX * 0.5),
       PX, PX
     );
 
-    // ── Sparkle pixels on high frequencies ──────────────────────────
-    if (high > 0.2) {
-      const sparkleCount = Math.floor(high * 6);
-      for (let si = 0; si < sparkleCount; si++) {
-        const sAngle = (si / sparkleCount) * Math.PI * 2 + t * 2;
-        const sDist = centerR + PX + Math.random() * petalR * 0.8;
-        const sx = Math.floor(fl.x + Math.cos(sAngle) * sDist);
-        const sy = Math.floor(fl.y + Math.sin(sAngle) * sDist);
-        const sColor = sparkleColors[Math.floor(Math.random() * sparkleColors.length)];
-        ctx.globalAlpha = high * (0.4 + Math.random() * 0.4);
-        ctx.fillStyle = sColor;
-        ctx.fillRect(sx, sy, PX, PX);
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    // ── Subtle pulsing glow ring around flower (bass reactive) ──────
-    if (bass > 0.3) {
-      const glowR = flowerR + PX * 2;
-      ctx.globalAlpha = isDark ? bass * 0.12 : bass * 0.06;
-      ctx.strokeStyle = petalColors[0];
-      ctx.lineWidth = PX;
-      ctx.beginPath();
-      // Draw pixelated circle approximation
-      const steps = Math.max(8, fl.petalCount * 3);
-      for (let si = 0; si < steps; si++) {
-        const a = (si / steps) * Math.PI * 2;
-        const gx = Math.floor(fl.x + Math.cos(a) * glowR);
-        const gy = Math.floor(fl.y + Math.sin(a) * glowR);
-        ctx.fillRect(gx, gy, PX, PX);
-      }
-      ctx.globalAlpha = 1;
-    }
-
-    // ── Ambient glow under flower (dark mode only) ─────────────────
+    // ── Subtle ambient glow under flower (dark mode only) ───────────
     if (isDark) {
-      const glowGrad = ctx.createRadialGradient(fl.x, fl.y, 0, fl.x, fl.y, flowerR * 1.8);
-      glowGrad.addColorStop(0, "rgba(155,109,255,0.06)");
-      glowGrad.addColorStop(0.5, "rgba(100,60,180,0.03)");
+      const glowGrad = ctx.createRadialGradient(fl.x, fl.y, 0, fl.x, fl.y, flowerR * 1.6);
+      glowGrad.addColorStop(0, "rgba(114,71,116,0.06)");
+      glowGrad.addColorStop(0.5, "rgba(90,60,100,0.03)");
       glowGrad.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = glowGrad;
       ctx.fillRect(
@@ -480,27 +368,29 @@ function drawPixelFlowerCanvas(
   }
 
   // ── Ground line at bottom ───────────────────────────────────────────
-  ctx.fillStyle = isDark ? "rgba(61,90,53,0.15)" : "rgba(74,103,65,0.08)";
+  ctx.fillStyle = isDark ? "rgba(61,90,53,0.12)" : "rgba(74,103,65,0.08)";
   ctx.fillRect(0, Math.floor(h * 0.88), w, PX);
-  ctx.fillStyle = isDark ? "rgba(61,90,53,0.08)" : "rgba(74,103,65,0.04)";
+  ctx.fillStyle = isDark ? "rgba(61,90,53,0.06)" : "rgba(74,103,65,0.04)";
   ctx.fillRect(0, Math.floor(h * 0.88) + PX, w, PX);
 
-  // ── Floating pixel particles (dark mode ambient) ─────────────────────
-  if (isDark) {
-    for (let i = 0; i < 12; i++) {
-      const px = (Math.sin(t * 0.3 + i * 1.7) * 0.5 + 0.5) * w;
-      const py = (Math.cos(t * 0.2 + i * 2.3) * 0.5 + 0.5) * h;
-      const sparkleAlpha = (Math.sin(t * 0.8 + i) * 0.5 + 0.5) * 0.15;
-      ctx.globalAlpha = sparkleAlpha;
-      ctx.fillStyle = sparkleColors[i % sparkleColors.length];
-      ctx.fillRect(Math.floor(px), Math.floor(py), PX, PX);
-    }
-    ctx.globalAlpha = 1;
+  // ── Floating ambient sparkle pixels ────────────────────────────────
+  const sparkleCount = isDark ? 8 : 5;
+  const sparkleColors = isDark
+    ? ["#c88c68", "#a693af", "#93778d", "#FFFFFF"]
+    : ["#E8C547", "#D4A5B5", "#B8A9C9", "#FFFFFF"];
+  for (let i = 0; i < sparkleCount; i++) {
+    const px = (Math.sin(t * 0.3 + i * 1.7) * 0.5 + 0.5) * w;
+    const py = (Math.cos(t * 0.2 + i * 2.3) * 0.5 + 0.5) * h;
+    const sparkleAlpha = (Math.sin(t * 0.8 + i) * 0.5 + 0.5) * (isDark ? 0.12 : 0.08);
+    ctx.globalAlpha = sparkleAlpha;
+    ctx.fillStyle = sparkleColors[i % sparkleColors.length];
+    ctx.fillRect(Math.floor(px), Math.floor(py), PX, PX);
   }
+  ctx.globalAlpha = 1;
 
   // ── Idle sway animation (when no music) ─────────────────────────────
   for (const fl of flowers) {
-    fl.phase += 0.002; // Very subtle idle drift
+    fl.phase += 0.002;
   }
 }
 
