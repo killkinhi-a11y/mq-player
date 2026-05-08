@@ -2613,8 +2613,8 @@ export default function PlayerBar() {
             style={{
               left: `${(abRepeat.pointA / duration) * 100}%`,
               width: abRepeat.pointB !== null
-                ? `${((abRepeat.pointB - abRepeat.pointA) / duration) * 100}%`
-                : `${((progress - abRepeat.pointA) / duration) * 100}%`,
+                ? `${Math.max(0, ((abRepeat.pointB - abRepeat.pointA) / duration) * 100)}%`
+                : `${Math.max(0, ((progress - abRepeat.pointA) / duration) * 100)}%`,
               backgroundColor: abRepeat.active ? "var(--mq-accent)" : "rgba(139,92,246,0.3)",
               opacity: abRepeat.active ? 0.2 : 0.1,
             }}
@@ -2720,7 +2720,7 @@ export default function PlayerBar() {
                 </motion.div>
               ) : (
                 <motion.div key="play" initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }} exit={{ scale: 0, rotate: 90 }}>
-                  <Play className="w-4 h-4 sm:w-5 sm:h-5 ml-0.5" />
+                  <Play className="w-4 h-4 sm:w-5 sm:h-5" style={{ marginLeft: 2 }} />
                 </motion.div>
               )}
             </AnimatePresence>

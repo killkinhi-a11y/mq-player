@@ -65,6 +65,12 @@
   border-radius: 12px !important;
 }
 
+/* ── Preserve circular elements (rounded-full) ─────────────────────── */
+[data-style="pixel-flower"] .rounded-full,
+[data-style="pixel-flower"] [class*="rounded-full"] {
+  border-radius: 9999px !important;
+}
+
 /* ── Typography: System UI with slight retro feel ────────────────────── */
 [data-style="pixel-flower"],
 [data-style="pixel-flower"] body,
@@ -384,7 +390,7 @@
 }
 
 /* Progress scrubber: purple dot */
-[data-style="pixel-flower"] div[class*="fixed"][class*="z-40"] div[style*="left:"][style*="border-radius"] {
+[data-style="pixel-flower"] div[class*="fixed"][class*="z-40"] div[class*="rounded-full"][style*="left:"] {
   background: #a693af !important;
   box-shadow: 0 0 10px rgba(114,71,116,0.5) !important;
   border-radius: 50% !important;
@@ -784,7 +790,13 @@
   color: #6b5f80 !important;
 }
 
-/* Full view progress — purple gradient */
+/* Full view progress track */
+[data-style="pixel-flower"] div[class*="fixed"][class*="z-100"] [data-slot="slider-track"] {
+  background: #2a2238 !important;
+  border-radius: 4px !important;
+}
+
+/* Full view progress — purple gradient (fallback for inline style elements) */
 [data-style="pixel-flower"] div[class*="fixed"][class*="z-100"] div[style*="background: var(--mq-accent)"] {
   background: linear-gradient(90deg, #724774, #a693af, #8e7ea3) !important;
   box-shadow: 0 0 8px rgba(114,71,116,0.3) !important;
@@ -795,13 +807,20 @@
   background: #2a2238 !important;
 }
 
-/* Full view progress scrubber */
+/* Full view progress scrubber — Shadcn Slider thumb */
+[data-style="pixel-flower"] div[class*="fixed"][class*="z-100"] [data-slot="slider-thumb"],
 [data-style="pixel-flower"] div[class*="fixed"][class*="z-100"] div[style*="left:"][style*="border-radius"] {
   background: #a693af !important;
   box-shadow: 0 0 10px rgba(114,71,116,0.5) !important;
   border-radius: 50% !important;
   width: 14px !important;
   height: 14px !important;
+}
+
+/* Full view progress range — purple gradient */
+[data-style="pixel-flower"] div[class*="fixed"][class*="z-100"] [data-slot="slider-range"] {
+  background: linear-gradient(90deg, #724774, #a693af) !important;
+  box-shadow: 0 0 8px rgba(114,71,116,0.3) !important;
 }
 
 [data-style="pixel-flower"] div[class*="fixed"][class*="z-100"] input[type="range"] {

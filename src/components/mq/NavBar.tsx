@@ -65,7 +65,7 @@ export default function NavBar() {
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => setView(item.id)}
-              className={`flex items-center gap-2 ${compactMode ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm"} rounded-xl transition-all duration-200 relative overflow-hidden`}
+              className={`flex items-center gap-2 ${compactMode ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm"} rounded-xl transition-all duration-200 relative`}
               style={{
                 backgroundColor: isActive ? "rgba(255,255,255,0.1)" : "transparent",
                 color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
