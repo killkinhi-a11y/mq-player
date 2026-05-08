@@ -84,48 +84,239 @@ const ORB_CONFIGS: Orb[] = [
   { hueShift: -30, satMul: 0.7, lightBase: 0.25, baseRadiusFrac: 0.28, xPhase: 1.0,  yPhase: 4.5, xSpeed: 0.25, ySpeed: 0.10, xAmp: 0.20, yAmp: 0.12, pulsePhase: 4.5, pulseSpeed: 0.6,  highFreqSensitivity: 1.0 },
 ];
 
-// ── Pixel Flower: Pixelated flower garden visualization ────────────────────
-// Inspired by the Figma pixel-effect flower: large visible pixel blocks,
-// soft lavender / mauve / purple petals, warm peach center, mosaic color variation.
+// ══════════════════════════════════════════════════════════════════════════════
+// Pixel Flower — Pointillist Particle Visualization
+// ─────────────────────────────────────────────────────────────────────────────
+// Exact recreation of the screenshot style:
+//   • White background (#ffffff)
+//   • Organic flower shapes formed by thousands of tiny 1px colored dots
+//   • Palette: lavender (#a693af), mauve (#93778d), deep purple (#684e7d),
+//     light orchid (#ffc1ff), near-white lavender (#ffe8ff)
+//   • Warm peach/salmon center dots (#c88c68, #e1a084)
+//   • Soft gaussian density falloff at edges
+//   • Purple vine/stem connecting flowers
+//   • No chunky pixel blocks, no leaves, no sparkles
+// ══════════════════════════════════════════════════════════════════════════════
 
-interface PixelFlower {
-  x: number; y: number; size: number; petalCount: number;
-  hue: number; phase: number; rotSpeed: number;
+interface PF_Flower {
+  x: number; y: number;
+  rx: number; ry: number; // ellipse radii
+  particles: Array<{ dx: number; dy: number; color: string; alpha: number }>;
+  hasCenter: boolean;
 }
 
-// Drifting pixel petals spawned on bass hits
-interface DriftPetal {
-  x: number; y: number; vx: number; vy: number;
-  color: string; life: number; maxLife: number; size: number;
+interface PF_VineNode {
+  x: number; y: number;
+  w: number; // width
 }
 
 const pixelFlowerSmooth = new Float32Array(16);
-const driftPetals: DriftPetal[] = [];
 
-// Simple seeded pseudo-random for deterministic color variation per flower
-function seededRand(seed: number): number {
-  let x = Math.sin(seed) * 43758.5453;
+// Seeded random for deterministic flower generation
+function pfRand(seed: number): number {
+  let x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
   return x - Math.floor(x);
 }
 
-// Pre-configured flower positions (normalized 0-1) — fewer, bigger, more prominent
-function createInitialFlowers(w: number, h: number): PixelFlower[] {
-  const positions = [
-    { xf: 0.20, yf: 0.28, size: 36, petals: 6, hue: 270, phase: 0, rot: 0.08 },
-    { xf: 0.50, yf: 0.22, size: 44, petals: 7, hue: 310, phase: 1.5, rot: -0.05 },
-    { xf: 0.80, yf: 0.30, size: 32, petals: 5, hue: 290, phase: 3.0, rot: 0.10 },
-    { xf: 0.35, yf: 0.58, size: 28, petals: 6, hue: 330, phase: 4.2, rot: -0.07 },
-    { xf: 0.65, yf: 0.55, size: 38, petals: 7, hue: 280, phase: 5.5, rot: 0.06 },
+// Palette from screenshot analysis — 18 colors
+const PF_PETAL_PALETTE = [
+  [255, 232, 255], // #ffe8ff — lightest lavender
+  [255, 231, 255], // #ffe7ff
+  [255, 240, 255], // #fff0ff — near-white pink
+  [255, 193, 255], // #ffc1ff — medium lavender-pink
+  [222, 184, 241], // #deb8f1 — light orchid
+  [192, 168, 182], // #c0a8b6 — soft mauve
+  [182, 158, 172], // #b69eac — mauve/dusty rose
+  [166, 147, 175], // #a693af — DOMINANT primary purple
+  [167, 146, 179], // #a792b3
+  [168, 149, 177], // #a895b1
+  [164, 127, 168], // #a47fa8 — violet
+  [163, 131, 152], // #a38398 — pink accent
+  [154, 125, 155], // #9a7d9b — muted purple
+  [146, 117, 147], // #927593 — purple-mauve
+  [142, 126, 163], // #8e7ea3 — deeper purple
+  [138, 111, 142], // #8a6f8e — darker purple
+  [114, 71, 116],  // #724774 — dark purple-magenta
+  [104, 78, 125],  // #684e7d — darkest purple
+];
+
+const PF_CENTER_PALETTE = [
+  [200, 140, 104], // #c88c68 — warm peach
+  [225, 160, 132], // #e1a084 — salmon
+  [202, 140, 103], // #ca8c67
+  [218, 152, 118], // #da9876
+];
+
+const PF_STEM_PALETTE = [
+  [142, 126, 163], // #8e7ea3
+  [138, 111, 142], // #8a6f8e
+  [114, 71, 116],  // #724774
+];
+
+// Generate flower particles once
+function generateFlowerParticles(
+  cx: number, cy: number, rx: number, ry: number,
+  count: number, hasCenter: boolean, seed: number
+): PF_Flower {
+  const particles: PF_Flower['particles'] = [];
+  let s = seed;
+
+  // Main flower body — gaussian distribution in ellipse
+  for (let i = 0; i < count; i++) {
+    s += 1.0;
+    // Box-Muller for gaussian
+    const u1 = pfRand(s) || 0.001;
+    const u2 = pfRand(s + 0.5);
+    const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    const z1 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
+
+    // Scale to ellipse — clip at 2.5 sigma for soft edge
+    const dx = Math.max(-2.5, Math.min(2.5, z0)) * rx * 0.4;
+    const dy = Math.max(-2.5, Math.min(2.5, z1)) * ry * 0.4;
+
+    // Check if inside ellipse (with soft falloff)
+    const normDist = (dx * dx) / (rx * rx) + (dy * dy) / (ry * ry);
+    if (normDist > 1.0) continue;
+
+    // Alpha falls off near edge
+    const edgeFade = normDist < 0.6 ? 1.0 : 1.0 - (normDist - 0.6) / 0.4;
+
+    // Color — blend from dark center to light edges
+    const colorIdx = Math.floor(pfRand(s + 100) * PF_PETAL_PALETTE.length);
+    const [r, g, b] = PF_PETAL_PALETTE[colorIdx];
+
+    // Add slight random variation per particle
+    const vr = Math.max(0, Math.min(255, r + Math.floor((pfRand(s + 200) - 0.5) * 20)));
+    const vg = Math.max(0, Math.min(255, g + Math.floor((pfRand(s + 300) - 0.5) * 20)));
+    const vb = Math.max(0, Math.min(255, b + Math.floor((pfRand(s + 400) - 0.5) * 20)));
+
+    particles.push({
+      dx, dy,
+      color: `rgb(${vr},${vg},${vb})`,
+      alpha: edgeFade * (0.3 + pfRand(s + 500) * 0.7),
+    });
+  }
+
+  // Warm center dots
+  if (hasCenter) {
+    const centerCount = Math.floor(count * 0.08);
+    for (let i = 0; i < centerCount; i++) {
+      s += 1.0;
+      const u1 = pfRand(s) || 0.001;
+      const u2 = pfRand(s + 0.5);
+      const z0 = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+      const z1 = Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2);
+      const dx = Math.max(-2, Math.min(2, z0)) * rx * 0.12;
+      const dy = Math.max(-2, Math.min(2, z1)) * ry * 0.12;
+      const ci = Math.floor(pfRand(s + 600) * PF_CENTER_PALETTE.length);
+      const [r, g, b] = PF_CENTER_PALETTE[ci];
+      const vr = Math.max(0, Math.min(255, r + Math.floor((pfRand(s + 700) - 0.5) * 30)));
+      const vg = Math.max(0, Math.min(255, g + Math.floor((pfRand(s + 800) - 0.5) * 30)));
+      const vb = Math.max(0, Math.min(255, b + Math.floor((pfRand(s + 900) - 0.5) * 30)));
+      particles.push({
+        dx, dy,
+        color: `rgb(${vr},${vg},${vb})`,
+        alpha: 0.4 + pfRand(s + 1000) * 0.6,
+      });
+    }
+  }
+
+  return { x: cx, y: cy, rx, ry, particles, hasCenter };
+}
+
+// Generate vine particles between two points
+function generateVineParticles(
+  x1: number, y1: number, x2: number, y2: number,
+  width: number, count: number, seed: number
+): Array<{ x: number; y: number; color: string; alpha: number }> {
+  const particles: Array<{ x: number; y: number; color: string; alpha: number }> = [];
+  let s = seed;
+  for (let i = 0; i < count; i++) {
+    s += 1.0;
+    const t = pfRand(s);
+    // Bezier curve with slight bend
+    const mx = (x1 + x2) / 2 + (pfRand(s + 1) - 0.5) * 40;
+    const my = (y1 + y2) / 2 + (pfRand(s + 2) - 0.5) * 20;
+    const bx = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * mx + t * t * x2;
+    const by = (1 - t) * (1 - t) * y1 + 2 * (1 - t) * t * my + t * t * y2;
+    // Perpendicular offset for width
+    const dx = x2 - mx;
+    const dy = y2 - my;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const offset = (pfRand(s + 3) - 0.5) * width;
+    const px = bx + nx * offset;
+    const py = by + ny * offset;
+    const ci = Math.floor(pfRand(s + 4) * PF_STEM_PALETTE.length);
+    const [r, g, b] = PF_STEM_PALETTE[ci];
+    const vr = Math.max(0, Math.min(255, r + Math.floor((pfRand(s + 5) - 0.5) * 15)));
+    const vg = Math.max(0, Math.min(255, g + Math.floor((pfRand(s + 6) - 0.5) * 15)));
+    const vb = Math.max(0, Math.min(255, b + Math.floor((pfRand(s + 7) - 0.5) * 15)));
+    particles.push({
+      x: px, y: py,
+      color: `rgb(${vr},${vg},${vb})`,
+      alpha: 0.2 + pfRand(s + 8) * 0.5,
+    });
+  }
+  return particles;
+}
+
+interface PF_Scene {
+  flowers: PF_Flower[];
+  vineParticles: Array<{ x: number; y: number; color: string; alpha: number }>;
+  driftPetals: Array<{ x: number; y: number; vx: number; vy: number; color: string; life: number; maxLife: number }>;
+  initialized: boolean;
+}
+
+const pfScene: PF_Scene = {
+  flowers: [],
+  vineParticles: [],
+  driftPetals: [],
+  initialized: false,
+};
+
+function initPFScene(w: number, h: number, isDark: boolean) {
+  // ── Flowers (positions matching screenshot layout) ──
+  // Upper flower — left side, smaller, rounder
+  const upperFlower = generateFlowerParticles(
+    w * 0.15, h * 0.38,
+    w * 0.18, h * 0.22,
+    3500, true, 42
+  );
+
+  // Lower flower — center-right, larger, wider
+  const lowerFlower = generateFlowerParticles(
+    w * 0.52, h * 0.52,
+    w * 0.28, h * 0.28,
+    6000, false, 77
+  );
+
+  // Small bud — right side
+  const budFlower = generateFlowerParticles(
+    w * 0.78, h * 0.72,
+    w * 0.06, h * 0.08,
+    800, false, 133
+  );
+
+  pfScene.flowers = [upperFlower, lowerFlower, budFlower];
+
+  // ── Vine connecting upper to lower flower ──
+  pfScene.vineParticles = [
+    ...generateVineParticles(
+      upperFlower.x + upperFlower.rx * 0.3, upperFlower.y + upperFlower.ry * 0.8,
+      lowerFlower.x - lowerFlower.rx * 0.3, lowerFlower.y - lowerFlower.ry * 0.5,
+      50, 1200, 200
+    ),
+    // Vine from lower flower down to bud
+    ...generateVineParticles(
+      lowerFlower.x + lowerFlower.rx * 0.5, lowerFlower.y + lowerFlower.ry * 0.7,
+      budFlower.x - budFlower.rx, budFlower.y - budFlower.ry * 0.5,
+      30, 600, 300
+    ),
   ];
-  return positions.map(p => ({
-    x: Math.floor(w * p.xf),
-    y: Math.floor(h * p.yf),
-    size: p.size,
-    petalCount: p.petals,
-    hue: p.hue,
-    phase: p.phase,
-    rotSpeed: p.rot,
-  }));
+
+  pfScene.initialized = true;
 }
 
 function drawPixelFlowerCanvas(
@@ -134,264 +325,108 @@ function drawPixelFlowerCanvas(
   freqData: Uint8Array<ArrayBuffer>,
   bass: number, mid: number, high: number,
   t: number,
-  flowers: PixelFlower[],
+  _flowers: PixelFlower[],
   lastBassHit: { value: number },
   isDark: boolean = true,
 ) {
-  const PX = 5; // larger pixel blocks for visible retro pixelation
-
   // ── Background ────────────────────────────────────────────────────
   if (isDark) {
     ctx.fillStyle = "#0d0b11";
     ctx.fillRect(0, 0, w, h);
-    // Soft radial vignette
-    const vigGrad = ctx.createRadialGradient(w * 0.5, h * 0.4, 0, w * 0.5, h * 0.4, Math.max(w, h) * 0.7);
-    vigGrad.addColorStop(0, "rgba(114,71,116,0.04)");
-    vigGrad.addColorStop(0.5, "rgba(90,60,100,0.02)");
-    vigGrad.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = vigGrad;
-    ctx.fillRect(0, 0, w, h);
   } else {
-    ctx.fillStyle = "#FAFAFA";
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, w, h);
   }
 
-  // ── Color palette — soft lavender / mauve / purple, warm peach center ──
-  // Matched to the Figma pixel-effect screenshot palette
-  const petalColors = isDark
-    ? ["#a693af", "#8e7ea3", "#724774", "#93778d", "#7c6899"]
-    : ["#B8A9C9", "#9B7DB8", "#D4A5B5", "#E8C5D0", "#a792b3"];
-  const centerColors = isDark
-    ? ["#c88c68", "#ba8163", "#d49570"]
-    : ["#E8C547", "#D4A830"];
-  const stemColors = isDark
-    ? ["#3D5A35", "#2E4A28"]
-    : ["#4A6741", "#3D5A35"];
-  const leafColors = isDark
-    ? ["#2E5A28", "#3D6B35", "#1E4A1A"]
-    : ["#5A7A4F", "#4A6741", "#6B8C5E"];
+  // ── Initialize scene once ─────────────────────────────────────────
+  if (!pfScene.initialized) {
+    initPFScene(w, h, isDark);
+  }
 
-  // ── Smoothing some frequency bands ───────────────────────────────────
+  // ── Audio smoothing ───────────────────────────────────────────────
   for (let i = 0; i < 8; i++) {
     const freqIdx = Math.floor((i / 8) * freqData.length * 0.6);
     const raw = freqData[freqIdx] / 255;
     pixelFlowerSmooth[i] += (raw - pixelFlowerSmooth[i]) * 0.15;
   }
 
-  // ── Ensure flowers are initialized ───────────────────────────────────
-  if (flowers.length === 0) {
-    const init = createInitialFlowers(w, h);
-    flowers.push(...init);
+  // ── Gentle bloom from audio ───────────────────────────────────────
+  const bloomScale = 1 + bass * 0.08 + mid * 0.04;
+  const breathe = 1 + Math.sin(t * 0.3) * 0.015; // subtle idle breathing
+
+  // ── Draw vine particles ───────────────────────────────────────────
+  for (const vp of pfScene.vineParticles) {
+    ctx.globalAlpha = vp.alpha * (isDark ? 0.6 : 0.4);
+    ctx.fillStyle = vp.color;
+    const sx = vp.x * bloomScale * breathe;
+    const sy = vp.y;
+    ctx.fillRect(Math.round(sx), Math.round(sy), 1, 1);
   }
 
-  // ── Bass hit — spawn drifting petals ────────────────────────────────
+  // ── Draw flower particles ─────────────────────────────────────────
+  for (const fl of pfScene.flowers) {
+    const flBloom = bloomScale * breathe;
+    for (const p of fl.particles) {
+      // Subtle oscillation
+      const osc = Math.sin(t * 0.5 + p.dx * 0.02 + p.dy * 0.02) * 1.5;
+      const px = Math.round(fl.x + p.dx * flBloom + osc);
+      const py = Math.round(fl.y + p.dy * flBloom + osc * 0.5);
+
+      const alpha = p.alpha * (isDark ? 0.55 : 0.75);
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(px, py, 1, 1);
+    }
+  }
+
+  // ── Bass hit — spawn drifting petal dots ───────────────────────────
   if (bass > 0.5 && bass - lastBassHit.value > 0.1) {
-    const fi = Math.floor(Math.random() * flowers.length);
-    const fl = flowers[fi];
-    const count = 2 + Math.floor(bass * 3);
+    const fl = pfScene.flowers[Math.floor(Math.random() * pfScene.flowers.length)];
+    const count = 3 + Math.floor(bass * 5);
     for (let j = 0; j < count; j++) {
       const angle = Math.random() * Math.PI * 2;
-      const dist = fl.size * (0.8 + Math.random() * 0.6);
-      driftPetals.push({
+      const dist = fl.rx * (0.5 + Math.random() * 0.8);
+      const ci = Math.floor(Math.random() * PF_PETAL_PALETTE.length);
+      const [r, g, b] = PF_PETAL_PALETTE[ci];
+      pfScene.driftPetals.push({
         x: fl.x + Math.cos(angle) * dist,
-        y: fl.y + Math.sin(angle) * dist,
-        vx: Math.cos(angle) * (0.3 + Math.random() * 0.6),
-        vy: -0.2 - Math.random() * 0.5,
-        color: petalColors[Math.floor(Math.random() * petalColors.length)],
+        y: fl.y + Math.sin(angle) * dist * 0.7,
+        vx: Math.cos(angle) * (0.2 + Math.random() * 0.5),
+        vy: -0.15 - Math.random() * 0.4,
+        color: `rgb(${r},${g},${b})`,
         life: 0,
-        maxLife: 80 + Math.random() * 60,
-        size: PX,
+        maxLife: 60 + Math.random() * 80,
       });
     }
   }
   lastBassHit.value = bass;
 
-  // ── Draw & update drifting petals ────────────────────────────────────
-  for (let i = driftPetals.length - 1; i >= 0; i--) {
-    const dp = driftPetals[i];
+  // ── Draw drifting petal dots ──────────────────────────────────────
+  for (let i = pfScene.driftPetals.length - 1; i >= 0; i--) {
+    const dp = pfScene.driftPetals[i];
     dp.x += dp.vx;
     dp.y += dp.vy;
-    dp.vy += 0.005;
-    dp.vx *= 0.995;
+    dp.vy += 0.003;
+    dp.vx += Math.sin(t + dp.x * 0.01) * 0.01;
     dp.life++;
     if (dp.life > dp.maxLife) {
-      driftPetals.splice(i, 1);
+      pfScene.driftPetals.splice(i, 1);
       continue;
     }
     const lifeRatio = 1 - dp.life / dp.maxLife;
-    const fade = lifeRatio < 0.2 ? lifeRatio / 0.2 : lifeRatio > 0.6 ? (1 - lifeRatio) / 0.4 : 1;
-    ctx.globalAlpha = fade * 0.6;
+    const fade = lifeRatio < 0.15 ? lifeRatio / 0.15 : lifeRatio > 0.5 ? (1 - lifeRatio) / 0.5 : 1;
+    ctx.globalAlpha = fade * 0.5 * (isDark ? 0.5 : 0.65);
     ctx.fillStyle = dp.color;
-    const wobble = Math.sin(dp.life * 0.15) * PX * 0.5;
-    ctx.fillRect(Math.floor(dp.x + wobble), Math.floor(dp.y), dp.size, dp.size);
+    ctx.fillRect(Math.round(dp.x), Math.round(dp.y), 1, 1);
   }
   ctx.globalAlpha = 1;
-  if (driftPetals.length > 60) driftPetals.splice(0, driftPetals.length - 60);
+  if (pfScene.driftPetals.length > 100) pfScene.driftPetals.splice(0, pfScene.driftPetals.length - 100);
+}
 
-  // ── Draw each flower ────────────────────────────────────────────────
-  for (let fi = 0; fi < flowers.length; fi++) {
-    const fl = flowers[fi];
-    const bloomScale = 1 + bass * 0.25 + pixelFlowerSmooth[0] * 0.15;
-    const rotation = t * fl.rotSpeed + fl.phase;
-
-    // Flower radius in pixels
-    const flowerR = fl.size * bloomScale;
-
-    // ── Stem (going downward) ───────────────────────────────────────
-    const stemLen = flowerR * 2.2 + PX * 3;
-    const stemSway = Math.sin(t * 0.5 + fl.phase) * PX * 1.5;
-
-    ctx.fillStyle = stemColors[0];
-    for (let sy = 0; sy < stemLen; sy += PX) {
-      const progress = sy / stemLen;
-      const sway = stemSway * progress;
-      ctx.fillRect(
-        Math.floor(fl.x - PX / 2 + sway),
-        Math.floor(fl.y + flowerR * 0.3 + sy),
-        PX, PX
-      );
-      if (sy % (PX * 3) === 0) {
-        ctx.fillStyle = stemColors[1];
-      } else if (sy % (PX * 3) === PX) {
-        ctx.fillStyle = stemColors[0];
-      }
-    }
-
-    // ── Leaves on stem ──────────────────────────────────────────────
-    const leafPositions = [0.3, 0.6];
-    for (const leafFrac of leafPositions) {
-      const ly = Math.floor(fl.y + flowerR * 0.3 + stemLen * leafFrac);
-      const lxSway = stemSway * leafFrac;
-      const lxBase = Math.floor(fl.x + lxSway);
-      const leafSide = leafFrac === 0.3 ? 1 : -1;
-
-      ctx.fillStyle = leafColors[0];
-      ctx.fillRect(lxBase + leafSide * PX, ly - PX, PX * 2, PX);
-      ctx.fillStyle = leafColors[1];
-      ctx.fillRect(lxBase + leafSide * PX * 2, ly - PX * 2, PX, PX);
-      ctx.fillStyle = leafColors[2];
-      ctx.fillRect(lxBase + leafSide * PX, ly, PX, PX);
-    }
-
-    // ── Petals — large mosaic pixel blocks ──────────────────────────
-    // Draw a filled pixel-art flower shape: ring of petal clusters
-    const petalColorIdx = fi % petalColors.length;
-    const petalDist = flowerR * 0.45;
-
-    for (let pi = 0; pi < fl.petalCount; pi++) {
-      const petalAngle = (pi / fl.petalCount) * Math.PI * 2 + rotation;
-
-      // Each petal is a 3x3 block of pixel squares
-      // with slight color variation for mosaic effect
-      for (let px = -1; px <= 1; px++) {
-        for (let py = -1; py <= 1; py++) {
-          const dist = Math.sqrt(px * px + py * py);
-          if (dist > 1.3) continue;
-
-          const bx = Math.floor(fl.x + Math.cos(petalAngle) * petalDist + px * PX);
-          const by = Math.floor(fl.y + Math.sin(petalAngle) * petalDist + py * PX);
-
-          // Mosaic color variation: pick slightly different shade per pixel
-          const colorSeed = fi * 100 + pi * 10 + px * 3 + py * 7;
-          const colorShift = seededRand(colorSeed);
-          const baseIdx = (petalColorIdx + pi + Math.floor(colorShift * 2)) % petalColors.length;
-          ctx.fillStyle = petalColors[baseIdx];
-          ctx.fillRect(bx, by, PX, PX);
-        }
-      }
-
-      // Outer extension pixel — slightly transparent for softness
-      const extDist = petalDist + PX;
-      const ebx = Math.floor(fl.x + Math.cos(petalAngle) * extDist);
-      const eby = Math.floor(fl.y + Math.sin(petalAngle) * extDist);
-      const extColor = petalColors[(petalColorIdx + pi + 2) % petalColors.length];
-      ctx.globalAlpha = 0.5;
-      ctx.fillStyle = extColor;
-      ctx.fillRect(ebx, eby, PX, PX);
-      ctx.globalAlpha = 1;
-    }
-
-    // ── Inner petal ring (smaller, lighter) ─────────────────────────
-    const innerPetalCount = Math.max(3, fl.petalCount - 1);
-    for (let pi = 0; pi < innerPetalCount; pi++) {
-      const petalAngle = (pi / innerPetalCount) * Math.PI * 2 + rotation + Math.PI / fl.petalCount;
-      const petalDist = flowerR * 0.22;
-
-      const bx = Math.floor(fl.x + Math.cos(petalAngle) * petalDist);
-      const by = Math.floor(fl.y + Math.sin(petalAngle) * petalDist);
-
-      const lightColor = petalColors[(petalColorIdx + pi + 3) % petalColors.length];
-      ctx.fillStyle = lightColor;
-      ctx.fillRect(bx, by, PX, PX);
-    }
-
-    // ── Flower center — warm peach / orange (matching screenshot) ───
-    ctx.fillStyle = centerColors[0];
-    for (let cx = -1; cx <= 1; cx++) {
-      for (let cy = -1; cy <= 1; cy++) {
-        if (Math.abs(cx) + Math.abs(cy) > 1.5) continue;
-        ctx.fillRect(
-          Math.floor(fl.x + cx * PX),
-          Math.floor(fl.y + cy * PX),
-          PX, PX
-        );
-      }
-    }
-    // Darker peach ring
-    ctx.fillStyle = centerColors[1];
-    ctx.fillRect(Math.floor(fl.x - PX), Math.floor(fl.y), PX, PX);
-    ctx.fillRect(Math.floor(fl.x + PX), Math.floor(fl.y), PX, PX);
-    ctx.fillRect(Math.floor(fl.x), Math.floor(fl.y - PX), PX, PX);
-    ctx.fillRect(Math.floor(fl.x), Math.floor(fl.y + PX), PX, PX);
-    // Bright center dot
-    ctx.fillStyle = centerColors[2];
-    ctx.fillRect(
-      Math.floor(fl.x - PX * 0.5),
-      Math.floor(fl.y - PX * 0.5),
-      PX, PX
-    );
-
-    // ── Subtle ambient glow under flower (dark mode only) ───────────
-    if (isDark) {
-      const glowGrad = ctx.createRadialGradient(fl.x, fl.y, 0, fl.x, fl.y, flowerR * 1.6);
-      glowGrad.addColorStop(0, "rgba(114,71,116,0.06)");
-      glowGrad.addColorStop(0.5, "rgba(90,60,100,0.03)");
-      glowGrad.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = glowGrad;
-      ctx.fillRect(
-        Math.floor(fl.x - flowerR * 2),
-        Math.floor(fl.y - flowerR * 2),
-        Math.floor(flowerR * 4),
-        Math.floor(flowerR * 4)
-      );
-    }
-  }
-
-  // ── Ground line at bottom ───────────────────────────────────────────
-  ctx.fillStyle = isDark ? "rgba(61,90,53,0.12)" : "rgba(74,103,65,0.08)";
-  ctx.fillRect(0, Math.floor(h * 0.88), w, PX);
-  ctx.fillStyle = isDark ? "rgba(61,90,53,0.06)" : "rgba(74,103,65,0.04)";
-  ctx.fillRect(0, Math.floor(h * 0.88) + PX, w, PX);
-
-  // ── Floating ambient sparkle pixels ────────────────────────────────
-  const sparkleCount = isDark ? 8 : 5;
-  const sparkleColors = isDark
-    ? ["#c88c68", "#a693af", "#93778d", "#FFFFFF"]
-    : ["#E8C547", "#D4A5B5", "#B8A9C9", "#FFFFFF"];
-  for (let i = 0; i < sparkleCount; i++) {
-    const px = (Math.sin(t * 0.3 + i * 1.7) * 0.5 + 0.5) * w;
-    const py = (Math.cos(t * 0.2 + i * 2.3) * 0.5 + 0.5) * h;
-    const sparkleAlpha = (Math.sin(t * 0.8 + i) * 0.5 + 0.5) * (isDark ? 0.12 : 0.08);
-    ctx.globalAlpha = sparkleAlpha;
-    ctx.fillStyle = sparkleColors[i % sparkleColors.length];
-    ctx.fillRect(Math.floor(px), Math.floor(py), PX, PX);
-  }
-  ctx.globalAlpha = 1;
-
-  // ── Idle sway animation (when no music) ─────────────────────────────
-  for (const fl of flowers) {
-    fl.phase += 0.002;
-  }
+// Placeholder interface (kept for API compatibility)
+interface PixelFlower {
+  x: number; y: number; size: number; petalCount: number;
+  hue: number; phase: number; rotSpeed: number;
 }
 
 interface DefaultParticle {
@@ -440,7 +475,6 @@ function drawDefaultOrbs(
 
   ctx.globalCompositeOperation = "source-over";
 
-  // ── Frequency ring outline ────────────────────────────────────────────
   const ringR = minDim * 0.32;
   const segCount = 48;
   const segAngle = (Math.PI * 2) / segCount;
@@ -450,14 +484,12 @@ function drawDefaultOrbs(
     const freqIdx = Math.floor((i / segCount) * freqData.length * 0.6);
     const val = freqData[freqIdx] / 255;
     if (val < 0.05) continue;
-
     const angle = i * segAngle - Math.PI * 0.5;
     const x1 = w * 0.5 + Math.cos(angle) * ringR;
     const y1 = h * 0.45 + Math.sin(angle) * ringR;
     const outerR = ringR + val * minDim * 0.1;
     const x2 = w * 0.5 + Math.cos(angle) * outerR;
     const y2 = h * 0.45 + Math.sin(angle) * outerR;
-
     ctx.beginPath();
     ctx.moveTo(x1, y1);
     ctx.lineTo(x2, y2);
@@ -468,7 +500,6 @@ function drawDefaultOrbs(
   }
   ctx.restore();
 
-  // ── Particle trails from center ───────────────────────────────────────
   if (bass > 0.45 && Math.random() > 0.5 && defaultParticles.length < 50) {
     const angle = Math.random() * Math.PI * 2;
     defaultParticles.push({
@@ -517,7 +548,7 @@ export default function TrackCanvas({ isActive, isPlaying, currentStyle, styleVa
   const smoothMidRef = useRef(0);
   const smoothHighRef = useRef(0);
 
-  // Per-style state
+  // Per-style state (kept for API compat)
   const pixelFlowersRef = useRef<PixelFlower[]>([]);
   const pixelFlowerLastBassHitRef = useRef({ value: 0 });
 
@@ -537,6 +568,9 @@ export default function TrackCanvas({ isActive, isPlaying, currentStyle, styleVa
     const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return;
 
+    // Reset scene on resize
+    pfScene.initialized = false;
+
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
     const draw = (timestamp: number) => {
@@ -551,11 +585,11 @@ export default function TrackCanvas({ isActive, isPlaying, currentStyle, styleVa
       if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
         canvas.width = Math.round(w * dpr);
         canvas.height = Math.round(h * dpr);
+        pfScene.initialized = false; // regenerate on resize
       }
 
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      // ── Get audio data ────────────────────────────────────────────────
       const analyser = getAnalyser();
       const freqData = freqDataRef.current;
 
@@ -581,7 +615,6 @@ export default function TrackCanvas({ isActive, isPlaying, currentStyle, styleVa
       const high = smoothHighRef.current;
       const t = performance.now() / 1000;
 
-      // ── Style-specific rendering ─────────────────────────────────────
       switch (currentStyle) {
         case "pixel-flower": {
           const isLight = styleVariant === "light";
@@ -590,12 +623,10 @@ export default function TrackCanvas({ isActive, isPlaying, currentStyle, styleVa
         }
 
         default: {
-          // Default: enhanced orb visualization
           const accentHex = getAccentColor();
           ctx.fillStyle = "#000000";
           ctx.fillRect(0, 0, w, h);
           drawDefaultOrbs(ctx, w, h, bass, mid, high, isPlaying, t, accentHex, freqData);
-          // Vignette
           ctx.globalCompositeOperation = "source-over";
           const vigGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, Math.min(w, h) * 0.3, w * 0.5, h * 0.5, Math.max(w, h) * 0.75);
           vigGrad.addColorStop(0, "rgba(0,0,0,0)");
