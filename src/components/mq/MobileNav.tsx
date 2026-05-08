@@ -51,7 +51,7 @@ export default function MobileNav() {
               key={item.id}
               whileTap={{ scale: 0.9 }}
               onClick={() => setView(item.id)}
-              className={`flex flex-col items-center gap-0.5 ${compactMode ? "px-2 py-1 min-w-[40px] min-h-[38px]" : "px-3 py-1.5 min-w-[52px] min-h-[46px]"} cursor-pointer rounded-xl transition-all duration-200 relative overflow-hidden`}
+              className={`flex flex-col items-center gap-0.5 ${compactMode ? "px-2 py-1 min-w-[40px] min-h-[38px]" : "px-3 py-1.5 min-w-[52px] min-h-[46px]"} cursor-pointer rounded-xl transition-all duration-200 relative`}
               style={{
                 color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
                 backgroundColor: isActive

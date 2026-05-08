@@ -1835,8 +1835,8 @@ export default function FullTrackView() {
                   style={{
                     left: `${(abRepeat.pointA / duration) * 100}%`,
                     width: abRepeat.pointB !== null
-                      ? `${((abRepeat.pointB - abRepeat.pointA) / duration) * 100}%`
-                      : `${((progress - abRepeat.pointA) / duration) * 100}%`,
+                      ? `${Math.max(0, ((abRepeat.pointB - abRepeat.pointA) / duration) * 100)}%`
+                      : `${Math.max(0, ((progress - abRepeat.pointA) / duration) * 100)}%`,
                     backgroundColor: abRepeat.active ? "var(--mq-accent)" : "rgba(139,92,246,0.3)",
                     opacity: abRepeat.active ? 0.25 : 0.15,
                   }}
@@ -1855,7 +1855,7 @@ export default function FullTrackView() {
               {hoverTime !== null && !isDragging && (
                 <div className="absolute -top-8 pointer-events-none px-2 py-1 rounded text-xs font-mono"
                   style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border)",
-                    left: `${(hoverTime / (duration || 1)) * 100}%`, transform: "translateX(-50%)" }}>
+                    left: `${Math.max(8, Math.min(92, (hoverTime / (duration || 1)) * 100))}%`, transform: "translateX(-50%)" }}>
                   {formatDuration(Math.floor(hoverTime))}
                 </div>
               )}
@@ -1867,7 +1867,7 @@ export default function FullTrackView() {
           </div>
 
           {/* Secondary actions row: like, dislike, ab-repeat, sleep, more on mobile */}
-          <div className="flex items-center justify-center gap-3 mb-2 sm:mb-3">
+          <div className="flex items-center justify-center gap-2 sm:gap-3 mb-2 sm:mb-3 flex-wrap">
             <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
               className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
               style={{
@@ -1969,7 +1969,7 @@ export default function FullTrackView() {
             <motion.button whileTap={{ scale: 0.85 }} onClick={togglePlay}
               className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center"
               style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", boxShadow: isPlaying ? "0 0 30px var(--mq-glow)" : "none" }}>
-              {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7 ml-1" />}
+              {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7" style={{ marginLeft: 2 }} />}
             </motion.button>
             <motion.button whileTap={{ scale: 0.9 }} onClick={nextTrack} style={{ color: "var(--mq-text)" }}>
               <SkipForward className="w-6 h-6" />

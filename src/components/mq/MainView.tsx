@@ -1576,6 +1576,10 @@ export default function MainView() {
       <ScrollProgressBar />
 
       {/* Hero — Interactive with particles + mouse parallax + scroll fade */}
+      <div
+        className="hidden sm:block"
+        style={{ transform: `translateY(${heroScrollY * 0.15}px)`, opacity: heroScrollOpacity }}
+      >
       <motion.div
         ref={heroRef}
         initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
@@ -1583,10 +1587,8 @@ export default function MainView() {
         style={{
           background: "var(--mq-gradient), var(--mq-card)",
           border: "1px solid var(--mq-border)",
-          opacity: heroScrollOpacity,
-          transform: `translateY(${heroScrollY * 0.15}px)`,
         }}
-        className={`hidden sm:block rounded-2xl ${compactMode ? "p-3 sm:p-4 lg:p-5" : "p-4 sm:p-6 lg:p-8"} relative overflow-hidden transition-transform`}
+        className={`rounded-2xl ${compactMode ? "p-3 sm:p-4 lg:p-5" : "p-4 sm:p-6 lg:p-8"} relative overflow-hidden transition-transform`}
       >
         {/* Particle background */}
         <div className="absolute inset-0 rounded-2xl overflow-hidden" style={{ zIndex: 0 }}>
@@ -1665,6 +1667,7 @@ export default function MainView() {
           )}
         </div>
       </motion.div>
+      </div>
 
       {/* Liked tracks panel — smooth 60fps height animation */}
       <AnimatePresence>
