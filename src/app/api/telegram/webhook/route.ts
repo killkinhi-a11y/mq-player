@@ -5,9 +5,13 @@ import { handleTelegramMessage, handleCallbackQuery, setSiteOrigin } from "@/lib
 /**
  * Telegram Webhook endpoint.
  *
- * Uses Next.js `after()` to process messages AFTER sending 200 to Telegram.
- * This prevents Telegram from timing out while ensuring the handler
- * actually completes (unlike fire-and-forget which Vercel may freeze).
+ * Callback queries (button presses) are handled SYNCHRONOUSLY before responding,
+ * because Telegram requires the callback to be acknowledged (answerCallbackQuery)
+ * within a short window. Using `after()` for callbacks caused them to be dropped
+ * on serverless platforms that freeze after returning 200.
+ *
+ * Regular messages still use `after()` to avoid Telegram timeout on slow operations
+ * (search, import, etc.).
  */
 export async function POST(req: NextRequest) {
   try {
@@ -20,17 +24,17 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    // Handle callback query (inline keyboard button press)
+    // Handle callback query (inline keyboard button press) — SYNCHRONOUS
+    // Telegram requires answerCallbackQuery within ~10 seconds, so we must
+    // process this BEFORE returning 200 to avoid the callback being dropped.
     if (body.callback_query) {
-      after(() =>
-        handleCallbackQuery(body).catch((err) =>
-          console.error("[TELEGRAM WEBHOOK] callback_query error:", err)
-        )
+      await handleCallbackQuery(body).catch((err) =>
+        console.error("[TELEGRAM WEBHOOK] callback_query error:", err)
       );
       return NextResponse.json({ ok: true });
     }
 
-    // Handle message
+    // Handle message — use after() for heavy operations (search, import, etc.)
     if (body.message) {
       after(() =>
         handleTelegramMessage(body).catch((err) =>

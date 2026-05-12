@@ -456,7 +456,7 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     return;
   }
   if (data === "cmd_playlists") {
-    await handlePlaylists(chatId);
+    await handlePlaylists(chatId, messageId);
     return;
   }
   if (data === "cmd_newplaylist") {
@@ -1075,9 +1075,16 @@ async function handleAddSearchTrackToPlaylist(chatId: string, playlistId: string
 /*  List playlists                                                    */
 /* ================================================================== */
 
-async function handlePlaylists(chatId: string) {
+async function handlePlaylists(chatId: string, messageId?: number) {
   const user = await findUserByChatId(chatId);
-  if (!user) { await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code"); return; }
+  if (!user) {
+    if (messageId) {
+      await editMessageText(chatId, messageId, "Сначала авторизуйтесь — отправьте /code");
+    } else {
+      await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code");
+    }
+    return;
+  }
 
   let playlists = await db.playlist.findMany({
     where: { userId: user.id },
@@ -1110,13 +1117,15 @@ async function handlePlaylists(chatId: string) {
   for (let i = 0; i < deleteButtons.length; i += 2) rows.push(deleteButtons.slice(i, i + 2));
   rows.push([{ text: "Создать новый", callback_data: "cmd_newplaylist" }]);
 
-  await sendTelegramMessage(chatId,
-    `♫ <b>Ваши плейлисты</b> (${playlists.length}):\n\n${lines.join("\n")}\n\nЭти плейлисты также доступны на сайте в вашем аккаунте.`,
-    {
-      parseMode: "HTML",
-      replyMarkup: playlists.length <= 6 ? { inline_keyboard: rows } : undefined,
-    }
-  );
+  const text = `♫ <b>Ваши плейлисты</b> (${playlists.length}):\n\n${lines.join("\n")}\n\nЭти плейлисты также доступны на сайте в вашем аккаунте.`;
+  const markup = playlists.length <= 6 ? { inline_keyboard: rows } : undefined;
+
+  // Edit existing message (from button press) or send new (from /playlists command)
+  if (messageId) {
+    await editMessageText(chatId, messageId, text, { parseMode: "HTML", replyMarkup: markup });
+  } else {
+    await sendTelegramMessage(chatId, text, { parseMode: "HTML", replyMarkup: markup });
+  }
 }
 
 /* ================================================================== */
