@@ -14,6 +14,165 @@ import ScrollReveal from "./ScrollReveal";
 import ScrollProgressBar from "./ScrollProgressBar";
 import ArtistCard from "./ArtistCard";
 
+// ── AI Recommendations Bar (compact, auto-fetched) ──
+function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
+  playTrack: (track: Track, queue?: Track[]) => void;
+  animationsEnabled: boolean;
+  compactMode: boolean;
+}) {
+  const [aiTracks, setAiTracks] = useState<Track[]>([]);
+  const [aiSummary, setAiSummary] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchAIRecs = async () => {
+      setAiLoading(true);
+      try {
+        const state = useAppStore.getState();
+        const tg = state.tasteGenres;
+        const ta = state.tasteArtists;
+        const tm = state.tasteMoods;
+
+        const topGenres = Object.entries(tg).filter(([, v]) => v >= 20).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([g]) => g);
+        const topArtists = Object.entries(ta).filter(([, v]) => v >= 20).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([a]) => a);
+        const moods = Object.entries(tm || {}).filter(([, v]) => v >= 30).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m]) => m);
+        const recentTitles = state.history.slice(0, 8).map(h => `${h.track.title} - ${h.track.artist}`).join("|");
+        const disliked = state.dislikedTrackIds || [];
+        const dislikedGenres = state.dislikedTracksData.map((t: Track) => t.genre).filter(Boolean).slice(0, 5);
+        const completedGenres = state.feedbackBatch?.completedGenres || [];
+
+        // Detect language
+        const langCounts: Record<string, number> = { russian: 0, english: 0 };
+        for (const entry of [...state.likedTracksData, ...state.history.slice(0, 30)]) {
+          const t = "title" in entry ? entry : entry.track;
+          const text = `${t.title || ""} ${t.artist || ""}`;
+          const cyrillic = (text.match(/[\u0400-\u04FF]/g) || []).length;
+          const latin = (text.match(/[a-zA-Z]/g) || []).length;
+          if (cyrillic / (cyrillic + latin + 1) > 0.4) langCounts.russian++;
+          else if (latin / (cyrillic + latin + 1) > 0.6) langCounts.english++;
+        }
+        const sortedLang = Object.entries(langCounts).sort((a, b) => b[1] - a[1]);
+        const lang = sortedLang[0]?.[1] > 5 ? sortedLang[0][0] : "mixed";
+
+        if (topGenres.length === 0 && topArtists.length === 0) {
+          setAiLoading(false);
+          return;
+        }
+
+        const params = new URLSearchParams();
+        if (topGenres.length > 0) params.set("genres", topGenres.join(","));
+        if (topArtists.length > 0) params.set("artists", topArtists.join(","));
+        if (moods.length > 0) params.set("moods", moods.join(","));
+        if (recentTitles) params.set("recentTitles", recentTitles);
+        if (dislikedGenres.length > 0) params.set("skippedGenres", dislikedGenres.join(","));
+        if (completedGenres.length > 0) params.set("completedGenres", completedGenres.join(","));
+        if (lang !== "mixed") params.set("lang", lang);
+        params.set("limit", "12");
+
+        const res = await fetch(`/api/ai/recommendations?${params}`);
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+
+        const dislikedSet = new Set(disliked);
+        setAiTracks((data.tracks || []).filter((t: Track) => !dislikedSet.has(t.id)));
+        setAiSummary(data._meta?.aiSummary || "");
+      } catch {
+        // Silently fail — AI recs are supplementary
+      } finally {
+        if (!cancelled) setAiLoading(false);
+      }
+    };
+    fetchAIRecs();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (aiLoading) {
+    return (
+      <div className="flex gap-2.5 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex-shrink-0 w-[148px] rounded-xl" style={{ background: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+            <Skeleton className="w-full aspect-square rounded-t-xl" />
+            <div className="p-2.5 space-y-1.5">
+              <Skeleton className="h-3 w-4/5" />
+              <Skeleton className="h-2.5 w-3/5" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (aiTracks.length === 0) {
+    return (
+      <div className="rounded-xl p-4 text-center"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+        <Sparkles className="w-5 h-5 mx-auto mb-1.5" style={{ color: "var(--mq-accent)", opacity: 0.5 }} />
+        <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+          Слушайте больше музыки, чтобы AI подобрал рекомендации
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {aiSummary && (
+        <p className="text-[11px] mb-2.5 leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+          {aiSummary}
+        </p>
+      )}
+      <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+        {aiTracks.map((track, i) => (
+          <motion.button
+            key={track.id}
+            initial={animationsEnabled ? { opacity: 0, x: 20 } : undefined}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.03 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => playTrack(track, aiTracks)}
+            className="flex-shrink-0 w-[148px] rounded-xl overflow-hidden text-left cursor-pointer group relative"
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+          >
+            <div className="aspect-square relative overflow-hidden">
+              {track.cover ? (
+                <img src={track.cover} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.6 }}>
+                  <Music className="w-8 h-8" style={{ color: "var(--mq-text)" }} />
+                </div>
+              )}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:scale-100 scale-75"
+                  style={{ background: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                  <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                </div>
+              </div>
+              {/* AI badge */}
+              <div className="absolute top-1.5 left-1.5">
+                <span className="text-[8px] px-1.5 py-0.5 rounded-full font-medium"
+                  style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "#fff", backdropFilter: "blur(8px)" }}>
+                  AI
+                </span>
+              </div>
+            </div>
+            <div className="p-2.5 min-h-[52px]">
+              <p className="text-xs font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>
+                {track.title}
+              </p>
+              <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
+                {track.artist}
+              </p>
+            </div>
+          </motion.button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface CuratedPlaylist {
   id: string;
   name: string;
@@ -2450,6 +2609,38 @@ export default function MainView() {
           </motion.button>
         </div>
       )}
+      </ScrollReveal>
+
+      {/* AI-Powered Recommendations */}
+      <ScrollReveal direction="up" delay={0.43}>
+      <div>
+        <div className="flex items-center justify-between mb-3 min-h-[28px]">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 rounded-md flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg, var(--mq-accent), rgba(166,147,175,0.5))", boxShadow: "0 2px 8px rgba(166,147,175,0.25)" }}>
+              <Zap className="w-3.5 h-3.5" style={{ color: "var(--mq-text)" }} />
+            </div>
+            <h2 className="text-base font-bold overflow-hidden text-ellipsis whitespace-nowrap" style={{ color: "var(--mq-text)" }}>
+              AI подсказки
+            </h2>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+              style={{ backgroundColor: "rgba(166,147,175,0.15)", color: "var(--mq-accent)", border: "1px solid rgba(166,147,175,0.25)" }}>
+              powered by AI
+            </span>
+          </div>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setView("ai-assistant")}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium cursor-pointer transition-all hover:opacity-80"
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}
+          >
+            <Sparkles className="w-3 h-3" />
+            Открыть AI
+          </motion.button>
+        </div>
+
+        <AIRecommendationsBar playTrack={playTrack} animationsEnabled={animationsEnabled} compactMode={compactMode} />
+      </div>
       </ScrollReveal>
 
       {/* Trending tracks */}

@@ -2,12 +2,13 @@
 
 import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
-import { Home, Search, MessageCircle, Settings, User, ListMusic, Clock, Heart } from "lucide-react";
+import { Home, Search, MessageCircle, Settings, User, ListMusic, Clock, Heart, Sparkles } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
 const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
   { id: "main", icon: Home, label: "Главная" },
   { id: "search", icon: Search, label: "Поиск" },
+  { id: "ai-assistant", icon: Sparkles, label: "AI" },
   { id: "favorites", icon: Heart, label: "Избранное" },
   { id: "playlists", icon: ListMusic, label: "Плейлисты" },
   { id: "messenger", icon: MessageCircle, label: "Чаты", badgeKey: "messenger" },

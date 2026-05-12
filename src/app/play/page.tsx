@@ -37,6 +37,7 @@ const SpatialAudioView = lazy(() => import("@/components/mq/SpatialAudioView"));
 const FriendsView = lazy(() => import("@/components/mq/FriendsView"));
 const SleepTimerView = lazy(() => import("@/components/mq/SleepTimerView"));
 const FavoritesView = lazy(() => import("@/components/mq/FavoritesView"));
+const AIAssistant = lazy(() => import("@/components/mq/AIAssistant"));
 const MqCat = lazy(() => import("@/components/mq/MqCat"));
 const PlayerBar = lazy(() => import("@/components/mq/PlayerBar"));
 const FullTrackView = lazy(() => import("@/components/mq/FullTrackView"));
@@ -256,6 +257,7 @@ function AppShell() {
       case "spatial": return <SpatialAudioView currentTrack={currentTrack} />;
       case "friends": return <FriendsView />;
       case "favorites": return <FavoritesView />;
+      case "ai-assistant": return <AIAssistant />;
       case "sleepTimer": return <SleepTimerView />;
       default: return <MainView />;
     }

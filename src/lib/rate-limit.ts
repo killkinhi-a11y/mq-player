@@ -115,6 +115,8 @@ export const RATE_LIMITS = {
   search: { limit: 20, window: 60 },       // 20 req/min
   /** Heavy operations (import, recommendations) */
   heavy: { limit: 5, window: 60 },         // 5 req/min
+  /** Medium-cost endpoints (AI chat) */
+  medium: { limit: 15, window: 60 },        // 15 req/min
   /** Admin endpoints — moderate */
   admin: { limit: 60, window: 60 },        // 60 req/min
 } as const;
