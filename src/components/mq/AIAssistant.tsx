@@ -114,7 +114,8 @@ function TypingIndicator() {
 export default function AIAssistant() {
   const {
     playTrack, likedTracksData, history, tasteGenres, tasteArtists, tasteMoods,
-    animationsEnabled, addToUpNext, compactMode,
+    animationsEnabled, addToUpNext, compactMode, dislikedTracksData,
+    feedbackBatch, sessionStartTime, likedTrackIds,
   } = useAppStore();
 
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -139,7 +140,7 @@ export default function AIAssistant() {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
-  // Build taste profile for context
+  // Build taste profile for context — enriched with listening history
   const getTasteProfile = useCallback(() => {
     const topGenres = Object.entries(tasteGenres)
       .filter(([, v]) => v >= 20)
@@ -159,7 +160,34 @@ export default function AIAssistant() {
       .slice(0, 5)
       .map(([m]) => m);
 
-    const recentTracks = history.slice(0, 5).map(h => `${h.track.title} - ${h.track.artist}`);
+    const recentTracks = history.slice(0, 8).map(h => `${h.track.title} - ${h.track.artist}`);
+
+    // ── Extract top genres from listening HISTORY (not just taste profile) ──
+    const historyGenreCounts: Record<string, number> = {};
+    const historyArtistCounts: Record<string, number> = {};
+    for (const h of history.slice(0, 50)) {
+      const genre = (h.track.genre || "").trim();
+      const artist = (h.track.artist || "").trim();
+      if (genre) historyGenreCounts[genre] = (historyGenreCounts[genre] || 0) + h.playCount;
+      if (artist) historyArtistCounts[artist] = (historyArtistCounts[artist] || 0) + h.playCount;
+    }
+    const topHistoryGenres = Object.entries(historyGenreCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([g]) => g);
+    const topHistoryArtists = Object.entries(historyArtistCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([a]) => a);
+
+    // ── Feedback signals ──
+    const skippedGenres = feedbackBatch?.skippedGenres || [];
+    const completedGenres = feedbackBatch?.completedGenres || [];
+
+    // ── Session duration ──
+    const sessionMinutes = sessionStartTime
+      ? Math.floor((Date.now() - sessionStartTime) / 60000)
+      : 0;
 
     // Detect language
     const langCounts: Record<string, number> = { russian: 0, english: 0 };
@@ -174,8 +202,21 @@ export default function AIAssistant() {
     const sorted = Object.entries(langCounts).sort((a, b) => b[1] - a[1]);
     const language = sorted[0]?.[1] > 5 ? sorted[0][0] : "mixed";
 
-    return { genres: topGenres, artists: topArtists, moods, language, recentTracks };
-  }, [likedTracksData, history, tasteGenres, tasteArtists, tasteMoods]);
+    return {
+      genres: topGenres,
+      artists: topArtists,
+      moods,
+      language,
+      recentTracks,
+      topHistoryGenres,
+      topHistoryArtists,
+      skippedGenres,
+      completedGenres,
+      sessionMinutes,
+      likedCount: likedTrackIds.length,
+      historyCount: history.length,
+    };
+  }, [likedTracksData, history, tasteGenres, tasteArtists, tasteMoods, dislikedTracksData, feedbackBatch, sessionStartTime, likedTrackIds]);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isLoading) return;
@@ -206,6 +247,18 @@ export default function AIAssistant() {
 
       const data = await res.json();
 
+      // Handle error responses gracefully
+      if (data.error) {
+        const assistantMsg: ChatMessage = {
+          id: `ai-${Date.now()}`,
+          role: "assistant",
+          content: "Ой, что-то пошло не так при обращении к AI 😔 Попробуй ещё раз через пару секунд!",
+          timestamp: Date.now(),
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+        return;
+      }
+
       const assistantMsg: ChatMessage = {
         id: `ai-${Date.now()}`,
         role: "assistant",
@@ -216,11 +269,12 @@ export default function AIAssistant() {
       };
 
       setMessages(prev => [...prev, assistantMsg]);
-    } catch {
+    } catch (err) {
+      console.error("[AIAssistant] fetch error:", err);
       setMessages(prev => [...prev, {
         id: `err-${Date.now()}`,
         role: "assistant",
-        content: "Ой, что-то пошло не так 😔 Попробуй ещё раз!",
+        content: "Не удалось связаться с AI-сервером. Проверьте подключение и попробуйте ещё раз 🔄",
         timestamp: Date.now(),
       }]);
     } finally {

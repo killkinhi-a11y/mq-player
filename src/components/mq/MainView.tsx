@@ -14,7 +14,7 @@ import ScrollReveal from "./ScrollReveal";
 import ScrollProgressBar from "./ScrollProgressBar";
 import ArtistCard from "./ArtistCard";
 
-// ── AI Recommendations Bar (compact, auto-fetched) ──
+// ── AI Recommendations Bar (compact, auto-fetched, history-aware) ──
 function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
   playTrack: (track: Track, queue?: Track[]) => void;
   animationsEnabled: boolean;
@@ -42,6 +42,28 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
         const dislikedGenres = state.dislikedTracksData.map((t: Track) => t.genre).filter(Boolean).slice(0, 5);
         const completedGenres = state.feedbackBatch?.completedGenres || [];
 
+        // ── Extract genres & artists from HISTORY (primary signal) ──
+        const historyGenreCounts: Record<string, number> = {};
+        const historyArtistCounts: Record<string, number> = {};
+        for (const h of state.history.slice(0, 50)) {
+          const genre = (h.track.genre || "").trim();
+          const artist = (h.track.artist || "").trim();
+          if (genre) historyGenreCounts[genre] = (historyGenreCounts[genre] || 0) + h.playCount;
+          if (artist) historyArtistCounts[artist] = (historyArtistCounts[artist] || 0) + h.playCount;
+        }
+        const topHistoryGenres = Object.entries(historyGenreCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([g]) => g);
+        const topHistoryArtists = Object.entries(historyArtistCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([a]) => a);
+
+        // Merge taste profile + history for broader coverage
+        const allGenres = [...new Set([...topGenres, ...topHistoryGenres])].slice(0, 6);
+        const allArtists = [...new Set([...topArtists, ...topHistoryArtists])].slice(0, 5);
+
         // Detect language
         const langCounts: Record<string, number> = { russian: 0, english: 0 };
         for (const entry of [...state.likedTracksData, ...state.history.slice(0, 30)]) {
@@ -55,14 +77,15 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
         const sortedLang = Object.entries(langCounts).sort((a, b) => b[1] - a[1]);
         const lang = sortedLang[0]?.[1] > 5 ? sortedLang[0][0] : "mixed";
 
-        if (topGenres.length === 0 && topArtists.length === 0) {
+        // ── Also works without taste profile — uses history only ──
+        if (allGenres.length === 0 && state.history.length < 3) {
           setAiLoading(false);
           return;
         }
 
         const params = new URLSearchParams();
-        if (topGenres.length > 0) params.set("genres", topGenres.join(","));
-        if (topArtists.length > 0) params.set("artists", topArtists.join(","));
+        if (allGenres.length > 0) params.set("genres", allGenres.join(","));
+        if (allArtists.length > 0) params.set("artists", allArtists.join(","));
         if (moods.length > 0) params.set("moods", moods.join(","));
         if (recentTitles) params.set("recentTitles", recentTitles);
         if (dislikedGenres.length > 0) params.set("skippedGenres", dislikedGenres.join(","));
@@ -103,13 +126,15 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
     );
   }
 
-  if (aiTracks.length === 0) {
+  if (aiTracks.length === 0 && !aiLoading) {
     return (
       <div className="rounded-xl p-4 text-center"
         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
         <Sparkles className="w-5 h-5 mx-auto mb-1.5" style={{ color: "var(--mq-accent)", opacity: 0.5 }} />
         <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-          Слушайте больше музыки, чтобы AI подобрал рекомендации
+          {useAppStore.getState().history.length >= 3
+            ? "AI анализирует вашу историю прослушиваний..."
+            : "Слушайте больше музыки, чтобы AI подобрал рекомендации"}
         </p>
       </div>
     );

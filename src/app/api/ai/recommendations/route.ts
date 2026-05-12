@@ -41,17 +41,18 @@ async function generateAIQueries(profile: TasteProfile): Promise<{
 }> {
   const zai = await ZAI.create();
 
-  const systemPrompt = `You are an expert music curator AI for a music player app. Given a user's listening taste profile, generate 6 highly targeted SoundCloud search queries that will discover amazing music they'll love.
+  const systemPrompt = `You are an expert music curator AI for a music player app. Given a user's ACTUAL listening history and taste profile, generate 6 highly targeted SoundCloud search queries that will discover amazing music they'll love.
 
 RULES:
 - Generate EXACTLY 6 search queries
 - Each query should be 2-5 words, optimized for SoundCloud search
-- Mix: 2 queries for known favorites (deeper cuts), 2 for genre exploration (adjacent genres), 2 for mood/vibe matches
+- Mix: 2 queries for known favorites (deeper cuts from favorite genres/artists), 2 for genre exploration (adjacent genres based on history), 2 for mood/vibe matches
 - Queries should NOT just be genre names — use creative combinations like "deep house vocal chill" or "indie folk atmospheric"
 - Consider the time of day for energy levels
-- Consider language preference (russian/english)
-- Avoid genres the user has been skipping
+- Consider language preference (russian/english) — if user listens to Russian music, include Russian artist names
+- AVOID genres the user has been skipping
 - Focus on genres the user completes/listens to fully
+- If user has recent plays, find SIMILAR music to what they recently listened to
 - Return queries in English (SoundCloud works best with English queries)
 - Be creative and specific — "lofi hip hop study beats" is better than just "lofi"
 
@@ -64,17 +65,19 @@ RESPOND WITH VALID JSON ONLY:
   "summary": "One sentence summary of the recommendation strategy in Russian"
 }`;
 
-  const userMessage = `Here is the user's taste profile:
+  const userMessage = `Here is the user's ACTUAL listening history and taste profile:
 
-Top genres: ${profile.topGenres.join(", ") || "none yet"}
-Top artists: ${profile.topArtists.join(", ") || "none yet"}
+Top genres (from both taste profile AND listening history): ${profile.topGenres.join(", ") || "none yet"}
+Top artists (from both taste profile AND listening history): ${profile.topArtists.join(", ") || "none yet"}
 Preferred moods: ${profile.moods.join(", ") || "unknown"}
-Recently played: ${profile.recentTrackTitles.slice(0, 10).join("; ") || "nothing yet"}
+Recently played tracks (last 10): ${profile.recentTrackTitles.slice(0, 10).join("; ") || "nothing yet"}
 Genres they SKIP (dislike): ${profile.skippedGenres.join(", ") || "none"}
 Genres they COMPLETE (love): ${profile.completedGenres.join(", ") || "none"}
 Language preference: ${profile.languagePreference}
-Current time: ${profile.timeOfDay}
+Current time of day: ${profile.timeOfDay}
 Listening session duration: ${profile.sessionMinutes} minutes
+
+IMPORTANT: Base your queries on the RECENTLY PLAYED tracks and top genres. If they've been playing indie rock, suggest similar indie rock artists. If they listen to Russian music, prioritize Russian-language results. If they skip certain genres, AVOID those genres entirely.
 
 Generate 6 search queries for this user.`;
 
