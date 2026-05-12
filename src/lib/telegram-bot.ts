@@ -673,11 +673,18 @@ async function handleAuthCode(chatId: string, from: Record<string, any>) {
       where: { chatId, used: false, expiresAt: { gt: new Date() } },
     }).catch(() => {});
 
-    // Create new code
+    // Create new code — handle BigInt safely
+    let telegramUserId: bigint;
+    try {
+      telegramUserId = BigInt(from.id);
+    } catch {
+      telegramUserId = BigInt(Math.abs(Number(from.id)) || 0);
+    }
+
     await db.telegramAuthCode.create({
       data: {
         chatId,
-        telegramUserId: BigInt(from.id),
+        telegramUserId,
         telegramUsername: from.username || null,
         code,
         expiresAt,
@@ -689,8 +696,16 @@ async function handleAuthCode(chatId: string, from: Record<string, any>) {
       { parseMode: "HTML" }
     );
   } catch (err: any) {
-    console.error("handleAuthCode error:", err?.message || err);
-    await sendTelegramMessage(chatId, "Ошибка при генерации кода. Попробуйте ещё раз.");
+    const errMsg = err?.message || String(err);
+    console.error("[TG Bot] handleAuthCode error:", errMsg);
+    // Provide more specific error message based on error type
+    let userMsg = "Ошибка при генерации кода. Попробуйте ещё раз.";
+    if (errMsg.includes("prisma") || errMsg.includes("database") || errMsg.includes("connect")) {
+      userMsg = "Ошибка подключения к базе данных. Попробуйте через минуту.";
+    } else if (errMsg.includes("BigInt") || errMsg.includes("bigint")) {
+      userMsg = "Ошибка обработки ID пользователя. Попробуйте ещё раз.";
+    }
+    await sendTelegramMessage(chatId, userMsg);
   }
 }
 
