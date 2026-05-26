@@ -1,0 +1,844 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Streaming Style — Dark Music Streaming UI
+   Modern dark theme with vibrant red accents, glassmorphism, and gradients.
+   Inspired by premium music streaming interfaces.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── CSS Variable Overrides: Dark Streaming ─────────────────────────── */
+[data-style="streaming"] {
+  --mq-bg: #121212;
+  --mq-card: #1a1a2e;
+  --mq-card-hover: #252540;
+  --mq-accent: #e53e3e;
+  --mq-accent-alt: #805ad5;
+  --mq-text: #ffffff;
+  --mq-text-muted: #a0aec0;
+  --mq-border: rgba(255,255,255,0.08);
+  --mq-input-bg: #1a1a2e;
+  --mq-player-bg: #0d0d0d;
+  --mq-nav-bg: rgba(18,18,18,0.92);
+  --mq-gradient: radial-gradient(ellipse at 20% 50%, rgba(229,62,62,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(128,90,213,0.06) 0%, transparent 40%);
+  --mq-glow: rgba(229,62,62,0.3);
+  --mq-chrome: #e53e3e;
+  --mq-purple-pink: #805ad5;
+  --mq-gold: #e53e3e;
+  /* ── Tailwind / shadcn UI variable overrides ───────────────────── */
+  --background: #121212;
+  --foreground: #ffffff;
+  --card: #1a1a2e;
+  --card-foreground: #ffffff;
+  --popover: #1a1a2e;
+  --popover-foreground: #ffffff;
+  --primary: #e53e3e;
+  --primary-foreground: #ffffff;
+  --secondary: #2d3748;
+  --secondary-foreground: #e2e8f0;
+  --muted: #2d3748;
+  --muted-foreground: #a0aec0;
+  --accent: #2d3748;
+  --accent-foreground: #e2e8f0;
+  --destructive: #ef4444;
+  --border: rgba(255,255,255,0.08);
+  --input: rgba(255,255,255,0.08);
+  --ring: #e53e3e;
+  --sidebar: #1a1a2e;
+  --sidebar-foreground: #e2e8f0;
+  --sidebar-primary: #e53e3e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #2d3748;
+  --sidebar-accent-foreground: #e2e8f0;
+  --sidebar-border: rgba(255,255,255,0.08);
+  --sidebar-ring: #e53e3e;
+}
+
+/* ── Root / Body ────────────────────────────────────────────────────── */
+[data-style="streaming"],
+[data-style="streaming"] body,
+[data-style="streaming"] main {
+  background: #121212 !important;
+}
+
+/* ── Global border-radius ────────────────────────────────────────────── */
+[data-style="streaming"] *,
+[data-style="streaming"] *::before,
+[data-style="streaming"] *::after {
+  border-radius: 12px !important;
+}
+
+/* ── Typography: Inter / System UI — premium streaming feel ─────────── */
+[data-style="streaming"],
+[data-style="streaming"] body,
+[data-style="streaming"] button,
+[data-style="streaming"] input,
+[data-style="streaming"] select,
+[data-style="streaming"] textarea,
+[data-style="streaming"] span,
+[data-style="streaming"] p,
+[data-style="streaming"] h1,
+[data-style="streaming"] h2,
+[data-style="streaming"] h3,
+[data-style="streaming"] div,
+[data-style="streaming"] a,
+[data-style="streaming"] label {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+[data-style="streaming"] h1,
+[data-style="streaming"] h2,
+[data-style="streaming"] h3,
+[data-style="streaming"] .font-bold,
+[data-style="streaming"] .font-semibold,
+[data-style="streaming"] .font-extrabold {
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background: none !important;
+  filter: none !important;
+}
+
+[data-style="streaming"] p,
+[data-style="streaming"] span,
+[data-style="streaming"] label,
+[data-style="streaming"] input,
+[data-style="streaming"] textarea,
+[data-style="streaming"] select {
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  filter: none !important;
+}
+
+/* ── Preserve glassmorphism effects ──────────────────────────────────── */
+/* Unlike neon/minimal styles, streaming KEEPS glassmorphism but enhances it */
+
+[data-style="streaming"] .liquid-glass {
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  background: rgba(255,255,255,0.04) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+}
+
+[data-style="streaming"] .liquid-glass-nav {
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  background: rgba(255,255,255,0.05) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+}
+
+/* Kill decorative glow pseudo-elements that clash with streaming style */
+[data-style="streaming"] .liquid-glass::before,
+[data-style="streaming"] .liquid-glass-nav::before {
+  background: linear-gradient(135deg, rgba(229,62,62,0.06) 0%, rgba(128,90,213,0.03) 40%, transparent 70%) !important;
+}
+
+[data-style="streaming"] .liquid-glass::after {
+  display: none !important;
+}
+
+[data-style="streaming"] .liquid-glass-nav::after {
+  display: none !important;
+}
+
+/* ── ═══ DESKTOP NAV BAR ═══ ───────────────────────────────────────── */
+[data-style="streaming"] header {
+  background: rgba(18,18,18,0.92) !important;
+  border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+  backdrop-filter: blur(40px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
+  position: relative !important;
+}
+
+/* Subtle red gradient line on header bottom */
+[data-style="streaming"] header::after {
+  content: '' !important;
+  position: absolute !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  height: 1px !important;
+  background: linear-gradient(90deg, transparent 0%, rgba(229,62,62,0.3) 30%, rgba(128,90,213,0.2) 70%, transparent 100%) !important;
+  z-index: 10 !important;
+}
+
+[data-style="streaming"] header nav,
+[data-style="streaming"] header .rounded-2xl {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Nav buttons */
+[data-style="streaming"] header nav button {
+  color: #a0aec0 !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  border-radius: 8px !important;
+  transition: color 0.15s ease, background 0.15s ease !important;
+}
+
+[data-style="streaming"] header nav button:hover {
+  color: #ffffff !important;
+  background: rgba(229,62,62,0.08) !important;
+}
+
+/* Active nav: red underline indicator */
+[data-style="streaming"] header nav button[style*="rgba(255,255,255,0.1)"],
+[data-style="streaming"] header nav button[style*="rgba(255,255,255,0.08)"] {
+  background: transparent !important;
+  color: #ffffff !important;
+}
+
+/* Active indicator dot — red */
+[data-style="streaming"] header nav button div[style*="rgba(255,255,255,0.1)"],
+[data-style="streaming"] header nav button div[style*="rgba(255,255,255,0.08)"],
+[data-style="streaming"] header nav button [class*="absolute"][class*="rounded"] {
+  background: #e53e3e !important;
+  box-shadow: 0 0 8px rgba(229,62,62,0.4) !important;
+}
+
+/* Logo — white with red accent */
+[data-style="streaming"] header div[class*="gap-2"][class*="cursor-pointer"] span {
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 800 !important;
+  font-size: 20px !important;
+  letter-spacing: -0.02em !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background: none !important;
+  filter: none !important;
+}
+
+/* User profile button */
+[data-style="streaming"] header button[class*="rounded-xl"] {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+[data-style="streaming"] header button[class*="rounded-xl"]:hover {
+  border-color: rgba(229,62,62,0.2) !important;
+  background: rgba(229,62,62,0.08) !important;
+}
+
+[data-style="streaming"] header button[class*="rounded-xl"] span {
+  color: #e2e8f0 !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  -webkit-text-fill-color: #e2e8f0 !important;
+  background: none !important;
+}
+
+/* ── ═══ TRACK CARDS ═══ ───────────────────────────────────────────── */
+[data-style="streaming"] button[data-track-card],
+[data-style="streaming"] div[data-track-card] {
+  background: #1a1a2e !important;
+  border-radius: 14px !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+}
+
+[data-style="streaming"] button[data-track-card]::before,
+[data-style="streaming"] div[data-track-card]::before {
+  display: none !important;
+}
+
+[data-style="streaming"] button[data-track-card]:hover,
+[data-style="streaming"] div[data-track-card]:hover {
+  background: #252540 !important;
+  border-color: rgba(229,62,62,0.2) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4) !important;
+}
+
+/* Active track: red left border */
+[data-style="streaming"] button[data-track-card][style*="var(--mq-accent)"],
+[data-style="streaming"] div[data-track-card].active {
+  background: #1a1a2e !important;
+  border-left: 2px solid #e53e3e !important;
+  border-image: none !important;
+  box-shadow: 0 0 16px rgba(229,62,62,0.15) !important;
+}
+
+/* Track card text */
+[data-style="streaming"] button[data-track-card] p[class*="truncate"],
+[data-style="streaming"] div[data-track-card] p[class*="truncate"] {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background: none !important;
+  filter: none !important;
+}
+
+[data-style="streaming"] button[data-track-card] p[class*="text-xs"],
+[data-style="streaming"] div[data-track-card] p[class*="text-xs"] {
+  color: #a0aec0 !important;
+  -webkit-text-fill-color: #a0aec0 !important;
+  background: none !important;
+  filter: none !important;
+}
+
+[data-style="streaming"] button[data-track-card] img,
+[data-style="streaming"] div[data-track-card] img {
+  border-radius: 10px !important;
+}
+
+/* ── ═══ PLAYER BAR ═══ ────────────────────────────────────────────── */
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] {
+  background: rgba(13,13,13,0.95) !important;
+  border-top: 1px solid rgba(255,255,255,0.06) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+}
+
+/* Track title in player */
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] p[class*="font-medium"] {
+  color: #ffffff !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background: none !important;
+  filter: none !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] p[class*="text-xs"] {
+  color: #a0aec0 !important;
+  -webkit-text-fill-color: #a0aec0 !important;
+  background: none !important;
+}
+
+/* Progress bar: red gradient with glow */
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] div[style*="width:"][style*="background: var(--mq-accent)"],
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] div[style*="width:"][style*="background:playError"] {
+  background: linear-gradient(90deg, #c53030, #e53e3e, #fc8181) !important;
+  box-shadow: 0 0 8px rgba(229,62,62,0.3) !important;
+  border-radius: 4px !important;
+}
+
+/* Progress track bg */
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] div[class*="w-full"][class*="cursor-pointer"],
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] div[class*="h-1"],
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] div[class*="h-2"] {
+  background: rgba(255,255,255,0.1) !important;
+}
+
+/* Progress scrubber: red dot */
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] div[style*="left:"][style*="border-radius"] {
+  background: #e53e3e !important;
+  box-shadow: 0 0 10px rgba(229,62,62,0.5) !important;
+  border-radius: 50% !important;
+  width: 14px !important;
+  height: 14px !important;
+}
+
+/* Time labels */
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] div[style*="color: var(--mq-text-muted)"] {
+  color: #a0aec0 !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+  font-weight: 400 !important;
+  -webkit-text-fill-color: #a0aec0 !important;
+  background: none !important;
+}
+
+/* Play button: red circle with white icon */
+[data-style="streaming"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
+  background: #e53e3e !important;
+  border: none !important;
+  box-shadow: 0 0 20px rgba(229,62,62,0.35) !important;
+  color: #ffffff !important;
+}
+
+/* Player controls */
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] button[class*="min-w-"] {
+  color: #a0aec0 !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] button[style*="var(--mq-accent)"] {
+  color: #e53e3e !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] img[class*="rounded"] {
+  border-radius: 10px !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-40"] input[type="range"] {
+  accent-color: #e53e3e !important;
+}
+
+/* ── ═══ MOBILE NAV ═══ ────────────────────────────────────────────── */
+[data-style="streaming"] nav[class*="fixed"][class*="bottom"] {
+  background: rgba(18,18,18,0.95) !important;
+  border-top: 1px solid rgba(255,255,255,0.06) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+}
+
+[data-style="streaming"] nav[class*="fixed"][class*="bottom"] button {
+  color: #718096 !important;
+  background: transparent !important;
+}
+
+[data-style="streaming"] nav[class*="fixed"][class*="bottom"] button:hover {
+  color: #e53e3e !important;
+}
+
+[data-style="streaming"] nav[class*="fixed"][class*="bottom"] button[style*="var(--mq-accent)"],
+[data-style="streaming"] nav[class*="fixed"][class*="bottom"] button[style*="var(--mq-card)"] {
+  color: #e53e3e !important;
+  background: transparent !important;
+}
+
+[data-style="streaming"] nav[class*="fixed"][class*="bottom"] div[style*="var(--mq-accent)"] {
+  background: #e53e3e !important;
+  border-radius: 50% !important;
+  width: 4px !important;
+  height: 4px !important;
+  box-shadow: 0 0 6px rgba(229,62,62,0.5) !important;
+}
+
+[data-style="streaming"] nav[class*="fixed"][class*="bottom"] button span {
+  color: inherit !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0.01em !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  -webkit-text-fill-color: inherit !important;
+  background: none !important;
+}
+
+/* ── ═══ CARDS & SECTIONS ═══ ──────────────────────────────────────── */
+[data-style="streaming"] .rounded-2xl,
+[data-style="streaming"] .rounded-xl {
+  border-radius: 16px !important;
+  background: #1a1a2e !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+}
+
+[data-style="streaming"] .rounded-2xl::before,
+[data-style="streaming"] .rounded-xl::before {
+  display: none !important;
+}
+
+[data-style="streaming"] .rounded-2xl:hover,
+[data-style="streaming"] .rounded-xl:hover {
+  border-color: rgba(229,62,62,0.15) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3) !important;
+}
+
+[data-style="streaming"] .rounded-lg {
+  border-radius: 12px !important;
+}
+
+[data-style="streaming"] div[class*="rounded-2xl"][class*="overflow-hidden"][class*="relative"] {
+  background: #1a1a2e !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+}
+
+/* ── ═══ BUTTONS ═══ ───────────────────────────────────────────────── */
+[data-style="streaming"] button[style*="background: var(--mq-accent)"],
+[data-style="streaming"] button[style*="background-color: var(--mq-accent)"] {
+  background: #e53e3e !important;
+  background-color: #e53e3e !important;
+  border-radius: 100px !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(229,62,62,0.35) !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  border: none !important;
+}
+
+[data-style="streaming"] button[style*="background: var(--mq-accent)"]:hover,
+[data-style="streaming"] button[style*="background-color: var(--mq-accent)"]:hover {
+  background: #c53030 !important;
+  background-color: #c53030 !important;
+  box-shadow: 0 6px 20px rgba(229,62,62,0.45) !important;
+  transform: scale(1.02) !important;
+}
+
+[data-style="streaming"] button[style*="background: #d4af37"],
+[data-style="streaming"] button[style*="background: #ffd700"] {
+  background: #e53e3e !important;
+  border-radius: 100px !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(229,62,62,0.35) !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  border: none !important;
+}
+
+/* ── ═══ INPUTS ═══ ────────────────────────────────────────────────── */
+[data-style="streaming"] input[type="text"],
+[data-style="streaming"] input[type="search"],
+[data-style="streaming"] input[type="password"],
+[data-style="streaming"] input[type="email"],
+[data-style="streaming"] textarea,
+[data-style="streaming"] select {
+  border-radius: 12px !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  background: #1a1a2e !important;
+  color: #ffffff !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+}
+
+[data-style="streaming"] input[type="text"]:focus,
+[data-style="streaming"] input[type="search"]:focus,
+[data-style="streaming"] input[type="password"]:focus,
+[data-style="streaming"] input[type="email"]:focus,
+[data-style="streaming"] textarea:focus,
+[data-style="streaming"] select:focus {
+  border-color: #e53e3e !important;
+  box-shadow: 0 0 0 3px rgba(229,62,62,0.1) !important;
+  outline: none !important;
+}
+
+[data-style="streaming"] input::placeholder,
+[data-style="streaming"] textarea::placeholder {
+  color: #4a5568 !important;
+}
+
+[data-style="streaming"] input[type="range"] {
+  accent-color: #e53e3e !important;
+}
+
+[data-style="streaming"] input[type="range"]::-webkit-slider-thumb {
+  border-radius: 50% !important;
+  background: #e53e3e !important;
+  box-shadow: 0 0 8px rgba(229,62,62,0.4) !important;
+  border: 2px solid #c53030 !important;
+}
+
+[data-style="streaming"] input[type="range"]::-moz-range-thumb {
+  border-radius: 50% !important;
+  background: #e53e3e !important;
+  box-shadow: 0 0 8px rgba(229,62,62,0.4) !important;
+  border: 2px solid #c53030 !important;
+}
+
+[data-style="streaming"] input[type="color"] {
+  border-radius: 12px !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+[data-style="streaming"] input[type="color"]::-webkit-color-swatch {
+  border-radius: 8px !important;
+}
+
+/* ── ═══ SCROLLBARS ═══ ────────────────────────────────────────────── */
+[data-style="streaming"] ::-webkit-scrollbar {
+  width: 4px;
+}
+
+[data-style="streaming"] ::-webkit-scrollbar-track {
+  background: #121212;
+}
+
+[data-style="streaming"] ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 4px !important;
+}
+
+[data-style="streaming"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(229,62,62,0.3);
+}
+
+/* ── ═══ SELECTION ═══ ─────────────────────────────────────────────── */
+[data-style="streaming"] ::selection {
+  background: #e53e3e;
+  color: #ffffff;
+}
+
+/* ── ═══ DIALOGS ═══ ───────────────────────────────────────────────── */
+[data-style="streaming"] [role="dialog"],
+[data-style="streaming"] dialog {
+  background: #1a1a2e !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 60px rgba(229,62,62,0.05) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+}
+
+/* ── ═══ BADGES ═══ ────────────────────────────────────────────────── */
+[data-style="streaming"] span[class*="rounded-full"][style*="background: #ef4444"] {
+  background: #e53e3e !important;
+  color: #ffffff !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  box-shadow: 0 2px 8px rgba(229,62,62,0.4) !important;
+}
+
+/* ── ═══ TOASTS ═══ ────────────────────────────────────────────────── */
+[data-style="streaming"] [data-sonner-toaster] [data-sonner-toast] {
+  background: #1a1a2e !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  border-radius: 12px !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5) !important;
+}
+
+[data-style="streaming"] [data-sonner-toaster] [data-sonner-toast]:hover {
+  border-color: rgba(229,62,62,0.2) !important;
+}
+
+/* ── ═══ SKELETON / LOADING ═══ ────────────────────────────────────── */
+[data-style="streaming"] [class*="bg-muted"],
+[data-style="streaming"] .skeleton {
+  background: #2d3748 !important;
+  border-radius: 10px !important;
+}
+
+/* ── ═══ PLAYER GLOW ═══ ───────────────────────────────────────────── */
+[data-style="streaming"] .player-glow {
+  animation: glow-pulse 2s ease-in-out infinite !important;
+  box-shadow: 0 0 8px rgba(229,62,62,0.3) !important;
+}
+
+/* ── ═══ DIVIDERS ═══ ──────────────────────────────────────────────── */
+[data-style="streaming"] div[style*="border-bottom"],
+[data-style="streaming"] hr {
+  border-bottom-color: rgba(255,255,255,0.06) !important;
+}
+
+/* ── ═══ MISC OVERRIDES ═══ ────────────────────────────────────────── */
+[data-style="streaming"] [style*="color: var(--mq-text)"] {
+  color: #ffffff !important;
+}
+
+[data-style="streaming"] [style*="color: var(--mq-text-muted)"] {
+  color: #a0aec0 !important;
+}
+
+[data-style="streaming"] [style*="color: var(--mq-accent)"] {
+  color: #e53e3e !important;
+}
+
+[data-style="streaming"] [style*="background: var(--mq-card)"],
+[data-style="streaming"] [style*="background-color: var(--mq-card)"] {
+  background: #1a1a2e !important;
+  background-color: #1a1a2e !important;
+}
+
+[data-style="streaming"] [style*="background: var(--mq-card-hover)"] {
+  background: #252540 !important;
+}
+
+[data-style="streaming"] [style*="background: var(--mq-input-bg)"] {
+  background: #1a1a2e !important;
+}
+
+[data-style="streaming"] span[style*="color: #ff5500"] {
+  color: #e53e3e !important;
+}
+
+[data-style="streaming"] span[style*="background-color: rgba(239,68,68"] {
+  background-color: rgba(229,62,62,0.12) !important;
+  color: #e53e3e !important;
+  border-radius: 100px !important;
+}
+
+/* Tooltip */
+[data-style="streaming"] span[class*="absolute"][class*="-top-"] {
+  background: #2d3748 !important;
+  border-radius: 8px !important;
+  color: #ffffff !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  text-transform: none !important;
+  font-weight: 500 !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.5) !important;
+}
+
+/* Tab indicators */
+[data-style="streaming"] div[style*="background: var(--mq-accent)"][class*="w-1"][class*="h-1"] {
+  background: #e53e3e !important;
+  border-radius: 4px !important;
+}
+
+/* ── ═══ FULL TRACK VIEW ═══ ───────────────────────────────────────── */
+[data-style="streaming"] div[class*="fixed"][class*="z-100"],
+[data-style="streaming"] div[class*="fixed"][class*="z-50"][class*="flex"][class*="items-center"][class*="justify-center"] {
+  background: rgba(18,18,18,0.98) !important;
+  backdrop-filter: blur(40px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(180%) !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-50"] div[style*="background: var(--mq-border)"] {
+  background: rgba(255,255,255,0.06) !important;
+}
+
+/* Full view track title */
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] h2,
+[data-style="streaming"] div[class*="fixed"][class*="z-50"] h2 {
+  color: #ffffff !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  letter-spacing: -0.01em !important;
+  -webkit-text-fill-color: #ffffff !important;
+  background: none !important;
+  filter: none !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] p[class*="text-sm"] {
+  color: #a0aec0 !important;
+  text-transform: none !important;
+  letter-spacing: 0.01em !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 400 !important;
+  -webkit-text-fill-color: #a0aec0 !important;
+  background: none !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] p[class*="text-xs"] {
+  color: #718096 !important;
+  -webkit-text-fill-color: #718096 !important;
+  background: none !important;
+}
+
+/* Full view play button: red with glow */
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
+  background: #e53e3e !important;
+  border: none !important;
+  box-shadow: 0 0 24px rgba(229,62,62,0.4) !important;
+  color: #ffffff !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] button[style*="color: var(--mq-text)"] {
+  color: #ffffff !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] button[style*="color: var(--mq-text-muted)"] {
+  color: #a0aec0 !important;
+}
+
+/* Full view progress — red gradient */
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] div[style*="background: var(--mq-accent)"] {
+  background: linear-gradient(90deg, #c53030, #e53e3e, #fc8181) !important;
+  box-shadow: 0 0 8px rgba(229,62,62,0.25) !important;
+  border-radius: 4px !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] div[style*="background: var(--mq-border)"] {
+  background: rgba(255,255,255,0.1) !important;
+}
+
+/* Full view progress scrubber */
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] div[style*="left:"][style*="border-radius"] {
+  background: #e53e3e !important;
+  box-shadow: 0 0 12px rgba(229,62,62,0.5) !important;
+  border-radius: 50% !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] input[type="range"] {
+  accent-color: #e53e3e !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] span[class*="rounded-full"][style*="background: var(--mq-card)"] {
+  background: #2d3748 !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  color: #a0aec0 !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: 0.01em !important;
+}
+
+/* Full view album art — premium shadow */
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] div[class*="rounded-2xl"][class*="overflow-hidden"] {
+  border-radius: 20px !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 60px rgba(229,62,62,0.08) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] div[class*="rounded-2xl"][class*="overflow-hidden"]::before {
+  display: none !important;
+}
+
+/* Full view header buttons */
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] div[class*="relative"][class*="z-10"] button[class*="rounded-full"] {
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] div[class*="relative"][class*="z-10"] button[class*="rounded-full"][style*="background: var(--mq-accent)"] {
+  background: #e53e3e !important;
+  border: none !important;
+  box-shadow: 0 0 20px rgba(229,62,62,0.35) !important;
+  color: #ffffff !important;
+}
+
+/* Full view volume */
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] div[class*="h-1.5"][class*="rounded-full"] {
+  background: rgba(255,255,255,0.1) !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] div[style*="background: var(--mq-accent)"][class*="h-1.5"] {
+  background: linear-gradient(90deg, #c53030, #e53e3e) !important;
+  box-shadow: none !important;
+}
+
+[data-style="streaming"] div[class*="fixed"][class*="z-100"] div[style*="color: var(--mq-text-muted)"] {
+  color: #a0aec0 !important;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+  font-weight: 400 !important;
+  -webkit-text-fill-color: #a0aec0 !important;
+  background: none !important;
+}
+
+/* ── ═══ RESPONSIVE ═══ ────────────────────────────────────────────── */
+@media (max-width: 1023px) {
+  [data-style="streaming"] nav[class*="fixed"][class*="bottom"] {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* ── LIGHT VARIANT ─────────────────────────────────────────────────── */
+[data-style="streaming"][data-style-variant="light"] {
+  --mq-bg: #f7f8fa;
+  --mq-card: #ffffff;
+  --mq-card-hover: #f0f1f3;
+  --mq-accent: #e53e3e;
+  --mq-text: #1a202c;
+  --mq-text-muted: #718096;
+  --mq-border: #e2e8f0;
+  --mq-input-bg: #ffffff;
+  --mq-player-bg: #ffffff;
+  --mq-nav-bg: rgba(247,248,250,0.95);
+}
+[data-style="streaming"][data-style-variant="light"],
+[data-style="streaming"][data-style-variant="light"] body,
+[data-style="streaming"][data-style-variant="light"] main { background: #f7f8fa !important; }
+[data-style="streaming"][data-style-variant="light"] .rounded-2xl,
+[data-style="streaming"][data-style-variant="light"] .rounded-xl { background: #ffffff !important; border-color: #e2e8f0 !important; }

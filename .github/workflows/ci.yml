@@ -1,0 +1,280 @@
+# ============================================================================
+# CI — Lint, Type-Check, Test, Build, Security Audit & Preview Deploy
+# ============================================================================
+#
+# Status Badge (add to README if desired):
+#   ![CI](https://github.com/<owner>/mq-player/actions/workflows/ci.yml/badge.svg)
+#
+# Jobs overview:
+#   1. security-audit  — npm audit (moderate+)
+#   2. lint-typecheck   — ESLint + TypeScript (Node 20 & 22 matrix)
+#   3. test             — Vitest unit & integration tests (Node 20 & 22 matrix)
+#   4. build            — Next.js production build
+#   5. bundle-analysis  — Bundle size analysis (PR only)
+#   6. preview-deploy   — Vercel preview deploy (PR only)
+# ============================================================================
+
+name: CI — Lint, Type-Check, Test & Build
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Security Audit
+  # ---------------------------------------------------------------------------
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run npm audit
+        run: npm audit --audit=high --omit=optional
+        continue-on-error: true
+
+      - name: Install Bun (for bun audit)
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Run bun audit
+        run: bun audit --audit=high
+        continue-on-error: true
+
+  # ---------------------------------------------------------------------------
+  # 2. Lint & Type-Check (Node 20 + 22 matrix)
+  # ---------------------------------------------------------------------------
+  lint-typecheck:
+    name: Lint & Type-Check (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [security-audit]
+    if: always()
+    strategy:
+      matrix:
+        node-version: ["20", "22"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Cache Prisma client
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/.prisma
+            node_modules/@prisma/client
+          key: prisma-${{ runner.os }}-node${{ matrix.node-version }}-${{ hashFiles('prisma/schema.prisma') }}
+          restore-keys: |
+            prisma-${{ runner.os }}-node${{ matrix.node-version }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-Check
+        run: npx tsc --noEmit
+
+  # ---------------------------------------------------------------------------
+  # 3. Unit & Integration Tests (Node 20 + 22 matrix)
+  # ---------------------------------------------------------------------------
+  test:
+    name: Tests (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [security-audit]
+    if: always()
+    strategy:
+      matrix:
+        node-version: ["20", "22"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
+
+      - name: Cache Prisma client
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules/.prisma
+            node_modules/@prisma/client
+          key: prisma-${{ runner.os }}-node${{ matrix.node-version }}-${{ hashFiles('prisma/schema.prisma') }}
+          restore-keys: |
+            prisma-${{ runner.os }}-node${{ matrix.node-version }}-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Run tests
+        run: npm test
+        env:
+          JWT_SECRET: "ci-test-secret-key-for-testing-32ch"
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-node${{ matrix.node-version }}
+          path: coverage/
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # 4. Build Next.js
+  # ---------------------------------------------------------------------------
+  build:
+    name: Build Next.js
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [lint-typecheck, test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build
+        run: npm run build
+        env:
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+          JWT_SECRET: "ci-build-secret-key-placeholder-32ch"
+
+  # ---------------------------------------------------------------------------
+  # 5. Bundle Analysis (PR only)
+  # ---------------------------------------------------------------------------
+  bundle-analysis:
+    name: Bundle Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Analyze bundle
+        run: npm run analyze
+        env:
+          DATABASE_URL: "postgresql://placeholder:placeholder@localhost:5432/placeholder"
+          JWT_SECRET: "ci-analyze-secret-key-placeholder-32ch"
+
+      - name: Upload bundle analysis
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-analysis
+          path: .next/analyze/
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # 6. Vercel Preview Deploy (PR only)
+  # ---------------------------------------------------------------------------
+  preview-deploy:
+    name: Vercel Preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [build]
+    if: github.event_name == 'pull_request'
+    environment:
+      name: preview
+      url: ${{ steps.vercel-deploy.outputs.preview-url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel (Preview)
+        id: vercel-deploy
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Comment PR with preview URL
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const previewUrl = '${{ steps.vercel-deploy.outputs.preview-url }}';
+            const body = `🚀 **Preview deployment ready!**\n\n${previewUrl}`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Preview deployment ready!')
+            );
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }

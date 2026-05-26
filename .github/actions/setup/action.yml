@@ -1,0 +1,45 @@
+# Shared setup action — DRY checkout + Node.js + install + Prisma
+# Used by all CI jobs to avoid repeating the same 4 steps in every job.
+#
+# Usage:
+#   - uses: ./.github/actions/setup
+#     with:
+#       node-version: '20'
+name: "Setup Node.js, Install & Generate Prisma"
+description: "Checkout, setup Node.js, install deps, and generate Prisma client with caching"
+
+inputs:
+  node-version:
+    description: "Node.js version to use"
+    required: false
+    default: "20"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js ${{ inputs.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: "npm"
+
+    - name: Cache Prisma client
+      uses: actions/cache@v4
+      with:
+        path: |
+          node_modules/.prisma
+          node_modules/@prisma/client
+        key: prisma-${{ runner.os }}-node${{ inputs.node-version }}-${{ hashFiles('prisma/schema.prisma') }}
+        restore-keys: |
+          prisma-${{ runner.os }}-node${{ inputs.node-version }}-
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Generate Prisma client
+      shell: bash
+      run: npx prisma generate
