@@ -231,12 +231,16 @@ export default function AppShell() {
     };
   }, [isAuthenticated]);
 
-  // ── Sync PlaybackEngine singleton with Zustand store ──
-  useEffect(() => {
-    if (_hasHydrated) {
-      useAppStore.getState().syncWithPlaybackEngine();
-    }
-  }, [_hasHydrated]);
+  // ── PlaybackEngine sync DISABLED ──
+  // The PlaybackEngine singleton conflicts with useAudioEngine (both attach
+  // listeners to the same audio element, causing double-ended, race conditions
+  // on play/pause, and conflicting state updates).  Re-enable only after
+  // migrating PlayerBar fully to PlaybackEngine.
+  // useEffect(() => {
+  //   if (_hasHydrated) {
+  //     useAppStore.getState().syncWithPlaybackEngine();
+  //   }
+  // }, [_hasHydrated]);
 
   useGlobalNotifications();
   useListenSessionSync();

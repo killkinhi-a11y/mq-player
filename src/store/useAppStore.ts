@@ -2320,77 +2320,20 @@ export const useAppStore = create<AppState>()(
       petCat: () => set((s) => ({ catPetCount: s.catPetCount + 1, catLastSeen: Date.now() })),
 
       // ── PlaybackEngine sync ──
+      // DISABLED: PlaybackEngine singleton conflicts with useAudioEngine hook.
+      // Both attach event listeners to the same HTMLAudioElement, causing
+      // double-ended events, race conditions on play/pause, and conflicting
+      // state machine transitions.  Re-enable only after migrating PlayerBar
+      // fully to PlaybackEngine and removing useAudioEngine.
       syncWithPlaybackEngine: () => {
-        const engine = PlaybackEngine.getInstance();
-
-        // Clean up any previous subscriptions before re-subscribing
-        const prevUnsubs = (get() as any)._engineUnsubs as (() => void)[] | undefined;
-        if (prevUnsubs) prevUnsubs.forEach(fn => fn());
-
-        const unsubs: (() => void)[] = [];
-
-        unsubs.push(engine.events.on('state_change', ({ to }) => {
-          set({
-            isPlaying: to === 'playing',
-            playbackState: to,
-            isBuffering: to === 'buffering',
-          });
-        }));
-
-        unsubs.push(engine.events.on('time_update', ({ currentTime, duration }) => {
-          if (!get().isDragging) {
-            set({ progress: currentTime, duration });
-          }
-        }));
-
-        unsubs.push(engine.events.on('track_change', ({ track }) => {
-          if (track) {
-            set({ currentTrack: track });
-          }
-        }));
-
-        unsubs.push(engine.events.on('volume_change', ({ volume }) => {
-          set({ volume });
-        }));
-
-        unsubs.push(engine.events.on('queue_update', ({ queue, index }) => {
-          set({ queue, queueIndex: index });
-        }));
-
-        unsubs.push(engine.events.on('buffer_update', ({ buffered }) => {
-          // Could expose buffered progress to UI if needed
-        }));
-
-        unsubs.push(engine.events.on('error', ({ error, recoverable }) => {
-          if (!recoverable) {
-            set({ playbackState: 'error' });
-          }
-        }));
-
-        // Store unsubs so we can clean up if called again
-        (get() as any)._engineUnsubs = unsubs;
+        console.warn('[MQ Store] syncWithPlaybackEngine is disabled — useAudioEngine is the active engine');
       },
 
       restorePlayback: async () => {
-        const engine = PlaybackEngine.getInstance();
-        // Build track lookup from existing store data
-        const allTracks = [
-          ...get().queue,
-          ...get().upNext,
-          ...get().likedTracksData,
-          ...get().history.map(h => h.track),
-        ];
-        const trackMap = new Map<string, Track>();
-        for (const t of allTracks) {
-          if (t?.id) trackMap.set(t.id, t);
-        }
-        // Also look up tracks from playlists
-        for (const pl of get().playlists) {
-          for (const t of pl.tracks) {
-            if (t?.id) trackMap.set(t.id, t);
-          }
-        }
-        return engine.restoreFromMemory(trackMap);
+        // DISABLED: PlaybackEngine singleton conflicts with useAudioEngine.
+        // Restore is handled by useAudioEngine's init effect instead.
+        console.warn('[MQ Store] restorePlayback via PlaybackEngine is disabled — useAudioEngine handles this');
+        return false;
       },
 
       reset: () => set(initialState),

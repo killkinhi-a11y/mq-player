@@ -2130,90 +2130,84 @@ export default function FullTrackView() {
               </div>
             </div>
 
-            {/* Main playback controls: Shuffle | Prev | Play/Pause (large) | Next | Repeat */}
-            <div className="flex items-center justify-between px-2 sm:px-4">
-              <motion.button whileTap={{ scale: 0.92 }} onClick={toggleShuffle}
-                className="p-2.5 sm:p-2.5 rounded-full transition-all duration-200"
-                style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: shuffle ? "rgba(255,255,255,0.08)" : "transparent" }}>
-                <Shuffle className="w-5 h-5" />
+            {/* Main playback controls — minimal Spotify/Apple Music style */}
+            <div className="flex items-center justify-between px-6 sm:px-10">
+              <motion.button whileTap={{ scale: 0.9 }} onClick={toggleShuffle}
+                className="p-2 rounded-full transition-colors duration-150"
+                style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                <Shuffle className="w-4 h-4" />
               </motion.button>
-              <motion.button whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.1 }} onClick={prevTrack}
-                className="p-3 rounded-full hover:bg-white/5 transition-all duration-200"
+              <motion.button whileTap={{ scale: 0.88 }} onClick={prevTrack}
+                className="p-2 rounded-full transition-colors duration-150"
                 style={{ color: "var(--mq-text)" }}>
-                <SkipBack className="w-7 h-7" fill="currentColor" style={{ opacity: 0.8 }} />
+                <SkipBack className="w-6 h-6" fill="currentColor" />
               </motion.button>
               <motion.button
-                whileTap={{ scale: 0.92 }}
-                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.93 }}
+                whileHover={{ scale: 1.04 }}
                 onClick={togglePlay}
-                className="w-14 h-14 sm:w-14 sm:h-14 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: "var(--mq-accent)", color: "white", boxShadow: "0 0 20px color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}
+                className="w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--mq-text)", color: "var(--mq-bg)" }}
               >
-                {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7" style={{ marginLeft: 2 }} />}
+                {isPlaying ? <Pause className="w-5 h-5" fill="currentColor" /> : <Play className="w-5 h-5" fill="currentColor" style={{ marginLeft: 1.5 }} />}
               </motion.button>
-              <motion.button whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.1 }} onClick={nextTrack}
-                className="p-3 rounded-full hover:bg-white/5 transition-all duration-200"
+              <motion.button whileTap={{ scale: 0.88 }} onClick={nextTrack}
+                className="p-2 rounded-full transition-colors duration-150"
                 style={{ color: "var(--mq-text)" }}>
-                <SkipForward className="w-7 h-7" fill="currentColor" style={{ opacity: 0.8 }} />
+                <SkipForward className="w-6 h-6" fill="currentColor" />
               </motion.button>
-              <motion.button whileTap={{ scale: 0.92 }} onClick={toggleRepeat}
-                className="p-2.5 sm:p-2.5 rounded-full transition-all duration-200 relative"
-                style={{ color: repeat !== "off" ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: repeat !== "off" ? "rgba(255,255,255,0.08)" : "transparent" }}>
-                {repeat === "one" ? <Repeat1 className="w-5 h-5" /> : <Repeat className="w-5 h-5" />}
-                {/* Repeat badge */}
+              <motion.button whileTap={{ scale: 0.9 }} onClick={toggleRepeat}
+                className="p-2 rounded-full transition-colors duration-150 relative"
+                style={{ color: repeat !== "off" ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                {repeat === "one" ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
                 {repeat === "one" && (
-                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center text-[7px] font-bold"
+                  <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full flex items-center justify-center text-[6px] font-bold"
                     style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-bg)" }}>1</span>
                 )}
               </motion.button>
             </div>
 
-            {/* Action row — minimal Apple Music style */}
-            <div className="flex items-center justify-center gap-6 px-4">
-              {/* Heart/Like */}
+            {/* Action row — minimal icon-only strip */}
+            <div className="flex items-center justify-center gap-5 px-4">
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
-                className="p-2 rounded-full transition-all duration-200"
+                className="p-1.5 rounded-full transition-colors duration-150"
                 style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)" }}>
-                <Heart className={`w-5 h-5 ${isLiked ? "fill-current" : ""}`} />
+                <Heart className={`w-4 h-4 ${isLiked ? "fill-current" : ""}`} />
               </motion.button>
 
-              {/* Lyrics */}
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
-                className="p-2 rounded-full transition-all duration-200"
+                className="p-1.5 rounded-full transition-colors duration-150"
                 style={{ color: showLyrics ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-                <FileText className="w-5 h-5" />
+                <FileText className="w-4 h-4" />
               </motion.button>
 
-              {/* Similar tracks */}
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
-                className="p-2 rounded-full transition-all duration-200"
+                className="p-1.5 rounded-full transition-colors duration-150"
                 style={{ color: showSimilar ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-                <ListMusic className="w-5 h-5" />
+                <ListMusic className="w-4 h-4" />
               </motion.button>
 
-              {/* More menu — all advanced features accessed here */}
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
-                className="p-2 rounded-full transition-all duration-200"
+                className="p-1.5 rounded-full transition-colors duration-150"
                 style={{ color: showMoreMenu ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-                <MoreVertical className="w-5 h-5" />
+                <MoreVertical className="w-4 h-4" />
               </motion.button>
             </div>
 
-            {/* Volume slider — unified desktop + mobile with drag support */}
+            {/* Volume — thin minimal slider */}
             <div
               ref={volumeSectionRef}
-              className="flex items-center gap-3 w-full max-w-xs mx-auto"
+              className="flex items-center gap-2 w-full max-w-[200px] mx-auto mt-1"
             >
               <motion.button whileTap={{ scale: 0.85 }} onClick={handleMuteToggle}
                 className="flex-shrink-0 p-1 transition-colors" style={{ color: volume === 0 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-                <VolumeIcon className="w-5 h-5" />
+                <VolumeIcon className="w-3.5 h-3.5" />
               </motion.button>
               <div ref={volumeRef}
                 onMouseDown={handleVolumeMouseDown}
                 onTouchStart={handleVolumeTouchStart}
-                className="flex-1 h-2 rounded-full cursor-pointer relative group/vol touch-none"
-                style={{ backgroundColor: "rgba(255,255,255,0.12)" }}>
-                {/* Active track fill — scaleX for 0-reflow */}
+                className="flex-1 h-1 rounded-full cursor-pointer relative group/vol touch-none"
+                style={{ backgroundColor: "rgba(255,255,255,0.1)" }}>
                 <div ref={volumeFillRef} className="absolute inset-y-0 left-0 rounded-full overflow-hidden"
                   style={{
                     width: "100%",
@@ -2223,20 +2217,17 @@ export default function FullTrackView() {
                     willChange: "transform",
                   }}
                 />
-                {/* Thumb dot — positioned at left:0, moved via translateX */}
-                <div ref={volumeThumbRefFull} className="absolute left-0 top-1/2 rounded-full"
+                <div ref={volumeThumbRefFull} className="absolute left-0 top-1/2 rounded-full opacity-0 group-hover/vol:opacity-100 transition-opacity duration-150"
                   style={{
-                    width: isVolumeDragging ? 16 : 12,
-                    height: isVolumeDragging ? 16 : 12,
+                    width: isVolumeDragging ? 14 : 10,
+                    height: isVolumeDragging ? 14 : 10,
                     backgroundColor: "white",
-                    boxShadow: "0 0 6px rgba(0,0,0,0.3), 0 0 12px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+                    boxShadow: "0 0 4px rgba(0,0,0,0.2)",
                     transform: `translateX(${volume / 100 * (volumeSliderWidthRef.current || 200)}px) translateY(-50%)`,
                     willChange: "transform",
                   }} />
-                {/* Hover area enlarger for easier grabbing */}
                 <div className="absolute inset-x-0 -top-3 -bottom-3" />
               </div>
-              <span className="text-[11px] w-9 text-right flex-shrink-0 tabular-nums font-medium" style={{ color: "var(--mq-text-muted)", fontVariantNumeric: "tabular-nums" }}>{Math.round(volume)}%</span>
             </div>
 
             {/* ── Up Next / Queue preview ── */}

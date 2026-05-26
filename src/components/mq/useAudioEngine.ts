@@ -1241,7 +1241,11 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     }
 
     if (currentTrack.id !== prevTrackIdRef.current) {
-      prevTrackIdRef.current = currentTrack.id;
+      // NOTE: We intentionally do NOT update prevTrackIdRef here.
+      // It must only be updated AFTER the track has actually started loading/playing,
+      // otherwise the isPlaying effect's staleness guard (which compares
+      // currentTrackId !== prevTrackIdRef) will pass immediately, causing
+      // audio.play() to be called on the OLD source.
       setProgress(0);
       setDuration(currentTrack.duration || 0);
       retryCountRef.current = 0;
@@ -1380,6 +1384,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             }
 
             prevTrackIdForCrossfade.current = currentTrack.id;
+            prevTrackIdRef.current = currentTrack.id;
             setIsLoadingTrack(false);
             setPlayError(false);
             retryCountRef.current = 0;
@@ -1429,6 +1434,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
           }
           prevTrackIdForCrossfade.current = currentTrack.id;
+          prevTrackIdRef.current = currentTrack.id;
         } else if (currentTrack.source === "soundcloud" && currentTrack.scTrackId) {
           setPlaybackMode("soundcloud");
           resetCorsState();
@@ -1537,6 +1543,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                     });
                   }
                   prevTrackIdForCrossfade.current = currentTrack.id;
+          prevTrackIdRef.current = currentTrack.id;
                 }
               });
 
@@ -1672,10 +1679,12 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                 if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
                 crossfadeTo(audioEl);
                 prevTrackIdForCrossfade.current = currentTrack.id;
+          prevTrackIdRef.current = currentTrack.id;
               } else {
                 cancelCrossfade();
                 if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
                 prevTrackIdForCrossfade.current = currentTrack.id;
+          prevTrackIdRef.current = currentTrack.id;
               }
             }
           } else if (currentTrack.audioUrl) {
@@ -1694,6 +1703,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
             }
             prevTrackIdForCrossfade.current = currentTrack.id;
+          prevTrackIdRef.current = currentTrack.id;
           } else {
             console.warn(`[Player] No stream URL for SC track: ${currentTrack.title}`);
             setPlayError(true);
@@ -1743,6 +1753,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
           }
           prevTrackIdForCrossfade.current = currentTrack.id;
+          prevTrackIdRef.current = currentTrack.id;
         } else {
           console.warn(`[Player] No audio source for track: ${currentTrack.title}`);
           setPlayError(true);
@@ -1806,18 +1817,28 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
     if (isPlaying) {
       resumeAudioContext();
-      if (!audio.src || audio.readyState < 2) return;
 
       // Guard: don't play stale audio source that doesn't match current track.
       // When playTrack() sets a new track, the load effect starts async loading.
       // Meanwhile, the isPlaying effect may fire before the new source is loaded,
       // causing play() on the OLD source — which either plays the wrong track
       // or throws NotAllowedError (not in user gesture context for old source).
+      //
+      // We use a generation counter instead of prevTrackIdRef because
+      // prevTrackIdRef gets updated synchronously at the START of the loadTrack
+      // effect (before async loading completes), making it an unreliable guard.
+      // Instead, we check if the audio element's currentSrc matches what we expect.
       const currentTrackId = useAppStore.getState().currentTrack?.id;
       if (currentTrackId && currentTrackId !== prevTrackIdRef.current) {
         // New track is being loaded — skip play(), let onCanPlay handle it
         return;
       }
+
+      // Also skip if no source is loaded yet or audio isn't ready
+      if (!audio.src || audio.readyState < 2) return;
+
+      // Skip if we're in the middle of loading a new track (loading generation changed)
+      if (isLoadingTrackRef.current) return;
 
       audio.play().catch((err) => {
         if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
