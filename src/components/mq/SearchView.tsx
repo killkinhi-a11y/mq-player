@@ -154,20 +154,7 @@ export default function SearchView() {
     }
   }, [currentView, setSearchQuery]);
 
-  // Keyboard shortcut: / to focus search
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (currentView !== "search") return;
-      if (e.key === "/" && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        const tag = (e.target as HTMLElement)?.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA") return;
-        e.preventDefault();
-        searchInputRef.current?.focus();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [currentView]);
+
 
   // Debounced search
   useEffect(() => {
@@ -406,6 +393,7 @@ export default function SearchView() {
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px]" style={{ color: isFocused ? "var(--mq-accent)" : "var(--mq-text-muted)", transition: "color 0.25s ease" }} />
           <Input
             ref={searchInputRef}
+            data-search-input
             placeholder="Искать треки, артисты, альбомы..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}

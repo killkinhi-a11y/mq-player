@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage, type StateStorage } from "zustand/middleware";
 import { type Track, type Message as ChatMessage } from "@/lib/musicApi";
 import { themes, applyThemeToDOM } from "@/lib/themes";
-import { enableEQ as engineEnableEQ, disableEQ as engineDisableEQ, setEQBand as engineSetEQBand, setAllEQBands as engineSetAllEQBands, resetEQBands as engineResetEQBands, setAudioPlaybackRate as engineSetAudioPlaybackRate } from "@/lib/audioEngine";
+import { enableEQ as engineEnableEQ, disableEQ as engineDisableEQ, setEQBand as engineSetEQBand, setAllEQBands as engineSetAllEQBands, resetEQBands as engineResetEQBands, setAudioPlaybackRate as engineSetAudioPlaybackRate, getAudioElement, resumeAudioContext, getInactiveAudio } from "@/lib/audioEngine";
 import { EQ_PRESETS } from "@/lib/eq";
 import { PlaybackEngine, type PlaybackState } from "@/lib/playbackEngine";
 
@@ -923,11 +923,8 @@ export const useAppStore = create<AppState>()(
         const newQueue = queue || state.queue;
         const index = newQueue.findIndex((t) => t.id === track.id);
 
-        // Delegate to PlaybackEngine — it will emit events that syncWithPlaybackEngine picks up
-        const engine = PlaybackEngine.getInstance();
-        engine.play(track, queue);
-
-        // Immediate optimistic store update for instant UI feedback
+        // Immediate optimistic store update — useAudioEngine's loadTrack effect
+        // will detect the currentTrack change and handle actual audio loading
         set({
           currentTrack: track,
           currentPlaylistId: playlistId ?? (queue ? state.currentPlaylistId : null),
@@ -951,8 +948,14 @@ export const useAppStore = create<AppState>()(
       },
 
       togglePlay: () => {
-        const engine = PlaybackEngine.getInstance();
-        engine.togglePlayPause();
+        const state = get();
+        const audio = getAudioElement();
+        if (state.isPlaying) {
+          audio?.pause();
+        } else {
+          resumeAudioContext();
+          audio?.play().catch(() => {});
+        }
         // Optimistic update for instant UI feedback
         set(s => ({
           isPlaying: !s.isPlaying,
@@ -961,14 +964,19 @@ export const useAppStore = create<AppState>()(
       },
 
       setVolume: (volume) => {
-        const engine = PlaybackEngine.getInstance();
-        engine.setVolume(Math.round(volume));
+        const audio = getAudioElement();
+        const vol = Math.pow(Math.round(volume) / 100, 2);
+        if (audio) audio.volume = vol;
+        const inactive = getInactiveAudio();
+        if (inactive) inactive.volume = vol;
         set({ volume: Math.round(volume) });
       },
 
       setProgress: (progress) => {
-        const engine = PlaybackEngine.getInstance();
-        engine.seek(progress);
+        const audio = getAudioElement();
+        if (audio && isFinite(progress)) {
+          audio.currentTime = progress;
+        }
         set({ progress });
       },
 
@@ -981,8 +989,6 @@ export const useAppStore = create<AppState>()(
         if (upNext.length > 0) {
           const [next, ...remaining] = upNext;
           const newQueue = [next, ...remaining, ...queue];
-          const engine = PlaybackEngine.getInstance();
-          engine.play(next, newQueue);
           set({
             currentTrack: next,
             queue: newQueue,
@@ -1279,15 +1285,13 @@ export const useAppStore = create<AppState>()(
               nextIdx = 0;
             } else {
               set({ isPlaying: false });
-              PlaybackEngine.getInstance().pause();
+              getAudioElement()?.pause();
               return;
             }
           }
         }
         const track = queue[nextIdx];
         if (track) {
-          const engine = PlaybackEngine.getInstance();
-          engine.play(track, queue);
           set({
             currentTrack: track,
             queueIndex: nextIdx,
@@ -1301,9 +1305,9 @@ export const useAppStore = create<AppState>()(
 
       prevTrack: () => {
         const { queue, queueIndex, progress } = get();
-        const engine = PlaybackEngine.getInstance();
         if (progress > 3) {
-          engine.seek(0);
+          const audio = getAudioElement();
+          if (audio) audio.currentTime = 0;
           set({ progress: 0 });
           return;
         }
@@ -1311,7 +1315,6 @@ export const useAppStore = create<AppState>()(
         if (prevIdx < 0) prevIdx = queue.length - 1;
         const track = queue[prevIdx];
         if (track) {
-          engine.play(track, queue);
           set({
             currentTrack: track,
             queueIndex: prevIdx,

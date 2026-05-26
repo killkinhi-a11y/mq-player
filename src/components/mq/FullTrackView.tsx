@@ -2006,27 +2006,7 @@ export default function FullTrackView() {
                   </motion.p>
                 )}
               </div>
-              <div className="flex items-center gap-0.5 flex-shrink-0 pt-1">
-                <motion.button whileTap={{ scale: 0.82 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200"
-                  style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)", backgroundColor: isLiked ? "rgba(239,68,68,0.1)" : "transparent" }}>
-                  <Heart className={`w-5 h-5 ${isLiked ? "fill-current" : ""}`} />
-                  {isLiked && (
-                    <motion.div
-                      className="absolute inset-0 rounded-full"
-                      style={{ border: "2px solid #ef4444" }}
-                      initial={{ scale: 1, opacity: 0.6 }}
-                      animate={{ scale: 1.5, opacity: 0 }}
-                      transition={{ duration: 0.6, ease: "easeOut" }}
-                    />
-                  )}
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.82 }} onClick={() => currentTrack && toggleDislike(currentTrack.id, currentTrack)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200"
-                  style={{ color: isDisliked ? "#a78bfa" : "var(--mq-text-muted)", backgroundColor: isDisliked ? "rgba(167,139,250,0.1)" : "transparent" }}>
-                  <ThumbsDown className={`w-5 h-5 ${isDisliked ? "fill-current" : ""}`} />
-                </motion.button>
-              </div>
+
             </div>
 
             {/* Progress bar — premium slider with glow, waveform, and glass tooltips */}
@@ -2157,42 +2137,24 @@ export default function FullTrackView() {
                 style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: shuffle ? "rgba(255,255,255,0.08)" : "transparent" }}>
                 <Shuffle className="w-5 h-5" />
               </motion.button>
-              <motion.button whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.08 }} onClick={prevTrack}
-                className="p-3 sm:p-3 rounded-full hover:bg-white/10 transition-all duration-200"
+              <motion.button whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.1 }} onClick={prevTrack}
+                className="p-3 rounded-full hover:bg-white/5 transition-all duration-200"
                 style={{ color: "var(--mq-text)" }}>
-                <SkipBack className="w-7 h-7 sm:w-7 sm:h-7" />
+                <SkipBack className="w-7 h-7" fill="currentColor" style={{ opacity: 0.8 }} />
               </motion.button>
               <motion.button
                 whileTap={{ scale: 0.92 }}
-                whileHover={{ scale: 1.04 }}
+                whileHover={{ scale: 1.05 }}
                 onClick={togglePlay}
-                className="w-16 h-16 sm:w-16 sm:h-16 rounded-full flex items-center justify-center transition-all duration-200 relative"
-                style={{ backgroundColor: "var(--mq-accent)", color: "white", boxShadow: "0 0 30px color-mix(in srgb, var(--mq-accent) 45%, transparent), 0 4px 20px rgba(0,0,0,0.3)" }}
+                className="w-14 h-14 sm:w-14 sm:h-14 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--mq-accent)", color: "white", boxShadow: "0 0 20px color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}
               >
-                {/* Ambient glow pulse when playing */}
-                {isPlaying && (
-                  <motion.div
-                    className="absolute inset-0 rounded-full"
-                    style={{ backgroundColor: "var(--mq-accent)" }}
-                    animate={{ scale: [1, 1.25, 1.3], opacity: [0.4, 0.15, 0] }}
-                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
-                  />
-                )}
-                {/* Haptic-like pulse ring on press */}
-                <motion.div
-                  className="absolute inset-0 rounded-full"
-                  style={{ border: "2px solid var(--mq-accent)" }}
-                  initial={{ scale: 1, opacity: 0.6 }}
-                  animate={{ scale: 1, opacity: 0 }}
-                  key={isPlaying ? "playing" : "paused"}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                />
-                {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" style={{ marginLeft: 3 }} />}
+                {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7" style={{ marginLeft: 2 }} />}
               </motion.button>
-              <motion.button whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.08 }} onClick={nextTrack}
-                className="p-3 sm:p-3 rounded-full hover:bg-white/10 transition-all duration-200"
+              <motion.button whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.1 }} onClick={nextTrack}
+                className="p-3 rounded-full hover:bg-white/5 transition-all duration-200"
                 style={{ color: "var(--mq-text)" }}>
-                <SkipForward className="w-7 h-7 sm:w-7 sm:h-7" />
+                <SkipForward className="w-7 h-7" fill="currentColor" style={{ opacity: 0.8 }} />
               </motion.button>
               <motion.button whileTap={{ scale: 0.92 }} onClick={toggleRepeat}
                 className="p-2.5 sm:p-2.5 rounded-full transition-all duration-200 relative"
@@ -2206,139 +2168,35 @@ export default function FullTrackView() {
               </motion.button>
             </div>
 
-            {/* Action row — glass-morphism pill buttons with hover labels */}
-            <div className="flex items-center justify-center gap-0 px-0 sm:px-2 flex-wrap">
-              {/* Group 1: Playback features */}
-              <div className="flex items-center gap-0.5 sm:gap-1">
-                <motion.button whileTap={{ scale: 0.92 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
-                  className="mq-btn-glass relative group/lyrics flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: showLyrics ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: showLyrics ? "rgba(255,255,255,0.08)" : undefined, boxShadow: showLyrics ? "var(--mq-shadow-glow)" : undefined }}>
-                  <FileText className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold hidden sm:inline">Текст</span>
-                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/lyrics:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Lyrics</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.92 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
-                  className="mq-btn-glass relative group/similar flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: showSimilar ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: showSimilar ? "rgba(255,255,255,0.08)" : undefined, boxShadow: showSimilar ? "var(--mq-shadow-glow)" : undefined }}>
-                  <ListMusic className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold hidden sm:inline">Похожие</span>
-                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/similar:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Similar</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.92 }} onClick={() => setShowSleepTimer(true)}
-                  className="mq-btn-glass relative group/sleep flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: sleepTimerActive ? "#8b5cf6" : "var(--mq-text-muted)", backgroundColor: sleepTimerActive ? "rgba(139,92,246,0.12)" : undefined, boxShadow: sleepTimerActive ? "0 0 12px rgba(139,92,246,0.2)" : undefined }}>
-                  <Moon className="w-4 h-4" />
-                  {sleepTimerActive && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#8b5cf6" }} />}
-                  <span className="text-[10px] font-semibold hidden sm:inline">Сон</span>
-                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/sleep:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Sleep</span>
-                </motion.button>
-              </div>
+            {/* Action row — minimal Apple Music style */}
+            <div className="flex items-center justify-center gap-6 px-4">
+              {/* Heart/Like */}
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
+                className="p-2 rounded-full transition-all duration-200"
+                style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)" }}>
+                <Heart className={`w-5 h-5 ${isLiked ? "fill-current" : ""}`} />
+              </motion.button>
 
-              {/* Separator */}
-              <div className="w-px h-5 mx-1 sm:mx-1.5" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />
+              {/* Lyrics */}
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
+                className="p-2 rounded-full transition-all duration-200"
+                style={{ color: showLyrics ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                <FileText className="w-5 h-5" />
+              </motion.button>
 
-              {/* Group 2: Audio features */}
-              <div className="flex items-center gap-0.5 sm:gap-1">
-                <motion.button whileTap={{ scale: 0.92 }} onClick={() => { setShowEQ(true); }}
-                  data-tour="equalizer"
-                  className="mq-btn-glass relative group/eq flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: eqEnabled ? "rgba(255,255,255,0.08)" : undefined, boxShadow: eqEnabled ? "var(--mq-shadow-glow)" : undefined }}>
-                  <SlidersHorizontal className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold hidden sm:inline">EQ</span>
-                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/eq:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Equalizer</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.92 }} onClick={() => { setShowSynthVis(true); }}
-                  className="mq-btn-glass relative group/synth flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: showSynthVis ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: showSynthVis ? "rgba(255,255,255,0.08)" : undefined, boxShadow: showSynthVis ? "var(--mq-shadow-glow)" : undefined }}>
-                  <Waves className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold hidden sm:inline">Синтез</span>
-                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/synth:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Synth</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.92 }} onClick={() => {
-                  if (compressorOn) { disableCompressor(); setCompressorOn(false); }
-                  else { enableCompressor(); setCompressorOn(true); }
-                }}
-                  className="mq-btn-glass relative group/comp flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: compressorOn ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: compressorOn ? "rgba(255,255,255,0.08)" : undefined, boxShadow: compressorOn ? "var(--mq-shadow-glow)" : undefined }}>
-                  <Gauge className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold hidden sm:inline">Компр</span>
-                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/comp:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Compress</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.92 }} onClick={() => {
-                  if (reverbOn) { disableReverb(); setReverbOn(false); }
-                  else { enableReverb(); setReverbOn(true); }
-                }}
-                  className="mq-btn-glass relative group/reverb flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: reverbOn ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: reverbOn ? "rgba(255,255,255,0.08)" : undefined, boxShadow: reverbOn ? "var(--mq-shadow-glow)" : undefined }}>
-                  <Sparkles className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold hidden sm:inline">Реверб</span>
-                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/reverb:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Reverb</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.92 }} onClick={() => { setSpatialAudioEnabled(!spatialAudioEnabled); }}
-                  className="mq-btn-glass relative group/spatial flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: spatialAudioEnabled ? "rgba(255,255,255,0.08)" : undefined, boxShadow: spatialAudioEnabled ? "var(--mq-shadow-glow)" : undefined }}>
-                  <Headphones className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold hidden sm:inline">Spatial</span>
-                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/spatial:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>3D Audio</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.92 }} onClick={handleAbToggle}
-                  className="mq-btn-glass relative group/ab flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: abRepeat.active ? "var(--mq-accent)" : abRepeat.pointA !== null ? "rgba(139,92,246,0.9)" : "var(--mq-text-muted)", backgroundColor: abRepeat.active ? "rgba(255,255,255,0.08)" : abRepeat.pointA !== null ? "rgba(139,92,246,0.08)" : undefined, boxShadow: abRepeat.active ? "var(--mq-shadow-glow)" : undefined }}>
-                  <Repeat2 className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold hidden sm:inline">{abRepeat.active ? "A↔B" : abRepeat.pointA !== null ? "A…" : "A-B"}</span>
-                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/ab:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>A-B Repeat</span>
-                </motion.button>
-              </div>
+              {/* Similar tracks */}
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
+                className="p-2 rounded-full transition-all duration-200"
+                style={{ color: showSimilar ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                <ListMusic className="w-5 h-5" />
+              </motion.button>
 
-              {/* Separator */}
-              <div className="w-px h-5 mx-1 sm:mx-1.5" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />
-
-              {/* Group 3: Speed, canvas, share, more */}
-              <div className="flex items-center gap-0.5 sm:gap-1">
-                <motion.button whileTap={{ scale: 0.92 }} onClick={cyclePlaybackSpeed}
-                  className="mq-btn-glass relative group/speed flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: playbackRate !== 1.0 ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: playbackRate !== 1.0 ? "rgba(255,255,255,0.08)" : undefined, boxShadow: playbackRate !== 1.0 ? "var(--mq-shadow-glow)" : undefined }}>
-                  <Gauge className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold tabular-nums">{playbackRate !== 1.0 ? `${playbackRate.toFixed(playbackRate % 1 === 0 ? 0 : 2)}x` : "1x"}</span>
-                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/speed:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Speed</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.92 }} onClick={() => setCanvasMode(!canvasMode)}
-                  className="mq-btn-glass relative group/canvas flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: canvasMode ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: canvasMode ? "rgba(255,255,255,0.08)" : undefined, boxShadow: canvasMode ? "var(--mq-shadow-glow)" : undefined }}>
-                  <Sparkles className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold hidden sm:inline">Canvas</span>
-                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/canvas:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Visualizer</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.92 }} onClick={async () => {
-                  const shareUrl = currentTrack.scTrackId
-                    ? `${window.location.origin}/track/${currentTrack.scTrackId}`
-                    : `https://soundcloud.com/tracks/${currentTrack.scTrackId}`;
-                  if (navigator.share) {
-                    try {
-                      await navigator.share({ title: currentTrack.title, text: `${currentTrack.artist} — ${currentTrack.title}`, url: shareUrl });
-                      return;
-                    } catch {
-                      // User cancelled or error — fall back to clipboard
-                    }
-                  }
-                  // Fallback: copy to clipboard
-                  try {
-                    await navigator.clipboard.writeText(shareUrl);
-                    toast({ title: "Скопировано!", description: "Ссылка скопирована в буфер обмена" });
-                  } catch {}
-                }}
-                  className="mq-btn-glass relative group/share flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: "var(--mq-text-muted)" }}>
-                  <Share2 className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold hidden sm:inline">Share</span>
-                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/share:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Share</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.92 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
-                  className="mq-btn-glass flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200 sm:hidden"
-                  style={{ color: showMoreMenu ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
-                  <MoreVertical className="w-4 h-4" />
-                </motion.button>
-              </div>
+              {/* More menu — all advanced features accessed here */}
+              <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className="p-2 rounded-full transition-all duration-200"
+                style={{ color: showMoreMenu ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                <MoreVertical className="w-5 h-5" />
+              </motion.button>
             </div>
 
             {/* Volume slider — unified desktop + mobile with drag support */}

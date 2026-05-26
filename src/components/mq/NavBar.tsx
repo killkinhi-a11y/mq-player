@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import {
@@ -21,11 +21,7 @@ export default function NavBar() {
   const {
     currentView, setView, logout, username, avatar,
     compactMode, unreadCounts, supportUnreadCount,
-    searchQuery, setSearchQuery,
   } = useAppStore();
-
-  const [searchFocused, setSearchFocused] = useState(false);
-  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const getBadgeCount = (badgeKey?: string): number => {
     if (!badgeKey) return 0;
@@ -38,17 +34,25 @@ export default function NavBar() {
     return 0;
   };
 
-  // ⌘K / Ctrl+K shortcut to focus search
+  // ⌘K / Ctrl+K shortcut to navigate to search view and focus its input
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
-      searchInputRef.current?.focus();
+      setView("search");
+      setTimeout(() => {
+        const searchInput = document.querySelector<HTMLInputElement>("[data-search-input]");
+        searchInput?.focus();
+      }, 100);
     }
     if (e.key === "/" && !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) {
       e.preventDefault();
-      searchInputRef.current?.focus();
+      setView("search");
+      setTimeout(() => {
+        const searchInput = document.querySelector<HTMLInputElement>("[data-search-input]");
+        searchInput?.focus();
+      }, 100);
     }
-  }, []);
+  }, [setView]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -95,9 +99,9 @@ export default function NavBar() {
         </span>
       </motion.div>
 
-      {/* ── Navigation pills (icon-only for minimal look) ── */}
+      {/* ── Navigation pills with labels ── */}
       <nav
-        className="flex items-center gap-0.5 p-0.5 rounded-full ml-2"
+        className="flex items-center gap-1 p-1 rounded-full ml-2"
         role="navigation"
         aria-label="Основная навигация"
         style={{
@@ -112,17 +116,17 @@ export default function NavBar() {
           return (
             <motion.button
               key={item.id}
-              whileHover={isActive ? {} : { scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={isActive ? {} : { scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => setView(item.id)}
               aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
-              className={`relative flex items-center justify-center ${
-                compactMode ? "w-8 h-8" : "w-9 h-9"
-              } rounded-full mq-focus-premium`}
+              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full mq-focus-premium"
               style={{
                 color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
                 transition: "color 0.15s ease",
+                fontSize: 13,
+                fontWeight: isActive ? 600 : 400,
               }}
             >
               {isActive && (
@@ -138,19 +142,21 @@ export default function NavBar() {
                 />
               )}
 
-              <Icon
-                className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"} relative z-10`}
-              />
+              <Icon className="w-4 h-4 relative z-10" />
+              <span className="relative z-10 hidden sm:inline">{item.label}</span>
 
-              {/* Badge dot only */}
+              {/* Badge with count */}
               {badgeCount > 0 && (
                 <span
-                  className="absolute top-1 right-1 w-2 h-2 rounded-full z-20"
+                  className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full z-20 flex items-center justify-center text-[8px] font-bold px-1"
                   style={{
                     backgroundColor: "#ef4444",
+                    color: "white",
                     boxShadow: "0 0 6px rgba(239,68,68,0.6)",
                   }}
-                />
+                >
+                  {badgeCount}
+                </span>
               )}
             </motion.button>
           );
@@ -160,60 +166,36 @@ export default function NavBar() {
       {/* ── Spacer ── */}
       <div className="flex-1" />
 
-      {/* ── Search (single, clean) ── */}
-      <div
-        className="relative flex items-center shrink-0"
-        style={{
-          borderRadius: "var(--mq-radius-full)",
-          background: searchFocused
-            ? "rgba(255,255,255,0.08)"
-            : "rgba(255,255,255,0.04)",
-          border: searchFocused
-            ? "1px solid color-mix(in srgb, var(--mq-accent) 40%, transparent)"
-            : "1px solid rgba(255,255,255,0.06)",
-          boxShadow: searchFocused
-            ? "0 0 16px color-mix(in srgb, var(--mq-accent) 12%, transparent)"
-            : "none",
-          transition: "all 0.2s ease",
-          padding: compactMode ? "4px 10px" : "6px 12px",
-          gap: 6,
+      {/* ── Search button — navigates to search view ── */}
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.97 }}
+        onClick={() => {
+          setView("search");
+          // Focus SearchView's input after a short delay to allow view to render
+          setTimeout(() => {
+            const searchInput = document.querySelector<HTMLInputElement>("[data-search-input]");
+            searchInput?.focus();
+          }, 100);
         }}
+        className="flex items-center gap-2 px-3 py-1.5 rounded-full mq-focus-premium shrink-0"
+        style={{
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.06)",
+          color: "var(--mq-text-muted)",
+          fontSize: 13,
+        }}
+        aria-label="Поиск (⌘K)"
       >
-        <Search
-          className="w-3.5 h-3.5 shrink-0"
-          style={{
-            color: searchFocused ? "var(--mq-accent)" : "var(--mq-text-muted)",
-            transition: "color 0.15s ease",
-          }}
-        />
-        <input
-          ref={searchInputRef}
-          type="text"
-          placeholder="Поиск"
-          value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            if (currentView !== "search") setView("search");
-          }}
-          onFocus={() => setSearchFocused(true)}
-          onBlur={() => setSearchFocused(false)}
-          className={`${compactMode ? "w-24" : "w-36"} bg-transparent outline-none text-sm`}
-          style={{ color: "var(--mq-text)" }}
-          aria-label="Поиск"
-        />
-        {!searchFocused && !searchQuery && (
-          <span
-            className="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0"
-            style={{
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              color: "var(--mq-text-muted)",
-            }}
-          >
-            ⌘K
-          </span>
-        )}
-      </div>
+        <Search className="w-4 h-4" />
+        <span className="hidden sm:inline">Поиск</span>
+        <span
+          className="text-[10px] px-1.5 py-0.5 rounded ml-1"
+          style={{ background: "rgba(255,255,255,0.06)", fontSize: 10 }}
+        >
+          ⌘K
+        </span>
+      </motion.button>
 
       {/* ── User ── */}
       <motion.button
