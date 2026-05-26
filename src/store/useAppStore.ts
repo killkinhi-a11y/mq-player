@@ -949,14 +949,12 @@ export const useAppStore = create<AppState>()(
 
       togglePlay: () => {
         const state = get();
-        const audio = getAudioElement();
-        if (state.isPlaying) {
-          audio?.pause();
-        } else {
+        // Only flip the isPlaying flag — the isPlaying effect in useAudioEngine
+        // is the SINGLE source of truth for calling audio.play()/audio.pause().
+        // This eliminates race conditions from double-calling play/pause.
+        if (!state.isPlaying) {
           resumeAudioContext();
-          audio?.play().catch(() => {});
         }
-        // Optimistic update for instant UI feedback
         set(s => ({
           isPlaying: !s.isPlaying,
           ...(!s.isPlaying ? { miniPlayerHidden: false } : {}),
