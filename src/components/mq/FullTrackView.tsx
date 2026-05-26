@@ -1796,10 +1796,10 @@ export default function FullTrackView() {
               </motion.div>
               {/* Deep vertical gradient — cinematic fade */}
               <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.85) 70%, rgba(0,0,0,0.95) 100%)" }} />
-              {/* Radial accent glow — top center */}
-              <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 50% at 50% 25%, color-mix(in srgb, var(--mq-accent) 10%, transparent), transparent)" }} />
+              {/* Radial accent glow — top center with atmosphere animation */}
+              <div className="absolute inset-0 mq-atmosphere-animated" style={{ opacity: isPlaying ? 1 : 0.3, transition: "opacity 1.5s ease" }} />
               {/* Secondary gradient — bottom warm */}
-              <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 60% 40% at 50% 90%, color-mix(in srgb, var(--mq-accent) 5%, transparent), transparent)" }} />
+              <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 60% 40% at 50% 90%, color-mix(in srgb, var(--mq-accent) 5%, transparent), transparent)", transition: "opacity 1.5s ease", opacity: isPlaying ? 1 : 0.5 } } />
               {/* Vignette effect — darkened edges */}
               <div className="absolute inset-0" style={{ boxShadow: "inset 0 0 200px 60px rgba(0,0,0,0.6)" }} />
               {/* Subtle SVG noise texture overlay at 3% opacity */}
