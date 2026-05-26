@@ -231,6 +231,13 @@ export default function AppShell() {
     };
   }, [isAuthenticated]);
 
+  // ── Sync PlaybackEngine singleton with Zustand store ──
+  useEffect(() => {
+    if (_hasHydrated) {
+      useAppStore.getState().syncWithPlaybackEngine();
+    }
+  }, [_hasHydrated]);
+
   useGlobalNotifications();
   useListenSessionSync();
   useKeyboardShortcuts();

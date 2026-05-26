@@ -4,6 +4,7 @@ import { type Track, type Message as ChatMessage } from "@/lib/musicApi";
 import { themes, applyThemeToDOM } from "@/lib/themes";
 import { enableEQ as engineEnableEQ, disableEQ as engineDisableEQ, setEQBand as engineSetEQBand, setAllEQBands as engineSetAllEQBands, resetEQBands as engineResetEQBands, setAudioPlaybackRate as engineSetAudioPlaybackRate } from "@/lib/audioEngine";
 import { EQ_PRESETS } from "@/lib/eq";
+import { PlaybackEngine, type PlaybackState } from "@/lib/playbackEngine";
 
 // ── Storage versioning ──
 // Bump this number to force a fresh store for all users with old data.
@@ -119,6 +120,9 @@ interface AppState {
   shuffle: boolean;
   repeat: "off" | "all" | "one";
   playbackMode: "soundcloud" | "idle";
+  playbackState: PlaybackState;
+  isBuffering: boolean;
+  isDragging: boolean;
 
   // Sleep timer
   sleepTimerActive: boolean;
@@ -253,6 +257,8 @@ interface AppState {
   toggleShuffle: () => void;
   toggleRepeat: () => void;
   setPlaybackMode: (mode: "soundcloud" | "idle") => void;
+  syncWithPlaybackEngine: () => void;
+  restorePlayback: () => Promise<boolean>;
 
   // Sleep timer actions
   startSleepTimer: (minutes: number) => void;
@@ -493,6 +499,9 @@ const initialState = {
   shuffle: false,
   repeat: "off" as "off" | "all" | "one",
   playbackMode: "idle" as "soundcloud" | "idle",
+  playbackState: "idle" as PlaybackState,
+  isBuffering: false,
+  isDragging: false,
   sleepTimerActive: false,
   sleepTimerMinutes: 30,
   sleepTimerRemaining: 0,
@@ -913,6 +922,12 @@ export const useAppStore = create<AppState>()(
         const state = get();
         const newQueue = queue || state.queue;
         const index = newQueue.findIndex((t) => t.id === track.id);
+
+        // Delegate to PlaybackEngine — it will emit events that syncWithPlaybackEngine picks up
+        const engine = PlaybackEngine.getInstance();
+        engine.play(track, queue);
+
+        // Immediate optimistic store update for instant UI feedback
         set({
           currentTrack: track,
           currentPlaylistId: playlistId ?? (queue ? state.currentPlaylistId : null),
@@ -921,6 +936,7 @@ export const useAppStore = create<AppState>()(
           isPlaying: true,
           progress: 0,
           duration: track.duration,
+          playbackState: "loading",
           // ALWAYS show player bar when playTrack is called — fixes double-click bug
           // where miniPlayerHidden stayed true if user had hidden the mini player
           // and then tapped the same track again (isNewTrack was false)
@@ -934,19 +950,27 @@ export const useAppStore = create<AppState>()(
         get().addToHistory(track);
       },
 
-      togglePlay: () => set((s) => {
-        const newIsPlaying = !s.isPlaying;
-        return {
-          isPlaying: newIsPlaying,
-          // Always show player bar when user explicitly plays — fixes double-click bug
-          // where miniPlayerHidden stayed true after swipe-to-hide then play
-          ...(newIsPlaying ? { miniPlayerHidden: false } : {}),
-        };
-      }),
+      togglePlay: () => {
+        const engine = PlaybackEngine.getInstance();
+        engine.togglePlayPause();
+        // Optimistic update for instant UI feedback
+        set(s => ({
+          isPlaying: !s.isPlaying,
+          ...(!s.isPlaying ? { miniPlayerHidden: false } : {}),
+        }));
+      },
 
-      setVolume: (volume) => set({ volume: Math.round(volume) }),
+      setVolume: (volume) => {
+        const engine = PlaybackEngine.getInstance();
+        engine.setVolume(Math.round(volume));
+        set({ volume: Math.round(volume) });
+      },
 
-      setProgress: (progress) => set({ progress }),
+      setProgress: (progress) => {
+        const engine = PlaybackEngine.getInstance();
+        engine.seek(progress);
+        set({ progress });
+      },
 
       setDuration: (duration) => set({ duration }),
 
@@ -957,6 +981,8 @@ export const useAppStore = create<AppState>()(
         if (upNext.length > 0) {
           const [next, ...remaining] = upNext;
           const newQueue = [next, ...remaining, ...queue];
+          const engine = PlaybackEngine.getInstance();
+          engine.play(next, newQueue);
           set({
             currentTrack: next,
             queue: newQueue,
@@ -1252,12 +1278,16 @@ export const useAppStore = create<AppState>()(
               // Wrap to start while new tracks load
               nextIdx = 0;
             } else {
-              set({ isPlaying: false }); return;
+              set({ isPlaying: false });
+              PlaybackEngine.getInstance().pause();
+              return;
             }
           }
         }
         const track = queue[nextIdx];
         if (track) {
+          const engine = PlaybackEngine.getInstance();
+          engine.play(track, queue);
           set({
             currentTrack: track,
             queueIndex: nextIdx,
@@ -1271,7 +1301,9 @@ export const useAppStore = create<AppState>()(
 
       prevTrack: () => {
         const { queue, queueIndex, progress } = get();
+        const engine = PlaybackEngine.getInstance();
         if (progress > 3) {
+          engine.seek(0);
           set({ progress: 0 });
           return;
         }
@@ -1279,6 +1311,7 @@ export const useAppStore = create<AppState>()(
         if (prevIdx < 0) prevIdx = queue.length - 1;
         const track = queue[prevIdx];
         if (track) {
+          engine.play(track, queue);
           set({
             currentTrack: track,
             queueIndex: prevIdx,
@@ -2283,6 +2316,80 @@ export const useAppStore = create<AppState>()(
       setCatSize: (size) => set({ catSize: size }),
       petCat: () => set((s) => ({ catPetCount: s.catPetCount + 1, catLastSeen: Date.now() })),
 
+      // ── PlaybackEngine sync ──
+      syncWithPlaybackEngine: () => {
+        const engine = PlaybackEngine.getInstance();
+
+        // Clean up any previous subscriptions before re-subscribing
+        const prevUnsubs = (get() as any)._engineUnsubs as (() => void)[] | undefined;
+        if (prevUnsubs) prevUnsubs.forEach(fn => fn());
+
+        const unsubs: (() => void)[] = [];
+
+        unsubs.push(engine.events.on('state_change', ({ to }) => {
+          set({
+            isPlaying: to === 'playing',
+            playbackState: to,
+            isBuffering: to === 'buffering',
+          });
+        }));
+
+        unsubs.push(engine.events.on('time_update', ({ currentTime, duration }) => {
+          if (!get().isDragging) {
+            set({ progress: currentTime, duration });
+          }
+        }));
+
+        unsubs.push(engine.events.on('track_change', ({ track }) => {
+          if (track) {
+            set({ currentTrack: track });
+          }
+        }));
+
+        unsubs.push(engine.events.on('volume_change', ({ volume }) => {
+          set({ volume });
+        }));
+
+        unsubs.push(engine.events.on('queue_update', ({ queue, index }) => {
+          set({ queue, queueIndex: index });
+        }));
+
+        unsubs.push(engine.events.on('buffer_update', ({ buffered }) => {
+          // Could expose buffered progress to UI if needed
+        }));
+
+        unsubs.push(engine.events.on('error', ({ error, recoverable }) => {
+          if (!recoverable) {
+            set({ playbackState: 'error' });
+          }
+        }));
+
+        // Store unsubs so we can clean up if called again
+        (get() as any)._engineUnsubs = unsubs;
+      },
+
+      restorePlayback: async () => {
+        const engine = PlaybackEngine.getInstance();
+        // Build track lookup from existing store data
+        const allTracks = [
+          ...get().queue,
+          ...get().upNext,
+          ...get().likedTracksData,
+          ...get().history.map(h => h.track),
+        ];
+        const trackMap = new Map<string, Track>();
+        for (const t of allTracks) {
+          if (t?.id) trackMap.set(t.id, t);
+        }
+        // Also look up tracks from playlists
+        for (const pl of get().playlists) {
+          for (const t of pl.tracks) {
+            if (t?.id) trackMap.set(t.id, t);
+          }
+        }
+        return engine.restoreFromMemory(trackMap);
+      },
+
       reset: () => set(initialState),
 
       // ── EQ actions ──
@@ -2389,6 +2496,7 @@ export const useAppStore = create<AppState>()(
           isFullTrackViewOpen, notifPanelOpen, notificationCount,
           sleepTimerActive, sleepTimerRemaining, sleepTimerEndTime,
           miniPlayerHidden,
+          playbackState, isBuffering, isDragging,
           // These are also excluded (already not in the whitelist below)
           currentTrack, queue, queueIndex, upNext, playbackMode,
           selectedContactId, selectedGenre, typingUsers,
