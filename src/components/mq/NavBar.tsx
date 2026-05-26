@@ -1,28 +1,26 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import {
   Home, Search, MessageCircle, Settings, LogOut, User,
-  ListMusic, Heart, Music, List,
+  ListMusic, Heart,
 } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
 const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
   { id: "main", icon: Home, label: "Главная" },
-  { id: "search", icon: Search, label: "Поиск" },
   { id: "favorites", icon: Heart, label: "Избранное" },
   { id: "playlists", icon: ListMusic, label: "Плейлисты" },
-  { id: "messenger", icon: MessageCircle, label: "Мессенджер", badgeKey: "messenger" },
-  { id: "settings", icon: Settings, label: "Настройки", badgeKey: "settings" },
+  { id: "messenger", icon: MessageCircle, label: "Чаты", badgeKey: "messenger" },
+  { id: "settings", icon: Settings, label: "Ещё", badgeKey: "settings" },
 ];
 
 export default function NavBar() {
   const {
     currentView, setView, logout, username, avatar,
     compactMode, unreadCounts, supportUnreadCount,
-    currentTrack, isPlaying, setFullTrackViewOpen,
     searchQuery, setSearchQuery,
   } = useAppStore();
 
@@ -44,16 +42,13 @@ export default function NavBar() {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
-      setView("search");
-      setTimeout(() => searchInputRef.current?.focus(), 100);
+      searchInputRef.current?.focus();
     }
-    // "/" shortcut for search (when not in an input)
     if (e.key === "/" && !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) {
       e.preventDefault();
-      setView("search");
-      setTimeout(() => searchInputRef.current?.focus(), 100);
+      searchInputRef.current?.focus();
     }
-  }, [setView]);
+  }, []);
 
   useEffect(() => {
     window.addEventListener("keydown", handleKeyDown);
@@ -62,32 +57,35 @@ export default function NavBar() {
 
   return (
     <header
-      className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center justify-between"
+      className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center"
       role="banner"
       style={{
-        margin: "12px 24px 0",
+        margin: "10px 20px 0",
         borderRadius: "var(--mq-radius-full)",
         background: "var(--mq-glass-bg)",
         backdropFilter: "var(--mq-glass-blur)",
         WebkitBackdropFilter: "var(--mq-glass-blur)",
         border: "1px solid var(--mq-glass-border)",
         boxShadow: "var(--mq-shadow-float)",
-        padding: compactMode ? "8px 16px" : "10px 20px",
+        padding: compactMode ? "6px 12px" : "8px 16px",
+        gap: compactMode ? 8 : 12,
       }}
     >
       {/* ── Logo ── */}
-      <div
+      <motion.div
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
         className="flex items-center gap-2 cursor-pointer shrink-0"
         onClick={() => setView("main")}
       >
         <div
-          className="w-8 h-8 rounded-lg overflow-hidden"
+          className="w-7 h-7 rounded-lg overflow-hidden"
           style={{ boxShadow: "0 0 12px var(--mq-glow)" }}
         >
           <img src="/favicon.ico" alt="mq" className="w-full h-full object-cover" />
         </div>
         <span
-          className="font-extralight text-xl tracking-wide"
+          className="font-extralight text-lg tracking-wide"
           style={{
             color: "var(--mq-text)",
             fontFamily: "var(--font-outfit), system-ui, sans-serif",
@@ -95,18 +93,16 @@ export default function NavBar() {
         >
           mq
         </span>
-      </div>
+      </motion.div>
 
-      {/* ── Navigation pill bar ── */}
+      {/* ── Navigation pills (icon-only for minimal look) ── */}
       <nav
-        className="flex items-center gap-1 p-1 rounded-full mx-4"
+        className="flex items-center gap-0.5 p-0.5 rounded-full ml-2"
         role="navigation"
         aria-label="Основная навигация"
         style={{
-          background: "var(--mq-glass-bg)",
-          border: "1px solid var(--mq-glass-border)",
-          backdropFilter: "var(--mq-glass-blur)",
-          WebkitBackdropFilter: "var(--mq-glass-blur)",
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.04)",
         }}
       >
         {navItems.map((item) => {
@@ -116,324 +112,168 @@ export default function NavBar() {
           return (
             <motion.button
               key={item.id}
-              whileHover={isActive ? {} : { scale: 1.05, y: -1 }}
-              whileTap={{ scale: 0.97 }}
+              whileHover={isActive ? {} : { scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setView(item.id)}
               aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
-              data-tour={
-                item.id === "search"
-                  ? "search"
-                  : item.id === "messenger"
-                    ? "messenger"
-                    : item.id === "settings"
-                      ? "settings"
-                      : undefined
-              }
-              className={`flex items-center gap-2 ${
-                compactMode ? "px-3 py-1.5 text-xs" : "px-4 py-2 text-sm"
-              } rounded-full relative mq-focus-premium`}
+              className={`relative flex items-center justify-center ${
+                compactMode ? "w-8 h-8" : "w-9 h-9"
+              } rounded-full mq-focus-premium`}
               style={{
-                background: isActive ? "transparent" : "transparent",
-                color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
-                border: "1px solid transparent",
-              }}
-              onMouseEnter={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "var(--mq-glass-bg-hover)";
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "transparent";
-                }
+                color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                transition: "color 0.15s ease",
               }}
             >
-              {/* Active glass pill background with layoutId for smooth transition */}
               {isActive && (
                 <motion.div
                   layoutId="navActivePill"
                   className="absolute inset-0 rounded-full"
                   style={{
                     background: "var(--mq-glass-bg-active)",
-                    backdropFilter: "var(--mq-glass-blur)",
-                    WebkitBackdropFilter: "var(--mq-glass-blur)",
                     border: "1px solid var(--mq-glass-border-hover)",
-                    boxShadow: "var(--mq-shadow-glow), var(--mq-shadow-inner-glow)",
+                    boxShadow: "0 0 12px color-mix(in srgb, var(--mq-accent) 15%, transparent)",
                   }}
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
                 />
               )}
 
               <Icon
                 className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"} relative z-10`}
-                style={isActive ? { color: "var(--mq-accent)" } : undefined}
               />
-              <span className="relative z-10">{item.label}</span>
 
-              {/* Badge with pulse */}
+              {/* Badge dot only */}
               {badgeCount > 0 && (
                 <span
-                  className="relative z-10 -mr-1 min-w-[16px] h-[16px] rounded-full flex items-center justify-center text-[9px] font-bold px-1"
+                  className="absolute top-1 right-1 w-2 h-2 rounded-full z-20"
                   style={{
-                    background: "var(--mq-glass-bg-active)",
-                    backdropFilter: "blur(12px)",
-                    border: "1px solid var(--mq-glass-border)",
-                    color: "#fff",
-                    boxShadow: "0 0 8px rgba(239, 68, 68, 0.4)",
-                    animation: "mq-badge-pulse 2s ease-in-out infinite",
+                    backgroundColor: "#ef4444",
+                    boxShadow: "0 0 6px rgba(239,68,68,0.6)",
                   }}
-                >
-                  <span
-                    className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
-                    style={{
-                      backgroundColor: "#ef4444",
-                      boxShadow: "0 0 6px rgba(239,68,68,0.6)",
-                    }}
-                  />
-                  {badgeCount > 99 ? "99" : badgeCount}
-                </span>
+                />
               )}
             </motion.button>
           );
         })}
       </nav>
 
-      {/* ── Right section: search + playback + user ── */}
-      <div className="flex items-center gap-2 shrink-0">
-        {/* ── Enhanced Search Input ── */}
-        <div className="relative">
-          <div
-            className="relative flex items-center"
+      {/* ── Spacer ── */}
+      <div className="flex-1" />
+
+      {/* ── Search (single, clean) ── */}
+      <div
+        className="relative flex items-center shrink-0"
+        style={{
+          borderRadius: "var(--mq-radius-full)",
+          background: searchFocused
+            ? "rgba(255,255,255,0.08)"
+            : "rgba(255,255,255,0.04)",
+          border: searchFocused
+            ? "1px solid color-mix(in srgb, var(--mq-accent) 40%, transparent)"
+            : "1px solid rgba(255,255,255,0.06)",
+          boxShadow: searchFocused
+            ? "0 0 16px color-mix(in srgb, var(--mq-accent) 12%, transparent)"
+            : "none",
+          transition: "all 0.2s ease",
+          padding: compactMode ? "4px 10px" : "6px 12px",
+          gap: 6,
+        }}
+      >
+        <Search
+          className="w-3.5 h-3.5 shrink-0"
+          style={{
+            color: searchFocused ? "var(--mq-accent)" : "var(--mq-text-muted)",
+            transition: "color 0.15s ease",
+          }}
+        />
+        <input
+          ref={searchInputRef}
+          type="text"
+          placeholder="Поиск"
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            if (currentView !== "search") setView("search");
+          }}
+          onFocus={() => setSearchFocused(true)}
+          onBlur={() => setSearchFocused(false)}
+          className={`${compactMode ? "w-24" : "w-36"} bg-transparent outline-none text-sm`}
+          style={{ color: "var(--mq-text)" }}
+          aria-label="Поиск"
+        />
+        {!searchFocused && !searchQuery && (
+          <span
+            className="text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0"
             style={{
-              borderRadius: "var(--mq-radius-full)",
-              background: searchFocused
-                ? "var(--mq-glass-bg-active)"
-                : "var(--mq-glass-bg)",
-              backdropFilter: "var(--mq-glass-blur)",
-              WebkitBackdropFilter: "var(--mq-glass-blur)",
-              border: searchFocused
-                ? "1px solid transparent"
-                : "1px solid var(--mq-glass-border)",
-              boxShadow: searchFocused
-                ? "var(--mq-shadow-glow)"
-                : "none",
-              transition: "all 0.2s ease",
-              // Animated gradient border on focus
-              ...(searchFocused
-                ? {
-                    backgroundImage:
-                      "linear-gradient(var(--mq-surface-1), var(--mq-surface-1)), linear-gradient(135deg, var(--mq-accent), rgba(var(--mq-accent-rgb), 0.3), var(--mq-accent))",
-                    backgroundOrigin: "border-box",
-                    backgroundClip: "padding-box, border-box",
-                  }
-                : {}),
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              color: "var(--mq-text-muted)",
             }}
           >
-            {/* Search icon */}
-            <Search
-              className="w-4 h-4 ml-3 shrink-0"
-              style={{
-                color: searchFocused ? "var(--mq-accent)" : "var(--mq-text-muted)",
-                transition: "color 0.2s ease",
-              }}
-            />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder="Поиск..."
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                if (currentView !== "search") setView("search");
-              }}
-              onFocus={() => setSearchFocused(true)}
-              onBlur={() => setSearchFocused(false)}
-              className={`${
-                compactMode ? "w-32 py-1.5 text-xs" : "w-44 py-1.5 text-sm"
-              } pl-2 pr-2 bg-transparent outline-none`}
-              style={{ color: "var(--mq-text)" }}
-              aria-label="Поиск"
-            />
-            {/* Keyboard shortcut indicator */}
-            {!searchFocused && !searchQuery && (
-              <span
-                className="mr-2 px-1.5 py-0.5 rounded-md text-[10px] font-medium shrink-0"
-                style={{
-                  background: "var(--mq-glass-bg)",
-                  border: "1px solid var(--mq-glass-border)",
-                  color: "var(--mq-text-muted)",
-                  backdropFilter: "blur(12px)",
-                }}
-              >
-                ⌘K
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* ── Playback Quick Actions (only when track is playing) ── */}
-        <AnimatePresence>
-          {currentTrack && isPlaying && (
-            <motion.div
-              initial={{ opacity: 0, width: 0, marginLeft: 0 }}
-              animate={{ opacity: 1, width: "auto", marginLeft: 4 }}
-              exit={{ opacity: 0, width: 0, marginLeft: 0 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="flex items-center gap-1 overflow-hidden"
-            >
-              {/* Mini now-playing indicator */}
-              <motion.button
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setFullTrackViewOpen(true)}
-                className="flex items-center gap-2 px-2 py-1 rounded-full cursor-pointer"
-                style={{
-                  background: "var(--mq-glass-bg)",
-                  border: "1px solid var(--mq-glass-border)",
-                  backdropFilter: "var(--mq-glass-blur)",
-                  WebkitBackdropFilter: "var(--mq-glass-blur)",
-                }}
-                title="Открыть плеер"
-              >
-                {/* Tiny artwork */}
-                <div className="w-5 h-5 rounded-sm overflow-hidden shrink-0">
-                  {currentTrack.cover ? (
-                    <img
-                      src={currentTrack.cover}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div
-                      className="w-full h-full flex items-center justify-center"
-                      style={{ background: "var(--mq-accent)" }}
-                    >
-                      <Music className="w-3 h-3 text-white" />
-                    </div>
-                  )}
-                </div>
-                {/* Tiny EQ bars */}
-                <div className="flex items-end gap-[2px] h-3">
-                  {[0, 1, 2].map((i) => (
-                    <div
-                      key={i}
-                      className="w-[2px] rounded-full"
-                      style={{
-                        backgroundColor: "var(--mq-accent)",
-                        animation: `mq-eq-bar-${i + 1} 0.6s ease-in-out infinite alternate`,
-                      }}
-                    />
-                  ))}
-                </div>
-                {/* Title (truncated) */}
-                <span
-                  className="text-xs truncate max-w-[80px]"
-                  style={{ color: "var(--mq-text)" }}
-                >
-                  {currentTrack.title}
-                </span>
-              </motion.button>
-
-              {/* Queue toggle */}
-              <motion.button
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setView("playlists")}
-                className="p-1.5 rounded-full"
-                style={{
-                  color: "var(--mq-text-muted)",
-                  background: "var(--mq-glass-bg)",
-                  border: "1px solid var(--mq-glass-border)",
-                  backdropFilter: "blur(12px)",
-                }}
-                title="Очередь"
-              >
-                <List className="w-3.5 h-3.5" />
-              </motion.button>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* ── User Avatar/Profile Section ── */}
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => setView("profile")}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-all duration-200 relative group"
-          style={{
-            background: "var(--mq-glass-bg)",
-            border: "1px solid var(--mq-glass-border)",
-            backdropFilter: "var(--mq-glass-blur)",
-            WebkitBackdropFilter: "var(--mq-glass-blur)",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "var(--mq-glass-bg-hover)";
-            e.currentTarget.style.borderColor = "var(--mq-glass-border-hover)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "var(--mq-glass-bg)";
-            e.currentTarget.style.borderColor = "var(--mq-glass-border)";
-          }}
-        >
-          {/* Avatar with accent glow ring */}
-          <div className="relative">
-            {avatar ? (
-              <img
-                src={avatar}
-                alt="avatar"
-                className="w-6 h-6 rounded-full object-cover"
-                style={{
-                  boxShadow: "0 0 0 2px var(--mq-surface-1), 0 0 0 3px var(--mq-accent)",
-                }}
-              />
-            ) : (
-              <div
-                className="w-6 h-6 rounded-full flex items-center justify-center"
-                style={{
-                  backgroundColor: "var(--mq-accent)",
-                  boxShadow: "0 0 0 2px var(--mq-surface-1), 0 0 8px var(--mq-glow)",
-                }}
-              >
-                <User className="w-3.5 h-3.5" style={{ color: "var(--mq-text)" }} />
-              </div>
-            )}
-            {/* Subtle accent glow ring */}
-            <div
-              className="absolute inset-0 rounded-full pointer-events-none"
-              style={{
-                boxShadow: "0 0 12px var(--mq-glow)",
-                opacity: 0.5,
-              }}
-            />
-          </div>
-          <span className="text-sm" style={{ color: "var(--mq-text)" }}>
-            @{username || "User"}
+            ⌘K
           </span>
-        </motion.button>
-
-        {/* ── Logout ── */}
-        <motion.button
-          whileHover={{ scale: 1.08 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={logout}
-          className="p-2 rounded-full transition-all mq-focus-premium"
-          aria-label="Выйти"
-          style={{
-            color: "var(--mq-text-muted)",
-            background: "transparent",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "var(--mq-glass-bg-hover)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-          }}
-          title="Выйти"
-        >
-          <LogOut className="w-4 h-4" />
-        </motion.button>
+        )}
       </div>
+
+      {/* ── User ── */}
+      <motion.button
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.97 }}
+        onClick={() => setView("profile")}
+        className="flex items-center gap-2 shrink-0 px-2 py-1 rounded-full mq-focus-premium"
+        style={{
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.06)",
+        }}
+        aria-label="Профиль"
+      >
+        {avatar ? (
+          <img
+            src={avatar}
+            alt=""
+            className="w-6 h-6 rounded-full object-cover"
+            style={{
+              boxShadow: "0 0 0 2px var(--mq-surface-1), 0 0 0 3px var(--mq-accent)",
+            }}
+          />
+        ) : (
+          <div
+            className="w-6 h-6 rounded-full flex items-center justify-center"
+            style={{
+              backgroundColor: "var(--mq-accent)",
+            }}
+          >
+            <User className="w-3.5 h-3.5" style={{ color: "var(--mq-text)" }} />
+          </div>
+        )}
+        {!compactMode && (
+          <span className="text-sm max-w-[80px] truncate" style={{ color: "var(--mq-text)" }}>
+            {username || "User"}
+          </span>
+        )}
+      </motion.button>
+
+      {/* ── Logout (icon only, subtle) ── */}
+      <motion.button
+        whileHover={{ scale: 1.08 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={logout}
+        className="p-2 rounded-full mq-focus-premium"
+        aria-label="Выйти"
+        style={{
+          color: "var(--mq-text-muted)",
+          transition: "color 0.15s ease",
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = "var(--mq-accent)";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = "var(--mq-text-muted)";
+        }}
+        title="Выйти"
+      >
+        <LogOut className="w-4 h-4" />
+      </motion.button>
     </header>
   );
 }
