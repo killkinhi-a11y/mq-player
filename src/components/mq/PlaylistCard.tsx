@@ -37,41 +37,75 @@ export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps)
   return (
     <motion.div
       {...motionProps}
-      whileHover={animationsEnabled ? { y: -4 } : undefined}
-      className="rounded-lg overflow-hidden cursor-pointer group"
-      style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
+      whileHover={animationsEnabled ? { y: -2 } : undefined}
+      className="rounded-[14px] overflow-hidden cursor-pointer group relative"
+      style={{
+        backgroundColor: "var(--mq-card)",
+        border: "1px solid var(--mq-border)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
+      }}
     >
+      {/* Ambient glow layer on hover */}
+      <div
+        className="absolute inset-0 rounded-[14px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
+        style={{
+          boxShadow: "0 0 20px color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+          filter: "blur(20px)",
+        }}
+      />
+
+      {/* Border glow on hover */}
+      <div
+        className="absolute inset-0 rounded-[14px] pointer-events-none border border-transparent group-hover:border-[color-mix(in_srgb,var(--mq-accent)_15%,transparent)] transition-colors duration-300"
+      />
+
       <div className="relative aspect-square overflow-hidden">
         <img
           src={playlist.cover}
           alt={playlist.name}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+          className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03] mq-cover-shadow"
           loading="lazy"
         />
+
+        {/* Gradient overlay at bottom for text readability */}
+        <div
+          className="absolute inset-x-0 bottom-0 h-1/2 pointer-events-none"
+          style={{
+            background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 50%, transparent 100%)",
+          }}
+        />
+
+        {/* Play button overlay on hover */}
         <div
           className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+          style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
         >
           <motion.button
-            whileHover={animationsEnabled ? { scale: 1.1 } : undefined}
-            whileTap={animationsEnabled ? { scale: 0.9 } : undefined}
+            initial={{ scale: 0.5, opacity: 0 }}
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
             onClick={handlePlay}
             className="w-14 h-14 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: "var(--mq-accent)" }}
+            style={{
+              backgroundColor: "rgba(0,0,0,0.45)",
+              backdropFilter: "blur(16px) saturate(180%)",
+              WebkitBackdropFilter: "blur(16px) saturate(180%)",
+              border: "1px solid rgba(255,255,255,0.12)",
+            }}
           >
-            <Play className="w-6 h-6 ml-1" style={{ color: "var(--mq-text)" }} />
+            <Play className="w-6 h-6 ml-1" style={{ color: "#fff" }} fill="#fff" />
           </motion.button>
         </div>
       </div>
-      <div className="p-3">
+      <div className="p-3.5">
         <h3 className="font-semibold text-sm truncate" style={{ color: "var(--mq-text)" }}>
           {playlist.name}
         </h3>
         <p className="text-xs mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>
           {playlist.description}
         </p>
-        <div className="flex items-center gap-2 mt-2">
-          <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", opacity: 0.7 }}>
+        <div className="flex items-center gap-2 mt-2.5">
+          <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}>
             {playlist.genre}
           </span>
           <div className="flex items-center gap-1">

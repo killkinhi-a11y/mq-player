@@ -934,7 +934,15 @@ export const useAppStore = create<AppState>()(
         get().addToHistory(track);
       },
 
-      togglePlay: () => set((s) => ({ isPlaying: !s.isPlaying })),
+      togglePlay: () => set((s) => {
+        const newIsPlaying = !s.isPlaying;
+        return {
+          isPlaying: newIsPlaying,
+          // Always show player bar when user explicitly plays — fixes double-click bug
+          // where miniPlayerHidden stayed true after swipe-to-hide then play
+          ...(newIsPlaying ? { miniPlayerHidden: false } : {}),
+        };
+      }),
 
       setVolume: (volume) => set({ volume: Math.round(volume) }),
 

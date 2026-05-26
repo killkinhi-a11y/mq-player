@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, memo } from "react";
 import { type Track } from "@/lib/musicApi";
 import { useAppStore } from "@/store/useAppStore";
 import { Play, Pause, Heart, ThumbsDown, MoreHorizontal, Music } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import ContextMenu from "./ContextMenu";
 import { formatDuration } from "@/lib/musicApi";
@@ -27,7 +27,7 @@ const NowPlayingEqualizer = memo(function NowPlayingEqualizer() {
           className="mq-track-eq w-[2px] rounded-full inline-block origin-bottom"
           style={{
             backgroundColor: "var(--mq-accent)",
-            boxShadow: "0 0 4px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
+            boxShadow: "0 0 6px color-mix(in srgb, var(--mq-accent) 50%, transparent), 0 0 12px color-mix(in srgb, var(--mq-accent) 20%, transparent)",
             animationName: `trackEq${i}`,
             animationDuration: "0.5s",
             animationDelay: `${i * 0.08}s`,
@@ -58,6 +58,10 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
   const isLiked = likedSet.has(track.id);
   const isDisliked = dislikedSet.has(track.id);
 
+  // Track like/dislike animation state
+  const [likePulse, setLikePulse] = useState(false);
+  const [dislikeShake, setDislikeShake] = useState(false);
+
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; show: boolean }>({
     x: 0, y: 0, show: false,
   });
@@ -84,9 +88,6 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
     setContextMenu({ x: clientX, y: clientY, show: true });
   }, []);
 
-  // playAction for short taps — called directly on touch (via onShortPress)
-  // and on mouse click (via onClick). Avoids the unreliable synthetic click
-  // dispatch that caused the "double-click" bug on mobile.
   const playAction = useCallback(() => {
     if (isActive) {
       togglePlay();
@@ -97,11 +98,10 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
 
   const { wasLongPress: longPressWasActive, ...longPressHandlers } = useLongPress(handleLongPress, {
     delay: 500,
-    onShortPress: playAction, // Direct callback on touch short-tap (no setTimeout)
+    onShortPress: playAction,
   });
 
   const handleClick = useCallback((e: React.MouseEvent) => {
-    // Mouse click — suppress if a long press just occurred
     if (longPressWasActive()) return;
     playAction();
   }, [playAction, longPressWasActive]);
@@ -120,11 +120,15 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
   const handleLikeClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     toggleLike(track.id, track);
+    setLikePulse(true);
+    setTimeout(() => setLikePulse(false), 400);
   }, [track.id, track, toggleLike]);
 
   const handleDislikeClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     toggleDislike(track.id, track);
+    setDislikeShake(true);
+    setTimeout(() => setDislikeShake(false), 400);
   }, [track.id, track, toggleDislike]);
 
   const closeContextMenu = useCallback(() => setContextMenu((prev) => ({ ...prev, show: false })), []);
@@ -146,30 +150,76 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
         className={`
           group flex items-center
           ${compactMode ? "gap-2.5 px-2.5 py-1.5" : "gap-3 sm:gap-3.5 px-3 py-2 sm:px-3.5 sm:py-2.5"}
-          rounded-2xl cursor-pointer relative overflow-hidden
-          transition-shadow duration-300 ease-out
-          hover:bg-[rgba(255,255,255,0.035)]
+          rounded-[14px] cursor-pointer relative overflow-hidden
+          transition-[background-color] duration-300 ease-out
           select-none
         `}
         style={{
-          backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)" : "transparent",
+          backgroundColor: isActive
+            ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)"
+            : "transparent",
           boxShadow: isActive
-            ? "0 0 16px color-mix(in srgb, var(--mq-accent) 10%, transparent)"
-            : "none",
+            ? "0 0 16px color-mix(in srgb, var(--mq-accent) 10%, transparent), inset 0 1px 0 rgba(255,255,255,0.04)"
+            : "inset 0 1px 0 rgba(255,255,255,0.04)",
         }}
         whileHover={{
+          y: -2,
           boxShadow: isActive
-            ? "0 0 20px color-mix(in srgb, var(--mq-accent) 15%, transparent), 0 2px 8px rgba(0,0,0,0.15)"
-            : "0 2px 12px rgba(0,0,0,0.12), 0 0 8px color-mix(in srgb, var(--mq-accent) 6%, transparent)",
-          y: -1,
+            ? "0 0 24px color-mix(in srgb, var(--mq-accent) 15%, transparent), 0 4px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)"
+            : "0 4px 16px rgba(0,0,0,0.15), 0 0 20px color-mix(in srgb, var(--mq-accent) 6%, transparent), inset 0 1px 0 rgba(255,255,255,0.04)",
+          transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] },
         }}
         whileTap={{ scale: 0.995 }}
       >
-        {/* Active track left accent bar — simple CSS, no layoutId (prevents flying bar bug) */}
+        {/* Ambient glow layer — accent color, blur 20px, opacity 0.15 on hover */}
+        <div
+          className="absolute inset-0 rounded-[14px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
+          style={{
+            boxShadow: "0 0 20px color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+            filter: "blur(20px)",
+          }}
+        />
+
+        {/* Border glow ring — appears on hover */}
+        <div
+          className={`
+            absolute inset-0 rounded-[14px] pointer-events-none
+            border transition-colors duration-300
+            ${isActive
+              ? "border-[color-mix(in_srgb,var(--mq-accent)_25%,transparent)]"
+              : "border-transparent group-hover:border-[color-mix(in_srgb,var(--mq-accent)_15%,transparent)]"
+            }
+          `}
+        />
+
+        {/* Active track left accent bar — breathing glow animation */}
+        {isActive && (
+          <div className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full overflow-visible">
+            {/* Core bar */}
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{ backgroundColor: "var(--mq-accent)" }}
+            />
+            {/* Breathing glow */}
+            <div
+              className="absolute inset-0 rounded-full"
+              style={{
+                backgroundColor: "var(--mq-accent)",
+                boxShadow: "0 0 8px var(--mq-accent), 0 0 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
+                animation: "mqBreathe 2s ease-in-out infinite",
+              }}
+            />
+          </div>
+        )}
+
+        {/* Pulsing background tint when active */}
         {isActive && (
           <div
-            className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full"
-            style={{ backgroundColor: "var(--mq-accent)" }}
+            className="absolute inset-0 rounded-[14px] pointer-events-none"
+            style={{
+              backgroundColor: "var(--mq-accent)",
+              animation: "mqPulseTint 2.5s ease-in-out infinite",
+            }}
           />
         )}
 
@@ -178,11 +228,14 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
           className={`
             ${compactMode ? "w-9 h-9" : "w-11 h-11 sm:w-12 sm:h-12"}
             rounded-lg overflow-hidden flex-shrink-0 relative
+            mq-cover-shadow
+            transition-transform duration-300 ease-out
+            group-hover:scale-[1.05]
           `}
           style={{
             boxShadow: isActive
-              ? "0 2px 12px color-mix(in srgb, var(--mq-accent) 20%, transparent)"
-              : "0 1px 4px rgba(0,0,0,0.15)",
+              ? "0 2px 12px color-mix(in srgb, var(--mq-accent) 25%, transparent)"
+              : undefined,
           }}
         >
           {track.cover ? (
@@ -215,18 +268,25 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               bg-black/0 group-hover:bg-black/45
               transition-colors duration-200 ease-out"
           >
-            {/* Play / pause circle button */}
-            <div
+            {/* Play / pause circle button — glass background with spring animation */}
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0 }}
               className={`
                 flex items-center justify-center
-                rounded-full backdrop-blur-sm
+                rounded-full
                 ${compactMode ? "w-7 h-7" : "w-8 h-8"}
                 opacity-0 group-hover:opacity-100
-                scale-75 group-hover:scale-100
-                transition-all duration-200 ease-out
-                ${isActive && isPlaying ? "!opacity-100 !scale-100" : ""}
+                transition-opacity duration-200 ease-out
+                ${isActive && isPlaying ? "!opacity-100" : ""}
               `}
-              style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+              style={{
+                backgroundColor: "rgba(0,0,0,0.45)",
+                backdropFilter: "blur(12px) saturate(180%)",
+                WebkitBackdropFilter: "blur(12px) saturate(180%)",
+                border: "1px solid rgba(255,255,255,0.1)",
+              }}
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring", stiffness: 400, damping: 25 }}
             >
               {isActive && isPlaying ? (
                 <Pause
@@ -241,19 +301,27 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
                   fill="#fff"
                 />
               )}
-            </div>
+            </motion.div>
           </div>
 
-          {/* Mini equalizer bars on cover (when playing) — 60fps CSS animation */}
+          {/* Mini equalizer bars on cover (when playing) — with subtle glow */}
           {isActive && isPlaying && (
             <div className="absolute bottom-1 left-1 right-1 flex items-end justify-center gap-[1.5px] h-3.5">
+              {/* Glow layer behind eq bars */}
+              <div
+                className="absolute inset-0 rounded-sm"
+                style={{
+                  background: "radial-gradient(ellipse at center, color-mix(in srgb, var(--mq-accent) 30%, transparent), transparent 70%)",
+                  filter: "blur(4px)",
+                }}
+              />
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="mq-cover-eq w-[1.5px] rounded-full origin-bottom"
+                  className="mq-cover-eq w-[1.5px] rounded-full origin-bottom relative z-10"
                   style={{
                     backgroundColor: "#fff",
-                    boxShadow: "0 0 3px rgba(255,255,255,0.4)",
+                    boxShadow: "0 0 4px rgba(255,255,255,0.5), 0 0 8px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
                     animationName: `coverEq${i}`,
                     animationDuration: "0.45s",
                     animationDelay: `${i * 0.06}s`,
@@ -267,7 +335,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
         {/* ── Track info ── */}
         <div className="flex-1 min-w-0 flex flex-col justify-center">
           {/* Title row */}
-          <div className="flex items-center min-w-0">
+          <div className="flex items-center min-w-0 relative">
             <p
               className={`
                 truncate
@@ -281,6 +349,15 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
             >
               {track.title}
             </p>
+            {/* Gradient fade on long titles */}
+            <span
+              className="absolute right-8 top-0 bottom-0 w-8 pointer-events-none"
+              style={{
+                background: isActive
+                  ? "linear-gradient(to right, transparent, color-mix(in srgb, var(--mq-accent) 8%, transparent))"
+                  : "linear-gradient(to right, transparent, var(--mq-bg, #0e0e0e))",
+              }}
+            />
             {/* Now-playing equalizer next to title */}
             {isActive && isPlaying && !compactMode && <NowPlayingEqualizer />}
           </div>
@@ -321,44 +398,49 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
             </span>
           )}
 
-          {/* Like button — always visible on mobile, hover-visible on desktop */}
-          <button
+          {/* Like button — heart pulse animation when toggled */}
+          <motion.button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={handleLikeClick}
             className={`
               ${compactMode ? "w-7 h-7" : "w-8 h-8"}
               flex items-center justify-center
               rounded-full
-              transition-all duration-150
+              transition-colors duration-150
               sm:opacity-0 sm:group-hover:opacity-100
               hover:bg-white/10
-              active:scale-90
             `}
             style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)" }}
+            animate={likePulse ? { scale: [1, 1.3, 0.9, 1.1, 1] } : { scale: 1 }}
+            transition={likePulse ? { duration: 0.4, ease: "easeInOut" } : { duration: 0.15 }}
           >
-            <Heart className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`} style={isLiked ? { fill: "#ef4444" } : {}} />
-          </button>
+            <Heart
+              className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`}
+              style={isLiked ? { fill: "#ef4444" } : {}}
+            />
+          </motion.button>
 
-          {/* Dislike button — hidden on mobile, hover-visible on desktop */}
-          <button
+          {/* Dislike button — shake animation when toggled */}
+          <motion.button
             onPointerDown={(e) => e.stopPropagation()}
             onClick={handleDislikeClick}
             className={`
               w-8 h-8
               hidden sm:flex items-center justify-center
               rounded-full
-              transition-all duration-150
+              transition-colors duration-150
               opacity-0 group-hover:opacity-100
               hover:bg-white/10
-              active:scale-90
             `}
             style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }}
+            animate={dislikeShake ? { x: [0, -3, 3, -2, 2, 0] } : { x: 0 }}
+            transition={dislikeShake ? { duration: 0.35, ease: "easeInOut" } : { duration: 0.15 }}
           >
             <ThumbsDown className="w-3.5 h-3.5" style={isDisliked ? { fill: "#ef4444" } : {}} />
-          </button>
+          </motion.button>
 
-          {/* More button — only visible on hover */}
-          <button
+          {/* More button — rotate 90deg on hover */}
+          <motion.button
             onClick={handleMoreClick}
             className={`
               ${compactMode ? "w-7 h-7" : "w-8 h-8"}
@@ -366,12 +448,14 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               rounded-full
               opacity-0 group-hover:opacity-100
               hover:bg-white/10
-              transition-all duration-150
+              transition-colors duration-150
             `}
             style={{ color: "var(--mq-text-muted)" }}
+            whileHover={{ rotate: 90 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
           >
             <MoreHorizontal className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`} />
-          </button>
+          </motion.button>
         </div>
       </motion.div>
 

@@ -148,52 +148,56 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
           {aiSummary}
         </p>
       )}
-      <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-        {aiTracks.map((track, i) => (
-          <motion.button
-            key={track.id}
-            initial={animationsEnabled ? { opacity: 0, x: 20 } : undefined}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.03 }}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => playTrack(track, aiTracks)}
-            className="flex-shrink-0 w-[148px] rounded-2xl overflow-hidden text-left cursor-pointer group relative"
-            style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
-          >
-            <div className="aspect-square relative overflow-hidden">
-              {track.cover ? (
-                <img src={track.cover} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.6 }}>
-                  <Music className="w-8 h-8" style={{ color: "var(--mq-text)" }} />
+      <div className="relative">
+        <div className="mq-scroll-row"
+          style={{ scrollSnapType: "x proximity", gap: "var(--mq-space-3)" }}>
+          {aiTracks.map((track, i) => (
+            <motion.button
+              key={track.id}
+              initial={animationsEnabled ? { opacity: 0, x: 20 } : undefined}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.03 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => playTrack(track, aiTracks)}
+              className="mq-card-cinematic flex-shrink-0 w-[148px] text-left cursor-pointer group relative"
+            >
+              <div className="aspect-square relative overflow-hidden mq-cover-shadow">
+                {track.cover ? (
+                  <img src={track.cover} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.6 }}>
+                    <Music className="w-8 h-8" style={{ color: "var(--mq-text)" }} />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:scale-100 scale-75"
+                    style={{ background: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                    <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                  </div>
                 </div>
-              )}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:scale-100 scale-75"
-                  style={{ background: "var(--mq-accent)", color: "var(--mq-text)" }}>
-                  <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                {/* AI badge */}
+                <div className="absolute top-1 right-1">
+                  <span className="text-[7px] px-1.5 py-[2px] rounded-full font-semibold tracking-wide uppercase"
+                    style={{ backgroundColor: "rgba(0,0,0,0.5)", color: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)", letterSpacing: "0.05em" }}>
+                    AI
+                  </span>
                 </div>
               </div>
-              {/* AI badge */}
-              <div className="absolute top-1 right-1">
-                <span className="text-[7px] px-1.5 py-[2px] rounded-full font-semibold tracking-wide uppercase"
-                  style={{ backgroundColor: "rgba(0,0,0,0.5)", color: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)", letterSpacing: "0.05em" }}>
-                  AI
-                </span>
+              <div className="p-2.5 min-h-[52px]">
+                <p className="text-xs font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>
+                  {track.title}
+                </p>
+                <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
+                  {track.artist}
+                </p>
               </div>
-            </div>
-            <div className="p-2.5 min-h-[52px]">
-              <p className="text-xs font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>
-                {track.title}
-              </p>
-              <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
-                {track.artist}
-              </p>
-            </div>
-          </motion.button>
-        ))}
+            </motion.button>
+          ))}
+        </div>
+        {/* Scroll fade gradient on right edge */}
+        <div className="absolute top-0 right-0 bottom-2 w-12 pointer-events-none z-10"
+          style={{ background: "linear-gradient(to right, transparent, var(--mq-bg))" }} />
       </div>
     </div>
   );
@@ -239,7 +243,7 @@ function RecCategoryRow({ category, index, playTrack, animationsEnabled, compact
           <span style={{ color: "var(--mq-accent)" }}>{Icon}</span>
         </div>
         <button onClick={() => onOpenAll(category)} className="cursor-pointer hover:opacity-80 transition-opacity min-w-0">
-          <h2 className="text-base font-bold truncate" style={{ color: "var(--mq-text)" }}>
+          <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>
             {category.title}
           </h2>
         </button>
@@ -252,48 +256,52 @@ function RecCategoryRow({ category, index, playTrack, animationsEnabled, compact
           {tracks.length} треков
         </span>
       </div>
-      <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1"
-        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-        {tracks.map((track, i) => (
-          <motion.button
-            key={track.id}
-            initial={animationsEnabled ? { opacity: 0, x: 20 } : undefined}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.03 }}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => playTrack(track, tracks)}
-            className="flex-shrink-0 w-[148px] rounded-2xl overflow-hidden text-left cursor-pointer group relative"
-            style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}
-          >
-            {/* Cover */}
-            <div className="aspect-square relative overflow-hidden">
-              {track.cover ? (
-                <img src={track.cover} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.6 }}>
-                  <Music className="w-8 h-8" style={{ color: "var(--mq-text)" }} />
-                </div>
-              )}
-              {/* Play overlay */}
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:scale-100 scale-75"
-                  style={{ background: "var(--mq-accent)", color: "var(--mq-text)" }}>
-                  <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+      <div className="relative">
+        <div className="mq-scroll-row"
+          style={{ scrollSnapType: "x proximity", gap: "var(--mq-space-3)" }}>
+          {tracks.map((track, i) => (
+            <motion.button
+              key={track.id}
+              initial={animationsEnabled ? { opacity: 0, x: 20 } : undefined}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.03 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => playTrack(track, tracks)}
+              className="mq-card-cinematic flex-shrink-0 w-[148px] text-left cursor-pointer group relative"
+            >
+              {/* Cover */}
+              <div className="aspect-square relative overflow-hidden mq-cover-shadow">
+                {track.cover ? (
+                  <img src={track.cover} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.6 }}>
+                    <Music className="w-8 h-8" style={{ color: "var(--mq-text)" }} />
+                  </div>
+                )}
+                {/* Play overlay */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:scale-100 scale-75"
+                    style={{ background: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                    <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                  </div>
                 </div>
               </div>
-            </div>
-            {/* Info */}
-            <div className="p-2.5 min-h-[52px]">
-              <p className="text-xs font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>
-                {track.title}
-              </p>
-              <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
-                {track.artist}
-              </p>
-            </div>
-          </motion.button>
-        ))}
+              {/* Info */}
+              <div className="p-2.5 min-h-[52px]">
+                <p className="text-xs font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>
+                  {track.title}
+                </p>
+                <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
+                  {track.artist}
+                </p>
+              </div>
+            </motion.button>
+          ))}
+        </div>
+        {/* Scroll fade gradient on right edge */}
+        <div className="absolute top-0 right-0 bottom-2 w-12 pointer-events-none z-10"
+          style={{ background: "linear-gradient(to right, transparent, var(--mq-bg))" }} />
       </div>
     </motion.div>
   );
@@ -415,12 +423,23 @@ function MoodTag({ label, icon, onClick, active, gradient }: {
       whileHover={{ scale: 1.05, y: -1 }}
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
-      className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-all duration-200"
+      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-all duration-200 ${active ? "mq-breathe-glow" : ""}`}
       style={{
-        background: active ? "var(--mq-accent)" : (gradient || "rgba(255,255,255,0.06)"),
+        background: active
+          ? "var(--mq-accent)"
+          : gradient || "var(--mq-glass-bg)",
         color: active ? "var(--mq-text)" : "var(--mq-text-muted)",
-        boxShadow: active ? "0 2px 8px color-mix(in srgb, var(--mq-accent) 25%, transparent)" : gradient ? "0 2px 8px rgba(0,0,0,0.12)" : "none",
-        border: active ? "1px solid var(--mq-accent)" : gradient ? "1px solid rgba(255,255,255,0.08)" : "1px solid transparent",
+        boxShadow: active
+          ? "0 2px 12px color-mix(in srgb, var(--mq-accent) 30%, transparent)"
+          : gradient
+            ? "0 2px 8px rgba(0,0,0,0.12)"
+            : "none",
+        border: active
+          ? "1px solid var(--mq-accent)"
+          : "1px solid var(--mq-glass-border)",
+        backdropFilter: active ? "none" : "var(--mq-glass-blur)",
+        WebkitBackdropFilter: active ? "none" : "var(--mq-glass-blur)",
+        animation: active ? "mq-breathe-glow 3s ease-in-out infinite" : "none",
       }}
     >
       {icon}
@@ -465,7 +484,7 @@ function ListeningActivityBar({ history }: { history: any[] }) {
   const maxCount = Math.max(...bars.map(b => b.count), 1);
 
   return (
-    <div className="flex items-end gap-2 h-20">
+    <div className="flex items-end gap-3.5 h-24">
       {bars.map((bar, i) => {
         const isHovered = hoveredIdx === i;
         const hasActivity = bar.count > 0;
@@ -493,7 +512,31 @@ function ListeningActivityBar({ history }: { history: any[] }) {
               </motion.div>
             )}
             {/* Bar */}
-            <div className="w-full flex items-end justify-center" style={{ height: 56 }}>
+            <div className="w-full flex items-end justify-center relative" style={{ height: 64 }}>
+              {/* Glow behind active bar */}
+              {bar.isToday && (
+                <motion.div
+                  className="absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-10 rounded-full"
+                  style={{
+                    background: "var(--mq-accent)",
+                    filter: "blur(12px)",
+                    opacity: 0.35,
+                  }}
+                  animate={{ opacity: [0.25, 0.45, 0.25], scale: [0.9, 1.1, 0.9] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                />
+              )}
+              {hasActivity && !bar.isToday && (
+                <div
+                  className="absolute bottom-0 left-1/2 -translate-x-1/2 w-8 h-8 rounded-full"
+                  style={{
+                    background: "var(--mq-accent)",
+                    filter: "blur(10px)",
+                    opacity: isHovered ? 0.25 : 0.12,
+                    transition: "opacity 0.2s",
+                  }}
+                />
+              )}
               <motion.div
                 initial={{ scaleY: 0.07 }}
                 animate={{ scaleY: bar.height / 100 }}
@@ -511,6 +554,7 @@ function ListeningActivityBar({ history }: { history: any[] }) {
                   opacity: bar.isToday ? 1 : hasActivity ? 0.45 : 0.25,
                   transition: "opacity 0.2s, filter 0.2s",
                   filter: isHovered && hasActivity ? "brightness(1.3)" : "none",
+                  animation: bar.isToday ? "mq-breathe-glow 3s ease-in-out infinite" : "none",
                 }}
               >
                 {/* Shine overlay on today's bar */}
@@ -1305,7 +1349,7 @@ export default function MainView() {
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
                   {/* Avatar */}
                   <div
-                    className="w-28 h-28 sm:w-32 sm:h-32 lg:w-36 lg:h-36 rounded-2xl overflow-hidden flex-shrink-0 shadow-2xl shadow-black/40 flex items-center justify-center"
+                    className="w-32 h-32 sm:w-36 sm:h-36 lg:w-40 lg:h-40 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center mq-cover-shadow-lg"
                     style={{ backgroundColor: "var(--mq-accent)", opacity: 0.7 }}
                   >
                     {selectedArtist.avatar ? (
@@ -1705,30 +1749,150 @@ export default function MainView() {
   }
 
   return (
-    <div ref={mainRef} className="p-4 sm:p-5 lg:p-6 pb-24 lg:pb-28 max-w-4xl mx-auto relative" style={{ scrollBehavior: "smooth" }}>
+    <div ref={mainRef} className="p-4 sm:p-5 lg:p-6 pb-24 lg:pb-28 max-w-6xl mx-auto relative" style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
       {/* Cursor Spotlight — global mouse glow */}
       <CursorSpotlight />
 
-      {/* ── Header: Large greeting + tagline ── */}
-      <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold" style={{ color: "var(--mq-text)" }}>
-          {getGreeting()}
-        </h1>
-        <p className="text-sm mt-1.5 font-medium" style={{ color: "color-mix(in srgb, var(--mq-text-muted) 80%, var(--mq-text))" }}>
-          {getGreetingSubtext()}
-        </p>
+      {/* ── Cinematic Hero Section ── */}
+      <div
+        ref={heroRef}
+        className="relative mb-10 overflow-hidden rounded-3xl"
+        style={{ opacity: heroScrollOpacity, transform: `translateY(${heroScrollY * 0.15}px)`, transition: "opacity 0.1s, transform 0.1s" }}
+      >
+        {/* Dynamic gradient background */}
+        <div className="mq-hero-gradient absolute inset-0" />
+
+        {/* Floating gradient orb 1 */}
+        <motion.div
+          className="absolute w-[300px] h-[300px] rounded-full pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, color-mix(in srgb, var(--mq-accent) 20%, transparent) 0%, transparent 70%)",
+            top: "-20%",
+            left: "5%",
+            ...heroOrbStyle.orb1,
+          }}
+          animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.8, 0.6] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+        />
+
+        {/* Floating gradient orb 2 */}
+        <motion.div
+          className="absolute w-[220px] h-[220px] rounded-full pointer-events-none"
+          style={{
+            background: "radial-gradient(circle, color-mix(in srgb, var(--mq-accent) 12%, transparent) 0%, transparent 70%)",
+            bottom: "-10%",
+            right: "10%",
+            ...heroOrbStyle.orb2,
+          }}
+          animate={{ scale: [1.05, 0.95, 1.05], opacity: [0.5, 0.7, 0.5] }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+        />
+
+        {/* Scroll progress bar at top of hero */}
+        <ScrollProgressBar />
+
+        {/* Hero content */}
+        <div className="relative z-10 px-5 sm:px-8 py-10 sm:py-14 lg:py-16">
+          <h1
+            style={{
+              color: "var(--mq-text)",
+              fontSize: "var(--mq-text-hero)",
+              fontWeight: "var(--mq-font-bold)",
+              letterSpacing: "var(--mq-tracking-tight)",
+              lineHeight: "var(--mq-leading-tight)",
+            }}
+          >
+            {getGreeting()}
+          </h1>
+          <p
+            className="mt-2 font-medium"
+            style={{
+              color: "color-mix(in srgb, var(--mq-text-muted) 80%, var(--mq-text))",
+              fontSize: "var(--mq-text-lg)",
+            }}
+          >
+            {getGreetingSubtext()}
+          </p>
+
+          {/* Now Playing indicator */}
+          {currentTrack && isPlaying && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-5 flex items-center gap-3 px-4 py-3 rounded-2xl max-w-sm"
+              style={{
+                background: "var(--mq-glass-bg)",
+                backdropFilter: "var(--mq-glass-blur)",
+                WebkitBackdropFilter: "var(--mq-glass-blur)",
+                border: "1px solid var(--mq-glass-border)",
+                boxShadow: "0 0 24px color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+              }}
+            >
+              <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 mq-cover-shadow">
+                {currentTrack.cover ? (
+                  <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}>
+                    <Music2 className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <div className="flex items-end gap-[2px] h-2.5">
+                    {[0, 1, 2].map((i) => (
+                      <motion.div key={i} className="w-[2px] rounded-full"
+                        style={{ height: "100%", transformOrigin: "bottom", backgroundColor: "var(--mq-accent)" }}
+                        animate={{ scaleY: [0.4, 1, 0.6] }}
+                        transition={{ duration: 0.5 + i * 0.1, repeat: Infinity, ease: "easeInOut", delay: i * 0.08 }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>
+                    Сейчас играет
+                  </span>
+                </div>
+                <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+                <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Mood/Genre Quick Tags */}
+          {tasteProfile.topGenres.length > 0 && (
+            <div className="flex gap-2 mt-5 overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+              {tasteProfile.topGenres.slice(0, 5).map((genre) => (
+                <MoodTag
+                  key={genre}
+                  label={genre}
+                  icon={<Music2 className="w-3 h-3" />}
+                  onClick={() => setSearchQuery(genre)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Волна (Wave) — HERO CARD ── */}
       <ScrollReveal direction="up" delay={0.03}>
         <div
-          className="rounded-2xl overflow-hidden relative mb-6"
+          className="mq-hero-card relative mb-10"
           style={{
             background: getWaveGradient(),
-            boxShadow: "0 4px 24px rgba(0,0,0,0.25)",
-            minHeight: 160,
+            minHeight: 180,
           }}
         >
+          {/* Pulsing glow animation */}
+          <motion.div
+            className="absolute inset-0 rounded-[inherit] pointer-events-none"
+            style={{
+              boxShadow: "0 0 60px color-mix(in srgb, var(--mq-accent) 18%, transparent)",
+            }}
+            animate={{ opacity: [0.4, 0.8, 0.4] }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          />
+
           {/* Subtle noise texture overlay */}
           <div className="absolute inset-0 pointer-events-none" style={{ opacity: 0.08, backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px 128px" }} />
 
@@ -1750,19 +1914,18 @@ export default function MainView() {
             </div>
           )}
 
-          <div className="relative z-10 p-5 sm:p-6 flex items-center gap-4" style={{ minHeight: 160 }}>
+          <div className="relative z-10 p-6 sm:p-8 flex items-center gap-5" style={{ minHeight: 180 }}>
             {radioMode && currentTrack ? (
               /* ── Active Wave: Now Playing ── */
-              <div className="flex items-center gap-4 flex-1 min-w-0">
+              <div className="flex items-center gap-5 flex-1 min-w-0">
                 <div
-                  className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0"
-                  style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}
+                  className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 mq-cover-shadow"
                 >
                   {currentTrack.cover ? (
                     <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
-                      <Music className="w-6 h-6" style={{ color: "#fff" }} />
+                      <Music className="w-7 h-7" style={{ color: "#fff" }} />
                     </div>
                   )}
                 </div>
@@ -1773,7 +1936,7 @@ export default function MainView() {
                       Волна · Играет
                     </span>
                   </div>
-                  <p className="text-base font-bold truncate" style={{ color: "#fff" }}>{currentTrack.title}</p>
+                  <p className="text-lg font-bold truncate" style={{ color: "#fff" }}>{currentTrack.title}</p>
                   <p className="text-sm truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{currentTrack.artist}</p>
                   {/* Mini progress bar */}
                   {isPlaying && duration > 0 && (
@@ -1800,21 +1963,22 @@ export default function MainView() {
                   </div>
                   <motion.button
                     whileTap={{ scale: 0.9 }}
+                    whileHover={{ scale: 1.08 }}
                     onClick={() => useAppStore.getState().toggleRadioMode()}
-                    className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}
+                    className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "0 6px 24px rgba(0,0,0,0.25)" }}
                   >
-                    <Pause className="w-5 h-5" fill="currentColor" />
+                    <Pause className="w-6 h-6" fill="currentColor" />
                   </motion.button>
                 </div>
               </div>
             ) : (
               /* ── Inactive Wave: Invite to start ── */
-              <div className="flex items-center gap-4 flex-1 min-w-0">
+              <div className="flex items-center gap-5 flex-1 min-w-0">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <Waves className="w-5 h-5" style={{ color: "rgba(255,255,255,0.9)" }} />
-                    <h3 className="text-lg font-bold" style={{ color: "#fff" }}>Волна</h3>
+                    <Waves className="w-6 h-6" style={{ color: "rgba(255,255,255,0.9)" }} />
+                    <h3 className="text-xl font-bold" style={{ color: "#fff", fontSize: "var(--mq-text-headline)", letterSpacing: "var(--mq-tracking-tight)" }}>Волна</h3>
                   </div>
                   <p className="text-sm" style={{ color: "rgba(255,255,255,0.65)" }}>
                     Бесконечный поток музыки для вас
@@ -1832,15 +1996,16 @@ export default function MainView() {
                 </div>
                 <motion.button
                   whileTap={{ scale: 0.9 }}
+                  whileHover={{ scale: 1.08 }}
                   onClick={handleStartWave}
                   disabled={waveLoading}
-                  className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}
+                  className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "0 6px 24px rgba(0,0,0,0.25)" }}
                 >
                   {waveLoading ? (
-                    <motion.div className="w-5 h-5 border-2 rounded-full" style={{ borderColor: "#1a1a2e", borderTopColor: "transparent" }} animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} />
+                    <motion.div className="w-6 h-6 border-2 rounded-full" style={{ borderColor: "#1a1a2e", borderTopColor: "transparent" }} animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} />
                   ) : (
-                    <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
+                    <Play className="w-6 h-6 ml-0.5" fill="currentColor" />
                   )}
                 </motion.button>
               </div>
@@ -1940,48 +2105,52 @@ export default function MainView() {
       {/* ── Плейлисты (Playlists) ── */}
       {curatedPlaylists.length > 0 && (
         <ScrollReveal direction="up" delay={0.05}>
-          <div className="mb-6">
+          <div className="mb-10">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
                   <ListMusic className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
                 </div>
-                <h2 className="text-base font-bold truncate" style={{ color: "var(--mq-text)" }}>Плейлисты</h2>
+                <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>Плейлисты</h2>
               </div>
             </div>
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-              {curatedPlaylists.map((pl, i) => (
-                <motion.button
-                  key={pl.id}
-                  initial={animationsEnabled ? { opacity: 0, x: 30 } : undefined}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setSelectedCurated(pl)}
-                  className="flex-shrink-0 w-36 h-52 sm:w-44 sm:h-60 rounded-2xl relative overflow-hidden cursor-pointer group"
-                  style={{ boxShadow: "0 4px 20px rgba(0,0,0,0.25)" }}
-                >
-                  <div className="absolute inset-0">
-                    <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className="!w-full !h-full group-hover:scale-110 transition-transform duration-700" />
-                  </div>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                  <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 12%, transparent) 0%, transparent 50%)` }} />
-                  <div className="relative z-10 h-full flex flex-col justify-between p-2.5 sm:p-3.5">
-                    <div className="mt-1">
-                      <p className="text-sm font-bold leading-tight drop-shadow-md" style={{ color: "#fff" }}>{pl.name}</p>
-                      <p className="text-[11px] mt-1 leading-tight truncate drop-shadow-sm" style={{ color: "rgba(255,255,255,0.75)" }}>{pl.subtitle}</p>
+            <div className="relative">
+              <div className="mq-scroll-row" style={{ scrollSnapType: "x proximity", gap: "var(--mq-space-3)" }}>
+                {curatedPlaylists.map((pl, i) => (
+                  <motion.button
+                    key={pl.id}
+                    initial={animationsEnabled ? { opacity: 0, x: 30 } : undefined}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.05 }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setSelectedCurated(pl)}
+                    className={`${i === 0 ? "mq-hero-card" : "mq-card-cinematic"} flex-shrink-0 w-36 h-52 sm:w-44 sm:h-60 relative cursor-pointer group`}
+                  >
+                    <div className="absolute inset-0 overflow-hidden" style={i === 0 ? { transform: `translateY(${heroScrollY * 0.05}px)` } as React.CSSProperties : undefined}>
+                      <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className={`!w-full !h-full group-hover:scale-110 transition-transform duration-700 mq-cover-shadow ${i === 0 ? "group-hover:scale-[1.15]" : ""}`} />
                     </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] drop-shadow-sm" style={{ color: "rgba(255,255,255,0.65)" }}>{pl.tracks.length} треков</p>
-                      <div className="w-9 h-9 rounded-full flex items-center justify-center shadow-lg shadow-black/30 transition-all duration-300 group-hover:scale-110"
-                        style={{ background: "rgba(255,255,255,0.95)" }}>
-                        <Play className="w-4 h-4 ml-0.5" style={{ color: "#1a1a2e" }} fill="currentColor" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                    <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 12%, transparent) 0%, transparent 50%)` }} />
+                    <div className="relative z-10 h-full flex flex-col justify-between p-2.5 sm:p-3.5">
+                      <div className="mt-1">
+                        <p className="text-sm font-bold leading-tight drop-shadow-md" style={{ color: "#fff" }}>{pl.name}</p>
+                        <p className="text-[11px] mt-1 leading-tight truncate drop-shadow-sm" style={{ color: "rgba(255,255,255,0.75)" }}>{pl.subtitle}</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] drop-shadow-sm" style={{ color: "rgba(255,255,255,0.65)" }}>{pl.tracks.length} треков</p>
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center shadow-lg shadow-black/30 transition-all duration-300 group-hover:scale-110"
+                          style={{ background: "rgba(255,255,255,0.95)" }}>
+                          <Play className="w-4 h-4 ml-0.5" style={{ color: "#1a1a2e" }} fill="currentColor" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </motion.button>
-              ))}
+                  </motion.button>
+                ))}
+              </div>
+              {/* Scroll fade gradient on right edge */}
+              <div className="absolute top-0 right-0 bottom-2 w-12 pointer-events-none z-10"
+                style={{ background: "linear-gradient(to right, transparent, var(--mq-bg))" }} />
             </div>
           </div>
         </ScrollReveal>
@@ -1989,13 +2158,13 @@ export default function MainView() {
 
       {/* ── Для вас (For You) — AI Recommendations ── */}
       <ScrollReveal direction="up" delay={0.1}>
-        <div className="mb-6">
+        <div className="mb-10">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
                 <Sparkles className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
               </div>
-              <h2 className="text-base font-bold truncate" style={{ color: "var(--mq-text)" }}>Для вас</h2>
+              <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>Для вас</h2>
             </div>
             <div className="flex items-center gap-2">
               <motion.button whileTap={{ scale: 0.9 }} onClick={loadRecommendations} disabled={isRecLoading}
@@ -2011,13 +2180,13 @@ export default function MainView() {
 
       {/* ── Популярное (Trending) ── */}
       <ScrollReveal direction="up" delay={0.15}>
-        <div className="mb-6">
+        <div className="mb-10">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
                 <Flame className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
               </div>
-              <h2 className="text-base font-bold truncate" style={{ color: "var(--mq-text)" }}>Популярное</h2>
+              <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>Популярное</h2>
             </div>
             {trendingTracks.length > 0 && (
               <motion.button whileTap={{ scale: 0.95 }} onClick={handlePlayAll}
@@ -2055,13 +2224,13 @@ export default function MainView() {
       {/* ── Недавно (Recent) ── */}
       {recentTracks.length > 0 && (
         <ScrollReveal direction="up" delay={0.2}>
-          <div className="mb-6">
+          <div className="mb-10">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
                   <Clock className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
                 </div>
-                <h2 className="text-base font-bold truncate" style={{ color: "var(--mq-text)" }}>Недавно</h2>
+                <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>Недавно</h2>
               </div>
               <motion.button whileTap={{ scale: 0.95 }} onClick={() => setView("history")}
                 className="text-xs px-3 py-1.5 rounded-full font-medium"
@@ -2069,7 +2238,8 @@ export default function MainView() {
                 Все
               </motion.button>
             </div>
-            <div className="flex gap-2.5 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+            <div className="relative">
+              <div className="mq-scroll-row" style={{ scrollSnapType: "x proximity", gap: "var(--mq-space-3)" }}>
               {recentTracks.slice(0, 10).map((entry, i) => {
                 const isCurrentTrack = currentTrack?.id === entry.track.id;
                 return (
@@ -2081,8 +2251,8 @@ export default function MainView() {
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
                     onClick={() => playTrack(entry.track, recentTracks.map(e => e.track))}
-                    className="flex-shrink-0 w-[130px] sm:w-[148px] rounded-2xl overflow-hidden text-left cursor-pointer group relative"
-                    style={{ backgroundColor: "var(--mq-card)", boxShadow: isCurrentTrack ? "0 0 16px color-mix(in srgb, var(--mq-accent) 25%, transparent)" : "0 2px 8px rgba(0,0,0,0.1)" }}
+                    className="mq-card-cinematic flex-shrink-0 w-[130px] sm:w-[148px] text-left cursor-pointer group relative"
+                    style={isCurrentTrack ? { boxShadow: "0 0 16px color-mix(in srgb, var(--mq-accent) 25%, transparent)" } : undefined}
                   >
                     <div className="aspect-square relative overflow-hidden">
                       {entry.track.cover ? (
@@ -2118,6 +2288,10 @@ export default function MainView() {
                   </motion.button>
                 );
               })}
+              </div>
+              {/* Scroll fade gradient on right edge */}
+              <div className="absolute top-0 right-0 bottom-2 w-12 pointer-events-none z-10"
+                style={{ background: "linear-gradient(to right, transparent, var(--mq-bg))" }} />
             </div>
           </div>
         </ScrollReveal>
@@ -2126,7 +2300,7 @@ export default function MainView() {
       {/* ── Recommendation Categories (from smart recs) ── */}
       {!isRecLoading && recCategories.length > 0 && (
         <ScrollReveal direction="up" delay={0.25}>
-          <div className="mb-5">
+          <div className="mb-10">
             {recCategories.slice(0, 3).map((cat, catIdx) => (
               <RecCategoryRow key={cat.id} category={cat} index={catIdx} playTrack={playTrack} animationsEnabled={animationsEnabled} compactMode={compactMode} onOpenAll={setSelectedRecCategory} />
             ))}
@@ -2149,7 +2323,7 @@ export default function MainView() {
       {/* ── Listening Activity ── */}
       {history.length > 0 && (
         <ScrollReveal direction="up" delay={0.3}>
-          <div className="rounded-2xl p-4 relative overflow-hidden mb-5" style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+          <div className="mq-card-cinematic p-5 relative overflow-hidden mb-10">
             <div className="absolute top-0 right-0 w-32 h-32 rounded-full pointer-events-none" style={{ background: "var(--mq-accent)", filter: "blur(50px)", opacity: 0.06 }} />
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">

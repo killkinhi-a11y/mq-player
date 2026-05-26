@@ -44,7 +44,7 @@ function ShareButton({ scTrackId }: { scTrackId: number }) {
   return (
     <div className="relative p-1 flex-shrink-0 flex items-center justify-center">
       <motion.button whileTap={{ scale: 0.85 }} onClick={handleShare}
-        style={{ color: "var(--mq-text-muted)" }} title="Поделиться">
+        style={{ color: "var(--mq-text-muted)" }} title="Поделиться" aria-label="Поделиться">
         <Share2 className="w-4 h-4" />
       </motion.button>
       {copied && (
@@ -512,24 +512,61 @@ export default function PlayerBar() {
             }}
             aria-label="Показать плеер"
           >
+            {/* ── Ambient border glow on artwork ── */}
             {currentTrack.cover ? (
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 500, damping: 25, delay: 0.05 }}
-                className="flex-shrink-0"
+                className="flex-shrink-0 relative"
               >
-                <Image src={currentTrack.cover} alt="" width={40} height={40} className="w-10 h-10 rounded-xl object-cover" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }} unoptimized />
+                {/* Border glow */}
+                <div style={{
+                  position: "absolute",
+                  inset: -2,
+                  borderRadius: 14,
+                  background: "var(--mq-accent)",
+                  opacity: isPlaying ? 0.4 : 0.15,
+                  filter: "blur(4px)",
+                  transition: "opacity 0.5s ease",
+                  zIndex: 0,
+                }} />
+                <Image src={currentTrack.cover} alt="" width={40} height={40} className="w-10 h-10 rounded-xl object-cover relative" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.4)", zIndex: 1 }} unoptimized />
               </motion.div>
             ) : (
-              <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.4 }}>
+              <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center relative" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.4 }}>
                 <Music className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>
-                {currentTrack.title}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-[13px] font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>
+                  {currentTrack.title}
+                </p>
+                {/* ── Mini equalizer indicator when playing ── */}
+                {isPlaying && (
+                  <div className="flex items-end gap-[2px] flex-shrink-0" style={{ height: 12 }}>
+                    {[0, 1, 2].map((i) => (
+                      <motion.div
+                        key={i}
+                        animate={{ height: [3, 10, 5, 8, 3] }}
+                        transition={{
+                          duration: 0.8 + i * 0.15,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                          delay: i * 0.12,
+                        }}
+                        style={{
+                          width: 2,
+                          borderRadius: 1,
+                          backgroundColor: "var(--mq-accent)",
+                          minHeight: 2,
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
               {currentTrack.artist && (
                 <p className="text-[11px] truncate leading-snug" style={{ color: "var(--mq-text-muted)" }}>
                   {currentTrack.artist}
@@ -569,7 +606,7 @@ export default function PlayerBar() {
             ref={engine.playerBarRef}
             data-tour="player"
             role="region"
-            aria-label="Плеер"
+            aria-label="Музыкальный плеер"
           >
             <div
               className="relative w-full"
@@ -585,8 +622,32 @@ export default function PlayerBar() {
                 overflow: "visible",
               }}
             >
+              {/* ── Dynamic Ambient Glow — accent wash when playing ── */}
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 120,
+                  background: isPlaying
+                    ? `linear-gradient(180deg, color-mix(in srgb, var(--mq-accent) 12%, transparent) 0%, transparent 100%)`
+                    : "transparent",
+                  pointerEvents: "none",
+                  transition: "background 0.8s ease",
+                  zIndex: 0,
+                  borderRadius: "16px 16px 0 0",
+                }}
+              />
               {/* ── Visualizer canvas ── */}
-              <VisualizerCanvas currentStyle={currentStyle} styleVariant={styleVariant} trackId={currentTrack?.id} />
+              <motion.div
+                key={currentTrack?.id}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+              >
+                <VisualizerCanvas currentStyle={currentStyle} styleVariant={styleVariant} trackId={currentTrack?.id} />
+              </motion.div>
               {/* ── Mobile drag handle — tap to minimize ── */}
               <button
                 className="sm:hidden flex justify-center pt-2 pb-2 w-full cursor-pointer bg-transparent border-none active:opacity-60"
@@ -599,12 +660,20 @@ export default function PlayerBar() {
                   animate={{ scaleX: 1, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 500, damping: 30, delay: 0.1 }}
                   whileTap={{ scaleX: 0.6 }}
-                  className="rounded-full"
+                  className="rounded-full relative"
                   style={{
-                    width: 36,
-                    height: 4,
-                    backgroundColor: "rgba(255,255,255,0.25)",
-                    borderRadius: 2,
+                    width: 48,
+                    height: 5,
+                    background: isPlaying
+                      ? "linear-gradient(90deg, color-mix(in srgb, var(--mq-accent) 60%, rgba(255,255,255,0.25)), rgba(255,255,255,0.3))"
+                      : "rgba(255,255,255,0.25)",
+                    borderRadius: 3,
+                    boxShadow: isSwiping
+                      ? "0 0 12px color-mix(in srgb, var(--mq-accent) 50%, transparent)"
+                      : isPlaying
+                        ? "0 0 6px color-mix(in srgb, var(--mq-accent) 25%, transparent)"
+                        : "none",
+                    transition: "background 0.4s ease, box-shadow 0.4s ease",
                   }}
                 />
               </button>
@@ -616,6 +685,12 @@ export default function PlayerBar() {
                 onMouseMove={handleProgressHover}
                 onMouseLeave={() => setHoverTime(null)}
                 className="w-full group/progress"
+                role="slider"
+                aria-label="Прогресс воспроизведения"
+                aria-valuenow={Math.floor(progress)}
+                aria-valuemin={0}
+                aria-valuemax={Math.floor(duration)}
+                tabIndex={0}
                 style={{
                   height: 24,
                   cursor: "pointer",
@@ -630,20 +705,20 @@ export default function PlayerBar() {
                 <div
                   className="w-full relative"
                   style={{
-                    height: 3,
-                    borderRadius: 2,
+                    height: 5,
+                    borderRadius: 3,
                     backgroundColor: "rgba(255,255,255,0.08)",
-                    transition: "height 0.15s ease",
+                    transition: "height 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                     overflow: "visible",
                   }}
                   onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.height = "5px";
+                    (e.currentTarget as HTMLDivElement).style.height = "7px";
                   }}
                   onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLDivElement).style.height = "3px";
+                    (e.currentTarget as HTMLDivElement).style.height = "5px";
                   }}
                 >
-                  {/* Hover timestamp tooltip */}
+                  {/* Hover timestamp tooltip — premium glass background */}
                   {hoverTime !== null && !progressDrag.isDragging && (() => {
                     const rect = engine.progressRef.current?.getBoundingClientRect();
                     const barLeft = rect ? rect.left + 16 : 0; // account for padding
@@ -655,17 +730,20 @@ export default function PlayerBar() {
                         style={{
                           position: "fixed",
                           left: barLeft + clampedLeft,
-                          bottom: rect ? window.innerHeight - rect.top + 8 : undefined,
+                          bottom: rect ? window.innerHeight - rect.top + 10 : undefined,
                           transform: "translateX(-50%)",
-                          padding: "4px 10px",
+                          padding: "5px 12px",
                           borderRadius: 8,
-                          backgroundColor: "var(--mq-accent)",
+                          backgroundColor: "color-mix(in srgb, var(--mq-player-bg) 75%, rgba(0,0,0,0.6))",
+                          backdropFilter: "blur(16px) saturate(180%)",
+                          WebkitBackdropFilter: "blur(16px) saturate(180%)",
+                          border: "1px solid rgba(255,255,255,0.1)",
                           color: "#fff",
-                          fontSize: 12,
+                          fontSize: 11,
                           fontWeight: 600,
                           fontFamily: "var(--font-geist-mono), monospace",
                           whiteSpace: "nowrap",
-                          boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+                          boxShadow: "0 4px 16px rgba(0,0,0,0.4), 0 0 8px color-mix(in srgb, var(--mq-accent) 20%, transparent)",
                           pointerEvents: "none",
                           zIndex: 100,
                           letterSpacing: "0.02em",
@@ -675,20 +753,36 @@ export default function PlayerBar() {
                       </div>
                     );
                   })()}
-                  {/* Clean fill bar */}
+                  {/* Progress background glow */}
+                  <div
+                    className="absolute top-1/2 pointer-events-none"
+                    style={{
+                      width: `${progressPct}%`,
+                      height: 16,
+                      transform: "translateY(-50%)",
+                      background: engine.playError
+                        ? "none"
+                        : `radial-gradient(ellipse at center, color-mix(in srgb, var(--mq-accent) 40%, transparent) 0%, transparent 70%)`,
+                      filter: "blur(8px)",
+                      opacity: 0.4,
+                      borderRadius: 8,
+                      transition: progressDrag.isDragging ? "none" : "width 0.3s linear",
+                    }}
+                  />
+                  {/* Gradient fill bar */}
                   <div
                     ref={progressDrag.progressFillRef}
-                    className="h-full"
+                    className="h-full relative"
                     style={{
                       width: `${progressPct}%`,
                       background: engine.playError
                         ? "#ef4444"
-                        : "var(--mq-accent)",
+                        : `linear-gradient(90deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 80%, white))`,
                       transition: progressDrag.isDragging ? "none" : "width 0.3s linear",
-                      borderRadius: 2,
+                      borderRadius: 3,
                       boxShadow: engine.playError
                         ? "none"
-                        : "0 0 6px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+                        : "0 0 8px color-mix(in srgb, var(--mq-accent) 35%, transparent)",
                       position: "relative",
                     }}
                   />
@@ -717,7 +811,7 @@ export default function PlayerBar() {
                       left: `${progressPct}%`,
                       transform: "translate(-50%, -50%)",
                       backgroundColor: "#fff",
-                      boxShadow: "0 0 0 2px var(--mq-accent), 0 2px 6px rgba(0,0,0,0.3)",
+                      boxShadow: "0 0 0 3px var(--mq-accent), 0 2px 8px rgba(0,0,0,0.4), 0 0 12px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
                       pointerEvents: "none",
                       zIndex: 3,
                       transition: "opacity 0.15s ease",
@@ -759,33 +853,45 @@ export default function PlayerBar() {
                 })()}
               </div>
 
-              {/* ── Desktop: Main content row — clean modern design ── */}
-              <div className="hidden sm:flex items-center justify-between px-4 relative z-10" style={{ minHeight: 56, paddingTop: 2, paddingBottom: 4 }}>
+              {/* ── Desktop: Main content row — premium spacious design ── */}
+              <div className="hidden sm:flex items-center justify-between px-5 relative z-10" style={{ minHeight: 80, paddingTop: 8, paddingBottom: 8 }}>
 
                 {/* ═══ LEFT (30%): Cover + Track info — stagger entrance ═══ */}
-                <div className="flex items-center gap-3 min-w-0 w-[30%]" onContextMenu={handleTrackContextMenu}>
-                  {/* Cover art — spring entrance + hover scale */}
+                <div className="flex items-center gap-4 min-w-0 w-[30%]" onContextMenu={handleTrackContextMenu}>
+                  {/* Cover art — spring entrance + hover scale + ambient glow */}
                   <motion.button
                     onClick={(e) => {
                       if (e.button === 0) setFullTrackViewOpen(true);
                     }}
-                    className="flex-shrink-0 cursor-pointer p-0"
+                    className="flex-shrink-0 cursor-pointer p-0 relative"
                     style={{ background: "none", border: "none" }}
                     aria-label="Открыть плеер"
                     whileTap={{ scale: 0.92 }}
                   >
+                    {/* Ambient glow behind artwork */}
+                    <div style={{
+                      position: "absolute",
+                      inset: -4,
+                      borderRadius: 16,
+                      background: "var(--mq-accent)",
+                      opacity: isPlaying ? 0.3 : 0.1,
+                      filter: "blur(8px)",
+                      transition: "opacity 0.6s ease",
+                      zIndex: 0,
+                    }} />
                     <motion.div
                       className="relative overflow-hidden"
                       style={{
                         width: 48,
                         height: 48,
-                        borderRadius: 10,
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                        borderRadius: 12,
+                        boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
+                        zIndex: 1,
                       }}
                       initial={{ scale: 0.85, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                      whileHover={{ scale: 1.05 }}
+                      whileHover={{ scale: 1.06 }}
                     >
                       {currentTrack.cover ? (
                         <Image src={currentTrack.cover} alt="" width={48} height={48} className="w-full h-full object-cover" unoptimized />
@@ -803,6 +909,7 @@ export default function PlayerBar() {
                     initial={{ x: -8, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ type: "spring", stiffness: 400, damping: 28, delay: 0.04 }}
+                    aria-live="polite"
                   >
                     <p className="text-[13px] font-medium truncate leading-tight" style={{ color: "var(--mq-text)" }}>
                       {currentTrack.title}
@@ -829,11 +936,12 @@ export default function PlayerBar() {
                     <motion.button
                       whileTap={{ scale: 0.8 }}
                       onClick={toggleShuffle}
-                      className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200"
+                      className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
                       style={{
                         color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)",
                       }}
                       aria-label="Перемешать"
+                      aria-pressed={shuffle}
                     >
                       <Shuffle className="w-4 h-4" />
                     </motion.button>
@@ -842,36 +950,57 @@ export default function PlayerBar() {
                     <motion.button
                       whileTap={{ scale: 0.85 }}
                       onClick={engine.handlePrevTrack}
-                      className="w-9 h-9 flex items-center justify-center rounded-full transition-colors duration-200"
+                      className="w-9 h-9 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
                       style={{ color: "var(--mq-text)" }}
                       aria-label="Предыдущий трек"
                     >
                       <SkipBack className="w-5 h-5" fill="currentColor" />
                     </motion.button>
 
-                    {/* Play/Pause — accent spring circle with rotate overshoot */}
-                    <motion.button
-                      whileTap={{ scale: 0.88 }}
-                      whileHover={{ scale: 1.05 }}
-                      onClick={togglePlay}
-                      className="rounded-full flex items-center justify-center"
-                      style={{
-                        width: 42,
-                        height: 42,
-                        backgroundColor: "var(--mq-accent)",
-                        color: "#fff",
-                        boxShadow: "0 2px 12px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
-                        transition: "background-color 0.2s, box-shadow 0.2s",
-                      }}
-                      disabled={engine.isLoadingTrack}
-                      aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
-                    >
+                    {/* Play/Pause — premium accent circle with ambient glow */}
+                    <div className="relative flex items-center justify-center">
+                      {/* Ambient glow pulse when playing */}
                       <motion.div
-                        key={isPlaying ? "playing" : "paused"}
-                        initial={{ scale: 0.7, rotate: -15 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                        animate={isPlaying ? {
+                          scale: [1, 1.3, 1],
+                          opacity: [0.3, 0.1, 0.3],
+                        } : { scale: 1, opacity: 0 }}
+                        transition={isPlaying ? {
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        } : { duration: 0.5 }}
+                        className="absolute rounded-full"
+                        style={{
+                          width: 44,
+                          height: 44,
+                          backgroundColor: "var(--mq-accent)",
+                          filter: "blur(8px)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                      <motion.button
+                        whileTap={{ scale: 0.88 }}
+                        whileHover={{ scale: 1.06 }}
+                        onClick={togglePlay}
+                        className="rounded-full flex items-center justify-center relative"
+                        style={{
+                          width: 44,
+                          height: 44,
+                          backgroundColor: "var(--mq-accent)",
+                          color: "#fff",
+                          boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 45%, transparent)",
+                          transition: "background-color 0.2s, box-shadow 0.3s",
+                        }}
+                        disabled={engine.isLoadingTrack}
+                        aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                       >
+                        <motion.div
+                          key={isPlaying ? "playing" : "paused"}
+                          initial={{ scale: 0.6, rotate: -20 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                        >
                         {engine.isLoadingTrack ? (
                           <Loader2 className="w-5 h-5 animate-spin" />
                         ) : isPlaying ? (
@@ -881,6 +1010,7 @@ export default function PlayerBar() {
                         )}
                       </motion.div>
                     </motion.button>
+                    </div>
 
                     {/* Next */}
                     <motion.button
@@ -890,7 +1020,7 @@ export default function PlayerBar() {
                         if (st.currentTrack?.id) st.recordSkip(st.currentTrack.id, st.progress || 0);
                         nextTrack();
                       }}
-                      className="w-9 h-9 flex items-center justify-center rounded-full transition-colors duration-200"
+                      className="w-9 h-9 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
                       style={{ color: "var(--mq-text)" }}
                       aria-label="Следующий трек"
                     >
@@ -901,11 +1031,12 @@ export default function PlayerBar() {
                     <motion.button
                       whileTap={{ scale: 0.8 }}
                       onClick={toggleRepeat}
-                      className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200"
+                      className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
                       style={{
                         color: repeat !== "off" ? "var(--mq-accent)" : "var(--mq-text-muted)",
                       }}
                       aria-label="Повтор"
+                      aria-pressed={repeat !== "off"}
                     >
                       {repeat === "one" ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
                     </motion.button>
@@ -924,7 +1055,7 @@ export default function PlayerBar() {
                     <motion.button
                       whileTap={{ scale: 0.85 }}
                       onClick={handleMuteToggleWithTooltip}
-                      className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200"
+                      className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
                       style={{ color: "var(--mq-text-muted)" }}
                       aria-label={volume === 0 ? "Включить звук" : "Без звука"}
                     >
@@ -936,27 +1067,48 @@ export default function PlayerBar() {
                       onTouchStart={handleVolumeTouchStart}
                       onWheel={handleVolumeWheel}
                       className="rounded-full cursor-pointer relative group/vol"
+                      role="slider"
+                      aria-label="Громкость"
+                      aria-valuenow={volume}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      tabIndex={0}
                       style={{
-                        width: 92,
+                        width: 96,
                         height: 4,
                         backgroundColor: "rgba(255,255,255,0.1)",
                         borderRadius: 2,
                         transition: "height 0.15s ease",
                       }}
                       onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLDivElement).style.height = "5px";
+                        (e.currentTarget as HTMLDivElement).style.height = "6px";
                       }}
                       onMouseLeave={(e) => {
                         (e.currentTarget as HTMLDivElement).style.height = "4px";
                       }}
                     >
-                      {/* Volume fill */}
+                      {/* Volume accent glow when >70% */}
+                      {volume > 70 && (
+                        <div
+                          className="absolute top-1/2 pointer-events-none"
+                          style={{
+                            width: `${volume}%`,
+                            height: 14,
+                            transform: "translateY(-50%)",
+                            background: "radial-gradient(ellipse at center, color-mix(in srgb, var(--mq-accent) 35%, transparent) 0%, transparent 70%)",
+                            filter: "blur(6px)",
+                            opacity: 0.5,
+                            borderRadius: 8,
+                          }}
+                        />
+                      )}
+                      {/* Volume fill — accent gradient */}
                       <div
                         ref={volumeTrackRef}
                         className="h-full rounded-full"
                         style={{
                           width: `${volume}%`,
-                          background: "var(--mq-accent)",
+                          background: `linear-gradient(90deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 70%, white))`,
                           borderRadius: 2,
                         }}
                       />
@@ -1029,9 +1181,10 @@ export default function PlayerBar() {
                   <motion.button
                     whileTap={{ scale: isLiked ? 0.6 : 0.8 }}
                     onClick={() => toggleLike(currentTrack.id, currentTrack)}
-                    className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200"
+                    className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
                     style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)" }}
                     aria-label={isLiked ? "Убрать из избранного" : "Добавить в избранное"}
+                    aria-pressed={isLiked}
                     data-tour="like-dislike"
                   >
                     <motion.div
@@ -1048,9 +1201,10 @@ export default function PlayerBar() {
                   <motion.button
                     whileTap={{ scale: isDisliked ? 0.6 : 0.8 }}
                     onClick={() => toggleDislike(currentTrack.id, currentTrack)}
-                    className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200"
+                    className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
                     style={{ color: isDisliked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                     aria-label={isDisliked ? "Убрать дизлайк" : "Не рекомендовать"}
+                    aria-pressed={isDisliked}
                   >
                     <motion.div
                       key={isDisliked ? "disliked" : "neutral"}
@@ -1066,43 +1220,72 @@ export default function PlayerBar() {
                   <motion.button
                     whileTap={{ scale: 0.85 }}
                     onClick={() => setShowQueue(!showQueue)}
-                    className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200"
+                    className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
                     style={{
                       color: showQueue ? "var(--mq-accent)" : "var(--mq-text-muted)",
                     }}
                     aria-label="Очередь"
+                    aria-pressed={showQueue}
                   >
                     <ListMusic className="w-4 h-4" />
                   </motion.button>
                 </motion.div>
               </div>
 
-              {/* ── Mobile: Compact two-row layout with micro-animations ── */}
-              <div className="sm:hidden px-3 relative z-10" style={{ paddingTop: 0, paddingBottom: 4 }} onContextMenu={handleTrackContextMenu}>
+              {/* ── Mobile: Premium two-row layout with ambient pulse ── */}
+              <div className="sm:hidden px-3 relative z-10" style={{ paddingTop: 0, paddingBottom: 6 }} onContextMenu={handleTrackContextMenu}>
+                {/* Ambient pulse gradient when playing */}
+                {isPlaying && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: [0.04, 0.1, 0.04] }}
+                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: "radial-gradient(ellipse at 30% 50%, var(--mq-accent) 0%, transparent 70%)",
+                      pointerEvents: "none",
+                      borderRadius: 12,
+                      zIndex: -1,
+                    }}
+                  />
+                )}
                 {/* Row 1: Cover + Track info + Like */}
-                <div className="flex items-center gap-2">
-                  {/* Cover art — spring tap animation */}
+                <div className="flex items-center gap-3">
+                  {/* Cover art — spring tap animation + ambient glow */}
                   <motion.button
                     onClick={() => setFullTrackViewOpen(true)}
-                    className="flex-shrink-0 cursor-pointer p-0"
+                    className="flex-shrink-0 cursor-pointer p-0 relative"
                     style={{ background: "none", border: "none" }}
                     aria-label="Открыть плеер"
                     whileTap={{ scale: 0.92 }}
                   >
+                    {/* Ambient glow behind artwork */}
+                    <div style={{
+                      position: "absolute",
+                      inset: -3,
+                      borderRadius: 14,
+                      background: "var(--mq-accent)",
+                      opacity: isPlaying ? 0.3 : 0.1,
+                      filter: "blur(6px)",
+                      transition: "opacity 0.5s ease",
+                      zIndex: 0,
+                    }} />
                     <motion.div
                       className="relative overflow-hidden"
                       style={{
-                        width: 42,
-                        height: 42,
-                        borderRadius: 10,
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                        width: 46,
+                        height: 46,
+                        borderRadius: 12,
+                        boxShadow: "0 3px 12px rgba(0,0,0,0.3)",
+                        zIndex: 1,
                       }}
                       initial={{ scale: 0.85, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ type: "spring", stiffness: 500, damping: 25 }}
                     >
                       {currentTrack.cover ? (
-                        <Image src={currentTrack.cover} alt="" width={42} height={42} className="w-full h-full object-cover" unoptimized />
+                        <Image src={currentTrack.cover} alt="" width={46} height={46} className="w-full h-full object-cover" unoptimized />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.4 }}>
                           <Music className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
@@ -1117,6 +1300,7 @@ export default function PlayerBar() {
                     initial={{ x: -8, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ type: "spring", stiffness: 400, damping: 28, delay: 0.04 }}
+                    aria-live="polite"
                   >
                     <p className="text-[13px] font-medium truncate leading-tight" style={{ color: "var(--mq-text)" }}>
                       {currentTrack.title}
@@ -1126,13 +1310,14 @@ export default function PlayerBar() {
                     </span>
                   </motion.div>
 
-                  {/* Like — spring micro-interaction */}
+                  {/* Like — spring micro-interaction — 44px touch target */}
                   <motion.button
                     whileTap={{ scale: isLiked ? 0.6 : 0.8 }}
                     onClick={() => toggleLike(currentTrack.id, currentTrack)}
-                    className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full"
+                    className="flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-full mq-focus-premium"
                     style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)" }}
                     aria-label={isLiked ? "Убрать из избранного" : "Добавить в избранное"}
+                    aria-pressed={isLiked}
                     data-tour="like-dislike"
                   >
                     <motion.div
@@ -1148,7 +1333,7 @@ export default function PlayerBar() {
 
                 {/* Row 2: Transport controls + time — stagger entrance */}
                 <motion.div
-                  className="flex items-center justify-between mt-1 mb-0.5"
+                  className="flex items-center justify-between mt-1.5 mb-0.5"
                   initial={{ y: 8, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ type: "spring", stiffness: 400, damping: 28, delay: 0.08 }}
@@ -1158,51 +1343,74 @@ export default function PlayerBar() {
                     {formatDuration(Math.floor(progress))}
                   </span>
 
-                  {/* Transport controls */}
-                  <div className="flex items-center gap-1">
-                    {/* Prev — spring tap */}
+                  {/* Transport controls — 44px minimum touch targets */}
+                  <div className="flex items-center gap-0.5">
+                    {/* Prev — 44px touch target */}
                     <motion.button
                       whileTap={{ scale: 0.82 }}
                       onClick={engine.handlePrevTrack}
-                      className="w-9 h-9 flex items-center justify-center rounded-full"
+                      className="w-11 h-11 flex items-center justify-center rounded-full mq-focus-premium"
                       style={{ color: "var(--mq-text)" }}
                       aria-label="Предыдущий трек"
                     >
                       <SkipBack className="w-[18px] h-[18px]" fill="currentColor" />
                     </motion.button>
 
-                    {/* Play/Pause — accent spring circle */}
-                    <motion.button
-                      whileTap={{ scale: 0.88 }}
-                      onClick={togglePlay}
-                      className="rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{
-                        width: 42,
-                        height: 42,
-                        backgroundColor: "var(--mq-accent)",
-                        color: "#fff",
-                        boxShadow: "0 2px 10px color-mix(in srgb, var(--mq-accent) 35%, transparent)",
-                      }}
-                      disabled={engine.isLoadingTrack}
-                      aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
-                    >
+                    {/* Play/Pause — premium accent circle with ambient glow — 48px */}
+                    <div className="relative flex items-center justify-center">
+                      {/* Ambient glow pulse when playing */}
                       <motion.div
-                        key={isPlaying ? "playing" : "paused"}
-                        initial={{ scale: 0.7, rotate: -15 }}
-                        animate={{ scale: 1, rotate: 0 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 22 }}
+                        animate={isPlaying ? {
+                          scale: [1, 1.35, 1],
+                          opacity: [0.35, 0.1, 0.35],
+                        } : { scale: 1, opacity: 0 }}
+                        transition={isPlaying ? {
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: "easeInOut",
+                        } : { duration: 0.5 }}
+                        className="absolute rounded-full"
+                        style={{
+                          width: 48,
+                          height: 48,
+                          backgroundColor: "var(--mq-accent)",
+                          filter: "blur(10px)",
+                          pointerEvents: "none",
+                        }}
+                      />
+                      <motion.button
+                        whileTap={{ scale: 0.88 }}
+                        onClick={togglePlay}
+                        className="rounded-full flex items-center justify-center flex-shrink-0 relative mq-focus-premium"
+                        style={{
+                          width: 48,
+                          height: 48,
+                          backgroundColor: "var(--mq-accent)",
+                          color: "#fff",
+                          boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 45%, transparent)",
+                          transition: "box-shadow 0.3s ease",
+                        }}
+                        disabled={engine.isLoadingTrack}
+                        aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                       >
-                        {engine.isLoadingTrack ? (
-                          <Loader2 className="w-[18px] h-[18px] animate-spin" />
-                        ) : isPlaying ? (
-                          <Pause className="w-[18px] h-[18px]" fill="currentColor" />
-                        ) : (
-                          <Play className="w-[18px] h-[18px] ml-0.5" fill="currentColor" />
-                        )}
-                      </motion.div>
-                    </motion.button>
+                        <motion.div
+                          key={isPlaying ? "playing" : "paused"}
+                          initial={{ scale: 0.5, rotate: -25 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 18 }}
+                        >
+                          {engine.isLoadingTrack ? (
+                            <Loader2 className="w-[20px] h-[20px] animate-spin" />
+                          ) : isPlaying ? (
+                            <Pause className="w-[20px] h-[20px]" fill="currentColor" />
+                          ) : (
+                            <Play className="w-[20px] h-[20px] ml-0.5" fill="currentColor" />
+                          )}
+                        </motion.div>
+                      </motion.button>
+                    </div>
 
-                    {/* Next — spring tap */}
+                    {/* Next — 44px touch target */}
                     <motion.button
                       whileTap={{ scale: 0.82 }}
                       onClick={() => {
@@ -1210,7 +1418,7 @@ export default function PlayerBar() {
                         if (st.currentTrack?.id) st.recordSkip(st.currentTrack.id, st.progress || 0);
                         nextTrack();
                       }}
-                      className="w-9 h-9 flex items-center justify-center rounded-full"
+                      className="w-11 h-11 flex items-center justify-center rounded-full mq-focus-premium"
                       style={{ color: "var(--mq-text)" }}
                       aria-label="Следующий трек"
                     >

@@ -263,6 +263,35 @@ motion-div, motion-button, motion-span {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* Remove all spring/bounce animations */
+  .mq-card-hover:hover,
+  .mq-btn-play:hover,
+  .mq-btn-glass:hover,
+  .mq-card-cinematic:hover,
+  .mq-icon-btn:active,
+  .mq-btn-glass:active,
+  .mq-btn-play:active {
+    transform: none !important;
+  }
+
+  /* Remove parallax effects */
+  .mq-ambient-gradient,
+  .mq-player-glow,
+  .mq-hero-gradient {
+    display: none !important;
+  }
+
+  /* Remove ambient glow pulsing */
+  .player-glow,
+  .timer-glow-pc,
+  .liquid-glass-accent,
+  .online-pulse,
+  .mq-player-glow.is-playing,
+  .mq-breathe-glow {
+    animation: none !important;
   }
 }
 
@@ -811,6 +840,18 @@ html.liquid-glass-theme body::after {
   animation-direction: alternate;
 }
 
+/* TrackCard breathing glow — active accent bar pulsing */
+@keyframes mqBreathe {
+  0%, 100% { opacity: 0.6; transform: scaleX(1); }
+  50% { opacity: 1; transform: scaleX(1.3); }
+}
+
+/* TrackCard pulsing background tint — subtle active indicator */
+@keyframes mqPulseTint {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.03; }
+}
+
 @keyframes vol-shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(200%); }
@@ -983,6 +1024,12 @@ a:not([data-framer-motion-id]),
   50% { height: 14px; }
 }
 
+/* Badge pulse — gentle glow pulse for notification badges */
+@keyframes mq-badge-pulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(239, 68, 68, 0.3); }
+  50% { box-shadow: 0 0 10px rgba(239, 68, 68, 0.6); }
+}
+
 /* Vinyl spin — subtle rotation around play button when playing */
 @keyframes mq-vinyl-spin {
   from { transform: rotate(0deg); }
@@ -1020,6 +1067,436 @@ a:not([data-framer-motion-id]),
   10% { opacity: 1; }
   75% { opacity: 1; }
   100% { opacity: 0; }
+}
+
+/* ═══════ MQ Player v4 — Cinematic Premium Redesign ═══════ */
+
+/* ── Album Art Reactive Ambient Gradient ── */
+.mq-ambient-gradient {
+  position: fixed;
+  top: -200px;
+  left: -200px;
+  width: calc(100% + 400px);
+  height: calc(100% + 400px);
+  pointer-events: none;
+  z-index: -1;
+  opacity: var(--mq-ambient-opacity);
+  filter: blur(var(--mq-ambient-blur));
+  transition: opacity 1.5s ease, background 1.5s ease;
+}
+
+/* ── Premium Card System ── */
+.mq-card-cinematic {
+  background: var(--mq-glass-bg);
+  backdrop-filter: var(--mq-glass-blur);
+  -webkit-backdrop-filter: var(--mq-glass-blur);
+  border: 1px solid var(--mq-glass-border);
+  border-radius: var(--mq-radius-2xl);
+  box-shadow: var(--mq-shadow-float);
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--mq-duration-fast) var(--mq-spring-smooth),
+              box-shadow var(--mq-duration-fast) var(--mq-spring-smooth),
+              border-color var(--mq-duration-fast) var(--mq-spring-smooth);
+}
+
+.mq-card-cinematic::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.06) 0%,
+    rgba(255,255,255,0.02) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.mq-card-cinematic:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: var(--mq-shadow-elevated);
+  border-color: var(--mq-glass-border-hover);
+  background: var(--mq-glass-bg-hover);
+}
+
+.mq-card-cinematic:active {
+  transform: translateY(0) scale(0.99);
+  box-shadow: var(--mq-shadow-float);
+}
+
+/* ── Floating Hero Card ── */
+.mq-hero-card {
+  background: var(--mq-glass-bg);
+  backdrop-filter: var(--mq-glass-blur-heavy);
+  -webkit-backdrop-filter: var(--mq-glass-blur-heavy);
+  border: 1px solid var(--mq-glass-border);
+  border-radius: var(--mq-radius-3xl);
+  box-shadow: var(--mq-shadow-dramatic);
+  position: relative;
+  overflow: hidden;
+}
+
+.mq-hero-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    160deg,
+    rgba(255,255,255,0.08) 0%,
+    rgba(255,255,255,0.02) 30%,
+    transparent 60%
+  );
+  pointer-events: none;
+}
+
+/* ── Premium Progress Bar ── */
+.mq-progress-premium {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.1);
+  cursor: pointer;
+  transition: height 0.15s ease;
+}
+
+.mq-progress-premium:hover {
+  height: 6px;
+}
+
+.mq-progress-premium-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mq-accent);
+  position: relative;
+  transition: none; /* animated by JS for smooth seeking */
+}
+
+.mq-progress-premium-fill::after {
+  content: '';
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%) scale(0);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--mq-text);
+  box-shadow: 0 0 6px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.1);
+  transition: transform 0.15s ease;
+}
+
+.mq-progress-premium:hover .mq-progress-premium-fill::after {
+  transform: translateY(-50%) scale(1);
+}
+
+/* ── Progress bar ambient glow ── */
+.mq-progress-glow {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--mq-accent);
+  filter: blur(8px);
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ── Premium Button System ── */
+.mq-btn-glass {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--mq-radius-full);
+  background: var(--mq-glass-bg);
+  backdrop-filter: var(--mq-glass-blur);
+  -webkit-backdrop-filter: var(--mq-glass-blur);
+  border: 1px solid var(--mq-glass-border);
+  color: var(--mq-text);
+  cursor: pointer;
+  transition: all var(--mq-duration-fast) var(--mq-spring-smooth);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mq-btn-glass:hover {
+  background: var(--mq-glass-bg-hover);
+  border-color: var(--mq-glass-border-hover);
+  box-shadow: var(--mq-shadow-glow);
+}
+
+.mq-btn-glass:active {
+  transform: scale(0.96);
+}
+
+/* ── Accent Play Button ── */
+.mq-btn-play {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--mq-accent);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--mq-accent) 35%, transparent);
+  transition: all var(--mq-duration-fast) var(--mq-spring-smooth);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mq-btn-play:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 24px color-mix(in srgb, var(--mq-accent) 45%, transparent);
+}
+
+.mq-btn-play:active {
+  transform: scale(0.95);
+}
+
+/* ── Premium Player Bar ── */
+.mq-player-premium {
+  background: linear-gradient(
+    180deg,
+    rgba(var(--mq-accent-rgb), 0.03) 0%,
+    var(--mq-player-bg) 30%
+  );
+  backdrop-filter: var(--mq-glass-blur-heavy);
+  -webkit-backdrop-filter: var(--mq-glass-blur-heavy);
+  border-top: 1px solid rgba(255,255,255,0.06);
+  box-shadow:
+    0 -8px 40px rgba(0,0,0,0.4),
+    0 -2px 12px rgba(0,0,0,0.2);
+}
+
+/* ── Ambient Player Glow (album art reactive) ── */
+.mq-player-glow {
+  position: absolute;
+  top: -80px;
+  left: 10%;
+  right: 10%;
+  height: 160px;
+  background: radial-gradient(
+    ellipse at 50% 100%,
+    color-mix(in srgb, var(--mq-accent) 15%, transparent) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+
+.mq-player-glow.is-playing {
+  opacity: 1;
+}
+
+/* ── Cinematic Section Titles ── */
+.mq-title-hero {
+  font-size: var(--mq-text-hero);
+  font-weight: var(--mq-font-bold);
+  letter-spacing: var(--mq-tracking-tight);
+  line-height: var(--mq-leading-tight);
+  color: var(--mq-text);
+}
+
+.mq-title-display {
+  font-size: var(--mq-text-display);
+  font-weight: var(--mq-font-bold);
+  letter-spacing: var(--mq-tracking-tight);
+  line-height: var(--mq-leading-tight);
+  color: var(--mq-text);
+}
+
+/* ── Scroll Reveal Animation System ── */
+@keyframes mq-reveal-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes mq-reveal-scale {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes mq-reveal-blur {
+  from { opacity: 0; filter: blur(8px); }
+  to { opacity: 1; filter: blur(0px); }
+}
+
+@keyframes mq-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+/* ── Breathing Glow Animation ── */
+@keyframes mq-breathe-glow {
+  0%, 100% { box-shadow: 0 0 20px color-mix(in srgb, var(--mq-accent) 15%, transparent); }
+  50% { box-shadow: 0 0 40px color-mix(in srgb, var(--mq-accent) 25%, transparent); }
+}
+
+/* ── Cover Art Shadow ── */
+.mq-cover-shadow {
+  box-shadow:
+    0 8px 32px rgba(0,0,0,0.4),
+    0 2px 8px rgba(0,0,0,0.2),
+    0 0 0 1px rgba(255,255,255,0.05);
+}
+
+.mq-cover-shadow-lg {
+  box-shadow:
+    0 16px 48px rgba(0,0,0,0.5),
+    0 4px 16px rgba(0,0,0,0.3),
+    0 0 0 1px rgba(255,255,255,0.05);
+}
+
+/* ── Premium Scrollbar ── */
+.mq-scroll-premium::-webkit-scrollbar {
+  width: 4px;
+}
+.mq-scroll-premium::-webkit-scrollbar-track {
+  background: transparent;
+}
+.mq-scroll-premium::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
+}
+.mq-scroll-premium::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* ── Horizontal Scroll Row ── */
+.mq-scroll-row {
+  display: flex;
+  gap: var(--mq-space-3);
+  overflow-x: auto;
+  padding-bottom: var(--mq-space-2);
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.mq-scroll-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Stagger Animation Helper ── */
+.mq-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.mq-stagger > *:nth-child(2) { animation-delay: 50ms; }
+.mq-stagger > *:nth-child(3) { animation-delay: 100ms; }
+.mq-stagger > *:nth-child(4) { animation-delay: 150ms; }
+.mq-stagger > *:nth-child(5) { animation-delay: 200ms; }
+.mq-stagger > *:nth-child(6) { animation-delay: 250ms; }
+.mq-stagger > *:nth-child(7) { animation-delay: 300ms; }
+.mq-stagger > *:nth-child(8) { animation-delay: 350ms; }
+
+/* ── Hero Background Gradient ── */
+.mq-hero-gradient {
+  background: radial-gradient(
+    ellipse at 30% 20%,
+    color-mix(in srgb, var(--mq-accent) 12%, transparent) 0%,
+    transparent 50%
+  ),
+  radial-gradient(
+    ellipse at 70% 60%,
+    color-mix(in srgb, var(--mq-accent) 6%, transparent) 0%,
+    transparent 40%
+  );
+}
+
+/* ── Focus Ring Premium ── */
+.mq-focus-premium:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--mq-surface-1), 0 0 0 4px var(--mq-accent);
+  border-radius: inherit;
+}
+
+/* ── Dynamic Accent Tint (for backgrounds that react to album art) ── */
+.mq-dynamic-tint {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--mq-accent) 8%, var(--mq-surface-1)) 0%,
+    var(--mq-surface-1) 60%
+  );
+}
+
+.mq-dynamic-tint-strong {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--mq-accent) 15%, var(--mq-surface-1)) 0%,
+    color-mix(in srgb, var(--mq-accent) 5%, var(--mq-surface-1)) 50%,
+    var(--mq-surface-1) 100%
+  );
+}
+
+/* ── Mobile Bottom Sheet ── */
+.mq-bottom-sheet {
+  border-radius: var(--mq-radius-3xl) var(--mq-radius-3xl) 0 0;
+  background: var(--mq-surface-1);
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+  touch-action: none;
+}
+
+/* ── Thumb Zone (bottom 60% of screen for mobile controls) ── */
+@media (max-width: 639px) {
+  .mq-thumb-zone {
+    padding-bottom: 24px;
+  }
+}
+
+/* ── Reduced Motion Premium ── */
+@media (prefers-reduced-motion: reduce) {
+  .mq-card-cinematic,
+  .mq-btn-glass,
+  .mq-btn-play,
+  .mq-progress-premium {
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Premium Focus Visible States ── */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--mq-accent);
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+
+/* ── Skip to content link ── */
+.mq-skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  padding: 8px 16px;
+  background: var(--mq-accent);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 9999;
+  border-radius: 0 0 8px 0;
+  transition: top 0.2s;
+}
+.mq-skip-link:focus {
+  top: 0;
+}
+
+/* ── Screen reader only utility ── */
+.mq-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 /* ── Interface Style Overrides ── */

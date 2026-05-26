@@ -1766,7 +1766,7 @@ export default function FullTrackView() {
         className="fixed inset-0 flex flex-col overflow-hidden"
         style={{ zIndex: 200, backgroundColor: "rgba(0,0,0,0.97)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", willChange: "opacity", contain: "layout style paint" }}
       >
-        {/* ── Background: Glassmorphism blurred album art with premium gradient overlay ── */}
+        {/* ── Background: Cinematic layered blurred album art with depth ── */}
         <div className="absolute inset-0 z-0" style={{ pointerEvents: "none" }}>
           {currentPlaylistId ? (
             <>
@@ -1782,11 +1782,33 @@ export default function FullTrackView() {
             </>
           ) : (
             <>
-              {currentTrack.cover && (
-                <Image src={currentTrack.cover} alt="" fill className="w-full h-full object-cover blur-[80px] opacity-50 scale-150" unoptimized />
-              )}
-              <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.85) 100%)" }} />
-              <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--mq-accent) 8%, transparent), transparent 70%)" }} />
+              {/* Blurred album art base */}
+              <motion.div
+                key={currentTrack.id}
+                initial={{ opacity: 0, scale: 1.1 }}
+                animate={{ opacity: 1, scale: 1.5 }}
+                transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+                className="absolute inset-0"
+              >
+                {currentTrack.cover && (
+                  <Image src={currentTrack.cover} alt="" fill className="w-full h-full object-cover blur-[80px] opacity-50" unoptimized />
+                )}
+              </motion.div>
+              {/* Deep vertical gradient — cinematic fade */}
+              <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.55) 35%, rgba(0,0,0,0.85) 70%, rgba(0,0,0,0.95) 100%)" }} />
+              {/* Radial accent glow — top center */}
+              <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 80% 50% at 50% 25%, color-mix(in srgb, var(--mq-accent) 10%, transparent), transparent)" }} />
+              {/* Secondary gradient — bottom warm */}
+              <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 60% 40% at 50% 90%, color-mix(in srgb, var(--mq-accent) 5%, transparent), transparent)" }} />
+              {/* Vignette effect — darkened edges */}
+              <div className="absolute inset-0" style={{ boxShadow: "inset 0 0 200px 60px rgba(0,0,0,0.6)" }} />
+              {/* Subtle SVG noise texture overlay at 3% opacity */}
+              <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.03 }}>
+                <filter id="mqNoiseFilter">
+                  <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
+                </filter>
+                <rect width="100%" height="100%" filter="url(#mqNoiseFilter)" />
+              </svg>
             </>
           )}
         </div>
@@ -1823,8 +1845,14 @@ export default function FullTrackView() {
         {/* ── Top bar: Close (chevron-down) + Now Playing + More ── */}
         <div className="relative z-10 flex items-center justify-between px-4 pt-3 pb-1 sm:px-6 sm:pt-4">
           <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setFullTrackViewOpen(false); setShowSimilar(false); setShowLyrics(false); setShowSleepTimer(false); setShowComments(false); setShowDNA(false); setCanvasMode(false); setShowMoreMenu(false); }}
-            className="p-2.5 rounded-full hover:bg-white/10 transition-colors flex items-center justify-center" style={{ color: "var(--mq-text-muted)" }}>
-            <ChevronDown className="w-7 h-7" />
+            className="w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 group/close"
+            style={{ color: "var(--mq-text-muted)", backgroundColor: "var(--mq-glass-bg)", backdropFilter: "var(--mq-glass-blur)", WebkitBackdropFilter: "var(--mq-glass-blur)", border: "1px solid var(--mq-glass-border)" }}>
+            <motion.div
+              whileHover={{ rotate: 90 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+            >
+              <ChevronDown className="w-6 h-6" />
+            </motion.div>
           </motion.button>
           <div className="flex flex-col items-center">
             <span className="text-[10px] uppercase tracking-[0.2em] font-semibold" style={{ color: "var(--mq-text-muted)" }}>
@@ -1860,18 +1888,26 @@ export default function FullTrackView() {
                 opacity: 1,
               }}
               transition={{ type: "spring", stiffness: 120, damping: 30, mass: 0.8 }}
-              className="flex-shrink-0 flex items-center justify-center"
+              className="flex-shrink-0 flex flex-col items-center justify-center"
+              style={{ perspective: "800px" }}
             >
               {/* Animated gradient border wrapper + accent glow */}
-              <div className="relative">
-                {/* Accent glow behind artwork */}
-                <div className="absolute -inset-4 rounded-3xl blur-2xl opacity-30"
-                  style={{ backgroundColor: "var(--mq-accent)", transition: "opacity 0.8s ease" }} />
+              <motion.div
+                className="relative group/artwork"
+                whileHover={{ rotateY: 3, rotateX: -2, scale: 1.02 }}
+                transition={{ type: "spring", stiffness: 200, damping: 25 }}
+              >
+                {/* Ambient glow behind artwork — pulses when playing */}
+                <motion.div
+                  className="absolute -inset-6 rounded-3xl blur-3xl"
+                  style={{ backgroundColor: "var(--mq-accent)" }}
+                  animate={isPlaying ? { opacity: [0.25, 0.4, 0.25], scale: [1, 1.05, 1] } : { opacity: 0.15 }}
+                  transition={isPlaying ? { duration: 3, repeat: Infinity, ease: "easeInOut" } : { duration: 0.8 }}
+                />
                 <div className="relative p-[2px] rounded-2xl overflow-hidden"
                   style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 40%, transparent), rgba(255,255,255,0.1), color-mix(in srgb, var(--mq-accent) 40%, transparent), var(--mq-accent))", backgroundSize: "300% 300%", animation: "mqGradientBorder 6s ease infinite", willChange: "background-position" }}>
                   <div
-                    className="w-64 h-64 sm:w-80 sm:h-80 md:w-88 md:h-88 lg:w-[24rem] lg:h-[24rem] xl:w-[26rem] xl:h-[26rem] rounded-2xl overflow-hidden relative"
-                    style={{ filter: "drop-shadow(0 30px 60px rgba(0,0,0,0.7)) drop-shadow(0 0 50px color-mix(in srgb, var(--mq-accent) 15%, transparent))" }}
+                    className="w-64 h-64 sm:w-[320px] sm:h-[320px] md:w-88 md:h-88 lg:w-[24rem] lg:h-[24rem] xl:w-[26rem] xl:h-[26rem] rounded-2xl overflow-hidden relative mq-cover-shadow-lg"
                   >
                     {currentPlaylistId ? (
                       <PlaylistArtwork
@@ -1887,7 +1923,24 @@ export default function FullTrackView() {
                     )}
                   </div>
                 </div>
-              </div>
+                {/* Reflection effect below artwork */}
+                <div className="relative mt-1 overflow-hidden rounded-b-2xl" style={{ height: "60px", maxHeight: "20%" }}>
+                  <div className="absolute inset-0" style={{ transform: "scaleY(-1)", transformOrigin: "top", filter: "blur(6px)", opacity: 0.15, maskImage: "linear-gradient(to top, transparent, black 20%, transparent 80%)", WebkitMaskImage: "linear-gradient(to top, transparent, black 20%, transparent 80%)" }}>
+                    {currentPlaylistId ? (
+                      <PlaylistArtwork
+                        playlistId={currentPlaylistId}
+                        size={400}
+                        rounded="rounded-none"
+                        className="!w-full !h-full"
+                        animated={true}
+                        isPlaying={isPlaying}
+                      />
+                    ) : (
+                      currentTrack.cover && <Image src={currentTrack.cover} alt="" fill className="w-full h-full object-cover" unoptimized />
+                    )}
+                  </div>
+                </div>
+              </motion.div>
             </motion.div>
           )}
           {canvasMode && <div className="flex-shrink-0" style={{ height: "clamp(10rem, 30vh, 16rem)" }} />}
@@ -1895,24 +1948,38 @@ export default function FullTrackView() {
           {/* ── Controls section ── */}
           <div className="w-full max-w-md lg:max-w-sm xl:max-w-md flex flex-col gap-4 sm:gap-5 flex-shrink-0 pb-4">
 
-            {/* Track info + like/dislike — improved typography hierarchy */}
+            {/* Track info + like/dislike — cinematic typography hierarchy */}
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
                 <motion.h2
                   key={currentTrack.id}
-                  initial={animationsEnabled ? { opacity: 0, y: 4 } : undefined}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="text-2xl sm:text-3xl lg:text-4xl font-extrabold truncate leading-tight tracking-tight" style={{ color: "var(--mq-text)" }}>
+                  initial={animationsEnabled ? { opacity: 0, y: 8, filter: "blur(4px)" } : undefined}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+                  className={`text-2xl sm:text-3xl lg:text-4xl truncate leading-tight ${isPlaying ? "mq-gradient-text" : ""}`}
+                  style={{
+                    fontSize: "var(--mq-text-headline)",
+                    fontWeight: "var(--mq-font-bold)",
+                    letterSpacing: "var(--mq-tracking-tight)",
+                    lineHeight: "var(--mq-leading-tight)",
+                    color: isPlaying ? undefined : "var(--mq-text)",
+                  }}>
                   {currentTrack.title}
                 </motion.h2>
                 <motion.button
                   key={currentTrack.id + "-artist"}
-                  initial={animationsEnabled ? { opacity: 0 } : undefined}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: 0.05 }}
-                  className="text-sm sm:text-base cursor-pointer hover:underline underline-offset-4 transition-all duration-200 mt-1 block"
-                  style={{ color: "var(--mq-text-muted)", background: "none", border: "none", padding: 0, font: "inherit" }}
+                  initial={animationsEnabled ? { opacity: 0, y: 4 } : undefined}
+                  animate={{ opacity: 0.7, y: 0 }}
+                  transition={{ duration: 0.4, delay: 0.06, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+                  className="cursor-pointer hover:underline underline-offset-4 transition-all duration-200 mt-1.5 block"
+                  style={{
+                    fontSize: "var(--mq-text-lg)",
+                    color: "var(--mq-text-muted)",
+                    background: "none",
+                    border: "none",
+                    padding: 0,
+                    font: "inherit",
+                  }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setFullTrackViewOpen(false);
@@ -1929,9 +1996,14 @@ export default function FullTrackView() {
                   {currentTrack.artist}
                 </motion.button>
                 {currentTrack.album && (
-                  <p className="text-xs mt-0.5 truncate" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>
+                  <motion.p
+                    key={currentTrack.id + "-album"}
+                    initial={animationsEnabled ? { opacity: 0 } : undefined}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.1 }}
+                    className="text-xs mt-0.5 truncate" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>
                     {currentTrack.album}
-                  </p>
+                  </motion.p>
                 )}
               </div>
               <div className="flex items-center gap-0.5 flex-shrink-0 pt-1">
@@ -1939,6 +2011,15 @@ export default function FullTrackView() {
                   className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200"
                   style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)", backgroundColor: isLiked ? "rgba(239,68,68,0.1)" : "transparent" }}>
                   <Heart className={`w-5 h-5 ${isLiked ? "fill-current" : ""}`} />
+                  {isLiked && (
+                    <motion.div
+                      className="absolute inset-0 rounded-full"
+                      style={{ border: "2px solid #ef4444" }}
+                      initial={{ scale: 1, opacity: 0.6 }}
+                      animate={{ scale: 1.5, opacity: 0 }}
+                      transition={{ duration: 0.6, ease: "easeOut" }}
+                    />
+                  )}
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.82 }} onClick={() => currentTrack && toggleDislike(currentTrack.id, currentTrack)}
                   className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200"
@@ -1948,7 +2029,7 @@ export default function FullTrackView() {
               </div>
             </div>
 
-            {/* Progress bar — custom div-based slider with direct DOM for 60fps drag */}
+            {/* Progress bar — premium slider with glow, waveform, and glass tooltips */}
             <div className="w-full">
               <div ref={sliderRef} onMouseMove={handleSliderHover} onMouseLeave={() => setHoverTime(null)}
                 onMouseDown={handleProgressMouseDown}
@@ -1968,13 +2049,37 @@ export default function FullTrackView() {
                     }}
                   />
                 )}
-                {/* Track background */}
-                <div className="w-full h-[7px] sm:h-[5px] rounded-full relative" style={{ backgroundColor: "rgba(255,255,255,0.15)" }}>
+                {/* Subtle waveform visualization behind progress bar */}
+                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-8 overflow-hidden pointer-events-none" style={{ opacity: 0.2 }}>
+                  <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 200 32">
+                    {Array.from({ length: 80 }).map((_, i) => {
+                      const h = 6 + Math.sin(i * 0.3) * 8 + Math.cos(i * 0.7) * 4 + Math.random() * 3;
+                      const x = (i / 80) * 200;
+                      const pct = duration > 0 ? progress / duration : 0;
+                      const passed = (i / 80) <= pct;
+                      return (
+                        <rect key={i} x={x} y={16 - h / 2} width="1.5" height={h} rx="0.75"
+                          fill={passed ? "var(--mq-accent)" : "rgba(255,255,255,0.25)"} />
+                      );
+                    })}
+                  </svg>
+                </div>
+                {/* Track background — premium thick bar */}
+                <div className="w-full h-[6px] sm:h-[6px] rounded-full relative transition-all duration-150 group-hover:h-[8px]" style={{ backgroundColor: "rgba(255,255,255,0.12)" }}>
                   {/* Active fill — scaleX for 0-reflow */}
                   <div ref={progressFillRef} className="h-full rounded-full overflow-hidden"
                     style={{
                       width: "100%",
                       background: "linear-gradient(to right, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 70%, white))",
+                      transform: `scaleX(${duration > 0 ? progress / duration : 0})`,
+                      transformOrigin: "left center",
+                      willChange: "transform",
+                    }}
+                  />
+                  {/* Accent glow under progress fill */}
+                  <div className="absolute bottom-0 left-0 h-full rounded-full pointer-events-none mq-progress-glow"
+                    style={{
+                      width: "100%",
                       transform: `scaleX(${duration > 0 ? progress / duration : 0})`,
                       transformOrigin: "left center",
                       willChange: "transform",
@@ -2021,41 +2126,58 @@ export default function FullTrackView() {
                 />
                 {/* Hover area enlarger for easier grabbing */}
                 <div className="absolute inset-x-0 -top-3 -bottom-3" />
+                {/* Glass-morphism timestamp tooltip */}
                 {hoverTime !== null && !isDragging && (
-                  <div className="absolute -top-10 pointer-events-none px-3 py-1.5 rounded-lg text-xs font-mono font-semibold z-10"
-                    style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border)", boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
+                  <div className="absolute -top-11 pointer-events-none px-3 py-1.5 rounded-xl text-xs font-mono font-semibold z-10"
+                    style={{
+                      backgroundColor: "rgba(30,30,30,0.85)",
+                      backdropFilter: "blur(12px)",
+                      WebkitBackdropFilter: "blur(12px)",
+                      color: "var(--mq-text)",
+                      border: "1px solid var(--mq-glass-border)",
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
                       left: `${Math.max(8, Math.min(92, (hoverTime / (duration || 1)) * 100))}%`, transform: "translateX(-50%)" }}>
                     {/* Tooltip arrow */}
                     <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45"
-                      style={{ backgroundColor: "var(--mq-card)", borderRight: "1px solid var(--mq-border)", borderBottom: "1px solid var(--mq-border)" }} />
+                      style={{ backgroundColor: "rgba(30,30,30,0.85)", borderRight: "1px solid var(--mq-glass-border)", borderBottom: "1px solid var(--mq-glass-border)" }} />
                     {formatDuration(Math.floor(hoverTime))}
                   </div>
                 )}
               </div>
               <div className="flex justify-between mt-2">
-                <span className="text-xs tabular-nums font-semibold" style={{ color: isDragging ? "var(--mq-accent)" : "var(--mq-text-muted)", opacity: isDragging ? 1 : 0.8 }}>{formatDuration(Math.floor(progress))}</span>
-                <span className="text-xs tabular-nums font-semibold" style={{ color: "var(--mq-text-muted)", opacity: 0.8 }}>{formatDuration(Math.floor(duration))}</span>
+                <span className="text-xs tabular-nums font-semibold" style={{ color: isDragging ? "var(--mq-accent)" : "var(--mq-text-muted)", opacity: isDragging ? 1 : 0.7 }}>{formatDuration(Math.floor(progress))}</span>
+                <span className="text-xs tabular-nums font-semibold" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>{formatDuration(Math.floor(duration))}</span>
               </div>
             </div>
 
             {/* Main playback controls: Shuffle | Prev | Play/Pause (large) | Next | Repeat */}
             <div className="flex items-center justify-between px-2 sm:px-4">
-              <motion.button whileTap={{ scale: 0.9 }} onClick={toggleShuffle}
+              <motion.button whileTap={{ scale: 0.92 }} onClick={toggleShuffle}
                 className="p-2.5 sm:p-2.5 rounded-full transition-all duration-200"
                 style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: shuffle ? "rgba(255,255,255,0.08)" : "transparent" }}>
                 <Shuffle className="w-5 h-5" />
               </motion.button>
-              <motion.button whileTap={{ scale: 0.9 }} onClick={prevTrack}
+              <motion.button whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.08 }} onClick={prevTrack}
                 className="p-3 sm:p-3 rounded-full hover:bg-white/10 transition-all duration-200"
                 style={{ color: "var(--mq-text)" }}>
                 <SkipBack className="w-7 h-7 sm:w-7 sm:h-7" />
               </motion.button>
               <motion.button
-                whileTap={{ scale: 0.88 }}
+                whileTap={{ scale: 0.92 }}
+                whileHover={{ scale: 1.04 }}
                 onClick={togglePlay}
-                className="w-[4.5rem] h-[4.5rem] sm:w-18 sm:h-18 rounded-full flex items-center justify-center transition-all duration-200 relative"
-                style={{ backgroundColor: "var(--mq-accent)", color: "white", boxShadow: "0 0 24px color-mix(in srgb, var(--mq-accent) 45%, transparent), 0 4px 16px rgba(0,0,0,0.3)" }}
+                className="w-16 h-16 sm:w-16 sm:h-16 rounded-full flex items-center justify-center transition-all duration-200 relative"
+                style={{ backgroundColor: "var(--mq-accent)", color: "white", boxShadow: "0 0 30px color-mix(in srgb, var(--mq-accent) 45%, transparent), 0 4px 20px rgba(0,0,0,0.3)" }}
               >
+                {/* Ambient glow pulse when playing */}
+                {isPlaying && (
+                  <motion.div
+                    className="absolute inset-0 rounded-full"
+                    style={{ backgroundColor: "var(--mq-accent)" }}
+                    animate={{ scale: [1, 1.25, 1.3], opacity: [0.4, 0.15, 0] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+                  />
+                )}
                 {/* Haptic-like pulse ring on press */}
                 <motion.div
                   className="absolute inset-0 rounded-full"
@@ -2067,12 +2189,12 @@ export default function FullTrackView() {
                 />
                 {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8" style={{ marginLeft: 3 }} />}
               </motion.button>
-              <motion.button whileTap={{ scale: 0.9 }} onClick={nextTrack}
+              <motion.button whileTap={{ scale: 0.92 }} whileHover={{ scale: 1.08 }} onClick={nextTrack}
                 className="p-3 sm:p-3 rounded-full hover:bg-white/10 transition-all duration-200"
                 style={{ color: "var(--mq-text)" }}>
                 <SkipForward className="w-7 h-7 sm:w-7 sm:h-7" />
               </motion.button>
-              <motion.button whileTap={{ scale: 0.9 }} onClick={toggleRepeat}
+              <motion.button whileTap={{ scale: 0.92 }} onClick={toggleRepeat}
                 className="p-2.5 sm:p-2.5 rounded-full transition-all duration-200 relative"
                 style={{ color: repeat !== "off" ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: repeat !== "off" ? "rgba(255,255,255,0.08)" : "transparent" }}>
                 {repeat === "one" ? <Repeat1 className="w-5 h-5" /> : <Repeat className="w-5 h-5" />}
@@ -2084,28 +2206,31 @@ export default function FullTrackView() {
               </motion.button>
             </div>
 
-            {/* Action row — grouped pill buttons with separators */}
+            {/* Action row — glass-morphism pill buttons with hover labels */}
             <div className="flex items-center justify-center gap-0 px-0 sm:px-2 flex-wrap">
               {/* Group 1: Playback features */}
               <div className="flex items-center gap-0.5 sm:gap-1">
                 <motion.button whileTap={{ scale: 0.92 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: showLyrics ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: showLyrics ? "rgba(255,255,255,0.08)" : "transparent" }}>
+                  className="mq-btn-glass relative group/lyrics flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
+                  style={{ color: showLyrics ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: showLyrics ? "rgba(255,255,255,0.08)" : undefined, boxShadow: showLyrics ? "var(--mq-shadow-glow)" : undefined }}>
                   <FileText className="w-4 h-4" />
                   <span className="text-[10px] font-semibold hidden sm:inline">Текст</span>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/lyrics:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Lyrics</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.92 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: showSimilar ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: showSimilar ? "rgba(255,255,255,0.08)" : "transparent" }}>
+                  className="mq-btn-glass relative group/similar flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
+                  style={{ color: showSimilar ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: showSimilar ? "rgba(255,255,255,0.08)" : undefined, boxShadow: showSimilar ? "var(--mq-shadow-glow)" : undefined }}>
                   <ListMusic className="w-4 h-4" />
                   <span className="text-[10px] font-semibold hidden sm:inline">Похожие</span>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/similar:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Similar</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.92 }} onClick={() => setShowSleepTimer(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200 relative"
-                  style={{ color: sleepTimerActive ? "#8b5cf6" : "var(--mq-text-muted)", backgroundColor: sleepTimerActive ? "rgba(139,92,246,0.12)" : "transparent" }}>
+                  className="mq-btn-glass relative group/sleep flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
+                  style={{ color: sleepTimerActive ? "#8b5cf6" : "var(--mq-text-muted)", backgroundColor: sleepTimerActive ? "rgba(139,92,246,0.12)" : undefined, boxShadow: sleepTimerActive ? "0 0 12px rgba(139,92,246,0.2)" : undefined }}>
                   <Moon className="w-4 h-4" />
                   {sleepTimerActive && <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#8b5cf6" }} />}
                   <span className="text-[10px] font-semibold hidden sm:inline">Сон</span>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/sleep:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Sleep</span>
                 </motion.button>
               </div>
 
@@ -2116,46 +2241,52 @@ export default function FullTrackView() {
               <div className="flex items-center gap-0.5 sm:gap-1">
                 <motion.button whileTap={{ scale: 0.92 }} onClick={() => { setShowEQ(true); }}
                   data-tour="equalizer"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: eqEnabled ? "rgba(255,255,255,0.08)" : "transparent" }}>
+                  className="mq-btn-glass relative group/eq flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
+                  style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: eqEnabled ? "rgba(255,255,255,0.08)" : undefined, boxShadow: eqEnabled ? "var(--mq-shadow-glow)" : undefined }}>
                   <SlidersHorizontal className="w-4 h-4" />
                   <span className="text-[10px] font-semibold hidden sm:inline">EQ</span>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/eq:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Equalizer</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.92 }} onClick={() => { setShowSynthVis(true); }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: showSynthVis ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: showSynthVis ? "rgba(255,255,255,0.08)" : "transparent" }}>
+                  className="mq-btn-glass relative group/synth flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
+                  style={{ color: showSynthVis ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: showSynthVis ? "rgba(255,255,255,0.08)" : undefined, boxShadow: showSynthVis ? "var(--mq-shadow-glow)" : undefined }}>
                   <Waves className="w-4 h-4" />
                   <span className="text-[10px] font-semibold hidden sm:inline">Синтез</span>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/synth:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Synth</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.92 }} onClick={() => {
                   if (compressorOn) { disableCompressor(); setCompressorOn(false); }
                   else { enableCompressor(); setCompressorOn(true); }
                 }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: compressorOn ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: compressorOn ? "rgba(255,255,255,0.08)" : "transparent" }}>
+                  className="mq-btn-glass relative group/comp flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
+                  style={{ color: compressorOn ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: compressorOn ? "rgba(255,255,255,0.08)" : undefined, boxShadow: compressorOn ? "var(--mq-shadow-glow)" : undefined }}>
                   <Gauge className="w-4 h-4" />
                   <span className="text-[10px] font-semibold hidden sm:inline">Компр</span>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/comp:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Compress</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.92 }} onClick={() => {
                   if (reverbOn) { disableReverb(); setReverbOn(false); }
                   else { enableReverb(); setReverbOn(true); }
                 }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: reverbOn ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: reverbOn ? "rgba(255,255,255,0.08)" : "transparent" }}>
+                  className="mq-btn-glass relative group/reverb flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
+                  style={{ color: reverbOn ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: reverbOn ? "rgba(255,255,255,0.08)" : undefined, boxShadow: reverbOn ? "var(--mq-shadow-glow)" : undefined }}>
                   <Sparkles className="w-4 h-4" />
                   <span className="text-[10px] font-semibold hidden sm:inline">Реверб</span>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/reverb:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Reverb</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.92 }} onClick={() => { setSpatialAudioEnabled(!spatialAudioEnabled); }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: spatialAudioEnabled ? "rgba(255,255,255,0.08)" : "transparent" }}>
+                  className="mq-btn-glass relative group/spatial flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
+                  style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: spatialAudioEnabled ? "rgba(255,255,255,0.08)" : undefined, boxShadow: spatialAudioEnabled ? "var(--mq-shadow-glow)" : undefined }}>
                   <Headphones className="w-4 h-4" />
                   <span className="text-[10px] font-semibold hidden sm:inline">Spatial</span>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/spatial:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>3D Audio</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.92 }} onClick={handleAbToggle}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: abRepeat.active ? "var(--mq-accent)" : abRepeat.pointA !== null ? "rgba(139,92,246,0.9)" : "var(--mq-text-muted)", backgroundColor: abRepeat.active ? "rgba(255,255,255,0.08)" : abRepeat.pointA !== null ? "rgba(139,92,246,0.08)" : "transparent" }}>
+                  className="mq-btn-glass relative group/ab flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
+                  style={{ color: abRepeat.active ? "var(--mq-accent)" : abRepeat.pointA !== null ? "rgba(139,92,246,0.9)" : "var(--mq-text-muted)", backgroundColor: abRepeat.active ? "rgba(255,255,255,0.08)" : abRepeat.pointA !== null ? "rgba(139,92,246,0.08)" : undefined, boxShadow: abRepeat.active ? "var(--mq-shadow-glow)" : undefined }}>
                   <Repeat2 className="w-4 h-4" />
                   <span className="text-[10px] font-semibold hidden sm:inline">{abRepeat.active ? "A↔B" : abRepeat.pointA !== null ? "A…" : "A-B"}</span>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/ab:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>A-B Repeat</span>
                 </motion.button>
               </div>
 
@@ -2165,16 +2296,18 @@ export default function FullTrackView() {
               {/* Group 3: Speed, canvas, share, more */}
               <div className="flex items-center gap-0.5 sm:gap-1">
                 <motion.button whileTap={{ scale: 0.92 }} onClick={cyclePlaybackSpeed}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: playbackRate !== 1.0 ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: playbackRate !== 1.0 ? "rgba(255,255,255,0.08)" : "transparent" }}>
+                  className="mq-btn-glass relative group/speed flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
+                  style={{ color: playbackRate !== 1.0 ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: playbackRate !== 1.0 ? "rgba(255,255,255,0.08)" : undefined, boxShadow: playbackRate !== 1.0 ? "var(--mq-shadow-glow)" : undefined }}>
                   <Gauge className="w-4 h-4" />
                   <span className="text-[10px] font-semibold tabular-nums">{playbackRate !== 1.0 ? `${playbackRate.toFixed(playbackRate % 1 === 0 ? 0 : 2)}x` : "1x"}</span>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/speed:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Speed</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.92 }} onClick={() => setCanvasMode(!canvasMode)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
-                  style={{ color: canvasMode ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: canvasMode ? "rgba(255,255,255,0.08)" : "transparent" }}>
+                  className="mq-btn-glass relative group/canvas flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
+                  style={{ color: canvasMode ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: canvasMode ? "rgba(255,255,255,0.08)" : undefined, boxShadow: canvasMode ? "var(--mq-shadow-glow)" : undefined }}>
                   <Sparkles className="w-4 h-4" />
                   <span className="text-[10px] font-semibold hidden sm:inline">Canvas</span>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/canvas:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Visualizer</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.92 }} onClick={async () => {
                   const shareUrl = currentTrack.scTrackId
@@ -2194,13 +2327,14 @@ export default function FullTrackView() {
                     toast({ title: "Скопировано!", description: "Ссылка скопирована в буфер обмена" });
                   } catch {}
                 }}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
+                  className="mq-btn-glass relative group/share flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200"
                   style={{ color: "var(--mq-text-muted)" }}>
                   <Share2 className="w-4 h-4" />
                   <span className="text-[10px] font-semibold hidden sm:inline">Share</span>
+                  <span className="absolute -bottom-5 left-1/2 -translate-x-1/2 text-[9px] opacity-0 group-hover/share:opacity-100 transition-opacity whitespace-nowrap pointer-events-none" style={{ color: "var(--mq-text-muted)" }}>Share</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.92 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200 sm:hidden"
+                  className="mq-btn-glass flex items-center gap-1.5 px-2.5 py-1.5 rounded-full transition-all duration-200 sm:hidden"
                   style={{ color: showMoreMenu ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
                   <MoreVertical className="w-4 h-4" />
                 </motion.button>
@@ -2580,13 +2714,13 @@ export default function FullTrackView() {
         <SynthVisualizerView show={showSynthVis} onClose={() => setShowSynthVis(false)} />
 
         {/* Immersive Lyrics Panel */}
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {showLyrics && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
+              initial={{ opacity: 0, filter: "blur(8px)", scale: 0.98 }}
+              animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
+              exit={{ opacity: 0, filter: "blur(8px)", scale: 0.98 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
               className="absolute inset-0 z-50 flex flex-col"
               style={{ backgroundColor: "var(--mq-bg)" }}
             >
@@ -2725,9 +2859,12 @@ export default function FullTrackView() {
         )}
 
         {/* Similar tracks panel */}
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {showSimilar && (
-            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+            <motion.div
+              initial={{ y: "100%", opacity: 0, filter: "blur(4px)" }}
+              animate={{ y: 0, opacity: 1, filter: "blur(0px)" }}
+              exit={{ y: "100%", opacity: 0, filter: "blur(4px)" }}
               transition={{ type: "spring" as const, damping: 25, stiffness: 300 }}
               className="absolute bottom-0 left-0 right-0 z-20 rounded-t-2xl overflow-hidden"
               style={{ maxHeight: "55vh", backgroundColor: "var(--mq-card)", borderTop: "1px solid var(--mq-border)" }}>

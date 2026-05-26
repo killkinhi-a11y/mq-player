@@ -80,19 +80,35 @@ export default function ArtistCard({
         initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: index * 0.03 }}
-        whileHover={{ scale: 1.02 }}
+        whileHover={{ scale: 1.02, y: -1 }}
         whileTap={{ scale: 0.97 }}
         onClick={onClick}
-        className="flex items-center gap-3 p-2.5 rounded-xl cursor-pointer text-left transition-all w-full"
+        className="flex items-center gap-3 p-2.5 rounded-[14px] cursor-pointer text-left transition-colors w-full group relative overflow-hidden"
         style={{
           backgroundColor: "var(--mq-card)",
           border: "1px solid var(--mq-border)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)",
         }}
       >
+        {/* Hover glow border */}
+        <div
+          className="absolute inset-0 rounded-[14px] pointer-events-none border border-transparent group-hover:border-[color-mix(in_srgb,var(--mq-accent)_15%,transparent)] transition-colors duration-300"
+        />
+
         {/* Avatar */}
         <div
-          className={`${size === "sm" ? "w-9 h-9" : "w-11 h-11"} rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center relative`}
-          style={{ border: isSubscribed ? "2px solid var(--mq-accent)" : "2px solid var(--mq-border)" }}
+          className={`${size === "sm" ? "w-9 h-9" : "w-11 h-11"} rounded-full overflow-hidden flex-shrink-0 flex items-center justify-center relative mq-cover-shadow transition-transform duration-300 group-hover:scale-[1.05]`}
+          style={{
+            border: isSubscribed
+              ? "2px solid var(--mq-accent)"
+              : isHovered
+                ? "2px solid color-mix(in srgb, var(--mq-accent) 40%, transparent)"
+                : "2px solid var(--mq-border)",
+            boxShadow: isHovered
+              ? "0 0 16px color-mix(in srgb, var(--mq-accent) 20%, transparent), 0 2px 8px rgba(0,0,0,0.3)"
+              : "0 2px 8px rgba(0,0,0,0.2)",
+            transition: "border-color 0.3s, box-shadow 0.3s, transform 0.3s",
+          }}
         >
           {hasAvatar ? (
             <Image src={avatar} alt={username} width={36} height={36} className="w-full h-full object-cover" loading="lazy" unoptimized />
@@ -101,10 +117,14 @@ export default function ArtistCard({
               <span className="text-xs font-bold" style={{ color: "var(--mq-text)" }}>{initials}</span>
             </div>
           )}
-          {/* Subscribed badge */}
+          {/* Subscribed badge — with glow effect */}
           {isSubscribed && (
             <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: "var(--mq-accent)", border: "2px solid var(--mq-card)" }}>
+              style={{
+                backgroundColor: "var(--mq-accent)",
+                border: "2px solid var(--mq-card)",
+                boxShadow: "0 0 8px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
+              }}>
               <Check className="w-2 h-2" style={{ color: "var(--mq-text)" }} />
             </div>
           )}
@@ -144,28 +164,46 @@ export default function ArtistCard({
     >
       {/* Card background */}
       <div
-        className="relative rounded-lg p-3 pb-4 w-full transition-all duration-300 overflow-hidden"
+        className="relative rounded-[14px] p-3.5 pb-4 w-full transition-all duration-300 overflow-hidden"
         style={{
           backgroundColor: "var(--mq-card)",
           border: isSubscribed
-            ? "1.5px solid var(--mq-accent)"
+            ? "1.5px solid color-mix(in srgb, var(--mq-accent) 40%, transparent)"
             : isHovered
-              ? "1.5px solid var(--mq-accent)"
+              ? "1.5px solid color-mix(in srgb, var(--mq-accent) 15%, transparent)"
               : "1px solid var(--mq-border)",
+          boxShadow: isHovered
+            ? "0 4px 24px rgba(0,0,0,0.25), 0 0 20px color-mix(in srgb, var(--mq-accent) 8%, transparent), inset 0 1px 0 rgba(255,255,255,0.04)"
+            : isSubscribed
+              ? "0 0 16px color-mix(in srgb, var(--mq-accent) 10%, transparent), inset 0 1px 0 rgba(255,255,255,0.04)"
+              : "inset 0 1px 0 rgba(255,255,255,0.04)",
         }}
       >
+        {/* Ambient glow layer on hover */}
+        <div
+          className="absolute inset-0 rounded-[14px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
+          style={{
+            boxShadow: "0 0 20px color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+            filter: "blur(20px)",
+          }}
+        />
 
         {/* Avatar container */}
-        <div className="relative z-10 flex justify-center mb-2">
+        <div className="relative z-10 flex justify-center mb-2.5">
           <div
-            className={`${avatarSize} rounded-full overflow-hidden flex-shrink-0 relative transition-shadow duration-300`}
+            className={`${avatarSize} rounded-full overflow-hidden flex-shrink-0 relative mq-cover-shadow transition-all duration-300 group-hover:scale-[1.03]`}
             style={{
               boxShadow: isHovered
-                ? "0 4px 20px rgba(0,0,0,0.4)"
-                : "0 2px 10px rgba(0,0,0,0.2)",
+                ? "0 4px 24px rgba(0,0,0,0.5), 0 0 20px color-mix(in srgb, var(--mq-accent) 20%, transparent)"
+                : "0 2px 12px rgba(0,0,0,0.3)",
               border: isSubscribed
                 ? "2.5px solid var(--mq-accent)"
-                : "2px solid var(--mq-border)",
+                : isHovered
+                  ? "2.5px solid color-mix(in srgb, var(--mq-accent) 50%, transparent)"
+                  : "2px solid var(--mq-border)",
+              // Accent glow ring on hover
+              outline: isHovered ? "2px solid color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "none",
+              outlineOffset: "3px",
             }}
           >
             {hasAvatar ? (
@@ -178,7 +216,6 @@ export default function ArtistCard({
                 loading="lazy"
                 unoptimized
                 onError={(e) => {
-                  // Hide image and show fallback
                   const target = e.target as HTMLImageElement;
                   target.style.display = "none";
                 }}
@@ -204,21 +241,31 @@ export default function ArtistCard({
                 animate={{ scale: isHovered ? 1 : 0.5, opacity: isHovered ? 1 : 0 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
                 className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-lg cursor-pointer"
-                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+                style={{
+                  backgroundColor: "rgba(0,0,0,0.45)",
+                  backdropFilter: "blur(12px) saturate(180%)",
+                  WebkitBackdropFilter: "blur(12px) saturate(180%)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  color: "#fff",
+                }}
               >
                 <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-0.5" fill="currentColor" />
               </motion.div>
             </motion.div>
           </div>
 
-          {/* Subscribed indicator (floating badge) */}
+          {/* Subscribed indicator (floating badge) — with glow effect */}
           {isSubscribed && (
             <motion.div
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 400, damping: 15, delay: 0.2 }}
               className="absolute -top-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center shadow-lg z-20 cursor-pointer"
-              style={{ backgroundColor: "var(--mq-accent)", border: "2px solid var(--mq-card)" }}
+              style={{
+                backgroundColor: "var(--mq-accent)",
+                border: "2px solid var(--mq-card)",
+                boxShadow: "0 0 10px color-mix(in srgb, var(--mq-accent) 50%, transparent), 0 0 20px color-mix(in srgb, var(--mq-accent) 20%, transparent)",
+              }}
               onClick={handleSubBtnClick}
             >
               <Heart className="w-2.5 h-2.5 sm:w-3 sm:h-3" style={{ color: "var(--mq-text)", fill: "var(--mq-text)" }} />
@@ -234,16 +281,16 @@ export default function ArtistCard({
           {username}
         </p>
 
-        {/* Stats row */}
-        <div className="flex items-center justify-center gap-1.5 z-10 relative">
+        {/* Stats row — muted color system */}
+        <div className="flex items-center justify-center gap-2 z-10 relative mt-1">
           {followers != null && followers > 0 && (
-            <span className="text-[10px] flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)" }}>
+            <span className="text-[10px] flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.8 }}>
               <Users className="w-2.5 h-2.5" />
               {formatNumber(followers)}
             </span>
           )}
           {trackCount != null && trackCount > 0 && (
-            <span className="text-[10px] flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)" }}>
+            <span className="text-[10px] flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.8 }}>
               <Headphones className="w-2.5 h-2.5" />
               {formatNumber(trackCount)}
             </span>
@@ -253,11 +300,11 @@ export default function ArtistCard({
         {/* Genre tag */}
         {genre && (
           <motion.span
-            className="text-[10px] px-2.5 py-0.5 rounded-full truncate max-w-full z-10 relative"
+            className="text-[10px] px-2.5 py-0.5 rounded-full truncate max-w-full z-10 relative mt-1.5"
             style={{
-              backgroundColor: isHovered ? "var(--mq-accent)" : "var(--mq-surface, #1a1a1a)",
-              color: isHovered ? "var(--mq-text)" : "var(--mq-text-muted)",
-              border: isHovered ? "1px solid var(--mq-accent)" : "1px solid var(--mq-border)",
+              backgroundColor: isHovered ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-surface, #1a1a1a)",
+              color: isHovered ? "var(--mq-accent)" : "var(--mq-text-muted)",
+              border: isHovered ? "1px solid color-mix(in srgb, var(--mq-accent) 20%, transparent)" : "1px solid var(--mq-border)",
               transition: "all 0.2s ease",
             }}
           >
