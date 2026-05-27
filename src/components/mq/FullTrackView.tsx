@@ -548,6 +548,9 @@ export default function FullTrackView() {
   const waveCanvasRef = useRef<HTMLCanvasElement>(null);
   const waveAnimRef = useRef<number>(0);
   const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(false);
+  const timeDisplayRef = useRef<HTMLSpanElement>(null);
+  const rafRunningRef = useRef(false);
   const [showSimilar, setShowSimilar] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [showSleepTimer, setShowSleepTimer] = useState(false);
@@ -654,6 +657,61 @@ export default function FullTrackView() {
     window.addEventListener("resize", updateWidths);
     return () => window.removeEventListener("resize", updateWidths);
   }, []);
+
+  // Sync isDragging state to ref for RAF loop access
+  useEffect(() => {
+    isDraggingRef.current = isDragging;
+  }, [isDragging]);
+
+  // ── RAF-based progress sync for smooth 60fps progress bar ──
+  // Reads audio.currentTime directly via getAudioElement() and updates DOM,
+  // bypassing React state to eliminate re-renders from progress changes.
+  useEffect(() => {
+    if (!isPlaying || !isFullTrackViewOpen) return;
+    let running = true;
+    rafRunningRef.current = true;
+    let lastTimeUpdate = 0;
+    const tick = () => {
+      if (!running) return;
+      // Skip DOM updates while user is dragging the progress bar
+      if (isDraggingRef.current) {
+        if (running) requestAnimationFrame(tick);
+        return;
+      }
+      const audio = getAudioElement();
+      if (audio && !audio.paused && audio.duration && isFinite(audio.duration)) {
+        const ct = audio.currentTime;
+        const dur = audio.duration;
+        const pct = dur > 0 ? ct / dur : 0;
+
+        // Update progress bar fill directly (0 re-renders)
+        if (progressFillRef.current) {
+          progressFillRef.current.style.transform = `scaleX(${pct})`;
+        }
+        // Update thumb position directly
+        if (progressThumbRef.current) {
+          const sliderWidth = progressSliderWidthRef.current || sliderRef.current?.getBoundingClientRect().width || 200;
+          progressThumbRef.current.style.transform = `translateX(${pct * sliderWidth}px) translateY(-50%)`;
+        }
+        // Update glow element (next sibling of progress fill)
+        const glowEl = progressFillRef.current?.nextElementSibling as HTMLDivElement | null;
+        if (glowEl) {
+          glowEl.style.transform = `scaleX(${pct})`;
+        }
+        // Update time display text (throttled to ~2Hz to avoid layout thrash)
+        if (ct - lastTimeUpdate >= 0.5 && timeDisplayRef.current) {
+          timeDisplayRef.current.textContent = formatDuration(Math.floor(ct));
+          lastTimeUpdate = ct;
+        }
+      }
+      if (running) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    return () => {
+      running = false;
+      rafRunningRef.current = false;
+    };
+  }, [isPlaying, isFullTrackViewOpen]);
 
   // Native wheel handler for volume section (fix passive listener issue)
   useEffect(() => {
@@ -2125,7 +2183,7 @@ export default function FullTrackView() {
                 )}
               </div>
               <div className="flex justify-between mt-2">
-                <span className="text-xs tabular-nums font-semibold" style={{ color: isDragging ? "var(--mq-accent)" : "var(--mq-text-muted)", opacity: isDragging ? 1 : 0.7 }}>{formatDuration(Math.floor(progress))}</span>
+                <span ref={timeDisplayRef} className="text-xs tabular-nums font-semibold" style={{ color: isDragging ? "var(--mq-accent)" : "var(--mq-text-muted)", opacity: isDragging ? 1 : 0.7 }}>{formatDuration(Math.floor(progress))}</span>
                 <span className="text-xs tabular-nums font-semibold" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>{formatDuration(Math.floor(duration))}</span>
               </div>
             </div>

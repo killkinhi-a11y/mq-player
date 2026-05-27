@@ -230,6 +230,61 @@ export default function PlayerBar() {
     return () => { enableSpatialAudio(false); };
   }, [spatialAudioEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── RAF-based progress sync for smooth 60fps mini progress bar ──
+  // Reads audio.currentTime directly via getAudioElement() and updates DOM,
+  // bypassing React state to eliminate re-renders from progress changes.
+  const miniProgressGlowRef = useRef<HTMLDivElement>(null);
+  const miniProgressHoverThumbRef = useRef<HTMLDivElement>(null);
+  const miniTimeDisplayRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    let running = true;
+    let lastTimeUpdate = 0;
+    const tick = () => {
+      if (!running) return;
+      // Skip DOM updates while user is dragging the progress bar
+      if (progressDrag.isDraggingRef.current) {
+        if (running) requestAnimationFrame(tick);
+        return;
+      }
+      const audio = getAudioElement();
+      if (audio && !audio.paused && audio.duration && isFinite(audio.duration)) {
+        const ct = audio.currentTime;
+        const dur = audio.duration;
+        const pctVal = dur > 0 ? Math.min((ct / dur) * 100, 100) : 0;
+
+        // Update progress fill width directly (0 re-renders)
+        if (progressDrag.progressFillRef.current) {
+          progressDrag.progressFillRef.current.style.transition = "none";
+          progressDrag.progressFillRef.current.style.width = `${pctVal}%`;
+        }
+        // Update thumb position directly
+        if (progressDrag.progressThumbRef.current) {
+          progressDrag.progressThumbRef.current.style.transition = "none";
+          progressDrag.progressThumbRef.current.style.left = `${pctVal}%`;
+        }
+        // Update glow width
+        if (miniProgressGlowRef.current) {
+          miniProgressGlowRef.current.style.transition = "none";
+          miniProgressGlowRef.current.style.width = `${pctVal}%`;
+        }
+        // Update hover thumb position
+        if (miniProgressHoverThumbRef.current) {
+          miniProgressHoverThumbRef.current.style.left = `${pctVal}%`;
+        }
+        // Update mobile time display text (throttled to ~2Hz)
+        if (ct - lastTimeUpdate >= 0.5 && miniTimeDisplayRef.current) {
+          miniTimeDisplayRef.current.textContent = formatDuration(Math.floor(ct));
+          lastTimeUpdate = ct;
+        }
+      }
+      if (running) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    return () => { running = false; };
+  }, [isPlaying, progressDrag.isDraggingRef, progressDrag.progressFillRef, progressDrag.progressThumbRef]);
+
   // ── Volume mouse wheel — works on the whole player bar (native listener) ──────────────
   const volumeSectionRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -757,6 +812,7 @@ export default function PlayerBar() {
                   })()}
                   {/* Progress background glow */}
                   <div
+                    ref={miniProgressGlowRef}
                     className="absolute top-1/2 pointer-events-none"
                     style={{
                       width: `${progressPct}%`,
@@ -806,6 +862,7 @@ export default function PlayerBar() {
                     }}
                   />
                   <div
+                    ref={miniProgressHoverThumbRef}
                     className="absolute top-1/2 rounded-full opacity-0 group-hover/progress:opacity-100"
                     style={{
                       width: 12,
@@ -1341,7 +1398,7 @@ export default function PlayerBar() {
                   transition={{ type: "spring", stiffness: 400, damping: 28, delay: 0.08 }}
                 >
                   {/* Time left */}
-                  <span className="text-[10px] font-mono tabular-nums w-10 text-left" style={{ color: "var(--mq-text-muted)" }}>
+                  <span ref={miniTimeDisplayRef} className="text-[10px] font-mono tabular-nums w-10 text-left" style={{ color: "var(--mq-text-muted)" }}>
                     {formatDuration(Math.floor(progress))}
                   </span>
 

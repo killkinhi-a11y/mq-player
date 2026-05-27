@@ -601,6 +601,43 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   const playerBarRef = useRef<HTMLDivElement>(null);
   const crossfadeRef = useRef(false);
 
+  // ── RAF-based progress sync (avoids React re-renders every 250ms) ──
+  // Components register a callback to receive high-frequency progress updates
+  // via requestAnimationFrame, bypassing React state for the progress bar.
+  const progressRAFCallbacks = useRef<Set<(currentTime: number, duration: number) => void>>(new Set());
+  const rafIdRef = useRef<number>(0);
+  const isRAFRunning = useRef(false);
+
+  const registerProgressRAF = useCallback((cb: (currentTime: number, duration: number) => void) => {
+    progressRAFCallbacks.current.add(cb);
+    return () => { progressRAFCallbacks.current.delete(cb); };
+  }, []);
+
+  const startProgressRAF = useCallback(() => {
+    if (isRAFRunning.current) return;
+    isRAFRunning.current = true;
+    const tick = () => {
+      const a = getAudioElement();
+      if (a && !a.paused && a.duration && isFinite(a.duration)) {
+        const ct = a.currentTime;
+        const dur = a.duration;
+        progressRAFCallbacks.current.forEach(cb => { try { cb(ct, dur); } catch {} });
+      }
+      if (isRAFRunning.current) {
+        rafIdRef.current = requestAnimationFrame(tick);
+      }
+    };
+    rafIdRef.current = requestAnimationFrame(tick);
+  }, []);
+
+  const stopProgressRAF = useCallback(() => {
+    isRAFRunning.current = false;
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = 0;
+    }
+  }, []);
+
   const prevTrackIdForCrossfade = useRef<string | null>(null);
   const startLoadingTimeoutRef = useRef<((generation: number) => void) | null>(null);
   const clearLoadingTimeoutRef = useRef<(() => void) | null>(null);
@@ -785,7 +822,14 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         }
       }
 
-      if (!isDraggingRef.current && a) setProgressRef.current(a.currentTime);
+      if (!isDraggingRef.current && a) {
+        // Throttle store updates to ~1Hz — the progress bar animates via RAF,
+        // so the store only needs coarse updates for time display text.
+        const st = useAppStore.getState();
+        if (Math.abs(a.currentTime - st.progress) >= 1 || a.currentTime === 0) {
+          setProgressRef.current(a.currentTime);
+        }
+      }
       if ("mediaSession" in navigator && navigator.mediaSession && a?.duration && isFinite(a.duration)) {
         try {
           navigator.mediaSession.setPositionState({
@@ -1887,6 +1931,16 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     }
   }, [isPlaying, isLoadingTrack]);
 
+  // Start/stop RAF-based progress sync based on playback state
+  useEffect(() => {
+    if (isPlaying && !isLoadingTrack) {
+      startProgressRAF();
+    } else {
+      stopProgressRAF();
+    }
+    return () => stopProgressRAF();
+  }, [isPlaying, isLoadingTrack, startProgressRAF, stopProgressRAF]);
+
   // ── Volume effect ──
   useEffect(() => {
     const vol = Math.pow(volume / 100, 2);
@@ -1906,5 +1960,6 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     progressRef,
     volumeRef,
     playerBarRef,
+    registerProgressRAF,
   };
 }
