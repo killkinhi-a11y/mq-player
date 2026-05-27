@@ -989,7 +989,14 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       }
     };
 
-    const onCanPlay = () => {
+    const onCanPlay = (e: Event) => {
+      // CRITICAL: Only handle events from the active audio element.
+      // The inactive element (gapless preload) also fires canplay,
+      // and without this check it would incorrectly call play() on
+      // the active element, causing AbortError and repeated pausing.
+      const target = e.target as HTMLAudioElement | null;
+      if (target && target !== getActive()) return;
+
       setIsLoadingTrack(false);
       setPlayError(false);
       retryCountRef.current = 0;
@@ -1004,12 +1011,11 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       }
       resumeAudioContext();
       const st = useAppStore.getState();
-      // Update playback state to reflect that audio is ready
+      // Update playback state — do NOT call play() here.
+      // The isPlaying effect (which depends on isLoadingTrack) will detect
+      // that loading finished and call play() centrally, eliminating race
+      // conditions between multiple play() calls.
       useAppStore.setState({ playbackState: st.isPlaying ? 'playing' : 'paused', isBuffering: false });
-      if (st.isPlaying) {
-        const a = getActive();
-        if (a && !crossfadeRef.current) a.play().catch(() => {});
-      }
     };
 
     const onPlaying = (e: Event) => {
@@ -1804,15 +1810,20 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   // This is the SINGLE source of truth for calling audio.play()/audio.pause().
   // togglePlay() in useAppStore ONLY flips the isPlaying flag — it does NOT
   // call audio.play()/audio.pause() directly. This eliminates race conditions
-  // from double-calling play() (togglePlay + this effect).
+  // from multiple play() calls that cause AbortError and the "repeated pausing" bug.
+  //
+  // The effect depends on BOTH isPlaying AND isLoadingTrack so that it re-runs
+  // when a track finishes loading (isLoadingTrack: true→false) while isPlaying
+  // is true. This lets us centralize ALL play()/pause() calls here instead of
+  // having onCanPlay or loadTrack call play() directly.
   //
   // NOTE: We deliberately do NOT toggle isPlaying back to false on NotAllowedError.
   // Doing so caused the "double-click bug": user clicks play → isPlaying flips to true →
   // browser blocks autoplay → isPlaying flips back to false → player bar appears paused
   // or invisible → user must click again. Instead, we keep isPlaying=true (the user's
-  // intent) and let onCanPlay / loadTrack handle the actual play() call once the audio
-  // is loaded (which usually satisfies the browser's autoplay policy since the load
-  // was initiated by a user gesture).
+  // intent) and this effect will retry play() when isLoadingTrack becomes false
+  // (i.e., when track loading completes, which satisfies browser autoplay policy
+  // since the load was initiated by a user gesture).
   useEffect(() => {
     const audio = getAudioElement();
     const secondary = getInactiveAudio();
@@ -1821,8 +1832,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       resumeAudioContext();
 
       // Skip if we're in the middle of loading a new track.
-      // The loadTrack effect handles calling play() once loading completes
-      // (either directly or via onCanPlay).
+      // The effect will re-run when isLoadingTrack becomes false.
       if (isLoadingTrackRef.current) return;
 
       // Skip if no source is loaded yet or audio isn't ready
@@ -1849,8 +1859,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             }
           }, 500);
         }
-        // NotAllowedError: silently ignore — onCanPlay will retry play() once
-        // the track finishes loading (browser allows play after user-gesture load).
+        // NotAllowedError: silently ignore — the effect will re-run when
+        // isLoadingTrack becomes false, retrying play() after user-gesture load.
         // AbortError: also ignored — usually means a new load() interrupted play().
       });
     } else {
@@ -1858,7 +1868,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       if (secondary && secondary.src) secondary.pause();
       useAppStore.setState({ playbackState: 'paused', isBuffering: false });
     }
-  }, [isPlaying]);
+  }, [isPlaying, isLoadingTrack]);
 
   // ── Volume effect ──
   useEffect(() => {
