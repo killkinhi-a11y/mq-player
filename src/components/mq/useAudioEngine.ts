@@ -1229,11 +1229,22 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       if (stallTimeoutId) { clearTimeout(stallTimeoutId); stallTimeoutId = null; }
     };
 
+    // IMPORTANT: We intentionally do NOT clean up event listeners or pause audio
+    // on unmount. The playback engine must persist across React re-renders and
+    // route changes. If the component unmounts (e.g. Suspense fallback), audio
+    // should continue playing uninterrupted. Listeners are only cleaned up on
+    // full page unload (beforeunload), not on React component unmount.
     return () => {
       if (loadingTimeoutId) { clearTimeout(loadingTimeoutId); loadingTimeoutId = null; }
       if (stallTimeoutId) { clearTimeout(stallTimeoutId); stallTimeoutId = null; }
-      removeListeners(audio);
-      if (secondary) removeListeners(secondary);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Page unload cleanup: release audio resources when tab closes ──
+  useEffect(() => {
+    const handleUnload = () => {
+      const audio = getAudioElement();
+      const secondary = getInactiveAudio();
       const destroyHls = (el: HTMLAudioElement) => {
         const hls = (el as any)._hlsInstance;
         if (hls) { try { hls.destroy(); } catch {} delete (el as any)._hlsInstance; }
@@ -1244,7 +1255,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       audio.src = "";
       if (secondary) { secondary.pause(); secondary.src = ""; }
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    window.addEventListener("beforeunload", handleUnload);
+    return () => window.removeEventListener("beforeunload", handleUnload);
+  }, []);
 
   // ── Load track effect ──
   useEffect(() => {

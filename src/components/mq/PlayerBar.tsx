@@ -483,7 +483,9 @@ export default function PlayerBar() {
     setSwipeY(0);
   }, [swipeY, setMiniPlayerHidden]);
 
-  if (!currentTrack) return null;
+  // IMPORTANT: We always render the hook's effect container (even when no track)
+  // to keep useAudioEngine alive. The visual player UI is conditionally shown.
+  if (!currentTrack) return <div data-playback-engine-root style={{ display: 'none' }} />;
 
   const progressPct = duration > 0 ? Math.min((progress / duration) * 100, 100) : 0;
   const isLiked = (Array.isArray(likedTrackIds) ? likedTrackIds : []).includes(currentTrack.id);

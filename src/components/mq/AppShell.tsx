@@ -462,7 +462,8 @@ export default function AppShell() {
         )}
       </main>
 
-      <Suspense fallback={null}>{showNav && <PlayerBar />}</Suspense>
+      {/* PlayerBar is ALWAYS mounted — never unmount to preserve playback engine */}
+      <Suspense fallback={null}><PlayerBar /></Suspense>
       <Suspense fallback={null}><FullTrackView /></Suspense>
       <Suspense fallback={null}><MqCat /></Suspense>
       <Suspense fallback={null}>{showNav && !hideUiForFullscreen && <MobileNav />}</Suspense>
