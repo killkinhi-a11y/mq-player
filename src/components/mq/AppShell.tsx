@@ -28,8 +28,6 @@ import AuthView from "@/components/mq/AuthView";
 import MainView from "@/components/mq/MainView";
 import SearchView from "@/components/mq/SearchView";
 import SettingsView from "@/components/mq/SettingsView";
-import FavoritesView from "@/components/mq/FavoritesView";
-import PlaylistView from "@/components/mq/PlaylistView";
 import MessengerView from "@/components/mq/MessengerView";
 import LibraryView from "@/components/mq/LibraryView";
 
@@ -60,11 +58,9 @@ const OnboardingTour = dynamic(() => import("@/components/mq/OnboardingTour"), {
 const VISITED_VIEW_COMPONENTS: { id: string; Component: React.ComponentType }[] = [
   { id: "main", Component: MainView },
   { id: "search", Component: SearchView },
-  { id: "favorites", Component: FavoritesView },
-  { id: "playlists", Component: PlaylistView },
+  { id: "library", Component: LibraryView },
   { id: "messenger", Component: MessengerView },
   { id: "settings", Component: SettingsView },
-  { id: "library", Component: LibraryView },
   { id: "profile", Component: ProfileView },
 ];
 const VISITED_VIEW_IDS = new Set(VISITED_VIEW_COMPONENTS.map(v => v.id));

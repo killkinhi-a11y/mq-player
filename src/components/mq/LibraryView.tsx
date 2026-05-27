@@ -1,12 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { Heart, ListMusic, Clock } from "lucide-react";
-import FavoritesView from "./FavoritesView";
-import PlaylistView from "./PlaylistView";
-import HistoryView from "./HistoryView";
+
+// Lazy-load sub-views to avoid double-mounting and reduce initial bundle
+const FavoritesView = lazy(() => import("./FavoritesView"));
+const PlaylistView = lazy(() => import("./PlaylistView"));
+const HistoryView = lazy(() => import("./HistoryView"));
 
 type LibraryTab = "favorites" | "playlists" | "history";
 
@@ -92,9 +94,11 @@ const LibraryView = React.memo(function LibraryView() {
           exit={animationsEnabled ? { opacity: 0, y: -8 } : undefined}
           transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
         >
-          {activeTab === "favorites" && <FavoritesView />}
-          {activeTab === "playlists" && <PlaylistView />}
-          {activeTab === "history" && <HistoryView />}
+          <Suspense fallback={<div className="flex items-center justify-center py-8"><div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: "var(--mq-accent, #e03131)", borderTopColor: "transparent" }} /></div>}>
+            {activeTab === "favorites" && <FavoritesView />}
+            {activeTab === "playlists" && <PlaylistView />}
+            {activeTab === "history" && <HistoryView />}
+          </Suspense>
         </motion.div>
       </AnimatePresence>
     </div>
