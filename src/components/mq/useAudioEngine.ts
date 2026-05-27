@@ -1004,6 +1004,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       }
       resumeAudioContext();
       const st = useAppStore.getState();
+      // Update playback state to reflect that audio is ready
+      useAppStore.setState({ playbackState: st.isPlaying ? 'playing' : 'paused', isBuffering: false });
       if (st.isPlaying) {
         const a = getActive();
         if (a && !crossfadeRef.current) a.play().catch(() => {});
@@ -1024,8 +1026,13 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       resumeAudioContext();
       const target = e.target as HTMLAudioElement | null;
       if (target && target !== getActive()) return;
-      if (!useAppStore.getState().isPlaying && !crossfadeRef.current) {
-        useAppStore.getState().togglePlay();
+      // Sync store's isPlaying state with actual audio state.
+      // Use setState directly instead of togglePlay() to avoid side effects
+      // like resetting miniPlayerHidden or calling resumeAudioContext recursively.
+      if (!useAppStore.getState().isPlaying) {
+        useAppStore.setState({ isPlaying: true, playbackState: 'playing', isBuffering: false });
+      } else {
+        useAppStore.setState({ playbackState: 'playing', isBuffering: false });
       }
       crossfadeRef.current = false;
     };
@@ -1111,6 +1118,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     const onWaiting = (e: Event) => {
       const target = e.target as HTMLAudioElement | null;
       if (target && target !== getActive()) return;
+      useAppStore.setState({ playbackState: 'buffering', isBuffering: true });
       if (!isLoadingTrackRef.current && useAppStore.getState().isPlaying) {
         if (stallTimeoutId) clearTimeout(stallTimeoutId);
         stallTimeoutId = setTimeout(() => {
@@ -1823,15 +1831,20 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       // Don't re-play if already playing (avoids AbortError from double play())
       if (!audio.paused) return;
 
-      audio.play().catch((err) => {
+      audio.play().then(() => {
+        // Successfully started playing — update playback state
+        useAppStore.setState({ playbackState: 'playing', isBuffering: false });
+      }).catch((err) => {
         if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
           // Real playback error — retry once after a short delay
           setTimeout(() => {
             const a = getAudioElement();
             if (a && useAppStore.getState().isPlaying) {
-              a.play().catch(() => {
+              a.play().then(() => {
+                useAppStore.setState({ playbackState: 'playing', isBuffering: false });
+              }).catch(() => {
                 // If retry also fails, pause to avoid spinning forever
-                if (a) a.pause();
+                useAppStore.setState({ playbackState: 'paused', isPlaying: false });
               });
             }
           }, 500);
@@ -1843,6 +1856,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     } else {
       if (audio.src) audio.pause();
       if (secondary && secondary.src) secondary.pause();
+      useAppStore.setState({ playbackState: 'paused', isBuffering: false });
     }
   }, [isPlaying]);
 

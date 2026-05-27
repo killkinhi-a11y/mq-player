@@ -771,7 +771,7 @@ export const useAppStore = create<AppState>()(
         // Capture a generation counter to prevent stale async writes after logout
         const authGeneration = Date.now();
         // isPlaying: false — never auto-play on login, even if persisted state had it
-        set({ isAuthenticated: true, userId, username, email, telegramUsername: telegramUsername || null, userRole: role || "user", avatar: avatar || null, currentView: "main", _authGeneration: authGeneration, isPlaying: false });
+        set({ isAuthenticated: true, userId, username, email, telegramUsername: telegramUsername || null, userRole: role || "user", avatar: avatar || null, currentView: "main", _authGeneration: authGeneration, isPlaying: false, playbackState: 'idle', isBuffering: false });
 
         // Load saved theme from account — check generation before writing
         fetch('/api/user/theme')
@@ -934,6 +934,7 @@ export const useAppStore = create<AppState>()(
           progress: 0,
           duration: track.duration,
           playbackState: "loading",
+          isBuffering: true,
           // ALWAYS show player bar when playTrack is called — fixes double-click bug
           // where miniPlayerHidden stayed true if user had hidden the mini player
           // and then tapped the same track again (isNewTrack was false)
@@ -955,8 +956,11 @@ export const useAppStore = create<AppState>()(
         if (!state.isPlaying) {
           resumeAudioContext();
         }
+        const willPlay = !state.isPlaying;
         set(s => ({
-          isPlaying: !s.isPlaying,
+          isPlaying: willPlay,
+          playbackState: willPlay ? 'loading' : 'paused',
+          isBuffering: willPlay,
           ...(!s.isPlaying ? { miniPlayerHidden: false } : {}),
         }));
       },

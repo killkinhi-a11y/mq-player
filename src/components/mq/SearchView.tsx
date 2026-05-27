@@ -145,6 +145,17 @@ export default function SearchView() {
     setSearchHistory(getSearchHistory());
   }, []);
 
+  // Auto-focus search input when navigating to search view
+  useEffect(() => {
+    if (currentView === "search") {
+      // Small delay to ensure the container has display:block (it uses display:none when hidden)
+      const timer = setTimeout(() => {
+        if (searchInputRef.current) searchInputRef.current.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [currentView]);
+
   // Auto-clear search when leaving search view
   useEffect(() => {
     if (currentView !== "search") {
@@ -153,7 +164,6 @@ export default function SearchView() {
       setHasSearched(false);
     }
   }, [currentView, setSearchQuery]);
-
 
 
   // Debounced search

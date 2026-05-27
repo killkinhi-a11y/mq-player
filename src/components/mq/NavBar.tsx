@@ -121,12 +121,13 @@ export default function NavBar() {
               onClick={() => setView(item.id)}
               aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
-              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-full mq-focus-premium"
+              className="relative flex items-center gap-1.5 px-3.5 py-2 rounded-full mq-focus-premium cursor-pointer select-none"
               style={{
                 color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
                 transition: "color 0.15s ease",
                 fontSize: 13,
                 fontWeight: isActive ? 600 : 400,
+                minHeight: 36,
               }}
             >
               {isActive && (
