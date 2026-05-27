@@ -2609,11 +2609,12 @@ export const useAppStore = create<AppState>()(
           }
           if (Object.keys(fixes).length > 0) {
             console.warn("[MQ Store] fixing missing fields:", Object.keys(fixes));
+            fixes._hasHydrated = true;
             useAppStore.setState(fixes);
+          } else {
+            // Mark hydration as complete — UI can now safely render
+            useAppStore.setState({ _hasHydrated: true });
           }
-
-          // Mark hydration as complete — UI can now safely render
-          useAppStore.setState({ _hasHydrated: true });
 
           // Auto-sync on rehydrate (after page reload)
           // Check session via JWT cookie — if valid, restore user info from server

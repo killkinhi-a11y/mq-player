@@ -88,6 +88,17 @@ export default function AppShell() {
   const demoLoading = useAppStore((s) => s.demoLoading);
   const _hasHydrated = useAppStore((s) => s._hasHydrated);
 
+  // ── Visited views tracking: must be BEFORE any conditional returns (Rules of Hooks) ──
+  const [visitedViews, setVisitedViews] = useState<Set<string>>(new Set(["main"]));
+  useEffect(() => {
+    setVisitedViews(prev => {
+      if (prev.has(currentView)) return prev;
+      const next = new Set(prev);
+      next.add(currentView);
+      return next;
+    });
+  }, [currentView]);
+
   // ── Hydration timeout safety net ──
   // If Zustand hydration doesn't complete within 5 seconds (e.g. due to
   // corrupt localStorage, TDZ error, or browser quota issue), force
@@ -318,17 +329,6 @@ export default function AppShell() {
   const miniPlayerHeight = miniPlayerHidden ? 0 : 90;
   const mobileNavHeight = 50;
   const showMiniPlayerSpacer = showNav && currentTrack && !isFullTrackViewOpen && !miniPlayerHidden;
-
-  // ── Visited views tracking: mount once, keep alive with display:none ──
-  const [visitedViews, setVisitedViews] = useState<Set<string>>(new Set(["main"]));
-  useEffect(() => {
-    setVisitedViews(prev => {
-      if (prev.has(currentView)) return prev;
-      const next = new Set(prev);
-      next.add(currentView);
-      return next;
-    });
-  }, [currentView]);
 
   const isMountedView = VISITED_VIEW_IDS.has(currentView);
 
