@@ -98,6 +98,11 @@ const GENRE_QUERIES: Record<string, string[]> = {
   "k-pop": ["k-pop 2025", "kpop new", "korean pop", "kpop ballad", "kpop dance"],
 };
 
+// ── Cold-start seed genres for new users with no taste data ──
+const COLD_START_SEED_GENRES = [
+  "lo-fi", "hip-hop", "indie", "electronic", "chill", "pop", "alternative", "rnb",
+];
+
 // ── Mood extraction from title keywords ──
 type Mood = "chill" | "bassy" | "melodic" | "dark" | "upbeat" | "romantic" | "aggressive" | "dreamy";
 
@@ -1073,7 +1078,17 @@ async function handler(request: NextRequest) {
   const sessionMood = buildSessionMood(sessionTracks);
 
   // Merge session genres into user genres
-  const allGenres = [...new Set([...genres, ...sessionMood.dominantGenres])].slice(0, 6);
+  let allGenres = [...new Set([...genres, ...sessionMood.dominantGenres])].slice(0, 6);
+
+  // ── Absolute cold-start detection & genre seed injection ──
+  // When a new user has zero taste data, inject random seed genres so all phases fire
+  const isAbsoluteColdStart = allGenres.length === 0 && likedScIds.length === 0 && historyScIds.length === 0;
+  const isRandomFallback = searchParams.get("genre") === "random" || searchParams.get("wave") === "1";
+  if (isAbsoluteColdStart || isRandomFallback) {
+    const seedGenres = COLD_START_SEED_GENRES.sort(() => Math.random() - 0.5).slice(0, 3);
+    allGenres.push(...seedGenres);
+    console.log(`[rec] Cold-start seed injected: ${seedGenres.join(", ")}`);
+  }
 
   // Language preference: explicit param > session analysis > mixed
   // v9: Parse feedback signals for adaptive scoring
@@ -1142,7 +1157,7 @@ async function handler(request: NextRequest) {
     // PHASE 3: GENRE FALLBACK (low priority, ~15%)
     // Only used if we don't have enough data from phases 1-2
     // ════════════════════════════════════════════════
-    const needGenreFallback = likedScIds.length < CFG.phases.genreFallback.minLikedForSkip && historyScIds.length < CFG.phases.genreFallback.minHistoryForSkip;
+    const needGenreFallback = (likedScIds.length < CFG.phases.genreFallback.minLikedForSkip && historyScIds.length < CFG.phases.genreFallback.minHistoryForSkip) || isAbsoluteColdStart || isRandomFallback;
 
     const genreSearchPromises: Promise<SCTrack[]>[] = [];
     if (needGenreFallback && allGenres.length > 0) {
@@ -1171,7 +1186,7 @@ async function handler(request: NextRequest) {
     const bridgeSearchPromises: Promise<SCTrack[]>[] = [];
     if (allGenres.length > 0) {
       const bridgeGenres = getBridgeGenres(allGenres.slice(0, 3));
-      const bridgeLimit = isColdStart ? 5 : 3;
+      const bridgeLimit = (isColdStart || isAbsoluteColdStart) ? 5 : 3;
       for (const bg of bridgeGenres.slice(0, bridgeLimit)) {
         const templates = GENRE_QUERIES[bg];
         if (templates) {

@@ -645,38 +645,45 @@ export default function MainView() {
   const [waveLoading, setWaveLoading] = useState(false);
   const [showLikedTracks, setShowLikedTracks] = useState(false);
 
-  // Mouse position for hero parallax effect
+  // Mouse position for hero parallax effect (refs only — no setState to avoid re-renders)
   const heroRef = useRef<HTMLDivElement>(null);
-  const mousePos = useRef({ x: 0, y: 0 });
-  const [heroOrbStyle, setHeroOrbStyle] = useState({ orb1: {}, orb2: {} });
-  const [heroScrollOpacity, setHeroScrollOpacity] = useState(1);
-  const [heroScrollY, setHeroScrollY] = useState(0);
+  const heroOrb1Ref = useRef<HTMLDivElement>(null);
+  const heroOrb2Ref = useRef<HTMLDivElement>(null);
+  const heroScrollData = useRef({ scrollY: 0, opacity: 1 });
+  const curatedHeroRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
 
-  // Track mouse for hero parallax orbs
+  // Track mouse for hero parallax orbs (direct DOM mutation — zero re-renders)
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      mousePos.current = { x: e.clientX, y: e.clientY };
-      // Parallax: orbs move opposite to mouse with different multipliers
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
       const dx = (e.clientX - cx) / cx; // -1..1
       const dy = (e.clientY - cy) / cy; // -1..1
-      setHeroOrbStyle({
-        orb1: { transform: `translate(${dx * 20}px, ${dy * 15}px)` },
-        orb2: { transform: `translate(${dx * -12}px, ${dy * -10}px)` },
-      });
+      if (heroOrb1Ref.current) {
+        heroOrb1Ref.current.style.transform = `translate(${dx * 20}px, ${dy * 15}px)`;
+      }
+      if (heroOrb2Ref.current) {
+        heroOrb2Ref.current.style.transform = `translate(${dx * -12}px, ${dy * -10}px)`;
+      }
     };
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
-  // Track scroll for hero parallax + fade
+  // Track scroll for hero parallax + fade (direct DOM mutation — zero re-renders)
   useEffect(() => {
     const handleScroll = () => {
       const scrollY = window.scrollY || document.documentElement.scrollTop;
-      setHeroScrollY(scrollY);
-      setHeroScrollOpacity(Math.max(0, 1 - scrollY / 400));
+      const opacity = Math.max(0, 1 - scrollY / 400);
+      heroScrollData.current = { scrollY, opacity };
+      if (heroRef.current) {
+        heroRef.current.style.opacity = String(opacity);
+        heroRef.current.style.transform = `translateY(${scrollY * 0.15}px)`;
+      }
+      if (curatedHeroRef.current) {
+        curatedHeroRef.current.style.transform = `translateY(${scrollY * 0.05}px)`;
+      }
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
@@ -857,7 +864,7 @@ export default function MainView() {
         if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
         if (excludeIds) params.set("excludeIds", excludeIds);
       } else {
-        params.set("genre", "random");
+        params.set("wave", "1");
       }
       if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
       if (dislikedArtists) params.set("dislikedArtists", dislikedArtists);
@@ -1060,7 +1067,7 @@ export default function MainView() {
 
       // Fallback: if no taste data, just get random recommendations
       if (tracks.length === 0) {
-        const fallbackRes = await fetch("/api/music/recommendations?genre=random&limit=20");
+        const fallbackRes = await fetch("/api/music/recommendations?wave=1&limit=20");
         const fallbackData = await fallbackRes.json();
         tracks = (fallbackData.tracks || []).filter((t: Track) => !disliked.includes(t.id));
       }
@@ -1757,19 +1764,19 @@ export default function MainView() {
       <div
         ref={heroRef}
         className="relative mb-10 overflow-hidden rounded-3xl"
-        style={{ opacity: heroScrollOpacity, transform: `translateY(${heroScrollY * 0.15}px)`, transition: "opacity 0.1s, transform 0.1s" }}
+        style={{ transition: "opacity 0.1s, transform 0.1s" }}
       >
         {/* Dynamic gradient background */}
         <div className="mq-hero-gradient absolute inset-0" />
 
         {/* Floating gradient orb 1 */}
         <motion.div
+          ref={heroOrb1Ref}
           className="absolute w-[300px] h-[300px] rounded-full pointer-events-none"
           style={{
             background: "radial-gradient(circle, color-mix(in srgb, var(--mq-accent) 20%, transparent) 0%, transparent 70%)",
             top: "-20%",
             left: "5%",
-            ...heroOrbStyle.orb1,
           }}
           animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.8, 0.6] }}
           transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
@@ -1777,12 +1784,12 @@ export default function MainView() {
 
         {/* Floating gradient orb 2 */}
         <motion.div
+          ref={heroOrb2Ref}
           className="absolute w-[220px] h-[220px] rounded-full pointer-events-none"
           style={{
             background: "radial-gradient(circle, color-mix(in srgb, var(--mq-accent) 12%, transparent) 0%, transparent 70%)",
             bottom: "-10%",
             right: "10%",
-            ...heroOrbStyle.orb2,
           }}
           animate={{ scale: [1.05, 0.95, 1.05], opacity: [0.5, 0.7, 0.5] }}
           transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
@@ -2127,7 +2134,7 @@ export default function MainView() {
                     onClick={() => setSelectedCurated(pl)}
                     className={`${i === 0 ? "mq-hero-card" : "mq-card-cinematic"} flex-shrink-0 w-36 h-52 sm:w-44 sm:h-60 relative cursor-pointer group`}
                   >
-                    <div className="absolute inset-0 overflow-hidden" style={i === 0 ? { transform: `translateY(${heroScrollY * 0.05}px)` } as React.CSSProperties : undefined}>
+                    <div ref={i === 0 ? curatedHeroRef : undefined} className="absolute inset-0 overflow-hidden">
                       <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className={`!w-full !h-full group-hover:scale-110 transition-transform duration-700 mq-cover-shadow ${i === 0 ? "group-hover:scale-[1.15]" : ""}`} />
                     </div>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
