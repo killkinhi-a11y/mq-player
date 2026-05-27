@@ -601,7 +601,6 @@ export default function FullTrackView() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [moreMenuPos, setMoreMenuPos] = useState<{top: number; right: number}>({top: 0, right: 0});
   const moreBtnRef = useRef<HTMLButtonElement>(null);
-  const [isMobile, setIsMobile] = useState(false);
   const [showEQ, setShowEQ] = useState(false);
   const [showSynthVis, setShowSynthVis] = useState(false);
   const [compressorOn, setCompressorOn] = useState(false);
@@ -626,7 +625,7 @@ export default function FullTrackView() {
   }, []);
 
 
-  // Re-apply playback rate when track changes (audio element may be swapped)
+  // Re-apply playback rate when track changes or rate changes
   useEffect(() => {
     if (currentTrack?.id) {
       const audio = getAudioElement();
@@ -634,9 +633,12 @@ export default function FullTrackView() {
       const inactive = getInactiveAudio();
       if (inactive) inactive.playbackRate = playbackRate;
     }
-    // Reset A-B repeat when track changes
+  }, [currentTrack?.id, playbackRate]);
+
+  // Reset A-B repeat when track changes (separate effect so rate changes don't clear it)
+  useEffect(() => {
     useAppStore.getState().clearAbRepeat();
-  }, [currentTrack?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentTrack?.id]);
 
   const cyclePlaybackSpeed = () => {
     const currentIdx = PLAYBACK_SPEEDS.indexOf(playbackRate);
@@ -645,9 +647,10 @@ export default function FullTrackView() {
     setPlaybackRate(nextSpeed);
   };
 
-  // Track mobile viewport
+  // Track mobile viewport (ref-based to avoid re-renders on every resize)
+  const isMobileRef = useRef(false);
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 640);
+    const check = () => { isMobileRef.current = window.innerWidth < 640; };
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
@@ -766,7 +769,7 @@ export default function FullTrackView() {
     };
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
-  }, []);
+  }, [volumeSectionRef]);
 
   // Handle showSimilarRequested from store
   useEffect(() => {
@@ -2373,7 +2376,7 @@ export default function FullTrackView() {
         />
 
         {/* ── Desktop Context Menu — rendered via portal to escape stacking context ── */}
-        {showMoreMenu && !isMobile && typeof document !== "undefined" && createPortal(
+        {showMoreMenu && !isMobileRef.current && typeof document !== "undefined" && createPortal(
           <>
             <div
               className="fixed inset-0"
@@ -2504,7 +2507,7 @@ export default function FullTrackView() {
         )}
 
         {/* ── Mobile Bottom Sheet — rendered via portal to escape stacking context ── */}
-        {showMoreMenu && isMobile && typeof document !== "undefined" && createPortal(
+        {showMoreMenu && isMobileRef.current && typeof document !== "undefined" && createPortal(
           <>
             <div
               className="fixed inset-0 bg-black/50"

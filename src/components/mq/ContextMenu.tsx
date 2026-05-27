@@ -132,14 +132,19 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
       try {
         await navigator.share({ title: `${track.title} — ${track.artist}`, url: shareUrl });
       } catch {}
+      onClose();
     } else {
       try {
         await navigator.clipboard.writeText(shareUrl);
         setShareFeedback(true);
-        setTimeout(() => setShareFeedback(false), 1500);
-      } catch {}
+        setTimeout(() => {
+          setShareFeedback(false);
+          onClose();
+        }, 1500);
+      } catch {
+        onClose();
+      }
     }
-    onClose();
   };
 
   const handleAddToPlaylist = (playlistId: string) => {
@@ -149,9 +154,13 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
 
   const handleQuickCreateAndAdd = () => {
     const name = track.artist;
+    // Use functional update to avoid race condition — get the latest playlists
+    // after createPlaylist synchronously updates the store
     createPlaylist(name);
+    // Read the most recent state — Zustand's set() is synchronous
     const state = useAppStore.getState();
-    const newPl = state.playlists[state.playlists.length - 1];
+    // Find the newly created playlist by matching the name (most recently added)
+    const newPl = [...state.playlists].reverse().find(p => p.name === name);
     if (newPl) addToPlaylist(newPl.id, track);
     onClose();
   };

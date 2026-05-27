@@ -317,7 +317,6 @@ const PlayerBar = React.memo(function PlayerBar() {
   }, [isPlaying, progressDrag.isDraggingRef, progressDrag.progressFillRef, progressDrag.progressThumbRef]);
 
   // ── Volume mouse wheel — works on the whole player bar (native listener) ──────────────
-  const volumeSectionRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = engine.playerBarRef.current;
     if (!el) return;
@@ -448,7 +447,6 @@ const PlayerBar = React.memo(function PlayerBar() {
   const [showMuteTooltip, setShowMuteTooltip] = useState(false);
   const mobileVolumeAutoCloseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const verticalVolumeRef = useRef<HTMLDivElement>(null);
-
   // ── Volume scroll wheel with quadratic curve ─────────────
   const handleVolumeWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -533,10 +531,12 @@ const PlayerBar = React.memo(function PlayerBar() {
   }, [handleVerticalVolumeStart]);
 
   // ── Mute with tooltip ───────────────────────────────────
+  const muteTooltipTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleMuteToggleWithTooltip = useCallback(() => {
     handleMuteToggle();
     setShowMuteTooltip(true);
-    setTimeout(() => setShowMuteTooltip(false), 1200);
+    if (muteTooltipTimerRef.current) clearTimeout(muteTooltipTimerRef.current);
+    muteTooltipTimerRef.current = setTimeout(() => setShowMuteTooltip(false), 1200);
   }, [handleMuteToggle]);
 
   // ── Render ──────────────────────────────────────────────
@@ -604,7 +604,7 @@ const PlayerBar = React.memo(function PlayerBar() {
         nextTrack();
       }
       // Haptic feedback
-      try { navigator.vibrate?.([10]); } catch {}
+      try { navigator.vibrate?.(10); } catch {}
     }
 
     handleTouchEnd();
@@ -813,6 +813,20 @@ const PlayerBar = React.memo(function PlayerBar() {
                 onTouchStart={progressDrag.handleProgressTouchStart}
                 onMouseMove={handleProgressHover}
                 onMouseLeave={() => setHoverTime(null)}
+                onKeyDown={(e) => {
+                  if (!duration) return;
+                  const step = e.shiftKey ? 30 : 5;
+                  if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+                    e.preventDefault();
+                    const audio = getAudioElement();
+                    if (audio) audio.currentTime = Math.min(duration, progress + step);
+                  }
+                  if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+                    e.preventDefault();
+                    const audio = getAudioElement();
+                    if (audio) audio.currentTime = Math.max(0, progress - step);
+                  }
+                }}
                 className="w-full group/progress"
                 role="slider"
                 aria-label="Прогресс воспроизведения"
@@ -1197,6 +1211,17 @@ const PlayerBar = React.memo(function PlayerBar() {
                       onMouseDown={handleVolumeMouseDown}
                       onTouchStart={handleVolumeTouchStart}
                       onWheel={handleVolumeWheel}
+                      onKeyDown={(e) => {
+                        const step = e.shiftKey ? 10 : 5;
+                        if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setVolume(Math.min(100, volume + step));
+                        }
+                        if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setVolume(Math.max(0, volume - step));
+                        }
+                      }}
                       className="rounded-full cursor-pointer relative group/vol"
                       role="slider"
                       aria-label="Громкость"

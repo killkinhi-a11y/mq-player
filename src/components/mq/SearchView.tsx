@@ -168,14 +168,14 @@ export default function SearchView() {
     }
   }, [currentView]);
 
-  // Auto-clear search when leaving search view
+  // Clear local search state when leaving search view
+  // (SearchQuery is cleared by AppShell, we only clear local results here)
   useEffect(() => {
     if (currentView !== "search") {
-      setSearchQuery("");
       setSearchResults([]);
       setHasSearched(false);
     }
-  }, [currentView, setSearchQuery]);
+  }, [currentView]);
 
 
   // Debounced search
