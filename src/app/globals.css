@@ -1906,3 +1906,26 @@ textarea:focus-visible {
 .mq-play-glow-active {
   animation: mq-play-glow 3s ease-in-out infinite;
 }
+
+/* ── Cinematic Atmosphere Animations ── */
+@keyframes mq-atmosphere-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(20px, -30px) scale(1.05); }
+  66% { transform: translate(-15px, 20px) scale(0.98); }
+}
+
+@keyframes mq-atmosphere-drift-alt {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-25px, 15px) scale(1.03); }
+  66% { transform: translate(10px, -25px) scale(0.97); }
+}
+
+@keyframes mq-atmosphere-breathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.65; }
+}
+
+@keyframes mq-atmosphere-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.02); }
+}

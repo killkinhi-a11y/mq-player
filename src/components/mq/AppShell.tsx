@@ -50,6 +50,7 @@ const NavBar = dynamic(() => import("@/components/mq/NavBar"), { ssr: false });
 const MobileNav = dynamic(() => import("@/components/mq/MobileNav"), { ssr: false });
 const NotificationPanel = dynamic(() => import("@/components/mq/NotificationPanel"), { ssr: false });
 const SeasonalEffects = dynamic(() => import("@/components/mq/SeasonalEffects"), { ssr: false });
+const CinematicAtmosphere = dynamic(() => import("@/components/mq/CinematicAtmosphere"), { ssr: false });
 const MaintenanceBanner = dynamic(() => import("@/components/mq/MaintenanceBanner"), { ssr: false });
 const OnboardingTour = dynamic(() => import("@/components/mq/OnboardingTour"), { ssr: false });
 
@@ -308,6 +309,7 @@ export default function AppShell() {
         backgroundColor: "var(--mq-bg)",
       }}
     >
+      <Suspense fallback={null}><CinematicAtmosphere /></Suspense>
       <Suspense fallback={null}><MaintenanceBanner /></Suspense>
 
       {/* ── Demo loading overlay: skeleton shown while demo data loads ── */}
