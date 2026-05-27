@@ -69,9 +69,8 @@ export function useMediaSession({ currentTrack, isPlaying, progress, duration, p
       }
     });
     navigator.mediaSession.setActionHandler("stop", () => {
-      const audio = getAudioElement();
-      if (audio) audio.pause();
-      useAppStore.setState({ isPlaying: false });
+      const st = useAppStore.getState();
+      if (st.isPlaying) st.togglePlay();
     });
   }, [currentTrack]);
 

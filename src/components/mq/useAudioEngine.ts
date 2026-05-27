@@ -1222,7 +1222,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     addListeners(audio);
     const secondary = getInactiveAudio();
     if (secondary) addListeners(secondary);
-    onAudioElementReplaced(addListeners);
+    // Keep the unsub reference so we can tear it down on cleanup
+    const unsubReplaced = onAudioElementReplaced(addListeners);
 
     clearLoadingTimeoutRef.current = () => {
       if (loadingTimeoutId) { clearTimeout(loadingTimeoutId); loadingTimeoutId = null; }
@@ -1237,6 +1238,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     return () => {
       if (loadingTimeoutId) { clearTimeout(loadingTimeoutId); loadingTimeoutId = null; }
       if (stallTimeoutId) { clearTimeout(stallTimeoutId); stallTimeoutId = null; }
+      // Unsubscribe the element-replaced callback to avoid accumulation if the
+      // effect ever re-runs (e.g. React StrictMode double-invoke).
+      unsubReplaced();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

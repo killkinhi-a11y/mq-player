@@ -1,7 +1,7 @@
 // Cache names — bump version to force old cache cleanup
-const STATIC_CACHE = 'mq-static-v2';
-const API_CACHE = 'mq-api-v2';
-const AUDIO_CACHE = 'mq-audio-v2';
+const STATIC_CACHE = 'mq-static-v3';
+const API_CACHE = 'mq-api-v3';
+const AUDIO_CACHE = 'mq-audio-v3';
 
 const STATIC_ASSETS = [
   '/',
@@ -21,6 +21,21 @@ const STATIC_ASSETS = [
 // Audio caching — keep track of cached URLs for LRU eviction
 const MAX_AUDIO_CACHE = 20;
 const audioCacheUrls = [];
+
+// HLS fragment patterns — never cache these: they are session-specific
+// signed URLs that expire quickly and change per CDN rotation.
+function isHlsFragment(url) {
+  return (
+    url.includes('.ts?') || url.endsWith('.ts') ||
+    url.includes('.m4s?') || url.endsWith('.m4s') ||
+    url.includes('.m4a?') || url.endsWith('.m4a') ||
+    url.includes('.aac?') || url.endsWith('.aac') ||
+    url.includes('.m3u8?') || url.endsWith('.m3u8') ||
+    url.includes('/segment') || url.includes('/frag') ||
+    // SoundCloud CDN fragment pattern
+    url.includes('cf-hls-media') || url.includes('media.sndcdn')
+  );
+}
 
 // ========== Helper strategies ==========
 
@@ -130,8 +145,25 @@ self.addEventListener('fetch', (event) => {
   // SSE streams — never cache
   if (url.pathname.endsWith('/sse')) return;
 
-  // API calls — network first with cache fallback
+  // HLS fragments & segments — NEVER cache (session-scoped signed URLs expire quickly)
+  if (isHlsFragment(event.request.url)) return;
+
+  // Range requests (partial content) — pass through without caching.
+  // Partial responses (206) cannot be stored and served correctly by Cache API
+  // without custom range-reconstruction logic; attempting to cache them causes
+  // truncated playback or CORS errors on retry.
+  if (event.request.headers.has('range')) return;
+
+  // API calls — network first with cache fallback.
+  // Skip caching soundcloud stream/proxy API responses because they contain
+  // short-lived signed stream URLs that become stale within minutes.
   if (url.pathname.startsWith('/api/')) {
+    const skipApiCache =
+      url.pathname.includes('/soundcloud/stream') ||
+      url.pathname.includes('/soundcloud/proxy') ||
+      url.pathname.includes('/soundcloud/resolve') ||
+      url.pathname.includes('/soundcloud/license');
+    if (skipApiCache) return; // pass through to network, no caching
     event.respondWith(networkFirst(event.request, API_CACHE));
     return;
   }
@@ -142,13 +174,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Audio streams — cache first with LRU eviction
+  // Audio streams — cache first with LRU eviction (only non-HLS progressive audio)
   if (
-    url.pathname.includes('/soundcloud/') ||
-    url.pathname.includes('/stream') ||
-    url.pathname.includes('audio') ||
     url.pathname.endsWith('.mp3') ||
-    url.pathname.endsWith('.m4a') ||
     url.pathname.endsWith('.ogg') ||
     url.pathname.endsWith('.wav') ||
     url.pathname.endsWith('.flac')

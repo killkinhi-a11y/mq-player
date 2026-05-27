@@ -966,19 +966,19 @@ export const useAppStore = create<AppState>()(
       },
 
       setVolume: (volume) => {
-        const audio = getAudioElement();
-        const vol = Math.pow(Math.round(volume) / 100, 2);
-        if (audio) audio.volume = vol;
-        const inactive = getInactiveAudio();
-        if (inactive) inactive.volume = vol;
+        // Only update the store — the volume useEffect in useAudioEngine is the
+        // single source of truth for actually setting audio.volume.
+        // Doing it here AND in the effect caused double-apply and occasional
+        // volume flicker when both ran in the same frame.
         set({ volume: Math.round(volume) });
       },
 
       setProgress: (progress) => {
-        const audio = getAudioElement();
-        if (audio && isFinite(progress)) {
-          audio.currentTime = progress;
-        }
+        // IMPORTANT: Do NOT set audio.currentTime here.
+        // Seeking is handled by useProgressDrag → seekToPosition (drag) or
+        // playbackEngine.seek() (programmatic seek). Both already set
+        // audio.currentTime directly.  Doing it again here causes a double-seek
+        // race that makes the progress bar visually jump backward.
         set({ progress });
       },
 

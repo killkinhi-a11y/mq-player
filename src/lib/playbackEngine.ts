@@ -190,12 +190,22 @@ class PlaybackEngine {
   seek(time: number): void {
     const a = this._audio();
     if (!a) return;
+    const clampedTime = Math.max(0, Math.min(isFinite(a.duration) ? a.duration : time, time));
     const prev = this._state;
-    this._transition("seeking");
-    a.currentTime = time;
-    this._currentTime = time;
-    this._events.emit("time_update", { currentTime: time, duration: this.duration });
-    if (prev !== "playing" && prev !== "buffering") this._transition(prev);
+    // Only enter seeking state when audio is playing; if paused, setting currentTime
+    // still works but the browser may not fire a seeked event reliably on all platforms.
+    if (prev === "playing" || prev === "buffering") {
+      this._transition("seeking");
+    }
+    a.currentTime = clampedTime;
+    this._currentTime = clampedTime;
+    // Emit time_update immediately so UI reflects new position without waiting for seeked/timeupdate
+    const dur = isFinite(a.duration) ? a.duration : this._duration;
+    this._events.emit("time_update", { currentTime: clampedTime, duration: dur });
+    // Restore state if we were already paused (seeked event may not fire)
+    if (prev !== "playing" && prev !== "buffering" && prev !== "seeking") {
+      this._transition(prev);
+    }
   }
 
   next(): void {
@@ -378,7 +388,15 @@ class PlaybackEngine {
       waiting: () => { if (this._state === "playing") this._transition("buffering"); this._startStall(); },
       ended: () => { this._transition("ended"); this._clearStall(); this._crossfadeActive = false; this._prevTrackIdForCrossfade = null; this.next(); },
       error: () => this._onError(),
-      seeked: () => { if (this._state === "seeking") this._transition(a.paused ? "paused" : "playing"); },
+      seeked: () => {
+        if (this._state === "seeking") {
+          this._transition(a.paused ? "paused" : "playing");
+        }
+        // Always emit time_update on seeked so the UI progress bar snaps immediately.
+        // Without this the bar can show the pre-seek position until the next timeupdate fires.
+        const dur = a.duration && isFinite(a.duration) ? a.duration : this._duration;
+        this._events.emit("time_update", { currentTime: a.currentTime, duration: dur });
+      },
       progress: () => this._onProgress(),
     };
 
@@ -604,10 +622,15 @@ class PlaybackEngine {
 
     this._retryCount++; this._retrying = true;
     const backoff = Math.pow(2, this._retryCount - 1) * 1000;
+    // Capture the track ID BEFORE sleeping so we can detect stale retries.
+    const trackIdBeforeBackoff = this._currentTrack?.id ?? null;
 
     await new Promise<void>((r) => { this._retryTimer = setTimeout(r, backoff); });
     this._retrying = false;
-    if (this._currentTrack?.id !== this._currentTrack?.id) return; // stale
+    // Stale check: if track changed while we were waiting for the retry backoff, abort.
+    // (The original code compared this._currentTrack?.id to itself — always false — so
+    //  retries fired even after the user had already switched to a different track.)
+    if (!trackIdBeforeBackoff || this._currentTrack?.id !== trackIdBeforeBackoff) return;
 
     if (this._currentTrack.source === "soundcloud" && this._currentTrack.scTrackId) {
       const scId = this._currentTrack.scTrackId;

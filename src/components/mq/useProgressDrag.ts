@@ -18,12 +18,20 @@ export function useProgressDrag({ progressRef, duration }: UseProgressDragParams
   const progressPctRef = useRef(0);
   const progressSliderWidthRef = useRef(0);
 
-  // Cache slider width on mount
+  // Cache slider width on mount and update on resize
   useEffect(() => {
-    if (progressRef.current) {
-      progressSliderWidthRef.current = progressRef.current.offsetWidth;
-    }
-  }, []);
+    const update = () => {
+      if (progressRef.current) {
+        progressSliderWidthRef.current = progressRef.current.offsetWidth;
+      }
+    };
+    update();
+    const ro = typeof ResizeObserver !== "undefined"
+      ? new ResizeObserver(update)
+      : null;
+    if (ro && progressRef.current) ro.observe(progressRef.current);
+    return () => { if (ro) ro.disconnect(); };
+  }, [progressRef]);
 
   const updateProgressDOM = useCallback((pct: number) => {
     // Update fill width

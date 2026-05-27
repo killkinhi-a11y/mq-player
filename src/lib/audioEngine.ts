@@ -384,7 +384,17 @@ export function initAudioEngine(audio: HTMLAudioElement): AnalyserNode | null {
 }
 
 export function resumeAudioContext(): void {
-  if (_audioCtx?.state === "suspended") {
+  if (!_audioCtx) return;
+  if (_audioCtx.state === "closed") {
+    // AudioContext was closed (e.g. by destroyAudioEngine or browser policy).
+    // Reinitialize so subsequent playback calls don't silently fail.
+    console.warn("[AudioEngine] AudioContext closed — reinitializing on resume");
+    const audio = getAudioElement();
+    _analyser = null; // force re-init
+    initAudioEngine(audio);
+    return;
+  }
+  if (_audioCtx.state === "suspended") {
     _audioCtx.resume().catch(() => {});
   }
 }
