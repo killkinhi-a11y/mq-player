@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState, useMemo } from "react";
+import { Suspense, useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore, type ViewType } from "@/store/useAppStore";
 import { themes, applyThemeToDOM } from "@/lib/themes";
@@ -31,6 +31,7 @@ import SettingsView from "@/components/mq/SettingsView";
 import FavoritesView from "@/components/mq/FavoritesView";
 import PlaylistView from "@/components/mq/PlaylistView";
 import MessengerView from "@/components/mq/MessengerView";
+import LibraryView from "@/components/mq/LibraryView";
 
 // ── Dynamic imports for rarely-used views (still lazy) ──
 const ProfileView = dynamic(() => import("@/components/mq/ProfileView"), { ssr: false });
@@ -54,18 +55,42 @@ const CinematicAtmosphere = dynamic(() => import("@/components/mq/CinematicAtmos
 const MaintenanceBanner = dynamic(() => import("@/components/mq/MaintenanceBanner"), { ssr: false });
 const OnboardingTour = dynamic(() => import("@/components/mq/OnboardingTour"), { ssr: false });
 
-// Views that are always mounted (for instant switching)
-const MOUNTED_VIEWS: ViewType[] = ["main", "search", "settings", "favorites", "playlists", "messenger"];
+// Views tracked by the visited-Set pattern — mounted once and kept alive
+// with display:none so state is preserved when switching back.
+const VISITED_VIEW_COMPONENTS: { id: string; Component: React.ComponentType }[] = [
+  { id: "main", Component: MainView },
+  { id: "search", Component: SearchView },
+  { id: "favorites", Component: FavoritesView },
+  { id: "playlists", Component: PlaylistView },
+  { id: "messenger", Component: MessengerView },
+  { id: "settings", Component: SettingsView },
+  { id: "library", Component: LibraryView },
+  { id: "profile", Component: ProfileView },
+];
+const VISITED_VIEW_IDS = new Set(VISITED_VIEW_COMPONENTS.map(v => v.id));
 
 export default function AppShell() {
-  const {
-    currentView, currentTheme, customAccent, fontSize, animationsEnabled,
-    isAuthenticated, setView, searchQuery, setSearchQuery, setTheme,
-    notifPanelOpen, setNotifPanelOpen, notificationCount,
-    currentStyle, currentTrack,
-    isFullTrackViewOpen, isPlaying, miniPlayerHidden,
-    demoLoading, _hasHydrated,
-  } = useAppStore();
+  // ── Optimized selectors: only subscribe to what this component needs ──
+  const currentView = useAppStore((s) => s.currentView);
+  const currentTheme = useAppStore((s) => s.currentTheme);
+  const customAccent = useAppStore((s) => s.customAccent);
+  const fontSize = useAppStore((s) => s.fontSize);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const setView = useAppStore((s) => s.setView);
+  const searchQuery = useAppStore((s) => s.searchQuery);
+  const setSearchQuery = useAppStore((s) => s.setSearchQuery);
+  const setTheme = useAppStore((s) => s.setTheme);
+  const notifPanelOpen = useAppStore((s) => s.notifPanelOpen);
+  const setNotifPanelOpen = useAppStore((s) => s.setNotifPanelOpen);
+  const notificationCount = useAppStore((s) => s.notificationCount);
+  const currentStyle = useAppStore((s) => s.currentStyle);
+  const currentTrack = useAppStore((s) => s.currentTrack);
+  const isFullTrackViewOpen = useAppStore((s) => s.isFullTrackViewOpen);
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
+  const demoLoading = useAppStore((s) => s.demoLoading);
+  const _hasHydrated = useAppStore((s) => s._hasHydrated);
 
   // ── Hydration timeout safety net ──
   // If Zustand hydration doesn't complete within 5 seconds (e.g. due to
@@ -258,7 +283,6 @@ export default function AppShell() {
   const renderDynamicView = () => {
     switch (currentView) {
       case "auth": return <AuthView />;
-      case "profile": return <ProfileView />;
       case "public-playlists": return <PublicPlaylistsView />;
       case "history": return <HistoryView />;
       case "stories": return <StoriesView />;
@@ -299,8 +323,18 @@ export default function AppShell() {
   const mobileNavHeight = 50;
   const showMiniPlayerSpacer = showNav && currentTrack && !isFullTrackViewOpen && !miniPlayerHidden;
 
-  // ── Check if current view is one of the always-mounted ones ──
-  const isMountedView = MOUNTED_VIEWS.includes(currentView);
+  // ── Visited views tracking: mount once, keep alive with display:none ──
+  const [visitedViews, setVisitedViews] = useState<Set<string>>(new Set(["main"]));
+  useEffect(() => {
+    setVisitedViews(prev => {
+      if (prev.has(currentView)) return prev;
+      const next = new Set(prev);
+      next.add(currentView);
+      return next;
+    });
+  }, [currentView]);
+
+  const isMountedView = VISITED_VIEW_IDS.has(currentView);
 
   return (
     <div
@@ -368,72 +402,23 @@ export default function AppShell() {
       </Suspense>
 
       <main className={showNav && !hideUiForFullscreen ? "lg:pt-14" : ""}>
-        {/* ── Always-mounted views: switch with CSS opacity/visibility ── */}
-        {/* These views are always in the DOM, never re-mount on tab switch */}
-        {showNav && (
-          <div className="relative">
-            {/* Main */}
+        {/* ── Visited-Set view rendering ──
+            Views are mounted lazily on first visit and kept alive with display:none.
+            This preserves component state (scroll position, form inputs, etc.) while
+            avoiding mounting unvisited views that would subscribe to the store. */}
+        {showNav && VISITED_VIEW_COMPONENTS.map(({ id, Component }) => {
+          if (!visitedViews.has(id)) return null;
+          const isActive = currentView === id;
+          return (
             <div
-              style={{
-                display: currentView === "main" ? "block" : "none",
-                opacity: currentView === "main" ? 1 : 0,
-                transition: animationsEnabled ? "opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
-              }}
+              key={id}
+              style={{ display: isActive ? "block" : "none" }}
+              aria-hidden={!isActive}
             >
-              <MainView />
+              <Component />
             </div>
-            {/* Search */}
-            <div
-              style={{
-                display: currentView === "search" ? "block" : "none",
-                opacity: currentView === "search" ? 1 : 0,
-                transition: animationsEnabled ? "opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
-              }}
-            >
-              <SearchView />
-            </div>
-            {/* Favorites */}
-            <div
-              style={{
-                display: currentView === "favorites" ? "block" : "none",
-                opacity: currentView === "favorites" ? 1 : 0,
-                transition: animationsEnabled ? "opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
-              }}
-            >
-              <FavoritesView />
-            </div>
-            {/* Playlists */}
-            <div
-              style={{
-                display: currentView === "playlists" ? "block" : "none",
-                opacity: currentView === "playlists" ? 1 : 0,
-                transition: animationsEnabled ? "opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
-              }}
-            >
-              <PlaylistView />
-            </div>
-            {/* Messenger */}
-            <div
-              style={{
-                display: currentView === "messenger" ? "block" : "none",
-                opacity: currentView === "messenger" ? 1 : 0,
-                transition: animationsEnabled ? "opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
-              }}
-            >
-              <MessengerView />
-            </div>
-            {/* Settings */}
-            <div
-              style={{
-                display: currentView === "settings" ? "block" : "none",
-                opacity: currentView === "settings" ? 1 : 0,
-                transition: animationsEnabled ? "opacity 0.2s cubic-bezier(0.22, 1, 0.36, 1)" : undefined,
-              }}
-            >
-              <SettingsView />
-            </div>
-          </div>
-        )}
+          );
+        })}
 
         {/* ── Auth view: shown when not authenticated ── */}
         {!showNav && currentView === "auth" && <AuthView />}

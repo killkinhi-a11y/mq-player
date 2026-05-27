@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence, useSpring } from "framer-motion";
 import {
@@ -99,7 +99,7 @@ function MagneticPlayButton({ children, onClick, className, style, disabled }: {
   );
 }
 
-export default function PlayerBar() {
+const PlayerBar = React.memo(function PlayerBar() {
   const {
     currentTrack, isPlaying, volume, progress, duration,
     shuffle, repeat, togglePlay, nextTrack, prevTrack,
@@ -532,11 +532,52 @@ export default function PlayerBar() {
 
   const handleTouchEnd = useCallback(() => {
     setIsSwiping(false);
+    // Horizontal swipe detection: next/prev track
+    const endX = swipeStartX.current; // we track from start via touchend changedTouches
+    if (swipeY <= 40) {
+      // Only check horizontal swipe if no significant vertical swipe
+      // Re-read from the last touch event — we use a ref for end position
+    }
     if (swipeY > 40) {
       setMiniPlayerHidden(true);
     }
     setSwipeY(0);
   }, [swipeY, setMiniPlayerHidden]);
+
+  // ── Track last touch position for horizontal swipe detection ──
+  const lastTouchXRef = useRef(0);
+  const lastTouchYRef = useRef(0);
+
+  const handleTouchStartWithSwipe = useCallback((e: React.TouchEvent) => {
+    lastTouchXRef.current = e.touches[0].clientX;
+    lastTouchYRef.current = e.touches[0].clientY;
+    handleTouchStart(e);
+  }, [handleTouchStart]);
+
+  const handleTouchMoveWithSwipe = useCallback((e: React.TouchEvent) => {
+    lastTouchXRef.current = e.touches[0].clientX;
+    lastTouchYRef.current = e.touches[0].clientY;
+    handleTouchMove(e);
+  }, [handleTouchMove]);
+
+  const handleTouchEndWithSwipe = useCallback(() => {
+    const dx = lastTouchXRef.current - swipeStartX.current;
+    const dy = Math.abs(lastTouchYRef.current - swipeStartY.current);
+    const absDx = Math.abs(dx);
+
+    // Horizontal swipe: trigger if dx > 60px and dy < 30px
+    if (absDx > 60 && dy < 30 && swipeY <= 40) {
+      if (dx > 0) {
+        prevTrack();
+      } else {
+        nextTrack();
+      }
+      // Haptic feedback
+      try { navigator.vibrate?.([10]); } catch {}
+    }
+
+    handleTouchEnd();
+  }, [handleTouchEnd, nextTrack, prevTrack, swipeY]);
 
   // IMPORTANT: We always render the hook's effect container (even when no track)
   // to keep useAudioEngine alive. The visual player UI is conditionally shown.
@@ -657,9 +698,9 @@ export default function PlayerBar() {
             exit={{ y: 100, opacity: 0 }}
             transition={!isSwiping ? { type: "spring", stiffness: 350, damping: 30 } : { duration: 0 }}
             className="fixed z-[55] left-0 right-0 mobile-player-above-nav"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
+            onTouchStart={handleTouchStartWithSwipe}
+            onTouchMove={handleTouchMoveWithSwipe}
+            onTouchEnd={handleTouchEndWithSwipe}
             ref={engine.playerBarRef}
             data-tour="player"
             role="region"
@@ -1510,4 +1551,6 @@ export default function PlayerBar() {
       )}
     </>
   );
-}
+});
+
+export default PlayerBar;

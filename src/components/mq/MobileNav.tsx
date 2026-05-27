@@ -1,24 +1,26 @@
 "use client";
 
+import React from "react";
 import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
-import { Home, Search, MessageCircle, Settings, ListMusic, Heart } from "lucide-react";
+import { Home, Search, MessageCircle, Settings, ListMusic, Heart, Library, User } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
 const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
   { id: "main", icon: Home, label: "Главная" },
   { id: "search", icon: Search, label: "Поиск" },
-  { id: "favorites", icon: Heart, label: "Избранное" },
-  { id: "playlists", icon: ListMusic, label: "Плейлисты" },
-  { id: "messenger", icon: MessageCircle, label: "Чаты", badgeKey: "messenger" },
-  { id: "settings", icon: Settings, label: "Ещё", badgeKey: "settings" },
+  { id: "library", icon: Library, label: "Библиотека" },
+  { id: "settings", icon: User, label: "Профиль", badgeKey: "messenger" },
 ];
 
-export default function MobileNav() {
-  const {
-    currentView, setView, compactMode,
-    unreadCounts, supportUnreadCount, currentTrack, miniPlayerHidden,
-  } = useAppStore();
+const MobileNav = React.memo(function MobileNav() {
+  const currentView = useAppStore((s) => s.currentView);
+  const setView = useAppStore((s) => s.setView);
+  const compactMode = useAppStore((s) => s.compactMode);
+  const unreadCounts = useAppStore((s) => s.unreadCounts);
+  const supportUnreadCount = useAppStore((s) => s.supportUnreadCount);
+  const currentTrack = useAppStore((s) => s.currentTrack);
+  const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
 
   const messengerBadge = Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
   const getBadgeCount = (badgeKey?: string): number => {
@@ -66,8 +68,8 @@ export default function MobileNav() {
 
       <div
         className={`flex items-center justify-around ${
-          compactMode ? "py-1" : "py-1.5"
-        } px-1`}
+          compactMode ? "py-1.5" : "py-2"
+        } px-2`}
       >
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -84,16 +86,14 @@ export default function MobileNav() {
               data-tour={
                 item.id === "search"
                   ? "search"
-                  : item.id === "messenger"
-                    ? "messenger"
-                    : item.id === "settings"
-                      ? "settings"
-                      : undefined
+                  : item.id === "settings"
+                    ? "settings"
+                    : undefined
               }
-              className={`flex flex-col items-center gap-0.5 ${
+              className={`flex flex-col items-center gap-1 ${
                 compactMode
-                  ? "px-2 py-1 min-w-[40px] min-h-[38px]"
-                  : "px-3 py-1.5 min-w-[52px] min-h-[46px]"
+                  ? "px-3 py-1.5 min-w-[48px] min-h-[48px]"
+                  : "px-4 py-2 min-w-[64px] min-h-[48px]"
               } cursor-pointer rounded-2xl relative mq-focus-premium`}
               style={{
                 color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
@@ -118,7 +118,7 @@ export default function MobileNav() {
 
               <div className="relative z-10">
                 <Icon
-                  className={`${compactMode ? "w-4 h-4" : "w-5 h-5"}`}
+                  className="w-[22px] h-[22px]"
                   style={
                     isActive
                       ? {
@@ -132,7 +132,7 @@ export default function MobileNav() {
                 {/* Glass badge with red dot and pulse */}
                 {badgeCount > 0 && (
                   <span
-                    className="absolute -top-1.5 -right-2 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[8px] font-bold px-0.5"
+                    className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] rounded-full flex items-center justify-center text-[9px] font-bold px-0.5"
                     style={{
                       background: "var(--mq-glass-bg-active)",
                       backdropFilter: "blur(12px)",
@@ -158,7 +158,7 @@ export default function MobileNav() {
                 {isActive && (
                   <motion.div
                     layoutId="mobileNavDot"
-                    className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 h-0.5 rounded-full"
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 rounded-full"
                     style={{
                       backgroundColor: "var(--mq-accent)",
                       width: 16,
@@ -170,7 +170,7 @@ export default function MobileNav() {
               </div>
 
               <span
-                className={`${compactMode ? "text-[9px]" : "text-[10px]"} relative z-10`}
+                className={`${compactMode ? "text-[11px]" : "text-[11px]"} relative z-10 font-medium`}
               >
                 {item.label}
               </span>
@@ -180,4 +180,6 @@ export default function MobileNav() {
       </div>
     </nav>
   );
-}
+});
+
+export default MobileNav;

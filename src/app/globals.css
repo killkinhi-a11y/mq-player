@@ -814,7 +814,7 @@ html.liquid-glass-theme body::after {
 .mobile-player-above-nav {
   bottom: 0;
 }
-@media (max-width: 639px) {
+@media (max-width: 1023px) {
   .mobile-player-above-nav {
     bottom: 50px; /* MobileNav height */
   }
@@ -825,12 +825,12 @@ html.liquid-glass-theme body::after {
   padding-bottom: 90px;
   transition: padding-bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
-@media (max-width: 639px) {
+@media (max-width: 1023px) {
   .mq-has-player {
     padding-bottom: 140px; /* player (90px) + nav (50px) */
   }
 }
-@media (min-width: 640px) {
+@media (min-width: 1024px) {
   .mq-has-player {
     padding-bottom: 64px; /* desktop player height */
   }
@@ -918,6 +918,27 @@ a:not([data-framer-motion-id]),
     min-height: 44px;
     min-width: 44px;
   }
+  .mq-player-controls {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  img, .mq-track-cover {
+    -webkit-touch-callout: none;
+  }
+}
+
+/* Safe-area utility classes */
+.mq-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.mq-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.mq-safe-left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+.mq-safe-right {
+  padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Album art shadow for full player */

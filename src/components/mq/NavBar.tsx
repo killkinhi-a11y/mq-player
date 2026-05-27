@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import {
@@ -17,11 +17,15 @@ const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "me
   { id: "settings", icon: Settings, label: "Ещё", badgeKey: "settings" },
 ];
 
-export default function NavBar() {
-  const {
-    currentView, setView, logout, username, avatar,
-    compactMode, unreadCounts, supportUnreadCount,
-  } = useAppStore();
+const NavBar = React.memo(function NavBar() {
+  const currentView = useAppStore((s) => s.currentView);
+  const setView = useAppStore((s) => s.setView);
+  const logout = useAppStore((s) => s.logout);
+  const username = useAppStore((s) => s.username);
+  const avatar = useAppStore((s) => s.avatar);
+  const compactMode = useAppStore((s) => s.compactMode);
+  const unreadCounts = useAppStore((s) => s.unreadCounts);
+  const supportUnreadCount = useAppStore((s) => s.supportUnreadCount);
 
   const getBadgeCount = (badgeKey?: string): number => {
     if (!badgeKey) return 0;
@@ -259,4 +263,6 @@ export default function NavBar() {
       </motion.button>
     </header>
   );
-}
+});
+
+export default NavBar;

@@ -370,6 +370,8 @@ export default function SettingsView() {
     { id: "pixel-flower", name: "Pixel Flower" },
   ];
   const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
+  const unreadCounts = useAppStore((s) => s.unreadCounts);
+  const messengerBadge = Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
 
   // Push notifications state
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -696,6 +698,50 @@ export default function SettingsView() {
           Персонализируйте ваш mq
         </p>
       </motion.div>
+
+      {/* ── Чаты entry card (quick access to messenger) ── */}
+      <ScrollReveal direction="up" delay={0.02}>
+        <motion.button
+          initial={anim ? { opacity: 0, y: 12 } : undefined}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.02, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          onClick={() => setView("messenger")}
+          className="w-full rounded-2xl overflow-hidden flex items-center gap-4 px-4 py-4 text-left transition-colors active:bg-white/[0.06] cursor-pointer"
+          style={{
+            ...sectionCardStyle,
+            position: "relative",
+          }}
+        >
+          <div
+            className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+              border: "1px solid rgba(255,255,255,0.06)",
+            }}
+          >
+            <MessageCircle className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-semibold" style={{ color: "var(--mq-text)" }}>Чаты</p>
+            <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+              {messengerBadge > 0 ? `${messengerBadge} непрочитанных сообщений` : "Нет новых сообщений"}
+            </p>
+          </div>
+          {messengerBadge > 0 && (
+            <span
+              className="min-w-[20px] h-5 rounded-full flex items-center justify-center text-[10px] font-bold px-1.5 flex-shrink-0"
+              style={{
+                backgroundColor: "#ef4444",
+                color: "#fff",
+                boxShadow: "0 2px 6px rgba(239,68,68,0.4)",
+              }}
+            >
+              {messengerBadge > 99 ? "99+" : messengerBadge}
+            </span>
+          )}
+          <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+        </motion.button>
+      </ScrollReveal>
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* ── АККАУНТ ── */}

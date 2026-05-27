@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -14,13 +14,28 @@ import { formatDuration } from "@/lib/musicApi";
 
 const USERNAME_RULES = "Буквы, цифры, _ и -. 2-20 символов.";
 
-export default function ProfileView() {
-  const {
-    username, telegramUsername, email, avatar, likedTrackIds, dislikedTrackIds,
-    messages, setView, logout, userId, compactMode, animationsEnabled,
-    history, contacts, favoriteArtists, tasteGenres, tasteArtists,
-    currentTrack, lastSyncAt,
-  } = useAppStore();
+const ProfileView = React.memo(function ProfileView() {
+  const username = useAppStore((s) => s.username);
+  const telegramUsername = useAppStore((s) => s.telegramUsername);
+  const email = useAppStore((s) => s.email);
+  const avatar = useAppStore((s) => s.avatar);
+  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+  const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
+  const messages = useAppStore((s) => s.messages);
+  const setView = useAppStore((s) => s.setView);
+  const logout = useAppStore((s) => s.logout);
+  const userId = useAppStore((s) => s.userId);
+  const compactMode = useAppStore((s) => s.compactMode);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const history = useAppStore((s) => s.history);
+  const contacts = useAppStore((s) => s.contacts);
+  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
+  const tasteGenres = useAppStore((s) => s.tasteGenres);
+  const tasteArtists = useAppStore((s) => s.tasteArtists);
+  const currentTrack = useAppStore((s) => s.currentTrack);
+  const lastSyncAt = useAppStore((s) => s.lastSyncAt);
+  const unreadCounts = useAppStore((s) => s.unreadCounts);
+  const supportUnreadCount = useAppStore((s) => s.supportUnreadCount);
   const safeLiked = Array.isArray(likedTrackIds) ? likedTrackIds : [];
   const safeDisliked = Array.isArray(dislikedTrackIds) ? dislikedTrackIds : [];
   const safeMessages = Array.isArray(messages) ? messages : [];
@@ -524,6 +539,79 @@ export default function ProfileView() {
                 </span>
               </div>
             )}
+          </div>
+        </motion.div>
+      </ScrollReveal>
+
+      {/* ════════════════════════════════════════════
+          Чаты entry point — navigate to messenger
+          ════════════════════════════════════════════ */}
+      <ScrollReveal direction="up" delay={0.08}>
+        <motion.div
+          initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.08, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+          className="rounded-2xl overflow-hidden cursor-pointer"
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)" }}
+          onClick={() => setView("messenger")}
+          whileHover={{ backgroundColor: "var(--mq-card-hover)" }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <div className="px-4 py-4 flex items-center gap-4">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}
+            >
+              <MessageCircle className="w-6 h-6" style={{ color: "var(--mq-accent)" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-semibold" style={{ color: "var(--mq-text)" }}>Чаты</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+                Сообщения и уведомления
+              </p>
+            </div>
+            {(Object.values(unreadCounts).reduce((sum, c) => sum + c, 0) + supportUnreadCount) > 0 && (
+              <span
+                className="flex-shrink-0 min-w-[20px] h-5 rounded-full flex items-center justify-center text-[10px] font-bold px-1.5"
+                style={{
+                  backgroundColor: "var(--mq-accent)",
+                  color: "#fff",
+                }}
+              >
+                {Object.values(unreadCounts).reduce((sum, c) => sum + c, 0) + supportUnreadCount}
+              </span>
+            )}
+          </div>
+        </motion.div>
+      </ScrollReveal>
+
+      {/* ════════════════════════════════════════════
+          Settings shortcut — navigate to settings
+          ════════════════════════════════════════════ */}
+      <ScrollReveal direction="up" delay={0.1}>
+        <motion.div
+          initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+          className="rounded-2xl overflow-hidden cursor-pointer"
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)" }}
+          onClick={() => setView("settings")}
+          whileHover={{ backgroundColor: "var(--mq-card-hover)" }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <div className="px-4 py-4 flex items-center gap-4">
+            <div
+              className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
+            >
+              <Settings className="w-6 h-6" style={{ color: "var(--mq-text-muted)" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-semibold" style={{ color: "var(--mq-text)" }}>Настройки</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+                Тема, звук, внешний вид
+              </p>
+            </div>
           </div>
         </motion.div>
       </ScrollReveal>
@@ -1055,4 +1143,6 @@ export default function ProfileView() {
       </AnimatePresence>
     </div>
   );
-}
+});
+
+export default ProfileView;
