@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   typescript: { ignoreBuildErrors: false },
   generateBuildId: async () => {
-    return Date.now().toString();
+    return 'mq-build-v52';
   },
   serverExternalPackages: ['@opennextjs/cloudflare'],
   experimental: {

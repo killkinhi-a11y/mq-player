@@ -22,6 +22,13 @@ export const metadata: Metadata = {
   other: {
     "mobile-web-app-capable": "yes",
   },
+  themeColor: "#e03131",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "mq",
+  },
+  applicationName: "mq",
 };
 
 // Force this page to never be cached by CDN / browser
@@ -35,16 +42,9 @@ export default function RootLayout({
   return (
     <html lang="ru" suppressHydrationWarning>
       <head>
-        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-        <meta http-equiv="Pragma" content="no-cache" />
-        <meta http-equiv="Expires" content="0" />
-        {/* PWA meta tags */}
-        <meta name="theme-color" content="#e03131" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="mq" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="application-name" content="mq" />
+        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta httpEquiv="Pragma" content="no-cache" />
+        <meta httpEquiv="Expires" content="0" />
         <meta name="msapplication-TileColor" content="#0e0e0e" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <script
@@ -52,7 +52,7 @@ export default function RootLayout({
             __html: `(function(){
               try{
                 // === CACHE-BUST v7 (safe) ===
-                var BUILD_ID="mq-build-v51";
+                var BUILD_ID="mq-build-v52";
                 var prevBuild=localStorage.getItem('mq-build-id');
                 if(prevBuild && prevBuild!==BUILD_ID){
                   // Stale build — clear old data and reload once
