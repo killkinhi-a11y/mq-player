@@ -1076,11 +1076,15 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       resumeAudioContext();
       const target = e.target as HTMLAudioElement | null;
       if (target && target !== getActive()) return;
-      // Sync store's isPlaying state with actual audio state.
-      // Use setState directly instead of togglePlay() to avoid side effects
-      // like resetting miniPlayerHidden or calling resumeAudioContext recursively.
+      // Sync store state with actual audio state.
+      // Do NOT write isPlaying: true back to the store from audio events —
+      // that creates a feedback loop with the isPlaying effect (React #310).
+      // The store's isPlaying is the source of truth; audio follows it, not the reverse.
       if (!useAppStore.getState().isPlaying) {
-        useAppStore.setState({ isPlaying: true, playbackState: 'playing', isBuffering: false });
+        // Audio started playing but store says paused — pause the audio
+        // to stay consistent with the store's intent.
+        const a = getActive();
+        if (a) a.pause();
       } else {
         useAppStore.setState({ playbackState: 'playing', isBuffering: false });
       }

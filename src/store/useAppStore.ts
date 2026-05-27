@@ -815,7 +815,8 @@ export const useAppStore = create<AppState>()(
         const timerRef = (get() as any)._syncTimer;
         if (timerRef) clearTimeout(timerRef);
         // Increment generation to invalidate any in-flight async operations
-        set({ ...initialState, _authGeneration: Date.now() });
+        // Keep _hasHydrated: true to prevent hydration loop
+        set({ ...initialState, _authGeneration: Date.now(), _hasHydrated: true });
         // Also clear the JWT cookie on the server
         fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
       },
@@ -2459,6 +2460,7 @@ export const useAppStore = create<AppState>()(
           listenSession, abRepeat,
           publicPlaylists, recommendedPlaylists,
           _authGeneration,
+          _hasHydrated,
           ...persistent
         } = state;
 
