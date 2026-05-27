@@ -520,24 +520,65 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
 }
 
 export default function FullTrackView() {
-  const {
-    currentTrack, isPlaying, volume, progress, duration,
-    shuffle, repeat, togglePlay, nextTrack, prevTrack,
-    setVolume, setProgress, setDuration, toggleShuffle, toggleRepeat,
-    isFullTrackViewOpen, setFullTrackViewOpen, animationsEnabled,
-    toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
-    similarTracks, setSimilarTracks, similarTracksLoading, setSimilarTracksLoading,
-    playTrack, queue, queueIndex, showSimilarRequested, clearShowSimilarRequest,
-    showLyricsRequested, clearShowLyricsRequest,
-    sleepTimerActive, sleepTimerRemaining, sleepTimerMinutes, startSleepTimer, stopSleepTimer, updateSleepTimer,
-    currentStyle, styleVariant, currentPlaylistId,
-    radioMode, toggleRadioMode, releaseRadarTracks, fetchReleaseRadar, likedTracksData,
-    spatialAudioEnabled, setSpatialAudioEnabled, setView,
-    setSelectedArtist,
-    eqEnabled, eqPreset,
-    abRepeat, setAbRepeatPoint, clearAbRepeat,
-    playbackRate, setPlaybackRate,
-  } = useAppStore();
+  // ── Zustand selectors (prevents re-renders from unrelated store changes) ──
+  const currentTrack = useAppStore((s) => s.currentTrack);
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const volume = useAppStore((s) => s.volume);
+  const progress = useAppStore((s) => s.progress);
+  const duration = useAppStore((s) => s.duration);
+  const shuffle = useAppStore((s) => s.shuffle);
+  const repeat = useAppStore((s) => s.repeat);
+  const togglePlay = useAppStore((s) => s.togglePlay);
+  const nextTrack = useAppStore((s) => s.nextTrack);
+  const prevTrack = useAppStore((s) => s.prevTrack);
+  const setVolume = useAppStore((s) => s.setVolume);
+  const setProgress = useAppStore((s) => s.setProgress);
+  const setDuration = useAppStore((s) => s.setDuration);
+  const toggleShuffle = useAppStore((s) => s.toggleShuffle);
+  const toggleRepeat = useAppStore((s) => s.toggleRepeat);
+  const isFullTrackViewOpen = useAppStore((s) => s.isFullTrackViewOpen);
+  const setFullTrackViewOpen = useAppStore((s) => s.setFullTrackViewOpen);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const toggleLike = useAppStore((s) => s.toggleLike);
+  const toggleDislike = useAppStore((s) => s.toggleDislike);
+  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+  const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
+  const similarTracks = useAppStore((s) => s.similarTracks);
+  const setSimilarTracks = useAppStore((s) => s.setSimilarTracks);
+  const similarTracksLoading = useAppStore((s) => s.similarTracksLoading);
+  const setSimilarTracksLoading = useAppStore((s) => s.setSimilarTracksLoading);
+  const playTrack = useAppStore((s) => s.playTrack);
+  const queue = useAppStore((s) => s.queue);
+  const queueIndex = useAppStore((s) => s.queueIndex);
+  const showSimilarRequested = useAppStore((s) => s.showSimilarRequested);
+  const clearShowSimilarRequest = useAppStore((s) => s.clearShowSimilarRequest);
+  const showLyricsRequested = useAppStore((s) => s.showLyricsRequested);
+  const clearShowLyricsRequest = useAppStore((s) => s.clearShowLyricsRequest);
+  const sleepTimerActive = useAppStore((s) => s.sleepTimerActive);
+  const sleepTimerRemaining = useAppStore((s) => s.sleepTimerRemaining);
+  const sleepTimerMinutes = useAppStore((s) => s.sleepTimerMinutes);
+  const startSleepTimer = useAppStore((s) => s.startSleepTimer);
+  const stopSleepTimer = useAppStore((s) => s.stopSleepTimer);
+  const updateSleepTimer = useAppStore((s) => s.updateSleepTimer);
+  const currentStyle = useAppStore((s) => s.currentStyle);
+  const styleVariant = useAppStore((s) => s.styleVariant);
+  const currentPlaylistId = useAppStore((s) => s.currentPlaylistId);
+  const radioMode = useAppStore((s) => s.radioMode);
+  const toggleRadioMode = useAppStore((s) => s.toggleRadioMode);
+  const releaseRadarTracks = useAppStore((s) => s.releaseRadarTracks);
+  const fetchReleaseRadar = useAppStore((s) => s.fetchReleaseRadar);
+  const likedTracksData = useAppStore((s) => s.likedTracksData);
+  const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
+  const setSpatialAudioEnabled = useAppStore((s) => s.setSpatialAudioEnabled);
+  const setView = useAppStore((s) => s.setView);
+  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
+  const eqEnabled = useAppStore((s) => s.eqEnabled);
+  const eqPreset = useAppStore((s) => s.eqPreset);
+  const abRepeat = useAppStore((s) => s.abRepeat);
+  const setAbRepeatPoint = useAppStore((s) => s.setAbRepeatPoint);
+  const clearAbRepeat = useAppStore((s) => s.clearAbRepeat);
+  const playbackRate = useAppStore((s) => s.playbackRate);
+  const setPlaybackRate = useAppStore((s) => s.setPlaybackRate);
 
   const sliderRef = useRef<HTMLDivElement>(null);
   const progressFillRef = useRef<HTMLDivElement>(null);
@@ -1860,13 +1901,6 @@ export default function FullTrackView() {
               <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse 60% 40% at 50% 90%, color-mix(in srgb, var(--mq-accent) 5%, transparent), transparent)", transition: "opacity 1.5s ease", opacity: isPlaying ? 1 : 0.5 } } />
               {/* Vignette effect — darkened edges */}
               <div className="absolute inset-0" style={{ boxShadow: "inset 0 0 200px 60px rgba(0,0,0,0.6)" }} />
-              {/* Subtle SVG noise texture overlay at 3% opacity */}
-              <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.03 }}>
-                <filter id="mqNoiseFilter">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
-                </filter>
-                <rect width="100%" height="100%" filter="url(#mqNoiseFilter)" />
-              </svg>
             </>
           )}
         </div>

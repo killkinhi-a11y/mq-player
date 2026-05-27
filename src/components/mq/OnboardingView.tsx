@@ -196,14 +196,12 @@ function AnimatedEqualizer() {
 }
 
 export default function OnboardingView() {
-  const {
-    favoriteArtists,
-    addFavoriteArtist,
-    removeFavoriteArtist,
-    setOnboardingComplete,
-    saveFavoriteArtistsToServer,
-    setView,
-  } = useAppStore();
+  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
+  const addFavoriteArtist = useAppStore((s) => s.addFavoriteArtist);
+  const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
+  const setOnboardingComplete = useAppStore((s) => s.setOnboardingComplete);
+  const saveFavoriteArtistsToServer = useAppStore((s) => s.saveFavoriteArtistsToServer);
+  const setView = useAppStore((s) => s.setView);
 
   const [step, setStep] = useState<"genres" | "artists" | "discover">("genres");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);

@@ -77,7 +77,11 @@ function mapApiStories(rawStories: any[]): Story[] {
 }
 
 export default function StoriesView() {
-  const { userId, username, likedTracksData, animationsEnabled, playTrack } = useAppStore();
+  const userId = useAppStore((s) => s.userId);
+  const username = useAppStore((s) => s.username);
+  const likedTracksData = useAppStore((s) => s.likedTracksData);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const playTrack = useAppStore((s) => s.playTrack);
   const [stories, setStories] = useState<Story[]>([]);
 
   // Fetch stories from API on mount

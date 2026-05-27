@@ -67,7 +67,8 @@ export default function TrackCommentsPanel({
   isOpen,
   onClose,
 }: TrackCommentsPanelProps) {
-  const { userId, username } = useAppStore();
+  const userId = useAppStore((s) => s.userId);
+  const username = useAppStore((s) => s.username);
   const [comments, setComments] = useState<TrackCommentData[]>([]);
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);

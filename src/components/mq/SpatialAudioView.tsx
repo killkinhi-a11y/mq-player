@@ -58,16 +58,14 @@ function PowerIcon({ active, size = 20 }: { active: boolean; size?: number }) {
 }
 
 export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps) {
-  const {
-    spatialAudioEnabled,
-    spatialMood,
-    spatialAutoDetect,
-    setSpatialAudioEnabled,
-    setSpatialMood,
-    setSpatialAutoDetect,
-    animationsEnabled,
-    compactMode,
-  } = useAppStore();
+  const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
+  const spatialMood = useAppStore((s) => s.spatialMood);
+  const spatialAutoDetect = useAppStore((s) => s.spatialAutoDetect);
+  const setSpatialAudioEnabled = useAppStore((s) => s.setSpatialAudioEnabled);
+  const setSpatialMood = useAppStore((s) => s.setSpatialMood);
+  const setSpatialAutoDetect = useAppStore((s) => s.setSpatialAutoDetect);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const compactMode = useAppStore((s) => s.compactMode);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number>(0);

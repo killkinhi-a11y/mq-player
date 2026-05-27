@@ -317,6 +317,13 @@ motion-div, motion-button, motion-span {
   .mq-breathe-glow {
     animation: none !important;
   }
+
+  /* Remove all noise/grain texture overlays */
+  .CinematicAtmosphere > div:nth-child(3),
+  html.liquid-glass-theme body::after {
+    opacity: 0 !important;
+    display: none !important;
+  }
 }
 
 /* Disable transitions during page load */
@@ -447,7 +454,7 @@ html.liquid-glass-theme body::after {
   position: fixed;
   inset: 0;
   z-index: -1;
-  opacity: 0.03;
+  opacity: 0.012;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
@@ -813,10 +820,38 @@ html.liquid-glass-theme body::after {
 /* Mobile player sits above the bottom navigation bar */
 .mobile-player-above-nav {
   bottom: 0;
+  /* Desktop: safe area handled by inner div */
 }
 @media (max-width: 1023px) {
   .mobile-player-above-nav {
     bottom: 50px; /* MobileNav height */
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.25);
+  }
+  /* ── Unified bottom panel: player + nav as one surface ── */
+  .mobile-player-inner {
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    border-top: none !important;
+  }
+  .mobile-player-glow {
+    border-radius: 0 !important;
+  }
+  /* Thin separator between player and nav inside the unified panel */
+  .mobile-player-inner::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 16px;
+    right: 16px;
+    height: 1px;
+    background: rgba(255,255,255,0.06);
+    pointer-events: none;
+  }
+}
+/* Desktop: player bar needs safe-area padding since it's at the very bottom */
+@media (min-width: 1024px) {
+  .mobile-player-inner {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 
@@ -1015,8 +1050,8 @@ a:not([data-framer-motion-id]),
 
 /* Full player blurred background */
 .mq-full-player-bg {
-  filter: blur(80px) saturate(180%);
-  transform: scale(1.25);
+  filter: blur(40px) saturate(150%);
+  transform: scale(1.15);
   opacity: 0.4;
 }
 
@@ -1580,8 +1615,8 @@ textarea:focus-visible {
 
 /* ── Cinematic background blur ── */
 .mq-cinematic-blur {
-  backdrop-filter: blur(60px) saturate(200%) brightness(0.7);
-  -webkit-backdrop-filter: blur(60px) saturate(200%) brightness(0.7);
+  backdrop-filter: blur(30px) saturate(160%) brightness(0.7);
+  -webkit-backdrop-filter: blur(30px) saturate(160%) brightness(0.7);
 }
 
 /* ── Gradient text for active titles ── */

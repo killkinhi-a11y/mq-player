@@ -303,21 +303,59 @@ function MascotPreview({ size, isSelected }: { size: number; isSelected: boolean
 }
 
 export default function SettingsView() {
-  const {
-    currentTheme, setTheme, customAccent, setCustomAccent,
-    animationsEnabled, setAnimationsEnabled, compactMode, setCompactMode,
-    fontSize, setFontSize, volume, setVolume, logout, username, animationsEnabled: anim, setView, spatialAudioEnabled,
-    liquidGlassMobile, setLiquidGlassMobile, email, avatar,
-    lastSyncAt, isSyncing, syncToServer, syncFromServer,
-    favoriteArtists, removeFavoriteArtist, saveFavoriteArtistsToServer,
-    dislikedTags, removeDislikedTag,
-    dislikedTrackIds, dislikedTracksData,
-    currentStyle, setStyle, styleVariant, setStyleVariant,
-    catEnabled, setCatEnabled, catFrequency, setCatFrequency, catMood, setCatMood, catSize, setCatSize, catPetCount,
-    crossfadeEnabled, setCrossfadeEnabled, crossfadeDuration, setCrossfadeDuration,
-    gaplessEnabled, setGaplessEnabled,
-    eqEnabled, eqPreset,
-  } = useAppStore();
+  const currentTheme = useAppStore((s) => s.currentTheme);
+  const setTheme = useAppStore((s) => s.setTheme);
+  const customAccent = useAppStore((s) => s.customAccent);
+  const setCustomAccent = useAppStore((s) => s.setCustomAccent);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const setAnimationsEnabled = useAppStore((s) => s.setAnimationsEnabled);
+  const compactMode = useAppStore((s) => s.compactMode);
+  const setCompactMode = useAppStore((s) => s.setCompactMode);
+  const fontSize = useAppStore((s) => s.fontSize);
+  const setFontSize = useAppStore((s) => s.setFontSize);
+  const volume = useAppStore((s) => s.volume);
+  const setVolume = useAppStore((s) => s.setVolume);
+  const logout = useAppStore((s) => s.logout);
+  const username = useAppStore((s) => s.username);
+  const anim = useAppStore((s) => s.animationsEnabled);
+  const setView = useAppStore((s) => s.setView);
+  const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
+  const liquidGlassMobile = useAppStore((s) => s.liquidGlassMobile);
+  const setLiquidGlassMobile = useAppStore((s) => s.setLiquidGlassMobile);
+  const email = useAppStore((s) => s.email);
+  const avatar = useAppStore((s) => s.avatar);
+  const lastSyncAt = useAppStore((s) => s.lastSyncAt);
+  const isSyncing = useAppStore((s) => s.isSyncing);
+  const syncToServer = useAppStore((s) => s.syncToServer);
+  const syncFromServer = useAppStore((s) => s.syncFromServer);
+  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
+  const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
+  const saveFavoriteArtistsToServer = useAppStore((s) => s.saveFavoriteArtistsToServer);
+  const dislikedTags = useAppStore((s) => s.dislikedTags);
+  const removeDislikedTag = useAppStore((s) => s.removeDislikedTag);
+  const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
+  const dislikedTracksData = useAppStore((s) => s.dislikedTracksData);
+  const currentStyle = useAppStore((s) => s.currentStyle);
+  const setStyle = useAppStore((s) => s.setStyle);
+  const styleVariant = useAppStore((s) => s.styleVariant);
+  const setStyleVariant = useAppStore((s) => s.setStyleVariant);
+  const catEnabled = useAppStore((s) => s.catEnabled);
+  const setCatEnabled = useAppStore((s) => s.setCatEnabled);
+  const catFrequency = useAppStore((s) => s.catFrequency);
+  const setCatFrequency = useAppStore((s) => s.setCatFrequency);
+  const catMood = useAppStore((s) => s.catMood);
+  const setCatMood = useAppStore((s) => s.setCatMood);
+  const catSize = useAppStore((s) => s.catSize);
+  const setCatSize = useAppStore((s) => s.setCatSize);
+  const catPetCount = useAppStore((s) => s.catPetCount);
+  const crossfadeEnabled = useAppStore((s) => s.crossfadeEnabled);
+  const setCrossfadeEnabled = useAppStore((s) => s.setCrossfadeEnabled);
+  const crossfadeDuration = useAppStore((s) => s.crossfadeDuration);
+  const setCrossfadeDuration = useAppStore((s) => s.setCrossfadeDuration);
+  const gaplessEnabled = useAppStore((s) => s.gaplessEnabled);
+  const setGaplessEnabled = useAppStore((s) => s.setGaplessEnabled);
+  const eqEnabled = useAppStore((s) => s.eqEnabled);
+  const eqPreset = useAppStore((s) => s.eqPreset);
 
   const ADMIN_EMAILS = (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_ADMIN_EMAILS) 
     ? process.env.NEXT_PUBLIC_ADMIN_EMAILS.split(",").map((e: string) => e.trim().toLowerCase())
@@ -369,7 +407,8 @@ export default function SettingsView() {
     { id: "ipod-2001", name: "iPod 2001" },
     { id: "pixel-flower", name: "Pixel Flower" },
   ];
-  const { supportUnreadCount, setSupportUnreadCount } = useAppStore();
+  const supportUnreadCount = useAppStore((s) => s.supportUnreadCount);
+  const setSupportUnreadCount = useAppStore((s) => s.setSupportUnreadCount);
   const unreadCounts = useAppStore((s) => s.unreadCounts);
   const messengerBadge = Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
 

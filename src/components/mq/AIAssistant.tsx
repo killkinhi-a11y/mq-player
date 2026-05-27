@@ -112,11 +112,19 @@ function TypingIndicator() {
 }
 
 export default function AIAssistant() {
-  const {
-    playTrack, likedTracksData, history, tasteGenres, tasteArtists, tasteMoods,
-    animationsEnabled, addToUpNext, compactMode, dislikedTracksData,
-    feedbackBatch, sessionStartTime, likedTrackIds,
-  } = useAppStore();
+  const playTrack = useAppStore((s) => s.playTrack);
+  const likedTracksData = useAppStore((s) => s.likedTracksData);
+  const history = useAppStore((s) => s.history);
+  const tasteGenres = useAppStore((s) => s.tasteGenres);
+  const tasteArtists = useAppStore((s) => s.tasteArtists);
+  const tasteMoods = useAppStore((s) => s.tasteMoods);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const addToUpNext = useAppStore((s) => s.addToUpNext);
+  const compactMode = useAppStore((s) => s.compactMode);
+  const dislikedTracksData = useAppStore((s) => s.dislikedTracksData);
+  const feedbackBatch = useAppStore((s) => s.feedbackBatch);
+  const sessionStartTime = useAppStore((s) => s.sessionStartTime);
+  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {

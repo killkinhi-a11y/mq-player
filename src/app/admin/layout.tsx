@@ -67,7 +67,9 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { email, username, avatar } = useAppStore();
+  const email = useAppStore((s) => s.email);
+  const username = useAppStore((s) => s.username);
+  const avatar = useAppStore((s) => s.avatar);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const isAdmin = useAdminCheck(email);

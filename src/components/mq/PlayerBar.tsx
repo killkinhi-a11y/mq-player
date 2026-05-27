@@ -100,21 +100,52 @@ function MagneticPlayButton({ children, onClick, className, style, disabled }: {
 }
 
 const PlayerBar = React.memo(function PlayerBar() {
-  const {
-    currentTrack, isPlaying, volume, progress, duration,
-    shuffle, repeat, togglePlay, nextTrack, prevTrack,
-    setVolume, setProgress, setDuration, toggleShuffle, toggleRepeat,
-    animationsEnabled, compactMode,
-    setFullTrackViewOpen,
-    setPlaybackMode, requestShowSimilar, requestShowLyrics,
-    toggleLike, toggleDislike, likedTrackIds, dislikedTrackIds,
-    upNext, currentStyle, styleVariant, radioMode, smartShuffle, toggleRadioMode,
-    spatialAudioEnabled, setSpatialAudioEnabled, setSpatialMood, spatialAutoDetect, spatialMood,
-    setSelectedArtist, currentView,
-    abRepeat, setAbRepeatPoint, clearAbRepeat,
-    miniPlayerHidden, setMiniPlayerHidden,
-    playbackRate, setPlaybackRate,
-  } = useAppStore();
+  // ── Zustand selectors (prevents re-renders from unrelated store changes) ──
+  const currentTrack = useAppStore((s) => s.currentTrack);
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const volume = useAppStore((s) => s.volume);
+  const progress = useAppStore((s) => s.progress);
+  const duration = useAppStore((s) => s.duration);
+  const shuffle = useAppStore((s) => s.shuffle);
+  const repeat = useAppStore((s) => s.repeat);
+  const togglePlay = useAppStore((s) => s.togglePlay);
+  const nextTrack = useAppStore((s) => s.nextTrack);
+  const prevTrack = useAppStore((s) => s.prevTrack);
+  const setVolume = useAppStore((s) => s.setVolume);
+  const setProgress = useAppStore((s) => s.setProgress);
+  const setDuration = useAppStore((s) => s.setDuration);
+  const toggleShuffle = useAppStore((s) => s.toggleShuffle);
+  const toggleRepeat = useAppStore((s) => s.toggleRepeat);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const compactMode = useAppStore((s) => s.compactMode);
+  const setFullTrackViewOpen = useAppStore((s) => s.setFullTrackViewOpen);
+  const setPlaybackMode = useAppStore((s) => s.setPlaybackMode);
+  const requestShowSimilar = useAppStore((s) => s.requestShowSimilar);
+  const requestShowLyrics = useAppStore((s) => s.requestShowLyrics);
+  const toggleLike = useAppStore((s) => s.toggleLike);
+  const toggleDislike = useAppStore((s) => s.toggleDislike);
+  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+  const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
+  const upNext = useAppStore((s) => s.upNext);
+  const currentStyle = useAppStore((s) => s.currentStyle);
+  const styleVariant = useAppStore((s) => s.styleVariant);
+  const radioMode = useAppStore((s) => s.radioMode);
+  const smartShuffle = useAppStore((s) => s.smartShuffle);
+  const toggleRadioMode = useAppStore((s) => s.toggleRadioMode);
+  const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
+  const setSpatialAudioEnabled = useAppStore((s) => s.setSpatialAudioEnabled);
+  const setSpatialMood = useAppStore((s) => s.setSpatialMood);
+  const spatialAutoDetect = useAppStore((s) => s.spatialAutoDetect);
+  const spatialMood = useAppStore((s) => s.spatialMood);
+  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
+  const currentView = useAppStore((s) => s.currentView);
+  const abRepeat = useAppStore((s) => s.abRepeat);
+  const setAbRepeatPoint = useAppStore((s) => s.setAbRepeatPoint);
+  const clearAbRepeat = useAppStore((s) => s.clearAbRepeat);
+  const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
+  const setMiniPlayerHidden = useAppStore((s) => s.setMiniPlayerHidden);
+  const playbackRate = useAppStore((s) => s.playbackRate);
+  const setPlaybackRate = useAppStore((s) => s.setPlaybackRate);
 
   const [showQueue, setShowQueue] = useState(false);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
@@ -707,21 +738,21 @@ const PlayerBar = React.memo(function PlayerBar() {
             aria-label="Музыкальный плеер"
           >
             <div
-              className="relative w-full"
+              className="relative w-full mobile-player-inner"
               style={{
                 backgroundColor: "var(--mq-player-bg)",
-                backdropFilter: "blur(40px) saturate(200%)",
-                WebkitBackdropFilter: "blur(40px) saturate(200%)",
+                backdropFilter: "blur(24px) saturate(160%)",
+                WebkitBackdropFilter: "blur(24px) saturate(160%)",
                 borderTop: "1px solid rgba(255,255,255,0.06)",
                 boxShadow: "0 -8px 40px rgba(0,0,0,0.3)",
                 borderRadius: "16px 16px 0 0",
                 // NOTE: do NOT use contain:layout or contain:paint here — it clips Portal-rendered menus (context menu, more menu)
-                paddingBottom: "env(safe-area-inset-bottom, 0px)",
                 overflow: "visible",
               }}
             >
               {/* ── Dynamic Ambient Glow — accent wash when playing ── */}
               <div
+                className="mobile-player-glow"
                 style={{
                   position: "absolute",
                   top: 0,

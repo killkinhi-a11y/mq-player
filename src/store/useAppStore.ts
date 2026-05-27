@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage, type StateStorage } from "zustand/middleware";
 import { type Track, type Message as ChatMessage } from "@/lib/musicApi";
 import { themes, applyThemeToDOM } from "@/lib/themes";
-import { enableEQ as engineEnableEQ, disableEQ as engineDisableEQ, setEQBand as engineSetEQBand, setAllEQBands as engineSetAllEQBands, resetEQBands as engineResetEQBands, setAudioPlaybackRate as engineSetAudioPlaybackRate, getAudioElement, resumeAudioContext, getInactiveAudio } from "@/lib/audioEngine";
+import { enableEQ as engineEnableEQ, disableEQ as engineDisableEQ, setEQBand as engineSetEQBand, setAllEQBands as engineSetAllEQBands, resetEQBands as engineResetEQBands, setAudioPlaybackRate as engineSetAudioPlaybackRate, getAudioElement, resumeAudioContext, getInactiveAudio, setCrossfadeEnabled as engineSetCrossfadeEnabled } from "@/lib/audioEngine";
 import { EQ_PRESETS } from "@/lib/eq";
 import { PlaybackEngine, type PlaybackState } from "@/lib/playbackEngine";
 
@@ -1850,7 +1850,10 @@ export const useAppStore = create<AppState>()(
       setSpatialAutoDetect: (enabled) => set({ spatialAutoDetect: enabled }),
 
       // ── Crossfade actions ──
-      setCrossfadeEnabled: (enabled) => set({ crossfadeEnabled: enabled }),
+      setCrossfadeEnabled: (enabled) => {
+        set({ crossfadeEnabled: enabled });
+        engineSetCrossfadeEnabled(enabled);
+      },
       setCrossfadeDuration: (duration) => set({ crossfadeDuration: Math.max(0.5, Math.min(8, duration)) }),
 
       // ── Gapless playback actions ──

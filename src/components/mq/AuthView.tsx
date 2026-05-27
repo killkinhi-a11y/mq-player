@@ -14,7 +14,9 @@ const USERNAME_LENGTH_MIN = 2;
 const USERNAME_LENGTH_MAX = 20;
 
 export default function AuthView() {
-  const { authStep, setAuthStep, setAuth } = useAppStore();
+  const authStep = useAppStore((s) => s.authStep);
+  const setAuthStep = useAppStore((s) => s.setAuthStep);
+  const setAuth = useAppStore((s) => s.setAuth);
 
   // Telegram auth states
   const [tgVerifyLoading, setTgVerifyLoading] = useState(false);

@@ -423,6 +423,21 @@ export function isLosslessFormat(audio: HTMLAudioElement): boolean {
 export function crossfadeTo(newAudio: HTMLAudioElement, fadeIn: boolean = true): void {
   if (!_audioCtx || !_gainA || !_gainB) return;
 
+  // ── If crossfade is disabled, do an instant switch instead ──
+  if (!_crossfadeEnabled) {
+    cancelCrossfade();
+    // Instant switch: new audio full volume, old audio silent
+    const now = _audioCtx.currentTime;
+    _gainA.gain.cancelScheduledValues(now);
+    _gainB.gain.cancelScheduledValues(now);
+    const newGain = _activeAudio === "A" ? _gainB : _gainA;
+    const oldGain = _activeAudio === "A" ? _gainA : _gainB;
+    newGain.gain.setValueAtTime(1, now);
+    oldGain.gain.setValueAtTime(0, now);
+    _activeAudio = _activeAudio === "A" ? "B" : "A";
+    return;
+  }
+
   // ── Skip crossfade for lossless formats to prevent clicks ──
   const currentAudio = getAudioElement();
   const isLossless = isLosslessFormat(currentAudio) || isLosslessFormat(newAudio);

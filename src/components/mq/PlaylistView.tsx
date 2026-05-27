@@ -63,13 +63,22 @@ function formatTotalDuration(tracks: Track[]): string {
 }
 
 export default function PlaylistView() {
-  const {
-    playlists, selectedPlaylistId, setSelectedPlaylistId,
-    createPlaylist, deletePlaylist, renamePlaylist,
-    removeFromPlaylist, animationsEnabled, playTrack, likedTrackIds,
-    addToPlaylist, setView, compactMode, setSelectedArtist,
-    currentTrack, isPlaying: storeIsPlaying,
-  } = useAppStore();
+  const playlists = useAppStore((s) => s.playlists);
+  const selectedPlaylistId = useAppStore((s) => s.selectedPlaylistId);
+  const setSelectedPlaylistId = useAppStore((s) => s.setSelectedPlaylistId);
+  const createPlaylist = useAppStore((s) => s.createPlaylist);
+  const deletePlaylist = useAppStore((s) => s.deletePlaylist);
+  const renamePlaylist = useAppStore((s) => s.renamePlaylist);
+  const removeFromPlaylist = useAppStore((s) => s.removeFromPlaylist);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const playTrack = useAppStore((s) => s.playTrack);
+  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+  const addToPlaylist = useAppStore((s) => s.addToPlaylist);
+  const setView = useAppStore((s) => s.setView);
+  const compactMode = useAppStore((s) => s.compactMode);
+  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
+  const currentTrack = useAppStore((s) => s.currentTrack);
+  const storeIsPlaying = useAppStore((s) => s.isPlaying);
 
   const [pinnedIds, setPinnedIds] = useState<Set<string>>(() => {
     try {

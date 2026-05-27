@@ -236,20 +236,18 @@ function SectionHeader({
    MAIN COMPONENT
    ══════════════════════════════════════════ */
 export default function TasteProfileView() {
-  const {
-    likedTracksData,
-    history,
-    tasteGenres,
-    tasteArtists,
-    tasteMoods,
-    excludedArtists,
-    favoriteArtists,
-    setTasteGenre,
-    setTasteArtist,
-    setTasteMood,
-    toggleExcludedArtist,
-    resetTasteProfile,
-  } = useAppStore();
+  const likedTracksData = useAppStore((s) => s.likedTracksData);
+  const history = useAppStore((s) => s.history);
+  const tasteGenres = useAppStore((s) => s.tasteGenres);
+  const tasteArtists = useAppStore((s) => s.tasteArtists);
+  const tasteMoods = useAppStore((s) => s.tasteMoods);
+  const excludedArtists = useAppStore((s) => s.excludedArtists);
+  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
+  const setTasteGenre = useAppStore((s) => s.setTasteGenre);
+  const setTasteArtist = useAppStore((s) => s.setTasteArtist);
+  const setTasteMood = useAppStore((s) => s.setTasteMood);
+  const toggleExcludedArtist = useAppStore((s) => s.toggleExcludedArtist);
+  const resetTasteProfile = useAppStore((s) => s.resetTasteProfile);
 
   const [customGenreInput, setCustomGenreInput] = useState("");
   const [showInfo, setShowInfo] = useState(false);

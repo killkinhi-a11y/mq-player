@@ -1477,7 +1477,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
         const canCrossfade = prevTrackIdForCrossfade.current !== null
           && prevTrackIdForCrossfade.current !== currentTrack.id
-          && useAppStore.getState().isPlaying;
+          && useAppStore.getState().isPlaying
+          && useAppStore.getState().crossfadeEnabled;
 
         const _initialAudioEl = canCrossfade ? getInactiveAudio() : getAudioElement();
         if (!_initialAudioEl) return;

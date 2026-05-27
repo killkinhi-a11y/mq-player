@@ -48,7 +48,8 @@ interface NotificationPanelProps {
 }
 
 export default function NotificationPanel({ isOpen, onClose }: NotificationPanelProps) {
-  const { userId, setNotificationCount } = useAppStore();
+  const userId = useAppStore((s) => s.userId);
+  const setNotificationCount = useAppStore((s) => s.setNotificationCount);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);

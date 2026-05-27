@@ -12,7 +12,7 @@ import {
   resetCorsState, crossfadeTo, cancelCrossfade, crossfadeToGapless,
   preloadTrack as audioEnginePreloadTrack, clearGaplessPreload,
   getGaplessPreloadedTrackId, isGaplessEnabled, setGaplessPreloadedTrackId,
-  onAudioElementReplaced,
+  onAudioElementReplaced, isCrossfadeEnabled,
 } from "@/lib/audioEngine";
 import {
   resolveSoundCloudStream, buildEmeHlsConfig, prepareEncryptedElement,
@@ -462,7 +462,7 @@ class PlaybackEngine {
     if (preloadedId !== track.id) clearGaplessPreload();
     this._gaplessPreloadStarted = false; this._gaplessPreloadedTrack = null;
 
-    const canCrossfade = !!this._prevTrackIdForCrossfade && this._prevTrackIdForCrossfade !== track.id && this._state !== "idle";
+    const canCrossfade = !!this._prevTrackIdForCrossfade && this._prevTrackIdForCrossfade !== track.id && this._state !== "idle" && isCrossfadeEnabled();
     let el = (canCrossfade ? getInactiveAudio() : this._audio())!;
     if (!el) return;
     el.pause();

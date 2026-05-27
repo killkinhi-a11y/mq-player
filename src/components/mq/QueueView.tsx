@@ -47,21 +47,19 @@ interface QueueViewProps {
 }
 
 export default function QueueView({ isOpen, onClose }: QueueViewProps) {
-  const {
-    currentTrack,
-    queue,
-    queueIndex,
-    upNext,
-    isPlaying,
-    playTrack,
-    removeFromUpNext,
-    moveInUpNext,
-    moveInQueue,
-    clearUpNext,
-    animationsEnabled,
-    history,
-    likedTrackIds,
-  } = useAppStore();
+  const currentTrack = useAppStore((s) => s.currentTrack);
+  const queue = useAppStore((s) => s.queue);
+  const queueIndex = useAppStore((s) => s.queueIndex);
+  const upNext = useAppStore((s) => s.upNext);
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const playTrack = useAppStore((s) => s.playTrack);
+  const removeFromUpNext = useAppStore((s) => s.removeFromUpNext);
+  const moveInUpNext = useAppStore((s) => s.moveInUpNext);
+  const moveInQueue = useAppStore((s) => s.moveInQueue);
+  const clearUpNext = useAppStore((s) => s.clearUpNext);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const history = useAppStore((s) => s.history);
+  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
 
   // ── Context menu state ──
   const [contextMenu, setContextMenu] = useState<{ track: Track; x: number; y: number; show: boolean }>({

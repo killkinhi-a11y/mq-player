@@ -52,7 +52,13 @@ function valueToDbNorm(value: number): number {
  * Audio pipeline: Source → Gain → [EQ Chain] → AnalyserNode → Canvas FFT
  */
 export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
-  const { eqEnabled, eqBands, eqPreset, setEqEnabled, setEqBand, setEqPreset, isPlaying } = useAppStore();
+  const eqEnabled = useAppStore((s) => s.eqEnabled);
+  const eqBands = useAppStore((s) => s.eqBands);
+  const eqPreset = useAppStore((s) => s.eqPreset);
+  const setEqEnabled = useAppStore((s) => s.setEqEnabled);
+  const setEqBand = useAppStore((s) => s.setEqBand);
+  const setEqPreset = useAppStore((s) => s.setEqPreset);
+  const isPlaying = useAppStore((s) => s.isPlaying);
   const fftCanvasRef = useRef<HTMLCanvasElement>(null);
   const animFrameRef = useRef<number>(0);
   const smoothedDataRef = useRef<Float32Array | null>(null);

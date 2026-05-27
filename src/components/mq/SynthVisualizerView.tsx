@@ -26,7 +26,8 @@ type VisTab = "oscilloscope" | "spectrum" | "spectrogram";
  * Показывает форму волны, гармонический спектр и спектрограмму в реальном времени
  */
 export default function SynthVisualizerView({ show, onClose }: SynthVisualizerViewProps) {
-  const { isPlaying, currentTrack } = useAppStore();
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const currentTrack = useAppStore((s) => s.currentTrack);
   const [activeTab, setActiveTab] = useState<VisTab>("oscilloscope");
 
   const mainCanvasRef = useRef<HTMLCanvasElement>(null);

@@ -228,18 +228,16 @@ function CurrentTimeDisplay() {
 
 // ── Main View ──
 export default function SleepTimerView() {
-  const {
-    sleepTimerActive,
-    sleepTimerRemaining,
-    sleepTimerMinutes,
-    sleepTimerEndTime,
-    startSleepTimer,
-    stopSleepTimer,
-    updateSleepTimer,
-    isPlaying,
-    togglePlay,
-    animationsEnabled,
-  } = useAppStore();
+  const sleepTimerActive = useAppStore((s) => s.sleepTimerActive);
+  const sleepTimerRemaining = useAppStore((s) => s.sleepTimerRemaining);
+  const sleepTimerMinutes = useAppStore((s) => s.sleepTimerMinutes);
+  const sleepTimerEndTime = useAppStore((s) => s.sleepTimerEndTime);
+  const startSleepTimer = useAppStore((s) => s.startSleepTimer);
+  const stopSleepTimer = useAppStore((s) => s.stopSleepTimer);
+  const updateSleepTimer = useAppStore((s) => s.updateSleepTimer);
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const togglePlay = useAppStore((s) => s.togglePlay);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
 
   const [selectedMinutes, setSelectedMinutes] = useState(30);
 

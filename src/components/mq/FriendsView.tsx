@@ -80,7 +80,13 @@ function formatLastSeen(lastSeen: string | null | undefined): string {
 }
 
 export default function FriendsView() {
-  const { userId, setView, setSelectedContact, compactMode, animationsEnabled, currentTrack, username } = useAppStore();
+  const userId = useAppStore((s) => s.userId);
+  const setView = useAppStore((s) => s.setView);
+  const setSelectedContact = useAppStore((s) => s.setSelectedContact);
+  const compactMode = useAppStore((s) => s.compactMode);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const currentTrack = useAppStore((s) => s.currentTrack);
+  const username = useAppStore((s) => s.username);
 
   const [friends, setFriends] = useState<FriendUser[]>([]);
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);

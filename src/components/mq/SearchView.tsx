@@ -95,7 +95,19 @@ function saveSearchHistory(items: string[]) {
 
 
 export default function SearchView() {
-  const { searchQuery, setSearchQuery, selectedGenre, setSelectedGenre, animationsEnabled, playTrack, toggleLike, currentView, compactMode, setSelectedArtist, setView, likedTrackIds, likedTracksData } = useAppStore();
+  const searchQuery = useAppStore((s) => s.searchQuery);
+  const setSearchQuery = useAppStore((s) => s.setSearchQuery);
+  const selectedGenre = useAppStore((s) => s.selectedGenre);
+  const setSelectedGenre = useAppStore((s) => s.setSelectedGenre);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const playTrack = useAppStore((s) => s.playTrack);
+  const toggleLike = useAppStore((s) => s.toggleLike);
+  const currentView = useAppStore((s) => s.currentView);
+  const compactMode = useAppStore((s) => s.compactMode);
+  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
+  const setView = useAppStore((s) => s.setView);
+  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+  const likedTracksData = useAppStore((s) => s.likedTracksData);
   const [showFilters, setShowFilters] = useState(false);
   const [searchResults, setSearchResults] = useState<Track[]>([]);
   const [isLoading, setIsLoading] = useState(false);

@@ -16,25 +16,23 @@ type TabType = "liked" | "disliked" | "subscriptions";
 type SortOption = "default" | "title" | "artist" | "duration" | "dateAdded";
 
 export default function FavoritesView() {
-  const {
-    likedTracksData,
-    likedTrackIds,
-    dislikedTrackIds,
-    dislikedTracksData,
-    favoriteArtists,
-    isPlaying,
-    currentTrack,
-    toggleLike,
-    toggleDislike,
-    playTrack,
-    togglePlay,
-    animationsEnabled,
-    compactMode,
-    removeFavoriteArtist,
-    setSelectedArtist,
-    playlists,
-    addToPlaylist,
-  } = useAppStore();
+  const likedTracksData = useAppStore((s) => s.likedTracksData);
+  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+  const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
+  const dislikedTracksData = useAppStore((s) => s.dislikedTracksData);
+  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const currentTrack = useAppStore((s) => s.currentTrack);
+  const toggleLike = useAppStore((s) => s.toggleLike);
+  const toggleDislike = useAppStore((s) => s.toggleDislike);
+  const playTrack = useAppStore((s) => s.playTrack);
+  const togglePlay = useAppStore((s) => s.togglePlay);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const compactMode = useAppStore((s) => s.compactMode);
+  const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
+  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
+  const playlists = useAppStore((s) => s.playlists);
+  const addToPlaylist = useAppStore((s) => s.addToPlaylist);
 
   const [activeTab, setActiveTab] = useState<TabType>("liked");
   const [searchQuery, setSearchQuery] = useState("");

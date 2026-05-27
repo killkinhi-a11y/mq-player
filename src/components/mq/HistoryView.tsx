@@ -13,10 +13,15 @@ import {
 } from "lucide-react";
 
 export default function HistoryView() {
-  const {
-    history, clearHistory, playTrack, currentTrack, isPlaying, togglePlay,
-    animationsEnabled, compactMode, setSelectedArtist,
-  } = useAppStore();
+  const history = useAppStore((s) => s.history);
+  const clearHistory = useAppStore((s) => s.clearHistory);
+  const playTrack = useAppStore((s) => s.playTrack);
+  const currentTrack = useAppStore((s) => s.currentTrack);
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const togglePlay = useAppStore((s) => s.togglePlay);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const compactMode = useAppStore((s) => s.compactMode);
+  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
 
   const [hoveredTrackId, setHoveredTrackId] = useState<string | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);

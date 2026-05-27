@@ -619,12 +619,33 @@ function detectLang(text: string): "russian" | "english" | "latin" | "other" {
 }
 
 export default function MainView() {
-  const {
-    animationsEnabled, playTrack, likedTrackIds, dislikedTrackIds, likedTracksData, dislikedTracksData,
-    history, playlists, setView, contacts, messages, userId, compactMode, currentTrack, isPlaying,
-    setSearchQuery, favoriteArtists, selectedArtist, setSelectedArtist,
-    addFavoriteArtist, removeFavoriteArtist, radioMode, upNext, queue, progress, duration,
-  } = useAppStore();
+  // ── Zustand selectors (prevents re-renders from unrelated store changes) ──
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const playTrack = useAppStore((s) => s.playTrack);
+  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+  const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
+  const likedTracksData = useAppStore((s) => s.likedTracksData);
+  const dislikedTracksData = useAppStore((s) => s.dislikedTracksData);
+  const history = useAppStore((s) => s.history);
+  const playlists = useAppStore((s) => s.playlists);
+  const setView = useAppStore((s) => s.setView);
+  const contacts = useAppStore((s) => s.contacts);
+  const messages = useAppStore((s) => s.messages);
+  const userId = useAppStore((s) => s.userId);
+  const compactMode = useAppStore((s) => s.compactMode);
+  const currentTrack = useAppStore((s) => s.currentTrack);
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const setSearchQuery = useAppStore((s) => s.setSearchQuery);
+  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
+  const selectedArtist = useAppStore((s) => s.selectedArtist);
+  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
+  const addFavoriteArtist = useAppStore((s) => s.addFavoriteArtist);
+  const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
+  const radioMode = useAppStore((s) => s.radioMode);
+  const upNext = useAppStore((s) => s.upNext);
+  const queue = useAppStore((s) => s.queue);
+  const progress = useAppStore((s) => s.progress);
+  const duration = useAppStore((s) => s.duration);
 
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
   const [recommendations, setRecommendations] = useState<Track[]>([]);
@@ -1901,7 +1922,7 @@ export default function MainView() {
           />
 
           {/* Subtle noise texture overlay */}
-          <div className="absolute inset-0 pointer-events-none" style={{ opacity: 0.08, backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px 128px" }} />
+          <div className="absolute inset-0 pointer-events-none" style={{ opacity: 0.02, backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "256px 256px" }} />
 
           {/* Animated wave background when playing */}
           {radioMode && currentTrack && (

@@ -54,7 +54,7 @@ const itemVariants = {
 };
 
 export default function AdminUsersPage() {
-  const { userId } = useAppStore();
+  const userId = useAppStore((s) => s.userId);
   const [users, setUsers] = useState<User[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);

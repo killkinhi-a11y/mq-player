@@ -171,11 +171,21 @@ function TypingBubble({ contactId }: { contactId: string }) {
 // ═══════════════════════════════════════════════════════════════
 
 export default function MessengerView() {
-  const {
-    userId, username, email, messages, addMessage, selectedContactId, setSelectedContact,
-    animationsEnabled, currentTrack, isPlaying, unreadCounts, addContact, contacts,
-    loadMessages, notificationCount,
-  } = useAppStore();
+  const userId = useAppStore((s) => s.userId);
+  const username = useAppStore((s) => s.username);
+  const email = useAppStore((s) => s.email);
+  const messages = useAppStore((s) => s.messages);
+  const addMessage = useAppStore((s) => s.addMessage);
+  const selectedContactId = useAppStore((s) => s.selectedContactId);
+  const setSelectedContact = useAppStore((s) => s.setSelectedContact);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const currentTrack = useAppStore((s) => s.currentTrack);
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const unreadCounts = useAppStore((s) => s.unreadCounts);
+  const addContact = useAppStore((s) => s.addContact);
+  const contacts = useAppStore((s) => s.contacts);
+  const loadMessages = useAppStore((s) => s.loadMessages);
+  const notificationCount = useAppStore((s) => s.notificationCount);
 
   // ── Core UI state ──
   const [inputText, setInputText] = useState("");

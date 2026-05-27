@@ -18,7 +18,8 @@ interface PlaylistCardProps {
 }
 
 export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps) {
-  const { playTrack, animationsEnabled } = useAppStore();
+  const playTrack = useAppStore((s) => s.playTrack);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
 
   const handlePlay = () => {
     if (playlist.tracks.length > 0) {

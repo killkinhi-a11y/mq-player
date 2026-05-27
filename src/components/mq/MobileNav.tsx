@@ -39,16 +39,16 @@ const MobileNav = React.memo(function MobileNav() {
       role="navigation"
       aria-label="Основная навигация"
       style={{
-        background: "var(--mq-glass-bg)",
+        background: isPlayerVisible ? "var(--mq-player-bg)" : "var(--mq-glass-bg)",
         backdropFilter: "var(--mq-glass-blur)",
         WebkitBackdropFilter: "var(--mq-glass-blur)",
-        borderTop: "1px solid var(--mq-glass-border)",
-        boxShadow: "0 -4px 24px rgba(0,0,0,0.2), 0 -1px 6px rgba(0,0,0,0.1)",
+        borderTop: isPlayerVisible ? "none" : "1px solid var(--mq-glass-border)",
+        boxShadow: isPlayerVisible ? "none" : "0 -4px 24px rgba(0,0,0,0.2), 0 -1px 6px rgba(0,0,0,0.1)",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      {/* Subtle gradient on top edge that blends with player bar above */}
-      {isPlayerVisible && (
+      {/* Subtle gradient on top edge — only when no player */}
+      {!isPlayerVisible && (
         <div
           className="absolute -top-6 left-0 right-0 h-6 pointer-events-none"
           style={{
@@ -58,13 +58,15 @@ const MobileNav = React.memo(function MobileNav() {
         />
       )}
 
-      {/* Top border accent line */}
-      <div
-        className="absolute top-0 left-0 right-0 h-px"
-        style={{
-          background: "linear-gradient(90deg, transparent, var(--mq-glass-border-hover), transparent)",
-        }}
-      />
+      {/* Top border accent line — only when no player */}
+      {!isPlayerVisible && (
+        <div
+          className="absolute top-0 left-0 right-0 h-px"
+          style={{
+            background: "linear-gradient(90deg, transparent, var(--mq-glass-border-hover), transparent)",
+          }}
+        />
+      )}
 
       <div
         className={`flex items-center justify-around ${

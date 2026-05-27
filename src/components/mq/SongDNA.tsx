@@ -198,7 +198,8 @@ const fadeUp = {
 
 // ── Main Component ────────────────────────────────────────────
 export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
-  const { playTrack, isPlaying } = useAppStore();
+  const playTrack = useAppStore((s) => s.playTrack);
+  const isPlaying = useAppStore((s) => s.isPlaying);
   const [similarTracks, setSimilarTracks] = useState<Track[]>([]);
   const [similarLoading, setSimilarLoading] = useState(false);
   const [dnaAnimated, setDnaAnimated] = useState(false);

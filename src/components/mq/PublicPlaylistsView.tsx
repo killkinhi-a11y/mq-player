@@ -21,22 +21,20 @@ const sortOptions = [
 ];
 
 export default function PublicPlaylistsView() {
-  const {
-    userId,
-    publicPlaylists: publicPlaylistsData,
-    recommendedPlaylists: recommendedPlaylistsData,
-    publicPlaylistsLoading: publicPlaylistsLoadingData,
-    recommendedPlaylistsLoading: recommendedPlaylistsLoadingData,
-    fetchPublicPlaylists,
-    fetchPlaylistRecommendations,
-    togglePlaylistLike,
-    addDislikedTags,
-    dislikedTags,
-    publishPlaylist,
-    playTrack,
-    animationsEnabled,
-    setSelectedArtist,
-  } = useAppStore();
+  const userId = useAppStore((s) => s.userId);
+  const publicPlaylistsData = useAppStore((s) => s.publicPlaylists);
+  const recommendedPlaylistsData = useAppStore((s) => s.recommendedPlaylists);
+  const publicPlaylistsLoadingData = useAppStore((s) => s.publicPlaylistsLoading);
+  const recommendedPlaylistsLoadingData = useAppStore((s) => s.recommendedPlaylistsLoading);
+  const fetchPublicPlaylists = useAppStore((s) => s.fetchPublicPlaylists);
+  const fetchPlaylistRecommendations = useAppStore((s) => s.fetchPlaylistRecommendations);
+  const togglePlaylistLike = useAppStore((s) => s.togglePlaylistLike);
+  const addDislikedTags = useAppStore((s) => s.addDislikedTags);
+  const dislikedTags = useAppStore((s) => s.dislikedTags);
+  const publishPlaylist = useAppStore((s) => s.publishPlaylist);
+  const playTrack = useAppStore((s) => s.playTrack);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
 
   const publicPlaylists = publicPlaylistsData as any as PublicPlaylist[];
   const recommendedPlaylists = recommendedPlaylistsData as any as PublicPlaylist[];
@@ -477,7 +475,7 @@ function EmptyState({ icon, text, hint }: { icon: React.ReactNode; text: string;
 }
 
 function PlaylistSelector({ onSelect, selectedId }: { onSelect: (id: string) => void; selectedId: string }) {
-  const { playlists } = useAppStore();
+  const playlists = useAppStore((s) => s.playlists);
   if (playlists.length === 0) {
     return (
       <p className="text-xs text-center py-4" style={{ color: "var(--mq-text-muted)" }}>

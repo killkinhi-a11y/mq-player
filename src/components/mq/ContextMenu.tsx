@@ -18,12 +18,21 @@ interface ContextMenuProps {
 }
 
 export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) {
-  const {
-    playTrack, queue, toggleLike, toggleDislike,
-    isTrackLiked, isTrackDisliked, setFullTrackViewOpen,
-    playlists, addToPlaylist, createPlaylist, requestShowSimilar,
-    setSelectedArtist, favoriteArtists, addFavoriteArtist, removeFavoriteArtist,
-  } = useAppStore();
+  const playTrack = useAppStore((s) => s.playTrack);
+  const queue = useAppStore((s) => s.queue);
+  const toggleLike = useAppStore((s) => s.toggleLike);
+  const toggleDislike = useAppStore((s) => s.toggleDislike);
+  const isTrackLiked = useAppStore((s) => s.isTrackLiked);
+  const isTrackDisliked = useAppStore((s) => s.isTrackDisliked);
+  const setFullTrackViewOpen = useAppStore((s) => s.setFullTrackViewOpen);
+  const playlists = useAppStore((s) => s.playlists);
+  const addToPlaylist = useAppStore((s) => s.addToPlaylist);
+  const createPlaylist = useAppStore((s) => s.createPlaylist);
+  const requestShowSimilar = useAppStore((s) => s.requestShowSimilar);
+  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
+  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
+  const addFavoriteArtist = useAppStore((s) => s.addFavoriteArtist);
+  const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const isLiked = isTrackLiked(track.id);

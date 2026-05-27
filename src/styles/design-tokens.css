@@ -126,7 +126,7 @@
   /* Ambient/Glow System */
   --mq-ambient-opacity: 0.06;
   --mq-ambient-size: 400px;
-  --mq-ambient-blur: 120px;
+  --mq-ambient-blur: 60px;
 }
 
 /* Shimmer keyframe animation for skeleton loading */
