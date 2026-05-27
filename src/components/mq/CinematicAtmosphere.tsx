@@ -28,13 +28,15 @@ export default function CinematicAtmosphere() {
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(() => {
       const root = document.documentElement.style;
-      root.setProperty("--mq-accent", colors.primary);
-      root.setProperty("--mq-accent-rgb", `${colors.rgb.r}, ${colors.rgb.g}, ${colors.rgb.b}`);
+      // ── DO NOT override theme accent (--mq-accent) from cover art! ──
+      // The user's chosen theme must be respected. Art colors are stored
+      // in dedicated --mq-art-* variables for optional use only.
       root.setProperty("--mq-art-primary", colors.primary);
       root.setProperty("--mq-art-secondary", colors.secondary);
       root.setProperty("--mq-art-muted", colors.muted);
       root.setProperty("--mq-art-vibrant", colors.vibrant);
       root.setProperty("--mq-art-dark", colors.dark);
+      root.setProperty("--mq-art-primary-rgb", `${colors.rgb.r}, ${colors.rgb.g}, ${colors.rgb.b}`);
     });
 
     return () => cancelAnimationFrame(rafRef.current);
