@@ -1873,15 +1873,6 @@ export default function FullTrackView() {
   const isLiked = currentTrack ? safeLikedIds.includes(currentTrack.id) : false;
   const isDisliked = currentTrack ? safeDislikedIds.includes(currentTrack.id) : false;
 
-  // Deterministic waveform bar heights (avoids Math.random() in render)
-  const waveformBarHeights = useMemo(() =>
-    Array.from({ length: 80 }, (_, i) => 6 + Math.sin(i * 0.3) * 8 + Math.cos(i * 0.7) * 4 + (((i * 7 + 13) % 17) / 17) * 3),
-  []);
-  // Deterministic skeleton widths (avoids Math.random() in render)
-  const skeletonWidths = useMemo(() =>
-    Array.from({ length: 6 }, (_, i) => 40 + (((i * 11 + 7) % 13) / 13) * 50),
-  []);
-
   const fullTrackContent = (
     <AnimatePresence>
       <motion.div
