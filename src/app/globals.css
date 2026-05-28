@@ -886,8 +886,34 @@ html.liquid-glass-theme body::after {
 }
 @media (max-width: 639px) {
   .mobile-player-above-nav {
-    /* MobileNav: 50px fixed height + safe-area */
+    /* Exact pixel match to nav height — no sub-pixel gap.
+       Use integer 50px (not a calc that could produce fractional values). */
     bottom: calc(50px + env(safe-area-inset-bottom, 0px));
+    /* Prevent any transform or animation from creating fractional positioning */
+    transform: translateZ(0);
+  }
+}
+
+/* On sm+ desktop: restore the rounded top corners (there's no nav bar below) */
+@media (min-width: 640px) {
+  .mobile-player-inner {
+    border-radius: 0 !important;  /* desktop player goes full-width at the bottom, no rounding needed */
+  }
+}
+
+/* ── Player + Nav unified visual block ──
+   On mobile the player bar and bottom nav form ONE visual unit.
+   They share the same background, the player's top border is the
+   only visual separator from content above. The nav has no top border
+   of its own — the player's bottom edge is the shared boundary. */
+@media (max-width: 639px) {
+  .mobile-player-inner {
+    /* Same backdrop as nav so they look continuous */
+    background-color: var(--mq-player-bg) !important;
+    /* No rounding — flush against nav below */
+    border-radius: 0 !important;
+    /* Shadow only upward — not between player and nav */
+    box-shadow: 0 -6px 32px rgba(0,0,0,0.35) !important;
   }
 }
 

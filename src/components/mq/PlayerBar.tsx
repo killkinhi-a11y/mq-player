@@ -745,8 +745,10 @@ const PlayerBar = React.memo(function PlayerBar() {
                 WebkitBackdropFilter: "blur(24px) saturate(160%)",
                 borderTop: "1px solid rgba(255,255,255,0.06)",
                 boxShadow: "0 -8px 40px rgba(0,0,0,0.3)",
-                borderRadius: "16px 16px 0 0",
-                // NOTE: do NOT use contain:layout or contain:paint here — it clips Portal-rendered menus (context menu, more menu)
+                // No border-radius on mobile — the nav bar sits flush below,
+                // rounding creates a visible "floating" gap between the two.
+                // On desktop (sm+) radius is applied via the media query below.
+                borderRadius: "0",
                 overflow: "visible",
               }}
             >
@@ -765,7 +767,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                   pointerEvents: "none",
                   transition: "background 0.8s ease",
                   zIndex: 0,
-                  borderRadius: "16px 16px 0 0",
+                  borderRadius: 0,
                 }}
               />
               {/* ── Visualizer canvas ── */}

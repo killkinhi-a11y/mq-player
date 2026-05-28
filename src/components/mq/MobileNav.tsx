@@ -108,18 +108,22 @@ export default function MobileNav() {
         role="navigation"
         aria-label="Основная навигация"
         style={{
-          background: "var(--mq-glass-bg)",
+          // Same bg as player bar (--mq-player-bg = #111111) so the two
+          // look like one connected dock, not two separate floating panels.
+          background: "var(--mq-player-bg, #111111)",
           backdropFilter: "var(--mq-glass-blur)",
           WebkitBackdropFilter: "var(--mq-glass-blur)",
-          borderTop: "0.5px solid var(--mq-glass-border)",
+          // No top border here — the player bar's bottom edge is the separator.
+          // Adding another border creates a double-line that emphasises the gap.
+          borderTop: "none",
           paddingBottom: "env(safe-area-inset-bottom, 0px)",
           height: "calc(50px + env(safe-area-inset-bottom, 0px))",
         }}
       >
-        {/* Accent hairline */}
+        {/* Very subtle inner separator between player content and nav tabs */}
         <div
-          className="absolute top-0 inset-x-0 h-px pointer-events-none"
-          style={{ background: "linear-gradient(90deg, transparent 0%, var(--mq-accent) 50%, transparent 100%)", opacity: 0.3 }}
+          className="absolute top-0 inset-x-6 h-px pointer-events-none"
+          style={{ background: "rgba(255,255,255,0.06)" }}
         />
 
         <div className="flex items-center h-[50px]">
