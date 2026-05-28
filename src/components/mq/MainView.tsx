@@ -619,33 +619,12 @@ function detectLang(text: string): "russian" | "english" | "latin" | "other" {
 }
 
 export default function MainView() {
-  // ── Zustand selectors (prevents re-renders from unrelated store changes) ──
-  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
-  const playTrack = useAppStore((s) => s.playTrack);
-  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
-  const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
-  const likedTracksData = useAppStore((s) => s.likedTracksData);
-  const dislikedTracksData = useAppStore((s) => s.dislikedTracksData);
-  const history = useAppStore((s) => s.history);
-  const playlists = useAppStore((s) => s.playlists);
-  const setView = useAppStore((s) => s.setView);
-  const contacts = useAppStore((s) => s.contacts);
-  const messages = useAppStore((s) => s.messages);
-  const userId = useAppStore((s) => s.userId);
-  const compactMode = useAppStore((s) => s.compactMode);
-  const currentTrack = useAppStore((s) => s.currentTrack);
-  const isPlaying = useAppStore((s) => s.isPlaying);
-  const setSearchQuery = useAppStore((s) => s.setSearchQuery);
-  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
-  const selectedArtist = useAppStore((s) => s.selectedArtist);
-  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
-  const addFavoriteArtist = useAppStore((s) => s.addFavoriteArtist);
-  const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
-  const radioMode = useAppStore((s) => s.radioMode);
-  const upNext = useAppStore((s) => s.upNext);
-  const queue = useAppStore((s) => s.queue);
-  const progress = useAppStore((s) => s.progress);
-  const duration = useAppStore((s) => s.duration);
+  const {
+    animationsEnabled, playTrack, likedTrackIds, dislikedTrackIds, likedTracksData, dislikedTracksData,
+    history, playlists, setView, contacts, messages, userId, compactMode, currentTrack, isPlaying,
+    setSearchQuery, favoriteArtists, selectedArtist, setSelectedArtist,
+    addFavoriteArtist, removeFavoriteArtist, radioMode, upNext, queue, progress, duration,
+  } = useAppStore();
 
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
   const [recommendations, setRecommendations] = useState<Track[]>([]);
@@ -666,44 +645,36 @@ export default function MainView() {
   const [waveLoading, setWaveLoading] = useState(false);
   const [showLikedTracks, setShowLikedTracks] = useState(false);
 
-  // Mouse position for hero parallax effect (refs only — no setState to avoid re-renders)
+  // Mouse position for hero parallax effect - direct DOM, zero React re-renders
   const heroRef = useRef<HTMLDivElement>(null);
-  const heroOrb1Ref = useRef<HTMLDivElement>(null);
-  const heroOrb2Ref = useRef<HTMLDivElement>(null);
-  const heroScrollData = useRef({ scrollY: 0, opacity: 1 });
-  const curatedHeroRef = useRef<HTMLDivElement>(null);
+  const orb1Ref = useRef<HTMLDivElement>(null);
+  const orb2Ref = useRef<HTMLDivElement>(null);
+  const heroOpacityRef = useRef<HTMLDivElement>(null);
+  const mousePos = useRef({ x: 0, y: 0 });
   const mainRef = useRef<HTMLDivElement>(null);
 
-  // Track mouse for hero parallax orbs (direct DOM mutation — zero re-renders)
+  // Track mouse for hero parallax orbs — direct DOM mutation, zero React re-renders
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
+      mousePos.current = { x: e.clientX, y: e.clientY };
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
-      const dx = (e.clientX - cx) / cx; // -1..1
-      const dy = (e.clientY - cy) / cy; // -1..1
-      if (heroOrb1Ref.current) {
-        heroOrb1Ref.current.style.transform = `translate(${dx * 20}px, ${dy * 15}px)`;
-      }
-      if (heroOrb2Ref.current) {
-        heroOrb2Ref.current.style.transform = `translate(${dx * -12}px, ${dy * -10}px)`;
-      }
+      const dx = (e.clientX - cx) / cx;
+      const dy = (e.clientY - cy) / cy;
+      if (orb1Ref.current) orb1Ref.current.style.transform = `translate(${dx * 20}px, ${dy * 15}px)`;
+      if (orb2Ref.current) orb2Ref.current.style.transform = `translate(${dx * -12}px, ${dy * -10}px)`;
     };
     window.addEventListener("mousemove", handleMouseMove, { passive: true });
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
-  // Track scroll for hero parallax + fade (direct DOM mutation — zero re-renders)
+  // Track scroll — direct DOM mutation, zero React re-renders
   useEffect(() => {
     const handleScroll = () => {
       const scrollY = window.scrollY || document.documentElement.scrollTop;
-      const opacity = Math.max(0, 1 - scrollY / 400);
-      heroScrollData.current = { scrollY, opacity };
-      if (heroRef.current) {
-        heroRef.current.style.opacity = String(opacity);
-        heroRef.current.style.transform = `translateY(${scrollY * 0.15}px)`;
-      }
-      if (curatedHeroRef.current) {
-        curatedHeroRef.current.style.transform = `translateY(${scrollY * 0.05}px)`;
+      if (heroOpacityRef.current) {
+        heroOpacityRef.current.style.opacity = String(Math.max(0, 1 - scrollY / 400));
+        heroOpacityRef.current.style.transform = `translateY(${scrollY * 0.15}px)`;
       }
     };
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -885,6 +856,8 @@ export default function MainView() {
         if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
         if (excludeIds) params.set("excludeIds", excludeIds);
       } else {
+        // No taste data yet — tell server to use cold-start seed genres.
+        // (Previously sent `genre=random` which the server silently ignored.)
         params.set("wave", "1");
       }
       if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
@@ -1071,8 +1044,11 @@ export default function MainView() {
       if (dislikedArtists) params.set("dislikedArtists", dislikedArtists);
       if (dislikedGenres) params.set("dislikedGenres", dislikedGenres);
       if (recentIds) params.set("recentIds", recentIds);
+      if (languagePreference !== "mixed") params.set("lang", languagePreference);
 
-      // Send liked SC IDs for related track discovery
+      // Signal Wave mode — server uses cold-start seed genres if no taste data
+      params.set("wave", "1");
+
       const likedScIds = useAppStore.getState().likedTracksData
         .map((t: any) => t.scTrackId)
         .filter((id: any): id is number => !!id)
@@ -1080,26 +1056,22 @@ export default function MainView() {
         .join(",");
       if (likedScIds) params.set("likedScIds", likedScIds);
 
-      if (languagePreference !== "mixed") params.set("lang", languagePreference);
+      const historyScIds = useAppStore.getState().history.slice(0, 10)
+        .map((h: any) => h.track?.scTrackId)
+        .filter((id: any): id is number => !!id)
+        .join(",");
+      if (historyScIds) params.set("historyScIds", historyScIds);
 
       const res = await fetch(`/api/music/recommendations?${params}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       let tracks: Track[] = (data.tracks || []).filter((t: Track) => !disliked.includes(t.id));
 
-      // Fallback: if no taste data, just get random recommendations
-      if (tracks.length === 0) {
-        const fallbackRes = await fetch("/api/music/recommendations?wave=1&limit=20");
-        const fallbackData = await fallbackRes.json();
-        tracks = (fallbackData.tracks || []).filter((t: Track) => !disliked.includes(t.id));
-      }
-
       if (tracks.length > 0) {
-        // Shuffle for variety
         for (let i = tracks.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
         }
-        // Enable radio mode so queue auto-refills when tracks end
         const state = useAppStore.getState();
         if (!state.radioMode) state.toggleRadioMode();
         playTrack(tracks[0], tracks);
@@ -1335,7 +1307,7 @@ export default function MainView() {
     const isVerified = (selectedArtist.followers || 0) >= 100_000;
 
     return (
-      <div className={`${compactMode ? "pb-24 lg:pb-24" : "pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
+      <div className={`${compactMode ? "pb-[148px] sm:pb-24 lg:pb-24" : "pb-[148px] sm:pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
         {/* Hero header with blurred background */}
         <div className="relative overflow-hidden">
           {/* Blurred avatar background */}
@@ -1571,7 +1543,7 @@ export default function MainView() {
   if (selectedRecCategory) {
     const cat = selectedRecCategory;
     return (
-      <div className={`${compactMode ? "p-3 lg:p-4 pb-24 lg:pb-24" : "p-4 lg:p-6 pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-[148px] sm:pb-24 lg:pb-24" : "p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
         {/* Back button */}
         <motion.button
           initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
@@ -1663,7 +1635,7 @@ export default function MainView() {
   // ── Curated playlist detail view ──
   if (selectedCurated) {
     return (
-      <div className={`${compactMode ? "p-3 lg:p-4 pb-24 lg:pb-24" : "p-4 lg:p-6 pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-[148px] sm:pb-24 lg:pb-24" : "p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
         {/* Back button */}
         <motion.button
           initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
@@ -1777,43 +1749,41 @@ export default function MainView() {
   }
 
   return (
-    <div ref={mainRef} className="p-4 sm:p-5 lg:p-6 pb-24 lg:pb-28 max-w-6xl mx-auto relative" style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
+    <div ref={mainRef} className="p-4 sm:p-5 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28 max-w-6xl mx-auto relative" style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
       {/* Cursor Spotlight — global mouse glow */}
       <CursorSpotlight />
 
       {/* ── Cinematic Hero Section ── */}
       <div
-        ref={heroRef}
+        ref={heroOpacityRef}
         className="relative mb-10 overflow-hidden rounded-3xl"
-        style={{ transition: "opacity 0.1s, transform 0.1s" }}
+        style={{ transition: "opacity 0.1s, transform 0.1s", willChange: "transform, opacity" }}
       >
         {/* Dynamic gradient background */}
         <div className="mq-hero-gradient absolute inset-0" />
 
-        {/* Floating gradient orb 1 */}
-        <motion.div
-          ref={heroOrb1Ref}
+        {/* Floating gradient orb 1 — direct DOM via ref, zero re-renders */}
+        <div
+          ref={orb1Ref}
           className="absolute w-[300px] h-[300px] rounded-full pointer-events-none"
           style={{
             background: "radial-gradient(circle, color-mix(in srgb, var(--mq-accent) 20%, transparent) 0%, transparent 70%)",
             top: "-20%",
             left: "5%",
+            willChange: "transform",
           }}
-          animate={{ scale: [1, 1.1, 1], opacity: [0.6, 0.8, 0.6] }}
-          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
         />
 
-        {/* Floating gradient orb 2 */}
-        <motion.div
-          ref={heroOrb2Ref}
+        {/* Floating gradient orb 2 — direct DOM via ref */}
+        <div
+          ref={orb2Ref}
           className="absolute w-[220px] h-[220px] rounded-full pointer-events-none"
           style={{
             background: "radial-gradient(circle, color-mix(in srgb, var(--mq-accent) 12%, transparent) 0%, transparent 70%)",
             bottom: "-10%",
             right: "10%",
+            willChange: "transform",
           }}
-          animate={{ scale: [1.05, 0.95, 1.05], opacity: [0.5, 0.7, 0.5] }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: 1 }}
         />
 
         {/* Scroll progress bar at top of hero */}
@@ -1922,7 +1892,7 @@ export default function MainView() {
           />
 
           {/* Subtle noise texture overlay */}
-          <div className="absolute inset-0 pointer-events-none" style={{ opacity: 0.02, backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "256px 256px" }} />
+          <div className="absolute inset-0 pointer-events-none" style={{ opacity: 0.08, backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px 128px" }} />
 
           {/* Animated wave background when playing */}
           {radioMode && currentTrack && (
@@ -2155,7 +2125,7 @@ export default function MainView() {
                     onClick={() => setSelectedCurated(pl)}
                     className={`${i === 0 ? "mq-hero-card" : "mq-card-cinematic"} flex-shrink-0 w-36 h-52 sm:w-44 sm:h-60 relative cursor-pointer group`}
                   >
-                    <div ref={i === 0 ? curatedHeroRef : undefined} className="absolute inset-0 overflow-hidden">
+                    <div className="absolute inset-0 overflow-hidden">
                       <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className={`!w-full !h-full group-hover:scale-110 transition-transform duration-700 mq-cover-shadow ${i === 0 ? "group-hover:scale-[1.15]" : ""}`} />
                     </div>
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />

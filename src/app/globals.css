@@ -317,19 +317,82 @@ motion-div, motion-button, motion-span {
   .mq-breathe-glow {
     animation: none !important;
   }
+}
 
-  /* Remove all noise/grain texture overlays */
-  .CinematicAtmosphere > div:nth-child(3),
-  html.liquid-glass-theme body::after {
-    opacity: 0 !important;
-    display: none !important;
+/* ══════════════════════════════════════════════════════════════════
+   MOBILE UX — Performance, touch, scroll, safe areas
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Kill tap flash on all interactive elements */
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation; /* faster tap, no 300ms delay */
+}
+
+/* Prevent content shift when keyboard opens on iOS */
+@supports (-webkit-touch-callout: none) {
+  .mq-scroll-view {
+    -webkit-overflow-scrolling: touch;
   }
+}
+
+/* Horizontal scroll containers — momentum scroll on iOS */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
+/* ── Mobile-only spacing helpers ── */
+@media (max-width: 639px) {
+  /* Tighter section headers on small screens */
+  .mq-section-header {
+    margin-bottom: 10px !important;
+  }
+
+  /* Track cards: full bleed row with less horizontal padding */
+  .mq-track-row {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  /* Hero section: compact on mobile */
+  .mq-hero-section {
+    margin-bottom: 20px !important;
+    border-radius: 16px !important;
+  }
+
+  /* Genre chips: smaller on mobile */
+  .mq-genre-chip {
+    padding: 5px 10px !important;
+    font-size: 11px !important;
+  }
+
+  /* Wave button: full-width on mobile */
+  .mq-wave-button-mobile {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ── Player bar height CSS var for consistent spacing ── */
+:root {
+  --mq-player-height-mobile: 90px;
+  --mq-nav-height-mobile: 50px;
+  --mq-bottom-safe: calc(var(--mq-player-height-mobile) + var(--mq-nav-height-mobile) + env(safe-area-inset-bottom, 0px));
+}
+
+/* Smooth momentum scrolling on all scroll containers */
+* {
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Disable transitions during page load */
 .no-transition * {
   transition: none !important;
 }
+
 
 /* Pulse animation for active player */
 @keyframes glow-pulse {
@@ -454,7 +517,7 @@ html.liquid-glass-theme body::after {
   position: fixed;
   inset: 0;
   z-index: -1;
-  opacity: 0.012;
+  opacity: 0.03;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 256px 256px;
@@ -820,38 +883,11 @@ html.liquid-glass-theme body::after {
 /* Mobile player sits above the bottom navigation bar */
 .mobile-player-above-nav {
   bottom: 0;
-  /* Desktop: safe area handled by inner div */
 }
-@media (max-width: 1023px) {
+@media (max-width: 639px) {
   .mobile-player-above-nav {
-    bottom: 50px; /* MobileNav height */
-    box-shadow: 0 -8px 40px rgba(0,0,0,0.25);
-  }
-  /* ── Unified bottom panel: player + nav as one surface ── */
-  .mobile-player-inner {
-    border-radius: 0 !important;
-    box-shadow: none !important;
-    border-top: none !important;
-  }
-  .mobile-player-glow {
-    border-radius: 0 !important;
-  }
-  /* Thin separator between player and nav inside the unified panel */
-  .mobile-player-inner::after {
-    content: "";
-    position: absolute;
-    bottom: 0;
-    left: 16px;
-    right: 16px;
-    height: 1px;
-    background: rgba(255,255,255,0.06);
-    pointer-events: none;
-  }
-}
-/* Desktop: player bar needs safe-area padding since it's at the very bottom */
-@media (min-width: 1024px) {
-  .mobile-player-inner {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    /* MobileNav: 50px fixed height + safe-area */
+    bottom: calc(50px + env(safe-area-inset-bottom, 0px));
   }
 }
 
@@ -860,12 +896,13 @@ html.liquid-glass-theme body::after {
   padding-bottom: 90px;
   transition: padding-bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
-@media (max-width: 1023px) {
+@media (max-width: 639px) {
   .mq-has-player {
-    padding-bottom: 140px; /* player (90px) + nav (50px) */
+    /* player (90px) + nav (50px) + safe area */
+    padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
   }
 }
-@media (min-width: 1024px) {
+@media (min-width: 640px) {
   .mq-has-player {
     padding-bottom: 64px; /* desktop player height */
   }
@@ -953,27 +990,6 @@ a:not([data-framer-motion-id]),
     min-height: 44px;
     min-width: 44px;
   }
-  .mq-player-controls {
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  img, .mq-track-cover {
-    -webkit-touch-callout: none;
-  }
-}
-
-/* Safe-area utility classes */
-.mq-safe-bottom {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
-.mq-safe-top {
-  padding-top: env(safe-area-inset-top, 0px);
-}
-.mq-safe-left {
-  padding-left: env(safe-area-inset-left, 0px);
-}
-.mq-safe-right {
-  padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Album art shadow for full player */
@@ -1050,8 +1066,8 @@ a:not([data-framer-motion-id]),
 
 /* Full player blurred background */
 .mq-full-player-bg {
-  filter: blur(40px) saturate(150%);
-  transform: scale(1.15);
+  filter: blur(80px) saturate(180%);
+  transform: scale(1.25);
   opacity: 0.4;
 }
 
@@ -1615,8 +1631,8 @@ textarea:focus-visible {
 
 /* ── Cinematic background blur ── */
 .mq-cinematic-blur {
-  backdrop-filter: blur(30px) saturate(160%) brightness(0.7);
-  -webkit-backdrop-filter: blur(30px) saturate(160%) brightness(0.7);
+  backdrop-filter: blur(60px) saturate(200%) brightness(0.7);
+  -webkit-backdrop-filter: blur(60px) saturate(200%) brightness(0.7);
 }
 
 /* ── Gradient text for active titles ── */

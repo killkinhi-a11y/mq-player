@@ -269,7 +269,7 @@ export default function FavoritesView() {
 
   return (
     <div
-      className={`${compactMode ? "p-3 lg:p-4 pb-24 lg:pb-28" : "p-4 lg:p-6 pb-24 lg:pb-28"} max-w-2xl mx-auto`}
+      className={`${compactMode ? "p-3 lg:p-4 pb-[148px] sm:pb-24 lg:pb-28" : "p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28"} max-w-2xl mx-auto`}
       onClick={handleSortOutsideClick}
     >
       {/* ── Header ── */}

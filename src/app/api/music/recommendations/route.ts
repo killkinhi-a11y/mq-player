@@ -98,11 +98,6 @@ const GENRE_QUERIES: Record<string, string[]> = {
   "k-pop": ["k-pop 2025", "kpop new", "korean pop", "kpop ballad", "kpop dance"],
 };
 
-// ── Cold-start seed genres for new users with no taste data ──
-const COLD_START_SEED_GENRES = [
-  "lo-fi", "hip-hop", "indie", "electronic", "chill", "pop", "alternative", "rnb",
-];
-
 // ── Mood extraction from title keywords ──
 type Mood = "chill" | "bassy" | "melodic" | "dark" | "upbeat" | "romantic" | "aggressive" | "dreamy";
 
@@ -1078,16 +1073,29 @@ async function handler(request: NextRequest) {
   const sessionMood = buildSessionMood(sessionTracks);
 
   // Merge session genres into user genres
-  let allGenres = [...new Set([...genres, ...sessionMood.dominantGenres])].slice(0, 6);
+  // ── Handle cold-start (no taste data at all) and wave=1 / legacy genre=random ──
+  // When a brand-new user opens Wave they have no liked tracks, no history, no genres.
+  // ALL three phases were gated on having data → empty trackMap → 0 tracks.
+  // Fix: detect cold-start and inject seed genres so Phase 3 fires.
+  const legacySingleGenre = searchParams.get("genre") || "";
+  const isWaveRequest = searchParams.get("wave") === "1" || legacySingleGenre === "random";
+  const isAbsoluteColdStart = genres.length === 0 && likedScIds.length === 0 && historyScIds.length === 0;
 
-  // ── Absolute cold-start detection & genre seed injection ──
-  // When a new user has zero taste data, inject random seed genres so all phases fire
-  const isAbsoluteColdStart = allGenres.length === 0 && likedScIds.length === 0 && historyScIds.length === 0;
-  const isRandomFallback = searchParams.get("genre") === "random" || searchParams.get("wave") === "1";
-  if (isAbsoluteColdStart || isRandomFallback) {
-    const seedGenres = COLD_START_SEED_GENRES.sort(() => Math.random() - 0.5).slice(0, 3);
-    allGenres.push(...seedGenres);
-    console.log(`[rec] Cold-start seed injected: ${seedGenres.join(", ")}`);
+  const COLD_START_POOL = [
+    "lo-fi", "hip-hop", "indie", "electronic", "pop", "chill",
+    "r&b", "jazz", "synthwave", "ambient", "house", "soul",
+  ];
+
+  const allGenresRaw = [...new Set([...genres, ...sessionMood.dominantGenres])].slice(0, 6);
+
+  let allGenres: string[];
+  if (isAbsoluteColdStart || isWaveRequest) {
+    // Pick 3 random seed genres for variety across requests
+    const pool = [...COLD_START_POOL].sort(() => Math.random() - 0.5);
+    // Prefer seed genres as first entries, merge with any actual genres
+    allGenres = [...new Set([...pool.slice(0, 3), ...allGenresRaw])].slice(0, 6);
+  } else {
+    allGenres = allGenresRaw;
   }
 
   // Language preference: explicit param > session analysis > mixed
@@ -1157,7 +1165,8 @@ async function handler(request: NextRequest) {
     // PHASE 3: GENRE FALLBACK (low priority, ~15%)
     // Only used if we don't have enough data from phases 1-2
     // ════════════════════════════════════════════════
-    const needGenreFallback = (likedScIds.length < CFG.phases.genreFallback.minLikedForSkip && historyScIds.length < CFG.phases.genreFallback.minHistoryForSkip) || isAbsoluteColdStart || isRandomFallback;
+    const needGenreFallback = isAbsoluteColdStart || isWaveRequest
+      || (likedScIds.length < CFG.phases.genreFallback.minLikedForSkip && historyScIds.length < CFG.phases.genreFallback.minHistoryForSkip);
 
     const genreSearchPromises: Promise<SCTrack[]>[] = [];
     if (needGenreFallback && allGenres.length > 0) {
@@ -1186,7 +1195,7 @@ async function handler(request: NextRequest) {
     const bridgeSearchPromises: Promise<SCTrack[]>[] = [];
     if (allGenres.length > 0) {
       const bridgeGenres = getBridgeGenres(allGenres.slice(0, 3));
-      const bridgeLimit = (isColdStart || isAbsoluteColdStart) ? 5 : 3;
+      const bridgeLimit = isColdStart ? 5 : 3;
       for (const bg of bridgeGenres.slice(0, bridgeLimit)) {
         const templates = GENRE_QUERIES[bg];
         if (templates) {

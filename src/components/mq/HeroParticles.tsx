@@ -21,6 +21,12 @@ export default function HeroParticles() {
   const animRef = useRef<number>(0);
   const accentRef = useRef({ r: 224, g: 49, b: 49 });
 
+  // Skip entirely on mobile — 25 particles at 60fps still burns battery
+  // and the effect is barely visible on small screens
+  if (typeof window !== "undefined" && window.innerWidth < 640) {
+    return null;
+  }
+
   const initParticles = useCallback((w: number, h: number) => {
     const particles: Particle[] = [];
     const count = Math.min(Math.floor((w * h) / 8000), 80);

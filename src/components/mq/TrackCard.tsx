@@ -47,16 +47,16 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const toggleLike = useAppStore((s) => s.toggleLike);
   const toggleDislike = useAppStore((s) => s.toggleDislike);
-  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
-  const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
   const compactMode = useAppStore((s) => s.compactMode);
 
-  // O(1) Set lookups instead of O(n) .includes() on arrays
-  const likedSet = useMemo(() => new Set(Array.isArray(likedTrackIds) ? likedTrackIds : []), [likedTrackIds]);
-  const dislikedSet = useMemo(() => new Set(Array.isArray(dislikedTrackIds) ? dislikedTrackIds : []), [dislikedTrackIds]);
+  // O(1) direct Set membership checks — subscribe to the ID directly, not the whole array
   const isActive = currentTrackId === track.id;
-  const isLiked = likedSet.has(track.id);
-  const isDisliked = dislikedSet.has(track.id);
+  const isLiked = useAppStore((s) =>
+    Array.isArray(s.likedTrackIds) && s.likedTrackIds.includes(track.id)
+  );
+  const isDisliked = useAppStore((s) =>
+    Array.isArray(s.dislikedTrackIds) && s.dislikedTrackIds.includes(track.id)
+  );
 
   // Track like/dislike animation state
   const [likePulse, setLikePulse] = useState(false);

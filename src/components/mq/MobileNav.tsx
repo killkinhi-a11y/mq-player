@@ -1,187 +1,202 @@
 "use client";
 
-import React from "react";
-import { motion } from "framer-motion";
+import { useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { Home, Search, MessageCircle, Settings, ListMusic, Heart, Library, User } from "lucide-react";
+import { Home, Search, Heart, ListMusic, MoreHorizontal, MessageCircle, History, User, Settings, X } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
-const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
-  { id: "main", icon: Home, label: "Главная" },
-  { id: "search", icon: Search, label: "Поиск" },
-  { id: "library", icon: Library, label: "Библиотека" },
-  { id: "settings", icon: User, label: "Профиль", badgeKey: "messenger" },
+// Primary 4 tabs — always visible
+const PRIMARY: { id: ViewType; icon: typeof Home; label: string }[] = [
+  { id: "main",      icon: Home,      label: "Главная"   },
+  { id: "search",    icon: Search,    label: "Поиск"     },
+  { id: "favorites", icon: Heart,     label: "Треки"     },
+  { id: "playlists", icon: ListMusic, label: "Плейлисты" },
 ];
 
-const MobileNav = React.memo(function MobileNav() {
-  const currentView = useAppStore((s) => s.currentView);
-  const setView = useAppStore((s) => s.setView);
-  const compactMode = useAppStore((s) => s.compactMode);
-  const unreadCounts = useAppStore((s) => s.unreadCounts);
-  const supportUnreadCount = useAppStore((s) => s.supportUnreadCount);
-  const currentTrack = useAppStore((s) => s.currentTrack);
-  const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
+// Secondary items shown in the "More" bottom sheet
+const MORE: { id: ViewType; icon: typeof Home; label: string }[] = [
+  { id: "messenger", icon: MessageCircle, label: "Сообщения" },
+  { id: "history",   icon: History,       label: "История"   },
+  { id: "profile",   icon: User,          label: "Профиль"   },
+  { id: "settings",  icon: Settings,      label: "Настройки" },
+];
 
-  const messengerBadge = Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
-  const getBadgeCount = (badgeKey?: string): number => {
-    if (!badgeKey) return 0;
-    if (badgeKey === "messenger") return messengerBadge;
-    if (badgeKey === "settings") return supportUnreadCount;
-    return 0;
+export default function MobileNav() {
+  const { currentView, setView, unreadCounts, supportUnreadCount } = useAppStore();
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  const messengerBadge = Object.values(unreadCounts).reduce((s, c) => s + c, 0) + supportUnreadCount;
+  const moreIsActive = MORE.some(i => i.id === currentView);
+
+  const handleNav = (id: ViewType) => {
+    setView(id);
+    setMoreOpen(false);
   };
 
-  // When player is hidden, the nav should feel like the bottom of the screen
-  const isPlayerVisible = currentTrack && !miniPlayerHidden;
-
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
-      role="navigation"
-      aria-label="Основная навигация"
-      style={{
-        background: isPlayerVisible ? "var(--mq-player-bg)" : "var(--mq-glass-bg)",
-        backdropFilter: "var(--mq-glass-blur)",
-        WebkitBackdropFilter: "var(--mq-glass-blur)",
-        borderTop: isPlayerVisible ? "none" : "1px solid var(--mq-glass-border)",
-        boxShadow: isPlayerVisible ? "none" : "0 -4px 24px rgba(0,0,0,0.2), 0 -1px 6px rgba(0,0,0,0.1)",
-        paddingBottom: "env(safe-area-inset-bottom, 0px)",
-      }}
-    >
-      {/* Subtle gradient on top edge — only when no player */}
-      {!isPlayerVisible && (
+    <>
+      {/* Bottom sheet overlay */}
+      {moreOpen && (
         <div
-          className="absolute -top-6 left-0 right-0 h-6 pointer-events-none"
-          style={{
-            background: "linear-gradient(to top, var(--mq-glass-bg), transparent)",
-            opacity: 0.6,
-          }}
+          className="fixed inset-0 z-[49] bg-black/40"
+          style={{ backdropFilter: "blur(2px)" }}
+          onClick={() => setMoreOpen(false)}
         />
       )}
 
-      {/* Top border accent line — only when no player */}
-      {!isPlayerVisible && (
+      {/* More sheet */}
+      {moreOpen && (
         <div
-          className="absolute top-0 left-0 right-0 h-px"
+          className="fixed left-0 right-0 z-[51] rounded-t-2xl overflow-hidden"
           style={{
-            background: "linear-gradient(90deg, transparent, var(--mq-glass-border-hover), transparent)",
+            bottom: "calc(50px + env(safe-area-inset-bottom, 0px))",
+            background: "var(--mq-surface, #161616)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderBottom: "none",
           }}
-        />
-      )}
-
-      <div
-        className={`flex items-center justify-around ${
-          compactMode ? "py-1.5" : "py-2"
-        } px-2`}
-      >
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = currentView === item.id;
-          const badgeCount = getBadgeCount(item.badgeKey);
-          return (
-            <motion.button
-              key={item.id}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setView(item.id)}
-              aria-label={item.label}
-              aria-current={isActive ? "page" : undefined}
-              tabIndex={0}
-              data-tour={
-                item.id === "search"
-                  ? "search"
-                  : item.id === "settings"
-                    ? "settings"
-                    : undefined
-              }
-              className={`flex flex-col items-center gap-1 ${
-                compactMode
-                  ? "px-3 py-1.5 min-w-[48px] min-h-[48px]"
-                  : "px-4 py-2 min-w-[64px] min-h-[48px]"
-              } cursor-pointer rounded-2xl relative mq-focus-premium`}
-              style={{
-                color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
-                background: "transparent",
-              }}
+        >
+          <div className="flex items-center justify-between px-5 pt-4 pb-2">
+            <span className="text-[13px] font-semibold" style={{ color: "var(--mq-text)" }}>Ещё</span>
+            <button
+              onClick={() => setMoreOpen(false)}
+              className="w-7 h-7 rounded-full flex items-center justify-center"
+              style={{ background: "rgba(255,255,255,0.07)", color: "var(--mq-text-muted)" }}
             >
-              {/* Active glass pill background */}
-              {isActive && (
-                <motion.div
-                  layoutId="mobileNavPill"
-                  className="absolute inset-0 rounded-2xl"
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="grid grid-cols-4 gap-0 px-3 pb-4">
+            {MORE.map(({ id, icon: Icon, label }) => {
+              const active = currentView === id;
+              const badge = id === "messenger" ? messengerBadge : 0;
+              return (
+                <button
+                  key={id}
+                  onClick={() => handleNav(id)}
+                  className="flex flex-col items-center justify-center gap-1.5 py-3 px-2 rounded-2xl relative"
                   style={{
-                    background: "var(--mq-glass-bg-active)",
-                    backdropFilter: "var(--mq-glass-blur)",
-                    WebkitBackdropFilter: "var(--mq-glass-blur)",
-                    border: "1px solid var(--mq-glass-border-hover)",
-                    boxShadow: `var(--mq-shadow-glow), var(--mq-shadow-inner-glow)`,
+                    background: active ? "var(--mq-glass-bg-active, rgba(255,255,255,0.07))" : "transparent",
+                    WebkitTapHighlightColor: "transparent",
                   }}
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                />
-              )}
-
-              <div className="relative z-10">
-                <Icon
-                  className="w-[22px] h-[22px]"
-                  style={
-                    isActive
-                      ? {
-                          color: "var(--mq-accent)",
-                          filter: "drop-shadow(0 0 6px var(--mq-glow))",
-                        }
-                      : undefined
-                  }
-                />
-
-                {/* Glass badge with red dot and pulse */}
-                {badgeCount > 0 && (
-                  <span
-                    className="absolute -top-1.5 -right-2 min-w-[16px] h-[16px] rounded-full flex items-center justify-center text-[9px] font-bold px-0.5"
-                    style={{
-                      background: "var(--mq-glass-bg-active)",
-                      backdropFilter: "blur(12px)",
-                      WebkitBackdropFilter: "blur(12px)",
-                      border: "1px solid var(--mq-glass-border)",
-                      color: "#fff",
-                    }}
-                  >
-                    {/* Red dot with pulse */}
-                    <span
-                      className="absolute -top-px -right-px w-2 h-2 rounded-full"
-                      style={{
-                        backgroundColor: "#ef4444",
-                        boxShadow: "0 0 6px rgba(239,68,68,0.6)",
-                        animation: "mq-badge-pulse 2s ease-in-out infinite",
-                      }}
+                >
+                  <span className="relative">
+                    <Icon
+                      className="w-[22px] h-[22px]"
+                      strokeWidth={active ? 2.2 : 1.7}
+                      style={{ color: active ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                     />
-                    {badgeCount > 99 ? "99" : badgeCount}
+                    {badge > 0 && (
+                      <span className="absolute -top-1 -right-1 w-[14px] h-[14px] rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+                        style={{ background: "#ef4444" }}>
+                        {badge > 9 ? "9+" : badge}
+                      </span>
+                    )}
                   </span>
-                )}
+                  <span className="text-[10px] leading-none" style={{ color: active ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-                {/* Active indicator dot with layoutId */}
-                {isActive && (
-                  <motion.div
-                    layoutId="mobileNavDot"
-                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-1 rounded-full"
-                    style={{
-                      backgroundColor: "var(--mq-accent)",
-                      width: 16,
-                      boxShadow: "0 0 8px var(--mq-glow)",
-                    }}
-                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
+      {/* Nav bar */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
+        role="navigation"
+        aria-label="Основная навигация"
+        style={{
+          background: "var(--mq-glass-bg)",
+          backdropFilter: "var(--mq-glass-blur)",
+          WebkitBackdropFilter: "var(--mq-glass-blur)",
+          borderTop: "0.5px solid var(--mq-glass-border)",
+          paddingBottom: "env(safe-area-inset-bottom, 0px)",
+          height: "calc(50px + env(safe-area-inset-bottom, 0px))",
+        }}
+      >
+        {/* Accent hairline */}
+        <div
+          className="absolute top-0 inset-x-0 h-px pointer-events-none"
+          style={{ background: "linear-gradient(90deg, transparent 0%, var(--mq-accent) 50%, transparent 100%)", opacity: 0.3 }}
+        />
+
+        <div className="flex items-center h-[50px]">
+          {PRIMARY.map(({ id, icon: Icon, label }) => {
+            const active = currentView === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setView(id)}
+                aria-label={label}
+                aria-current={active ? "page" : undefined}
+                className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full outline-none"
+                style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
+              >
+                {active && (
+                  <span
+                    className="absolute inset-x-1.5 inset-y-1.5 rounded-xl pointer-events-none"
+                    style={{ background: "var(--mq-glass-bg-active, rgba(255,255,255,0.06))" }}
                   />
                 )}
-              </div>
+                <Icon
+                  className="w-[19px] h-[19px] relative"
+                  strokeWidth={active ? 2.2 : 1.7}
+                  style={{
+                    color: active ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                    filter: active ? "drop-shadow(0 0 4px var(--mq-glow))" : undefined,
+                    transition: "color 0.12s, filter 0.12s",
+                  }}
+                />
+                <span
+                  className="text-[9px] font-medium leading-none relative"
+                  style={{ color: active ? "var(--mq-accent)" : "var(--mq-text-muted)", transition: "color 0.12s" }}
+                >
+                  {label}
+                </span>
+              </button>
+            );
+          })}
 
+          {/* More button */}
+          <button
+            onClick={() => setMoreOpen(o => !o)}
+            aria-label="Ещё"
+            className="relative flex flex-col items-center justify-center gap-[3px] flex-1 h-full outline-none"
+            style={{ WebkitTapHighlightColor: "transparent", touchAction: "manipulation" }}
+          >
+            {(moreOpen || moreIsActive) && (
               <span
-                className={`${compactMode ? "text-[11px]" : "text-[11px]"} relative z-10 font-medium`}
-              >
-                {item.label}
-              </span>
-            </motion.button>
-          );
-        })}
-      </div>
-    </nav>
+                className="absolute inset-x-1.5 inset-y-1.5 rounded-xl pointer-events-none"
+                style={{ background: "var(--mq-glass-bg-active, rgba(255,255,255,0.06))" }}
+              />
+            )}
+            <span className="relative">
+              <MoreHorizontal
+                className="w-[19px] h-[19px]"
+                strokeWidth={(moreOpen || moreIsActive) ? 2.2 : 1.7}
+                style={{
+                  color: (moreOpen || moreIsActive) ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                  transition: "color 0.12s",
+                }}
+              />
+              {messengerBadge > 0 && !moreOpen && (
+                <span className="absolute -top-1 -right-1 w-[14px] h-[14px] rounded-full flex items-center justify-center text-[8px] font-bold text-white"
+                  style={{ background: "#ef4444", boxShadow: "0 0 6px rgba(239,68,68,0.5)" }}>
+                  {messengerBadge > 9 ? "9+" : messengerBadge}
+                </span>
+              )}
+            </span>
+            <span
+              className="text-[9px] font-medium leading-none relative"
+              style={{ color: (moreOpen || moreIsActive) ? "var(--mq-accent)" : "var(--mq-text-muted)", transition: "color 0.12s" }}
+            >
+              Ещё
+            </span>
+          </button>
+        </div>
+      </nav>
+    </>
   );
-});
-
-export default MobileNav;
+}
