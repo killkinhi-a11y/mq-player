@@ -135,7 +135,7 @@ function getSleepCycleRecs(): SleepCycleRec[] {
   const results: SleepCycleRec[] = [];
   const qMap: Record<number, { quality: string; qualityColor: string }> = {
     3: { quality: "Мало", qualityColor: "#f87171" },
-    4: { quality: "Нормально", qualityColor: "#fbbf24" },
+    4: { quality: "Нормально", qualityColor: "var(--mq-wake-color, #fbbf24)" },
     5: { quality: "Хорошо", qualityColor: "#34d399" },
     6: { quality: "Отлично", qualityColor: "#60a5fa" },
     7: { quality: "Много", qualityColor: "#a78bfa" },
@@ -210,7 +210,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: "rgba(139,92,246,0.12)" }}>
-                      <Moon className="w-4 h-4" style={{ color: "#8b5cf6" }} />
+                      <Moon className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
                     </div>
                     <div>
                       <span className="text-sm font-bold block" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
@@ -264,7 +264,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                     {/* Wake-up preview */}
                     <div className="flex items-center justify-between px-3 py-2.5 rounded-xl mb-4" style={{ backgroundColor: "var(--mq-input-bg)" }}>
                       <div className="flex items-center gap-2">
-                        <Sunrise className="w-4 h-4" style={{ color: "#fbbf24" }} />
+                        <Sunrise className="w-4 h-4" style={{ color: "var(--mq-wake-color, #fbbf24)" }} />
                         <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Пробуждение</span>
                       </div>
                       <span className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>
@@ -338,7 +338,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                     {parseInt(customMin, 10) >= 1 && parseInt(customMin, 10) <= 480 && (
                       <div className="flex items-center justify-between px-3 py-2.5 rounded-xl mb-4" style={{ backgroundColor: "var(--mq-input-bg)" }}>
                         <div className="flex items-center gap-2">
-                          <Sunrise className="w-4 h-4" style={{ color: "#fbbf24" }} />
+                          <Sunrise className="w-4 h-4" style={{ color: "var(--mq-wake-color, #fbbf24)" }} />
                           <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Пробуждение</span>
                         </div>
                         <span className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>
@@ -353,7 +353,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                           className="px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
                           style={{
                             backgroundColor: selected === val ? "rgba(139,92,246,0.15)" : "var(--mq-input-bg)",
-                            color: selected === val ? "#8b5cf6" : "var(--mq-text-muted)",
+                            color: selected === val ? "var(--mq-accent)" : "var(--mq-text-muted)",
                             border: `1px solid ${selected === val ? "rgba(139,92,246,0.3)" : "transparent"}`,
                           }}>
                           {formatSleepTime(val)}
@@ -398,14 +398,14 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2.5">
                     <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
-                      <Moon className="w-5 h-5" style={{ color: "#8b5cf6" }} />
+                      <Moon className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
                     </motion.div>
                     <div>
                       <span className="text-sm font-bold block" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
                       <div className="flex items-center gap-1.5">
                         <motion.div animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
-                          transition={{ duration: 1.5, repeat: Infinity }}><Star className="w-2.5 h-2.5" fill="#8b5cf6" style={{ color: "#8b5cf6" }} /></motion.div>
-                        <span className="text-[11px] font-medium" style={{ color: "#8b5cf6" }}>Активен</span>
+                          transition={{ duration: 1.5, repeat: Infinity }}><Star className="w-2.5 h-2.5" fill="var(--mq-accent)" style={{ color: "var(--mq-accent)" }} /></motion.div>
+                        <span className="text-[11px] font-medium" style={{ color: "var(--mq-accent)" }}>Активен</span>
                       </div>
                     </div>
                   </div>
@@ -431,7 +431,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                         style={{ filter: "blur(5px)", opacity: 0.35 }} />
                       <defs>
                         <linearGradient id="stGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="#8b5cf6" />
+                          <stop offset="0%" stopColor="var(--mq-accent)" />
                           <stop offset="50%" stopColor="#6366f1" />
                           <stop offset="100%" stopColor="#06b6d4" />
                         </linearGradient>
@@ -450,7 +450,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                   <div className="flex-1 space-y-2.5">
                     <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)" }}>
                       <div className="flex items-center gap-1.5 mb-1">
-                        <Sunrise className="w-3 h-3" style={{ color: "#fbbf24" }} />
+                        <Sunrise className="w-3 h-3" style={{ color: "var(--mq-wake-color, #fbbf24)" }} />
                         <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Пробуждение</span>
                       </div>
                       <span className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
@@ -687,6 +687,7 @@ export default function FullTrackView() {
   const [lyricsPlainText, setLyricsPlainText] = useState("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [activeLineIndex, setActiveLineIndex] = useState(-1);
+  const activeLineIndexRef = useRef(-1);
   const lyricsScrollRef = useRef<HTMLDivElement>(null);
   const activeLineRef = useRef<HTMLParagraphElement>(null);
   const lyricsVisCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -825,8 +826,11 @@ export default function FullTrackView() {
     for (let i = lyricsLines.length - 1; i >= 0; i--) {
       if (progress >= lyricsLines[i].time) { idx = i; break; }
     }
-    if (idx !== activeLineIndex) setActiveLineIndex(idx);
-  }, [progress, lyricsLines, isPlaying, activeLineIndex]);
+    if (idx !== activeLineIndexRef.current) {
+      activeLineIndexRef.current = idx;
+      setActiveLineIndex(idx);
+    }
+  }, [progress, lyricsLines, isPlaying]);
 
   // Auto-scroll active lyrics line into view
   useEffect(() => {
@@ -1859,14 +1863,24 @@ export default function FullTrackView() {
   const isLiked = currentTrack ? safeLikedIds.includes(currentTrack.id) : false;
   const isDisliked = currentTrack ? safeDislikedIds.includes(currentTrack.id) : false;
 
+  // Deterministic waveform bar heights (avoids Math.random() in render)
+  const waveformBarHeights = useMemo(() =>
+    Array.from({ length: 80 }, (_, i) => 6 + Math.sin(i * 0.3) * 8 + Math.cos(i * 0.7) * 4 + (((i * 7 + 13) % 17) / 17) * 3),
+  []);
+  // Deterministic skeleton widths (avoids Math.random() in render)
+  const skeletonWidths = useMemo(() =>
+    Array.from({ length: 6 }, (_, i) => 40 + (((i * 11 + 7) % 13) / 13) * 50),
+  []);
+
   const fullTrackContent = (
     <AnimatePresence>
       <motion.div
+        key={currentTrack?.id}
         initial={{ opacity: 0 }}
         animate={{ opacity: 1, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } }}
         exit={{ opacity: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } }}
         className="fixed inset-0 flex flex-col overflow-hidden"
-        style={{ zIndex: 200, backgroundColor: "rgba(0,0,0,0.97)", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", willChange: "opacity", contain: "layout style paint" }}
+        style={{ zIndex: 200, backgroundColor: "var(--mq-bg, rgba(0,0,0,0.97))", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", willChange: "opacity", contain: "layout style paint" }}
       >
         {/* ── Background: Cinematic layered blurred album art with depth ── */}
         <div className="absolute inset-0 z-0" style={{ pointerEvents: "none" }}>
@@ -1888,7 +1902,7 @@ export default function FullTrackView() {
               <motion.div
                 key={currentTrack.id}
                 initial={{ opacity: 0, scale: 1.1 }}
-                animate={{ opacity: 1, scale: 1.5 }}
+                animate={{ opacity: 1, scale: 1.15 }}
                 transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
                 className="absolute inset-0"
               >
@@ -1924,16 +1938,14 @@ export default function FullTrackView() {
         <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
           <motion.div
             animate={{
-              background: [
-                "radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--mq-accent) 6%, transparent), transparent 60%)",
-                "radial-gradient(ellipse at 70% 40%, color-mix(in srgb, var(--mq-accent) 6%, transparent), transparent 60%)",
-                "radial-gradient(ellipse at 50% 60%, color-mix(in srgb, var(--mq-accent) 6%, transparent), transparent 60%)",
-                "radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--mq-accent) 6%, transparent), transparent 60%)",
-              ]
+              opacity: 1
             }}
             transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
             className="absolute inset-0"
-            style={{ willChange: "background" }}
+            style={{
+              background: "radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--mq-accent) 6%, transparent), transparent 60%)",
+              willChange: "opacity",
+            }}
           />
         </div>
 
@@ -1959,7 +1971,7 @@ export default function FullTrackView() {
             <motion.button ref={moreBtnRef} whileTap={{ scale: 0.9 }} onClick={() => {
               if (!showMoreMenu && moreBtnRef.current) {
                 const rect = moreBtnRef.current.getBoundingClientRect();
-                setMoreMenuPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+                setMoreMenuPos({ top: Math.min(rect.bottom + 8, window.innerHeight - 400), right: window.innerWidth - rect.right });
               }
               setShowMoreMenu(!showMoreMenu);
             }}
@@ -2002,7 +2014,7 @@ export default function FullTrackView() {
                 <div className="relative p-[2px] rounded-2xl overflow-hidden"
                   style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 40%, transparent), rgba(255,255,255,0.1), color-mix(in srgb, var(--mq-accent) 40%, transparent), var(--mq-accent))", backgroundSize: "300% 300%", animation: "mqGradientBorder 6s ease infinite", willChange: "background-position" }}>
                   <div
-                    className="w-64 h-64 sm:w-[320px] sm:h-[320px] md:w-88 md:h-88 lg:w-[24rem] lg:h-[24rem] xl:w-[26rem] xl:h-[26rem] rounded-2xl overflow-hidden relative mq-cover-shadow-lg"
+                    className="w-64 h-64 sm:w-[320px] sm:h-[320px] md:w-[22rem] md:h-[22rem] lg:w-[24rem] lg:h-[24rem] xl:w-[26rem] xl:h-[26rem] rounded-2xl overflow-hidden relative mq-cover-shadow-lg"
                   >
                     {currentPlaylistId ? (
                       <PlaylistArtwork
@@ -2109,6 +2121,30 @@ export default function FullTrackView() {
               <div ref={sliderRef} onMouseMove={handleSliderHover} onMouseLeave={() => setHoverTime(null)}
                 onMouseDown={handleProgressMouseDown}
                 onTouchStart={handleProgressTouchStart}
+                role="slider"
+                aria-label="Прогресс воспроизведения"
+                aria-valuemin={0}
+                aria-valuemax={Math.floor(duration)}
+                aria-valuenow={Math.floor(progress)}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (!duration) return;
+                  const step = e.shiftKey ? 30 : 5;
+                  if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+                    e.preventDefault();
+                    const audio = getAudioElement();
+                    const newTime = Math.min(duration, progress + step);
+                    if (audio) audio.currentTime = newTime;
+                    setProgress(newTime);
+                  }
+                  if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+                    e.preventDefault();
+                    const audio = getAudioElement();
+                    const newTime = Math.max(0, progress - step);
+                    if (audio) audio.currentTime = newTime;
+                    setProgress(newTime);
+                  }
+                }}
                 className="relative group cursor-pointer touch-none">
                 {/* A-B Repeat visual indicator */}
                 {duration > 0 && abRepeat.pointA !== null && (
@@ -2128,7 +2164,7 @@ export default function FullTrackView() {
                 <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-8 overflow-hidden pointer-events-none" style={{ opacity: 0.2 }}>
                   <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 200 32">
                     {Array.from({ length: 80 }).map((_, i) => {
-                      const h = 6 + Math.sin(i * 0.3) * 8 + Math.cos(i * 0.7) * 4 + Math.random() * 3;
+                      const h = waveformBarHeights[i];
                       const x = (i / 80) * 200;
                       const pct = duration > 0 ? progress / duration : 0;
                       const passed = (i / 80) <= pct;
@@ -2161,7 +2197,7 @@ export default function FullTrackView() {
                     }}
                   />
                   {/* ── Interesting moment markers (always-visible tick marks) ── */}
-                  {duration > 0 && detectInterestingMoments(duration, currentTrack?.source).map((moment) => {
+                  {duration > 0 && useMemo(() => detectInterestingMoments(duration, currentTrack?.source), [duration, currentTrack?.source]).map((moment) => {
                     const pct = (moment.time / duration) * 100;
                     const passed = progress >= moment.time;
                     return (
@@ -2241,7 +2277,7 @@ export default function FullTrackView() {
                 whileTap={{ scale: 0.93 }}
                 whileHover={{ scale: 1.04 }}
                 onClick={togglePlay}
-                className="w-12 h-12 sm:w-13 sm:h-13 rounded-full flex items-center justify-center"
+                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: "var(--mq-text)", color: "var(--mq-bg)" }}
               >
                 {isPlaying ? <Pause className="w-5 h-5" fill="currentColor" /> : <Play className="w-5 h-5" fill="currentColor" style={{ marginLeft: 1.5 }} />}
@@ -2265,26 +2301,31 @@ export default function FullTrackView() {
             {/* Action row — minimal icon-only strip */}
             <div className="flex items-center justify-center gap-5 px-4">
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
-                className="p-1.5 rounded-full transition-colors duration-150"
-                style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)" }}>
+                className="p-2.5 rounded-full transition-colors duration-150"
+                style={{ color: isLiked ? "var(--mq-like-color, #ef4444)" : "var(--mq-text-muted)" }}
+                aria-label={isLiked ? "Убрать из избранного" : "Добавить в избранное"}
+                aria-pressed={isLiked}>
                 <Heart className={`w-4 h-4 ${isLiked ? "fill-current" : ""}`} />
               </motion.button>
 
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
-                className="p-1.5 rounded-full transition-colors duration-150"
-                style={{ color: showLyrics ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                className="p-2.5 rounded-full transition-colors duration-150"
+                style={{ color: showLyrics ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+                aria-label="Текст песни">
                 <FileText className="w-4 h-4" />
               </motion.button>
 
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
-                className="p-1.5 rounded-full transition-colors duration-150"
-                style={{ color: showSimilar ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                className="p-2.5 rounded-full transition-colors duration-150"
+                style={{ color: showSimilar ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+                aria-label="Похожие треки">
                 <ListMusic className="w-4 h-4" />
               </motion.button>
 
               <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
-                className="p-1.5 rounded-full transition-colors duration-150"
-                style={{ color: showMoreMenu ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                className="p-2.5 rounded-full transition-colors duration-150"
+                style={{ color: showMoreMenu ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+                aria-label="Дополнительные действия">
                 <MoreVertical className="w-4 h-4" />
               </motion.button>
             </div>
@@ -2701,7 +2742,7 @@ export default function FullTrackView() {
                 {lyricsLoading ? (
                   <div className="px-8 py-12 space-y-4 w-full max-w-md">
                     {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="h-5 rounded-full animate-pulse mx-auto" style={{ backgroundColor: "var(--mq-input-bg)", width: `${40 + Math.random() * 50}%` }} />
+                      <div key={i} className="h-5 rounded-full animate-pulse mx-auto" style={{ backgroundColor: "var(--mq-input-bg)", width: `${skeletonWidths[i]}%` }} />
                     ))}
                   </div>
                 ) : lyricsLines.length > 0 ? (
@@ -2726,8 +2767,6 @@ export default function FullTrackView() {
                               maxWidth: "100%",
                               backgroundColor: isActive ? "rgba(255,255,255,0.04)" : "transparent",
                               letterSpacing: isActive ? "0.01em" : "normal",
-                              transitionProperty: "all",
-                              transitionDuration: "500ms",
                             }}
                             onClick={() => {
                               const audio = getAudioElement();
@@ -2858,13 +2897,13 @@ export default function FullTrackView() {
                           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                             style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
                             {currentTrack?.id === track.id && isPlaying
-                              ? <Pause className="w-3.5 h-3.5" style={{ color: "#fff" }} />
-                              : <Play className="w-3.5 h-3.5 ml-0.5" style={{ color: "#fff" }} />}
+                              ? <Pause className="w-3.5 h-3.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                              : <Play className="w-3.5 h-3.5 ml-0.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} />}
                           </div>
                           {currentTrack?.id === track.id && isPlaying && (
                             <div className="absolute inset-0 flex items-center justify-center opacity-100 group-hover:opacity-0 transition-opacity"
                               style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-                              <Pause className="w-3.5 h-3.5" style={{ color: "#fff" }} />
+                              <Pause className="w-3.5 h-3.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
                             </div>
                           )}
                         </div>
@@ -2892,14 +2931,14 @@ export default function FullTrackView() {
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleLike(track.id, track); }}
                             className="p-1 rounded-lg active:scale-90 transition-transform"
-                            style={{ color: (Array.isArray(likedTrackIds) ? likedTrackIds : []).includes(track.id) ? "#ef4444" : "var(--mq-text-muted)" }}>
-                            <Heart className="w-3.5 h-3.5" style={(Array.isArray(likedTrackIds) ? likedTrackIds : []).includes(track.id) ? { fill: "#ef4444" } : {}} />
+                            style={{ color: (Array.isArray(likedTrackIds) ? likedTrackIds : []).includes(track.id) ? "var(--mq-like-color, #ef4444)" : "var(--mq-text-muted)" }}>
+                            <Heart className="w-3.5 h-3.5" style={(Array.isArray(likedTrackIds) ? likedTrackIds : []).includes(track.id) ? { fill: "var(--mq-like-color, #ef4444)" } : {}} />
                           </button>
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleDislike(track.id, track); }}
                             className="p-1 rounded-lg active:scale-90 transition-transform"
-                            style={{ color: (Array.isArray(dislikedTrackIds) ? dislikedTrackIds : []).includes(track.id) ? "#ef4444" : "var(--mq-text-muted)" }}>
-                            <ThumbsDown className="w-3 h-3.5" style={(Array.isArray(dislikedTrackIds) ? dislikedTrackIds : []).includes(track.id) ? { fill: "#ef4444" } : {}} />
+                            style={{ color: (Array.isArray(dislikedTrackIds) ? dislikedTrackIds : []).includes(track.id) ? "var(--mq-like-color, #ef4444)" : "var(--mq-text-muted)" }}>
+                            <ThumbsDown className="w-3 h-3.5" style={(Array.isArray(dislikedTrackIds) ? dislikedTrackIds : []).includes(track.id) ? { fill: "var(--mq-like-color, #ef4444)" } : {}} />
                           </button>
                         </div>
                       </motion.div>

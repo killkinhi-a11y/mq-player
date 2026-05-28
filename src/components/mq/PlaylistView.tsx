@@ -549,7 +549,7 @@ export default function PlaylistView() {
     const isCollaborative = selectedPlaylist.id.startsWith('pl_url_') || selectedPlaylist.description?.includes('воспроизводимы');
 
     return (
-      <div className={`${compactMode ? "p-3 lg:p-4 pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-24 lg:pb-28 space-y-6"} max-w-2xl mx-auto`} style={{ scrollBehavior: "smooth" }}>
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-[148px] sm:pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28 space-y-6"} max-w-2xl mx-auto`} style={{ scrollBehavior: "smooth" }}>
         {/* Back button */}
         <motion.button
           whileTap={{ scale: 0.9 }}
@@ -1070,7 +1070,7 @@ export default function PlaylistView() {
 
   // ── All playlists grid ──
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4 pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-24 lg:pb-28 space-y-6"} max-w-2xl mx-auto`} style={{ scrollBehavior: "smooth" }}>
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-[148px] sm:pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28 space-y-6"} max-w-2xl mx-auto`} style={{ scrollBehavior: "smooth" }}>
       <ScrollReveal direction="up" delay={0.05}>
       <motion.div
         initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}

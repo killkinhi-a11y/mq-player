@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useEffect, useState, ReactNode } from "react";
+import { useRef, useEffect, useState, ReactNode, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ScrollRevealProps {
   children: ReactNode;
@@ -14,75 +15,81 @@ interface ScrollRevealProps {
   disabled?: boolean;
 }
 
-/**
- * ScrollReveal — lightweight CSS-transition based scroll animation.
- * Replaces the framer-motion version which was creating heavy AnimatePresence
- * wrappers for every section on the page. Pure CSS transitions are GPU-composited
- * and never cause layout recalculation. Uses a shared IntersectionObserver root
- * to reduce observer count on pages with many sections.
- */
+const directionMap = {
+  up: { x: 0, y: 1 },
+  down: { x: 0, y: -1 },
+  left: { x: 1, y: 0 },
+  right: { x: -1, y: 0 },
+};
+
 export default function ScrollReveal({
   children,
   direction = "up",
   delay = 0,
-  duration = 0.5,
-  distance = 20,
-  threshold = 0.05,
+  duration = 0.6,
+  distance = 30,
+  threshold = 0.1,
   once = true,
   className,
   disabled = false,
 }: ScrollRevealProps) {
+  // Skip animations on mobile for performance
+  const isMobile = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth < 640;
+  }, []);
+
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const hasAnimated = useRef(false);
+
+  const shouldSkip = isMobile || disabled;
 
   useEffect(() => {
-    if (disabled) { setVisible(true); return; }
-    // On mobile skip the animation altogether — just show content immediately.
-    // Scroll reveal adds perceived jank on 60hz mobile screens when many sections
-    // animate simultaneously.
-    if (typeof window !== "undefined" && window.innerWidth < 640) {
-      setVisible(true);
+    if (shouldSkip) {
+      setIsVisible(true);
       return;
     }
-
     const el = ref.current;
     if (!el) return;
-
-    const obs = new IntersectionObserver(
+    const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setVisible(true);
-          if (once) obs.disconnect();
+          if (once && hasAnimated.current) return;
+          hasAnimated.current = true;
+          setIsVisible(true);
         } else if (!once) {
-          setVisible(false);
+          setIsVisible(false);
+          hasAnimated.current = false;
         }
       },
-      { threshold, rootMargin: "0px 0px -30px 0px" }
+      { threshold, rootMargin: "0px 0px -40px 0px" }
     );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, [disabled, once, threshold]);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [shouldSkip, once, threshold]);
 
-  const translateInit =
-    direction === "up" ? `translateY(${distance}px)` :
-    direction === "down" ? `translateY(-${distance}px)` :
-    direction === "left" ? `translateX(${distance}px)` :
-    `translateX(-${distance}px)`;
+  if (shouldSkip) {
+    return <div className={className}>{children}</div>;
+  }
 
-  if (disabled) return <div className={className}>{children}</div>;
+  const d = directionMap[direction];
 
   return (
-    <div
-      ref={ref}
-      className={className}
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? "none" : translateInit,
-        transition: `opacity ${duration}s cubic-bezier(0.25,0.1,0.25,1) ${delay}s, transform ${duration}s cubic-bezier(0.25,0.1,0.25,1) ${delay}s`,
-        willChange: visible ? "auto" : "opacity, transform",
-      }}
-    >
-      {children}
+    <div ref={ref} className={className} style={{ overflow: "hidden", contain: "layout style paint" }}>
+      <AnimatePresence>
+        {isVisible && (
+          <motion.div
+            initial={{ opacity: 0, x: d.x * distance, y: d.y * distance }}
+            animate={{ opacity: 1, x: 0, y: 0 }}
+            exit={{ opacity: 0, x: d.x * distance, y: d.y * distance }}
+            transition={{ duration, delay, ease: [0.25, 0.1, 0.25, 1] }}
+            style={{ willChange: "opacity, transform" }}
+          >
+            {children}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

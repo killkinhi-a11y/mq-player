@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 
 interface Particle {
   x: number;
@@ -21,8 +21,7 @@ export default function HeroParticles() {
   const animRef = useRef<number>(0);
   const accentRef = useRef({ r: 224, g: 49, b: 49 });
 
-  // Skip entirely on mobile — 25 particles at 60fps still burns battery
-  // and the effect is barely visible on small screens
+  // Skip entirely on mobile — canvas particles burn battery and are barely visible on small screens
   if (typeof window !== "undefined" && window.innerWidth < 640) {
     return null;
   }

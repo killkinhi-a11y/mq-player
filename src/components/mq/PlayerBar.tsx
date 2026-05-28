@@ -15,7 +15,7 @@ import type { Track } from "@/lib/musicApi";
 import Image from "next/image";
 import { getAudioElement, getInactiveAudio } from "@/lib/audioEngine";
 import QueueView from "./QueueView";
-import { useAudioEngine, generateWaveformPeaks } from "./useAudioEngine";
+import { useAudioEngine } from "./useAudioEngine";
 import { useMediaSession } from "./useMediaSession";
 import { useProgressDrag } from "./useProgressDrag";
 import VisualizerCanvas from "./VisualizerCanvas";
@@ -50,7 +50,7 @@ function ShareButton({ scTrackId }: { scTrackId: number }) {
       {copied && (
         <span
           className="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] px-2 py-0.5 rounded whitespace-nowrap"
-          style={{ background: "var(--mq-accent)", color: "#fff" }}
+          style={{ background: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
         >
           Скопировано!
         </span>
@@ -116,8 +116,7 @@ const PlayerBar = React.memo(function PlayerBar() {
   const setDuration = useAppStore((s) => s.setDuration);
   const toggleShuffle = useAppStore((s) => s.toggleShuffle);
   const toggleRepeat = useAppStore((s) => s.toggleRepeat);
-  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
-  const compactMode = useAppStore((s) => s.compactMode);
+
   const setFullTrackViewOpen = useAppStore((s) => s.setFullTrackViewOpen);
   const setPlaybackMode = useAppStore((s) => s.setPlaybackMode);
   const requestShowSimilar = useAppStore((s) => s.requestShowSimilar);
@@ -148,8 +147,6 @@ const PlayerBar = React.memo(function PlayerBar() {
   const setPlaybackRate = useAppStore((s) => s.setPlaybackRate);
 
   const [showQueue, setShowQueue] = useState(false);
-  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-
   // Context menu state (right-click on track info)
   const [contextMenu, setContextMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
 
@@ -165,19 +162,7 @@ const PlayerBar = React.memo(function PlayerBar() {
     setContextMenu({ track: currentTrack, x: e.clientX, y: e.clientY });
   }, [currentTrack]);
 
-  const speedMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close speed menu on outside click
-  useEffect(() => {
-    if (!showSpeedMenu) return;
-    const handler = (e: MouseEvent) => {
-      if (speedMenuRef.current && !speedMenuRef.current.contains(e.target as Node)) {
-        setShowSpeedMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [showSpeedMenu]);
 
   // ── Extracted hooks ──
   const engine = useAudioEngine({
@@ -196,44 +181,20 @@ const PlayerBar = React.memo(function PlayerBar() {
     currentTrack, isPlaying, progress, duration, playbackRate,
   });
 
-  // ── Waveform peaks (memoized per track) ──
-  const waveformPeaks = useMemo(
-    () => (currentTrack?.id ? generateWaveformPeaks(currentTrack.id) : []),
-    [currentTrack?.id],
-  );
-
   // ── Hover timestamp tooltip state ──
   const [hoverTime, setHoverTime] = useState<number | null>(null);
-  const [hoverX, setHoverX] = useState<number>(0);
-
   const handleProgressHover = useCallback((e: React.MouseEvent) => {
     if (!engine.progressRef.current || !duration) return;
     const rect = engine.progressRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const pct = Math.max(0, Math.min(1, x / rect.width));
     setHoverTime(pct * duration);
-    setHoverX(e.clientX - rect.left);
   }, [duration, engine.progressRef]);
 
   // ── Mobile swipe gestures ──
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const SWIPE_THRESHOLD = 50; // min px for swipe
 
-  // ── Gesture hint overlay (first time only) ──
-  const [showSwipeHint, setShowSwipeHint] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return !localStorage.getItem("mq-swipe-hint-seen");
-  });
 
-  useEffect(() => {
-    if (showSwipeHint) {
-      const t = setTimeout(() => {
-        setShowSwipeHint(false);
-        localStorage.setItem("mq-swipe-hint-seen", "1");
-      }, 4000);
-      return () => clearTimeout(t);
-    }
-  }, [showSwipeHint]);
 
   // ── Spatial Audio: auto-detect mood when track changes ──
   useEffect(() => {
@@ -241,7 +202,7 @@ const PlayerBar = React.memo(function PlayerBar() {
     const mood = detectMoodFromTrack(currentTrack.title, currentTrack.genre);
     setMoodPreset(mood);
     setSpatialMood(mood);
-  }, [currentTrack?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [spatialAudioEnabled, spatialAutoDetect, currentTrack?.id, setSpatialMood]);
 
   // ── Spatial Audio: enable/disable ──
   useEffect(() => {
@@ -259,7 +220,7 @@ const PlayerBar = React.memo(function PlayerBar() {
       enableSpatialAudio(false);
     }
     return () => { enableSpatialAudio(false); };
-  }, [spatialAudioEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [spatialAudioEnabled, currentTrack?.id, setSpatialMood]);
 
   // ── RAF-based progress sync for smooth 60fps mini progress bar ──
   // Reads audio.currentTime directly via getAudioElement() and updates DOM,
@@ -544,6 +505,7 @@ const PlayerBar = React.memo(function PlayerBar() {
   const swipeStartY = useRef(0);
   const swipeStartX = useRef(0);
   const [swipeY, setSwipeY] = useState(0);
+  const swipeYRef = useRef(0);
   const [isSwiping, setIsSwiping] = useState(false);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -556,24 +518,20 @@ const PlayerBar = React.memo(function PlayerBar() {
     const dy = e.touches[0].clientY - swipeStartY.current;
     const dx = Math.abs(e.touches[0].clientX - swipeStartX.current);
     // Only allow downward swipe if mostly vertical
-    if (dy > 0 && dy > dx * 0.5) {
+    if (dy > 0 && dy > dx * 1.5) {
+      swipeYRef.current = dy;
       setSwipeY(dy);
     }
   }, []);
 
   const handleTouchEnd = useCallback(() => {
     setIsSwiping(false);
-    // Horizontal swipe detection: next/prev track
-    const endX = swipeStartX.current; // we track from start via touchend changedTouches
-    if (swipeY <= 40) {
-      // Only check horizontal swipe if no significant vertical swipe
-      // Re-read from the last touch event — we use a ref for end position
-    }
-    if (swipeY > 40) {
+    if (swipeYRef.current > 40) {
       setMiniPlayerHidden(true);
     }
+    swipeYRef.current = 0;
     setSwipeY(0);
-  }, [swipeY, setMiniPlayerHidden]);
+  }, [setMiniPlayerHidden]);
 
   // ── Track last touch position for horizontal swipe detection ──
   const lastTouchXRef = useRef(0);
@@ -597,7 +555,7 @@ const PlayerBar = React.memo(function PlayerBar() {
     const absDx = Math.abs(dx);
 
     // Horizontal swipe: trigger if dx > 60px and dy < 30px
-    if (absDx > 60 && dy < 30 && swipeY <= 40) {
+    if (absDx > 60 && dy < 30 && swipeYRef.current <= 40) {
       if (dx > 0) {
         prevTrack();
       } else {
@@ -608,15 +566,21 @@ const PlayerBar = React.memo(function PlayerBar() {
     }
 
     handleTouchEnd();
-  }, [handleTouchEnd, nextTrack, prevTrack, swipeY]);
+  }, [handleTouchEnd, nextTrack, prevTrack]);
 
   // IMPORTANT: We always render the hook's effect container (even when no track)
   // to keep useAudioEngine alive. The visual player UI is conditionally shown.
   if (!currentTrack) return <div data-playback-engine-root style={{ display: 'none' }} />;
 
   const progressPct = duration > 0 ? Math.min((progress / duration) * 100, 100) : 0;
-  const isLiked = (Array.isArray(likedTrackIds) ? likedTrackIds : []).includes(currentTrack.id);
-  const isDisliked = (Array.isArray(dislikedTrackIds) ? dislikedTrackIds : []).includes(currentTrack.id);
+  const isLiked = useMemo(() => {
+    const ids = Array.isArray(likedTrackIds) ? likedTrackIds : [];
+    return ids.includes(currentTrack.id);
+  }, [likedTrackIds, currentTrack.id]);
+  const isDisliked = useMemo(() => {
+    const ids = Array.isArray(dislikedTrackIds) ? dislikedTrackIds : [];
+    return ids.includes(currentTrack.id);
+  }, [dislikedTrackIds, currentTrack.id]);
 
   return (
     <>
@@ -634,7 +598,7 @@ const PlayerBar = React.memo(function PlayerBar() {
             style={{
               bottom: "calc(58px + env(safe-area-inset-bottom, 8px))",
               backgroundColor: "var(--mq-player-bg)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: "1px solid var(--mq-border-subtle, rgba(255,255,255,0.08))",
               boxShadow: "0 4px 24px rgba(0,0,0,0.5), 0 0 24px color-mix(in srgb, var(--mq-accent) 10%, transparent)",
               backdropFilter: "blur(40px) saturate(200%)",
               WebkitBackdropFilter: "blur(40px) saturate(200%)",
@@ -652,7 +616,10 @@ const PlayerBar = React.memo(function PlayerBar() {
                 {/* Border glow */}
                 <div style={{
                   position: "absolute",
-                  inset: -2,
+                  top: -2,
+                  right: -2,
+                  bottom: -2,
+                  left: -2,
                   borderRadius: 14,
                   background: "var(--mq-accent)",
                   opacity: isPlaying ? 0.4 : 0.15,
@@ -697,19 +664,25 @@ const PlayerBar = React.memo(function PlayerBar() {
                 )}
               </div>
               {currentTrack.artist && (
-                <p className="text-[11px] truncate leading-snug" style={{ color: "var(--mq-text-muted)" }}>
+                <p
+                  className="text-[11px] truncate leading-snug block cursor-pointer hover:underline"
+                  style={{ color: "var(--mq-text-muted)" }}
+                  onClick={() => { if (currentTrack.artist) setSelectedArtist({ name: currentTrack.artist }); }}
+                >
                   {currentTrack.artist}
                 </p>
               )}
             </div>
-            <motion.span
+            <motion.button
+              type="button"
               whileTap={{ scale: 0.85 }}
               onClick={(e) => { e.stopPropagation(); togglePlay(); }}
               className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
               style={{ color: "var(--mq-accent)" }}
+              aria-label={isPlaying ? "\u041F\u0430\u0443\u0437\u0430" : "\u0412\u043E\u0441\u043F\u0440\u043E\u0438\u0437\u0432\u0435\u0441\u0442\u0438"}
             >
               {isPlaying ? <Pause className="w-[18px] h-[18px]" fill="currentColor" /> : <Play className="w-[18px] h-[18px] ml-[1px]" fill="currentColor" />}
-            </motion.span>
+            </motion.button>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--mq-text-muted)", opacity: 0.4, flexShrink: 0 }}>
               <path d="M18 15l-6-6-6 6" />
             </svg>
@@ -743,7 +716,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                 backgroundColor: "var(--mq-player-bg)",
                 backdropFilter: "blur(24px) saturate(160%)",
                 WebkitBackdropFilter: "blur(24px) saturate(160%)",
-                borderTop: "1px solid rgba(255,255,255,0.06)",
+                borderTop: "1px solid var(--mq-border-subtle, rgba(255,255,255,0.06))",
                 boxShadow: "0 -8px 40px rgba(0,0,0,0.3)",
                 // No border-radius on mobile — the nav bar sits flush below,
                 // rounding creates a visible "floating" gap between the two.
@@ -821,12 +794,16 @@ const PlayerBar = React.memo(function PlayerBar() {
                   if (e.key === "ArrowRight" || e.key === "ArrowUp") {
                     e.preventDefault();
                     const audio = getAudioElement();
-                    if (audio) audio.currentTime = Math.min(duration, progress + step);
+                    const newTime = Math.min(duration, progress + step);
+                    if (audio) audio.currentTime = newTime;
+                    setProgress(newTime);
                   }
                   if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
                     e.preventDefault();
                     const audio = getAudioElement();
-                    if (audio) audio.currentTime = Math.max(0, progress - step);
+                    const newTime = Math.max(0, progress - step);
+                    if (audio) audio.currentTime = newTime;
+                    setProgress(newTime);
                   }
                 }}
                 className="w-full group/progress"
@@ -852,7 +829,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                   style={{
                     height: 5,
                     borderRadius: 3,
-                    backgroundColor: "rgba(255,255,255,0.08)",
+                    backgroundColor: "var(--mq-border-subtle, rgba(255,255,255,0.08))",
                     transition: "height 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                     overflow: "visible",
                   }}
@@ -882,8 +859,8 @@ const PlayerBar = React.memo(function PlayerBar() {
                           backgroundColor: "color-mix(in srgb, var(--mq-player-bg) 75%, rgba(0,0,0,0.6))",
                           backdropFilter: "blur(16px) saturate(180%)",
                           WebkitBackdropFilter: "blur(16px) saturate(180%)",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                          color: "#fff",
+                          border: "1px solid var(--mq-border-default, rgba(255,255,255,0.1))",
+                          color: "var(--mq-text-on-accent, #fff)",
                           fontSize: 11,
                           fontWeight: 600,
                           fontFamily: "var(--font-geist-mono), monospace",
@@ -922,7 +899,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                     style={{
                       width: `${progressPct}%`,
                       background: engine.playError
-                        ? "#ef4444"
+                        ? "var(--mq-error, #ef4444)"
                         : `linear-gradient(90deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 80%, white))`,
                       transition: progressDrag.isDragging ? "none" : "width 0.3s linear",
                       borderRadius: 3,
@@ -941,7 +918,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                       height: progressDrag.isDragging ? 16 : 12,
                       left: `${progressPct}%`,
                       transform: "translate(-50%, -50%)",
-                      backgroundColor: "#fff",
+                      backgroundColor: "var(--mq-text-on-accent, #fff)",
                       boxShadow: "0 0 0 3px var(--mq-accent), 0 2px 8px rgba(0,0,0,0.4)",
                       pointerEvents: "none",
                       zIndex: 3,
@@ -957,7 +934,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                       height: 12,
                       left: `${progressPct}%`,
                       transform: "translate(-50%, -50%)",
-                      backgroundColor: "#fff",
+                      backgroundColor: "var(--mq-text-on-accent, #fff)",
                       boxShadow: "0 0 0 3px var(--mq-accent), 0 2px 8px rgba(0,0,0,0.4), 0 0 12px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
                       pointerEvents: "none",
                       zIndex: 3,
@@ -983,7 +960,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                         padding: "5px 12px",
                         borderRadius: 10,
                         backgroundColor: "var(--mq-accent)",
-                        color: "#fff",
+                        color: "var(--mq-text-on-accent, #fff)",
                         fontSize: 14,
                         fontWeight: 700,
                         fontFamily: "var(--font-geist-mono), monospace",
@@ -1135,7 +1112,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                           width: 44,
                           height: 44,
                           backgroundColor: "var(--mq-accent)",
-                          color: "#fff",
+                          color: "var(--mq-text-on-accent, #fff)",
                           boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 45%, transparent)",
                           transition: "background-color 0.2s, box-shadow 0.3s",
                         }}
@@ -1234,7 +1211,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                       style={{
                         width: 96,
                         height: 4,
-                        backgroundColor: "rgba(255,255,255,0.1)",
+                        backgroundColor: "var(--mq-border-default, rgba(255,255,255,0.1))",
                         borderRadius: 2,
                         transition: "height 0.15s ease",
                       }}
@@ -1279,7 +1256,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                           height: 12,
                           left: `${volume}%`,
                           transform: "translate(-50%, -50%)",
-                          backgroundColor: "#fff",
+                          backgroundColor: "var(--mq-text-on-accent, #fff)",
                           boxShadow: "0 0 0 2px var(--mq-accent), 0 1px 4px rgba(0,0,0,0.3)",
                           pointerEvents: "none",
                           opacity: isVolumeDragging ? 1 : 0,
@@ -1294,7 +1271,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                           height: 10,
                           left: `${volume}%`,
                           transform: "translate(-50%, -50%)",
-                          backgroundColor: "#fff",
+                          backgroundColor: "var(--mq-text-on-accent, #fff)",
                           boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
                           pointerEvents: "none",
                           transition: "opacity 0.15s ease",
@@ -1320,7 +1297,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                           padding: "3px 8px",
                           borderRadius: 6,
                           backgroundColor: "var(--mq-accent)",
-                          color: "#fff",
+                          color: "var(--mq-text-on-accent, #fff)",
                           fontSize: 11,
                           fontWeight: 600,
                           fontFamily: "var(--font-geist-mono), monospace",
@@ -1340,7 +1317,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                     whileTap={{ scale: isLiked ? 0.6 : 0.8 }}
                     onClick={() => toggleLike(currentTrack.id, currentTrack)}
                     className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
-                    style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)" }}
+                    style={{ color: isLiked ? "var(--mq-like-color, #ef4444)" : "var(--mq-text-muted)" }}
                     aria-label={isLiked ? "Убрать из избранного" : "Добавить в избранное"}
                     aria-pressed={isLiked}
                     data-tour="like-dislike"
@@ -1473,7 +1450,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                     whileTap={{ scale: isLiked ? 0.6 : 0.8 }}
                     onClick={() => toggleLike(currentTrack.id, currentTrack)}
                     className="flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-full mq-focus-premium"
-                    style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)" }}
+                    style={{ color: isLiked ? "var(--mq-like-color, #ef4444)" : "var(--mq-text-muted)" }}
                     aria-label={isLiked ? "Убрать из избранного" : "Добавить в избранное"}
                     aria-pressed={isLiked}
                     data-tour="like-dislike"
@@ -1544,7 +1521,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                           width: 48,
                           height: 48,
                           backgroundColor: "var(--mq-accent)",
-                          color: "#fff",
+                          color: "var(--mq-text-on-accent, #fff)",
                           boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 45%, transparent)",
                           transition: "box-shadow 0.3s ease",
                         }}

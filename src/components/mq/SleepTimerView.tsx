@@ -265,7 +265,7 @@ export default function SleepTimerView() {
   const recommendations = useMemo(() => getSleepCycleRecommendations(), []);
 
   return (
-    <div className="min-h-screen px-4 pt-6 pb-24 lg:pb-28 flex flex-col items-center relative overflow-hidden" style={{ backgroundColor: "var(--mq-bg)" }}>
+    <div className="min-h-screen px-4 pt-6 pb-[148px] sm:pb-24 lg:pb-28 flex flex-col items-center relative overflow-hidden" style={{ backgroundColor: "var(--mq-bg)" }}>
       {/* Stars background */}
       <div className="absolute inset-0 pointer-events-none">
         {stars.map((star) => (

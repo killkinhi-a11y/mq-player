@@ -135,6 +135,40 @@
   --mq-nav-bg: #0e0e0eee;
   --mq-gradient: radial-gradient(ellipse at 20% 50%, rgba(224,49,49,0.06) 0%, transparent 50%);
   --mq-glow: rgba(224,49,49,0.25);
+  --mq-text-on-accent: #ffffff;
+  --mq-error: #ef4444;
+  --mq-like-color: #ef4444;
+  --mq-wake-color: #fbbf24;
+  --mq-border-subtle: rgba(255,255,255,0.08);
+  --mq-border-default: rgba(255,255,255,0.1);
+}
+
+/* Mobile performance & touch optimizations */
+@media (max-width: 640px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .mq-scroll-row {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  /* Disable expensive effects on mobile */
+  .mq-breathe-glow {
+    animation: none !important;
+  }
+}
+
+/* Touch action for draggable elements */
+.touch-none {
+  touch-action: none;
+}
+
+/* Smooth scroll for main content */
+main {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 /* ═══════ Cinematic Immersive Design Tokens ═══════ */

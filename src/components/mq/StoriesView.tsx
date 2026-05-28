@@ -213,7 +213,7 @@ export default function StoriesView() {
   const groupKeys = Object.keys(storyGroups);
 
   return (
-    <div className="p-4 lg:p-6 pb-24 lg:pb-28">
+    <div className="p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

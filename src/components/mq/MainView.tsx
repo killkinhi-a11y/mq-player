@@ -683,7 +683,7 @@ export default function MainView() {
 
   // Build taste profile from liked tracks + history with exponential time decay
   const tasteProfile = useMemo(() => {
-    const { likedTracksData, history, likedTrackIds, dislikedTrackIds, dislikedTracksData } = useAppStore.getState();
+    // Use selector values directly (already destructured at component top)
     const safeLiked = Array.isArray(likedTrackIds) ? likedTrackIds : [];
     const safeDisliked = Array.isArray(dislikedTrackIds) ? dislikedTrackIds : [];
     const safeDislikedData = Array.isArray(dislikedTracksData) ? dislikedTracksData : [];
@@ -767,7 +767,7 @@ export default function MainView() {
 
   // Detect language preference from listening history
   const languagePreference = useMemo(() => {
-    const { likedTracksData, history } = useAppStore.getState();
+    // Use selector values directly (already destructured at component top)
     const safeHistory = Array.isArray(history) ? history : [];
     const langCounts: Record<string, number> = { russian: 0, english: 0, latin: 0 };
     
