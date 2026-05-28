@@ -1864,6 +1864,11 @@ export default function FullTrackView() {
   const skeletonWidths = useMemo(() =>
     Array.from({ length: 6 }, (_, i) => 40 + (((i * 11 + 7) % 13) / 13) * 50),
   []);
+  // Interesting moment markers (moved from inline useMemo in JSX — Rules of Hooks)
+  const interestingMoments = useMemo(
+    () => duration > 0 ? detectInterestingMoments(duration, currentTrack?.source) : [],
+    [duration, currentTrack?.source],
+  );
 
   if (!currentTrack || !isFullTrackViewOpen) return null;
 
@@ -2198,7 +2203,7 @@ export default function FullTrackView() {
                     }}
                   />
                   {/* ── Interesting moment markers (always-visible tick marks) ── */}
-                  {duration > 0 && useMemo(() => detectInterestingMoments(duration, currentTrack?.source), [duration, currentTrack?.source]).map((moment) => {
+                  {interestingMoments.map((moment) => {
                     const pct = (moment.time / duration) * 100;
                     const passed = progress >= moment.time;
                     return (
