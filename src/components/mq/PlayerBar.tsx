@@ -568,19 +568,23 @@ const PlayerBar = React.memo(function PlayerBar() {
     handleTouchEnd();
   }, [handleTouchEnd, nextTrack, prevTrack]);
 
+  // ── useMemo hooks MUST be before any conditional return (Rules of Hooks) ──
+  const isLiked = useMemo(() => {
+    if (!currentTrack) return false;
+    const ids = Array.isArray(likedTrackIds) ? likedTrackIds : [];
+    return ids.includes(currentTrack.id);
+  }, [likedTrackIds, currentTrack?.id]);
+  const isDisliked = useMemo(() => {
+    if (!currentTrack) return false;
+    const ids = Array.isArray(dislikedTrackIds) ? dislikedTrackIds : [];
+    return ids.includes(currentTrack.id);
+  }, [dislikedTrackIds, currentTrack?.id]);
+
   // IMPORTANT: We always render the hook's effect container (even when no track)
   // to keep useAudioEngine alive. The visual player UI is conditionally shown.
   if (!currentTrack) return <div data-playback-engine-root style={{ display: 'none' }} />;
 
   const progressPct = duration > 0 ? Math.min((progress / duration) * 100, 100) : 0;
-  const isLiked = useMemo(() => {
-    const ids = Array.isArray(likedTrackIds) ? likedTrackIds : [];
-    return ids.includes(currentTrack.id);
-  }, [likedTrackIds, currentTrack.id]);
-  const isDisliked = useMemo(() => {
-    const ids = Array.isArray(dislikedTrackIds) ? dislikedTrackIds : [];
-    return ids.includes(currentTrack.id);
-  }, [dislikedTrackIds, currentTrack.id]);
 
   return (
     <>

@@ -1855,6 +1855,16 @@ export default function FullTrackView() {
     }
   }, []);
 
+  // ── useMemo hooks MUST be before any conditional return (Rules of Hooks) ──
+  // Deterministic waveform bar heights (avoids Math.random() in render)
+  const waveformBarHeights = useMemo(() =>
+    Array.from({ length: 80 }, (_, i) => 6 + Math.sin(i * 0.3) * 8 + Math.cos(i * 0.7) * 4 + (((i * 7 + 13) % 17) / 17) * 3),
+  []);
+  // Deterministic skeleton widths (avoids Math.random() in render)
+  const skeletonWidths = useMemo(() =>
+    Array.from({ length: 6 }, (_, i) => 40 + (((i * 11 + 7) % 13) / 13) * 50),
+  []);
+
   if (!currentTrack || !isFullTrackViewOpen) return null;
 
   const progressPct = duration > 0 ? (progress / duration) * 100 : 0;
