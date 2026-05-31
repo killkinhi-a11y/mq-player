@@ -1631,6 +1631,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   const clearT = () => { clearTimeout(drmTimeout); };
                   audioEl.addEventListener("playing", clearT, { once: true });
 
+                  // Re-apply volume after HLS manifest loads (audio element may reset volume)
+                  audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
+
                   if (canCrossfade) {
                     crossfadeRef.current = true;
                     crossfadeTo(audioEl);

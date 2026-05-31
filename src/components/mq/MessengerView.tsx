@@ -1130,11 +1130,17 @@ export default function MessengerView() {
     if (!userId || !selectedGroupId) return;
     const load = async () => {
       try {
-        const res = await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`);
+        const state = useAppStore.getState();
+        const headers: Record<string, string> = {};
+        if (state.userId === "demo-user-id") {
+          headers["x-demo-user-id"] = "demo-user-id";
+          headers["x-demo-user-name"] = state.username || "Демо";
+        }
+        const res = await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`, { headers });
         if (res.ok) {
           const data = await res.json();
           setGroupMessages((p) => ({ ...p, [selectedGroupId]: (data.messages || []).map((m: any) => ({
-            id: m.id, content: m.content, senderId: m.senderId,
+            id: m.id, content: m.content, senderId: m.senderId || m.sender?.id,
             createdAt: m.createdAt, senderName: m.sender?.username || "User",
             messageType: m.messageType,
           })) }));

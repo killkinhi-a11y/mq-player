@@ -122,13 +122,21 @@
   }
 }
 
-/* ── Kill ALL default focus outlines globally — use ring-based focus indicators only ── */
+/* ── Kill ALL default focus outlines globally ── */
 *:focus {
   outline: none !important;
 }
+/* Only show focus ring for keyboard navigation (not touch/mouse) */
+/* Uses :focus-visible which only activates on keyboard tab, NOT on tap/click */
 *:focus-visible {
   outline: none !important;
-  box-shadow: 0 0 0 2px var(--mq-accent) !important;
+  box-shadow: none !important;
+}
+/* Specific keyboard focus indicators — only for form elements, not buttons/cards */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent) !important;
   border-radius: inherit;
 }
 
@@ -856,20 +864,19 @@ html.blood-theme body::before {
 }
 
 /* Focus visible ring — uses box-shadow so it follows border-radius (outline is always square) */
+/* Only for form inputs, not interactive buttons/cards */
 .mq-focus-ring:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--mq-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
   border-radius: 4px;
 }
 
-/* Remove default square focus outline — use box-shadow ring (follows border-radius) */
+/* Remove default square focus outline */
 input:focus, button:focus, select:focus, textarea:focus, a:focus {
   outline: none !important;
 }
 input:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
   outline: none !important;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 60%, transparent);
-  border-radius: inherit;
 }
 
 /* Better skeleton loading */
@@ -1677,18 +1684,24 @@ a:not([data-framer-motion-id]),
 }
 
 /* ── Premium Focus Visible States ── */
-button:focus-visible,
-a:focus-visible,
-[role="button"]:focus-visible,
+/* Only show focus ring on form inputs for keyboard navigation — NOT on buttons/links */
+/* On mobile, tap triggers focus-visible which creates unwanted square outlines */
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: none !important;
-  /* Override Tailwind ring utility which creates square outlines */
   --tw-ring-shadow: 0 0 #0000 !important;
   --tw-ring-color: transparent !important;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 60%, transparent) !important;
   border-radius: inherit;
+}
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: none !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* Kill any Tailwind ring outlines that create square focus indicators */

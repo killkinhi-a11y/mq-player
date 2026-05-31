@@ -504,7 +504,7 @@ const initialState = {
   queueIndex: 0,
   upNext: [] as Track[],
   isPlaying: false,
-  volume: 30,
+  volume: 70,
   progress: 0,
   duration: 0,
   shuffle: false,
@@ -2709,7 +2709,10 @@ export const useAppStore = create<AppState>()(
 
           // Auto-sync on rehydrate (after page reload)
           // Check session via JWT cookie — if valid, restore user info from server
-          if (s.isAuthenticated) {
+          // IMPORTANT: Use the CURRENT store state (after demo/guest reset), not the
+          // persisted `s` — otherwise demo-user reset above gets overridden by /api/auth/me
+          const currentState = useAppStore.getState();
+          if (currentState.isAuthenticated && currentState.userId && currentState.userId !== "demo-user-id") {
             fetch('/api/auth/me')
               .then(async (res) => {
                 if (!res.ok) {

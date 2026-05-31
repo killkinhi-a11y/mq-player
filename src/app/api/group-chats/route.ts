@@ -21,9 +21,62 @@ async function getHandler(req: NextRequest) {
 
     const userId = session?.userId || demoUserId || '';
 
-    // For demo users, return empty list (no persistent group chats)
+    // For demo users, return mock group chats so the UI is functional
     if (demoUserId) {
-      return NextResponse.json({ groupChats: [] });
+      const demoGroupChats = [
+        {
+          id: "demo-group-music",
+          name: "Музыкальный чилл",
+          description: "Обсуждаем любимые треки и делимся находками",
+          avatar: "",
+          createdBy: demoUserId,
+          createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+          updatedAt: new Date().toISOString(),
+          memberCount: 5,
+          lastMessage: {
+            id: "demo-msg-1",
+            content: "Кто-нибудь слушал новый альбом? 🔥",
+            messageType: "text",
+            createdAt: new Date(Date.now() - 3600000).toISOString(),
+            sender: { id: "demo-bot-1", username: "Меломан", avatar: "" },
+          },
+        },
+        {
+          id: "demo-group-hits",
+          name: "Хиты 2024",
+          description: "Собираем лучшие треки года",
+          avatar: "",
+          createdBy: demoUserId,
+          createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
+          updatedAt: new Date(Date.now() - 7200000).toISOString(),
+          memberCount: 12,
+          lastMessage: {
+            id: "demo-msg-2",
+            content: "Добавил новый плейлист, зацените!",
+            messageType: "text",
+            createdAt: new Date(Date.now() - 7200000).toISOString(),
+            sender: { id: "demo-bot-2", username: "DJ_Vibe", avatar: "" },
+          },
+        },
+        {
+          id: "demo-group-lofi",
+          name: "Lo-Fi & Chill",
+          description: "Расслабляющая музыка для учёбы и работы",
+          avatar: "",
+          createdBy: "demo-bot-3",
+          createdAt: new Date(Date.now() - 86400000 * 14).toISOString(),
+          updatedAt: new Date(Date.now() - 86400000).toISOString(),
+          memberCount: 8,
+          lastMessage: {
+            id: "demo-msg-3",
+            content: "Идеальный трек для дождливого вечера 🌧️",
+            messageType: "text",
+            createdAt: new Date(Date.now() - 86400000).toISOString(),
+            sender: { id: "demo-bot-3", username: "ChillMaster", avatar: "" },
+          },
+        },
+      ];
+      return NextResponse.json({ groupChats: demoGroupChats });
     }
 
     // Get all memberships for the user

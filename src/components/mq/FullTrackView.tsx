@@ -580,6 +580,10 @@ export default function FullTrackView() {
   const playbackRate = useAppStore((s) => s.playbackRate);
   const setPlaybackRate = useAppStore((s) => s.setPlaybackRate);
 
+  // Swipe gesture refs — store touch coords in refs instead of DOM properties
+  // to avoid React error #300 when track change triggers re-render during touch
+  const swipeStartRef = useRef({ x: 0, y: 0 });
+
   const sliderRef = useRef<HTMLDivElement>(null);
   const progressFillRef = useRef<HTMLDivElement>(null);
   const progressThumbRef = useRef<HTMLDivElement>(null);
@@ -2048,20 +2052,22 @@ export default function FullTrackView() {
                   <div
                     className="w-64 h-64 sm:w-[320px] sm:h-[320px] md:w-[22rem] md:h-[22rem] lg:w-[24rem] lg:h-[24rem] xl:w-[26rem] xl:h-[26rem] rounded-2xl overflow-hidden relative mq-cover-shadow-lg touch-none"
                     onTouchStart={(e) => {
-                      (e.currentTarget as any)._swipeStartX = e.touches[0].clientX;
-                      (e.currentTarget as any)._swipeStartY = e.touches[0].clientY;
+                      swipeStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
                     }}
                     onTouchEnd={(e) => {
-                      const el = e.currentTarget as any;
-                      const startX = el._swipeStartX ?? 0;
-                      const startY = el._swipeStartY ?? 0;
+                      const startX = swipeStartRef.current.x;
+                      const startY = swipeStartRef.current.y;
                       const endX = e.changedTouches[0].clientX;
                       const endY = e.changedTouches[0].clientY;
                       const dx = endX - startX;
                       const dy = Math.abs(endY - startY);
                       if (Math.abs(dx) > 60 && dy < 40) {
-                        if (dx > 0) prevTrack();
-                        else nextTrack();
+                        // Defer track change to next frame to avoid React error #300
+                        // from cascading state updates during touch event handling
+                        requestAnimationFrame(() => {
+                          if (dx > 0) prevTrack();
+                          else nextTrack();
+                        });
                         try { navigator.vibrate?.(10); } catch {}
                       }
                     }}

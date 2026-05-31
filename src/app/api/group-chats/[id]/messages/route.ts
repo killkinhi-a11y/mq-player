@@ -5,6 +5,28 @@ import { getSession } from "@/lib/get-session";
 
 export const dynamic = "force-dynamic";
 
+// Demo group messages — mock data for demo mode
+const DEMO_GROUP_MESSAGES: Record<string, Array<{
+  id: string; content: string; messageType: string; replyToId: string | null;
+  edited: boolean; editedAt: null; voiceUrl: null; voiceDuration: null;
+  createdAt: string; sender: { id: string; username: string; avatar: string };
+}>> = {
+  "demo-group-music": [
+    { id: "dgm-1", content: "Привет всем! 🎵", messageType: "text", replyToId: null, edited: false, editedAt: null, voiceUrl: null, voiceDuration: null, createdAt: new Date(Date.now() - 7200000).toISOString(), sender: { id: "demo-bot-1", username: "Меломан", avatar: "" } },
+    { id: "dgm-2", content: "Кто-нибудь слушал новый альбом? 🔥", messageType: "text", replyToId: null, edited: false, editedAt: null, voiceUrl: null, voiceDuration: null, createdAt: new Date(Date.now() - 3600000).toISOString(), sender: { id: "demo-bot-1", username: "Меломан", avatar: "" } },
+    { id: "dgm-3", content: "Да, трек номер 3 просто огонь!", messageType: "text", replyToId: "dgm-2", edited: false, editedAt: null, voiceUrl: null, voiceDuration: null, createdAt: new Date(Date.now() - 1800000).toISOString(), sender: { id: "demo-bot-2", username: "DJ_Vibe", avatar: "" } },
+    { id: "dgm-4", content: "Согласен, тоже зашёл", messageType: "text", replyToId: null, edited: false, editedAt: null, voiceUrl: null, voiceDuration: null, createdAt: new Date(Date.now() - 900000).toISOString(), sender: { id: "demo-bot-3", username: "ChillMaster", avatar: "" } },
+  ],
+  "demo-group-hits": [
+    { id: "dgh-1", content: "Добавил новый плейлист, зацените!", messageType: "text", replyToId: null, edited: false, editedAt: null, voiceUrl: null, voiceDuration: null, createdAt: new Date(Date.now() - 7200000).toISOString(), sender: { id: "demo-bot-2", username: "DJ_Vibe", avatar: "" } },
+    { id: "dgh-2", content: "Крутой подбор! Как раз искал что-то подобное", messageType: "text", replyToId: "dgh-1", edited: false, editedAt: null, voiceUrl: null, voiceDuration: null, createdAt: new Date(Date.now() - 3600000).toISOString(), sender: { id: "demo-bot-1", username: "Меломан", avatar: "" } },
+  ],
+  "demo-group-lofi": [
+    { id: "dgl-1", content: "Идеальный трек для дождливого вечера 🌧️", messageType: "text", replyToId: null, edited: false, editedAt: null, voiceUrl: null, voiceDuration: null, createdAt: new Date(Date.now() - 86400000).toISOString(), sender: { id: "demo-bot-3", username: "ChillMaster", avatar: "" } },
+    { id: "dgl-2", content: "Lo-fi и кофе — лучшая комбинация ☕", messageType: "text", replyToId: null, edited: false, editedAt: null, voiceUrl: null, voiceDuration: null, createdAt: new Date(Date.now() - 43200000).toISOString(), sender: { id: "demo-bot-1", username: "Меломан", avatar: "" } },
+  ],
+};
+
 // GET /api/group-chats/[id]/messages?cursor=xxx&limit=50 — paginated messages
 async function getHandler(
   req: NextRequest,
@@ -12,12 +34,27 @@ async function getHandler(
 ) {
   try {
     const session = await getSession();
-    if (!session) {
+    const demoUserId = req.headers.get('x-demo-user-id');
+
+    if (!session && !demoUserId) {
       return NextResponse.json(
         { error: "Необходима авторизация" },
         { status: 401 }
       );
     }
+
+    // Demo mode: return mock messages
+    if (demoUserId && !session) {
+      const { id } = await ctx!.params;
+      const msgs = DEMO_GROUP_MESSAGES[id] || [];
+      return NextResponse.json({ messages: msgs, nextCursor: null });
+    }
+
+    // At this point session must exist (checked above)
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+
     const userId = session.userId;
     const { id } = await ctx!.params;
     const cursor = req.nextUrl.searchParams.get("cursor");
@@ -111,12 +148,59 @@ async function postHandler(
 ) {
   try {
     const session = await getSession();
-    if (!session) {
+    const demoUserId = req.headers.get('x-demo-user-id');
+    const demoUserName = req.headers.get('x-demo-user-name') || 'Демо';
+
+    if (!session && !demoUserId) {
       return NextResponse.json(
         { error: "Необходима авторизация" },
         { status: 401 }
       );
     }
+
+    // Demo mode: return mock sent message
+    if (demoUserId && !session) {
+      const { content, messageType } = await req.json();
+      if (!content) {
+        return NextResponse.json({ error: "content обязателен" }, { status: 400 });
+      }
+      const { id } = await ctx!.params;
+      // Add to in-memory demo messages
+      if (DEMO_GROUP_MESSAGES[id]) {
+        DEMO_GROUP_MESSAGES[id].push({
+          id: `demo-msg-${Date.now()}`,
+          content,
+          messageType: messageType || "text",
+          replyToId: null,
+          edited: false,
+          editedAt: null,
+          voiceUrl: null,
+          voiceDuration: null,
+          createdAt: new Date().toISOString(),
+          sender: { id: demoUserId, username: demoUserName, avatar: "" },
+        });
+      }
+      return NextResponse.json({
+        message: {
+          id: `demo-msg-${Date.now()}`,
+          content,
+          messageType: messageType || "text",
+          replyToId: null,
+          edited: false,
+          editedAt: null,
+          voiceUrl: null,
+          voiceDuration: null,
+          createdAt: new Date().toISOString(),
+          sender: { id: demoUserId, username: demoUserName, avatar: "" },
+        },
+      }, { status: 201 });
+    }
+
+    // At this point session must exist
+    if (!session) {
+      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
+    }
+
     const userId = session.userId;
     const { id } = await ctx!.params;
     const {
