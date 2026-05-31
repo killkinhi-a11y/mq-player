@@ -131,11 +131,8 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
     try {
       const { allGenres, allArtists, language, recentTitles } = buildTasteContext();
 
-      // If user has no taste data at all, show trending fallback
-      if (allGenres.length === 0 && history.length < 3 && !presetId) {
-        setLoading(false);
-        return;
-      }
+      // If user has no taste data, still allow mood presets to work
+      // (AI will generate generic recommendations based on the mood prompt)
 
       // Determine the prompt to send
       const preset = MOOD_PRESETS.find(p => p.id === presetId);
@@ -201,12 +198,9 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
     }
   }, [buildTasteContext, tasteMoods, likedTrackIds, dislikedTrackIds, history.length]);
 
-  // Auto-fetch initial recommendations on mount
+  // Auto-fetch initial recommendations on mount (always try, even for new users)
   useEffect(() => {
-    const { allGenres } = buildTasteContext();
-    if (allGenres.length > 0 || history.length >= 3) {
-      fetchRecommendations();
-    }
+    fetchRecommendations();
     return () => {
       if (abortRef.current) abortRef.current.abort();
     };
@@ -236,8 +230,8 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
 
   const displayTracks = showAll ? tracks : tracks.slice(0, 8);
 
-  // Don't render if user has no data and no tracks loaded yet
-  if (tracks.length === 0 && !loading && history.length < 3) {
+  // Always render the widget — show mood presets + loading/results
+  if (tracks.length === 0 && !loading) {
     return (
       <div className="mb-10">
         {/* Mood presets only — no track results */}
@@ -467,7 +461,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
       )}
 
       {/* Empty state with no tracks and not loading */}
-      {!loading && tracks.length === 0 && history.length >= 3 && (
+      {!loading && tracks.length === 0 && (
         <div className="text-center py-8 rounded-2xl" style={{ backgroundColor: "var(--mq-card)" }}>
           <Brain className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-accent)", opacity: 0.4 }} />
           <p className="text-xs mb-3" style={{ color: "var(--mq-text-muted)" }}>

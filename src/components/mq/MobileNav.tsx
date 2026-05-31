@@ -30,13 +30,13 @@ const MobileNav = React.memo(function MobileNav() {
 
   return (
     <nav
-      className="fixed z-[60] lg:hidden left-3 right-3"
+      className="fixed lg:hidden left-3 right-3"
       role="navigation"
       aria-label="Основная навигация"
       style={{
         bottom: 12,
+        zIndex: 70,
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
-        transition: "bottom 0.35s cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >
       {/* Floating glass panel */}

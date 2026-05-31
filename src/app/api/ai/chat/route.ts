@@ -118,11 +118,10 @@ function buildFallbackReply(userMessage: string, taste: TasteContext): { reply: 
 
 async function handler(req: NextRequest) {
   try {
-    // Require authentication — prevent LLM cost abuse
+    // Auth is optional — allow anonymous users to use AI recommendations
+    // but with stricter rate limiting
     const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-    }
+    const isAnonymous = !session;
 
     const body = await req.json();
     const { messages = [], tasteProfile = {}, sessionId } = body as {
