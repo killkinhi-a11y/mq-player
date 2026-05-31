@@ -839,7 +839,13 @@ export default function MessengerView() {
     if (!userId) return;
     const fetchGroups = async () => {
       try {
-        const res = await fetch(`/api/group-chats?userId=${userId}`);
+        const state = useAppStore.getState();
+        const headers: Record<string, string> = {};
+        if (state.userId === "demo-user-id") {
+          headers["x-demo-user-id"] = "demo-user-id";
+          headers["x-demo-user-name"] = state.username || "Демо";
+        }
+        const res = await fetch(`/api/group-chats?userId=${userId}`, { headers });
         if (res.ok) {
           const data = await res.json();
           setGroupChats(data.groupChats || data || []);

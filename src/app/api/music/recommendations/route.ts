@@ -1602,7 +1602,7 @@ async function handler(request: NextRequest) {
       const timeMatched = flatTracks.filter(t => {
         const e = estimateEnergy({ genre: t.genre, title: t.title, duration: t.duration } as SCTrack);
         return e >= energyPref.minEnergy && e <= energyPref.maxEnergy;
-      }).slice(0, 8);
+      }).slice(0, 20);
       if (timeMatched.length >= 3) {
         categories.push({ id: "time_of_day", title: timeCat.title, icon: timeCat.icon, tracks: timeMatched });
       }

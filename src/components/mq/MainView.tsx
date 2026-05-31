@@ -143,6 +143,12 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
     );
   }
 
+  const aiScrollRef = useRef<HTMLDivElement>(null);
+  const aiScrollRow = (dir: 'left' | 'right') => {
+    if (!aiScrollRef.current) return;
+    aiScrollRef.current.scrollBy({ left: dir === 'left' ? -400 : 400, behavior: 'smooth' });
+  };
+
   return (
     <div>
       {aiSummary && (
@@ -150,8 +156,8 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
           {aiSummary}
         </p>
       )}
-      <div className="relative">
-        <div className="mq-scroll-row"
+      <div className="relative group/airow">
+        <div ref={aiScrollRef} className="mq-scroll-row"
           style={{ scrollSnapType: "x proximity", gap: "var(--mq-space-3)" }}>
           {aiTracks.map((track, i) => (
             <motion.button
@@ -197,6 +203,21 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
             </motion.button>
           ))}
         </div>
+        {/* PC scroll buttons — hidden on mobile */}
+        <button
+          onClick={() => aiScrollRow('left')}
+          className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/airow:opacity-100 transition-opacity z-10"
+          style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => aiScrollRow('right')}
+          className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/airow:opacity-100 transition-opacity z-10"
+          style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
         {/* Scroll fade gradient on right edge */}
         <div className="absolute top-0 right-0 bottom-2 w-12 pointer-events-none z-10"
           style={{ background: "linear-gradient(to right, transparent, var(--mq-bg))" }} />
@@ -678,6 +699,7 @@ export default function MainView() {
   const heroOpacityRef = useRef<HTMLDivElement>(null);
   const mousePos = useRef({ x: 0, y: 0 });
   const mainRef = useRef<HTMLDivElement>(null);
+  const curatedScrollRef = useRef<HTMLDivElement>(null);
 
   // Track mouse for hero parallax orbs — direct DOM mutation, zero React re-renders
   useEffect(() => {
@@ -2221,8 +2243,8 @@ export default function MainView() {
                 }>Плейлисты</h2>
               </div>
             </div>
-            <div className="relative">
-              <div className="mq-scroll-row" style={{ scrollSnapType: "x proximity", gap: isMobile ? "12px" : "var(--mq-space-3)" }}>
+            <div className="relative group/playlistrow">
+              <div ref={curatedScrollRef} className="mq-scroll-row" style={{ scrollSnapType: "x proximity", gap: isMobile ? "12px" : "var(--mq-space-3)" }}>
                 {curatedPlaylists.map((pl, i) => (
                   isMobile ? (
                     /* ── Mobile Premium Playlist Card ── */
@@ -2290,6 +2312,25 @@ export default function MainView() {
                   )
                 ))}
               </div>
+              {/* PC scroll buttons for playlists — hidden on mobile */}
+              <button
+                onClick={() => {
+                  if (curatedScrollRef.current) curatedScrollRef.current.scrollBy({ left: -400, behavior: 'smooth' });
+                }}
+                className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/playlistrow:opacity-100 transition-opacity z-10"
+                style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => {
+                  if (curatedScrollRef.current) curatedScrollRef.current.scrollBy({ left: 400, behavior: 'smooth' });
+                }}
+                className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/playlistrow:opacity-100 transition-opacity z-10"
+                style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
               <div className="absolute top-0 right-0 bottom-2 w-12 pointer-events-none z-10"
                 style={{ background: "linear-gradient(to right, transparent, var(--mq-bg))" }} />
             </div>

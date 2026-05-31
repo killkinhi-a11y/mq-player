@@ -9,13 +9,22 @@ export const dynamic = "force-dynamic";
 async function getHandler(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) {
+    // Allow demo mode - check for demo user header
+    const demoUserId = req.headers.get('x-demo-user-id');
+
+    if (!session && !demoUserId) {
       return NextResponse.json(
         { error: "Необходима авторизация" },
         { status: 401 }
       );
     }
-    const userId = session.userId;
+
+    const userId = session?.userId || demoUserId || '';
+
+    // For demo users, return empty list (no persistent group chats)
+    if (demoUserId) {
+      return NextResponse.json({ groupChats: [] });
+    }
 
     // Get all memberships for the user
     const memberships = await db.groupChatMember.findMany({

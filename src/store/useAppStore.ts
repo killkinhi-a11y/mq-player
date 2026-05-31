@@ -2624,6 +2624,7 @@ export const useAppStore = create<AppState>()(
               username: null,
               email: null,
               isAuthenticated: false,
+              currentView: "auth",
             });
           }
 

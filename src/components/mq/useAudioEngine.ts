@@ -1965,13 +1965,14 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   }, [isPlaying, isLoadingTrack, startProgressRAF, stopProgressRAF]);
 
   // ── Volume effect ──
+  // Re-apply volume whenever volume changes OR track changes (audio element resets to 1.0 on new src)
   useEffect(() => {
     const vol = Math.pow(volume / 100, 2);
     const audio = getAudioElement();
     if (audio) audio.volume = vol;
     const secondary = getInactiveAudio();
     if (secondary) secondary.volume = vol;
-  }, [volume]);
+  }, [volume, currentTrack?.id]);
 
   return {
     isLoadingTrack,

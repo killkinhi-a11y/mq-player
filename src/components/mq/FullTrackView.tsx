@@ -683,11 +683,18 @@ export default function FullTrackView() {
         if (target.closest('.mq-scroll-view, [data-scrollable]')) return;
         e.preventDefault();
       };
+      const preventWheel = (e: WheelEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('.mq-scroll-view, [data-scrollable]')) return;
+        e.preventDefault();
+      };
       document.addEventListener('touchmove', preventTouchMove, { passive: false });
+      document.addEventListener('wheel', preventWheel, { passive: false });
       return () => {
         document.body.style.overflow = '';
         document.documentElement.style.overflow = '';
         document.removeEventListener('touchmove', preventTouchMove);
+        document.removeEventListener('wheel', preventWheel);
       };
     }
   }, [isFullTrackViewOpen]);

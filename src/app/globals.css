@@ -855,21 +855,21 @@ html.blood-theme body::before {
   border-radius: 2px;
 }
 
-/* Focus visible ring */
+/* Focus visible ring — uses box-shadow so it follows border-radius (outline is always square) */
 .mq-focus-ring:focus-visible {
-  outline: 2px solid var(--mq-accent);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--mq-accent);
   border-radius: 4px;
 }
 
-/* Remove default square focus outline — use custom rounded ring */
+/* Remove default square focus outline — use box-shadow ring (follows border-radius) */
 input:focus, button:focus, select:focus, textarea:focus, a:focus {
-  outline: none;
+  outline: none !important;
 }
 input:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
-  outline: 2px solid var(--mq-accent);
-  outline-offset: 2px;
-  border-radius: 8px;
+  outline: none !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 60%, transparent);
+  border-radius: inherit;
 }
 
 /* Better skeleton loading */
@@ -1683,8 +1683,8 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--mq-accent);
-  outline-offset: 2px;
+  outline: none !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 60%, transparent);
   border-radius: inherit;
 }
 
