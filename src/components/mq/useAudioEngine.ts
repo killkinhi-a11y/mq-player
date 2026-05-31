@@ -91,6 +91,17 @@ export function generateWaveformPeaks(trackId: string, count: number = 100): num
   return peaks;
 }
 
+/** Resolve the playable URL for a stream — proxy through our CDN if needed */
+function proxyStreamUrl(url: string): string {
+  // Already a local proxy URL — never double-proxy
+  if (url.startsWith('/api/')) return url;
+  // SoundCloud CDN + cobalt bypass domains need proxying for CORS
+  if (url.includes('sndcdn.com') || url.includes('soundcloud.cloud') || url.includes('cobalt.tools')) {
+    return `/api/music/soundcloud/proxy?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
 export interface StreamResult {
   url: string;
   isPreview: boolean;
@@ -743,9 +754,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             }
           });
         } else {
-          const playUrl = stream.url.includes('sndcdn.com') || stream.url.includes('soundcloud.cloud')
-            ? `/api/music/soundcloud/proxy?url=${encodeURIComponent(stream.url)}`
-            : stream.url;
+          const playUrl = proxyStreamUrl(stream.url);
 
           ensureWebAudioConnected(inactive);
           const el = preloadTrack(playUrl, nextTrackData.id);
@@ -985,7 +994,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                 });
                 (a as any)._hlsInstance = hls;
               } else {
-                a.src = stream.url;
+                const retryPlayUrl = proxyStreamUrl(stream.url);
+                a.src = retryPlayUrl;
                 a.load();
                 a.play().then(() => {
                   if (wasMidPlayback && isFinite(savedPosition)) {
@@ -1151,7 +1161,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   });
                   (activeEl as any)._hlsInstance = hls;
                 } else {
-                  activeEl.src = stream.url;
+                  const timeoutPlayUrl = proxyStreamUrl(stream.url);
+                  activeEl.src = timeoutPlayUrl;
                   activeEl.load();
                   activeEl.play().catch(() => {});
                 }
@@ -1226,7 +1237,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   });
                   (activeEl as any)._hlsInstance = hls;
                 } else {
-                  activeEl.src = stream.url;
+                  const stallPlayUrl = proxyStreamUrl(stream.url);
+                  activeEl.src = stallPlayUrl;
                   activeEl.load();
                   activeEl.play().catch(() => {});
                 }
@@ -1714,9 +1726,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               }
             } else {
               audioEl.crossOrigin = "anonymous";
-              const playUrl = stream.url.includes('sndcdn.com') || stream.url.includes('soundcloud.cloud')
-                ? `/api/music/soundcloud/proxy?url=${encodeURIComponent(stream.url)}`
-                : stream.url;
+              const playUrl = proxyStreamUrl(stream.url);
               audioEl.src = playUrl;
 
               let loadFailed = false;
@@ -1760,10 +1770,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             }
           } else if (currentTrack.audioUrl) {
             resetCorsState();
-            const srcUrl = currentTrack.audioUrl;
-            audioEl.src = (srcUrl.includes('sndcdn.com') || srcUrl.includes('soundcloud.cloud'))
-              ? `/api/music/soundcloud/proxy?url=${encodeURIComponent(srcUrl)}`
-              : srcUrl;
+            audioEl.src = proxyStreamUrl(currentTrack.audioUrl);
             audioEl.load();
             if (canCrossfade) {
               crossfadeRef.current = true;

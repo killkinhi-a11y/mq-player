@@ -42,11 +42,14 @@ async function handler(request: NextRequest) {
     "i2.sndcdn.com",
     "i3.sndcdn.com",
     "i4.sndcdn.com",
+    "sndcdn.com",
     "soundcloud.com",
     "api.soundcloud.com",
     "api-v2.soundcloud.com",
     "license.media-streaming.soundcloud.cloud",
     "media-streaming.soundcloud.cloud",
+    "api.cobalt.tools",
+    "cobalt.tools",
   ];
   try {
     const parsed = new URL(audioUrl);

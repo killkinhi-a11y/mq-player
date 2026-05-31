@@ -62,6 +62,7 @@ interface TrackInfo {
   fullDuration: number;
   trackAuthorization: string;
   policy: string;
+  permalinkUrl: string;
 }
 
 /** Result from resolving a transcoding template URL */
@@ -163,6 +164,7 @@ async function getTrackInfo(trackId: string, clientId: string): Promise<TrackInf
       fullDuration: Math.round((track.full_duration || 0) / 1000),
       trackAuthorization,
       policy,
+      permalinkUrl: track.permalink_url || "",
     };
   } catch {
     return null;
@@ -257,6 +259,70 @@ async function verifyCdnUrl(url: string, isHls: boolean): Promise<boolean> {
   }
 }
 
+/**
+ * Resolve a full stream URL via cobalt.tools — bypasses SoundCloud SNIP previews
+ * without requiring a Go+ subscription.
+ *
+ * cobalt returns direct CDN URLs (usually mp3) for SoundCloud tracks.
+ * If cobalt fails or returns an error, we fall back to the normal SNIP preview.
+ */
+async function resolveViaCobalt(permalinkUrl: string): Promise<{ url: string; filename?: string } | null> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+
+    try {
+      const res = await fetch("https://api.cobalt.tools/", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+        },
+        body: JSON.stringify({
+          url: permalinkUrl,
+          downloadMode: "audio",
+          audioFormat: "mp3",
+        }),
+      });
+
+      if (!res.ok) {
+        console.warn(`[cobalt] HTTP ${res.status} for ${permalinkUrl}`);
+        return null;
+      }
+
+      const data = await res.json();
+
+      if (data.status === "error") {
+        console.warn(`[cobalt] Error: ${data.error?.code || "unknown"}`);
+        return null;
+      }
+
+      // redirect = direct CDN URL, tunnel = proxied through cobalt
+      if ((data.status === "redirect" || data.status === "tunnel") && data.url) {
+        return { url: data.url, filename: data.filename };
+      }
+
+      // picker = multiple options (rare for audio)
+      if (data.status === "picker" && data.picker?.length > 0) {
+        const audio = data.picker.find((p: Record<string, unknown>) => p.type === "audio") || data.picker[0];
+        if (audio?.url) {
+          return { url: audio.url, filename: audio.filename || data.filename };
+        }
+      }
+
+      console.warn(`[cobalt] Unexpected response: status=${data.status}`);
+      return null;
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (err) {
+    console.warn("[cobalt] Request failed:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const trackId = searchParams.get("trackId");
@@ -274,6 +340,34 @@ export async function GET(request: NextRequest) {
       if (!info) continue;
 
       diagnostics.push(`track_info_ok: clientId=${clientId.substring(0, 8)}, policy=${info.policy}, transcodings=${info.transcodings.length}, duration=${info.duration}s, auth=${info.trackAuthorization.length > 0}`);
+
+      // ── SNIP bypass via cobalt (no Go+ subscription required) ──
+      if (info.policy === "SNIP" && info.permalinkUrl) {
+        console.log(`[stream] SNIP detected for track ${trackId}, trying cobalt bypass...`);
+        const cobaltResult = await resolveViaCobalt(info.permalinkUrl);
+        if (cobaltResult?.url) {
+          console.log(`[stream] Cobalt bypass succeeded for track ${trackId}: ${cobaltResult.url.substring(0, 80)}...`);
+          diagnostics.push(`cobalt_bypass: success, url=${cobaltResult.url.substring(0, 60)}...`);
+
+          // Return raw URL — client-side proxy logic will handle CORS if needed
+          const cobaltUrl = cobaltResult.url;
+          const isHlsUrl = cobaltUrl.includes(".m3u8") || cobaltUrl.includes("/hls/");
+
+          return NextResponse.json({
+            url: cobaltUrl,
+            isHls: isHlsUrl,
+            isEncrypted: false,
+            protocol: isHlsUrl ? "hls" : "progressive",
+            quality: "sq",
+            isPreview: false,
+            duration: info.fullDuration || info.duration,
+            fullDuration: info.fullDuration || info.duration,
+            _diag: diagnostics,
+          });
+        }
+        diagnostics.push("cobalt_bypass: failed, falling back to SNIP preview");
+        console.log(`[stream] Cobalt bypass failed for track ${trackId}, falling back to SNIP preview`);
+      }
 
       // ── Resolve ALL transcodings IN PARALLEL ──
       // This is dramatically faster than sequential — if the first transcoding

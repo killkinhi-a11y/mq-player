@@ -458,9 +458,12 @@ export function createManifestInterceptor(
  * Check if an audio URL should be proxied through the SoundCloud CDN proxy.
  */
 export function shouldProxyUrl(url: string): string {
+  // Already a local proxy URL — never double-proxy
+  if (url.startsWith("/api/")) return url;
   if (
     url.includes("sndcdn.com") ||
-    url.includes("soundcloud.cloud")
+    url.includes("soundcloud.cloud") ||
+    url.includes("cobalt.tools")
   ) {
     return `/api/music/soundcloud/proxy?url=${encodeURIComponent(url)}`;
   }
