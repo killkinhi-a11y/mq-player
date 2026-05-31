@@ -34,7 +34,7 @@ const MobileNav = React.memo(function MobileNav() {
       role="navigation"
       aria-label="Основная навигация"
       style={{
-        bottom: 12,
+        bottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
         zIndex: 70,
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}

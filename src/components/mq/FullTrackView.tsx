@@ -673,6 +673,25 @@ export default function FullTrackView() {
     prevFullTrackOpenRef.current = isFullTrackViewOpen;
   }, [isFullTrackViewOpen]);
 
+  // Lock body scroll when fullscreen player is open
+  useEffect(() => {
+    if (isFullTrackViewOpen) {
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      const preventTouchMove = (e: TouchEvent) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('.mq-scroll-view, [data-scrollable]')) return;
+        e.preventDefault();
+      };
+      document.addEventListener('touchmove', preventTouchMove, { passive: false });
+      return () => {
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+        document.removeEventListener('touchmove', preventTouchMove);
+      };
+    }
+  }, [isFullTrackViewOpen]);
+
   // Close more menu on Escape key
   useEffect(() => {
     if (!showMoreMenu) return;
@@ -1030,7 +1049,7 @@ export default function FullTrackView() {
           duration: String(currentTrack.duration || 0),
           scTrackId: String(currentTrack.scTrackId || ""),
           excludeId: currentTrack.id,
-          limit: "8",
+          limit: "50",
           dislikedIds: dislikedIds.join(","),
           dislikedArtists: [...dislikedArtistsSet].join(","),
           dislikedGenres: [...dislikedGenresSet].join(","),
@@ -1040,7 +1059,7 @@ export default function FullTrackView() {
         const data = await res.json();
         const tracks: Track[] = (data.tracks || []).filter((t: Track) => t.id !== currentTrack.id);
 
-        if (!cancelled) setSimilarTracks(tracks.slice(0, 8));
+        if (!cancelled) setSimilarTracks(tracks.slice(0, 50));
       } catch {
         // Fallback to simple artist search
         try {

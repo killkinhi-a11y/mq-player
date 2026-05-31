@@ -7,7 +7,7 @@ import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import AISmartRecs from "./AISmartRecs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Pause, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending, X, Check, Square, Brain, Sunrise, User } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Pause, Music2, ChevronLeft, ChevronRight, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending, X, Check, Square, Brain, Sunrise, User } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
 import HeroParticles from "./HeroParticles";
 import CursorSpotlight from "./CursorSpotlight";
@@ -93,7 +93,7 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
         if (dislikedGenres.length > 0) params.set("skippedGenres", dislikedGenres.join(","));
         if (completedGenres.length > 0) params.set("completedGenres", completedGenres.join(","));
         if (lang !== "mixed") params.set("lang", lang);
-        params.set("limit", "12");
+        params.set("limit", "50");
 
         const res = await fetch(`/api/ai/recommendations?${params}`);
         if (!res.ok || cancelled) return;
@@ -232,6 +232,12 @@ function RecCategoryRow({ category, index, playTrack, animationsEnabled, compact
 }) {
   const Icon = ICON_MAP[category.icon] || <Sparkles className="w-4 h-4" />;
   const tracks = category.tracks;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRow = (dir: 'left' | 'right') => {
+    if (!scrollRef.current) return;
+    const scrollAmount = 400;
+    scrollRef.current.scrollBy({ left: dir === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+  };
 
   return (
     <motion.div
@@ -258,8 +264,8 @@ function RecCategoryRow({ category, index, playTrack, animationsEnabled, compact
           {tracks.length} треков
         </span>
       </div>
-      <div className="relative">
-        <div className="mq-scroll-row"
+      <div className="relative group/row">
+        <div ref={scrollRef} className="mq-scroll-row"
           style={{ scrollSnapType: "x proximity", gap: "var(--mq-space-3)" }}>
           {tracks.map((track, i) => (
             <motion.button
@@ -301,6 +307,21 @@ function RecCategoryRow({ category, index, playTrack, animationsEnabled, compact
             </motion.button>
           ))}
         </div>
+        {/* PC scroll buttons — hidden on mobile */}
+        <button
+          onClick={() => scrollRow('left')}
+          className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity z-10"
+          style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => scrollRow('right')}
+          className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity z-10"
+          style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
         {/* Scroll fade gradient on right edge */}
         <div className="absolute top-0 right-0 bottom-2 w-12 pointer-events-none z-10"
           style={{ background: "linear-gradient(to right, transparent, var(--mq-bg))" }} />
@@ -2277,6 +2298,7 @@ export default function MainView() {
       )}
 
       {/* ── AI Подбор — Smart AI Recommendations ── */}
+      {!useAppStore((s) => s.aiRecsHidden) && (
       <ScrollReveal direction="up" delay={0.1}>
         <AISmartRecs
           playTrack={playTrack}
@@ -2284,6 +2306,7 @@ export default function MainView() {
           animationsEnabled={animationsEnabled}
         />
       </ScrollReveal>
+      )}
 
       {/* ── Популярное (Trending) ── */}
       <ScrollReveal direction="up" delay={0.15}>
@@ -2315,7 +2338,7 @@ export default function MainView() {
             </div>
           ) : trendingTracks.length > 0 ? (
             <div className="space-y-1.5">
-              {trendingTracks.slice(0, 8).map((track, i) => (
+              {trendingTracks.slice(0, 50).map((track, i) => (
                 <TrackCard key={track.id} track={track} index={i} queue={trendingTracks} onArtistClick={handleNavigateToArtist} />
               ))}
             </div>

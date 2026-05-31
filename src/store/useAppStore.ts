@@ -462,6 +462,10 @@ interface AppState {
   miniPlayerHidden: boolean;
   setMiniPlayerHidden: (hidden: boolean) => void;
 
+  // AI Recommendations visibility
+  aiRecsHidden: boolean;
+  setAiRecsHidden: (hidden: boolean) => void;
+
   // Demo loading indicator
   demoLoading: boolean;
 
@@ -633,6 +637,9 @@ const initialState = {
 
   // Mini player visibility
   miniPlayerHidden: false as boolean,
+
+  // AI Recommendations visibility
+  aiRecsHidden: false as boolean,
 
   // Demo loading indicator
   demoLoading: false as boolean,
@@ -2414,6 +2421,8 @@ export const useAppStore = create<AppState>()(
       },
 
       setMiniPlayerHidden: (hidden: boolean) => set({ miniPlayerHidden: hidden }),
+
+      setAiRecsHidden: (hidden: boolean) => set({ aiRecsHidden: hidden }),
 
       setPlaybackRate: (rate: number) => {
         const clamped = Math.max(0.25, Math.min(3.0, rate));

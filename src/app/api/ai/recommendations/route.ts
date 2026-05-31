@@ -88,18 +88,24 @@ Generate 6 search queries for this user.`;
         { role: "user", content: userMessage },
       ],
       temperature: 0.8,
-      max_tokens: 600,
+      max_tokens: 800,
     });
 
     const content = completion.choices?.[0]?.message?.content || "";
     // Extract JSON from response (handle markdown code blocks)
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]);
-      return {
-        queries: (parsed.queries || []).slice(0, 6),
-        summary: parsed.summary || "Персональные рекомендации на основе ваших предпочтений",
-      };
+      try {
+        const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+        return {
+          queries: (parsed.queries || []).slice(0, 6),
+          summary: parsed.summary || "Персональные рекомендации на основе ваших предпочтений",
+        };
+      } catch (parseErr) {
+        console.error("[AI Recs] JSON parse error:", parseErr, "Content:", content.slice(0, 200));
+      }
+    } else {
+      console.warn("[AI Recs] No JSON found in LLM response:", content.slice(0, 200));
     }
   } catch (error) {
     console.error("[AI Recs] LLM error:", error);
@@ -177,7 +183,7 @@ async function handler(req: NextRequest) {
     // Step 2: Execute searches in parallel
     const searchPromises = aiResult.queries.map(async (q) => {
       try {
-        const tracks = await searchSCTracks(q.query, 10);
+        const tracks = await searchSCTracks(q.query, 15);
         return tracks.map(t => ({
           ...t,
           _aiReason: q.reason,
@@ -196,11 +202,16 @@ async function handler(req: NextRequest) {
       }
     }
 
-    // Step 3: Deduplicate by scTrackId
-    const seen = new Set<number>();
+    // Step 3: Deduplicate by scTrackId first, then by id
+    const seenSc = new Set<number>();
+    const seenId = new Set<string>();
     const unique = allTracks.filter(t => {
-      if (!t.scTrackId || seen.has(t.scTrackId)) return false;
-      seen.add(t.scTrackId);
+      if (seenId.has(t.id)) return false;
+      seenId.add(t.id);
+      if (t.scTrackId) {
+        if (seenSc.has(t.scTrackId)) return false;
+        seenSc.add(t.scTrackId);
+      }
       return true;
     });
 

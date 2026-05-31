@@ -5,7 +5,7 @@ import { useAppStore, type UserPlaylist } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import {
-  Plus, Trash2, Play, Music, ListMusic, ChevronRight,
+  Plus, Trash2, Play, Music, ListMusic, ChevronRight, ChevronLeft,
   Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle, Image, Camera, Sparkles, ImagePlus, Share2, Shuffle, Wand2, GripVertical, Pin, Users, MoveUp, MoveDown
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -175,7 +175,7 @@ export default function PlaylistView() {
         const recTracks = (data.tracks || []).filter(
           (t: Track) => !tracks.some(pt => pt.id === t.id)
         );
-        setPlaylistRecs(recTracks.slice(0, 8));
+        setPlaylistRecs(recTracks.slice(0, 50));
       })
       .catch(() => setPlaylistRecs([]))
       .finally(() => setPlaylistRecsLoading(false));
@@ -1020,7 +1020,7 @@ export default function PlaylistView() {
             )}
             {!playlistRecsLoading && playlistRecs.length > 0 && (
               <div className="space-y-2">
-                {playlistRecs.slice(0, 8).map((track, i) => (
+                {playlistRecs.slice(0, 50).map((track, i) => (
                   <div key={track.id} className="relative group">
                     <TrackCard track={track} index={i} queue={[...selectedPlaylist.tracks, ...playlistRecs]} onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })} />
                     <motion.button
@@ -1340,10 +1340,12 @@ export default function PlaylistView() {
         )}
       </AnimatePresence>
 
-      {/* Playlist grid — enhanced with larger cover, track count, duration info */}
+      {/* Playlist grid — horizontal scroll with proper card sizes */}
       <ScrollReveal direction="up" delay={0.1}>
       {playlists.length > 0 ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="relative group/playlistRow">
+          <div className="flex gap-3 overflow-x-auto scrollbar-none mq-scroll-row pb-2"
+            style={{ scrollSnapType: 'x proximity' }}>
           {sortedPlaylists.map((pl, i) => {
             const plDur = formatTotalDuration(pl.tracks);
             const isPlCollaborative = pl.id.startsWith('pl_url_') || pl.description?.includes('воспроизводимы');
@@ -1357,7 +1359,7 @@ export default function PlaylistView() {
                 whileHover={{ y: -4 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setSelectedPlaylistId(pl.id)}
-                className="rounded-2xl p-4 cursor-pointer relative group"
+                className="rounded-2xl p-3 cursor-pointer relative group flex-shrink-0 w-[140px]"
                 style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}
               >
                 {/* Cover with upload hover + zoom on hover — larger now */}
@@ -1485,6 +1487,28 @@ export default function PlaylistView() {
               </motion.div>
             );
           })}
+          </div>
+          {/* PC scroll buttons — hidden on mobile */}
+          <button
+            onClick={() => {
+              const el = document.querySelector('.group\\/playlistRow .mq-scroll-row') as HTMLDivElement;
+              if (el) el.scrollBy({ left: -300, behavior: 'smooth' });
+            }}
+            className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/playlistRow:opacity-100 transition-opacity z-10"
+            style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => {
+              const el = document.querySelector('.group\\/playlistRow .mq-scroll-row') as HTMLDivElement;
+              if (el) el.scrollBy({ left: 300, behavior: 'smooth' });
+            }}
+            className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/playlistRow:opacity-100 transition-opacity z-10"
+            style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
         </div>
       ) : (
         /* Empty state using unified EmptyState component */

@@ -1324,6 +1324,14 @@ export default function SettingsView() {
             />
           </div>
           <SettingToggle
+            icon={Bot}
+            label="Скрыть AI подборку"
+            subtitle="Скрыть AI рекомендации с главной"
+            value={useAppStore((s) => s.aiRecsHidden)}
+            onCheckedChange={useAppStore((s) => s.setAiRecsHidden)}
+            valueLabel={useAppStore((s) => s.aiRecsHidden) ? "Вкл" : "Выкл"}
+          />
+          <SettingToggle
             icon={Moon}
             label="Авто-тема"
             subtitle="Тёмная/светлая по настройке системы"

@@ -171,7 +171,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
         if (allGenres.length > 0) params.set("genres", allGenres.join(","));
         if (allArtists.length > 0) params.set("artists", allArtists.join(","));
         if (language !== "mixed") params.set("lang", language);
-        params.set("limit", "15");
+        params.set("limit", "50");
 
         const fallbackRes = await fetch(`/api/ai/recommendations?${params}`, { signal: controller.signal });
         if (fallbackRes.ok) {
@@ -228,7 +228,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
     }
   }, [activePreset, fetchRecommendations]);
 
-  const displayTracks = showAll ? tracks : tracks.slice(0, 8);
+  const displayTracks = showAll ? tracks : tracks.slice(0, 50);
 
   // Always render the widget — show mood presets + loading/results
   if (tracks.length === 0 && !loading) {
@@ -442,7 +442,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
           </div>
 
           {/* Show more / less */}
-          {tracks.length > 8 && (
+          {tracks.length > 50 && (
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={() => setShowAll(!showAll)}
@@ -453,7 +453,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
                 color: "var(--mq-text-muted)",
               }}
             >
-              {showAll ? "Свернуть" : `Ещё ${tracks.length - 8} треков`}
+              {showAll ? "Свернуть" : `Ещё ${tracks.length - 50} треков`}
               <ChevronRight className={`w-3 h-3 transition-transform ${showAll ? "rotate-90" : ""}`} />
             </motion.button>
           )}
