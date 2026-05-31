@@ -120,3 +120,26 @@ These can be migrated incrementally by updating their imports from `@/lib/db` to
 - Dev server: ✅ Starts correctly with instrumentation hook
 - Instrumentation: ✅ Correctly detects TURSO_DATABASE_URL presence
 - Build: ⚠️ Fails at page data collection due to missing local PostgreSQL (expected — not related to our changes)
+---
+Task ID: 1
+Agent: main
+Task: Fix SNIP preview track bug — implement OAuth bypass + auto-skip
+
+Work Log:
+- Investigated full audio pipeline: stream API → resolveSoundCloudStream → useAudioEngine → UI
+- Root cause identified: SoundCloud API returns `policy: "SNIP"` for some tracks, CDN only serves ~10s previews
+- Added `scOAuthToken` and `skipSnipTracks` fields to Zustand store (useAppStore.ts)
+- Modified `/api/music/soundcloud/stream/route.ts` to accept `oauth_token` parameter and include it as `Authorization: OAuth <token>` header in SoundCloud API requests
+- Modified `resolveSoundCloudStream()` in useAudioEngine.ts to pass OAuth token from store
+- Added auto-skip SNIP tracks: when `skipSnipTracks` is enabled (default), tracks with SNIP policy are automatically skipped to the next track after 800ms
+- Added SoundCloud section in SettingsView with: OAuth token input, token verification, instructions for getting token from SoundCloud Go+ cookies, disconnect option
+- Changed "Превью" badges to "SNIP" in PlayerBar and FullTrackView for clarity
+- Store clears stream cache when OAuth token changes so SNIP tracks re-resolve with auth
+- Built and deployed successfully to production
+
+Stage Summary:
+- Two-pronged solution: (1) OAuth token from SoundCloud Go+ subscribers bypasses SNIP, (2) auto-skip SNIP tracks when no token
+- Settings page now has a SoundCloud section where users can paste their OAuth token
+- OAuth token is verified against SoundCloud's /me endpoint before saving
+- Token is stored in localStorage and persists across sessions
+- Deployed to: https://mq-player-src.vercel.app
