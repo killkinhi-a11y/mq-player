@@ -627,6 +627,51 @@ html.liquid-glass-theme body::after {
   box-shadow: inset 0 0 0 1px rgba(167,139,250,0.1), 0 0 12px rgba(167,139,250,0.03);
 }
 
+/* Blood theme — deep crimson glow & dripping accent */
+.blood-theme .rounded-2xl,
+.blood-theme .rounded-xl {
+  box-shadow: inset 0 0 0 1px rgba(204,0,0,0.15), 0 0 16px rgba(204,0,0,0.06);
+}
+
+.blood-theme * {
+  text-shadow: 0 0 8px rgba(204,0,0,0.08);
+}
+
+/* Blood theme — pulsing background vignette */
+html.blood-theme body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(80,0,0,0.08) 70%, rgba(40,0,0,0.15) 100%);
+  pointer-events: none;
+  animation: blood-vignette-pulse 8s ease-in-out infinite;
+}
+
+@keyframes blood-vignette-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Blood theme — red glow on active elements */
+.blood-theme .mq-card-cinematic:hover {
+  box-shadow: 0 0 20px rgba(204,0,0,0.15), 0 4px 16px rgba(0,0,0,0.3);
+  border-color: rgba(204,0,0,0.25);
+}
+
+.blood-theme .mq-accent-glow {
+  box-shadow: 0 0 24px rgba(204,0,0,0.35);
+}
+
+.blood-theme .mq-breathe-glow {
+  animation: blood-glow-pulse 3s ease-in-out infinite;
+}
+
+@keyframes blood-glow-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(204,0,0,0.2); }
+  50% { box-shadow: 0 0 20px rgba(204,0,0,0.4); }
+}
+
 /* Online status pulse animation */
 @keyframes onlinePulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4); }

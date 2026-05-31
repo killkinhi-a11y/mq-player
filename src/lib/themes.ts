@@ -442,6 +442,23 @@ export const themes: Record<string, ThemeConfig> = {
     glowColor: "rgba(192,132,252,0.3)",
     className: "easter-theme",
   },
+  blood: {
+    id: "blood",
+    name: "Blood",
+    background: "#080404",
+    card: "#140a0a",
+    cardHover: "#1e0f0f",
+    accent: "#cc0000",
+    text: "#f5e0e0",
+    textMuted: "#b07070",
+    border: "#2a0e0e",
+    inputBg: "#140a0a",
+    playerBg: "#0c0606",
+    navBg: "#080404ee",
+    gradient: "radial-gradient(ellipse at 20% 50%, rgba(204,0,0,0.12) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(139,0,0,0.08) 0%, transparent 40%), radial-gradient(ellipse at 50% 80%, rgba(180,0,0,0.05) 0%, transparent 35%)",
+    glowColor: "rgba(204,0,0,0.4)",
+    className: "blood-theme",
+  },
 };
 
 // Seasonal theme metadata for feature flags
@@ -474,7 +491,7 @@ export function applyThemeToDOM(theme: ThemeConfig, customAccent?: string) {
   root.style.setProperty("--mq-glow", theme.glowColor);
 
   // Remove all theme classes
-  const allThemeClasses = ["ocean-theme", "neon-theme", "sunset-theme", "aurora-theme", "cyberpunk-theme", "synthwave-theme", "midnight-theme", "black-theme", "liquid-glass-theme", "sakura-theme", "frost-theme", "volcano-theme", "arctic-theme", "phantom-theme", "daylight-theme", "halloween-theme", "newyear-theme", "valentine-theme", "spring-theme", "summer-theme", "autumn-theme", "stpatrick-theme", "easter-theme", "streaming-theme"];
+  const allThemeClasses = ["ocean-theme", "neon-theme", "sunset-theme", "aurora-theme", "cyberpunk-theme", "synthwave-theme", "midnight-theme", "black-theme", "liquid-glass-theme", "sakura-theme", "frost-theme", "volcano-theme", "arctic-theme", "phantom-theme", "daylight-theme", "halloween-theme", "newyear-theme", "valentine-theme", "spring-theme", "summer-theme", "autumn-theme", "stpatrick-theme", "easter-theme", "streaming-theme", "blood-theme"];
   allThemeClasses.forEach(c => root.classList.remove(c));
   if (theme.className) {
     root.classList.add(theme.className);

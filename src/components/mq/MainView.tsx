@@ -5,6 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
+import AISmartRecs from "./AISmartRecs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Pause, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending, X, Check, Square, Brain, Sunrise, User } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
@@ -625,6 +626,7 @@ export default function MainView() {
     history, playlists, setView, contacts, messages, userId, compactMode, currentTrack, isPlaying,
     setSearchQuery, favoriteArtists, selectedArtist, setSelectedArtist,
     addFavoriteArtist, removeFavoriteArtist, radioMode, upNext, queue, progress, duration,
+    addToUpNext,
   } = useAppStore();
 
   const isMobile = useIsMobile();
@@ -2274,26 +2276,13 @@ export default function MainView() {
         </ScrollReveal>
       )}
 
-      {/* ── Для вас (For You) — AI Recommendations ── */}
+      {/* ── AI Подбор — Smart AI Recommendations ── */}
       <ScrollReveal direction="up" delay={0.1}>
-        <div className="mb-10">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
-                <Sparkles className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-              </div>
-              <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>Для вас</h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <motion.button whileTap={{ scale: 0.9 }} onClick={loadRecommendations} disabled={isRecLoading}
-                className="p-1.5 rounded-lg flex items-center gap-1" style={{ color: "var(--mq-text-muted)" }}>
-                <RefreshCw className={`w-3.5 h-3.5 ${isRecLoading ? "animate-spin" : ""}`} />
-                <span className="text-[11px]">Обновить</span>
-              </motion.button>
-            </div>
-          </div>
-          <AIRecommendationsBar playTrack={playTrack} animationsEnabled={animationsEnabled} compactMode={compactMode} />
-        </div>
+        <AISmartRecs
+          playTrack={playTrack}
+          addToUpNext={addToUpNext}
+          animationsEnabled={animationsEnabled}
+        />
       </ScrollReveal>
 
       {/* ── Популярное (Trending) ── */}
