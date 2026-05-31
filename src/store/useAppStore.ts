@@ -2620,7 +2620,10 @@ export const useAppStore = create<AppState>()(
           }
           if (!state) return;
 
-          // Clear demo auth on rehydration — user must explicitly enter demo mode each session
+          // Clear demo auth on rehydration — user must explicitly enter demo mode each session.
+          // IMPORTANT: batch ALL state changes (including _hasHydrated) in ONE setState call.
+          // Previously this did a separate setState for _hasHydrated which could arrive after
+          // AppShell read the store, causing a flash of authenticated demo UI.
           if (state.userId === "demo-user-id") {
             useAppStore.setState({
               userId: null,
@@ -2632,7 +2635,10 @@ export const useAppStore = create<AppState>()(
               currentView: "auth",
               isPlaying: false,
               playbackState: "idle",
+              currentTrack: null,
+              _hasHydrated: true,  // Mark hydrated IN THE SAME BATCH — prevents race
             });
+            return; // Skip the rest of the handler — hydration is complete
           }
 
           // Safety: if isAuthenticated is true but userId is null (stale/inconsistent state from
@@ -2644,7 +2650,9 @@ export const useAppStore = create<AppState>()(
               currentView: "auth",
               isPlaying: false,
               playbackState: "idle",
+              _hasHydrated: true,
             });
+            return;
           }
 
           // Validate every critical field – belt and suspenders

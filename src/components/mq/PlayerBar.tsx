@@ -600,7 +600,7 @@ const PlayerBar = React.memo(function PlayerBar() {
             onClick={() => setMiniPlayerHidden(false)}
             className="fixed z-[60] left-3 right-3 flex items-center gap-3 pl-2 pr-3 py-2.5 rounded-2xl cursor-pointer sm:hidden"
             style={{
-              bottom: "calc(76px + env(safe-area-inset-bottom, 8px))",
+              bottom: "calc(82px + env(safe-area-inset-bottom, 8px))",
               backgroundColor: "var(--mq-player-bg)",
               border: "1px solid var(--mq-border-subtle, rgba(255,255,255,0.08))",
               boxShadow: "0 4px 24px rgba(0,0,0,0.5), 0 0 24px color-mix(in srgb, var(--mq-accent) 10%, transparent)",

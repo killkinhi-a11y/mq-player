@@ -994,31 +994,29 @@ input:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-
 }
 @media (max-width: 639px) {
   .mobile-player-above-nav {
-    /* Nav is always at bottom:12px, ~50px tall + safe-area padding.
-       Player sits above the nav with a comfortable gap so nav stays visible. */
-    bottom: calc(80px + env(safe-area-inset-bottom, 0px));
-    transform: translateZ(0);
+    /* Nav floats at bottom:12px, height ~58px (py-2.5 + icon + label + safe-area).
+       Player bottom = nav_bottom(12) + nav_height(58) + gap(6) = 76px.
+       Use exact integer to avoid sub-pixel gaps on high-DPI screens. */
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+    transform: translateZ(0); /* prevent fractional positioning from spring animation */
   }
 }
 
-/* On sm+ desktop: restore the rounded top corners (there's no nav bar below) */
+/* On sm+ desktop: keep flat bottom */
 @media (min-width: 640px) {
   .mobile-player-inner {
-    border-radius: 0 !important;  /* desktop player goes full-width at the bottom, no rounding needed */
+    border-radius: 0 !important;
   }
 }
 
-/* ── Player + Nav visual relationship ──
-   On mobile the player bar sits above the floating nav pill.
-   Player has a bottom border-radius and its own upward shadow.
-   The nav floats independently below with its own glass style. */
+/* ── Mobile player visual: rounded ALL corners since it floats above nav ── */
 @media (max-width: 639px) {
   .mobile-player-inner {
     background-color: var(--mq-player-bg) !important;
-    /* Rounded bottom corners — player floats above nav, not flush */
-    border-radius: 0 !important;
-    /* Shadow only upward */
-    box-shadow: 0 -6px 32px rgba(0,0,0,0.35) !important;
+    /* Rounded bottom corners to match the floating pill style of the nav */
+    border-radius: 0 0 18px 18px !important;
+    border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+    box-shadow: 0 6px 32px rgba(0,0,0,0.4), 0 -4px 20px rgba(0,0,0,0.2) !important;
   }
 }
 
@@ -1029,13 +1027,13 @@ input:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-
 }
 @media (max-width: 639px) {
   .mq-has-player {
-    /* Player raised above nav: player-bottom (76px) + player-height (90px) + safe area */
-    padding-bottom: calc(166px + env(safe-area-inset-bottom, 0px));
+    /* player raised 76px + player height 90px + safe area + 8px breathing room */
+    padding-bottom: calc(174px + env(safe-area-inset-bottom, 0px));
   }
 }
 @media (min-width: 640px) {
   .mq-has-player {
-    padding-bottom: 64px; /* desktop player height */
+    padding-bottom: 64px;
   }
 }
 

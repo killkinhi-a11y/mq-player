@@ -536,7 +536,20 @@ export default function MessengerView() {
       if (extra?.replyToId) { body.replyToId = extra.replyToId; }
       if (selectedGroupId) {
         body.groupChatId = selectedGroupId;
-        await fetch(`/api/group-chats/${selectedGroupId}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        const groupHeaders: Record<string, string> = { "Content-Type": "application/json" };
+        const st = useAppStore.getState();
+        if (st.userId === "demo-user-id") {
+          groupHeaders["x-demo-user-id"] = "demo-user-id";
+          groupHeaders["x-demo-user-name"] = st.username || "Демо";
+        } else if (st.userId) {
+          // Regular users: send userId in header for server auth fallback
+          groupHeaders["x-user-id"] = st.userId;
+        }
+        await fetch(`/api/group-chats/${selectedGroupId}/messages`, {
+          method: "POST",
+          headers: groupHeaders,
+          body: JSON.stringify(body),
+        });
       } else {
         body.receiverId = targetId;
         await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
