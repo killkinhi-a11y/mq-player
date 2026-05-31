@@ -914,16 +914,15 @@ html.liquid-glass-theme body::after {
   will-change: padding-bottom;
 }
 
-/* Mobile player sits above the bottom navigation bar */
+/* Mobile player sits above the floating bottom navigation bar */
 .mobile-player-above-nav {
   bottom: 0;
 }
 @media (max-width: 639px) {
   .mobile-player-above-nav {
-    /* Exact pixel match to nav height — no sub-pixel gap.
-       Use integer 50px (not a calc that could produce fractional values). */
-    bottom: calc(50px + env(safe-area-inset-bottom, 0px));
-    /* Prevent any transform or animation from creating fractional positioning */
+    /* Floating nav: nav is ~12px from bottom + ~44px height = ~56px total.
+       Player sits above the floating nav with 4px gap. */
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
     transform: translateZ(0);
   }
 }

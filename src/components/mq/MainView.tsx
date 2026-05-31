@@ -6,7 +6,7 @@ import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from
 import { type Track, getRecommendations } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Pause, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending, X, Check, Square, Brain, Sunrise } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Pause, Music2, ChevronLeft, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending, X, Check, Square, Brain, Sunrise, User } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
 import HeroParticles from "./HeroParticles";
 import CursorSpotlight from "./CursorSpotlight";
@@ -1749,26 +1749,31 @@ export default function MainView() {
   }
 
   return (
-    <div ref={mainRef} className="p-4 sm:p-5 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28 max-w-6xl mx-auto relative" style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
+    <div ref={mainRef} className="p-4 sm:p-5 lg:p-6 pb-[180px] sm:pb-24 lg:pb-28 max-w-6xl mx-auto relative" style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
       {/* Cursor Spotlight — global mouse glow */}
       <CursorSpotlight />
 
-      {/* ── Cinematic Hero Section ── */}
+      {/* ── Premium Hero Section — Compact, Glassmorphic ── */}
       <div
         ref={heroOpacityRef}
-        className="relative mb-10 overflow-hidden rounded-3xl"
+        className="relative mb-6 overflow-hidden rounded-[28px]"
         style={{ transition: "opacity 0.1s, transform 0.1s", willChange: "transform, opacity" }}
       >
-        {/* Dynamic gradient background */}
-        <div className="mq-hero-gradient absolute inset-0" />
+        {/* Soft red ambient glow */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: "radial-gradient(ellipse 60% 50% at 20% 30%, color-mix(in srgb, var(--mq-accent) 10%, transparent) 0%, transparent 70%)",
+        }} />
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: "radial-gradient(ellipse 40% 40% at 80% 70%, color-mix(in srgb, var(--mq-accent) 6%, transparent) 0%, transparent 70%)",
+        }} />
 
         {/* Floating gradient orb 1 — direct DOM via ref, zero re-renders */}
         <div
           ref={orb1Ref}
-          className="absolute w-[300px] h-[300px] rounded-full pointer-events-none"
+          className="absolute w-[200px] h-[200px] rounded-full pointer-events-none"
           style={{
-            background: "radial-gradient(circle, color-mix(in srgb, var(--mq-accent) 20%, transparent) 0%, transparent 70%)",
-            top: "-20%",
+            background: "radial-gradient(circle, color-mix(in srgb, var(--mq-accent) 14%, transparent) 0%, transparent 70%)",
+            top: "-15%",
             left: "5%",
             willChange: "transform",
           }}
@@ -1777,11 +1782,11 @@ export default function MainView() {
         {/* Floating gradient orb 2 — direct DOM via ref */}
         <div
           ref={orb2Ref}
-          className="absolute w-[220px] h-[220px] rounded-full pointer-events-none"
+          className="absolute w-[150px] h-[150px] rounded-full pointer-events-none"
           style={{
-            background: "radial-gradient(circle, color-mix(in srgb, var(--mq-accent) 12%, transparent) 0%, transparent 70%)",
-            bottom: "-10%",
-            right: "10%",
+            background: "radial-gradient(circle, color-mix(in srgb, var(--mq-accent) 8%, transparent) 0%, transparent 70%)",
+            bottom: "-5%",
+            right: "8%",
             willChange: "transform",
           }}
         />
@@ -1789,114 +1794,171 @@ export default function MainView() {
         {/* Scroll progress bar at top of hero */}
         <ScrollProgressBar />
 
-        {/* Hero content */}
-        <div className="relative z-10 px-5 sm:px-8 py-10 sm:py-14 lg:py-16">
-          <h1
-            style={{
-              color: "var(--mq-text)",
-              fontSize: "var(--mq-text-hero)",
-              fontWeight: "var(--mq-font-bold)",
-              letterSpacing: "var(--mq-tracking-tight)",
-              lineHeight: "var(--mq-leading-tight)",
-            }}
-          >
-            {getGreeting()}
-          </h1>
-          <p
-            className="mt-2 font-medium"
-            style={{
-              color: "color-mix(in srgb, var(--mq-text-muted) 80%, var(--mq-text))",
-              fontSize: "var(--mq-text-lg)",
-            }}
-          >
-            {getGreetingSubtext()}
-          </p>
-
-          {/* Now Playing indicator */}
-          {currentTrack && isPlaying && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-5 flex items-center gap-3 px-4 py-3 rounded-2xl max-w-sm"
+        {/* Hero content — compact, premium spacing */}
+        <div className="relative z-10 px-5 sm:px-8 py-6 sm:py-8 lg:py-10">
+          {/* Top row: Greeting + Avatar */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <h1
+                style={{
+                  color: "var(--mq-text)",
+                  fontSize: "clamp(1.75rem, 5vw, 2.5rem)",
+                  fontWeight: 800,
+                  letterSpacing: "-0.03em",
+                  lineHeight: 1.1,
+                }}
+              >
+                {getGreeting()}
+              </h1>
+              <p
+                className="mt-1.5"
+                style={{
+                  color: "color-mix(in srgb, var(--mq-text-muted) 55%, var(--mq-text))",
+                  fontSize: "0.9375rem",
+                  fontWeight: 400,
+                  letterSpacing: "-0.01em",
+                }}
+              >
+                {getGreetingSubtext()}
+              </p>
+            </div>
+            {/* Profile avatar — right top corner */}
+            <motion.button
+              whileTap={{ scale: 0.92 }}
+              onClick={() => setView("settings")}
+              className="flex-shrink-0 w-10 h-10 rounded-full overflow-hidden mt-0.5 cursor-pointer"
               style={{
-                background: "var(--mq-glass-bg)",
-                backdropFilter: "var(--mq-glass-blur)",
-                WebkitBackdropFilter: "var(--mq-glass-blur)",
-                border: "1px solid var(--mq-glass-border)",
-                boxShadow: "0 0 24px color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+                border: "2px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.3), 0 0 20px color-mix(in srgb, var(--mq-accent) 10%, transparent)",
               }}
             >
-              <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 mq-cover-shadow">
+              <div className="w-full h-full flex items-center justify-center" style={{
+                background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 25%, var(--mq-bg)), color-mix(in srgb, var(--mq-accent) 10%, var(--mq-bg)))",
+              }}>
+                <User className="w-4.5 h-4.5" style={{ color: "var(--mq-text-muted)" }} />
+              </div>
+            </motion.button>
+          </div>
+
+          {/* Now Playing indicator — compact glassmorphic pill */}
+          {currentTrack && isPlaying && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 flex items-center gap-3 px-3.5 py-2.5 rounded-2xl max-w-sm"
+              style={{
+                background: "color-mix(in srgb, var(--mq-card) 50%, transparent)",
+                backdropFilter: "blur(24px) saturate(180%)",
+                WebkitBackdropFilter: "blur(24px) saturate(180%)",
+                border: "1px solid color-mix(in srgb, var(--mq-accent) 12%, rgba(255,255,255,0.08))",
+                boxShadow: "0 4px 24px rgba(0,0,0,0.2), 0 0 20px color-mix(in srgb, var(--mq-accent) 8%, transparent)",
+              }}
+            >
+              <div className="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }}>
                 {currentTrack.cover ? (
                   <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}>
-                    <Music2 className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+                    <Music2 className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
                   </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 mb-0.5">
-                  <div className="flex items-end gap-[2px] h-2.5">
+                  <div className="flex items-end gap-[2px] h-2">
                     {[0, 1, 2].map((i) => (
-                      <motion.div key={i} className="w-[2px] rounded-full"
+                      <motion.div key={i} className="w-[1.5px] rounded-full"
                         style={{ height: "100%", transformOrigin: "bottom", backgroundColor: "var(--mq-accent)" }}
                         animate={{ scaleY: [0.4, 1, 0.6] }}
                         transition={{ duration: 0.5 + i * 0.1, repeat: Infinity, ease: "easeInOut", delay: i * 0.08 }}
                       />
                     ))}
                   </div>
-                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>
+                  <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>
                     Сейчас играет
                   </span>
                 </div>
-                <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
-                <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
+                <p className="text-[13px] font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+                <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
               </div>
             </motion.div>
           )}
 
-          {/* Mood/Genre Quick Tags */}
+          {/* Mood/Genre Quick Tags — Glassmorphism pills, compact */}
           {tasteProfile.topGenres.length > 0 && (
-            <div className="flex gap-2 mt-5 overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+            <div className="flex gap-2 mt-4 overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
               {tasteProfile.topGenres.slice(0, 5).map((genre) => (
-                <MoodTag
+                <motion.button
                   key={genre}
-                  label={genre}
-                  icon={<Music2 className="w-3 h-3" />}
+                  whileHover={{ scale: 1.04, y: -1 }}
+                  whileTap={{ scale: 0.96 }}
                   onClick={() => setSearchQuery(genre)}
-                />
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap cursor-pointer transition-all duration-200"
+                  style={{
+                    background: "color-mix(in srgb, rgba(255,255,255,0.06) 60%, transparent)",
+                    backdropFilter: "blur(16px) saturate(160%)",
+                    WebkitBackdropFilter: "blur(16px) saturate(160%)",
+                    color: "var(--mq-text-muted)",
+                    border: "1px solid rgba(255,255,255,0.06)",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.04)",
+                  }}
+                >
+                  <Music2 className="w-3 h-3" style={{ opacity: 0.5 }} />
+                  {genre}
+                </motion.button>
               ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Волна (Wave) — HERO CARD ── */}
+      {/* ── Волна (Wave) — PREMIUM GLASS PLAYER CARD ── */}
       <ScrollReveal direction="up" delay={0.03}>
         <div
-          className="mq-hero-card relative mb-10"
+          className="relative mb-8 rounded-[28px] overflow-hidden"
           style={{
-            background: getWaveGradient(),
-            minHeight: 180,
+            background: currentTrack?.cover
+              ? `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 20%, var(--mq-bg)), color-mix(in srgb, var(--mq-accent) 8%, var(--mq-bg)))`
+              : getWaveGradient(),
+            minHeight: 160,
           }}
         >
-          {/* Pulsing glow animation */}
+          {/* Blurred album art background for depth */}
+          {currentTrack?.cover && (
+            <div className="absolute inset-0 pointer-events-none">
+              <img
+                src={currentTrack.cover}
+                alt=""
+                className="w-full h-full object-cover"
+                style={{ filter: "blur(60px) saturate(180%)", opacity: 0.3, transform: "scale(1.3)" }}
+              />
+              <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-bg) 70%, transparent), color-mix(in srgb, var(--mq-bg) 50%, transparent))" }} />
+            </div>
+          )}
+
+          {/* Glass overlay */}
+          <div className="absolute inset-0 pointer-events-none" style={{
+            background: "color-mix(in srgb, var(--mq-bg) 40%, transparent)",
+            backdropFilter: "blur(2px)",
+            WebkitBackdropFilter: "blur(2px)",
+          }} />
+
+          {/* Soft pulsing glow */}
           <motion.div
             className="absolute inset-0 rounded-[inherit] pointer-events-none"
             style={{
-              boxShadow: "0 0 60px color-mix(in srgb, var(--mq-accent) 18%, transparent)",
+              boxShadow: "0 0 80px color-mix(in srgb, var(--mq-accent) 15%, transparent)",
             }}
-            animate={{ opacity: [0.4, 0.8, 0.4] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            animate={{ opacity: [0.3, 0.6, 0.3] }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
           />
 
-          {/* Subtle noise texture overlay */}
-          <div className="absolute inset-0 pointer-events-none" style={{ opacity: 0.08, backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px 128px" }} />
+          {/* Subtle noise texture */}
+          <div className="absolute inset-0 pointer-events-none" style={{ opacity: 0.04, backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px 128px" }} />
 
           {/* Animated wave background when playing */}
           {radioMode && currentTrack && (
-            <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ opacity: 0.08 }}>
+            <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ opacity: 0.06 }}>
               <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: 55 }}>
                 <motion.path
                   d="M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z"
@@ -1912,35 +1974,34 @@ export default function MainView() {
             </div>
           )}
 
-          <div className="relative z-10 p-6 sm:p-8 flex items-center gap-5" style={{ minHeight: 180 }}>
+          <div className="relative z-10 p-5 sm:p-7 flex items-center gap-4 sm:gap-5" style={{ minHeight: 160 }}>
             {radioMode && currentTrack ? (
-              /* ── Active Wave: Now Playing ── */
-              <div className="flex items-center gap-5 flex-1 min-w-0">
-                <div
-                  className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 mq-cover-shadow"
-                >
+              /* ── Active Wave: Now Playing — Premium Glass ── */
+              <div className="flex items-center gap-4 flex-1 min-w-0">
+                {/* Large album cover with glass shadow */}
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden flex-shrink-0 relative" style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 24px color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
                   {currentTrack.cover ? (
                     <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
-                      <Music className="w-7 h-7" style={{ color: "#fff" }} />
+                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.15)" }}>
+                      <Music className="w-6 h-6" style={{ color: "rgba(255,255,255,0.8)" }} />
                     </div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Waves className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.9)" }} />
-                    <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.85)" }}>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <Waves className="w-3 h-3" style={{ color: "rgba(255,255,255,0.7)" }} />
+                    <span className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.6)" }}>
                       Волна · Играет
                     </span>
                   </div>
-                  <p className="text-lg font-bold truncate" style={{ color: "#fff" }}>{currentTrack.title}</p>
-                  <p className="text-sm truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{currentTrack.artist}</p>
-                  {/* Mini progress bar */}
+                  <p className="text-base sm:text-lg font-bold truncate" style={{ color: "#fff", letterSpacing: "-0.02em" }}>{currentTrack.title}</p>
+                  <p className="text-[13px] truncate" style={{ color: "rgba(255,255,255,0.55)" }}>{currentTrack.artist}</p>
+                  {/* Thin elegant progress bar */}
                   {isPlaying && duration > 0 && (
-                    <div className="mt-2.5 h-[3px] rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.15)", maxWidth: 200 }}>
+                    <div className="mt-2.5 h-[2px] rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.1)", maxWidth: 180 }}>
                       <motion.div className="h-full rounded-full"
-                        style={{ width: "100%", transformOrigin: "left", willChange: "transform", backgroundColor: "rgba(255,255,255,0.8)" }}
+                        style={{ width: "100%", transformOrigin: "left", willChange: "transform", background: "linear-gradient(90deg, rgba(255,255,255,0.5), rgba(255,255,255,0.9))" }}
                         initial={{ scaleX: 0 }}
                         animate={{ scaleX: Math.min(progress / duration, 1) }}
                         transition={{ duration: 0.3, ease: "linear" }}
@@ -1948,44 +2009,40 @@ export default function MainView() {
                     </div>
                   )}
                 </div>
-                {/* EQ + Stop button */}
-                <div className="flex items-center gap-3 flex-shrink-0">
-                  <div className="flex items-end gap-[2px] h-5">
-                    {[0, 1, 2, 3, 4].map((i) => (
-                      <motion.div key={i} className="w-[2.5px] rounded-full"
-                        style={{ height: "100%", transformOrigin: "bottom", willChange: "transform", backgroundColor: "rgba(255,255,255,0.7)" }}
-                        animate={isPlaying ? { height: [3, 5 + (i % 3) * 2, 3] } : { height: 3 }}
-                        transition={isPlaying ? { duration: 0.5 + i * 0.08, repeat: Infinity, ease: "easeInOut", delay: i * 0.06 } : { duration: 0.2 }}
-                      />
-                    ))}
-                  </div>
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    whileHover={{ scale: 1.08 }}
-                    onClick={() => useAppStore.getState().toggleRadioMode()}
-                    className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "0 6px 24px rgba(0,0,0,0.25)" }}
-                  >
-                    <Pause className="w-6 h-6" fill="currentColor" />
-                  </motion.button>
-                </div>
+                {/* Minimalist pause button */}
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  whileHover={{ scale: 1.06 }}
+                  onClick={() => useAppStore.getState().toggleRadioMode()}
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background: "rgba(255,255,255,0.12)",
+                    backdropFilter: "blur(16px) saturate(180%)",
+                    WebkitBackdropFilter: "blur(16px) saturate(180%)",
+                    border: "1px solid rgba(255,255,255,0.15)",
+                    color: "rgba(255,255,255,0.9)",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
+                  }}
+                >
+                  <Pause className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" />
+                </motion.button>
               </div>
             ) : (
-              /* ── Inactive Wave: Invite to start ── */
-              <div className="flex items-center gap-5 flex-1 min-w-0">
+              /* ── Inactive Wave: Invite to start — Premium Glass ── */
+              <div className="flex items-center gap-4 flex-1 min-w-0">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <Waves className="w-6 h-6" style={{ color: "rgba(255,255,255,0.9)" }} />
-                    <h3 className="text-xl font-bold" style={{ color: "#fff", fontSize: "var(--mq-text-headline)", letterSpacing: "var(--mq-tracking-tight)" }}>Волна</h3>
+                    <Waves className="w-5 h-5" style={{ color: "rgba(255,255,255,0.8)" }} />
+                    <h3 className="text-lg sm:text-xl font-bold" style={{ color: "#fff", letterSpacing: "-0.02em" }}>Волна</h3>
                   </div>
-                  <p className="text-sm" style={{ color: "rgba(255,255,255,0.65)" }}>
+                  <p className="text-[13px] sm:text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
                     Бесконечный поток музыки для вас
                   </p>
                   {tasteProfile.topGenres.length > 0 && (
                     <div className="flex gap-1.5 mt-2 overflow-hidden">
                       {tasteProfile.topGenres.slice(0, 3).map((genre) => (
-                        <span key={genre} className="text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap"
-                          style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.8)" }}>
+                        <span key={genre} className="text-[10px] px-2.5 py-0.5 rounded-full whitespace-nowrap"
+                          style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.06)" }}>
                           {genre}
                         </span>
                       ))}
@@ -1994,16 +2051,20 @@ export default function MainView() {
                 </div>
                 <motion.button
                   whileTap={{ scale: 0.9 }}
-                  whileHover={{ scale: 1.08 }}
+                  whileHover={{ scale: 1.06 }}
                   onClick={handleStartWave}
                   disabled={waveLoading}
-                  className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "0 6px 24px rgba(0,0,0,0.25)" }}
+                  className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{
+                    background: "rgba(255,255,255,0.9)",
+                    color: "var(--mq-bg)",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.25), 0 0 24px color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+                  }}
                 >
                   {waveLoading ? (
-                    <motion.div className="w-6 h-6 border-2 rounded-full" style={{ borderColor: "#1a1a2e", borderTopColor: "transparent" }} animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} />
+                    <motion.div className="w-5 h-5 border-2 rounded-full" style={{ borderColor: "var(--mq-bg)", borderTopColor: "transparent" }} animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} />
                   ) : (
-                    <Play className="w-6 h-6 ml-0.5" fill="currentColor" />
+                    <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5" fill="currentColor" />
                   )}
                 </motion.button>
               </div>
@@ -2100,46 +2161,50 @@ export default function MainView() {
         )}
       </AnimatePresence>
 
-      {/* ── Плейлисты (Playlists) ── */}
+      {/* ── Плейлисты (Playlists) — Premium Cards ── */}
       {curatedPlaylists.length > 0 && (
         <ScrollReveal direction="up" delay={0.05}>
-          <div className="mb-10">
-            <div className="flex items-center justify-between mb-4">
+          <div className="mb-12">
+            <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
-                  <ListMusic className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}>
+                  <ListMusic className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                 </div>
-                <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>Плейлисты</h2>
+                <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "1.125rem", fontWeight: 700, letterSpacing: "-0.02em" }}>Плейлисты</h2>
               </div>
             </div>
             <div className="relative">
-              <div className="mq-scroll-row" style={{ scrollSnapType: "x proximity", gap: "var(--mq-space-3)" }}>
+              <div className="mq-scroll-row" style={{ scrollSnapType: "x proximity", gap: "12px" }}>
                 {curatedPlaylists.map((pl, i) => (
                   <motion.button
                     key={pl.id}
                     initial={animationsEnabled ? { opacity: 0, x: 30 } : undefined}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
                     onClick={() => setSelectedCurated(pl)}
-                    className={`${i === 0 ? "mq-hero-card" : "mq-card-cinematic"} flex-shrink-0 w-36 h-52 sm:w-44 sm:h-60 relative cursor-pointer group`}
+                    className="flex-shrink-0 w-[150px] sm:w-[170px] relative cursor-pointer group rounded-[24px] overflow-hidden"
+                    style={{
+                      border: "1px solid rgba(255,255,255,0.06)",
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.2), 0 0 20px color-mix(in srgb, var(--mq-accent) 5%, transparent)",
+                    }}
                   >
                     <div className="absolute inset-0 overflow-hidden">
-                      <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className={`!w-full !h-full group-hover:scale-110 transition-transform duration-700 mq-cover-shadow ${i === 0 ? "group-hover:scale-[1.15]" : ""}`} />
+                      <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className="!w-full !h-full group-hover:scale-110 transition-transform duration-700" />
                     </div>
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                    <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 12%, transparent) 0%, transparent 50%)` }} />
-                    <div className="relative z-10 h-full flex flex-col justify-between p-2.5 sm:p-3.5">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 10%, transparent) 0%, transparent 50%)` }} />
+                    <div className="relative z-10 h-[200px] sm:h-[230px] flex flex-col justify-between p-3.5">
                       <div className="mt-1">
-                        <p className="text-sm font-bold leading-tight drop-shadow-md" style={{ color: "#fff" }}>{pl.name}</p>
-                        <p className="text-[11px] mt-1 leading-tight truncate drop-shadow-sm" style={{ color: "rgba(255,255,255,0.75)" }}>{pl.subtitle}</p>
+                        <p className="text-[13px] font-bold leading-tight drop-shadow-md" style={{ color: "#fff", letterSpacing: "-0.01em" }}>{pl.name}</p>
+                        <p className="text-[11px] mt-1 leading-tight truncate drop-shadow-sm" style={{ color: "rgba(255,255,255,0.65)" }}>{pl.subtitle}</p>
                       </div>
                       <div className="flex items-center justify-between">
-                        <p className="text-[10px] drop-shadow-sm" style={{ color: "rgba(255,255,255,0.65)" }}>{pl.tracks.length} треков</p>
-                        <div className="w-9 h-9 rounded-full flex items-center justify-center shadow-lg shadow-black/30 transition-all duration-300 group-hover:scale-110"
-                          style={{ background: "rgba(255,255,255,0.95)" }}>
-                          <Play className="w-4 h-4 ml-0.5" style={{ color: "#1a1a2e" }} fill="currentColor" />
+                        <p className="text-[10px] drop-shadow-sm" style={{ color: "rgba(255,255,255,0.5)" }}>{pl.tracks.length} треков</p>
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg shadow-black/20 transition-all duration-300 group-hover:scale-110"
+                          style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px) saturate(160%)", WebkitBackdropFilter: "blur(12px) saturate(160%)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                          <Play className="w-3.5 h-3.5 ml-[1px]" style={{ color: "rgba(255,255,255,0.9)" }} fill="currentColor" />
                         </div>
                       </div>
                     </div>
@@ -2156,13 +2221,13 @@ export default function MainView() {
 
       {/* ── Для вас (For You) — AI Recommendations ── */}
       <ScrollReveal direction="up" delay={0.1}>
-        <div className="mb-10">
-          <div className="flex items-center justify-between mb-4">
+        <div className="mb-12">
+          <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
-                <Sparkles className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}>
+                <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
               </div>
-              <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>Для вас</h2>
+              <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "1.125rem", fontWeight: 700, letterSpacing: "-0.02em" }}>Для вас</h2>
             </div>
             <div className="flex items-center gap-2">
               <motion.button whileTap={{ scale: 0.9 }} onClick={loadRecommendations} disabled={isRecLoading}
@@ -2176,21 +2241,21 @@ export default function MainView() {
         </div>
       </ScrollReveal>
 
-      {/* ── Популярное (Trending) ── */}
+      {/* ── Популярное (Trending) — Compact Modern Cards ── */}
       <ScrollReveal direction="up" delay={0.15}>
-        <div className="mb-10">
-          <div className="flex items-center justify-between mb-4">
+        <div className="mb-12">
+          <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
-                <Flame className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}>
+                <Flame className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
               </div>
-              <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>Популярное</h2>
+              <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "1.125rem", fontWeight: 700, letterSpacing: "-0.02em" }}>Популярное</h2>
             </div>
             {trendingTracks.length > 0 && (
               <motion.button whileTap={{ scale: 0.95 }} onClick={handlePlayAll}
-                className="text-xs px-3 py-1.5 rounded-full font-medium"
-                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
-                <Play className="w-3 h-3 inline mr-1" style={{ marginLeft: 1 }} />Все
+                className="text-[11px] px-3 py-1.5 rounded-full font-medium"
+                style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}>
+                Все
               </motion.button>
             )}
           </div>
@@ -2205,7 +2270,7 @@ export default function MainView() {
               ))}
             </div>
           ) : trendingTracks.length > 0 ? (
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               {trendingTracks.slice(0, 8).map((track, i) => (
                 <TrackCard key={track.id} track={track} index={i} queue={trendingTracks} onArtistClick={handleNavigateToArtist} />
               ))}
@@ -2222,16 +2287,16 @@ export default function MainView() {
       {/* ── Недавно (Recent) ── */}
       {recentTracks.length > 0 && (
         <ScrollReveal direction="up" delay={0.2}>
-          <div className="mb-10">
-            <div className="flex items-center justify-between mb-4">
+          <div className="mb-12">
+            <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
-                  <Clock className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}>
+                  <Clock className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                 </div>
-                <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>Недавно</h2>
+                <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "1.125rem", fontWeight: 700, letterSpacing: "-0.02em" }}>Недавно</h2>
               </div>
               <motion.button whileTap={{ scale: 0.95 }} onClick={() => setView("history")}
-                className="text-xs px-3 py-1.5 rounded-full font-medium"
+                className="text-[11px] px-3 py-1.5 rounded-full font-medium"
                 style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}>
                 Все
               </motion.button>

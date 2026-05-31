@@ -150,63 +150,62 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
         className={`
           group flex items-center
           ${compactMode ? "gap-2.5 px-2.5 py-1.5" : "gap-3 sm:gap-3.5 px-3 py-2 sm:px-3.5 sm:py-2.5"}
-          rounded-[14px] cursor-pointer relative overflow-hidden
+          rounded-[16px] cursor-pointer relative overflow-hidden
           transition-[background-color] duration-300 ease-out
           select-none
         `}
         style={{
           backgroundColor: isActive
-            ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)"
+            ? "color-mix(in srgb, var(--mq-accent) 6%, transparent)"
             : "transparent",
           boxShadow: isActive
-            ? "0 0 16px color-mix(in srgb, var(--mq-accent) 10%, transparent), inset 0 1px 0 rgba(255,255,255,0.04)"
-            : "inset 0 1px 0 rgba(255,255,255,0.04)",
+            ? "0 0 12px color-mix(in srgb, var(--mq-accent) 6%, transparent)"
+            : "none",
         }}
         whileHover={{
-          y: -2,
+          y: -1,
           boxShadow: isActive
-            ? "0 0 24px color-mix(in srgb, var(--mq-accent) 15%, transparent), 0 4px 16px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)"
-            : "0 4px 16px rgba(0,0,0,0.15), 0 0 20px color-mix(in srgb, var(--mq-accent) 6%, transparent), inset 0 1px 0 rgba(255,255,255,0.04)",
+            ? "0 0 20px color-mix(in srgb, var(--mq-accent) 10%, transparent), 0 2px 12px rgba(0,0,0,0.15)"
+            : "0 2px 12px rgba(0,0,0,0.1), 0 0 16px color-mix(in srgb, var(--mq-accent) 4%, transparent)",
           transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] },
         }}
         whileTap={{ scale: 0.995 }}
       >
-        {/* Ambient glow layer — accent color, blur 20px, opacity 0.15 on hover */}
+        {/* Ambient glow layer — subtle on hover */}
         <div
-          className="absolute inset-0 rounded-[14px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
+          className="absolute inset-0 rounded-[16px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
           style={{
-            boxShadow: "0 0 20px color-mix(in srgb, var(--mq-accent) 15%, transparent)",
-            filter: "blur(20px)",
+            boxShadow: "0 0 16px color-mix(in srgb, var(--mq-accent) 8%, transparent)",
+            filter: "blur(16px)",
           }}
         />
 
         {/* Border glow ring — appears on hover */}
         <div
           className={`
-            absolute inset-0 rounded-[14px] pointer-events-none
+            absolute inset-0 rounded-[16px] pointer-events-none
             border transition-colors duration-300
             ${isActive
-              ? "border-[color-mix(in_srgb,var(--mq-accent)_25%,transparent)]"
-              : "border-transparent group-hover:border-[color-mix(in_srgb,var(--mq-accent)_15%,transparent)]"
+              ? "border-[color-mix(in_srgb,var(--mq-accent)_18%,transparent)]"
+              : "border-transparent group-hover:border-[color-mix(in_srgb,var(--mq-accent)_10%,transparent)]"
             }
           `}
         />
 
-        {/* Active track left accent bar — breathing glow animation */}
+        {/* Active track left accent bar — subtle glow */}
         {isActive && (
-          <div className="absolute left-0 top-2 bottom-2 w-[3px] rounded-full overflow-visible">
-            {/* Core bar */}
+          <div className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full overflow-visible">
             <div
               className="absolute inset-0 rounded-full"
-              style={{ backgroundColor: "var(--mq-accent)" }}
+              style={{ backgroundColor: "var(--mq-accent)", opacity: 0.7 }}
             />
-            {/* Breathing glow */}
             <div
               className="absolute inset-0 rounded-full"
               style={{
                 backgroundColor: "var(--mq-accent)",
-                boxShadow: "0 0 8px var(--mq-accent), 0 0 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
+                boxShadow: "0 0 6px var(--mq-accent)",
                 animation: "mqBreathe 2s ease-in-out infinite",
+                opacity: 0.5,
               }}
             />
           </div>
@@ -215,10 +214,11 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
         {/* Pulsing background tint when active */}
         {isActive && (
           <div
-            className="absolute inset-0 rounded-[14px] pointer-events-none"
+            className="absolute inset-0 rounded-[16px] pointer-events-none"
             style={{
               backgroundColor: "var(--mq-accent)",
               animation: "mqPulseTint 2.5s ease-in-out infinite",
+              opacity: 0.03,
             }}
           />
         )}
@@ -234,7 +234,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
           `}
           style={{
             boxShadow: isActive
-              ? "0 2px 12px color-mix(in srgb, var(--mq-accent) 25%, transparent)"
+              ? "0 2px 8px color-mix(in srgb, var(--mq-accent) 15%, transparent)"
               : undefined,
           }}
         >
