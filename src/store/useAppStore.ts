@@ -192,6 +192,10 @@ interface AppState {
   // Gapless playback
   gaplessEnabled: boolean;
 
+  // Cobalt SNIP bypass (no subscription required)
+  _cobaltJwt: string | null;
+  _cobaltJwtExpiry: number | null;
+
   // Radio mode — "Моя волна" (Yandex Music style)
   radioMode: boolean;
   radioSeedTrack: Track | null;
@@ -394,6 +398,8 @@ interface AppState {
 
   // Gapless playback actions
   setGaplessEnabled: (enabled: boolean) => void;
+  setCobaltJwt: (jwt: string | null, expiry: number | null) => void;
+  getCobaltJwt: () => string | null;
   peekNextTrack: () => Track | null;
 
   // Radio mode actions
@@ -563,6 +569,10 @@ const initialState = {
 
   // Gapless playback
   gaplessEnabled: true as boolean,
+
+  // Cobalt SNIP bypass
+  _cobaltJwt: null as string | null,
+  _cobaltJwtExpiry: null as number | null,
 
   // Radio mode
   radioMode: false,
@@ -1859,6 +1869,16 @@ export const useAppStore = create<AppState>()(
 
       // ── Gapless playback actions ──
       setGaplessEnabled: (enabled) => set({ gaplessEnabled: enabled }),
+      setCobaltJwt: (jwt, expiry) => set({ _cobaltJwt: jwt, _cobaltJwtExpiry: expiry }),
+      getCobaltJwt: () => {
+        const s = get();
+        if (!s._cobaltJwt) return null;
+        if (s._cobaltJwtExpiry && Date.now() > s._cobaltJwtExpiry) {
+          set({ _cobaltJwt: null, _cobaltJwtExpiry: null });
+          return null;
+        }
+        return s._cobaltJwt;
+      },
 
       /**
        * Peek at what the next track would be without changing any state.
@@ -2525,6 +2545,9 @@ export const useAppStore = create<AppState>()(
           tasteArtists: persistent.tasteArtists,
           tasteMoods: persistent.tasteMoods,
           excludedArtists: persistent.excludedArtists,
+          // Cobalt SNIP bypass JWT (persisted so user doesn't need to re-solve Turnstile)
+          _cobaltJwt: persistent._cobaltJwt,
+          _cobaltJwtExpiry: persistent._cobaltJwtExpiry,
         };
       },
       migrate: (persisted: unknown, version: number) => {

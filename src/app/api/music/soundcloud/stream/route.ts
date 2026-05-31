@@ -264,22 +264,28 @@ async function verifyCdnUrl(url: string, isHls: boolean): Promise<boolean> {
  * without requiring a Go+ subscription.
  *
  * cobalt returns direct CDN URLs (usually mp3) for SoundCloud tracks.
+ * Requires a JWT obtained via the /api/cobalt/session endpoint.
  * If cobalt fails or returns an error, we fall back to the normal SNIP preview.
  */
-async function resolveViaCobalt(permalinkUrl: string): Promise<{ url: string; filename?: string } | null> {
+async function resolveViaCobalt(permalinkUrl: string, jwt?: string): Promise<{ url: string; filename?: string } | null> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
 
     try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+      };
+      if (jwt) {
+        headers["Authorization"] = `Bearer ${jwt}`;
+      }
+
       const res = await fetch("https://api.cobalt.tools/", {
         method: "POST",
         signal: controller.signal,
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-        },
+        headers,
         body: JSON.stringify({
           url: permalinkUrl,
           downloadMode: "audio",
@@ -326,6 +332,7 @@ async function resolveViaCobalt(permalinkUrl: string): Promise<{ url: string; fi
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const trackId = searchParams.get("trackId");
+  const cobaltJwt = searchParams.get("cobaltJwt") || undefined;
 
   if (!trackId) {
     return NextResponse.json({ url: null, resolveUrl: null, error: "missing trackId" });
@@ -344,7 +351,7 @@ export async function GET(request: NextRequest) {
       // ── SNIP bypass via cobalt (no Go+ subscription required) ──
       if (info.policy === "SNIP" && info.permalinkUrl) {
         console.log(`[stream] SNIP detected for track ${trackId}, trying cobalt bypass...`);
-        const cobaltResult = await resolveViaCobalt(info.permalinkUrl);
+        const cobaltResult = await resolveViaCobalt(info.permalinkUrl, cobaltJwt);
         if (cobaltResult?.url) {
           console.log(`[stream] Cobalt bypass succeeded for track ${trackId}: ${cobaltResult.url.substring(0, 80)}...`);
           diagnostics.push(`cobalt_bypass: success, url=${cobaltResult.url.substring(0, 60)}...`);

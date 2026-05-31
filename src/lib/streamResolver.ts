@@ -41,10 +41,12 @@ export interface StreamResult {
 
 export async function resolveSoundCloudStream(
   scTrackId: number,
+  cobaltJwt?: string | null,
 ): Promise<StreamResult | null> {
   try {
+    const jwtParam = cobaltJwt ? `&cobaltJwt=${encodeURIComponent(cobaltJwt)}` : '';
     const res = await fetch(
-      `/api/music/soundcloud/stream?trackId=${scTrackId}`,
+      `/api/music/soundcloud/stream?trackId=${scTrackId}${jwtParam}`,
       { signal: AbortSignal.timeout(20000) },
     );
     if (!res.ok) {

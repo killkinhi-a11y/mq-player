@@ -8,6 +8,7 @@ import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { useListenSessionSync } from "@/hooks/useListenSessionSync";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import dynamic from "next/dynamic";
+import CobaltTurnstile from "@/components/mq/CobaltTurnstile";
 import "@/styles/ipod-2001.css";
 import "@/styles/japan.css";
 import "@/styles/swag.css";
@@ -449,6 +450,8 @@ export default function AppShell() {
       <Suspense fallback={null}><PlayerBar /></Suspense>
       <Suspense fallback={null}><FullTrackView /></Suspense>
       <Suspense fallback={null}><MqCat /></Suspense>
+      {/* Cobalt Turnstile — invisible widget for SNIP bypass JWT */}
+      <CobaltTurnstile />
       <Suspense fallback={null}>{showNav && !hideUiForFullscreen && <MobileNav />}</Suspense>
       <Suspense fallback={null}>{isAuthenticated && <NotificationPanel isOpen={notifPanelOpen} onClose={() => setNotifPanelOpen(false)} />}</Suspense>
       <Suspense fallback={null}>{

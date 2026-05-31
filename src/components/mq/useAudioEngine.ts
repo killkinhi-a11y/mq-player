@@ -493,7 +493,10 @@ export function createManifestInterceptor(audioEl: HTMLAudioElement): (xhr: XMLH
 
 export async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult | null> {
   try {
-    const res = await fetch(`/api/music/soundcloud/stream?trackId=${scTrackId}`, {
+    // Include cobalt JWT if available (for SNIP bypass)
+    const cobaltJwt = useAppStore.getState().getCobaltJwt();
+    const jwtParam = cobaltJwt ? `&cobaltJwt=${encodeURIComponent(cobaltJwt)}` : '';
+    const res = await fetch(`/api/music/soundcloud/stream?trackId=${scTrackId}${jwtParam}`, {
       signal: AbortSignal.timeout(20000),
     });
     if (!res.ok) {
