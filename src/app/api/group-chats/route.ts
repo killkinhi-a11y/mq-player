@@ -81,13 +81,19 @@ async function getHandler(req: NextRequest) {
 async function postHandler(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) {
+    // Allow demo mode - check for demo user header
+    const demoUserId = req.headers.get('x-demo-user-id');
+    const demoUserName = req.headers.get('x-demo-user-name') || 'Демо';
+
+    if (!session && !demoUserId) {
       return NextResponse.json(
         { error: "Необходима авторизация" },
         { status: 401 }
       );
     }
-    const userId = session.userId;
+
+    const userId = session?.userId || demoUserId || '';
+    const userName = session?.username || demoUserName;
     const { name, description, memberIds }: { name: string; description?: string; memberIds?: string[] } = await req.json();
 
     if (!name) {
@@ -97,13 +103,15 @@ async function postHandler(req: NextRequest) {
       );
     }
 
-    // Verify the creator exists
-    const creator = await db.user.findUnique({ where: { id: userId } });
-    if (!creator) {
-      return NextResponse.json(
-        { error: "Пользователь не найден" },
-        { status: 404 }
-      );
+    // Verify the creator exists (skip for demo users)
+    if (!demoUserId) {
+      const creator = await db.user.findUnique({ where: { id: userId } });
+      if (!creator) {
+        return NextResponse.json(
+          { error: "Пользователь не найден" },
+          { status: 404 }
+        );
+      }
     }
 
     // Verify that all provided memberIds exist
@@ -133,6 +141,29 @@ async function postHandler(req: NextRequest) {
     const filteredMemberIds = (memberIds || []).filter(
       (id: string) => id !== userId
     );
+
+    // For demo users, return a mock response (no DB persistence)
+    if (demoUserId) {
+      const mockGroupChat = {
+        id: `demo-group-${Date.now()}`,
+        name,
+        description: description || "",
+        avatar: "",
+        createdBy: userId,
+        createdAt: new Date().toISOString(),
+        members: [
+          { id: `demo-member-${Date.now()}`, userId, role: "admin", joinedAt: new Date().toISOString(), user: { id: userId, username: demoUserName, avatar: "" } },
+          ...filteredMemberIds.map((id: string, idx: number) => ({
+            id: `demo-member-${Date.now()}-${idx}`,
+            userId: id,
+            role: "member" as const,
+            joinedAt: new Date().toISOString(),
+            user: { id, username: id, avatar: "" },
+          })),
+        ],
+      };
+      return NextResponse.json({ groupChat: mockGroupChat }, { status: 201 });
+    }
 
     // Create group chat with creator as admin
     const groupChat = await db.groupChat.create({

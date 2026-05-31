@@ -1554,8 +1554,14 @@ export default function MessengerView() {
   const handleCreateGroup = async () => {
     if (!userId || !groupName.trim()) return;
     try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const state = useAppStore.getState();
+      if (state.userId === "demo-user-id") {
+        headers["x-demo-user-id"] = "demo-user-id";
+        headers["x-demo-user-name"] = state.username || "Демо";
+      }
       const res = await fetch("/api/group-chats", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers,
         body: JSON.stringify({ name: groupName.trim(), description: groupDesc.trim(), memberIds: [...groupMembers] }),
       });
       if (res.ok) {

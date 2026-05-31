@@ -2381,10 +2381,10 @@ export default function MainView() {
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
                     onClick={() => playTrack(entry.track, recentTracks.map(e => e.track))}
-                    className="mq-card-cinematic flex-shrink-0 w-[130px] sm:w-[148px] text-left cursor-pointer group relative"
+                    className="mq-card-cinematic flex-shrink-0 w-[148px] text-left cursor-pointer group relative"
                     style={isCurrentTrack ? { boxShadow: "0 0 16px color-mix(in srgb, var(--mq-accent) 25%, transparent)" } : undefined}
                   >
-                    <div className="aspect-square relative overflow-hidden">
+                    <div className="aspect-square relative overflow-hidden mq-cover-shadow">
                       {entry.track.cover ? (
                         <img src={entry.track.cover} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
                       ) : (
@@ -2407,7 +2407,7 @@ export default function MainView() {
                         )}
                       </div>
                     </div>
-                    <div className="p-2.5 min-h-[48px]">
+                    <div className="p-2.5 min-h-[52px]">
                       <p className="text-xs font-semibold truncate leading-tight" style={{ color: isCurrentTrack ? "var(--mq-accent)" : "var(--mq-text)" }}>
                         {entry.track.title}
                       </p>
@@ -2431,7 +2431,7 @@ export default function MainView() {
       {!isRecLoading && recCategories.length > 0 && (
         <ScrollReveal direction="up" delay={0.25}>
           <div className="mb-10">
-            {recCategories.slice(0, 3).map((cat, catIdx) => (
+            {recCategories.slice(0, 10).map((cat, catIdx) => (
               <RecCategoryRow key={cat.id} category={cat} index={catIdx} playTrack={playTrack} animationsEnabled={animationsEnabled} compactMode={compactMode} onOpenAll={setSelectedRecCategory} />
             ))}
             <div className="flex items-center justify-end gap-2 mt-2">

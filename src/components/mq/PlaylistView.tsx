@@ -109,6 +109,7 @@ export default function PlaylistView() {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
   const importInputRef = useRef<HTMLInputElement>(null);
+  const playlistScrollRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const [importProgress, setImportProgress] = useState('');
   const [importHint, setImportHint] = useState('');
@@ -1344,7 +1345,7 @@ export default function PlaylistView() {
       <ScrollReveal direction="up" delay={0.1}>
       {playlists.length > 0 ? (
         <div className="relative group/playlistRow">
-          <div className="flex gap-3 overflow-x-auto scrollbar-none mq-scroll-row pb-2"
+          <div ref={playlistScrollRef} className="flex gap-3 overflow-x-auto scrollbar-none mq-scroll-row pb-2"
             style={{ scrollSnapType: 'x proximity' }}>
           {sortedPlaylists.map((pl, i) => {
             const plDur = formatTotalDuration(pl.tracks);
@@ -1491,8 +1492,9 @@ export default function PlaylistView() {
           {/* PC scroll buttons — hidden on mobile */}
           <button
             onClick={() => {
-              const el = document.querySelector('.group\\/playlistRow .mq-scroll-row') as HTMLDivElement;
-              if (el) el.scrollBy({ left: -300, behavior: 'smooth' });
+              if (playlistScrollRef.current) {
+                playlistScrollRef.current.scrollBy({ left: -300, behavior: 'smooth' });
+              }
             }}
             className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/playlistRow:opacity-100 transition-opacity z-10"
             style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
@@ -1501,8 +1503,9 @@ export default function PlaylistView() {
           </button>
           <button
             onClick={() => {
-              const el = document.querySelector('.group\\/playlistRow .mq-scroll-row') as HTMLDivElement;
-              if (el) el.scrollBy({ left: 300, behavior: 'smooth' });
+              if (playlistScrollRef.current) {
+                playlistScrollRef.current.scrollBy({ left: 300, behavior: 'smooth' });
+              }
             }}
             className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/playlistRow:opacity-100 transition-opacity z-10"
             style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}

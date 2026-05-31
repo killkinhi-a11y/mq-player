@@ -20,8 +20,9 @@ if (typeof window !== "undefined") {
       const parsed = JSON.parse(raw);
       const storedVersion = parsed?.version ?? 0;
       if (storedVersion < STORE_VERSION) {
-        console.warn(`[MQ Store] version ${storedVersion} < ${STORE_VERSION} – clearing stale data`);
-        localStorage.removeItem(STORAGE_KEY);
+        // Migration is handled by the persist migrate function
+        // Do NOT clear localStorage here — it causes data loss on version updates
+        console.warn(`[MQ Store] version ${storedVersion} < ${STORE_VERSION} – will migrate via persist`);
       }
     }
   } catch {
@@ -2560,8 +2561,35 @@ export const useAppStore = create<AppState>()(
         };
       },
       migrate: (persisted: unknown, version: number) => {
-        // On any version mismatch, start completely fresh
-        console.warn(`[MQ Store] migrating from version ${version} to ${STORE_VERSION} — resetting`);
+        console.warn(`[MQ Store] migrating from version ${version} to ${STORE_VERSION}`);
+        if (version < STORE_VERSION) {
+          // Preserve critical user preferences during migration
+          const old = persisted as any;
+          return {
+            ...initialState,
+            volume: old?.volume ?? initialState.volume,
+            currentTheme: old?.currentTheme ?? initialState.currentTheme,
+            customAccent: old?.customAccent ?? initialState.customAccent,
+            animationsEnabled: old?.animationsEnabled ?? initialState.animationsEnabled,
+            compactMode: old?.compactMode ?? initialState.compactMode,
+            fontSize: old?.fontSize ?? initialState.fontSize,
+            liquidGlassEnabled: old?.liquidGlassEnabled ?? initialState.liquidGlassEnabled,
+            liquidGlassMobile: old?.liquidGlassMobile ?? initialState.liquidGlassMobile,
+            currentStyle: old?.currentStyle ?? initialState.currentStyle,
+            styleVariant: old?.styleVariant ?? initialState.styleVariant,
+            spatialAudioEnabled: old?.spatialAudioEnabled ?? initialState.spatialAudioEnabled,
+            crossfadeEnabled: old?.crossfadeEnabled ?? initialState.crossfadeEnabled,
+            crossfadeDuration: old?.crossfadeDuration ?? initialState.crossfadeDuration,
+            gaplessEnabled: old?.gaplessEnabled ?? initialState.gaplessEnabled,
+            eqEnabled: old?.eqEnabled ?? initialState.eqEnabled,
+            eqBands: old?.eqBands ?? initialState.eqBands,
+            eqPreset: old?.eqPreset ?? initialState.eqPreset,
+            playbackRate: old?.playbackRate ?? initialState.playbackRate,
+            radioMode: old?.radioMode ?? initialState.radioMode,
+            smartShuffle: old?.smartShuffle ?? initialState.smartShuffle,
+            aiRecsHidden: old?.aiRecsHidden ?? initialState.aiRecsHidden,
+          };
+        }
         return { ...initialState };
       },
       merge: (persisted, current) => {
@@ -2588,6 +2616,17 @@ export const useAppStore = create<AppState>()(
             return;
           }
           if (!state) return;
+
+          // Clear demo auth on rehydration — user must explicitly enter demo mode
+          if (state.userId === "demo-user-id") {
+            useAppStore.setState({
+              userId: null,
+              username: null,
+              email: null,
+              isAuthenticated: false,
+            });
+          }
+
           // Validate every critical field – belt and suspenders
           const s = state as unknown as Record<string, unknown>;
           const fixes: Record<string, unknown> = {};

@@ -1514,6 +1514,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           resetCorsState();
           ensureWebAudioConnected(audioEl);
           audioEl.src = currentTrack.audioUrl;
+          // Re-apply volume after track change (audio element resets to 1.0 on new src)
+          audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
           audioEl.load();
           if (canCrossfade) {
             crossfadeRef.current = true;
@@ -1731,6 +1733,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               audioEl.crossOrigin = "anonymous";
               const playUrl = proxyStreamUrl(stream.url);
               audioEl.src = playUrl;
+              // Re-apply volume after track change (audio element resets to 1.0 on new src)
+              audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
 
               let loadFailed = false;
               await new Promise<void>((resolve) => {
@@ -1774,6 +1778,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           } else if (currentTrack.audioUrl) {
             resetCorsState();
             audioEl.src = proxyStreamUrl(currentTrack.audioUrl);
+            // Re-apply volume after track change (audio element resets to 1.0 on new src)
+            audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
             audioEl.load();
             if (canCrossfade) {
               crossfadeRef.current = true;
@@ -1823,6 +1829,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           audioEl.crossOrigin = "anonymous";
           resetCorsState();
           audioEl.src = audioSrc;
+          // Re-apply volume after track change (audio element resets to 1.0 on new src)
+          audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
           audioEl.load();
           if (canCrossfade) {
             crossfadeRef.current = true;
@@ -1959,7 +1967,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   // ── Volume effect ──
   useEffect(() => {
     const vol = Math.pow(volume / 100, 2);
-    getAudioElement().volume = vol;
+    const audio = getAudioElement();
+    if (audio) audio.volume = vol;
     const secondary = getInactiveAudio();
     if (secondary) secondary.volume = vol;
   }, [volume]);
