@@ -159,16 +159,12 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
       <div className="relative group/airow">
         <div ref={aiScrollRef} className="mq-scroll-row"
           style={{ scrollSnapType: "x proximity", gap: "var(--mq-space-3)" }}>
-          {aiTracks.map((track, i) => (
-            <motion.button
+        {aiTracks.map((track) => (
+            <button
               key={track.id}
-              initial={animationsEnabled ? { opacity: 0, x: 20 } : undefined}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.03 }}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
               onClick={() => playTrack(track, aiTracks)}
-              className="mq-card-cinematic flex-shrink-0 w-[148px] text-left cursor-pointer group relative"
+              className="mq-card-cinematic flex-shrink-0 w-[148px] text-left cursor-pointer group relative mq-rec-card"
+              style={{ WebkitTapHighlightColor: "transparent" }}
             >
               <div className="aspect-square relative overflow-hidden mq-cover-shadow">
                 {track.cover ? (
@@ -200,7 +196,7 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
                   {track.artist}
                 </p>
               </div>
-            </motion.button>
+            </button>
           ))}
         </div>
         {/* PC scroll buttons — hidden on mobile */}
@@ -265,6 +261,7 @@ function RecCategoryRow({ category, index, playTrack, animationsEnabled, compact
       initial={animationsEnabled ? { opacity: 0, y: 15 } : undefined}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.08 }}
+      className="mb-8"
     >
       <div className="flex items-center gap-2 mb-3">
         <div className="w-6 h-6 rounded-lg flex items-center justify-center"
@@ -288,27 +285,23 @@ function RecCategoryRow({ category, index, playTrack, animationsEnabled, compact
       <div className="relative group/row">
         <div ref={scrollRef} className="mq-scroll-row"
           style={{ scrollSnapType: "x proximity", gap: "var(--mq-space-3)" }}>
-          {tracks.map((track, i) => (
-            <motion.button
+          {tracks.map((track) => (
+            <button
               key={track.id}
-              initial={animationsEnabled ? { opacity: 0, x: 20 } : undefined}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.03 }}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
               onClick={() => playTrack(track, tracks)}
-              className="mq-card-cinematic flex-shrink-0 w-[148px] text-left cursor-pointer group relative"
+              className="mq-card-cinematic flex-shrink-0 w-[148px] text-left cursor-pointer group relative mq-rec-card"
+              style={{ WebkitTapHighlightColor: "transparent" }}
             >
               {/* Cover */}
               <div className="aspect-square relative overflow-hidden mq-cover-shadow">
                 {track.cover ? (
-                  <img src={track.cover} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
+                  <img src={track.cover} alt="" className="w-full h-full object-cover mq-rec-card-img" loading="lazy" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.6 }}>
                     <Music className="w-8 h-8" style={{ color: "var(--mq-text)" }} />
                   </div>
                 )}
-                {/* Play overlay */}
+                {/* Play overlay — CSS only */}
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200 flex items-center justify-center">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-all duration-200 group-hover:scale-100 scale-75"
                     style={{ background: "var(--mq-accent)", color: "var(--mq-text)" }}>
@@ -325,25 +318,21 @@ function RecCategoryRow({ category, index, playTrack, animationsEnabled, compact
                   {track.artist}
                 </p>
               </div>
-            </motion.button>
+            </button>
           ))}
         </div>
-        {/* PC scroll buttons — hidden on mobile */}
-        <button
-          onClick={() => scrollRow('left')}
+        {/* PC scroll buttons */}
+        <button onClick={() => scrollRow('left')}
           className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity z-10"
-          style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
-        >
+          style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}>
           <ChevronLeft className="w-4 h-4" />
         </button>
-        <button
-          onClick={() => scrollRow('right')}
+        <button onClick={() => scrollRow('right')}
           className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity z-10"
-          style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
-        >
+          style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}>
           <ChevronRight className="w-4 h-4" />
         </button>
-        {/* Scroll fade gradient on right edge */}
+        {/* Fade gradient */}
         <div className="absolute top-0 right-0 bottom-2 w-12 pointer-events-none z-10"
           style={{ background: "linear-gradient(to right, transparent, var(--mq-bg))" }} />
       </div>
@@ -1797,7 +1786,7 @@ export default function MainView() {
   }
 
   return (
-    <div ref={mainRef} className={`p-4 sm:p-5 lg:p-6 ${isMobile ? "pb-[180px]" : "pb-[148px] sm:pb-24 lg:pb-28"} max-w-6xl mx-auto relative`} style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
+    <div ref={mainRef} className={`p-4 sm:p-5 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28 max-w-6xl mx-auto relative`} style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
       {/* Cursor Spotlight — global mouse glow */}
       <CursorSpotlight />
 
@@ -2411,19 +2400,14 @@ export default function MainView() {
             </div>
             <div className="relative">
               <div className="mq-scroll-row" style={{ scrollSnapType: "x proximity", gap: "var(--mq-space-3)" }}>
-              {recentTracks.slice(0, 10).map((entry, i) => {
+              {recentTracks.slice(0, 10).map((entry) => {
                 const isCurrentTrack = currentTrack?.id === entry.track.id;
                 return (
-                  <motion.button
+                  <button
                     key={entry.track.id + "_" + entry.playedAt}
-                    initial={animationsEnabled ? { opacity: 0, x: 20 } : undefined}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.03 }}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
                     onClick={() => playTrack(entry.track, recentTracks.map(e => e.track))}
-                    className="mq-card-cinematic flex-shrink-0 w-[148px] text-left cursor-pointer group relative"
-                    style={isCurrentTrack ? { boxShadow: "0 0 16px color-mix(in srgb, var(--mq-accent) 25%, transparent)" } : undefined}
+                    className="mq-card-cinematic flex-shrink-0 w-[148px] text-left cursor-pointer group relative mq-rec-card"
+                    style={isCurrentTrack ? { boxShadow: "0 0 16px color-mix(in srgb, var(--mq-accent) 25%, transparent)", WebkitTapHighlightColor: "transparent" } : { WebkitTapHighlightColor: "transparent" }}
                   >
                     <div className="aspect-square relative overflow-hidden mq-cover-shadow">
                       {entry.track.cover ? (
@@ -2456,7 +2440,7 @@ export default function MainView() {
                         {entry.track.artist}
                       </p>
                     </div>
-                  </motion.button>
+                  </button>
                 );
               })}
               </div>

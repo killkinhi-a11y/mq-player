@@ -441,6 +441,24 @@ button, a, [role="button"] {
   -webkit-overflow-scrolling: touch;
 }
 
+/* ── Rec card hover — CSS scale instead of framer-motion per-card whileHover ──
+   Replaces motion.button whileHover={{ scale: 1.03 }} on each of 50 cards per row.
+   GPU-composited, zero React re-renders, no AnimatePresence overhead. */
+.mq-rec-card {
+  transition: transform 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
+  will-change: transform;
+}
+.mq-rec-card:hover { transform: scale(1.03); }
+.mq-rec-card:active { transform: scale(0.97); transition-duration: 0.08s; }
+.mq-rec-card-img {
+  transition: transform 0.5s ease;
+}
+.mq-rec-card:hover .mq-rec-card-img { transform: scale(1.1); }
+@media (max-width: 639px) {
+  .mq-rec-card:hover { transform: none; }
+  .mq-rec-card:active { transform: scale(0.96); }
+}
+
 /* Disable transitions during page load */
 .no-transition * {
   transition: none !important;
