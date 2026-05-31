@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import { Play, Clock } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface PlaylistCardProps {
   playlist: {
@@ -20,6 +21,7 @@ interface PlaylistCardProps {
 export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps) {
   const playTrack = useAppStore((s) => s.playTrack);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const isMobile = useIsMobile();
 
   const handlePlay = () => {
     if (playlist.tracks.length > 0) {
@@ -35,29 +37,36 @@ export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps)
       }
     : {};
 
+  const radius = isMobile ? "24px" : "14px";
+
   return (
     <motion.div
       {...motionProps}
       whileHover={animationsEnabled ? { y: -2 } : undefined}
-      className="rounded-[24px] overflow-hidden cursor-pointer group relative"
+      className="overflow-hidden cursor-pointer group relative"
       style={{
+        borderRadius: radius,
         backgroundColor: "var(--mq-card)",
-        border: "1px solid rgba(255,255,255,0.06)",
-        boxShadow: "0 4px 20px rgba(0,0,0,0.2), 0 0 20px color-mix(in srgb, var(--mq-accent) 5%, transparent)",
+        border: isMobile ? "1px solid rgba(255,255,255,0.06)" : "1px solid var(--mq-border)",
+        boxShadow: isMobile
+          ? "0 4px 20px rgba(0,0,0,0.2), 0 0 20px color-mix(in srgb, var(--mq-accent) 5%, transparent)"
+          : "inset 0 1px 0 rgba(255,255,255,0.04)",
       }}
     >
       {/* Ambient glow layer on hover */}
       <div
-        className="absolute inset-0 rounded-[24px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
         style={{
-          boxShadow: "0 0 16px color-mix(in srgb, var(--mq-accent) 8%, transparent)",
-          filter: "blur(16px)",
+          borderRadius: radius,
+          boxShadow: `0 0 ${isMobile ? 16 : 20}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 8 : 12}%, transparent)`,
+          filter: `blur(${isMobile ? 16 : 20}px)`,
         }}
       />
 
       {/* Border glow on hover */}
       <div
-        className="absolute inset-0 rounded-[24px] pointer-events-none border border-transparent group-hover:border-[color-mix(in_srgb,var(--mq-accent)_10%,transparent)] transition-colors duration-300"
+        className="absolute inset-0 pointer-events-none border border-transparent group-hover:border-[color-mix(in_srgb,var(--mq-accent)_10%,transparent)] transition-colors duration-300"
+        style={{ borderRadius: radius }}
       />
 
       <div className="relative aspect-square overflow-hidden">

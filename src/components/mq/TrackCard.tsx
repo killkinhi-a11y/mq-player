@@ -9,6 +9,7 @@ import Image from "next/image";
 import ContextMenu from "./ContextMenu";
 import { formatDuration } from "@/lib/musicApi";
 import { useLongPress } from "@/hooks/useLongPress";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface TrackCardProps {
   track: Track;
@@ -48,6 +49,9 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
   const toggleLike = useAppStore((s) => s.toggleLike);
   const toggleDislike = useAppStore((s) => s.toggleDislike);
   const compactMode = useAppStore((s) => s.compactMode);
+  const isMobile = useIsMobile();
+
+  const cardRadius = isMobile ? "16px" : "14px";
 
   // O(1) direct Set membership checks — subscribe to the ID directly, not the whole array
   const isActive = currentTrackId === track.id;
@@ -150,62 +154,66 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
         className={`
           group flex items-center
           ${compactMode ? "gap-2.5 px-2.5 py-1.5" : "gap-3 sm:gap-3.5 px-3 py-2 sm:px-3.5 sm:py-2.5"}
-          rounded-[16px] cursor-pointer relative overflow-hidden
+          cursor-pointer relative overflow-hidden
           transition-[background-color] duration-300 ease-out
           select-none
         `}
         style={{
+          borderRadius: cardRadius,
           backgroundColor: isActive
-            ? "color-mix(in srgb, var(--mq-accent) 6%, transparent)"
+            ? `color-mix(in srgb, var(--mq-accent) ${isMobile ? 6 : 8}%, transparent)`
             : "transparent",
           boxShadow: isActive
-            ? "0 0 12px color-mix(in srgb, var(--mq-accent) 6%, transparent)"
-            : "none",
+            ? `0 0 ${isMobile ? 12 : 16}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 6 : 10}%, transparent)${isMobile ? "" : ", inset 0 1px 0 rgba(255,255,255,0.04)"}`
+            : isMobile ? "none" : "inset 0 1px 0 rgba(255,255,255,0.04)",
         }}
         whileHover={{
-          y: -1,
+          y: isMobile ? -1 : -2,
           boxShadow: isActive
-            ? "0 0 20px color-mix(in srgb, var(--mq-accent) 10%, transparent), 0 2px 12px rgba(0,0,0,0.15)"
-            : "0 2px 12px rgba(0,0,0,0.1), 0 0 16px color-mix(in srgb, var(--mq-accent) 4%, transparent)",
+            ? `0 0 ${isMobile ? 20 : 24}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 10 : 15}%, transparent), 0 ${isMobile ? 2 : 4}px ${isMobile ? 12 : 16}px rgba(0,0,0,0.15)`
+            : `0 ${isMobile ? 2 : 4}px ${isMobile ? 12 : 16}px rgba(0,0,0,0.1), 0 0 ${isMobile ? 16 : 20}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 4 : 6}%, transparent)`,
           transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] },
         }}
         whileTap={{ scale: 0.995 }}
       >
-        {/* Ambient glow layer — subtle on hover */}
+        {/* Ambient glow layer — accent color on hover */}
         <div
-          className="absolute inset-0 rounded-[16px] opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
           style={{
-            boxShadow: "0 0 16px color-mix(in srgb, var(--mq-accent) 8%, transparent)",
-            filter: "blur(16px)",
+            borderRadius: cardRadius,
+            boxShadow: `0 0 ${isMobile ? 16 : 20}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 8 : 15}%, transparent)`,
+            filter: `blur(${isMobile ? 16 : 20}px)`,
           }}
         />
 
         {/* Border glow ring — appears on hover */}
         <div
           className={`
-            absolute inset-0 rounded-[16px] pointer-events-none
+            absolute inset-0 pointer-events-none
             border transition-colors duration-300
             ${isActive
-              ? "border-[color-mix(in_srgb,var(--mq-accent)_18%,transparent)]"
-              : "border-transparent group-hover:border-[color-mix(in_srgb,var(--mq-accent)_10%,transparent)]"
+              ? `border-[color-mix(in_srgb,var(--mq-accent)_${isMobile ? 18 : 25}%,transparent)]`
+              : `border-transparent group-hover:border-[color-mix(in_srgb,var(--mq-accent)_${isMobile ? 10 : 15}%,transparent)]`
             }
           `}
         />
 
-        {/* Active track left accent bar — subtle glow */}
+        {/* Active track left accent bar */}
         {isActive && (
-          <div className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full overflow-visible">
+          <div className={`absolute left-0 ${isMobile ? "top-3 bottom-3 w-[2px]" : "top-2 bottom-2 w-[3px]"} rounded-full overflow-visible`}>
             <div
               className="absolute inset-0 rounded-full"
-              style={{ backgroundColor: "var(--mq-accent)", opacity: 0.7 }}
+              style={{ backgroundColor: "var(--mq-accent)", opacity: isMobile ? 0.7 : 1 }}
             />
             <div
               className="absolute inset-0 rounded-full"
               style={{
                 backgroundColor: "var(--mq-accent)",
-                boxShadow: "0 0 6px var(--mq-accent)",
+                boxShadow: isMobile
+                  ? "0 0 6px var(--mq-accent)"
+                  : "0 0 8px var(--mq-accent), 0 0 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
                 animation: "mqBreathe 2s ease-in-out infinite",
-                opacity: 0.5,
+                opacity: isMobile ? 0.5 : 1,
               }}
             />
           </div>
@@ -214,11 +222,12 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
         {/* Pulsing background tint when active */}
         {isActive && (
           <div
-            className="absolute inset-0 rounded-[16px] pointer-events-none"
+            className="absolute inset-0 pointer-events-none"
             style={{
+              borderRadius: cardRadius,
               backgroundColor: "var(--mq-accent)",
               animation: "mqPulseTint 2.5s ease-in-out infinite",
-              opacity: 0.03,
+              opacity: isMobile ? 0.03 : undefined,
             }}
           />
         )}
@@ -234,7 +243,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
           `}
           style={{
             boxShadow: isActive
-              ? "0 2px 8px color-mix(in srgb, var(--mq-accent) 15%, transparent)"
+              ? `0 2px ${isMobile ? 8 : 12}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 15 : 25}%, transparent)`
               : undefined,
           }}
         >
