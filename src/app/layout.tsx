@@ -52,7 +52,7 @@ export default function RootLayout({
             __html: `(function(){
               try{
                 // === CACHE-BUST v7 (safe) ===
-                var BUILD_ID="mq-build-v52";
+                var BUILD_ID="mq-build-v53";
                 var prevBuild=localStorage.getItem('mq-build-id');
                 if(prevBuild && prevBuild!==BUILD_ID){
                   // Stale build — clear old data and reload once
@@ -132,6 +132,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} ${spaceGrotesk.variable} antialiased`}
         style={{ backgroundColor: "var(--mq-bg, #0e0e0e)", fontFamily: "var(--font-geist-sans), system-ui, sans-serif" }}
+        suppressHydrationWarning
       >
         {children}
         <Toaster />

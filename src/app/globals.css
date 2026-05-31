@@ -1684,8 +1684,17 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: none !important;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 60%, transparent);
+  /* Override Tailwind ring utility which creates square outlines */
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-color: transparent !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 60%, transparent) !important;
   border-radius: inherit;
+}
+
+/* Kill any Tailwind ring outlines that create square focus indicators */
+*:focus-visible {
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
 }
 
 /* ── Skip to content link ── */

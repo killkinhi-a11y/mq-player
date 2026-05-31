@@ -20,3 +20,30 @@ Stage Summary:
 - Uses existing /api/ai/chat endpoint for LLM-powered search queries
 - Falls back to /api/ai/recommendations if chat fails
 - Deployed to: https://mq1.vercel.app
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix React error #300, demo mode auto-entering, swipe gestures, group chats, volume persistence, red outline
+
+Work Log:
+- Diagnosed React error #300: Zustand persist rehydrates state that differs from server-rendered HTML
+- Fixed demo mode auto-entering: partialize() persisted isAuthenticated=true but NOT userId, so demo-user-id check in onRehydrateStorage never triggered
+- Added userId to partialize() so demo users are properly detected and cleared on rehydration
+- Added safety check: if isAuthenticated=true but userId=null, force logout to prevent ghost sessions
+- Added suppressHydrationWarning to <body> in layout.tsx to prevent hydration mismatch errors
+- Fixed volume persistence: Added onLoadStart handler that immediately re-applies volume when audio element loads new track (prevents brief loud burst from HTML5 audio resetting volume to 1.0)
+- Added horizontal swipe gesture on album cover in FullTrackView (touch-none + onTouchStart/onTouchEnd with 60px threshold)
+- Fixed red square outline: Replaced Tailwind ring utilities (focus-visible:ring-[3px]) with box-shadow based focus indicators in Input, Button, Badge, Toggle components
+- Added global CSS override to kill Tailwind ring shadow CSS variables on focus-visible
+- Bumped STORE_VERSION from 7 to 8 to force fresh rehydration with new userId persistence
+- Bumped BUILD_ID to mq-build-v53 for cache bust
+- Group chats now work because userId is properly persisted and available in handleCreateGroup
+
+Stage Summary:
+- Demo mode: No longer auto-enters on page reload — user must explicitly click "Демо-режим" each session
+- Volume: Persists correctly across track switches (onLoadStart handler + existing useEffect)
+- Hydration: suppressHydrationWarning + proper state management prevents React error #300
+- Outline: All focus indicators now use box-shadow (follows border-radius) instead of square Tailwind ring
+- Swipe: Can now swipe left/right on album cover in fullscreen player to switch tracks
+- Group chats: Working because userId is now properly available
+- Deployed to: https://mq1.vercel.app

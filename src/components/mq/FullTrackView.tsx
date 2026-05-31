@@ -2046,7 +2046,25 @@ export default function FullTrackView() {
                 <div className="relative p-[2px] rounded-2xl overflow-hidden"
                   style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 40%, transparent), rgba(255,255,255,0.1), color-mix(in srgb, var(--mq-accent) 40%, transparent), var(--mq-accent))", backgroundSize: "300% 300%", animation: "mqGradientBorder 6s ease infinite", willChange: "background-position" }}>
                   <div
-                    className="w-64 h-64 sm:w-[320px] sm:h-[320px] md:w-[22rem] md:h-[22rem] lg:w-[24rem] lg:h-[24rem] xl:w-[26rem] xl:h-[26rem] rounded-2xl overflow-hidden relative mq-cover-shadow-lg"
+                    className="w-64 h-64 sm:w-[320px] sm:h-[320px] md:w-[22rem] md:h-[22rem] lg:w-[24rem] lg:h-[24rem] xl:w-[26rem] xl:h-[26rem] rounded-2xl overflow-hidden relative mq-cover-shadow-lg touch-none"
+                    onTouchStart={(e) => {
+                      (e.currentTarget as any)._swipeStartX = e.touches[0].clientX;
+                      (e.currentTarget as any)._swipeStartY = e.touches[0].clientY;
+                    }}
+                    onTouchEnd={(e) => {
+                      const el = e.currentTarget as any;
+                      const startX = el._swipeStartX ?? 0;
+                      const startY = el._swipeStartY ?? 0;
+                      const endX = e.changedTouches[0].clientX;
+                      const endY = e.changedTouches[0].clientY;
+                      const dx = endX - startX;
+                      const dy = Math.abs(endY - startY);
+                      if (Math.abs(dx) > 60 && dy < 40) {
+                        if (dx > 0) prevTrack();
+                        else nextTrack();
+                        try { navigator.vibrate?.(10); } catch {}
+                      }
+                    }}
                   >
                     {currentPlaylistId ? (
                       <PlaylistArtwork

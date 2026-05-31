@@ -8,8 +8,8 @@ import { PlaybackEngine, type PlaybackState } from "@/lib/playbackEngine";
 
 // ── Storage versioning ──
 // Bump this number to force a fresh store for all users with old data.
-const STORE_VERSION = 7;
-const STORAGE_KEY = "mq-store-v7";
+const STORE_VERSION = 8;
+const STORAGE_KEY = "mq-store-v8";
 
 // Nuke stale data BEFORE Zustand tries to hydrate.
 // This runs at module-import time, so there is no React error boundary to catch failures.
@@ -2509,9 +2509,12 @@ export const useAppStore = create<AppState>()(
           shuffle: persistent.shuffle,
           repeat: persistent.repeat,
           playbackRate: persistent.playbackRate,
-          // Auth flag (actual user data comes from JWT cookie)
+          // Auth flag — persisted so rehydration can detect demo users
           isAuthenticated: persistent.isAuthenticated,
-          // SECURITY: do NOT persist userId, username, email, avatar, userRole
+          // Persist userId so onRehydrateStorage can detect demo-user-id and clear it
+          // Non-demo users get their data refreshed from /api/auth/me anyway
+          userId: persistent.userId ?? null,
+          // SECURITY: do NOT persist username, email, avatar, userRole
           // These come from the JWT httpOnly cookie via /api/auth/me
           // Messenger
           messages: persistent.messages.length > MAX_MESSAGES ? persistent.messages.slice(-MAX_MESSAGES) : persistent.messages,
@@ -2617,14 +2620,30 @@ export const useAppStore = create<AppState>()(
           }
           if (!state) return;
 
-          // Clear demo auth on rehydration — user must explicitly enter demo mode
+          // Clear demo auth on rehydration — user must explicitly enter demo mode each session
           if (state.userId === "demo-user-id") {
             useAppStore.setState({
               userId: null,
               username: null,
               email: null,
+              telegramUsername: null,
+              avatar: null,
               isAuthenticated: false,
               currentView: "auth",
+              isPlaying: false,
+              playbackState: "idle",
+            });
+          }
+
+          // Safety: if isAuthenticated is true but userId is null (stale/inconsistent state from
+          // older versions that didn't persist userId), force logout to prevent ghost sessions
+          if (state.isAuthenticated && !state.userId) {
+            console.warn("[MQ Store] isAuthenticated=true but userId=null — forcing logout");
+            useAppStore.setState({
+              isAuthenticated: false,
+              currentView: "auth",
+              isPlaying: false,
+              playbackState: "idle",
             });
           }
 

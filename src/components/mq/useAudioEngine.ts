@@ -1259,6 +1259,19 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       }
     };
 
+    // Immediately re-apply volume when a new track starts loading.
+    // HTML5 <audio> resets volume to 1.0 when .src changes — this prevents
+    // a brief loud burst before the volume useEffect runs.
+    const onLoadStart = () => {
+      const a = getActive();
+      if (a) {
+        const vol = Math.pow(useAppStore.getState().volume / 100, 2);
+        a.volume = vol;
+      }
+      // Also reset loading state for the new track
+      setPlayError(false);
+    };
+
     const addListeners = (el: HTMLAudioElement) => {
       el.addEventListener("timeupdate", onTimeUpdate);
       el.addEventListener("loadedmetadata", onLoaded);
@@ -1268,6 +1281,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       el.addEventListener("error", onError);
       el.addEventListener("playing", onPlaying);
       el.addEventListener("waiting", onWaiting);
+      el.addEventListener("loadstart", onLoadStart);
     };
     const removeListeners = (el: HTMLAudioElement) => {
       el.removeEventListener("timeupdate", onTimeUpdate);
@@ -1278,6 +1292,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       el.removeEventListener("error", onError);
       el.removeEventListener("playing", onPlaying);
       el.removeEventListener("waiting", onWaiting);
+      el.removeEventListener("loadstart", onLoadStart);
     };
 
     startLoadingTimeoutRef.current = startLoadingTimeout;
