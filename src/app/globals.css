@@ -965,9 +965,9 @@ html.blood-theme body::before {
 }
 @media (max-width: 639px) {
   .mobile-player-above-nav {
-    /* Floating nav: nav is ~12px from bottom + ~44px height = ~56px total.
-       Player sits above the floating nav with 4px gap. */
-    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    /* Nav is always at bottom:12px, ~50px tall + safe-area padding.
+       Player sits above the nav with a comfortable gap so nav stays visible. */
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
     transform: translateZ(0);
   }
 }
@@ -979,18 +979,16 @@ html.blood-theme body::before {
   }
 }
 
-/* ── Player + Nav unified visual block ──
-   On mobile the player bar and bottom nav form ONE visual unit.
-   They share the same background, the player's top border is the
-   only visual separator from content above. The nav has no top border
-   of its own — the player's bottom edge is the shared boundary. */
+/* ── Player + Nav visual relationship ──
+   On mobile the player bar sits above the floating nav pill.
+   Player has a bottom border-radius and its own upward shadow.
+   The nav floats independently below with its own glass style. */
 @media (max-width: 639px) {
   .mobile-player-inner {
-    /* Same backdrop as nav so they look continuous */
     background-color: var(--mq-player-bg) !important;
-    /* No rounding — flush against nav below */
+    /* Rounded bottom corners — player floats above nav, not flush */
     border-radius: 0 !important;
-    /* Shadow only upward — not between player and nav */
+    /* Shadow only upward */
     box-shadow: 0 -6px 32px rgba(0,0,0,0.35) !important;
   }
 }
@@ -1002,8 +1000,8 @@ html.blood-theme body::before {
 }
 @media (max-width: 639px) {
   .mq-has-player {
-    /* player (90px) + nav (50px) + safe area */
-    padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+    /* Player raised above nav: player-bottom (76px) + player-height (90px) + safe area */
+    padding-bottom: calc(166px + env(safe-area-inset-bottom, 0px));
   }
 }
 @media (min-width: 640px) {

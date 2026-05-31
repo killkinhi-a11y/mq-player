@@ -20,9 +20,6 @@ const MobileNav = React.memo(function MobileNav() {
   const compactMode = useAppStore((s) => s.compactMode);
   const unreadCounts = useAppStore((s) => s.unreadCounts);
   const supportUnreadCount = useAppStore((s) => s.supportUnreadCount);
-  const currentTrack = useAppStore((s) => s.currentTrack);
-  const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
-
   const messengerBadge = Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
   const getBadgeCount = (badgeKey?: string): number => {
     if (!badgeKey) return 0;
@@ -31,15 +28,13 @@ const MobileNav = React.memo(function MobileNav() {
     return 0;
   };
 
-  const isPlayerVisible = currentTrack && !miniPlayerHidden;
-
   return (
     <nav
-      className="fixed z-50 lg:hidden left-3 right-3"
+      className="fixed z-[60] lg:hidden left-3 right-3"
       role="navigation"
       aria-label="Основная навигация"
       style={{
-        bottom: isPlayerVisible ? 72 : 12,
+        bottom: 12,
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
         transition: "bottom 0.35s cubic-bezier(0.22, 1, 0.36, 1)",
       }}
