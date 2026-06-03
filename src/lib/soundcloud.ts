@@ -10,9 +10,8 @@
 /*  Client ID pool — rotated on 401 errors                            */
 /* ------------------------------------------------------------------ */
 const CLIENT_IDS = [
-  "1Gbi6DBGBMULQH8MuhNvI1HzL9AiX2Pa", // Fresh: extracted from SC website (2025-05)
-  "qYUIEFbSZdXPABQbuHA2Tv8C9ndesHim",
-  "S3TPtG5i3yzBs1BPd50h1N5TW2kNTo5k",
+  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // Fresh: extracted from SC website (2025-06)
+  // NOTE: Previous IDs all returned 401 as of 2025-06
 ];
 
 let activeIndex = 0;
@@ -188,9 +187,7 @@ export async function searchSCArtists(
  */
 export async function resolveSCStreamUrl(scTrackId: number): Promise<string | null> {
   const CLIENT_IDS_STREAM = [
-    "1Gbi6DBGBMULQH8MuhNvI1HzL9AiX2Pa",
-    "qYUIEFbSZdXPABQbuHA2Tv8C9ndesHim",
-    "S3TPtG5i3yzBs1BPd50h1N5TW2kNTo5k",
+    "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // Fresh: extracted from SC website (2025-06)
   ];
 
   for (const clientId of CLIENT_IDS_STREAM) {

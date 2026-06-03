@@ -16,10 +16,8 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "edge";
 
 const CLIENT_IDS = [
-  "1Gbi6DBGBMULQH8MuhNvI1HzL9AiX2Pa",
-  "qYUIEFbSZdXPABQbuHA2Tv8C9ndesHim",
-  "S3TPtG5i3yzBs1BPd50h1N5TW2kNTo5k",
-  // NOTE: gYfbOmxj... and nDSHHx4F... removed — both return 401 on all endpoints (2025-05)
+  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // Fresh: extracted from SC website (2025-06)
+  // NOTE: Previous IDs all returned 401 as of 2025-06
 ];
 
 export async function GET(request: NextRequest) {

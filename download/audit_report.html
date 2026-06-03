@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Аудит кодовой базы MQ Player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans:wght@300;400;500;600;700;800;900&family=Noto+Serif:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --page-bg: #141312;
+    --section-bg: #181715;
+    --card-bg: #1b1b18;
+    --table-stripe: #1b1a17;
+    --header-fill: #584f34;
+    --cover-block: #332f22;
+    --border: #5c5646;
+    --icon: #bdb087;
+    --accent: #9984d8;
+    --accent-secondary: #57bf8b;
+    --text-primary: #e6e6e4;
+    --text-muted: #87857d;
+    --semantic-success: #68bb84;
+    --semantic-warning: #bda981;
+    --semantic-error: #c3746d;
+    --semantic-info: #7394b5;
+  }
+
+  @page {
+    size: A4;
+    margin: 20mm 20mm 20mm 20mm;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--page-bg);
+    color: var(--text-primary);
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.65;
+  }
+
+  @media screen {
+    html { background: #000; }
+    body {
+      max-width: 210mm;
+      margin: 0 auto;
+      transform-origin: top center;
+    }
+  }
+
+  /* ── COVER ── */
+  .cover {
+    page-break-after: always;
+    width: 100%;
+    min-height: 240mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: var(--page-bg);
+    position: relative;
+    padding: 40mm 10mm;
+  }
+  .cover::before {
+    content: '';
+    position: absolute;
+    top: -20%; right: -10%;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(153,132,216,0.08) 0%, transparent 70%);
+  }
+  .cover::after {
+    content: '';
+    position: absolute;
+    bottom: -15%; left: -5%;
+    width: 500px; height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(87,191,139,0.06) 0%, transparent 70%);
+  }
+  .cover-label {
+    font-size: 11pt;
+    letter-spacing: 4pt;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20pt;
+    font-weight: 600;
+  }
+  .cover-title {
+    font-family: 'Noto Serif', serif;
+    font-size: 36pt;
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.2;
+    color: var(--text-primary);
+    margin-bottom: 16pt;
+    position: relative;
+    z-index: 1;
+  }
+  .cover-subtitle {
+    font-size: 14pt;
+    color: var(--text-muted);
+    text-align: center;
+    max-width: 480px;
+    line-height: 1.6;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 40pt;
+  }
+  .cover-meta {
+    font-size: 10pt;
+    color: var(--text-muted);
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    line-height: 1.8;
+  }
+  .cover-score {
+    margin-top: 30pt;
+    font-size: 56pt;
+    font-weight: 900;
+    color: var(--semantic-error);
+    position: relative;
+    z-index: 1;
+  }
+  .cover-score-label {
+    font-size: 11pt;
+    color: var(--text-muted);
+    letter-spacing: 2pt;
+    text-transform: uppercase;
+    position: relative;
+    z-index: 1;
+  }
+  .cover-line {
+    width: 80px;
+    height: 2px;
+    background: var(--accent);
+    margin: 24pt auto;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── TOC ── */
+  .toc-page {
+    page-break-after: always;
+    padding-top: 30pt;
+  }
+  .toc-page h2 {
+    font-family: 'Noto Serif', serif;
+    font-size: 20pt;
+    font-weight: 700;
+    margin-bottom: 20pt;
+    color: var(--text-primary);
+  }
+  .toc-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 6pt 0;
+    border-bottom: 1px solid rgba(92,86,70,0.3);
+    font-size: 10.5pt;
+    text-decoration: none;
+    color: var(--text-primary);
+    max-width: 100%;
+    width: 100%;
+  }
+  .toc-item:hover { color: var(--accent); }
+  .toc-item .toc-level-1 { font-weight: 600; }
+  .toc-item .toc-level-2 { padding-left: 20pt; font-weight: 400; color: var(--text-muted); }
+
+  /* ── SECTIONS ── */
+  .section { margin-bottom: 28pt; }
+  h1 {
+    font-family: 'Noto Serif', serif;
+    font-size: 20pt;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-top: 18pt;
+    margin-bottom: 12pt;
+    padding-bottom: 6pt;
+    border-bottom: 2px solid var(--accent);
+    display: inline-block;
+  }
+  h2 {
+    font-family: 'Noto Serif', serif;
+    font-size: 15pt;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 16pt;
+    margin-bottom: 8pt;
+  }
+  h3 {
+    font-size: 12pt;
+    font-weight: 600;
+    color: var(--accent);
+    margin-top: 12pt;
+    margin-bottom: 6pt;
+  }
+
+  p { margin-bottom: 8pt; }
+
+  /* ── SEVERITY BADGES ── */
+  .severity {
+    display: inline-flex;
+    align-items: center;
+    gap: 6pt;
+    font-size: 9pt;
+    font-weight: 700;
+    letter-spacing: 1pt;
+    text-transform: uppercase;
+    padding: 3pt 10pt;
+    border-radius: 4pt;
+    margin-bottom: 8pt;
+  }
+  .severity-critical { background: rgba(195,116,109,0.2); color: var(--semantic-error); border: 1px solid rgba(195,116,109,0.4); }
+  .severity-performance { background: rgba(189,169,129,0.2); color: var(--semantic-warning); border: 1px solid rgba(189,169,129,0.4); }
+  .severity-uiux { background: rgba(115,148,181,0.2); color: var(--semantic-info); border: 1px solid rgba(115,148,181,0.4); }
+  .severity-architecture { background: rgba(104,187,132,0.2); color: var(--semantic-success); border: 1px solid rgba(104,187,132,0.4); }
+  .severity-security { background: rgba(195,116,109,0.15); color: #d98b86; border: 1px solid rgba(195,116,109,0.35); }
+
+  /* ── ISSUE CARD ── */
+  .issue-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8pt;
+    padding: 14pt 16pt;
+    margin-bottom: 14pt;
+    page-break-inside: avoid;
+    max-width: 100%;
+  }
+  .issue-card .issue-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 8pt;
+  }
+  .issue-card .issue-file {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9pt;
+    color: var(--accent);
+    background: rgba(153,132,216,0.1);
+    padding: 2pt 8pt;
+    border-radius: 3pt;
+  }
+  .issue-card .issue-title {
+    font-weight: 700;
+    font-size: 11pt;
+    color: var(--text-primary);
+    margin-bottom: 6pt;
+  }
+  .issue-card .issue-desc {
+    color: var(--text-muted);
+    font-size: 10pt;
+    line-height: 1.6;
+    margin-bottom: 10pt;
+  }
+
+  /* ── CODE BLOCK ── */
+  pre {
+    background: #0d0d0c;
+    border: 1px solid var(--border);
+    border-radius: 6pt;
+    padding: 10pt 14pt;
+    overflow-x: auto;
+    overflow-wrap: break-word;
+    word-break: break-all;
+    white-space: pre-wrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8pt;
+    line-height: 1.55;
+    color: #c9d1d9;
+    margin: 8pt 0 10pt 0;
+    max-width: 100%;
+    page-break-inside: avoid;
+  }
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8.5pt;
+    background: rgba(153,132,216,0.1);
+    padding: 1pt 5pt;
+    border-radius: 3pt;
+    color: var(--accent);
+  }
+  pre code {
+    background: none;
+    padding: 0;
+    color: inherit;
+  }
+  .code-comment { color: #6a737d; }
+  .code-keyword { color: #ff7b72; }
+  .code-string { color: #a5d6ff; }
+  .code-type { color: #79c0ff; }
+
+  /* ── TABLE ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10pt auto 14pt auto;
+    font-size: 9pt;
+    page-break-inside: avoid;
+  }
+  th {
+    background: var(--header-fill);
+    color: var(--text-primary);
+    font-weight: 600;
+    padding: 7pt 10pt;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  td {
+    padding: 6pt 10pt;
+    border: 1px solid rgba(92,86,70,0.4);
+    color: var(--text-primary);
+  }
+  tr:nth-child(even) td { background: var(--table-stripe); }
+  tr:nth-child(odd) td { background: var(--card-bg); }
+
+  /* ── SUMMARY BLOCK ── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14pt;
+    margin: 16pt 0;
+    width: 100%;
+  }
+  .summary-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8pt;
+    padding: 14pt;
+    text-align: center;
+  }
+  .summary-card .summary-number {
+    font-size: 28pt;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .summary-card .summary-label {
+    font-size: 9pt;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1pt;
+    margin-top: 4pt;
+  }
+  .num-critical { color: var(--semantic-error); }
+  .num-warning { color: var(--semantic-warning); }
+  .num-info { color: var(--semantic-info); }
+
+  /* ── UI STYLE SECTION ── */
+  .style-palette {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8pt;
+    margin: 12pt 0;
+    max-width: 100%;
+  }
+  .style-swatch {
+    border-radius: 6pt;
+    padding: 10pt 8pt;
+    text-align: center;
+    font-size: 8pt;
+    font-family: 'JetBrains Mono', monospace;
+    page-break-inside: avoid;
+  }
+  .style-swatch-dark { background: #121212; color: #fff; border: 1px solid #333; }
+  .style-swatch-red { background: #e53e3e; color: #fff; }
+  .style-swatch-purple { background: #805ad5; color: #fff; }
+  .style-swatch-blue { background: #3182ce; color: #fff; }
+  .style-swatch-gray { background: #2d3748; color: #a0aec0; }
+
+  .component-list {
+    list-style: none;
+    padding: 0;
+  }
+  .component-list li {
+    padding: 6pt 0 6pt 18pt;
+    position: relative;
+    border-bottom: 1px solid rgba(92,86,70,0.2);
+    color: var(--text-primary);
+    font-size: 10pt;
+  }
+  .component-list li::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 12pt;
+    width: 8pt; height: 8pt;
+    border-radius: 2pt;
+    background: var(--accent);
+  }
+
+  /* ── FIX STEP LIST ── */
+  .fix-steps {
+    list-style: none;
+    padding: 0;
+    counter-reset: step;
+  }
+  .fix-steps li {
+    counter-increment: step;
+    padding: 4pt 0 4pt 28pt;
+    position: relative;
+    color: var(--text-muted);
+    font-size: 9.5pt;
+    line-height: 1.5;
+  }
+  .fix-steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0; top: 4pt;
+    width: 20pt; height: 20pt;
+    border-radius: 50%;
+    background: rgba(153,132,216,0.15);
+    color: var(--accent);
+    font-size: 9pt;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ── PAGE BREAK ── */
+  .page-break { page-break-before: always; }
+
+  .fill-spacer { height: 20pt; }
+
+  /* ── BLOCKQUOTE ── */
+  blockquote {
+    border-left: 3pt solid var(--accent);
+    padding: 8pt 14pt;
+    margin: 10pt 0;
+    background: rgba(153,132,216,0.05);
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 10pt;
+    line-height: 1.6;
+  }
+
+  /* ── METRICS ROW ── */
+  .metrics-row {
+    display: flex;
+    gap: 12pt;
+    margin: 10pt 0;
+    flex-wrap: wrap;
+  }
+  .metric-chip {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6pt;
+    padding: 8pt 14pt;
+    font-size: 9pt;
+    flex: 1;
+    min-width: 120pt;
+  }
+  .metric-chip .metric-label { color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5pt; }
+  .metric-chip .metric-value { font-weight: 700; font-size: 11pt; color: var(--text-primary); margin-top: 2pt; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- COVER PAGE -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-label">Технический аудит</div>
+  <div class="cover-title">Аудит кодовой базы<br>MQ Player</div>
+  <div class="cover-line"></div>
+  <div class="cover-subtitle">Комплексный анализ безопасности, производительности, архитектуры и UI/UX с рекомендациями по исправлению</div>
+  <div class="cover-score">4/10</div>
+  <div class="cover-score-label">Общая оценка</div>
+  <div class="cover-meta">
+    Проверены файлы: .env, .gitignore, next.config.ts, package.json, vercel.json, tailwind.config.ts<br>
+    Дата: 25 мая 2026
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- TABLE OF CONTENTS -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="toc-page">
+  <h2>Содержание</h2>
+  <a class="toc-item" href="#summary"><span class="toc-level-1">Сводка результатов</span></a>
+  <a class="toc-item" href="#critical"><span class="toc-level-1">1. Критические проблемы</span></a>
+  <a class="toc-item" href="#critical-env"><span class="toc-level-2">1.1. Файл .env в публичном репозитории</span></a>
+  <a class="toc-item" href="#critical-cache"><span class="toc-level-2">1.2. Отсутствие кеширования статических ассетов</span></a>
+  <a class="toc-item" href="#critical-ts"><span class="toc-level-2">1.3. Игнорирование TypeScript-ошибок</span></a>
+  <a class="toc-item" href="#critical-strict"><span class="toc-level-2">1.4. Отключён React Strict Mode</span></a>
+  <a class="toc-item" href="#performance"><span class="toc-level-1">2. Производительность</span></a>
+  <a class="toc-item" href="#perf-tailwind"><span class="toc-level-2">2.1. Некорректные пути в Tailwind content</span></a>
+  <a class="toc-item" href="#perf-lockfile"><span class="toc-level-2">2.2. Конфликт пакетных менеджеров</span></a>
+  <a class="toc-item" href="#perf-bundle"><span class="toc-level-2">2.3. Дублирование зависимостей в бандле</span></a>
+  <a class="toc-item" href="#perf-electron"><span class="toc-level-2">2.4. Electron в devDependencies</span></a>
+  <a class="toc-item" href="#uiux"><span class="toc-level-1">3. UI/UX</span></a>
+  <a class="toc-item" href="#uiux-tw"><span class="toc-level-2">3.1. Несовместимость версий Tailwind</span></a>
+  <a class="toc-item" href="#uiux-sdk"><span class="toc-level-2">3.2. Нестабильный SDK в зависимостях</span></a>
+  <a class="toc-item" href="#uiux-gitignore"><span class="toc-level-2">3.3. Устаревшее правило .gitignore</span></a>
+  <a class="toc-item" href="#uiux-styles"><span class="toc-level-2">3.4. Рекомендуемый стиль интерфейса</span></a>
+  <a class="toc-item" href="#architecture"><span class="toc-level-1">4. Архитектура</span></a>
+  <a class="toc-item" href="#arch-electron"><span class="toc-level-2">4.1. Разделение Electron и Web сборок</span></a>
+  <a class="toc-item" href="#arch-prisma"><span class="toc-level-2">4.2. Prisma + Vercel Serverless</span></a>
+  <a class="toc-item" href="#arch-csp"><span class="toc-level-2">4.3. Отсутствие CSP-заголовка</span></a>
+  <a class="toc-item" href="#security"><span class="toc-level-1">5. Безопасность</span></a>
+  <a class="toc-item" href="#sec-summary"><span class="toc-level-2">5.1-5.4. Критические уязвимости</span></a>
+  <a class="toc-item" href="#conclusion"><span class="toc-level-1">6. Итоговая оценка и приоритеты</span></a>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- SUMMARY -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="section" id="summary">
+  <h1>Сводка результатов</h1>
+  <p>Проведён комплексный аудит кодовой базы MQ Player. Проверены ключевые конфигурационные файлы, зависимости, настройки безопасности и производительности. Доступ к директории <code>src/</code> через robots.txt заблокирован, поэтому анализ исходного кода проведён на основе конфигурационных файлов, метаданных репозитория и паттернов стека.</p>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-number num-critical">4</div>
+      <div class="summary-label">Критических</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-number num-warning">4</div>
+      <div class="summary-label">Производительность</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-number num-info">4</div>
+      <div class="summary-label">UI/UX</div>
+    </div>
+  </div>
+
+  <table>
+    <tr>
+      <th>Категория</th>
+      <th>Количество проблем</th>
+      <th>Уровень критичности</th>
+    </tr>
+    <tr>
+      <td>Критические проблемы</td>
+      <td>4</td>
+      <td style="color: var(--semantic-error); font-weight:700;">Критический</td>
+    </tr>
+    <tr>
+      <td>Производительность</td>
+      <td>4</td>
+      <td style="color: var(--semantic-warning); font-weight:700;">Высокий</td>
+    </tr>
+    <tr>
+      <td>UI/UX</td>
+      <td>4</td>
+      <td style="color: var(--semantic-info); font-weight:700;">Средний</td>
+    </tr>
+    <tr>
+      <td>Архитектура</td>
+      <td>3</td>
+      <td style="color: var(--semantic-success); font-weight:700;">Средний</td>
+    </tr>
+    <tr>
+      <td>Безопасность</td>
+      <td>4</td>
+      <td style="color: var(--semantic-error); font-weight:700;">Критический</td>
+    </tr>
+  </table>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- 1. CRITICAL -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="section" id="critical">
+  <h1>1. Критические проблемы</h1>
+
+  <!-- 1.1 .env -->
+  <div class="issue-card" id="critical-env">
+    <div class="issue-header">
+      <span class="severity severity-critical">КРИТИЧЕСКИЙ</span>
+      <span class="issue-file">.env (корень репозитория)</span>
+    </div>
+    <div class="issue-title">Файл .env с DATABASE_URL закоммичен в публичный репозиторий</div>
+    <div class="issue-desc">
+      Файл <code>.env</code> с <code>DATABASE_URL</code> закоммичен в публичный репозиторий, несмотря на то что <code>.gitignore</code> содержит строку <code>.env</code>. Это произошло потому, что файл был добавлен в git до того, как его добавили в <code>.gitignore</code> &mdash; git продолжает его отслеживать. Строка <code>DATABASE_URL=file:/home/z/my-project/db/custom.db</code> раскрывает структуру файловой системы сервера. В реальном окружении с PostgreSQL здесь был бы connection string с логином и паролем. Все секреты, которые когда-либо были в <code>.env</code>, считаются скомпрометированными и должны быть сменены немедленно.
+    </div>
+    <div class="issue-title" style="font-size:10pt; color:var(--accent);">Исправление:</div>
+    <pre><code><span class="code-comment"># Шаг 1: Удалить файл из отслеживания git (НЕ с диска)</span>
+git rm --cached .env
+
+<span class="code-comment"># Шаг 2: Убедиться, что .env есть в .gitignore (уже есть)</span>
+
+<span class="code-comment"># Шаг 3: Закоммитить удаление</span>
+git commit -m <span class="code-string">"chore: remove .env from tracking"</span>
+
+<span class="code-comment"># Шаг 4: Удалить из истории git</span>
+git filter-repo --path .env --invert-paths
+<span class="code-comment"># или через BFG Cleaner:</span>
+bfg --delete-files .env
+
+<span class="code-comment"># Шаг 5: Force push</span>
+git push origin --force --all</code></pre>
+  </div>
+
+  <!-- 1.2 Cache -->
+  <div class="issue-card" id="critical-cache">
+    <div class="issue-header">
+      <span class="severity severity-critical">КРИТИЧЕСКИЙ</span>
+      <span class="issue-file">next.config.ts, строки 14-30</span>
+    </div>
+    <div class="issue-title">Cache-Control: no-cache, no-store, must-revalidate на всех маршрутах</div>
+    <div class="issue-desc">
+      Заголовок <code>Cache-Control: no-cache, no-store, must-revalidate</code> применяется ко <b>всем маршрутам</b> через <code>source: "/(.*)"</code>. Это означает, что статические ассеты (<code>/_next/static/</code>) &mdash; JS-бандлы, CSS, шрифты, изображения &mdash; не кешируются браузером и CDN. При каждом переходе по страницам браузер перезагружает весь JS-бандл. Это катастрофа для LCP и производительности: метрики Core Web Vitals ухудшаются в разы, нагрузка на сервер возрастает пропорционально трафику, а пользовательский опыт деградирует из-за задержек при навигации.
+    </div>
+    <div class="issue-title" style="font-size:10pt; color:var(--accent);">Исправление:</div>
+    <pre><code><span class="code-comment">// next.config.ts</span>
+<span class="code-keyword">async</span> <span class="code-type">headers</span>() {
+  <span class="code-keyword">return</span> [
+    <span class="code-comment">// Статика Next.js кешируется навсегда (immutable)</span>
+    {
+      <span class="code-type">source</span>: <span class="code-string">"/_next/static/:path*"</span>,
+      <span class="code-type">headers</span>: [{
+        <span class="code-type">key</span>: <span class="code-string">"Cache-Control"</span>,
+        <span class="code-type">value</span>: <span class="code-string">"public, max-age=31536000, immutable"</span>,
+      }],
+    },
+    <span class="code-comment">// Публичные ассеты — кеш на 1 день</span>
+    {
+      <span class="code-type">source</span>: <span class="code-string">"/public/:path*"</span>,
+      <span class="code-type">headers</span>: [{
+        <span class="code-type">key</span>: <span class="code-string">"Cache-Control"</span>,
+        <span class="code-type">value</span>: <span class="code-string">"public, max-age=86400, stale-while-revalidate=3600"</span>,
+      }],
+    },
+    <span class="code-comment">// API-маршруты — без кеша</span>
+    {
+      <span class="code-type">source</span>: <span class="code-string">"/api/:path*"</span>,
+      <span class="code-type">headers</span>: [{
+        <span class="code-type">key</span>: <span class="code-string">"Cache-Control"</span>,
+        <span class="code-type">value</span>: <span class="code-string">"no-store"</span>,
+      }],
+    },
+    <span class="code-comment">// HTML-страницы — revalidate</span>
+    {
+      <span class="code-type">source</span>: <span class="code-string">"/(.*)"</span>,
+      <span class="code-type">headers</span>: [{
+        <span class="code-type">key</span>: <span class="code-string">"Cache-Control"</span>,
+        <span class="code-type">value</span>: <span class="code-string">"public, max-age=0, must-revalidate"</span>,
+      }],
+    },
+  ];
+},</code></pre>
+  </div>
+
+  <!-- 1.3 TS ignore -->
+  <div class="issue-card" id="critical-ts">
+    <div class="issue-header">
+      <span class="severity severity-critical">КРИТИЧЕСКИЙ</span>
+      <span class="issue-file">next.config.ts, строка 4</span>
+    </div>
+    <div class="issue-title">TypeScript-ошибки игнорируются при сборке</div>
+    <div class="issue-desc">
+      Параметр <code>typescript: { ignoreBuildErrors: true }</code> означает, что любая ошибка типизации (null dereference, неверные пропсы, неправильные API-вызовы) попадает в продакшн незамеченной. В проекте с Web Audio API, где работают с <code>AudioContext | null</code>, это прямой путь к рантайм-крэшам. TypeScript был создан именно для предотвращения подобных ошибок на этапе компиляции, и отключение его проверок нивелирует все преимущества статической типизации.
+    </div>
+    <div class="issue-title" style="font-size:10pt; color:var(--accent);">Исправление:</div>
+    <pre><code><span class="code-comment">// next.config.ts</span>
+typescript: {
+  ignoreBuildErrors: <span class="code-keyword">false</span>, <span class="code-comment">// никогда не отключать в продакшне</span>
+},
+<span class="code-comment">// Затем исправить все TS-ошибки:</span>
+<span class="code-comment">// npx tsc --noEmit</span></code></pre>
+  </div>
+
+  <!-- 1.4 Strict Mode -->
+  <div class="issue-card" id="critical-strict">
+    <div class="issue-header">
+      <span class="severity severity-critical">КРИТИЧЕСКИЙ</span>
+      <span class="issue-file">next.config.ts, строка 6</span>
+    </div>
+    <div class="issue-title">React Strict Mode отключён</div>
+    <div class="issue-desc">
+      Параметр <code>reactStrictMode: false</code> отключает Strict Mode &mdash; единственный встроенный инструмент React для обнаружения утечек памяти и двойного вызова <code>useEffect</code>. В проекте с Web Audio API (<code>AudioContext</code>, <code>AnalyserNode</code>) это критично: утечки могут накапливаться незаметно, приводя к постепенной деградации производительности приложения. Strict Mode помогает обнаруживать такие проблемы на этапе разработки, дважды вызывая рендер и эффекты для выявления побочных эффектов.
+    </div>
+    <div class="issue-title" style="font-size:10pt; color:var(--accent);">Исправление:</div>
+    <pre><code><span class="code-comment">// next.config.ts</span>
+reactStrictMode: <span class="code-keyword">true</span>,</code></pre>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- 2. PERFORMANCE -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="section" id="performance">
+  <h1>2. Производительность</h1>
+
+  <!-- 2.1 Tailwind paths -->
+  <div class="issue-card" id="perf-tailwind">
+    <div class="issue-header">
+      <span class="severity severity-performance">ПРОИЗВОДИТЕЛЬНОСТЬ</span>
+      <span class="issue-file">tailwind.config.ts, строки 7-10</span>
+    </div>
+    <div class="issue-title">Некорректные пути в Tailwind content</div>
+    <div class="issue-desc">
+      Пути в <code>content</code> указывают на <code>./pages/**</code>, <code>./components/**</code>, <code>./app/**</code> &mdash; то есть на корень проекта. Но в Next.js с App Router исходники находятся в <code>src/</code>. Tailwind сканирует несуществующие директории и <b>не находит</b> часть классов. Неиспользуемый CSS не удаляется (или наоборот &mdash; нужные классы могут исчезнуть при очистке), что приводит к увеличению размера бандла CSS и потенциальным визуальным багам при деплое.
+    </div>
+    <div class="issue-title" style="font-size:10pt; color:var(--accent);">Исправление:</div>
+    <pre><code>content: [
+  <span class="code-string">"./src/**/*.{js,ts,jsx,tsx,mdx}"</span>,
+  <span class="code-comment">// если есть файлы вне src:</span>
+  <span class="code-string">"./pages/**/*.{js,ts,jsx,tsx,mdx}"</span>,
+],</code></pre>
+  </div>
+
+  <!-- 2.2 Lockfile conflict -->
+  <div class="issue-card" id="perf-lockfile">
+    <div class="issue-header">
+      <span class="severity severity-performance">ПРОИЗВОДИТЕЛЬНОСТЬ</span>
+      <span class="issue-file">package.json — зависимости</span>
+    </div>
+    <div class="issue-title">Конфликт пакетных менеджеров: bun.lock + package-lock.json</div>
+    <div class="issue-desc">
+      В проекте одновременно установлены <code>bun.lock</code> и <code>package-lock.json</code>. Это два разных пакетных менеджера (Bun и npm) в одном проекте. <code>vercel.json</code> использует <code>installCommand: "npm install"</code>, при этом в <code>.gitignore</code> есть <code>bun.lockb</code> (старый формат), а в репозитории лежит <code>bun.lock</code>. Это порождает рассинхронизацию версий между локальной средой и Vercel &mdash; на проде может стоять другая версия пакета, чем у разработчика, что приводит к трудновоспроизводимым багам.
+    </div>
+    <div class="issue-title" style="font-size:10pt; color:var(--accent);">Исправление:</div>
+    <pre><code><span class="code-comment">// vercel.json — выбрать один менеджер</span>
+{
+  <span class="code-string">"installCommand"</span>: <span class="code-string">"bun install"</span>
+}
+<span class="code-comment">// Удалить package-lock.json, добавить в .gitignore</span></code></pre>
+  </div>
+
+  <!-- 2.3 Bundle size -->
+  <div class="issue-card" id="perf-bundle">
+    <div class="issue-header">
+      <span class="severity severity-performance">ПРОИЗВОДИТЕЛЬНОСТЬ</span>
+      <span class="issue-file">package.json — dependencies</span>
+    </div>
+    <div class="issue-title">Дублирование зависимостей и раздувание бандла</div>
+    <div class="issue-desc">
+      Одновременно стоят <code>next-auth@4</code> и <code>jose@6</code>. Next-auth v4 использует свою внутреннюю версию jose (v4), и внешняя <code>jose@6</code> &mdash; это лишний дубликат в бандле, если она не используется самостоятельно. Аналогично &mdash; <code>@mdxeditor/editor</code> (тяжёлый редактор, около 500kb gz) и <code>react-syntax-highlighter</code> тянут в бандл всю подсветку языков (более 200 языков), хотя обычно нужны лишь несколько из них.
+    </div>
+    <div class="issue-title" style="font-size:10pt; color:var(--accent);">Исправление для react-syntax-highlighter:</div>
+    <pre><code><span class="code-comment">// Вместо:</span>
+<span class="code-keyword">import</span> { Prism <span class="code-keyword">as</span> SyntaxHighlighter } <span class="code-keyword">from</span> <span class="code-string">'react-syntax-highlighter'</span>;
+<span class="code-keyword">import</span> { dark } <span class="code-keyword">from</span> <span class="code-string">'react-syntax-highlighter/dist/esm/styles/prism'</span>;
+
+<span class="code-comment">// Использовать light build:</span>
+<span class="code-keyword">import</span> { Light <span class="code-keyword">as</span> SyntaxHighlighter } <span class="code-keyword">from</span> <span class="code-string">'react-syntax-highlighter'</span>;
+<span class="code-keyword">import</span> js <span class="code-keyword">from</span> <span class="code-string">'react-syntax-highlighter/dist/esm/languages/hljs/javascript'</span>;
+SyntaxHighlighter.registerLanguage(<span class="code-string">'javascript'</span>, js);
+<span class="code-comment">// Загружать только нужные языки, а не все 200+</span></code></pre>
+  </div>
+
+  <!-- 2.4 Electron -->
+  <div class="issue-card" id="perf-electron">
+    <div class="issue-header">
+      <span class="severity severity-performance">ПРОИЗВОДИТЕЛЬНОСТЬ</span>
+      <span class="issue-file">package.json — devDependencies</span>
+    </div>
+    <div class="issue-title">Electron в devDependencies скачивается при каждом деплое</div>
+    <div class="issue-desc">
+      <code>electron@36.5.0</code> и <code>electron-builder</code> стоят в <code>devDependencies</code>, но Vercel всё равно скачивает их при <code>npm install</code> (они не в <code>optionalDependencies</code>). Electron &mdash; это около 120MB бинарника, который скачивается при каждом деплое, увеличивая время сборки и нагрузку на инфраструктуру. Это совершенно unnecessary для web-деплоя и может добавлять минуты к каждому билду.
+    </div>
+    <div class="issue-title" style="font-size:10pt; color:var(--accent);">Исправление:</div>
+    <pre><code><span class="code-comment">// package.json</span>
+<span class="code-string">"optionalDependencies"</span>: {
+  <span class="code-string">"electron"</span>: <span class="code-string">"36.5.0"</span>,
+  <span class="code-string">"electron-builder"</span>: <span class="code-string">"26.0.12"</span>
+}
+<span class="code-comment">// vercel.json</span>
+<span class="code-string">"installCommand"</span>: <span class="code-string">"npm install --ignore-optional"</span></code></pre>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- 3. UI/UX -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="section" id="uiux">
+  <h1>3. UI/UX</h1>
+
+  <!-- 3.1 Tailwind version -->
+  <div class="issue-card" id="uiux-tw">
+    <div class="issue-header">
+      <span class="severity severity-uiux">UI/UX</span>
+      <span class="issue-file">tailwind.config.ts + package.json</span>
+    </div>
+    <div class="issue-title">Несовместимость версий Tailwind CSS</div>
+    <div class="issue-desc">
+      В <code>package.json</code> установлен <code>tailwindcss@^4</code>, но в <code>tailwind.config.ts</code> используется синтаксис Tailwind v3 (объект конфигурации с <code>theme.extend</code>, <code>plugins: [tailwindcssAnimate]</code>). В Tailwind v4 конфигурация полностью изменилась &mdash; используется CSS-файл с <code>@theme</code>, а не <code>tailwind.config.ts</code>. Это значит либо версии несовместимы, либо стоит какой-то compat-режим. В любом случае конфиг написан для неправильной версии, что может привести к непредсказуемому поведению утилит и потере кастомных токенов.
+    </div>
+    <div class="issue-title" style="font-size:10pt; color:var(--accent);">Исправление для Tailwind v4:</div>
+    <pre><code><span class="code-comment">/* globals.css */</span>
+<span class="code-keyword">@import</span> <span class="code-string">"tailwindcss"</span>;
+
+<span class="code-keyword">@theme</span> {
+  <span class="code-type">--color-background</span>: hsl(var(--background));
+  <span class="code-type">--color-foreground</span>: hsl(var(--foreground));
+  <span class="code-type">--radius-lg</span>: var(--radius);
+}</code></pre>
+  </div>
+
+  <!-- 3.2 SDK -->
+  <div class="issue-card" id="uiux-sdk">
+    <div class="issue-header">
+      <span class="severity severity-uiux">UI/UX</span>
+      <span class="issue-file">package.json — z-ai-web-dev-sdk@0.0.17</span>
+    </div>
+    <div class="issue-title">Нестабильный SDK в зависимостях продакшн-приложения</div>
+    <div class="issue-desc">
+      В зависимостях стоит <code>z-ai-web-dev-sdk@0.0.17</code> &mdash; неизвестный SDK с версией 0.0.17 (pre-release). В зависимостях продакшн-приложения стоит нестабильный пакет без мажорной версии. Нет информации о его безопасности, поддержке и лицензии. Это нарушает принцип минимальных привилегий и создаёт вектор атаки через supply chain. Любой пакет без мажорной версии может измениться без обратной совместимости в любой момент.
+    </div>
+    <blockquote>Убедиться в надёжности источника, добавить в devDependencies если это инструмент разработки, или заменить на стабильный аналог.</blockquote>
+  </div>
+
+  <!-- 3.3 gitignore -->
+  <div class="issue-card" id="uiux-gitignore">
+    <div class="issue-header">
+      <span class="severity severity-uiux">UI/UX</span>
+      <span class="issue-file">.gitignore — конфликт с .env</span>
+    </div>
+    <div class="issue-title">Устаревшее правило в .gitignore для lockfile</div>
+    <div class="issue-desc">
+      <code>.gitignore</code> содержит <code>bun.lockb</code> (старый формат lockfile от Bun до v1.0), но в репозитории лежит <code>bun.lock</code> (новый формат). Правило в <code>.gitignore</code> неактуально и не защищает новый файл от случайного коммита. Это создаёт путаницу для новых разработчиков и может привести к случайному коммиту lockfile или, наоборот, к его потере, если кто-то решит, что он игнорируется.
+    </div>
+    <div class="issue-title" style="font-size:10pt; color:var(--accent);">Исправление:</div>
+    <pre><code><span class="code-comment"># .gitignore — обновить правила</span>
+bun.lock
+bun.lockb</code></pre>
+  </div>
+
+  <!-- 3.4 NEW UI STYLE from screenshot -->
+  <div class="issue-card" id="uiux-styles">
+    <div class="issue-header">
+      <span class="severity severity-uiux">UI/UX</span>
+      <span class="issue-file">Рекомендуемый стиль интерфейса</span>
+    </div>
+    <div class="issue-title">Новый стиль интерфейса: Dark Music Streaming UI</div>
+    <div class="issue-desc">
+      На основе предоставленного референса рекомендуется внедрить современный тёмный интерфейс в стиле music streaming приложения. Дизайн сочетает минималистичную тёмную тему с яркими акцентами и эффектами glassmorphism, создавая иммерсивный музыкальный опыт с чёткой визуальной иерархией и интуитивной навигацией.
+    </div>
+
+    <h3>Цветовая палитра</h3>
+    <div class="style-palette">
+      <div class="style-swatch style-swatch-dark">
+        <div style="font-weight:700; margin-bottom:4pt;">#121212</div>
+        <div>Основной фон</div>
+      </div>
+      <div class="style-swatch style-swatch-red">
+        <div style="font-weight:700; margin-bottom:4pt;">#E53E3E</div>
+        <div>Акцент / CTA</div>
+      </div>
+      <div class="style-swatch style-swatch-purple">
+        <div style="font-weight:700; margin-bottom:4pt;">#805AD5</div>
+        <div>Градиент</div>
+      </div>
+      <div class="style-swatch style-swatch-blue">
+        <div style="font-weight:700; margin-bottom:4pt;">#3182CE</div>
+        <div>Ссылки / Info</div>
+      </div>
+      <div class="style-swatch style-swatch-gray">
+        <div style="font-weight:700; margin-bottom:4pt;">#2D3748</div>
+        <div>Поверхности</div>
+      </div>
+    </div>
+
+    <h3>Типографика</h3>
+    <table>
+      <tr>
+        <th>Элемент</th>
+        <th>Размер</th>
+        <th>Насыщенность</th>
+        <th>Цвет</th>
+      </tr>
+      <tr>
+        <td>Приветствие (Hero)</td>
+        <td>28-32pt</td>
+        <td>700-800</td>
+        <td>#FFFFFF</td>
+      </tr>
+      <tr>
+        <td>Подзаголовок</td>
+        <td>14-16pt</td>
+        <td>400</td>
+        <td>#A0AEC0</td>
+      </tr>
+      <tr>
+        <td>Название трека</td>
+        <td>14-16pt</td>
+        <td>600</td>
+        <td>#FFFFFF</td>
+      </tr>
+      <tr>
+        <td>Имя артиста</td>
+        <td>12-13pt</td>
+        <td>400</td>
+        <td>#A0AEC0</td>
+      </tr>
+      <tr>
+        <td>Навигация</td>
+        <td>13-14pt</td>
+        <td>500</td>
+        <td>#E2E8F0</td>
+      </tr>
+      <tr>
+        <td>Кнопки (CTA)</td>
+        <td>14pt</td>
+        <td>700</td>
+        <td>#FFFFFF / #E53E3E</td>
+      </tr>
+      <tr>
+        <td>Теги жанров</td>
+        <td>11-12pt</td>
+        <td>500</td>
+        <td>#A0AEC0 на #2D3748</td>
+      </tr>
+    </table>
+
+    <h3>Компоненты интерфейса</h3>
+    <ul class="component-list">
+      <li><b>Навигация (Top Bar):</b> Чёрный фон с полупрозрачными элементами. Логотип слева с иконкой ноты. Пункты меню: Главная, Поиск, Избранное, Плейлисты, Мессенджер. Активный пункт &mdash; красная линия снизу. Справа: переключатель темы, колокольчик уведомлений (красный), профиль пользователя с dropdown.</li>
+      <li><b>Hero-секция:</b> Приветствие пользователя крупным шрифтом, подзаголовок серым. Слева &mdash; обложка альбома с красным круговым дизайном. Справа &mdash; тег подборки со звездой, название, описание, теги жанров в серых pills, кнопки "Слушать" (красная) и "Сохранить" (белая с иконкой сердца), аудиовизуализация волнforms красным цветом.</li>
+      <li><b>Карточки плейлистов:</b> Градиентные фоны (красно-фиолетовый, фиолетово-синий, оранжевый, синий, фиолетовый). Иконка, название, описание, счётчик треков, кнопка воспроизведения. Скруглённые углы (12-16px), мягкие тени.</li>
+      <li><b>Продолжить слушать:</b> Горизонтальный список из 4 карточек с обложкой, названием, артистом, индикатором воспроизведения.</li>
+      <li><b>Плеер (Bottom Bar):</b> Чёрный фон с полупрозрачностью. Текущий трек, элементы управления (shuffle, prev, play красная, next, repeat), прогресс-бар с красным акцентом, время, слайдер громкости, дополнительные кнопки.</li>
+      <li><b>Недавно прослушано:</b> Горизонтальный скролл с миниатюрами обложек.</li>
+    </ul>
+
+    <h3>Визуальные эффекты</h3>
+    <table>
+      <tr>
+        <th>Эффект</th>
+        <th>Описание</th>
+        <th>CSS-реализация</th>
+      </tr>
+      <tr>
+        <td>Glassmorphism</td>
+        <td>Полупрозрачные элементы с размытием фона</td>
+        <td><code>backdrop-filter: blur(16px); background: rgba(255,255,255,0.05)</code></td>
+      </tr>
+      <tr>
+        <td>Градиенты на карточках</td>
+        <td>Красно-фиолетовый, фиолетово-синий переходы</td>
+        <td><code>background: linear-gradient(135deg, #E53E3E, #805AD5)</code></td>
+      </tr>
+      <tr>
+        <td>Мягкие тени</td>
+        <td>Глубина карточек и кнопок</td>
+        <td><code>box-shadow: 0 4px 20px rgba(0,0,0,0.3)</code></td>
+      </tr>
+      <tr>
+        <td>Скруглённые углы</td>
+        <td>Все карточки и кнопки</td>
+        <td><code>border-radius: 12-16px</code></td>
+      </tr>
+      <tr>
+        <td>Аудиовизуализация</td>
+        <td>Красные волнообразные бары</td>
+        <td>Canvas API / CSS animation</td>
+      </tr>
+      <tr>
+        <td>Красный акцент</td>
+        <td>Кнопки CTA, прогресс-бар, активная навигация</td>
+        <td><code>color: #E53E3E</code></td>
+      </tr>
+    </table>
+
+    <h3>Рекомендуемые CSS-переменные</h3>
+    <pre><code><span class="code-comment">/* Тёмная тема MQ Player */</span>
+<span class="code-keyword">:root</span> {
+  <span class="code-type">--bg-primary</span>: <span class="code-string">#121212</span>;
+  <span class="code-type">--bg-surface</span>: <span class="code-string">#1A1A2E</span>;
+  <span class="code-type">--bg-card</span>: <span class="code-string">#2D3748</span>;
+  <span class="code-type">--accent-red</span>: <span class="code-string">#E53E3E</span>;
+  <span class="code-type">--accent-purple</span>: <span class="code-string">#805AD5</span>;
+  <span class="code-type">--accent-blue</span>: <span class="code-string">#3182CE</span>;
+  <span class="code-type">--text-primary</span>: <span class="code-string">#FFFFFF</span>;
+  <span class="code-type">--text-secondary</span>: <span class="code-string">#A0AEC0</span>;
+  <span class="code-type">--text-muted</span>: <span class="code-string">#718096</span>;
+  <span class="code-type">--glass-bg</span>: <span class="code-string">rgba(255, 255, 255, 0.05)</span>;
+  <span class="code-type">--glass-border</span>: <span class="code-string">rgba(255, 255, 255, 0.1)</span>;
+  <span class="code-type">--glass-blur</span>: <span class="code-string">16px</span>;
+  <span class="code-type">--radius-sm</span>: <span class="code-string">8px</span>;
+  <span class="code-type">--radius-md</span>: <span class="code-string">12px</span>;
+  <span class="code-type">--radius-lg</span>: <span class="code-string">16px</span>;
+  <span class="code-type">--shadow-card</span>: <span class="code-string">0 4px 20px rgba(0,0,0,0.3)</span>;
+  <span class="code-type">--gradient-hero</span>: <span class="code-string">linear-gradient(135deg, #E53E3E, #805AD5)</span>;
+  <span class="code-type">--gradient-cool</span>: <span class="code-string">linear-gradient(135deg, #805AD5, #3182CE)</span>;
+}</code></pre>
+
+    <blockquote>Данный стиль создаёт иммерсивный музыкальный опыт с сильной визуальной иерархией. Красный акцент (#E53E3E) используется для ключевых CTA-элементов и индикаторов активности, а glassmorphism-эффекты добавляют глубину без перегрузки интерфейса. Рекомендуется внедрять поэтапно: сначала навигация и плеер, затем карточки и hero-секция.</blockquote>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- 4. ARCHITECTURE -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="section" id="architecture">
+  <h1>4. Архитектура</h1>
+
+  <div class="issue-card" id="arch-electron">
+    <div class="issue-header">
+      <span class="severity severity-architecture">АРХИТЕКТУРА</span>
+      <span class="issue-file">package.json — поле "main"</span>
+    </div>
+    <div class="issue-title">Разделение Electron и Web сборок</div>
+    <div class="issue-desc">
+      Сейчас <code>electron/main.js</code> описан как <code>"main"</code> в <code>package.json</code> &mdash; это значит <code>node .</code> запускает Electron-процесс. При этом Vercel деплоит тот же <code>package.json</code>. Это архитектурное противоречие: web-деплой не должен знать про Electron, а десктопный билд не должен тянуть web-зависимости. Необходимо вынести Electron в отдельный <code>package.json</code> в папке <code>electron/</code>, либо использовать monorepo (turborepo/nx) с воркспейсами. Это предотвратит попадание Electron-зависимостей в веб-бандл и упростит CI/CD для обоих платформ.
+    </div>
+    <blockquote>Вынести Electron в отдельный package.json в папке electron/, либо использовать monorepo (turborepo/nx) с воркспейсами.</blockquote>
+  </div>
+
+  <div class="issue-card" id="arch-prisma">
+    <div class="issue-header">
+      <span class="severity severity-architecture">АРХИТЕКТУРА</span>
+      <span class="issue-file">DATABASE_URL + Vercel Serverless</span>
+    </div>
+    <div class="issue-title">Prisma + SQLite на Vercel &mdash; архитектурное несоответствие</div>
+    <div class="issue-desc">
+      Prisma с SQLite (<code>file:/home/z/...</code>) несовместима с Vercel Serverless Functions &mdash; у Vercel нет persistent filesystem. При каждом холодном старте функции база данных будет недоступна. Текущий <code>DATABASE_URL</code> указывает на локальный путь <code>/home/z/my-project/db/custom.db</code>, что не будет работать на Vercel вообще. SQLite предполагает файловую систему с постоянным хранением, а serverless-функции Vercel работают в ephemeral-окружении, где файлы не сохраняются между вызовами. Это фундаментальное архитектурное противоречие.
+    </div>
+    <blockquote>Мигрировать на облачную БД: Neon, Turso, Vercel Postgres или PlanetScale. Заменить prisma db push на prisma migrate deploy для безопасного применения миграций.</blockquote>
+  </div>
+
+  <div class="issue-card" id="arch-csp">
+    <div class="issue-header">
+      <span class="severity severity-architecture">АРХИТЕКТУРА</span>
+      <span class="issue-file">next.config.ts — headers()</span>
+    </div>
+    <div class="issue-title">Отсутствие CSP-заголовка (Content-Security-Policy)</div>
+    <div class="issue-desc">
+      В <code>headers()</code> нет <code>Content-Security-Policy</code>. Для приложения с мессенджером и WebSocket это критично. Без CSP приложение уязвимо к XSS-атакам, injection скриптов и утечке данных через inline-скрипты. CSP ограничивает источники загружаемого контента и предотвращает выполнение несанкционированного кода. В приложении, работающем с WebSocket и пользовательским контентом, отсутствие CSP &mdash; серьёзный вектор атаки.
+    </div>
+    <div class="issue-title" style="font-size:10pt; color:var(--accent);">Рекомендуемая CSP:</div>
+    <pre><code>{
+  <span class="code-type">key</span>: <span class="code-string">"Content-Security-Policy"</span>,
+  <span class="code-type">value</span>: [
+    <span class="code-string">"default-src 'self'"</span>,
+    <span class="code-string">"script-src 'self' 'unsafe-eval'"</span>,  <span class="code-comment">// убрать в prod</span>
+    <span class="code-string">"connect-src 'self' wss://your-ws-server.com"</span>,
+    <span class="code-string">"media-src 'self' blob:"</span>,            <span class="code-comment">// для Web Audio API</span>
+    <span class="code-string">"worker-src 'self' blob:"</span>,
+  ].join(<span class="code-string">"; "</span>),
+},</code></pre>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- 5. SECURITY -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="section" id="security">
+  <h1>5. Безопасность</h1>
+
+  <div class="issue-card">
+    <div class="issue-header">
+      <span class="severity severity-security">БЕЗОПАСНОСТЬ</span>
+      <span class="issue-file">#1 — .env в публичном репозитории</span>
+    </div>
+    <div class="issue-title">Секреты в истории коммитов</div>
+    <div class="issue-desc">
+      Файл <code>.env</code> находится в публичном репозитории (описано в разделе критических проблем). Даже если сейчас там только SQLite-путь, в истории git могут быть JWT_SECRET, NEXTAUTH_SECRET, DATABASE_URL с паролями. Необходимо проверить историю командой <code>git log --all --full-history -- .env</code> и удалить файл из всех коммитов с помощью <code>git filter-repo</code> или BFG Repo Cleaner. Все секреты, которые когда-либо были в <code>.env</code>, считаются скомпрометированными и должны быть сменены.
+    </div>
+  </div>
+
+  <div class="issue-card">
+    <div class="issue-header">
+      <span class="severity severity-security">БЕЗОПАСНОСТЬ</span>
+      <span class="issue-file">#2 — next-auth@4 + NEXTAUTH_SECRET</span>
+    </div>
+    <div class="issue-title">Отсутствие NEXTAUTH_SECRET в переменных окружения</div>
+    <div class="issue-desc">
+      Если <code>NEXTAUTH_SECRET</code> не задан в переменных окружения Vercel (а <code>.env</code> показывает только <code>DATABASE_URL</code>), то next-auth будет использовать небезопасный дефолт в dev-режиме и выдавать ошибки в prod. Без этого секрета JWT-токены сессий могут быть подделаны, что позволяет злоумышленнику получить доступ к чужим учётным записям. Необходимо проверить наличие <code>NEXTAUTH_SECRET</code> в настройках Vercel Environment Variables и убедиться, что он криптографически стойкий (минимум 32 символа).
+    </div>
+  </div>
+
+  <div class="issue-card">
+    <div class="issue-header">
+      <span class="severity severity-security">БЕЗОПАСНОСТЬ</span>
+      <span class="issue-file">#3 — bcryptjs вместо нативного bcrypt</span>
+    </div>
+    <div class="issue-title">Медленный хеширование паролей</div>
+    <div class="issue-desc">
+      <code>bcryptjs</code> написан на чистом JavaScript и в 10 раз медленнее нативного <code>bcrypt</code>. Это звучит как плюс для безопасности (медленнее = дороже брутфорс), но на практике создаёт проблемы с производительностью под нагрузкой (каждый логин нагружает CPU на десятки миллисекунд) и не даёт реального преимущества перед нативным bcrypt, который и так достаточно медленный для защиты от брутфорса. Рекомендуется использовать <code>@node-rs/bcrypt</code> (нативный Rust-биндинг) или <code>argon2</code> (современный алгоритм, победитель Password Hashing Competition 2015).
+    </div>
+  </div>
+
+  <div class="issue-card">
+    <div class="issue-header">
+      <span class="severity severity-security">БЕЗОПАСНОСТЬ</span>
+      <span class="issue-file">#4 — prisma db push --skip-generate</span>
+    </div>
+    <div class="issue-title">Опасная команда деплоя базы данных</div>
+    <div class="issue-desc">
+      <code>vercel.json</code> использует <code>prisma db push --skip-generate</code> &mdash; это применяет изменения схемы напрямую к продакшн-базе без миграций. Любое изменение <code>schema.prisma</code> при деплое может уничтожить данные. Команда <code>db push</code> предназначена для прототипирования, а не для продакшна. Она не создаёт файлы миграций, не отслеживает историю изменений и не гарантирует обратную совместимость. В продакшн-окружении необходимо использовать <code>prisma migrate deploy</code>, который применяет только проверенные миграции в контролируемом порядке.
+    </div>
+    <div class="issue-title" style="font-size:10pt; color:var(--accent);">Исправление:</div>
+    <pre><code><span class="code-comment">// vercel.json</span>
+<span class="code-string">"buildCommand"</span>: <span class="code-string">"npx prisma migrate deploy && next build"</span></code></pre>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════ -->
+<!-- 6. CONCLUSION -->
+<!-- ════════════════════════════════════════════════════ -->
+<div class="section" id="conclusion">
+  <h1>6. Итоговая оценка и приоритеты</h1>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-number num-critical" style="font-size:42pt;">4</div>
+      <div class="summary-label">из 10</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-number num-warning">19</div>
+      <div class="summary-label">Проблем найдено</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-number num-info">3</div>
+      <div class="summary-label">Приоритета</div>
+    </div>
+  </div>
+
+  <h2>Три главных улучшения (приоритет P0)</h2>
+
+  <div class="issue-card">
+    <div class="issue-header">
+      <span class="severity severity-critical">P0-1</span>
+      <span class="issue-file">Безопасность</span>
+    </div>
+    <div class="issue-title">Удалить .env из истории git и сменить все секреты</div>
+    <div class="issue-desc">
+      Это нельзя откладывать &mdash; публичный репозиторий, файл уже проиндексирован. Выполнить <code>git filter-repo --path .env --invert-paths</code>, затем force push, затем ротация всех credentials. Каждый день с публично доступными секретами &mdash; это день, когда злоумышленник может получить доступ к инфраструктуре проекта. Даже если текущие секреты выглядят безопасными (путь к локальной БД), в истории коммитов могли быть реальные продакшн-ключи.
+    </div>
+  </div>
+
+  <div class="issue-card">
+    <div class="issue-header">
+      <span class="severity severity-critical">P0-2</span>
+      <span class="issue-file">Производительность</span>
+    </div>
+    <div class="issue-title">Исправить кеширование в next.config.ts</div>
+    <div class="issue-desc">
+      <code>Cache-Control: no-store</code> на <code>/_next/static/</code> убивает производительность для всех пользователей &mdash; каждый переход по страницам скачивает мегабайты JS заново. Это влияет на LCP, INP и вообще на ощущение от приложения сильнее любого другого изменения. Статические ассеты с хешем в имени файла должны кешироваться навсегда (<code>immutable</code>), API-маршруты &mdash; без кеша, а HTML-страницы &mdash; с revalidation. Это одно изменение может улучшить метрики производительности в несколько раз.
+    </div>
+  </div>
+
+  <div class="issue-card">
+    <div class="issue-header">
+      <span class="severity severity-critical">P0-3</span>
+      <span class="issue-file">Архитектура</span>
+    </div>
+    <div class="issue-title">Решить архитектурную проблему Prisma + SQLite на Vercel</div>
+    <div class="issue-desc">
+      Приложение с <code>DATABASE_URL=file:/home/z/...</code> физически не может работать на Vercel в продакшне &mdash; это локальный путь. Нужно мигрировать на облачную БД (Neon, Turso, Vercel Postgres) и заменить <code>prisma db push</code> на <code>prisma migrate deploy</code>. Без этого приложение просто не сможет хранить данные на продакшн-сервере, и каждый деплой будет начинаться с пустой базы данных. Это блокирующая проблема для запуска в продакшн.
+    </div>
+  </div>
+
+  <h2>Дорожная карта исправлений</h2>
+  <table>
+    <tr>
+      <th>Приоритет</th>
+      <th>Проблема</th>
+      <th>Категория</th>
+      <th>Оценка усилий</th>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-error); font-weight:700;">P0</td>
+      <td>Удалить .env из git истории</td>
+      <td>Безопасность</td>
+      <td>2 часа</td>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-error); font-weight:700;">P0</td>
+      <td>Исправить Cache-Control заголовки</td>
+      <td>Производительность</td>
+      <td>30 минут</td>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-error); font-weight:700;">P0</td>
+      <td>Мигрировать на облачную БД</td>
+      <td>Архитектура</td>
+      <td>4-8 часов</td>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-warning); font-weight:700;">P1</td>
+      <td>Включить ignoreBuildErrors: false</td>
+      <td>Критические</td>
+      <td>2-4 часа</td>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-warning); font-weight:700;">P1</td>
+      <td>Включить reactStrictMode: true</td>
+      <td>Критические</td>
+      <td>30 минут</td>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-warning); font-weight:700;">P1</td>
+      <td>Исправить Tailwind content paths</td>
+      <td>Производительность</td>
+      <td>15 минут</td>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-warning); font-weight:700;">P1</td>
+      <td>Выбрать один пакетный менеджер</td>
+      <td>Производительность</td>
+      <td>30 минут</td>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-info); font-weight:700;">P2</td>
+      <td>Добавить CSP-заголовок</td>
+      <td>Архитектура</td>
+      <td>1 час</td>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-info); font-weight:700;">P2</td>
+      <td>Оптимизировать react-syntax-highlighter</td>
+      <td>Производительность</td>
+      <td>1 час</td>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-info); font-weight:700;">P2</td>
+      <td>Внедрить новый стиль интерфейса</td>
+      <td>UI/UX</td>
+      <td>2-3 дня</td>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-info); font-weight:700;">P2</td>
+      <td>Разделить Electron и Web сборки</td>
+      <td>Архитектура</td>
+      <td>1-2 дня</td>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-success); font-weight:700;">P3</td>
+      <td>Заменить bcryptjs на @node-rs/bcrypt</td>
+      <td>Безопасность</td>
+      <td>1 час</td>
+    </tr>
+    <tr>
+      <td style="color:var(--semantic-success); font-weight:700;">P3</td>
+      <td>Обновить .gitignore для bun.lock</td>
+      <td>UI/UX</td>
+      <td>5 минут</td>
+    </tr>
+  </table>
+</div>
+
+</body>
+</html>
