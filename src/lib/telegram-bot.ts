@@ -31,15 +31,46 @@ import { searchSCTracks, resolveSCStreamUrl } from "@/lib/soundcloud";
 
 let _siteOrigin = "";
 
-export function setSiteOrigin(origin: string) {
-  const cleaned = origin.replace(/\/$/, "");
-  if (cleaned.includes("vercel.app") || cleaned.includes("localhost") || cleaned.includes("mq-player")) {
+/**
+ * Strict origin allowlist for the Telegram bot. Previously this accepted
+ * ANY URL containing "vercel.app" | "localhost" | "mq-player" — which
+ * let an attacker redirect bot audio messages to an arbitrary server
+ * (e.g. `https://evil-vercel-app.vercel.app`).
+ *
+ * Now we require an EXACT match against an allowlist. The allowlist is
+ * populated from env (`ALLOWED_ORIGINS`, comma-separated) if set,
+ * otherwise falls back to a small built-in list.
+ *
+ * To add a new deployment origin: set ALLOWED_ORIGINS in env.
+ */
+function getAllowedOrigins(): string[] {
+  const fromEnv = (process.env.ALLOWED_ORIGINS || "")
+    .split(",")
+    .map((s) => s.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+  if (fromEnv.length > 0) return fromEnv;
+  // Built-in fallback — keep this list tight.
+  return [
+    "https://mq1.vercel.app",
+    "https://mq-player.vercel.app",
+    "http://localhost:3000",
+  ];
+}
+
+export function setSiteOrigin(origin: string): void {
+  const cleaned = origin.replace(/\/$/, "").trim();
+  const allowed = getAllowedOrigins();
+  if (allowed.includes(cleaned)) {
     _siteOrigin = cleaned;
+    return;
   }
+  // Reject — log for audit but do NOT set _siteOrigin so the bot keeps
+  // using the default origin (which is in the allowlist).
+  console.warn(`[telegram-bot] Rejected disallowed origin: ${cleaned}. Allowed: ${allowed.join(", ")}`);
 }
 
 function getSiteOrigin(): string {
-  return _siteOrigin || "https://mq-player.vercel.app";
+  return _siteOrigin || getAllowedOrigins()[0] || "https://mq1.vercel.app";
 }
 
 /* ------------------------------------------------------------------ */

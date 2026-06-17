@@ -11,8 +11,8 @@ const spaceGrotesk = Space_Grotesk({ variable: "--font-space-grotesk", subsets: 
 
 export const metadata: Metadata = {
   title: "mq",
-  description: "mq — музыкальный плеер с зашифрованным мессенджером, таймером сна и кастомизацией",
-  keywords: ["mq", "music", "player", "мессенджер", "шифрование"],
+  description: "mq — музыкальный плеер с мессенджером, таймером сна и кастомизацией",
+  keywords: ["mq", "music", "player", "мессенджер"],
   authors: [{ name: "mq Team" }],
   icons: {
     icon: "/favicon.ico",
@@ -50,21 +50,33 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){
+              // === SAFE BUILD-ID CHECK (v2) ===
+              // Previously this script ran localStorage.clear() + sessionStorage.clear()
+              // whenever the build ID changed — which wiped the user's queue, liked tracks,
+              // history and messenger cache on EVERY build. Now we just record the new
+              // build ID; the Zustand persist layer handles its own migration via
+              // STORE_VERSION in useAppStore.ts.
               try{
-                // === CACHE-BUST v7 (safe) ===
-                var BUILD_ID="mq-build-v53";
-                var prevBuild=localStorage.getItem('mq-build-id');
-                if(prevBuild && prevBuild!==BUILD_ID){
-                  // Stale build — clear old data and reload once
-                  try{localStorage.clear()}catch(e){}
-                  try{sessionStorage.clear()}catch(e){}
-                  window.location.replace(window.location.pathname+'?_fresh='+Date.now());
-                  return;
+                var BUILD_ID = (window.__NEXT_DATA__ && window.__NEXT_DATA__.buildId)
+                  || 'mq-build-v54';
+                var prevBuild = localStorage.getItem('mq-build-id');
+                if(prevBuild && prevBuild !== BUILD_ID){
+                  // Build changed — record it but DO NOT wipe user data.
+                  // Zustand migrate() (see useAppStore.ts partialize/migrate)
+                  // handles schema upgrades per-slice.
+                  localStorage.setItem('mq-build-id', BUILD_ID);
+                  // Soft reload once so new chunks load cleanly.
+                  if(!sessionStorage.getItem('mq-build-reloaded')){
+                    sessionStorage.setItem('mq-build-reloaded', '1');
+                    window.location.replace(window.location.pathname);
+                    return;
+                  }
                 }
                 if(!prevBuild){
-                  // First visit or cleared — just set the build ID
-                  localStorage.setItem('mq-build-id',BUILD_ID);
+                  localStorage.setItem('mq-build-id', BUILD_ID);
                 }
+                // Clear the one-shot reload guard so a future build change can reload again.
+                sessionStorage.removeItem('mq-build-reloaded');
               }catch(e){
                 // localStorage blocked — continue silently
               }

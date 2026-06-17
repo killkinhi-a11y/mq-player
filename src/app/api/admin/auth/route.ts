@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { database } from "@/lib/database";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { withAuth, validateContentType } from "@/lib/withAuth";
 
@@ -28,7 +28,7 @@ async function handler(
 
     // Only allow users to check their OWN admin status (ctx already has userId/userRole from withAuth)
     // We need to look up the session user's email to compare
-    const currentUser = await db.user.findUnique({ where: { id: ctx.userId }, select: { email: true, role: true } });
+    const currentUser = await database.findUserById(ctx.userId);
     if (currentUser && currentUser.email?.toLowerCase() !== emailLower && currentUser.role !== "admin") {
       return NextResponse.json({ error: "Можно проверить только свой статус" }, { status: 403 });
     }
@@ -38,12 +38,9 @@ async function handler(
       return NextResponse.json({ email, isAdmin: true });
     }
 
-    // Fallback: check role in database
+    // Fallback: check role in database (via Turso adapter — works in prod)
     try {
-      const user = await db.user.findUnique({
-        where: { email: emailLower },
-        select: { role: true },
-      });
+      const user = await database.findUserByEmail(emailLower);
       if (user && user.role === "admin") {
         return NextResponse.json({ email, isAdmin: true });
       }

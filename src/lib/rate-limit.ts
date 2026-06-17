@@ -1,6 +1,14 @@
 /**
- * In-memory rate limiter using sliding window per IP.
- * No external dependencies needed — works in serverless (Vercel) environments.
+ * Rate limiter — Upstash Redis backend with in-memory fallback.
+ *
+ * In-memory Map works fine in dev/single-instance, but on Vercel serverless
+ * each instance has its own Map → an attacker rotating across instances gets
+ * N× the limit. When UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN are
+ * set, we use Upstash's sliding-window counter which is shared across all
+ * instances.
+ *
+ * The Upstash client is loaded lazily so dev environments without
+ * @upstash/redis installed still work.
  *
  * Usage:
  *   import { rateLimit } from "@/lib/rate-limit";
@@ -11,7 +19,7 @@ interface RateLimitEntry {
   timestamps: number[];
 }
 
-// In-memory store (per-process; resets on cold start — acceptable for serverless)
+// In-memory store (per-process; resets on cold start — fallback only)
 const store = new Map<string, RateLimitEntry>();
 const MAX_STORE_SIZE = 10000; // Prevent unbounded memory growth
 
@@ -30,6 +38,75 @@ function cleanup() {
     if (entry.timestamps.length === 0) {
       store.delete(key);
     }
+  }
+}
+
+// ── Upstash Redis lazy loader ────────────────────────────────────────────────
+let _upstashClient: { incr: (key: string) => Promise<number>; expire: (key: string, ttl: number) => Promise<void> } | null | undefined;
+
+async function getUpstashClient() {
+  if (_upstashClient !== undefined) return _upstashClient;
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+    _upstashClient = null;
+    return null;
+  }
+  try {
+    // Lazy import — avoids loading the package in dev when not configured
+    const mod = await import("@upstash/redis").catch(() => null);
+    if (!mod || !mod.Redis) {
+      console.warn("[rate-limit] UPSTASH_REDIS_REST_URL set but @upstash/redis not installed — falling back to in-memory");
+      _upstashClient = null;
+      return null;
+    }
+    const redis = new mod.Redis({
+      url: process.env.UPSTASH_REDIS_REST_URL,
+      token: process.env.UPSTASH_REDIS_REST_TOKEN,
+    });
+    _upstashClient = {
+      async incr(key: string) {
+        return await redis.incr(key);
+      },
+      async expire(key: string, ttl: number) {
+        await redis.expire(key, ttl);
+      },
+    };
+    return _upstashClient;
+  } catch (e) {
+    console.warn("[rate-limit] Failed to init Upstash Redis:", e);
+    _upstashClient = null;
+    return null;
+  }
+}
+
+/**
+ * Upstash-backed rate limit using a fixed-window counter (cheaper than
+ * sliding window, atomic via INCR). Returns the same shape as `rateLimit`.
+ */
+async function rateLimitUpstash(options: {
+  ip: string;
+  limit: number;
+  window: number; // seconds
+  key?: string;
+}): Promise<RateLimitResult | null> {
+  const client = await getUpstashClient();
+  if (!client) return null;
+
+  const { ip, limit, window, key } = options;
+  const bucket = Math.floor(Date.now() / (window * 1000));
+  const redisKey = `rl:${ip}:${key || "default"}:${bucket}`;
+
+  try {
+    const count = await client.incr(redisKey);
+    if (count === 1) {
+      await client.expire(redisKey, window);
+    }
+    const success = count <= limit;
+    const remaining = Math.max(0, limit - count);
+    const resetIn = window - Math.floor((Date.now() / 1000) % window);
+    return { success, remaining, resetIn, limit };
+  } catch (e) {
+    console.warn("[rate-limit] Upstash error, falling back to in-memory:", e);
+    return null;
   }
 }
 
@@ -91,6 +168,22 @@ export function rateLimit(options: {
     resetIn,
     limit,
   };
+}
+
+/**
+ * Async rate-limit wrapper — prefers Upstash if configured, falls back to
+ * the in-memory sync implementation. Use this in API routes where you can
+ * await the result; the sync `rateLimit` is kept for backwards-compat.
+ */
+export async function rateLimitAsync(options: {
+  ip: string;
+  limit: number;
+  window: number;
+  key?: string;
+}): Promise<RateLimitResult> {
+  const upstashResult = await rateLimitUpstash(options);
+  if (upstashResult) return upstashResult;
+  return rateLimit(options);
 }
 
 /**

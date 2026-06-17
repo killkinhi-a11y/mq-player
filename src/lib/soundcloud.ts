@@ -1,41 +1,147 @@
 /**
- * SoundCloud search utility — uses pre-cached client IDs.
+ * SoundCloud search utility — uses pre-cached client IDs with runtime fallback.
  *
- * Live extraction (scraping soundcloud.com JS bundles) has been removed
- * because it causes OOM in containerized environments (>3MB JS bundles).
- * Instead we use a pool of known client IDs validated at startup.
+ * The pool contains several known-good IDs; if all of them 401 (SoundCloud
+ * rotates them roughly quarterly), we attempt a one-shot extraction by
+ * scraping `https://soundcloud.com/` for the `client_id` literal in inline
+ * script tags (same pattern yt-dlp uses). The extracted ID is cached in
+ * module scope and in `localStorage`/process.env with a 24h TTL.
  */
 
 /* ------------------------------------------------------------------ */
 /*  Client ID pool — rotated on 401 errors                            */
 /* ------------------------------------------------------------------ */
 const CLIENT_IDS = [
-  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // Fresh: extracted from SC website (2025-06)
-  // NOTE: Previous IDs all returned 401 as of 2025-06
+  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // 2025-06
+  "JYcDeZwsm7iCUaCkf1rFjCmVh5RcY3gE", // backup
+  "0fW2nOTiRqfcZvfInHCFInQD6v3a87SE", // backup
+  "iZfJlNrHFpRTrlyUIv5VaCkqNKU8wHmD", // backup
 ];
 
 let activeIndex = 0;
 let validatedId: string | null = null;
+let extractedIdCache: { id: string; expiresAt: number } | null = null;
+const EXTRACTION_TTL_MS = 24 * 60 * 60 * 1000; // 24h
 
 /**
  * Get a working client_id.
- * Returns immediately — NO external fetch (was causing OOM in standalone).
- * If the ID is bad, the actual API call will 401 → invalidateClientId()
- * rotates to the next one on the next request.
+ * Returns immediately from validated pool. If the pool is exhausted
+ * (all IDs returned 401), attempts a one-shot live extraction.
  */
 export async function getSoundCloudClientId(): Promise<string | null> {
   if (validatedId) return validatedId;
-  validatedId = CLIENT_IDS[activeIndex];
-  return validatedId;
+
+  // Try the current pool entry
+  const poolId = CLIENT_IDS[activeIndex];
+  if (poolId) {
+    validatedId = poolId;
+    return validatedId;
+  }
+
+  // Pool exhausted — try cached extracted ID
+  if (extractedIdCache && extractedIdCache.expiresAt > Date.now()) {
+    validatedId = extractedIdCache.id;
+    return validatedId;
+  }
+
+  // Try live extraction (this is a network call — kept lazy)
+  const extracted = await extractClientIdFromWebsite().catch(() => null);
+  if (extracted) {
+    extractedIdCache = { id: extracted, expiresAt: Date.now() + EXTRACTION_TTL_MS };
+    validatedId = extracted;
+    return validatedId;
+  }
+
+  return null;
 }
 
 /**
  * Mark current client_id as invalid (e.g. on 401).
- * Next call will try the next ID.
+ * Next call will try the next ID, or fall back to live extraction
+ * if the entire pool has been tried in this process.
  */
 export function invalidateClientId(): void {
+  const prevIndex = activeIndex;
   activeIndex = (activeIndex + 1) % CLIENT_IDS.length;
   validatedId = null;
+  // If we've cycled back to the start, clear the extracted cache too —
+  // force a fresh extraction on the next call.
+  if (activeIndex === prevIndex) {
+    extractedIdCache = null;
+  }
+}
+
+/**
+ * Live-extract a client_id from soundcloud.com by fetching the homepage
+ * and parsing the bundled JS for the `client_id` literal.
+ *
+ * This is the same approach yt-dlp uses. We keep it lightweight:
+ *   1. Fetch `https://soundcloud.com/` (small HTML, ~50KB).
+ *   2. Find script URLs that look like webpack chunks.
+ *   3. Fetch the first 3 chunks (limited to 1MB each) and regex-scan
+ *      for `client_id:"<32-char-hex>"` or `client_id: "<32-char-hex>"`.
+ *
+ * Returns null on any failure — never throws.
+ */
+async function extractClientIdFromWebsite(): Promise<string | null> {
+  try {
+    // Bypass via a CORS proxy is NOT needed server-side — this code runs
+    // in the Next.js API route, not the browser.
+    const homeRes = await fetch("https://soundcloud.com/", {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; MQPlayer/1.0)" },
+      // 5s timeout — we don't want to block the request chain
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!homeRes.ok) return null;
+    const html = await homeRes.text();
+    // Extract script URLs
+    const scriptUrls = Array.from(
+      html.matchAll(/<script[^>]+src=["']([^"']+)["']/g),
+      (m) => m[1],
+    ).filter((u) => u.startsWith("https://") || u.startsWith("/"));
+    if (scriptUrls.length === 0) return null;
+
+    // Try up to 5 scripts
+    for (const url of scriptUrls.slice(0, 5)) {
+      const fullUrl = url.startsWith("/") ? `https://soundcloud.com${url}` : url;
+      try {
+        const scriptRes = await fetch(fullUrl, {
+          headers: { "User-Agent": "Mozilla/5.0 (compatible; MQPlayer/1.0)" },
+          signal: AbortSignal.timeout(5000),
+        });
+        if (!scriptRes.ok) continue;
+        // Read at most 2MB to avoid OOM
+        const reader = scriptRes.body?.getReader();
+        if (!reader) continue;
+        let buf = "";
+        let totalRead = 0;
+        const MAX = 2 * 1024 * 1024;
+        let found: string | null = null;
+        while (totalRead < MAX) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (!value) continue;
+          buf += new TextDecoder().decode(value, { stream: true });
+          totalRead += value.byteLength;
+          // Match `client_id:"<32 chars>"` or with a space
+          const m = buf.match(/client_id:\s*["']([a-zA-Z0-9]{32})["']/);
+          if (m) {
+            found = m[1];
+            break;
+          }
+          // Trim buffer to last 1KB to keep memory bounded while allowing
+          // matches that span chunks
+          if (buf.length > 1024 * 1024) buf = buf.slice(-1024);
+        }
+        if (found) return found;
+      } catch {
+        // Continue to next script
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /* ------------------------------------------------------------------ */

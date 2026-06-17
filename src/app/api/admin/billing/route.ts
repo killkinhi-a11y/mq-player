@@ -1,16 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { database, isTurso, getTursoClient } from "@/lib/database";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { withAdminAuth, validateContentType } from "@/lib/withAuth";
 
+interface TransactionRow {
+  id: string;
+  userId: string;
+  userName: string;
+  amount: number;
+  currency: string;
+  status: string;
+  type: string;
+  createdAt: string;
+}
+
+async function findAllTransactions(): Promise<TransactionRow[]> {
+  if (isTurso()) {
+    const t = getTursoClient();
+    const result = await t.execute("SELECT * FROM Transaction ORDER BY createdAt DESC");
+    return result.rows.map((r) => {
+      const row = r as Record<string, unknown>;
+      return {
+        id: String(row.id ?? ""),
+        userId: String(row.userId ?? ""),
+        userName: String(row.userName ?? ""),
+        amount: Number(row.amount ?? 0),
+        currency: String(row.currency ?? "USD"),
+        status: String(row.status ?? "completed"),
+        type: String(row.type ?? "subscription"),
+        createdAt: String(row.createdAt ?? ""),
+      };
+    });
+  }
+  // Prisma fallback — use db directly via adapter's underlying connection
+  const { db } = await import("@/lib/db");
+  const transactions = await db.transaction.findMany({ orderBy: { createdAt: "desc" } });
+  return transactions.map((t) => ({
+    id: t.id, userId: t.userId, userName: t.userName,
+    amount: t.amount, currency: t.currency, status: t.status, type: t.type,
+    createdAt: t.createdAt.toISOString(),
+  }));
+}
+
 async function getHandler(
-  req: NextRequest,
-  ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }
+  _req: NextRequest,
+  _ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }
 ) {
   try {
-    const transactions = await db.transaction.findMany({
-      orderBy: { createdAt: "desc" },
-    });
+    const transactions = await findAllTransactions();
 
     const mrrByMonth: Record<string, number> = {};
     transactions.forEach((t) => {
@@ -50,7 +87,7 @@ async function getHandler(
 
 async function postHandler(
   req: NextRequest,
-  ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }
+  _ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }
 ) {
   try {
     if (!validateContentType(req)) {
@@ -64,12 +101,31 @@ async function postHandler(
       if (!transactionId) {
         return NextResponse.json({ error: "transactionId обязателен" }, { status: 400 });
       }
-
+      if (isTurso()) {
+        const t = getTursoClient();
+        await t.execute({
+          sql: "UPDATE Transaction SET status = 'refunded' WHERE id = ?",
+          args: [transactionId as string],
+        });
+        const r = await t.execute({ sql: "SELECT * FROM Transaction WHERE id = ?", args: [transactionId as string] });
+        const row = r.rows[0] as Record<string, unknown> | undefined;
+        const transaction = row ? {
+          id: String(row.id ?? ""),
+          userId: String(row.userId ?? ""),
+          userName: String(row.userName ?? ""),
+          amount: Number(row.amount ?? 0),
+          currency: String(row.currency ?? "USD"),
+          status: String(row.status ?? "refunded"),
+          type: String(row.type ?? "subscription"),
+          createdAt: String(row.createdAt ?? ""),
+        } : null;
+        return NextResponse.json({ transaction });
+      }
+      const { db } = await import("@/lib/db");
       const transaction = await db.transaction.update({
         where: { id: transactionId as string },
         data: { status: "refunded" },
       });
-
       return NextResponse.json({ transaction });
     }
 
@@ -77,7 +133,18 @@ async function postHandler(
       if (!targetUserId || !userName) {
         return NextResponse.json({ error: "userId и userName обязательны" }, { status: 400 });
       }
-
+      if (isTurso()) {
+        const t = getTursoClient();
+        const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+        await t.execute({
+          sql: "INSERT INTO Transaction (id, userId, userName, amount, currency, status, type, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+          args: [id, targetUserId as string, userName as string, 0, "USD", "completed", "promo_period", new Date().toISOString()],
+        });
+        return NextResponse.json({
+          transaction: { id, userId: targetUserId, userName, amount: 0, currency: "USD", status: "completed", type: "promo_period", createdAt: new Date().toISOString() },
+        });
+      }
+      const { db } = await import("@/lib/db");
       const transaction = await db.transaction.create({
         data: {
           userId: targetUserId as string,
@@ -88,7 +155,6 @@ async function postHandler(
           type: "promo_period",
         },
       });
-
       return NextResponse.json({ transaction });
     }
 

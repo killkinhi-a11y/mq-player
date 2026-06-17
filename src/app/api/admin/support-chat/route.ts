@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { isTurso, getTursoClient } from "@/lib/database";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { withAdminAuth, validateContentType } from "@/lib/withAuth";
 
@@ -35,7 +35,7 @@ const botResponses: { keywords: string[]; response: string }[] = [
   },
   {
     keywords: ["удалить аккаунт", "удалить данные", "конфиденциальность", "privacy", "мои данные"],
-    response: "Ваши права на данные:\n\n• Право на удаление — можно запросить полное удаление аккаунта\n• Мы не продаём и не передаём ваши данные третьим лицам\n• Все сообщения зашифрованы AES-256-GCM\n\nДля удаления аккаунта свяжитесь с администратором через этот чат.",
+    response: "Ваши права на данные:\n\n• Право на удаление — можно запросить полное удаление аккаунта\n• Мы не продаём и не передаём ваши данные третьим лицам\n• Сообщения передаются по защищённому HTTPS-соединению (TLS)\n\nДля удаления аккаунта свяжитесь с администратором через этот чат.",
   },
   {
     keywords: ["спасибо", "благодарю", "thanks", "thank you"],
@@ -63,7 +63,7 @@ function findBotResponse(userMessage: string): string {
 
 async function getHandler(
   req: NextRequest,
-  ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }
+  _ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }
 ) {
   try {
     const { searchParams } = new URL(req.url);
@@ -71,6 +71,26 @@ async function getHandler(
     const sessionId = searchParams.get("sessionId");
 
     if (sessionsFlag === "true") {
+      if (isTurso()) {
+        const t = getTursoClient();
+        const result = await t.execute("SELECT * FROM SupportChatSession ORDER BY updatedAt DESC");
+        const sessions = result.rows.map((r) => {
+          const row = r as Record<string, unknown>;
+          return {
+            id: String(row.id ?? ""),
+            sessionId: String(row.sessionId ?? ""),
+            userId: row.userId != null ? String(row.userId) : null,
+            userName: row.userName != null ? String(row.userName) : null,
+            lastMessage: String(row.lastMessage ?? ""),
+            messageCount: Number(row.messageCount ?? 0),
+            status: String(row.status ?? "open"),
+            createdAt: String(row.createdAt ?? ""),
+            updatedAt: String(row.updatedAt ?? ""),
+          };
+        });
+        return NextResponse.json({ sessions });
+      }
+      const { db } = await import("@/lib/db");
       const sessions = await db.supportChatSession.findMany({
         orderBy: { updatedAt: "desc" },
       });
@@ -78,6 +98,25 @@ async function getHandler(
     }
 
     if (sessionId) {
+      if (isTurso()) {
+        const t = getTursoClient();
+        const result = await t.execute({
+          sql: "SELECT * FROM SupportChatMessage WHERE sessionId = ? ORDER BY createdAt ASC",
+          args: [sessionId],
+        });
+        const messages = result.rows.map((r) => {
+          const row = r as Record<string, unknown>;
+          return {
+            id: String(row.id ?? ""),
+            sessionId: String(row.sessionId ?? ""),
+            role: String(row.role ?? "user"),
+            content: String(row.content ?? ""),
+            createdAt: String(row.createdAt ?? ""),
+          };
+        });
+        return NextResponse.json({ messages });
+      }
+      const { db } = await import("@/lib/db");
       const messages = await db.supportChatMessage.findMany({
         where: { sessionId },
         orderBy: { createdAt: "asc" },
@@ -94,7 +133,7 @@ async function getHandler(
 
 async function postHandler(
   req: NextRequest,
-  ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }
+  _ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }
 ) {
   try {
     if (!validateContentType(req)) {
@@ -108,43 +147,72 @@ async function postHandler(
       return NextResponse.json({ error: "sessionId, role и content обязательны" }, { status: 400 });
     }
 
-    // Check session exists
+    const newMsgId = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+    const now = new Date().toISOString();
+    const truncated = content.length > 100 ? content.substring(0, 100) + "..." : content;
+
+    if (isTurso()) {
+      const t = getTursoClient();
+      // Check session exists
+      const sessionResult = await t.execute({ sql: "SELECT sessionId FROM SupportChatSession WHERE sessionId = ?", args: [sessionId] });
+      if (sessionResult.rows.length === 0) {
+        return NextResponse.json({ error: "Сессия не найдена" }, { status: 404 });
+      }
+      // Insert user/admin message
+      await t.execute({
+        sql: "INSERT INTO SupportChatMessage (id, sessionId, role, content, createdAt) VALUES (?, ?, ?, ?, ?)",
+        args: [newMsgId, sessionId, role, content, now],
+      });
+      // Update session
+      await t.execute({
+        sql: "UPDATE SupportChatSession SET lastMessage = ?, messageCount = messageCount + 1, updatedAt = ? WHERE sessionId = ?",
+        args: [truncated, now, sessionId],
+      });
+      // Bot auto-response for user messages
+      let botMessage: { id: string; sessionId: string; role: string; content: string; createdAt: string } | null = null;
+      if (role === "user") {
+        const botReply = findBotResponse(content);
+        const botId = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+        const botNow = new Date().toISOString();
+        const botTrunc = botReply.length > 100 ? botReply.substring(0, 100) + "..." : botReply;
+        await t.execute({
+          sql: "INSERT INTO SupportChatMessage (id, sessionId, role, content, createdAt) VALUES (?, ?, ?, ?, ?)",
+          args: [botId, sessionId, "bot", botReply, botNow],
+        });
+        await t.execute({
+          sql: "UPDATE SupportChatSession SET lastMessage = ?, messageCount = messageCount + 1, updatedAt = ? WHERE sessionId = ?",
+          args: [botTrunc, botNow, sessionId],
+        });
+        botMessage = { id: botId, sessionId, role: "bot", content: botReply, createdAt: botNow };
+      }
+      return NextResponse.json({
+        message: { id: newMsgId, sessionId, role, content, createdAt: now },
+        botMessage,
+      });
+    }
+
+    const { db } = await import("@/lib/db");
     const session = await db.supportChatSession.findUnique({ where: { sessionId } });
     if (!session) {
       return NextResponse.json({ error: "Сессия не найдена" }, { status: 404 });
     }
-
-    // Create message
     const message = await db.supportChatMessage.create({
-      data: {
-        sessionId,
-        role,
-        content,
-      },
+      data: { sessionId, role, content },
     });
-
-    // Update session
     await db.supportChatSession.update({
       where: { sessionId },
       data: {
-        lastMessage: content.length > 100 ? content.substring(0, 100) + "..." : content,
+        lastMessage: truncated,
         messageCount: { increment: 1 },
         updatedAt: new Date(),
       },
     });
-
-    // If the message is from a user (not admin/bot), generate bot auto-response
     let botMessage: { id: string; sessionId: string; role: string; content: string; createdAt: Date } | null = null;
     if (role === "user") {
       const botReply = findBotResponse(content);
       botMessage = await db.supportChatMessage.create({
-        data: {
-          sessionId,
-          role: "bot",
-          content: botReply,
-        },
+        data: { sessionId, role: "bot", content: botReply },
       });
-
       await db.supportChatSession.update({
         where: { sessionId },
         data: {
@@ -154,7 +222,6 @@ async function postHandler(
         },
       });
     }
-
     return NextResponse.json({ message, botMessage });
   } catch (error) {
     console.error("Admin support chat message error:", error);

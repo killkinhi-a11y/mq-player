@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
-import { getSession } from "@/lib/get-session";
+import { withAuth } from "@/lib/withAuth";
 import { searchSCTracks } from "@/lib/soundcloud";
 import ZAI from "z-ai-web-dev-sdk";
 
@@ -116,12 +116,12 @@ function buildFallbackReply(userMessage: string, taste: TasteContext): { reply: 
   return { reply, queries };
 }
 
-async function handler(req: NextRequest) {
+async function handler(req: NextRequest, _ctx: { userId: string; userRole: string }) {
   try {
-    // Auth is optional — allow anonymous users to use AI recommendations
-    // but with stricter rate limiting
-    const session = await getSession();
-    const isAnonymous = !session;
+    // Auth is REQUIRED — anonymous LLM access was a cost/abuse leak (M1 fix).
+    // The session userId is provided by withAuth; we use it as the conversation
+    // cache key so each user gets their own history.
+    const userId = _ctx.userId;
 
     const body = await req.json();
     const { messages = [], tasteProfile = {}, sessionId } = body as {
@@ -134,8 +134,9 @@ async function handler(req: NextRequest) {
       return NextResponse.json({ error: "No user message provided" }, { status: 400 });
     }
 
-    // Manage conversation history
-    const sid = sessionId || "default";
+    // Manage conversation history — keyed by userId so authenticated users
+    // get their own history regardless of the client-supplied sessionId.
+    const sid = `u:${userId}:${sessionId || "default"}`;
     if (!conversationHistory.has(sid)) {
       conversationHistory.set(sid, []);
     }
@@ -323,18 +324,15 @@ function needsRecommendation(message: string): boolean {
   return recKeywords.some(kw => lower.includes(kw));
 }
 
-export const POST = withRateLimit(RATE_LIMITS.medium, handler);
+export const POST = withAuth(withRateLimit(RATE_LIMITS.medium, handler));
 
-// GET handler: clear session history (requires auth)
-async function clearHandler(req: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Не авторизован" }, { status: 401 });
-  }
+// GET handler: clear session history (requires auth — already enforced by withAuth).
+async function clearHandler(req: NextRequest, ctx: { userId: string; userRole: string }) {
   const { searchParams } = new URL(req.url);
-  const sid = searchParams.get("sessionId") || "default";
+  const clientSid = searchParams.get("sessionId") || "default";
+  const sid = `u:${ctx.userId}:${clientSid}`;
   conversationHistory.delete(sid);
   return NextResponse.json({ ok: true });
 }
 
-export { clearHandler as GET };
+export { withAuth(clearHandler) as GET };

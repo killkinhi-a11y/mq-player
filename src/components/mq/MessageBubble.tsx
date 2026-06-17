@@ -539,7 +539,7 @@ export default function MessageBubble({
             />
             <div className="flex items-center justify-end gap-1.5 mt-2">
               {message.encrypted && isMine && (
-                <span title="Сообщение зашифровано"><Lock className="w-3 h-3" style={{ color: "#22c55e" }} /></span>
+                <span title="Передано по TLS"><Lock className="w-3 h-3" style={{ color: "#64748b" }} /></span>
               )}
               <span
                 className="text-[10px]"
@@ -701,7 +701,7 @@ export default function MessageBubble({
               </span>
             )}
             {message.encrypted && isMine && (
-              <span title="Сообщение зашифровано"><Lock className="w-3 h-3" style={{ color: "#22c55e" }} /></span>
+              <span title="Передано по TLS"><Lock className="w-3 h-3" style={{ color: "#64748b" }} /></span>
             )}
             <span
               className="text-[9px] tabular-nums"

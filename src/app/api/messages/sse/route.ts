@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { isTurso, getTursoClient } from "@/lib/database";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { withAuth } from "@/lib/withAuth";
 import { getActiveTypingForUser } from "@/app/api/messages/typing/route";
@@ -61,26 +61,81 @@ async function handler(
               }
 
               // ── Check new messages ──
-              const newMessages = await db.message.findMany({
-                where: {
-                  AND: [
-                    {
-                      OR: [
-                        { senderId: userId },
-                        { receiverId: userId },
-                      ],
-                    },
-                    { createdAt: { gt: lastChecked } },
-                    { deleted: false },
-                  ],
-                },
-                orderBy: { createdAt: "asc" },
-                take: 100,
-                include: {
-                  sender: { select: { id: true, username: true, avatar: true } },
-                  receiver: { select: { id: true, username: true, avatar: true } },
-                },
-              });
+              let newMessages: Array<{
+                id: string; content: string; senderId: string; receiverId: string;
+                encrypted: boolean; messageType: string; replyToId: string | null;
+                edited: boolean; voiceUrl: string | null; voiceDuration: number | null;
+                createdAt: string;
+                sender?: { username: string; avatar: string };
+                receiver?: { username: string };
+              }>;
+              if (isTurso()) {
+                const t = getTursoClient();
+                const result = await t.execute({
+                  sql: `SELECT m.*,
+                         s.username as s_username, s.avatar as s_avatar,
+                         r.username as r_username
+                        FROM Message m
+                        JOIN User s ON m.senderId = s.id
+                        JOIN User r ON m.receiverId = r.id
+                        WHERE (m.senderId = ? OR m.receiverId = ?)
+                          AND m.createdAt > ?
+                          AND m.deleted = 0
+                        ORDER BY m.createdAt ASC
+                        LIMIT 100`,
+                  args: [userId, userId, lastChecked.toISOString()],
+                });
+                newMessages = result.rows.map((row) => {
+                  const r = row as Record<string, unknown>;
+                  return {
+                    id: String(r.id ?? ""),
+                    content: String(r.content ?? ""),
+                    senderId: String(r.senderId ?? ""),
+                    receiverId: String(r.receiverId ?? ""),
+                    encrypted: r.encrypted === 1 || r.encrypted === true,
+                    messageType: String(r.messageType ?? "text"),
+                    replyToId: r.replyToId != null ? String(r.replyToId) : null,
+                    edited: r.edited === 1 || r.edited === true,
+                    voiceUrl: r.voiceUrl != null ? String(r.voiceUrl) : null,
+                    voiceDuration: r.voiceDuration != null ? Number(r.voiceDuration) : null,
+                    createdAt: String(r.createdAt ?? ""),
+                    sender: { username: String(r.s_username ?? ""), avatar: String(r.s_avatar ?? "") },
+                    receiver: { username: String(r.r_username ?? "") },
+                  };
+                });
+              } else {
+                const { db } = await import("@/lib/db");
+                const rows = await db.message.findMany({
+                  where: {
+                    AND: [
+                      { OR: [{ senderId: userId }, { receiverId: userId }] },
+                      { createdAt: { gt: lastChecked } },
+                      { deleted: false },
+                    ],
+                  },
+                  orderBy: { createdAt: "asc" },
+                  take: 100,
+                  include: {
+                    sender: { select: { id: true, username: true, avatar: true } },
+                    receiver: { select: { id: true, username: true, avatar: true } },
+                  },
+                });
+                newMessages = rows.map((msg) => ({
+                  id: msg.id,
+                  content: msg.content,
+                  senderId: msg.senderId,
+                  receiverId: msg.receiverId,
+                  encrypted: msg.encrypted ?? true,
+                  messageType: msg.messageType,
+                  replyToId: msg.replyToId,
+                  edited: msg.edited,
+                  voiceUrl: msg.voiceUrl,
+                  voiceDuration: msg.voiceDuration,
+                  createdAt: msg.createdAt.toISOString(),
+                  sender: { username: msg.sender?.username ?? "", avatar: msg.sender?.avatar ?? "" },
+                  receiver: { username: msg.receiver?.username ?? "" },
+                }));
+              }
 
               if (newMessages.length > 0) {
                 for (const msg of newMessages) {
@@ -97,7 +152,7 @@ async function handler(
                       edited: msg.edited,
                       voiceUrl: msg.voiceUrl,
                       voiceDuration: msg.voiceDuration,
-                      createdAt: msg.createdAt.toISOString(),
+                      createdAt: msg.createdAt,
                       senderUsername: msg.sender?.username,
                       senderAvatar: msg.sender?.avatar,
                       receiverUsername: msg.receiver?.username,
@@ -108,9 +163,7 @@ async function handler(
                   );
                 }
                 // Update cursor to latest message time + 1ms to avoid re-sending
-                lastChecked = new Date(
-                  newMessages[newMessages.length - 1].createdAt.getTime() + 1
-                );
+                lastChecked = new Date(new Date(newMessages[newMessages.length - 1].createdAt).getTime() + 1);
               }
 
               // Send keepalive comment (ignored by EventSource)

@@ -790,12 +790,324 @@ export const database = {
     await db.user.delete({ where: { id } });
   },
 
+  /**
+   * Cascade-delete a user and all their related data.
+   * Used by admin user-delete and self-delete flows.
+   * On Turso: runs a sequence of DELETE statements (libSQL doesn't support
+   * interactive transactions the way Prisma does, so we batch the deletes).
+   * On Prisma: uses db.$transaction for atomicity.
+   */
+  async deleteUserCascade(id: string): Promise<void> {
+    if (isTurso()) {
+      const t = getTurso();
+      // Order matters: child tables first.
+      await t.batch([
+        t.execute({ sql: "DELETE FROM Message WHERE senderId = ? OR receiverId = ?", args: [id, id] }),
+        t.execute({ sql: "DELETE FROM Friend WHERE requesterId = ? OR addresseeId = ?", args: [id, id] }),
+        t.execute({ sql: "DELETE FROM StoryLike WHERE userId = ?", args: [id] }),
+        t.execute({ sql: "DELETE FROM StoryComment WHERE userId = ?", args: [id] }),
+        t.execute({ sql: "DELETE FROM Story WHERE userId = ?", args: [id] }),
+        t.execute({ sql: "DELETE FROM PlaylistLike WHERE userId = ?", args: [id] }),
+        t.execute({ sql: "DELETE FROM Playlist WHERE userId = ?", args: [id] }),
+        t.execute({ sql: "DELETE FROM UserSync WHERE userId = ?", args: [id] }),
+        t.execute({ sql: "DELETE FROM GroupChatMember WHERE userId = ?", args: [id] }),
+        t.execute({ sql: "DELETE FROM GroupMessage WHERE senderId = ?", args: [id] }),
+        t.execute({ sql: "DELETE FROM Notification WHERE userId = ?", args: [id] }),
+        t.execute({ sql: "DELETE FROM ListenSession WHERE hostId = ? OR guestId = ?", args: [id, id] }),
+        t.execute({ sql: "DELETE FROM VerificationCode WHERE userId = ?", args: [id] }),
+      ]);
+      // Find group chats created by this user and cascade-delete them
+      const createdGroups = await t.execute({ sql: "SELECT id FROM GroupChat WHERE createdBy = ?", args: [id] });
+      const groupIds = createdGroups.rows.map((r) => String((r as Record<string, unknown>).id));
+      for (const gId of groupIds) {
+        await t.batch([
+          t.execute({ sql: "DELETE FROM GroupChatMember WHERE groupChatId = ?", args: [gId] }),
+          t.execute({ sql: "DELETE FROM GroupMessage WHERE groupChatId = ?", args: [gId] }),
+          t.execute({ sql: "DELETE FROM GroupChat WHERE id = ?", args: [gId] }),
+        ]);
+      }
+      // Finally delete the user
+      await t.execute({ sql: "DELETE FROM User WHERE id = ?", args: [id] });
+      return;
+    }
+    await db.$transaction(async (tx) => {
+      await tx.message.deleteMany({ where: { OR: [{ senderId: id }, { receiverId: id }] } });
+      await tx.friend.deleteMany({ where: { OR: [{ requesterId: id }, { addresseeId: id }] } });
+      await tx.storyLike.deleteMany({ where: { userId: id } });
+      await tx.storyComment.deleteMany({ where: { userId: id } });
+      await tx.story.deleteMany({ where: { userId: id } });
+      await tx.playlistLike.deleteMany({ where: { userId: id } });
+      await tx.playlist.deleteMany({ where: { userId: id } });
+      await tx.userSync.deleteMany({ where: { userId: id } });
+      await tx.groupChatMember.deleteMany({ where: { userId: id } });
+      await tx.groupMessage.deleteMany({ where: { senderId: id } });
+      await tx.notification.deleteMany({ where: { userId: id } });
+      await tx.listenSession.deleteMany({ where: { OR: [{ hostId: id }, { guestId: id }] } });
+      const createdGroups = await tx.groupChat.findMany({ where: { createdBy: id }, select: { id: true } });
+      for (const g of createdGroups) {
+        await tx.groupChatMember.deleteMany({ where: { groupChatId: g.id } });
+        await tx.groupMessage.deleteMany({ where: { groupChatId: g.id } });
+        await tx.groupChat.delete({ where: { id: g.id } });
+      }
+      await tx.verificationCode.deleteMany({ where: { userId: id } });
+      await tx.user.delete({ where: { id } });
+    });
+  },
+
   async countUsers(): Promise<number> {
     if (isTurso()) {
       const result = await getTurso().execute("SELECT COUNT(*) as count FROM User");
       return Number(result.rows[0]?.count ?? 0);
     }
     return db.user.count();
+  },
+
+  /**
+   * Paginated user list with optional substring search across username + email.
+   * Returns minimal fields for admin tables (no password, no favoriteArtists).
+   */
+  async findManyUsers(opts: {
+    page: number;
+    limit: number;
+    search?: string;
+  }): Promise<{ users: Array<{
+    id: string;
+    username: string;
+    email: string;
+    confirmed: boolean;
+    role: string;
+    blocked: boolean;
+    blockedAt: string | null;
+    blockedReason: string | null;
+    createdAt: string;
+  }>; total: number }> {
+    const { page, limit, search } = opts;
+    const offset = (page - 1) * limit;
+    if (isTurso()) {
+      if (search) {
+        const like = `%${search}%`;
+        const totalResult = await getTurso().execute({
+          sql: "SELECT COUNT(*) as count FROM User WHERE LOWER(username) LIKE LOWER(?) OR LOWER(email) LIKE LOWER(?)",
+          args: [like, like],
+        });
+        const total = Number(totalResult.rows[0]?.count ?? 0);
+        const result = await getTurso().execute({
+          sql: "SELECT id, username, email, confirmed, role, blocked, blockedAt, blockedReason, createdAt FROM User WHERE LOWER(username) LIKE LOWER(?) OR LOWER(email) LIKE LOWER(?) ORDER BY createdAt DESC LIMIT ? OFFSET ?",
+          args: [like, like, limit, offset],
+        });
+        return { users: result.rows.map((r) => parseUserRow(r as Record<string, unknown>)!).filter(Boolean) as any, total };
+      }
+      const totalResult = await getTurso().execute("SELECT COUNT(*) as count FROM User");
+      const total = Number(totalResult.rows[0]?.count ?? 0);
+      const result = await getTurso().execute({
+        sql: "SELECT id, username, email, confirmed, role, blocked, blockedAt, blockedReason, createdAt FROM User ORDER BY createdAt DESC LIMIT ? OFFSET ?",
+        args: [limit, offset],
+      });
+      return { users: result.rows.map((r) => parseUserRow(r as Record<string, unknown>)!).filter(Boolean) as any, total };
+    }
+    const where: Record<string, unknown> = search
+      ? { OR: [{ username: { contains: search, mode: "insensitive" } }, { email: { contains: search, mode: "insensitive" } }] }
+      : {};
+    const [users, total] = await Promise.all([
+      db.user.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: offset,
+        take: limit,
+        select: {
+          id: true, username: true, email: true, confirmed: true, role: true,
+          blocked: true, blockedAt: true, blockedReason: true, createdAt: true,
+        },
+      }),
+      db.user.count({ where }),
+    ]);
+    return {
+      users: users.map((u) => ({
+        id: u.id,
+        username: u.username,
+        email: u.email,
+        confirmed: u.confirmed,
+        role: u.role,
+        blocked: u.blocked,
+        blockedAt: u.blockedAt?.toISOString() ?? null,
+        blockedReason: u.blockedReason ?? null,
+        createdAt: u.createdAt.toISOString(),
+      })),
+      total,
+    };
+  },
+
+  /** Count transactions (for admin billing dashboard). */
+  async countTransactions(): Promise<number> {
+    if (isTurso()) {
+      const result = await getTurso().execute("SELECT COUNT(*) as count FROM Transaction");
+      return Number(result.rows[0]?.count ?? 0);
+    }
+    return db.transaction.count();
+  },
+
+  /** Sum revenue (only completed transactions). */
+  async sumRevenue(): Promise<number> {
+    if (isTurso()) {
+      const result = await getTurso().execute("SELECT COALESCE(SUM(amount), 0) as total FROM Transaction WHERE status = 'completed'");
+      return Number(result.rows[0]?.total ?? 0);
+    }
+    const agg = await db.transaction.aggregate({ _sum: { amount: true }, where: { status: "completed" } });
+    return agg._sum.amount ?? 0;
+  },
+
+  /** Find all feature flags. */
+  async findAllFeatureFlags(): Promise<FeatureFlagRow[]> {
+    if (isTurso()) {
+      const result = await getTurso().execute("SELECT * FROM FeatureFlag ORDER BY createdAt DESC");
+      return result.rows.map((r) => parseFeatureFlagRow(r as Record<string, unknown>));
+    }
+    const flags = await db.featureFlag.findMany({ orderBy: { createdAt: "desc" } });
+    return flags.map((f) => ({
+      id: f.id, key: f.key, name: f.name, description: f.description,
+      enabled: f.enabled, createdAt: f.createdAt.toISOString(), updatedAt: f.updatedAt.toISOString(),
+    }));
+  },
+
+  /** Delete a feature flag by key. */
+  async deleteFeatureFlag(key: string): Promise<void> {
+    if (isTurso()) {
+      await getTurso().execute({ sql: "DELETE FROM FeatureFlag WHERE key = ?", args: [key] });
+      return;
+    }
+    await db.featureFlag.delete({ where: { key } });
+  },
+
+  /** Find recent audit logs (for admin audit page). */
+  async findAuditLogs(opts: { limit?: number; adminId?: string } = {}): Promise<Array<{
+    id: string; adminId: string; action: string; targetId: string | null;
+    details: string | null; createdAt: string;
+    admin?: { id: string; username: string; avatar: string };
+  }>> {
+    const limit = opts.limit ?? 50;
+    if (isTurso()) {
+      const result = opts.adminId
+        ? await getTurso().execute({
+            sql: "SELECT * FROM AuditLog WHERE adminId = ? ORDER BY createdAt DESC LIMIT ?",
+            args: [opts.adminId, limit],
+          })
+        : await getTurso().execute({
+            sql: "SELECT * FROM AuditLog ORDER BY createdAt DESC LIMIT ?",
+            args: [limit],
+          });
+      const logs = result.rows.map((r) => {
+        const row = r as Record<string, unknown>;
+        return {
+          id: String(row.id ?? ""),
+          adminId: String(row.adminId ?? ""),
+          action: String(row.action ?? ""),
+          targetId: row.targetId != null ? String(row.targetId) : null,
+          details: row.details != null ? String(row.details) : null,
+          createdAt: String(row.createdAt ?? ""),
+        };
+      });
+      // Hydrate admin usernames
+      const adminIds = [...new Set(logs.map((l) => l.adminId))];
+      if (adminIds.length > 0) {
+        const placeholders = adminIds.map(() => "?").join(",");
+        const adminResult = await getTurso().execute({
+          sql: `SELECT id, username, avatar FROM User WHERE id IN (${placeholders})`,
+          args: adminIds,
+        });
+        const adminMap = new Map<string, { id: string; username: string; avatar: string }>();
+        for (const r of adminResult.rows) {
+          const row = r as Record<string, unknown>;
+          adminMap.set(String(row.id), {
+            id: String(row.id ?? ""),
+            username: String(row.username ?? ""),
+            avatar: String(row.avatar ?? ""),
+          });
+        }
+        for (const log of logs) {
+          log.admin = adminMap.get(log.adminId);
+        }
+      }
+      return logs;
+    }
+    const logs = await db.auditLog.findMany({
+      where: opts.adminId ? { adminId: opts.adminId } : undefined,
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      include: { admin: { select: { id: true, username: true, avatar: true } } },
+    });
+    return logs.map((l) => ({
+      id: l.id, adminId: l.adminId, action: l.action,
+      targetId: l.targetId, details: l.details,
+      createdAt: l.createdAt.toISOString(),
+      admin: l.admin ? { id: l.admin.id, username: l.admin.username, avatar: l.admin.avatar } : undefined,
+    }));
+  },
+
+  /** Count support messages by status. */
+  async countSupportMessages(): Promise<{ total: number; new: number; read: number; replied: number; closed: number }> {
+    if (isTurso()) {
+      const result = await getTurso().execute(
+        "SELECT status, COUNT(*) as count FROM SupportMessage GROUP BY status"
+      );
+      const out = { total: 0, new: 0, read: 0, replied: 0, closed: 0 };
+      for (const r of result.rows) {
+        const row = r as Record<string, unknown>;
+        const status = String(row.status ?? "new") as keyof typeof out;
+        const count = Number(row.count ?? 0);
+        out[status] = count;
+        out.total += count;
+      }
+      return out;
+    }
+    const [total, newCount, readCount, repliedCount, closedCount] = await Promise.all([
+      db.supportMessage.count(),
+      db.supportMessage.count({ where: { status: "new" } }),
+      db.supportMessage.count({ where: { status: "read" } }),
+      db.supportMessage.count({ where: { status: "replied" } }),
+      db.supportMessage.count({ where: { status: "closed" } }),
+    ]);
+    return { total, new: newCount, read: readCount, replied: repliedCount, closed: closedCount };
+  },
+
+  /** Count all cron jobs. */
+  async countCronJobs(): Promise<number> {
+    if (isTurso()) {
+      const result = await getTurso().execute("SELECT COUNT(*) as count FROM CronJob");
+      return Number(result.rows[0]?.count ?? 0);
+    }
+    return db.cronJob.count();
+  },
+
+  /** Find all cron jobs. */
+  async findAllCronJobs(): Promise<Array<{
+    id: string; name: string; cronExpr: string | null; status: string;
+    lastRun: string | null; nextRun: string | null; log: string | null;
+    createdAt: string;
+  }>> {
+    if (isTurso()) {
+      const result = await getTurso().execute("SELECT * FROM CronJob ORDER BY createdAt DESC");
+      return result.rows.map((r) => {
+        const row = r as Record<string, unknown>;
+        return {
+          id: String(row.id ?? ""),
+          name: String(row.name ?? ""),
+          cronExpr: row.cronExpr != null ? String(row.cronExpr) : null,
+          status: String(row.status ?? "idle"),
+          lastRun: row.lastRun != null ? String(row.lastRun) : null,
+          nextRun: row.nextRun != null ? String(row.nextRun) : null,
+          log: row.log != null ? String(row.log) : null,
+          createdAt: String(row.createdAt ?? ""),
+        };
+      });
+    }
+    const jobs = await db.cronJob.findMany({ orderBy: { createdAt: "desc" } });
+    return jobs.map((j) => ({
+      id: j.id, name: j.name, cronExpr: j.cronExpr, status: j.status,
+      lastRun: j.lastRun?.toISOString() ?? null,
+      nextRun: j.nextRun?.toISOString() ?? null,
+      log: j.log,
+      createdAt: j.createdAt.toISOString(),
+    }));
   },
 
   // ─── FeatureFlag operations ───────────────────────────────────────────────
@@ -1300,6 +1612,56 @@ export const database = {
   },
 
   // ─── Message operations ───────────────────────────────────────────────────
+
+  async findMessageById(id: string): Promise<MessageRow | null> {
+    if (isTurso()) {
+      const result = await getTurso().execute({ sql: "SELECT * FROM Message WHERE id = ?", args: [id] });
+      if (result.rows.length === 0) return null;
+      return parseMessageRow(result.rows[0] as Record<string, unknown>);
+    }
+    const m = await db.message.findUnique({ where: { id } });
+    if (!m) return null;
+    return {
+      id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
+      encrypted: m.encrypted, messageType: m.messageType, replyToId: m.replyToId,
+      edited: m.edited, editedAt: m.editedAt?.toISOString() ?? null,
+      deleted: m.deleted, voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
+      createdAt: m.createdAt.toISOString(),
+    };
+  },
+
+  async updateMessage(id: string, data: {
+    content?: string;
+    edited?: boolean;
+    editedAt?: string;
+    deleted?: boolean;
+    encrypted?: boolean;
+    messageType?: string;
+  }): Promise<void> {
+    if (isTurso()) {
+      const sets: string[] = [];
+      const args: InValue[] = [];
+      if (data.content !== undefined) { sets.push("content = ?"); args.push(data.content); }
+      if (data.edited !== undefined) { sets.push("edited = ?"); args.push(data.edited ? 1 : 0); }
+      if (data.editedAt !== undefined) { sets.push("editedAt = ?"); args.push(data.editedAt); }
+      if (data.deleted !== undefined) { sets.push("deleted = ?"); args.push(data.deleted ? 1 : 0); }
+      if (data.encrypted !== undefined) { sets.push("encrypted = ?"); args.push(data.encrypted ? 1 : 0); }
+      if (data.messageType !== undefined) { sets.push("messageType = ?"); args.push(data.messageType); }
+      if (sets.length === 0) return;
+      args.push(id);
+      await getTurso().execute({ sql: `UPDATE Message SET ${sets.join(", ")} WHERE id = ?`, args });
+      return;
+    }
+    const update: Record<string, unknown> = {};
+    if (data.content !== undefined) update.content = data.content;
+    if (data.edited !== undefined) update.edited = data.edited;
+    if (data.editedAt !== undefined) update.editedAt = new Date(data.editedAt);
+    if (data.deleted !== undefined) update.deleted = data.deleted;
+    if (data.encrypted !== undefined) update.encrypted = data.encrypted;
+    if (data.messageType !== undefined) update.messageType = data.messageType;
+    if (Object.keys(update).length === 0) return;
+    await db.message.update({ where: { id }, data: update });
+  },
 
   async createMessage(data: {
     content: string;

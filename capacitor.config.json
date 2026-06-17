@@ -1,6 +1,7 @@
 {
-  "appId": "com.mq.player",
-  "appName": "MQ Player",
+  "_comment": "MQ Player Remote — Capacitor wrapper. Loads the web app at server.url. NOT a bundled/offline app; requires internet to function. For a real offline-capable mobile build, bundle the Next.js static export into webDir and remove server.url.",
+  "appId": "com.mq.player.remote",
+  "appName": "MQ Player Remote",
   "webDir": "out",
   "server": {
     "url": "https://mq1.vercel.app",

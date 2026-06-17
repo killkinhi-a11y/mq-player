@@ -2,7 +2,7 @@
   "name": "mq-player",
   "version": "1.0.0",
   "private": true,
-  "description": "MQ Player — музыкальный плеер с зашифрованным мессенджером",
+  "description": "MQ Player — музыкальный плеер с мессенджером",
   "author": "MQ Player Team",
   "scripts": {
     "build": "prisma generate && next build",
@@ -93,8 +93,8 @@
   },
   "main": "electron/main.js",
   "build": {
-    "appId": "com.mq.player",
-    "productName": "MQ Player",
+    "appId": "com.mq.player.remote",
+    "productName": "MQ Player Remote",
     "copyright": "Copyright 2025 MQ Player",
     "npmRebuild": false,
     "nodeGypRebuild": false,

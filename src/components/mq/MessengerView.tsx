@@ -1782,9 +1782,9 @@ export default function MessengerView() {
         <div className="px-3 py-3 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-border)" }}>
           <div className="flex items-center gap-2.5">
             <h2 className="font-bold text-lg" style={{ color: "var(--mq-text)" }}>Чаты</h2>
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" title="Сквозное шифрование" style={{ backgroundColor: "rgba(var(--mq-accent-rgb, 255,45,109),0.1)" }}>
-              <ShieldCheck className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
-              <span className="text-[9px] font-bold" style={{ color: "var(--mq-accent)" }}>E2E</span>
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" title="Transport encryption (TLS)" style={{ backgroundColor: "rgba(var(--mq-accent-rgb, 255,45,109),0.1)" }}>
+              <Lock className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
+              <span className="text-[9px] font-bold" style={{ color: "var(--mq-accent)" }}>TLS</span>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -2040,11 +2040,11 @@ export default function MessengerView() {
                         whileTap={{ scale: 0.9 }}
                         onClick={() => setShowEncryptionDialog(true)}
                         className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full cursor-pointer transition-colors"
-                        style={{ backgroundColor: "rgba(34,197,94,0.1)" }}
-                        title="Подробнее о шифровании"
+                        style={{ backgroundColor: "rgba(100,116,139,0.1)" }}
+                        title="Подробнее о защите соединения"
                       >
-                        <Shield className="w-2.5 h-2.5" style={{ color: "#22c55e" }} />
-                        <span className="text-[10px] font-medium" style={{ color: "#22c55e" }}>E2E</span>
+                        <Lock className="w-2.5 h-2.5" style={{ color: "#64748b" }} />
+                        <span className="text-[10px] font-medium" style={{ color: "#64748b" }}>TLS</span>
                       </motion.button>
                     </>
                   )}
@@ -2228,14 +2228,14 @@ export default function MessengerView() {
               <div className="flex justify-center mb-2">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs cursor-pointer group/e2e relative" style={glassPanel}
                   onClick={() => { if (!isGroupChat) setShowEncryptionDialog(true); }}
-                  title={isGroupChat ? undefined : "Сквозное шифрование означает, что никто, включая сервер MQ Player, не может прочитать ваши сообщения. Только вы и собеседник имеете доступ."}
+                  title={isGroupChat ? undefined : "Сообщения передаются по защищённому HTTPS-соединению (TLS). Сквозное шифрование (E2E) на стороне клиента не применяется — нажмите для подробностей."}
                 >
-                  <Shield className="w-3 h-3" style={{ color: "#22c55e" }} />
+                  <Lock className="w-3 h-3" style={{ color: "#64748b" }} />
                   <span style={{ color: "var(--mq-text-muted)" }}>
-                    {isGroupChat ? "Групповой чат" : "Сообщения зашифрованы сквозным шифрованием"}
+                    {isGroupChat ? "Групповой чат" : "Сообщения передаются по TLS"}
                   </span>
                   {!isGroupChat && (
-                    <Lock className="w-2.5 h-2.5 opacity-0 group-hover/e2e:opacity-100 transition-opacity" style={{ color: "#22c55e" }} />
+                    <Lock className="w-2.5 h-2.5 opacity-0 group-hover/e2e:opacity-100 transition-opacity" style={{ color: "#64748b" }} />
                   )}
                 </div>
               </div>
@@ -2384,26 +2384,26 @@ export default function MessengerView() {
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex flex-col items-center text-center gap-4">
-                      {/* Green shield icon */}
-                      <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(34,197,94,0.12)", border: "1px solid rgba(34,197,94,0.2)" }}>
-                        <ShieldCheck className="w-8 h-8" style={{ color: "#22c55e" }} />
+                      {/* Neutral lock icon — TLS, not E2E */}
+                      <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(100,116,139,0.12)", border: "1px solid rgba(100,116,139,0.2)" }}>
+                        <Lock className="w-8 h-8" style={{ color: "#64748b" }} />
                       </div>
                       <div>
-                        <h3 className="text-base font-bold mb-1" style={{ color: "var(--mq-text)" }}>Сквозное шифрование</h3>
+                        <h3 className="text-base font-bold mb-1" style={{ color: "var(--mq-text)" }}>Транспортное шифрование (TLS)</h3>
                         <p className="text-xs leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-                          Сквозное шифрование означает, что никто, включая сервер MQ Player, не может прочитать ваши сообщения. Только вы и собеседник имеете доступ.
+                          Сообщения передаются между вашим устройством и сервером MQ Player по защищённому HTTPS-соединению (TLS). На сервере сообщения хранятся в исходном виде — сквозного шифрования (E2E) на стороне клиента не применяется.
                         </p>
                       </div>
-                      {/* Fingerprint */}
+                      {/* Info row instead of fake fingerprint */}
                       <div className="w-full rounded-xl p-3" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                        <p className="text-[10px] font-medium mb-1.5" style={{ color: "var(--mq-text-muted)" }}>Отпечаток ключа шифрования</p>
-                        <p className="text-[10px] font-mono tracking-wider break-all" style={{ color: "#22c55e" }}>{fingerprint}</p>
+                        <p className="text-[10px] font-medium mb-1.5" style={{ color: "var(--mq-text-muted)" }}>Режим защиты</p>
+                        <p className="text-[10px] font-mono tracking-wider break-all" style={{ color: "#64748b" }}>{fingerprint}</p>
                       </div>
                       {/* Algorithm info */}
                       <div className="w-full rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                        <Lock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#22c55e" }} />
+                        <Lock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#64748b" }} />
                         <div className="text-left">
-                          <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Алгоритм</p>
+                          <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Протокол</p>
                           <p className="text-xs font-medium" style={{ color: "var(--mq-text)" }}>{getEncryptionStatus()}</p>
                         </div>
                       </div>
@@ -2411,7 +2411,7 @@ export default function MessengerView() {
                       <button
                         onClick={() => setShowEncryptionDialog(false)}
                         className="w-full py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-opacity hover:opacity-80"
-                        style={{ backgroundColor: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.2)" }}
+                        style={{ backgroundColor: "rgba(100,116,139,0.12)", color: "#64748b", border: "1px solid rgba(100,116,139,0.2)" }}
                       >
                         Понятно
                       </button>
@@ -2691,11 +2691,11 @@ export default function MessengerView() {
                   </motion.div>
                 </div>
               </motion.div>
-              <h3 className="text-xl font-bold mb-2" style={{ color: "var(--mq-text)" }}>Безопасный мессенджер</h3>
+              <h3 className="text-xl font-bold mb-2" style={{ color: "var(--mq-text)" }}>Мессенджер</h3>
               <p className="text-sm leading-relaxed mb-2" style={{ color: "var(--mq-text-muted)" }}>Выберите друга или группу для начала разговора</p>
               <div className="flex items-center justify-center gap-1.5 mt-3">
-                <Lock className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
-                <span className="text-[11px] font-medium" style={{ color: "var(--mq-accent)" }}>Сквозное шифрование</span>
+                <Lock className="w-3 h-3" style={{ color: "#64748b" }} />
+                <span className="text-[11px] font-medium" style={{ color: "#64748b" }}>Transport encryption (TLS)</span>
               </div>
               <p className="text-[10px] font-mono mt-2 px-3 py-1.5 rounded-lg inline-block" style={{ color: "var(--mq-text-muted)", ...glassPanel }}>
                 {fingerprint}

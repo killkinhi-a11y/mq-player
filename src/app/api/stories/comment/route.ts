@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { isTurso, getTursoClient, database } from "@/lib/database";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
-import { getSession } from "@/lib/get-session";
+import { withAuth } from "@/lib/withAuth";
 
 // POST /api/stories/comment — comment on a story
-async function postHandler(req: NextRequest) {
+async function postHandler(
+  req: NextRequest,
+  ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }
+) {
   try {
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Необходима авторизация" }, { status: 401 });
-    }
-    const userId = session.userId;
+    const { userId } = ctx;
     const { storyId, content } = await req.json();
 
     if (!storyId || !content) {
@@ -21,24 +20,54 @@ async function postHandler(req: NextRequest) {
       return NextResponse.json({ error: "Комментарий должен быть от 1 до 1000 символов" }, { status: 400 });
     }
 
-    // Check if story exists
-    const story = await db.story.findUnique({ where: { id: storyId } });
-    if (!story) {
+    // Check story exists + expiry
+    let storyFound: { id: string; expiresAt: string } | null = null;
+    if (isTurso()) {
+      const t = getTursoClient();
+      const r = await t.execute({ sql: "SELECT id, expiresAt FROM Story WHERE id = ?", args: [storyId] });
+      if (r.rows.length > 0) {
+        const row = r.rows[0] as Record<string, unknown>;
+        storyFound = { id: String(row.id ?? ""), expiresAt: String(row.expiresAt ?? "") };
+      }
+    } else {
+      const { db } = await import("@/lib/db");
+      const s = await db.story.findUnique({ where: { id: storyId } });
+      if (s) storyFound = { id: s.id, expiresAt: s.expiresAt.toISOString() };
+    }
+    if (!storyFound) {
       return NextResponse.json({ error: "История не найдена" }, { status: 404 });
     }
-
-    // Check if story is expired
-    if (story.expiresAt < new Date()) {
+    if (new Date(storyFound.expiresAt) < new Date()) {
       return NextResponse.json({ error: "История истекла" }, { status: 410 });
     }
 
+    // Get user for response
+    const user = await database.findUserById(userId);
+    if (!user) {
+      return NextResponse.json({ error: "Пользователь не найден" }, { status: 404 });
+    }
+
+    if (isTurso()) {
+      const t = getTursoClient();
+      const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+      const now = new Date().toISOString();
+      await t.execute({
+        sql: "INSERT INTO StoryComment (id, storyId, userId, content, createdAt) VALUES (?, ?, ?, ?, ?)",
+        args: [id, storyId, userId, content, now],
+      });
+      return NextResponse.json({
+        comment: {
+          id, storyId, userId, content, createdAt: now,
+          user: { id: user.id, username: user.username },
+        },
+      }, { status: 201 });
+    }
+
+    const { db } = await import("@/lib/db");
     const comment = await db.storyComment.create({
       data: { storyId, userId, content },
-      include: {
-        user: { select: { id: true, username: true } },
-      },
+      include: { user: { select: { id: true, username: true } } },
     });
-
     return NextResponse.json({ comment }, { status: 201 });
   } catch (error) {
     console.error("Story comment error:", error);
@@ -47,7 +76,7 @@ async function postHandler(req: NextRequest) {
 }
 
 // GET /api/stories/comment?storyId=xxx — get comments for a story
-async function getHandler(req: NextRequest) {
+async function getHandler(req: NextRequest, _ctx: { userId: string; userRole: string }) {
   try {
     const { searchParams } = new URL(req.url);
     const storyId = searchParams.get("storyId");
@@ -56,19 +85,41 @@ async function getHandler(req: NextRequest) {
       return NextResponse.json({ error: "storyId обязателен" }, { status: 400 });
     }
 
+    if (isTurso()) {
+      const t = getTursoClient();
+      const result = await t.execute({
+        sql: `SELECT c.*, u.id as u_id, u.username as u_username
+              FROM StoryComment c
+              JOIN User u ON c.userId = u.id
+              WHERE c.storyId = ?
+              ORDER BY c.createdAt DESC`,
+        args: [storyId],
+      });
+      const comments = result.rows.map((r) => {
+        const row = r as Record<string, unknown>;
+        return {
+          id: String(row.id ?? ""),
+          storyId: String(row.storyId ?? ""),
+          userId: String(row.userId ?? ""),
+          content: String(row.content ?? ""),
+          createdAt: String(row.createdAt ?? ""),
+          user: { id: String(row.u_id ?? ""), username: String(row.u_username ?? "") },
+        };
+      });
+      return NextResponse.json({ comments });
+    }
+
+    const { db } = await import("@/lib/db");
     const comments = await db.storyComment.findMany({
       where: { storyId },
-      include: {
-        user: { select: { id: true, username: true } },
-      },
+      include: { user: { select: { id: true, username: true } } },
       orderBy: { createdAt: "desc" },
     });
-
     return NextResponse.json({ comments });
   } catch (error) {
     console.error("Get story comments error:", error);
     return NextResponse.json({ error: "Ошибка при загрузке комментариев" }, { status: 500 });
   }
 }
-export const POST = withRateLimit(RATE_LIMITS.write, postHandler);
-export const GET = withRateLimit(RATE_LIMITS.read, getHandler);
+export const POST = withRateLimit(RATE_LIMITS.write, withAuth(postHandler));
+export const GET = withRateLimit(RATE_LIMITS.read, withAuth(getHandler));

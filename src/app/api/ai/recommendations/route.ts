@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { withAuth } from "@/lib/withAuth";
 import { searchSCTracks } from "@/lib/soundcloud";
 import ZAI from "z-ai-web-dev-sdk";
 
@@ -145,8 +146,11 @@ function setCache(key: string, data: unknown): void {
   cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
 }
 
-async function handler(req: NextRequest) {
+async function handler(req: NextRequest, _ctx: { userId: string; userRole: string }) {
   try {
+    // Auth required (M1 fix) — anonymous access was a Z-AI token burn vector.
+    // Cache is now keyed by userId so different users don't share recs.
+    const userId = _ctx.userId;
     const { searchParams } = new URL(req.url);
 
     // Build taste profile from query params
@@ -172,8 +176,8 @@ async function handler(req: NextRequest) {
       sessionMinutes,
     };
 
-    // Check cache
-    const cacheKey = `ai-recs:${JSON.stringify({ topGenres, topArtists, moods, language })}`;
+    // Check cache (keyed by userId so users don't share recs)
+    const cacheKey = `ai-recs:${userId}:${JSON.stringify({ topGenres, topArtists, moods, language })}`;
     const cached = getCache(cacheKey);
     if (cached) return NextResponse.json(cached);
 
@@ -321,4 +325,4 @@ async function handler(req: NextRequest) {
   }
 }
 
-export const GET = withRateLimit(RATE_LIMITS.heavy, handler);
+export const GET = withAuth(withRateLimit(RATE_LIMITS.heavy, handler));
