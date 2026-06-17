@@ -1,11 +1,17 @@
 /**
- * 10-Band Parametric Equalizer Engine
+ * 10-Band Parametric Equalizer — Data Definitions
  *
- * Creates BiquadFilterNodes for 10 frequency bands and inserts them
- * into the audio graph between gain nodes and analyser.
+ * This module exports ONLY the data: band definitions, presets, constants,
+ * and TypeScript interfaces. The actual EQ runtime functions
+ * (enableEQ/disableEQ/setEQBand/setAllEQBands/resetEQBands/getEQFilters/
+ * createEQChain/destroyEQChain/isEQEnabled/getEQBand) live in
+ * src/lib/audioEngine.ts and operate on the active audio graph.
  *
- * Вдохновлено видео "ESSENTIALS OF SYNTHESIS" — понимание частотных полос
- * и фильтрации ключ к саунд-дизайну.
+ * Previously this file duplicated those functions (calling them via a
+ * separate _eqFilters[] array here) — they were never called by anything
+ * except tests, while useAppStore and EqualizerView used the audioEngine.ts
+ * versions. The duplicate was removed in M3.3 to eliminate the
+ * "which EQ am I actually controlling?" ambiguity.
  *
  * Audio graph: source → gain → EQ chain (10 filters) → analyser → destination
  *
@@ -21,8 +27,6 @@
  *   8:  8kHz   (Brilliance)
  *   9:  16kHz  (Air)
  */
-
-import { getAudioContext, getAnalyser } from "./audioEngine";
 
 export interface EQBand {
   frequency: number;
@@ -70,175 +74,3 @@ export const EQ_PRESETS: EQPreset[] = [
   { id: "cinematic",   name: "Кино",          bands: [4, 3, 2, 0, -1, 0, 1, 2, 3, 4] },
   { id: "v-shape",     name: "V-образная",    bands: [5, 4, 2, -1, -3, -3, -1, 2, 4, 5] },
 ];
-
-let _eqFilters: BiquadFilterNode[] = [];
-let _eqEnabled = false;
-
-/** Get the array of BiquadFilterNodes (empty if not yet created) */
-export function getEQFilters(): BiquadFilterNode[] {
-  return _eqFilters;
-}
-
-/** Whether the EQ is enabled (filters connected to graph) */
-export function isEQEnabled(): boolean {
-  return _eqEnabled;
-}
-
-/**
- * Create the EQ filter nodes and insert them into the audio graph.
- * Must be called after initAudioEngine().
- *
- * Disconnects gain→analyser connections and rewires:
- *   gainA → filter[0] → ... → filter[9] → analyser → destination
- *   gainB → filter[0] (same chain, first filter accepts multiple inputs)
- */
-export function createEQChain(
-  gainA: GainNode,
-  gainB: GainNode,
-  analyser: AnalyserNode,
-  destination: AudioDestinationNode,
-): BiquadFilterNode[] {
-  const ctx = getAudioContext();
-  if (!ctx) return [];
-
-  // If filters already exist, remove them first
-  if (_eqFilters.length > 0) {
-    destroyEQChain(gainA, gainB, analyser, destination);
-  }
-
-  const filters: BiquadFilterNode[] = [];
-
-  for (const band of EQ_BANDS) {
-    const filter = ctx.createBiquadFilter();
-    filter.type = band.type;
-    filter.frequency.value = band.frequency;
-    filter.Q.value = band.Q;
-    filter.gain.value = 0; // start flat
-    filters.push(filter);
-  }
-
-  // Connect filter chain
-  for (let i = 0; i < filters.length - 1; i++) {
-    filters[i].connect(filters[i + 1]);
-  }
-  filters[filters.length - 1].connect(analyser);
-
-  _eqFilters = filters;
-
-  return filters;
-}
-
-/**
- * Enable the EQ — connects both gains to the first EQ filter,
- * disconnects gains from direct analyser connection.
- */
-export function enableEQ(
-  gainA: GainNode,
-  gainB: GainNode,
-  analyser: AnalyserNode,
-  destination: AudioDestinationNode,
-): void {
-  if (_eqFilters.length === 0) {
-    createEQChain(gainA, gainB, analyser, destination);
-  }
-  if (_eqFilters.length === 0) return;
-
-  // Disconnect gains from direct analyser (if they were connected)
-  try { gainA.disconnect(analyser); } catch {}
-  try { gainB.disconnect(analyser); } catch {}
-
-  // Connect gains to first EQ filter
-  try { gainA.connect(_eqFilters[0]); } catch {}
-  try { gainB.connect(_eqFilters[0]); } catch {}
-
-  _eqEnabled = true;
-}
-
-/**
- * Disable the EQ — disconnects gains from EQ chain,
- * reconnects them directly to analyser.
- */
-export function disableEQ(
-  gainA: GainNode,
-  gainB: GainNode,
-  analyser: AnalyserNode,
-  destination: AudioDestinationNode,
-): void {
-  if (_eqFilters.length === 0) return;
-
-  // Disconnect gains from EQ chain
-  try { gainA.disconnect(_eqFilters[0]); } catch {}
-  try { gainB.disconnect(_eqFilters[0]); } catch {}
-
-  // Reconnect gains directly to analyser
-  try { gainA.connect(analyser); } catch {}
-  try { gainB.connect(analyser); } catch {}
-
-  _eqEnabled = false;
-}
-
-/**
- * Set the gain for a specific EQ band.
- * @param bandIndex - 0-9
- * @param gain - -12 to +12 dB
- */
-export function setEQBand(bandIndex: number, gain: number): void {
-  if (bandIndex < 0 || bandIndex >= _eqFilters.length) return;
-  const clamped = Math.max(EQ_MIN, Math.min(EQ_MAX, gain));
-  _eqFilters[bandIndex].gain.value = clamped;
-}
-
-/**
- * Get the current gain value of a band.
- */
-export function getEQBand(bandIndex: number): number {
-  if (bandIndex < 0 || bandIndex >= _eqFilters.length) return 0;
-  return _eqFilters[bandIndex].gain.value;
-}
-
-/**
- * Set all EQ bands at once from an array of values.
- */
-export function setAllEQBands(bands: number[]): void {
-  for (let i = 0; i < Math.min(bands.length, _eqFilters.length); i++) {
-    const clamped = Math.max(EQ_MIN, Math.min(EQ_MAX, bands[i]));
-    _eqFilters[i].gain.value = clamped;
-  }
-}
-
-/**
- * Reset all bands to 0dB.
- */
-export function resetEQBands(): void {
-  for (const filter of _eqFilters) {
-    filter.gain.value = 0;
-  }
-}
-
-/**
- * Destroy the EQ chain — disconnects all filters.
- */
-export function destroyEQChain(
-  gainA: GainNode,
-  gainB: GainNode,
-  analyser: AnalyserNode,
-  destination: AudioDestinationNode,
-): void {
-  if (_eqFilters.length === 0) return;
-
-  // If EQ was enabled, reconnect gains directly
-  if (_eqEnabled) {
-    try { gainA.disconnect(_eqFilters[0]); } catch {}
-    try { gainB.disconnect(_eqFilters[0]); } catch {}
-    try { gainA.connect(analyser); } catch {}
-    try { gainB.connect(analyser); } catch {}
-  }
-
-  // Disconnect filter chain
-  for (let i = 0; i < _eqFilters.length; i++) {
-    try { _eqFilters[i].disconnect(); } catch {}
-  }
-
-  _eqFilters = [];
-  _eqEnabled = false;
-}

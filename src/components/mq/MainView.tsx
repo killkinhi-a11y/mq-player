@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
+import { extractTasteProfile } from "@/lib/tasteProfile";
 import TrackCard from "./TrackCard";
 import AISmartRecs from "./AISmartRecs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,67 +33,37 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
       setAiLoading(true);
       try {
         const state = useAppStore.getState();
-        const tg = state.tasteGenres;
-        const ta = state.tasteArtists;
-        const tm = state.tasteMoods;
 
-        const topGenres = Object.entries(tg).filter(([, v]) => v >= 20).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([g]) => g);
-        const topArtists = Object.entries(ta).filter(([, v]) => v >= 20).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([a]) => a);
-        const moods = Object.entries(tm || {}).filter(([, v]) => v >= 30).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([m]) => m);
-        const recentTitles = state.history.slice(0, 8).map(h => `${h.track.title} - ${h.track.artist}`).join("|");
+        // M3.4: use shared extractTasteProfile instead of 50+ lines of
+        // copy-pasted genre/artist/language extraction logic.
+        const tp = extractTasteProfile({
+          history: state.history,
+          likedTracksData: state.likedTracksData,
+          tasteGenres: state.tasteGenres,
+          tasteArtists: state.tasteArtists,
+          tasteMoods: state.tasteMoods,
+          dislikedTrackIds: state.dislikedTrackIds,
+        });
+
         const disliked = state.dislikedTrackIds || [];
         const dislikedGenres = state.dislikedTracksData.map((t: Track) => t.genre).filter(Boolean).slice(0, 5);
         const completedGenres = state.feedbackBatch?.completedGenres || [];
-
-        // ── Extract genres & artists from HISTORY (primary signal) ──
-        const historyGenreCounts: Record<string, number> = {};
-        const historyArtistCounts: Record<string, number> = {};
-        for (const h of state.history.slice(0, 50)) {
-          const genre = (h.track.genre || "").trim();
-          const artist = (h.track.artist || "").trim();
-          if (genre) historyGenreCounts[genre] = (historyGenreCounts[genre] || 0) + h.playCount;
-          if (artist) historyArtistCounts[artist] = (historyArtistCounts[artist] || 0) + h.playCount;
-        }
-        const topHistoryGenres = Object.entries(historyGenreCounts)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 5)
-          .map(([g]) => g);
-        const topHistoryArtists = Object.entries(historyArtistCounts)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 3)
-          .map(([a]) => a);
-
-        // Merge taste profile + history for broader coverage
-        const allGenres = [...new Set([...topGenres, ...topHistoryGenres])].slice(0, 6);
-        const allArtists = [...new Set([...topArtists, ...topHistoryArtists])].slice(0, 5);
-
-        // Detect language
-        const langCounts: Record<string, number> = { russian: 0, english: 0 };
-        for (const entry of [...state.likedTracksData, ...state.history.slice(0, 30)]) {
-          const t = "title" in entry ? entry : entry.track;
-          const text = `${t.title || ""} ${t.artist || ""}`;
-          const cyrillic = (text.match(/[\u0400-\u04FF]/g) || []).length;
-          const latin = (text.match(/[a-zA-Z]/g) || []).length;
-          if (cyrillic / (cyrillic + latin + 1) > 0.4) langCounts.russian++;
-          else if (latin / (cyrillic + latin + 1) > 0.6) langCounts.english++;
-        }
-        const sortedLang = Object.entries(langCounts).sort((a, b) => b[1] - a[1]);
-        const lang = sortedLang[0]?.[1] > 5 ? sortedLang[0][0] : "mixed";
+        const recentTitles = tp.recentTitles.join("|");
 
         // ── Also works without taste profile — uses history only ──
-        if (allGenres.length === 0 && state.history.length < 3) {
+        if (tp.allGenres.length === 0 && state.history.length < 3) {
           setAiLoading(false);
           return;
         }
 
         const params = new URLSearchParams();
-        if (allGenres.length > 0) params.set("genres", allGenres.join(","));
-        if (allArtists.length > 0) params.set("artists", allArtists.join(","));
-        if (moods.length > 0) params.set("moods", moods.join(","));
+        if (tp.allGenres.length > 0) params.set("genres", tp.allGenres.join(","));
+        if (tp.allArtists.length > 0) params.set("artists", tp.allArtists.join(","));
+        if (tp.topMoods.length > 0) params.set("moods", tp.topMoods.join(","));
         if (recentTitles) params.set("recentTitles", recentTitles);
         if (dislikedGenres.length > 0) params.set("skippedGenres", dislikedGenres.join(","));
         if (completedGenres.length > 0) params.set("completedGenres", completedGenres.join(","));
-        if (lang !== "mixed") params.set("lang", lang);
+        if (tp.language !== "mixed") params.set("lang", tp.language);
         params.set("limit", "50");
 
         const res = await fetch(`/api/ai/recommendations?${params}`);

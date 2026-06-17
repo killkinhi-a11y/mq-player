@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { type Track } from "@/lib/musicApi";
+import { extractTasteProfile } from "@/lib/tasteProfile";
 import {
   Send, Sparkles, Play, Plus, X, ArrowLeft, RefreshCw,
   Music, Headphones, Zap, Coffee, Dumbbell, Moon, Sun,
@@ -148,76 +149,35 @@ export default function AIAssistant() {
     scrollToBottom();
   }, [messages, isLoading, scrollToBottom]);
 
-  // Build taste profile for context — enriched with listening history
+  // Build taste profile for context (M3.4: shared extractTasteProfile)
   const getTasteProfile = useCallback(() => {
-    const topGenres = Object.entries(tasteGenres)
-      .filter(([, v]) => v >= 20)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 8)
-      .map(([g]) => g);
+    const tp = extractTasteProfile({
+      history,
+      likedTracksData,
+      tasteGenres,
+      tasteArtists,
+      tasteMoods,
+      dislikedTrackIds: likedTrackIds,
+    });
 
-    const topArtists = Object.entries(tasteArtists)
-      .filter(([, v]) => v >= 20)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([a]) => a);
-
-    const moods = Object.entries(tasteMoods || {})
-      .filter(([, v]) => v >= 30)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([m]) => m);
-
-    const recentTracks = history.slice(0, 8).map(h => `${h.track.title} - ${h.track.artist}`);
-
-    // ── Extract top genres from listening HISTORY (not just taste profile) ──
-    const historyGenreCounts: Record<string, number> = {};
-    const historyArtistCounts: Record<string, number> = {};
-    for (const h of history.slice(0, 50)) {
-      const genre = (h.track.genre || "").trim();
-      const artist = (h.track.artist || "").trim();
-      if (genre) historyGenreCounts[genre] = (historyGenreCounts[genre] || 0) + h.playCount;
-      if (artist) historyArtistCounts[artist] = (historyArtistCounts[artist] || 0) + h.playCount;
-    }
-    const topHistoryGenres = Object.entries(historyGenreCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([g]) => g);
-    const topHistoryArtists = Object.entries(historyArtistCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([a]) => a);
-
-    // ── Feedback signals ──
+    // Feedback signals (kept here — they're not in the shared helper
+    // because they're store-specific batch state)
     const skippedGenres = feedbackBatch?.skippedGenres || [];
     const completedGenres = feedbackBatch?.completedGenres || [];
 
-    // ── Session duration ──
+    // Session duration
     const sessionMinutes = sessionStartTime
       ? Math.floor((Date.now() - sessionStartTime) / 60000)
       : 0;
 
-    // Detect language
-    const langCounts: Record<string, number> = { russian: 0, english: 0 };
-    for (const entry of [...likedTracksData, ...history.slice(0, 30)]) {
-      const t = "title" in entry ? entry : entry.track;
-      const text = `${t.title || ""} ${t.artist || ""}`;
-      const cyrillic = (text.match(/[\u0400-\u04FF]/g) || []).length;
-      const latin = (text.match(/[a-zA-Z]/g) || []).length;
-      if (cyrillic / (cyrillic + latin + 1) > 0.4) langCounts.russian++;
-      else if (latin / (cyrillic + latin + 1) > 0.6) langCounts.english++;
-    }
-    const sorted = Object.entries(langCounts).sort((a, b) => b[1] - a[1]);
-    const language = sorted[0]?.[1] > 5 ? sorted[0][0] : "mixed";
-
     return {
-      genres: topGenres,
-      artists: topArtists,
-      moods,
-      language,
-      recentTracks,
-      topHistoryGenres,
-      topHistoryArtists,
+      genres: tp.topGenres,
+      artists: tp.topArtists,
+      moods: tp.topMoods,
+      language: tp.language,
+      recentTracks: tp.recentTitles,
+      topHistoryGenres: tp.topHistoryGenres,
+      topHistoryArtists: tp.topHistoryArtists,
       skippedGenres,
       completedGenres,
       sessionMinutes,

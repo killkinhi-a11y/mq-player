@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { type Track } from "@/lib/musicApi";
+import { extractTasteProfile, tasteProfileToSummary } from "@/lib/tasteProfile";
 import {
   Sparkles, Play, Music, Brain, Heart, Zap, Coffee,
   Moon, Sun, Dumbbell, CloudRain, PartyPopper, TreePine,
@@ -52,71 +53,32 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
   const [showAll, setShowAll] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  // Build taste context for API calls
+  // Build taste context for API calls (M3.4: uses shared extractTasteProfile)
   const buildTasteContext = useCallback(() => {
-    const topGenres = Object.entries(tasteGenres)
-      .filter(([, v]) => v >= 20)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([g]) => g);
+    const tp = extractTasteProfile({
+      history,
+      likedTracksData,
+      tasteGenres,
+      tasteArtists,
+      tasteMoods,
+      dislikedTrackIds,
+    });
+    return {
+      allGenres: tp.allGenres,
+      allArtists: tp.allArtists,
+      language: tp.language,
+      recentTitles: tp.recentTitles,
+      topMoods: tp.topMoods,
+    };
+  }, [tasteGenres, tasteArtists, tasteMoods, history, likedTracksData, dislikedTrackIds]);
 
-    const topArtists = Object.entries(tasteArtists)
-      .filter(([, v]) => v >= 20)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
-      .map(([a]) => a);
-
-    // Also extract from history (primary signal)
-    const historyGenreCounts: Record<string, number> = {};
-    const historyArtistCounts: Record<string, number> = {};
-    for (const h of history.slice(0, 50)) {
-      const genre = (h.track.genre || "").trim();
-      const artist = (h.track.artist || "").trim();
-      if (genre) historyGenreCounts[genre] = (historyGenreCounts[genre] || 0) + h.playCount;
-      if (artist) historyArtistCounts[artist] = (historyArtistCounts[artist] || 0) + h.playCount;
-    }
-    const topHistoryGenres = Object.entries(historyGenreCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([g]) => g);
-    const topHistoryArtists = Object.entries(historyArtistCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([a]) => a);
-
-    const allGenres = [...new Set([...topGenres, ...topHistoryGenres])].slice(0, 6);
-    const allArtists = [...new Set([...topArtists, ...topHistoryArtists])].slice(0, 5);
-
-    // Detect language
-    const langCounts: Record<string, number> = { russian: 0, english: 0 };
-    for (const entry of [...likedTracksData, ...history.slice(0, 30)]) {
-      const t = "title" in entry ? entry : entry.track;
-      const text = `${t.title || ""} ${t.artist || ""}`;
-      const cyrillic = (text.match(/[\u0400-\u04FF]/g) || []).length;
-      const latin = (text.match(/[a-zA-Z]/g) || []).length;
-      if (cyrillic / (cyrillic + latin + 1) > 0.4) langCounts.russian++;
-      else if (latin / (cyrillic + latin + 1) > 0.6) langCounts.english++;
-    }
-    const sorted = Object.entries(langCounts).sort((a, b) => b[1] - a[1]);
-    const language = sorted[0]?.[1] > 5 ? sorted[0][0] : "mixed";
-
-    return { allGenres, allArtists, language, recentTitles: history.slice(0, 8).map(h => `${h.track.title} - ${h.track.artist}`) };
-  }, [tasteGenres, tasteArtists, tasteMoods, history, likedTracksData]);
-
-  // Generate taste insight text
+  // Generate taste insight text (M3.4: shared helper)
   useEffect(() => {
-    const { allGenres, allArtists } = buildTasteContext();
-    if (allGenres.length > 0 || allArtists.length > 0) {
-      const genreStr = allGenres.slice(0, 3).join(", ");
-      const artistStr = allArtists.slice(0, 2).join(", ");
-      let insight = "Ваш вкус: ";
-      if (genreStr) insight += genreStr;
-      if (artistStr) insight += (genreStr ? " · " : "") + artistStr;
-      setTasteInsight(insight);
-    } else {
-      setTasteInsight("Слушайте больше музыки — AI изучит ваши предпочтения");
-    }
-  }, [buildTasteContext]);
+    const tp = extractTasteProfile({
+      history, likedTracksData, tasteGenres, tasteArtists, tasteMoods, dislikedTrackIds,
+    });
+    setTasteInsight(tasteProfileToSummary(tp));
+  }, [buildTasteContext, history, likedTracksData, tasteGenres, tasteArtists, tasteMoods, dislikedTrackIds]);
 
   // Fetch AI recommendations
   const fetchRecommendations = useCallback(async (presetId?: string, customPrompt?: string) => {
