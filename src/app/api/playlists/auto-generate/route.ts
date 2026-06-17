@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { isTurso, getTursoClient } from "@/lib/database";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
 import { getZaiBaseUrl } from "@/lib/ai-proxy";
@@ -21,7 +21,31 @@ async function postHandler(req: NextRequest) {
 
     if (playlistId && typeof playlistId === "string" && userId) {
       try {
-        const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
+        // Look up playlist via Turso/Prisma dual path
+        let playlist: { userId: string; tracksJson: string; name: string } | null = null;
+        if (isTurso()) {
+          const t = getTursoClient();
+          const result = await t.execute({
+            sql: "SELECT userId, tracksJson, name FROM Playlist WHERE id = ?",
+            args: [playlistId],
+          });
+          if (result.rows.length > 0) {
+            const row = result.rows[0] as Record<string, unknown>;
+            playlist = {
+              userId: String(row.userId ?? ""),
+              tracksJson: String(row.tracksJson ?? "[]"),
+              name: String(row.name ?? ""),
+            };
+          }
+        } else {
+          const { db } = await import("@/lib/db");
+          const p = await db.playlist.findUnique({ where: { id: playlistId } });
+          if (p) {
+            playlist = {
+              userId: p.userId, tracksJson: p.tracksJson, name: p.name,
+            };
+          }
+        }
         if (playlist) {
           playlistExistsInDb = true;
           if (playlist.userId && playlist.userId !== userId) {
@@ -105,10 +129,20 @@ async function postHandler(req: NextRequest) {
 
     if (playlistExistsInDb && playlistId) {
       try {
-        await db.playlist.update({
-          where: { id: playlistId },
-          data: { tags: cleanedTags.join(","), description: cleanedDescription },
-        });
+        // Update playlist with generated tags + description
+        if (isTurso()) {
+          const t = getTursoClient();
+          await t.execute({
+            sql: "UPDATE Playlist SET tags = ?, description = ?, updatedAt = ? WHERE id = ?",
+            args: [cleanedTags.join(","), cleanedDescription, new Date().toISOString(), playlistId],
+          });
+        } else {
+          const { db } = await import("@/lib/db");
+          await db.playlist.update({
+            where: { id: playlistId },
+            data: { tags: cleanedTags.join(","), description: cleanedDescription },
+          });
+        }
       } catch { /* silent */ }
     }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { isTurso, getTursoClient } from "@/lib/database";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
 
@@ -157,42 +157,118 @@ async function handler(req: NextRequest) {
     const timeContext = getTimeContext();
     const timeGenres = TIME_GENRE_BOOSTS[timeContext] || [];
 
-    // Fetch public playlists (except user's own)
-    const where: Record<string, unknown> = { isPublic: true };
-    if (userId) where.userId = { not: userId };
+    // Fetch public playlists (except user's own) — Turso path with JOIN for username + like count
+    let playlists: Array<{
+      id: string; userId: string; name: string; description: string; cover: string;
+      tags: string; tracksJson: string; playCount: number; createdAt: string; updatedAt: string;
+      username: string; likeCount: number;
+    }> = [];
 
-    let playlists = await db.playlist.findMany({
-      where,
-      include: {
-        user: { select: { username: true } },
-        _count: { select: { likes: true } },
-      },
-      take: 300,
-      orderBy: { createdAt: "desc" },
-    });
+    if (isTurso()) {
+      const t = getTursoClient();
+      const result = userId
+        ? await t.execute({
+            sql: `SELECT p.*, u.username as u_username,
+                    (SELECT COUNT(*) FROM PlaylistLike WHERE playlistId = p.id) as likeCount
+                  FROM Playlist p
+                  JOIN User u ON p.userId = u.id
+                  WHERE p.isPublic = 1 AND p.userId != ?
+                  ORDER BY p.createdAt DESC
+                  LIMIT 300`,
+            args: [userId],
+          })
+        : await t.execute({
+            sql: `SELECT p.*, u.username as u_username,
+                    (SELECT COUNT(*) FROM PlaylistLike WHERE playlistId = p.id) as likeCount
+                  FROM Playlist p
+                  JOIN User u ON p.userId = u.id
+                  WHERE p.isPublic = 1
+                  ORDER BY p.createdAt DESC
+                  LIMIT 300`,
+            args: [],
+          });
+      playlists = result.rows.map((r) => {
+        const row = r as Record<string, unknown>;
+        return {
+          id: String(row.id ?? ""),
+          userId: String(row.userId ?? ""),
+          name: String(row.name ?? ""),
+          description: String(row.description ?? ""),
+          cover: String(row.cover ?? ""),
+          tags: String(row.tags ?? ""),
+          tracksJson: String(row.tracksJson ?? "[]"),
+          playCount: Number(row.playCount ?? 0),
+          createdAt: String(row.createdAt ?? ""),
+          updatedAt: String(row.updatedAt ?? ""),
+          username: String(row.u_username ?? "Unknown"),
+          likeCount: Number(row.likeCount ?? 0),
+        };
+      });
+    } else {
+      const { db } = await import("@/lib/db");
+      const where: Record<string, unknown> = { isPublic: true };
+      if (userId) where.userId = { not: userId };
+      const rawPlaylists = await db.playlist.findMany({
+        where,
+        include: { user: { select: { username: true } }, _count: { select: { likes: true } } },
+        take: 300,
+        orderBy: { createdAt: "desc" },
+      });
+      playlists = rawPlaylists.map((p) => ({
+        id: p.id, userId: p.userId, name: p.name, description: p.description,
+        cover: p.cover, tags: p.tags, tracksJson: p.tracksJson, playCount: p.playCount,
+        createdAt: p.createdAt.toISOString(),
+        updatedAt: p.updatedAt.toISOString(),
+        username: p.user?.username || "Unknown",
+        likeCount: p._count?.likes || 0,
+      }));
+    }
 
     // Get user's liked playlist IDs to exclude
     let likedPlaylistIds: Set<string> = new Set();
     if (userId) {
-      const userLikes = await db.playlistLike.findMany({
-        where: { userId },
-        select: { playlistId: true },
-      });
-      likedPlaylistIds = new Set(userLikes.map((l) => l.playlistId));
+      if (isTurso()) {
+        const t = getTursoClient();
+        const likesResult = await t.execute({
+          sql: "SELECT playlistId FROM PlaylistLike WHERE userId = ?",
+          args: [userId],
+        });
+        likedPlaylistIds = new Set(likesResult.rows.map((r) => String((r as Record<string, unknown>).playlistId ?? "")));
+      } else {
+        const { db } = await import("@/lib/db");
+        const userLikes = await db.playlistLike.findMany({ where: { userId }, select: { playlistId: true } });
+        likedPlaylistIds = new Set(userLikes.map((l) => l.playlistId));
+      }
     }
 
     // ── COLLABORATIVE FILTERING ──
     let similarUserIds = new Set<string>();
     if (userId && likedPlaylistIds.size > 0) {
-      const userLikedArr = [...likedPlaylistIds];
-      const similarTaste = await db.playlistLike.findMany({
-        where: {
-          playlistId: { in: userLikedArr.slice(0, 10) },
-          userId: { not: userId },
-        },
-        select: { userId: true, playlistId: true },
-        take: 100,
-      });
+      const userLikedArr = [...likedPlaylistIds].slice(0, 10);
+      let similarTaste: Array<{ userId: string; playlistId: string }> = [];
+      if (isTurso()) {
+        const t = getTursoClient();
+        const placeholders = userLikedArr.map(() => "?").join(",");
+        const result = await t.execute({
+          sql: `SELECT userId, playlistId FROM PlaylistLike WHERE playlistId IN (${placeholders}) AND userId != ? LIMIT 100`,
+          args: [...userLikedArr, userId],
+        });
+        similarTaste = result.rows.map((r) => {
+          const row = r as Record<string, unknown>;
+          return {
+            userId: String(row.userId ?? ""),
+            playlistId: String(row.playlistId ?? ""),
+          };
+        });
+      } else {
+        const { db } = await import("@/lib/db");
+        const rows = await db.playlistLike.findMany({
+          where: { playlistId: { in: userLikedArr }, userId: { not: userId } },
+          select: { userId: true, playlistId: true },
+          take: 100,
+        });
+        similarTaste = rows.map((l) => ({ userId: l.userId, playlistId: l.playlistId }));
+      }
       const userCoLikeCounts = new Map<string, number>();
       for (const like of similarTaste) {
         userCoLikeCounts.set(like.userId, (userCoLikeCounts.get(like.userId) || 0) + 1);
@@ -204,16 +280,31 @@ async function handler(req: NextRequest) {
 
     let collaborativePlaylistIds = new Set<string>();
     if (similarUserIds.size > 0) {
-      const collabPlaylists = await db.playlist.findMany({
-        where: {
-          userId: { in: [...similarUserIds].slice(0, 20) },
-          isPublic: true,
-          id: { notIn: [...likedPlaylistIds] },
-        },
-        select: { id: true },
-        take: 50,
-      });
-      collaborativePlaylistIds = new Set(collabPlaylists.map(p => p.id));
+      const similarArr = [...similarUserIds].slice(0, 20);
+      const excludeArr = [...likedPlaylistIds];
+      if (isTurso()) {
+        const t = getTursoClient();
+        const placeholders = similarArr.map(() => "?").join(",");
+        // Turso doesn't support NOT IN with empty array — guard
+        let sql = `SELECT id FROM Playlist WHERE userId IN (${placeholders}) AND isPublic = 1`;
+        const args: (string | number)[] = [...similarArr];
+        if (excludeArr.length > 0) {
+          const excludePlaceholders = excludeArr.map(() => "?").join(",");
+          sql += ` AND id NOT IN (${excludePlaceholders})`;
+          args.push(...excludeArr);
+        }
+        sql += " LIMIT 50";
+        const result = await t.execute({ sql, args });
+        collaborativePlaylistIds = new Set(result.rows.map((r) => String((r as Record<string, unknown>).id ?? "")));
+      } else {
+        const { db } = await import("@/lib/db");
+        const collabPlaylists = await db.playlist.findMany({
+          where: { userId: { in: similarArr }, isPublic: true, id: { notIn: excludeArr } },
+          select: { id: true },
+          take: 50,
+        });
+        collaborativePlaylistIds = new Set(collabPlaylists.map(p => p.id));
+      }
     }
 
     // Build user genre set (from tags + explicit topGenres)
@@ -365,7 +456,7 @@ async function handler(req: NextRequest) {
         }
 
         // ── 9. POPULARITY BONUS (0-15 points) ──
-        score += Math.min(15, (p._count?.likes || 0) * 2 + p.playCount * 0.5);
+        score += Math.min(15, (p.likeCount || 0) * 2 + p.playCount * 0.5);
 
         // ── 10. RECENCY BONUS ──
         const daysSinceCreation = (Date.now() - new Date(p.createdAt).getTime()) / (1000 * 60 * 60 * 24);
@@ -415,14 +506,14 @@ async function handler(req: NextRequest) {
     const result = merged.map((p) => ({
       id: p.id,
       userId: p.userId,
-      username: p.user?.username || "Unknown",
+      username: p.username || "Unknown",
       name: p.name,
       description: p.description,
       cover: p.cover,
       tags: p._tags,
       tracks: p.tracks,
       trackCount: p.tracks.length,
-      likeCount: p._count?.likes || 0,
+      likeCount: p.likeCount || 0,
       playCount: p.playCount,
       score: Math.min(100, Math.round(p._score / 2)),
       isCollaborative: p._isCollaborative,
@@ -457,11 +548,11 @@ async function handler(req: NextRequest) {
           let tracks: any[] = [];
           try { tracks = JSON.parse(p.tracksJson || "[]"); } catch { tracks = []; }
           return {
-            id: p.id, userId: p.userId, username: p.user?.username || "Unknown",
+            id: p.id, userId: p.userId, username: p.username || "Unknown",
             name: p.name, description: p.description, cover: p.cover,
             tags: (p.tags || "").split(",").filter(Boolean),
             tracks, trackCount: tracks.length,
-            likeCount: p._count?.likes || 0, playCount: p.playCount,
+            likeCount: p.likeCount || 0, playCount: p.playCount,
             score: 0, isCollaborative: false,
             createdAt: p.createdAt, updatedAt: p.updatedAt,
           };

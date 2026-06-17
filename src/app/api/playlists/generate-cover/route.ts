@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { isTurso, getTursoClient } from "@/lib/database";
 import { withRateLimit } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
 import { getZaiBaseUrl } from "@/lib/ai-proxy";
@@ -81,7 +81,34 @@ async function postHandler(req: NextRequest) {
     let playlistExistsInDb = false;
     let existingTags = "";
 
-    const playlist = userId ? await db.playlist.findUnique({ where: { id: playlistId } }) : null;
+    // Look up playlist via Turso/Prisma dual path
+    let playlist: { userId: string; tracksJson: string; name: string; tags: string } | null = null;
+    if (userId) {
+      if (isTurso()) {
+        const t = getTursoClient();
+        const result = await t.execute({
+          sql: "SELECT userId, tracksJson, name, tags FROM Playlist WHERE id = ?",
+          args: [playlistId],
+        });
+        if (result.rows.length > 0) {
+          const row = result.rows[0] as Record<string, unknown>;
+          playlist = {
+            userId: String(row.userId ?? ""),
+            tracksJson: String(row.tracksJson ?? "[]"),
+            name: String(row.name ?? ""),
+            tags: String(row.tags ?? ""),
+          };
+        }
+      } else {
+        const { db } = await import("@/lib/db");
+        const p = await db.playlist.findUnique({ where: { id: playlistId } });
+        if (p) {
+          playlist = {
+            userId: p.userId, tracksJson: p.tracksJson, name: p.name, tags: p.tags,
+          };
+        }
+      }
+    }
     if (playlist) {
       playlistExistsInDb = true;
       if (playlist.userId !== userId) {
@@ -145,7 +172,16 @@ async function postHandler(req: NextRequest) {
     const coverUrl = `data:image/png;base64,${base64}`;
 
     if (playlistExistsInDb) {
-      await db.playlist.update({ where: { id: playlistId }, data: { cover: coverUrl } });
+      if (isTurso()) {
+        const t = getTursoClient();
+        await t.execute({
+          sql: "UPDATE Playlist SET cover = ?, updatedAt = ? WHERE id = ?",
+          args: [coverUrl, new Date().toISOString(), playlistId],
+        });
+      } else {
+        const { db } = await import("@/lib/db");
+        await db.playlist.update({ where: { id: playlistId }, data: { cover: coverUrl } });
+      }
     }
 
     return NextResponse.json({ cover: coverUrl });
