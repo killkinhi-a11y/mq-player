@@ -147,30 +147,10 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         {/* Skip-to-content link for keyboard / screen-reader users (M4.3 a11y).
-            Visually hidden until focused, then appears top-left. */}
-        <a
-          href="#main-content"
-          className="mq-skip-link"
-          style={{
-            position: "absolute",
-            left: -9999,
-            top: 0,
-            zIndex: 100000,
-            padding: "8px 16px",
-            background: "var(--mq-accent, #e03131)",
-            color: "#fff",
-            textDecoration: "none",
-            borderRadius: "0 0 8px 0",
-            fontSize: 14,
-            fontWeight: 500,
-          }}
-          onFocus={(e) => {
-            e.currentTarget.style.left = "0";
-          }}
-          onBlur={(e) => {
-            e.currentTarget.style.left = "-9999px";
-          }}
-        >
+            Visually hidden until focused, then appears top-left. Pure CSS —
+            see `.mq-skip-link` in globals.css. NO event handlers here because
+            RootLayout is a Server Component (cannot use onFocus/onBlur). */}
+        <a href="#main-content" className="mq-skip-link">
           Перейти к основному контенту
         </a>
         {children}

@@ -2163,3 +2163,28 @@ a:focus-visible,
   0%, 100% { opacity: 0.3; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(1.02); }
 }
+
+/* ── Skip-to-content link (M4.3 a11y) ──
+   Visually hidden until focused via keyboard Tab. Pure CSS — no JS, so
+   it works in Server Components (RootLayout is a Server Component and
+   cannot use onFocus/onBlur event handlers). */
+.mq-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100000;
+  padding: 8px 16px;
+  background: var(--mq-accent, #e03131);
+  color: #fff;
+  text-decoration: none;
+  border-radius: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 500;
+  transition: left 0.15s ease-out;
+}
+.mq-skip-link:focus,
+.mq-skip-link:focus-visible {
+  left: 0;
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
