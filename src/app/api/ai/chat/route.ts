@@ -335,4 +335,5 @@ async function clearHandler(req: NextRequest, ctx: { userId: string; userRole: s
   return NextResponse.json({ ok: true });
 }
 
-export { withAuth(clearHandler) as GET };
+// Wrap into a const first — Turbopack doesn't accept function calls inside `export { x as Y }`.
+export const GET = withAuth(clearHandler);

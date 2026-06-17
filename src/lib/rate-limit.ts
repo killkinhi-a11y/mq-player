@@ -42,6 +42,13 @@ function cleanup() {
 }
 
 // ── Upstash Redis lazy loader ────────────────────────────────────────────────
+//
+// IMPORTANT: We use a dynamic require() via eval() so the bundler does NOT
+// try to resolve `@upstash/redis` at build time. If the package isn't
+// installed (e.g. dev environments, or production without Upstash env vars),
+// the require will throw and we fall back to the in-memory rate limiter.
+//
+// This is the same pattern used by Next.js for optional native deps.
 let _upstashClient: { incr: (key: string) => Promise<number>; expire: (key: string, ttl: number) => Promise<void> } | null | undefined;
 
 async function getUpstashClient() {
@@ -51,8 +58,17 @@ async function getUpstashClient() {
     return null;
   }
   try {
-    // Lazy import — avoids loading the package in dev when not configured
-    const mod = await import("@upstash/redis").catch(() => null);
+    // Dynamic require — bypasses bundler's static analysis.
+    // The indirection through `eval` prevents Turbopack/webpack from
+    // trying to resolve the module at build time.
+    // eslint-disable-next-line @typescript-eslint/no-implied-eval
+    const dynamicRequire = new Function("m", "return require(m)") as (m: string) => unknown;
+    const mod = dynamicRequire("@upstash/redis") as
+      | { Redis?: new (opts: { url: string; token: string }) => {
+              incr: (k: string) => Promise<number>;
+              expire: (k: string, ttl: number) => Promise<void>;
+            } }
+      | null;
     if (!mod || !mod.Redis) {
       console.warn("[rate-limit] UPSTASH_REDIS_REST_URL set but @upstash/redis not installed — falling back to in-memory");
       _upstashClient = null;
