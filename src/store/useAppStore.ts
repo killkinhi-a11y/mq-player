@@ -9,8 +9,11 @@ import { EQ_PRESETS } from "@/lib/eq";
 // in AppShell since 2025-Q2).
 // PlaybackState type was originally exported from playbackEngine.ts.
 // We redefine it inline here for backwards-compat with the persisted
-// store shape. The field is no longer actively updated by anything.
-type PlaybackState = "idle" | "loading" | "playing" | "paused" | "error" | "ended";
+// store shape. Values actually used by useAudioEngine: 'idle' | 'buffering'
+// | 'playing' | 'paused'. The other variants from the original enum
+// ('loading', 'error', 'ended') are kept for forwards-compat in case
+// future code adds them.
+type PlaybackState = "idle" | "buffering" | "loading" | "playing" | "paused" | "error" | "ended";
 
 // ── Storage versioning ──
 // Bump this number to force a fresh store for all users with old data.
