@@ -116,7 +116,7 @@ function buildFallbackReply(userMessage: string, taste: TasteContext): { reply: 
   return { reply, queries };
 }
 
-async function handler(req: NextRequest, _ctx: { userId: string; userRole: string }) {
+async function handler(req: NextRequest, _ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }) {
   try {
     // Auth is REQUIRED — anonymous LLM access was a cost/abuse leak (M1 fix).
     // The session userId is provided by withAuth; we use it as the conversation
@@ -324,10 +324,12 @@ function needsRecommendation(message: string): boolean {
   return recKeywords.some(kw => lower.includes(kw));
 }
 
-export const POST = withAuth(withRateLimit(RATE_LIMITS.medium, handler));
+// withAuth wraps first (adds userId/userRole to ctx), then withRateLimit wraps
+// the authed handler. Order matters — rate-limit needs to count only authed calls.
+export const POST = withRateLimit(RATE_LIMITS.medium, withAuth(handler));
 
 // GET handler: clear session history (requires auth — already enforced by withAuth).
-async function clearHandler(req: NextRequest, ctx: { userId: string; userRole: string }) {
+async function clearHandler(req: NextRequest, ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }) {
   const { searchParams } = new URL(req.url);
   const clientSid = searchParams.get("sessionId") || "default";
   const sid = `u:${ctx.userId}:${clientSid}`;

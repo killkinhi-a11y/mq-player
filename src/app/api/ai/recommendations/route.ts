@@ -146,7 +146,7 @@ function setCache(key: string, data: unknown): void {
   cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
 }
 
-async function handler(req: NextRequest, _ctx: { userId: string; userRole: string }) {
+async function handler(req: NextRequest, _ctx: { params: Promise<Record<string, string>>; userId: string; userRole: string }) {
   try {
     // Auth required (M1 fix) — anonymous access was a Z-AI token burn vector.
     // Cache is now keyed by userId so different users don't share recs.
@@ -325,4 +325,5 @@ async function handler(req: NextRequest, _ctx: { userId: string; userRole: strin
   }
 }
 
-export const GET = withAuth(withRateLimit(RATE_LIMITS.heavy, handler));
+// withAuth inside, withRateLimit outside — see ai/chat/route.ts for rationale.
+export const GET = withRateLimit(RATE_LIMITS.heavy, withAuth(handler));
