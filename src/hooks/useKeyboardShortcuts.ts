@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
+import { getAudioElement } from "@/lib/audioEngine";
 
 /**
  * Global keyboard shortcuts for music playback.
@@ -23,6 +24,11 @@ import { useAppStore } from "@/store/useAppStore";
  * | f / F        | Toggle full track view    |
  * | b / B        | Toggle A-B repeat           |
  * | Escape       | Close full track view     |
+ *
+ * M3 fix: previously used `document.querySelector("audio")` to find the
+ * audio element, which during crossfade returns the FADING-OUT element
+ * (the first <audio> in DOM order). Now uses `getAudioElement()` from
+ * audioEngine.ts which returns the currently-active (fading-in) element.
  */
 export function useKeyboardShortcuts() {
   // We keep a ref to the volume *before* muting so we can restore it.
@@ -71,7 +77,7 @@ export function useKeyboardShortcuts() {
       // ── ArrowRight: seek forward 10 s ──
       case "ArrowRight": {
         e.preventDefault();
-        const audio = document.querySelector("audio");
+        const audio = getAudioElement();
         if (audio && duration > 0) {
           const newTime = Math.min(audio.currentTime + 10, duration);
           audio.currentTime = newTime;
@@ -83,7 +89,7 @@ export function useKeyboardShortcuts() {
       // ── ArrowLeft: seek backward 10 s ──
       case "ArrowLeft": {
         e.preventDefault();
-        const audio = document.querySelector("audio");
+        const audio = getAudioElement();
         if (audio && duration > 0) {
           const newTime = Math.max(audio.currentTime - 10, 0);
           audio.currentTime = newTime;
@@ -98,7 +104,7 @@ export function useKeyboardShortcuts() {
         const newVol = Math.min(volume + 5, 100);
         setVolume(newVol);
         // Apply quadratic curve consistent with PlayerBar volume handling
-        const audio = document.querySelector("audio");
+        const audio = getAudioElement();
         if (audio) audio.volume = Math.pow(newVol / 100, 2);
         // If we were muted, restore the pre-mute ref
         if (preMuteVolume.current !== null && newVol > 0) {
@@ -112,7 +118,7 @@ export function useKeyboardShortcuts() {
         e.preventDefault();
         const newVol = Math.max(volume - 5, 0);
         setVolume(newVol);
-        const audio = document.querySelector("audio");
+        const audio = getAudioElement();
         if (audio) audio.volume = Math.pow(newVol / 100, 2);
         if (newVol === 0 && preMuteVolume.current === null) {
           preMuteVolume.current = volume;
@@ -141,14 +147,14 @@ export function useKeyboardShortcuts() {
           // Unmute — restore pre-mute volume (default to 30)
           const restore = preMuteVolume.current ?? 30;
           setVolume(restore);
-          const audio = document.querySelector("audio");
+          const audio = getAudioElement();
           if (audio) audio.volume = Math.pow(restore / 100, 2);
           preMuteVolume.current = null;
         } else {
           // Mute
           preMuteVolume.current = volume;
           setVolume(0);
-          const audio = document.querySelector("audio");
+          const audio = getAudioElement();
           if (audio) audio.volume = 0;
         }
         break;

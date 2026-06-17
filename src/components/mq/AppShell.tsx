@@ -265,16 +265,10 @@ export default function AppShell() {
     };
   }, [isAuthenticated]);
 
-  // ── PlaybackEngine sync DISABLED ──
-  // The PlaybackEngine singleton conflicts with useAudioEngine (both attach
-  // listeners to the same audio element, causing double-ended, race conditions
-  // on play/pause, and conflicting state updates).  Re-enable only after
-  // migrating PlayerBar fully to PlaybackEngine.
-  // useEffect(() => {
-  //   if (_hasHydrated) {
-  //     useAppStore.getState().syncWithPlaybackEngine();
-  //   }
-  // }, [_hasHydrated]);
+  // NOTE: PlaybackEngine sync block was deleted in M3 — PlaybackEngine +
+  // usePlaybackEngine were dead code (only useAudioEngine is active).
+  // The previous useEffect called `syncWithPlaybackEngine()` which was
+  // itself a no-op since 2025-Q2.
 
   useGlobalNotifications();
   useListenSessionSync();

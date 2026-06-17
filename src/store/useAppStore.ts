@@ -4,7 +4,13 @@ import { type Track, type Message as ChatMessage } from "@/lib/musicApi";
 import { themes, applyThemeToDOM } from "@/lib/themes";
 import { enableEQ as engineEnableEQ, disableEQ as engineDisableEQ, setEQBand as engineSetEQBand, setAllEQBands as engineSetAllEQBands, resetEQBands as engineResetEQBands, setAudioPlaybackRate as engineSetAudioPlaybackRate, getAudioElement, resumeAudioContext, getInactiveAudio, setCrossfadeEnabled as engineSetCrossfadeEnabled } from "@/lib/audioEngine";
 import { EQ_PRESETS } from "@/lib/eq";
-import { PlaybackEngine, type PlaybackState } from "@/lib/playbackEngine";
+// NOTE: PlaybackEngine + usePlaybackEngine were deleted in M3 (dead code —
+// useAudioEngine is the active engine, syncWithPlaybackEngine was disabled
+// in AppShell since 2025-Q2).
+// PlaybackState type was originally exported from playbackEngine.ts.
+// We redefine it inline here for backwards-compat with the persisted
+// store shape. The field is no longer actively updated by anything.
+type PlaybackState = "idle" | "loading" | "playing" | "paused" | "error" | "ended";
 
 // ── Storage versioning ──
 // Bump this number to force a fresh store for all users with old data.
@@ -2354,19 +2360,17 @@ export const useAppStore = create<AppState>()(
       petCat: () => set((s) => ({ catPetCount: s.catPetCount + 1, catLastSeen: Date.now() })),
 
       // ── PlaybackEngine sync ──
-      // DISABLED: PlaybackEngine singleton conflicts with useAudioEngine hook.
-      // Both attach event listeners to the same HTMLAudioElement, causing
-      // double-ended events, race conditions on play/pause, and conflicting
-      // state machine transitions.  Re-enable only after migrating PlayerBar
-      // fully to PlaybackEngine and removing useAudioEngine.
+      // DELETED in M3: PlaybackEngine + usePlaybackEngine were dead code.
+      // useAudioEngine is the only playback engine. These no-op stubs are
+      // kept for backwards-compat with any component that still destructures
+      // them from the store; they will be removed once all call-sites are
+      // audited.
       syncWithPlaybackEngine: () => {
-        console.warn('[MQ Store] syncWithPlaybackEngine is disabled — useAudioEngine is the active engine');
+        console.warn('[MQ Store] syncWithPlaybackEngine is a no-op (PlaybackEngine was deleted in M3)');
       },
 
       restorePlayback: async () => {
-        // DISABLED: PlaybackEngine singleton conflicts with useAudioEngine.
-        // Restore is handled by useAudioEngine's init effect instead.
-        console.warn('[MQ Store] restorePlayback via PlaybackEngine is disabled — useAudioEngine handles this');
+        console.warn('[MQ Store] restorePlayback is a no-op (PlaybackEngine was deleted in M3; useAudioEngine handles restore)');
         return false;
       },
 
