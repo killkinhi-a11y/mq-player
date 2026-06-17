@@ -360,8 +360,8 @@ async function deleteHandler(
       }
       // Cascade-delete likes first, then the playlist
       await t.batch([
-        t.execute({ sql: "DELETE FROM PlaylistLike WHERE playlistId = ?", args: [playlistId] }),
-        t.execute({ sql: "DELETE FROM Playlist WHERE id = ?", args: [playlistId] }),
+        { sql: "DELETE FROM PlaylistLike WHERE playlistId = ?", args: [playlistId] },
+        { sql: "DELETE FROM Playlist WHERE id = ?", args: [playlistId] },
       ]);
       return NextResponse.json({ success: true });
     }

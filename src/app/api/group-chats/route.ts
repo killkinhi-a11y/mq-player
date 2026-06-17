@@ -268,25 +268,23 @@ async function postHandler(req: NextRequest) {
       const t = getTursoClient();
       const chatId = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
       const now = new Date().toISOString();
-      const stmts = [
-        t.execute({
+      // batch() takes SQL statements, not Promise<ResultSet> — build the
+      // INSERT for the chat + creator-as-admin + each invited member.
+      const memberStmts = filteredMemberIds.map((id: string) => ({
+        sql: "INSERT INTO GroupChatMember (id, groupChatId, userId, role, joinedAt) VALUES (?, ?, ?, 'member', ?)",
+        args: [`c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`, chatId, id, now],
+      }));
+      await t.batch([
+        {
           sql: "INSERT INTO GroupChat (id, name, description, avatar, createdBy, createdAt, updatedAt) VALUES (?, ?, ?, '', ?, ?, ?)",
           args: [chatId, name, description || "", userId, now, now],
-        }),
-        // Creator as admin
-        t.execute({
+        },
+        {
           sql: "INSERT INTO GroupChatMember (id, groupChatId, userId, role, joinedAt) VALUES (?, ?, ?, 'admin', ?)",
           args: [`c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`, chatId, userId, now],
-        }),
-        // Other members
-        ...filteredMemberIds.map((id: string) =>
-          t.execute({
-            sql: "INSERT INTO GroupChatMember (id, groupChatId, userId, role, joinedAt) VALUES (?, ?, ?, 'member', ?)",
-            args: [`c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`, chatId, id, now],
-          })
-        ),
-      ];
-      await t.batch(stmts);
+        },
+        ...memberStmts,
+      ]);
 
       // Build response — fetch all members with user info
       const membersResult = await t.execute({

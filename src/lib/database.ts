@@ -801,29 +801,30 @@ export const database = {
     if (isTurso()) {
       const t = getTurso();
       // Order matters: child tables first.
+      // batch() accepts an array of SQL statements (not Promise<ResultSet>).
       await t.batch([
-        t.execute({ sql: "DELETE FROM Message WHERE senderId = ? OR receiverId = ?", args: [id, id] }),
-        t.execute({ sql: "DELETE FROM Friend WHERE requesterId = ? OR addresseeId = ?", args: [id, id] }),
-        t.execute({ sql: "DELETE FROM StoryLike WHERE userId = ?", args: [id] }),
-        t.execute({ sql: "DELETE FROM StoryComment WHERE userId = ?", args: [id] }),
-        t.execute({ sql: "DELETE FROM Story WHERE userId = ?", args: [id] }),
-        t.execute({ sql: "DELETE FROM PlaylistLike WHERE userId = ?", args: [id] }),
-        t.execute({ sql: "DELETE FROM Playlist WHERE userId = ?", args: [id] }),
-        t.execute({ sql: "DELETE FROM UserSync WHERE userId = ?", args: [id] }),
-        t.execute({ sql: "DELETE FROM GroupChatMember WHERE userId = ?", args: [id] }),
-        t.execute({ sql: "DELETE FROM GroupMessage WHERE senderId = ?", args: [id] }),
-        t.execute({ sql: "DELETE FROM Notification WHERE userId = ?", args: [id] }),
-        t.execute({ sql: "DELETE FROM ListenSession WHERE hostId = ? OR guestId = ?", args: [id, id] }),
-        t.execute({ sql: "DELETE FROM VerificationCode WHERE userId = ?", args: [id] }),
+        { sql: "DELETE FROM Message WHERE senderId = ? OR receiverId = ?", args: [id, id] },
+        { sql: "DELETE FROM Friend WHERE requesterId = ? OR addresseeId = ?", args: [id, id] },
+        { sql: "DELETE FROM StoryLike WHERE userId = ?", args: [id] },
+        { sql: "DELETE FROM StoryComment WHERE userId = ?", args: [id] },
+        { sql: "DELETE FROM Story WHERE userId = ?", args: [id] },
+        { sql: "DELETE FROM PlaylistLike WHERE userId = ?", args: [id] },
+        { sql: "DELETE FROM Playlist WHERE userId = ?", args: [id] },
+        { sql: "DELETE FROM UserSync WHERE userId = ?", args: [id] },
+        { sql: "DELETE FROM GroupChatMember WHERE userId = ?", args: [id] },
+        { sql: "DELETE FROM GroupMessage WHERE senderId = ?", args: [id] },
+        { sql: "DELETE FROM Notification WHERE userId = ?", args: [id] },
+        { sql: "DELETE FROM ListenSession WHERE hostId = ? OR guestId = ?", args: [id, id] },
+        { sql: "DELETE FROM VerificationCode WHERE userId = ?", args: [id] },
       ]);
       // Find group chats created by this user and cascade-delete them
       const createdGroups = await t.execute({ sql: "SELECT id FROM GroupChat WHERE createdBy = ?", args: [id] });
       const groupIds = createdGroups.rows.map((r) => String((r as Record<string, unknown>).id));
       for (const gId of groupIds) {
         await t.batch([
-          t.execute({ sql: "DELETE FROM GroupChatMember WHERE groupChatId = ?", args: [gId] }),
-          t.execute({ sql: "DELETE FROM GroupMessage WHERE groupChatId = ?", args: [gId] }),
-          t.execute({ sql: "DELETE FROM GroupChat WHERE id = ?", args: [gId] }),
+          { sql: "DELETE FROM GroupChatMember WHERE groupChatId = ?", args: [gId] },
+          { sql: "DELETE FROM GroupMessage WHERE groupChatId = ?", args: [gId] },
+          { sql: "DELETE FROM GroupChat WHERE id = ?", args: [gId] },
         ]);
       }
       // Finally delete the user
