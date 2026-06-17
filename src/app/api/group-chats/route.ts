@@ -92,7 +92,15 @@ async function getHandler(req: NextRequest) {
               ORDER BY gc.updatedAt DESC`,
         args: [userId],
       });
-      const groupChats = [];
+      const groupChats: Array<{
+        id: string; name: string; description: string; avatar: string;
+        createdBy: string; createdAt: string; updatedAt: string;
+        memberCount: number;
+        lastMessage: {
+          id: string; content: string; messageType: string; createdAt: string;
+          sender: { id: string; username: string; avatar: string };
+        } | null;
+      }> = [];
       for (const r of membershipsResult.rows) {
         const row = r as Record<string, unknown>;
         const chatId = String(row.id ?? "");
