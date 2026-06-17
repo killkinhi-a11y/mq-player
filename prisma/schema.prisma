@@ -46,6 +46,7 @@ model User {
   typingEventsFrom       TypingEvent[] @relation("TypingFrom")
   typingEventsTo         TypingEvent[] @relation("TypingTo")
   trackComments          TrackComment[] @relation("TrackComments")
+  smartPlaylists         SmartPlaylist[] @relation("UserSmartPlaylists")
 }
 
 model AuditLog {
@@ -399,4 +400,19 @@ model TrackComment {
   user      User     @relation("TrackComments", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([trackId, createdAt])
+}
+
+// Smart playlists — rule-based auto-generated playlists (M5.3)
+model SmartPlaylist {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  rules       String   // JSON: [{field, op, value}, ...]
+  limit       Int      @default(100)
+  sortBy      String   @default("createdAt")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation("UserSmartPlaylists", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

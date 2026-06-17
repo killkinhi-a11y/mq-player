@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import {
@@ -132,6 +132,39 @@ export default function FavoritesView() {
 
   const tracks = activeTab === "subscriptions" ? [] : filteredTracks;
   const artists = activeTab === "subscriptions" ? filteredArtists : [];
+
+  // ── Progressive rendering (M4) ──
+  // Render only the first N tracks, load more when sentinel enters viewport.
+  // Avoids rendering 500+ DOM subtrees for large favorites lists.
+  const VISIBLE_INITIAL = 30;
+  const VISIBLE_STEP = 30;
+  const [visibleCount, setVisibleCount] = useState(VISIBLE_INITIAL);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // Reset visible count when the underlying tracks array changes identity
+  // (new search, tab switch, filter change)
+  useEffect(() => {
+    setVisibleCount(VISIBLE_INITIAL);
+  }, [filteredTracks, activeTab]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    if (visibleCount >= tracks.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setVisibleCount((prev) => Math.min(prev + VISIBLE_STEP, tracks.length));
+          }
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [visibleCount, tracks.length]);
 
   // ── Total duration for liked tracks ──
   const totalDuration = useMemo(() => {
@@ -924,7 +957,7 @@ export default function FavoritesView() {
           ) : (
             <div className="mq-track-list space-y-0">
               <AnimatePresence>
-                {tracks.map((track, index) => {
+                {tracks.slice(0, visibleCount).map((track, index) => {
                   const isCurrentTrack = currentTrack?.id === track.id;
                   const isCurrentlyPlaying = isCurrentTrack && isPlaying;
                   const isSelected = batchMode && selectedIds.has(track.id);
@@ -1096,6 +1129,29 @@ export default function FavoritesView() {
                   );
                 })}
               </AnimatePresence>
+
+              {/* Progressive render sentinel (M4) — IntersectionObserver loads
+                  more tracks when this enters viewport. */}
+              {visibleCount < tracks.length && (
+                <>
+                  <div
+                    ref={sentinelRef}
+                    aria-hidden="true"
+                    style={{ height: 1, width: "100%", pointerEvents: "none" }}
+                  />
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "12px",
+                      color: "var(--mq-text-muted, #888)",
+                      fontSize: 12,
+                    }}
+                    aria-live="polite"
+                  >
+                    Загружено {visibleCount} из {tracks.length}…
+                  </div>
+                </>
+              )}
 
               {/* Bottom summary bar */}
               {activeTab === "liked" && totalDuration > 0 && (
