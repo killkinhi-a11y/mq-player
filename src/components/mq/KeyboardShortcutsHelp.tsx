@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Keyboard } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
@@ -53,17 +53,56 @@ export function KeyboardShortcutsHelp() {
   // Close on Escape — also handled in useKeyboardShortcuts but with
   // lower priority (only closes FullTrackView there). Repeat here for
   // clarity when the modal is open.
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!isOpen) return;
+
+    // Save the currently focused element so we can restore it on close
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
         setOpen(false);
+        return;
+      }
+      // Focus trap: Tab cycles within the modal
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
     window.addEventListener("keydown", handler, true); // capture phase
-    return () => window.removeEventListener("keydown", handler, true);
+
+    // Focus the first focusable element when the modal opens
+    setTimeout(() => {
+      if (dialogRef.current) {
+        const first = dialogRef.current.querySelector<HTMLElement>(
+          'button, [href], input, [tabindex]:not([tabindex="-1"])'
+        );
+        first?.focus();
+      }
+    }, 50);
+
+    return () => {
+      window.removeEventListener("keydown", handler, true);
+      // Restore focus to the element that had it before the modal opened
+      previouslyFocusedRef.current?.focus();
+    };
   }, [isOpen, setOpen]);
 
   return (
@@ -81,6 +120,7 @@ export function KeyboardShortcutsHelp() {
           aria-labelledby="shortcuts-help-title"
         >
           <motion.div
+            ref={dialogRef}
             initial={{ scale: 0.95, opacity: 0, y: 10 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 10 }}

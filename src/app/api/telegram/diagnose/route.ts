@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { isTurso, getTursoClient, database } from "@/lib/database";
 import { sendTelegramMessage, isTelegramConfigured, getBotInfo, getWebhookInfo } from "@/lib/telegram";
 
 /**
@@ -8,7 +8,7 @@ import { sendTelegramMessage, isTelegramConfigured, getBotInfo, getWebhookInfo }
  * Full diagnostic: checks env vars, bot connection, DB connection,
  * TelegramAuthCode table, and user count.
  */
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const results: Record<string, any> = {};
 
   // 1. Environment variables
@@ -16,9 +16,11 @@ export async function GET(req: NextRequest) {
     TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN ? `set (${process.env.TELEGRAM_BOT_TOKEN.slice(0, 8)}...)` : "NOT SET",
     TELEGRAM_BOT_NAME: process.env.TELEGRAM_BOT_NAME || "NOT SET",
     DATABASE_URL: process.env.DATABASE_URL ? `set (${process.env.DATABASE_URL.slice(0, 20)}...)` : "NOT SET",
+    TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL ? `set (${process.env.TURSO_DATABASE_URL.slice(0, 20)}...)` : "NOT SET",
   };
 
   results.configured = isTelegramConfigured();
+  results.usingTurso = isTurso();
 
   // 2. Bot info
   try {
@@ -36,23 +38,32 @@ export async function GET(req: NextRequest) {
 
   // 4. Database — check if TelegramAuthCode table exists
   try {
-    const count = await db.telegramAuthCode.count();
+    let count: number;
+    if (isTurso()) {
+      const t = getTursoClient();
+      const result = await t.execute("SELECT COUNT(*) as c FROM TelegramAuthCode");
+      count = Number(result.rows[0]?.c ?? 0);
+    } else {
+      const { db } = await import("@/lib/db");
+      count = await db.telegramAuthCode.count();
+    }
     results.db = {
       ok: true,
       telegramAuthCodes: count,
       tableExists: true,
+      backend: isTurso() ? "turso" : "prisma",
     };
   } catch (e: any) {
     results.db = {
       ok: false,
       error: e.message,
-      fix: "Миграция не применена! Запусти локально: cd mq-player && npx prisma db push",
+      fix: "Миграция не применена! Запусти локально: cd mq-player && npx prisma db push (dev) или проверь Turso schema (prod)",
     };
   }
 
   // 5. Users count
   try {
-    const userCount = await db.user.count();
+    const userCount = await database.countUsers();
     results.users = { count: userCount };
   } catch (e: any) {
     results.users = { error: e.message };
