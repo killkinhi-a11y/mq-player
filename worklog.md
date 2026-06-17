@@ -260,3 +260,30 @@ Cumulative stats since start of session:
 - New component: src/components/mq/KeyboardShortcutsHelp.tsx (190L)
 - Database adapter methods added: 11 (findManyUsers, countTransactions, sumRevenue, findAllFeatureFlags, deleteFeatureFlag, findAuditLogs, countSupportMessages, countCronJobs, findAllCronJobs, deleteUserCascade, findMessageById, updateMessage)
 - Production: https://mq1.vercel.app — READY, all changes live
+
+---
+Task ID: FIX-SERVER-COMPONENT-RENDER-ERROR
+Agent: Main Agent (Claude)
+Task: Diagnose + fix "An error occurred in the Server Components render" on production
+
+Work Log:
+- User reported: "An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details."
+- Smoke test confirmed: curl https://mq1.vercel.app/ → HTTP 500, HTML had id="__next_error__". Same for /play.
+- Verified latest deployment (dpl_uVDUADXzoaVsE2BWujnWGqM2BtbB, commit ab7ea45) was READY but runtime was 500.
+- Vercel build logs showed no errors — only runtime errors on page request.
+- Vercel Observability API endpoints not available on this team plan, so could not pull runtime logs directly.
+- Inspected HTML response: Sentry release = ab7ea452b29d6c9b5f3ef3098851f1489ff2eb34 (= latest commit). So the error was introduced by recent commits.
+- Inspected src/app/layout.tsx — RootLayout has NO "use client" directive, so it's a Server Component by default in Next.js App Router.
+- Found the bug: commit 8d817ba (M4.3) added onFocus/onBlur event handlers to the skip-to-content <a> tag inside RootLayout. Server Components cannot use event handlers — they only render HTML, no client interactivity. This caused "An error occurred in the Server Components render" on every page.
+- Fix: removed onFocus/onBlur from layout.tsx. Added .mq-skip-link + .mq-skip-link:focus/:focus-visible rules to globals.css. The skip-link is still visually hidden until keyboard-focused — same UX, but pure CSS, no JS, fully compatible with Server Components.
+- Commit 40ed62c pushed → Vercel built → READY.
+- Smoke test after fix:
+  * https://mq1.vercel.app/ → HTTP 200 (was 500)
+  * https://mq1.vercel.app/play → HTTP 200 (was 500)
+  * /api/seasonal-theme → HTTP 200 (Turso migration works)
+  * /api/ai/recommendations (no auth) → HTTP 401 (M1 auth gate works)
+
+Stage Summary:
+- Production is back online. All M1+M2+M3+M4 changes are live and working.
+- Lesson learned: when adding a11y features to Server Components (RootLayout, page.tsx without "use client"), use CSS :focus / :focus-visible for interactive states. Event handlers (onFocus/onBlur/onClick) require a Client Component wrapper.
+- The skip-to-content link now uses pure CSS — no client JS, works in Server Components, no hydration cost.
