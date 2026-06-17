@@ -198,6 +198,24 @@ export function useKeyboardShortcuts() {
         break;
       }
 
+      // ── ? : open keyboard shortcuts help (M4.2) ──
+      case "?": {
+        // Toggle so pressing ? again closes the modal
+        const cur = useAppStore.getState().shortcutsHelpOpen;
+        useAppStore.getState().setShortcutsHelpOpen(!cur);
+        break;
+      }
+
+      // ── / : also open help (some keyboards need Shift+/ for ?) ──
+      case "/": {
+        // Only open if not already open — don't toggle, to avoid
+        // surprising users who type / expecting it to do nothing.
+        if (!useAppStore.getState().shortcutsHelpOpen) {
+          useAppStore.getState().setShortcutsHelpOpen(true);
+        }
+        break;
+      }
+
       default:
         break;
     }

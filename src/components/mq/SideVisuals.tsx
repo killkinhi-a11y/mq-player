@@ -250,8 +250,8 @@ export default function SideVisuals() {
 
   return (
     <>
-      <canvas ref={lcRef} className="fixed left-0 top-0 z-[1] pointer-events-none" style={{ display: "none", contain: "layout style paint", willChange: "transform" }} />
-      <canvas ref={rcRef} className="fixed right-0 top-0 z-[1] pointer-events-none" style={{ display: "none", contain: "layout style paint", willChange: "transform" }} />
+      <canvas ref={lcRef} className="fixed left-0 top-0 z-[1] pointer-events-none" style={{ display: "none", contain: "layout style paint", willChange: "transform" }} aria-hidden="true" />
+      <canvas ref={rcRef} className="fixed right-0 top-0 z-[1] pointer-events-none" style={{ display: "none", contain: "layout style paint", willChange: "transform" }} aria-hidden="true" />
     </>
   );
 }

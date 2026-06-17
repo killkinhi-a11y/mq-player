@@ -164,6 +164,9 @@ interface AppState {
   // Full-screen track view
   isFullTrackViewOpen: boolean;
 
+  // Keyboard shortcuts help modal (M4.2)
+  shortcutsHelpOpen: boolean;
+
   // Likes/Dislikes
   likedTrackIds: string[];
   dislikedTrackIds: string[];
@@ -296,6 +299,9 @@ interface AppState {
 
   // Full-screen track view actions
   setFullTrackViewOpen: (open: boolean) => void;
+
+  // Keyboard shortcuts help modal (M4.2)
+  setShortcutsHelpOpen: (open: boolean) => void;
 
   // Like/Dislike actions
   toggleLike: (trackId: string, trackData?: Track) => void;
@@ -538,6 +544,7 @@ const initialState = {
   notificationCount: 0 as number,
   notifPanelOpen: false as boolean,
   isFullTrackViewOpen: false,
+  shortcutsHelpOpen: false as boolean,
   likedTrackIds: [] as string[],
   dislikedTrackIds: [] as string[],
   dislikedTracksData: [] as Track[],
@@ -1465,6 +1472,8 @@ export const useAppStore = create<AppState>()(
       setIsLoading: (loading) => set({ isLoading: loading }),
 
       setFullTrackViewOpen: (open) => set({ isFullTrackViewOpen: open }),
+
+      setShortcutsHelpOpen: (open) => set({ shortcutsHelpOpen: open }),
 
       toggleLike: (trackId, trackData) => {
         const { likedTrackIds, dislikedTrackIds, likedTracksData } = get();

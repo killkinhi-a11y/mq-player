@@ -745,6 +745,7 @@ export default function SeasonalEffects({ theme }: { theme: SeasonalTheme }) {
         ref={canvasRef}
         className="fixed inset-0 pointer-events-none z-[60]"
         style={{ contain: "layout style paint", willChange: "transform" }}
+        aria-hidden="true"
       />
 
       {/* Close button */}

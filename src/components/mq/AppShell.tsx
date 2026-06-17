@@ -24,13 +24,28 @@ declare global {
   }
 }
 
-// ── Eager imports for main views (no loading flash on tab switch) ──
+// ── Eager imports for critical first-paint views only ──
+// AuthView is the entry point for unauthenticated users — must be eager.
+// MainView is the entry point for authenticated users — must be eager.
 import AuthView from "@/components/mq/AuthView";
 import MainView from "@/components/mq/MainView";
-import SearchView from "@/components/mq/SearchView";
-import SettingsView from "@/components/mq/SettingsView";
-import MessengerView from "@/components/mq/MessengerView";
 import LibraryView from "@/components/mq/LibraryView";
+
+// ── Dynamic imports for secondary views (M4.1: lazy-load god components
+// to shrink initial JS bundle). MessengerView (3554L) + SettingsView
+// (2219L) + SearchView are big and only opened on tab switch. ──
+const SearchView = dynamic(() => import("@/components/mq/SearchView"), {
+  ssr: false,
+  loading: () => <ViewSkeleton />,
+});
+const SettingsView = dynamic(() => import("@/components/mq/SettingsView"), {
+  ssr: false,
+  loading: () => <ViewSkeleton />,
+});
+const MessengerView = dynamic(() => import("@/components/mq/MessengerView"), {
+  ssr: false,
+  loading: () => <ViewSkeleton />,
+});
 
 // ── Dynamic imports for rarely-used views (still lazy) ──
 const ProfileView = dynamic(() => import("@/components/mq/ProfileView"), { ssr: false });
@@ -42,10 +57,33 @@ const SpatialAudioView = dynamic(() => import("@/components/mq/SpatialAudioView"
 const FriendsView = dynamic(() => import("@/components/mq/FriendsView"), { ssr: false });
 const SleepTimerView = dynamic(() => import("@/components/mq/SleepTimerView"), { ssr: false });
 
+// Inline skeleton shown while a lazy view chunk is loading.
+function ViewSkeleton() {
+  return (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "60vh",
+        color: "var(--mq-text-muted, #888)",
+        fontFamily: "var(--font-outfit), system-ui, sans-serif",
+        fontSize: 14,
+        letterSpacing: 2,
+      }}
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <span>Загрузка…</span>
+    </div>
+  );
+}
+
 // ── Shell components (lazy, not switched often) ──
 const MqCat = dynamic(() => import("@/components/mq/MqCat"), { ssr: false });
 const PlayerBar = dynamic(() => import("@/components/mq/PlayerBar"), { ssr: false });
 const FullTrackView = dynamic(() => import("@/components/mq/FullTrackView"), { ssr: false });
+const KeyboardShortcutsHelp = dynamic(() => import("@/components/mq/KeyboardShortcutsHelp").then(m => ({ default: m.KeyboardShortcutsHelp })), { ssr: false });
 const NavBar = dynamic(() => import("@/components/mq/NavBar"), { ssr: false });
 const MobileNav = dynamic(() => import("@/components/mq/MobileNav"), { ssr: false });
 const NotificationPanel = dynamic(() => import("@/components/mq/NotificationPanel"), { ssr: false });
@@ -392,7 +430,7 @@ export default function AppShell() {
         {showNav && !hideUiForFullscreen && <NavBar />}
       </Suspense>
 
-      <main className={showNav && !hideUiForFullscreen ? "lg:pt-14" : ""}>
+      <main id="main-content" className={showNav && !hideUiForFullscreen ? "lg:pt-14" : ""}>
         {/* ── Visited-Set view rendering ──
             Views are mounted lazily on first visit and kept alive with display:none.
             This preserves component state (scroll position, form inputs, etc.) while
@@ -443,6 +481,7 @@ export default function AppShell() {
       {/* PlayerBar is ALWAYS mounted — never unmount to preserve playback engine */}
       <Suspense fallback={null}><PlayerBar /></Suspense>
       <Suspense fallback={null}><FullTrackView /></Suspense>
+      <Suspense fallback={null}><KeyboardShortcutsHelp /></Suspense>
       <Suspense fallback={null}><MqCat /></Suspense>
       {/* Cobalt Turnstile — invisible widget for SNIP bypass JWT */}
       <CobaltTurnstile />

@@ -244,6 +244,7 @@ export default function HeroParticles() {
       ref={canvasRef}
       className="absolute inset-0 w-full h-full pointer-events-auto"
       style={{ zIndex: 1, contain: "layout style paint", willChange: "transform" }}
+      aria-hidden="true"
     />
   );
 }

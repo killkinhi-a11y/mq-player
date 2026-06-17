@@ -389,6 +389,7 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
           contain: "layout style paint",
           willChange: "opacity, transform",
         }}
+        aria-hidden="true"
       />
     );
   }
@@ -411,6 +412,7 @@ export default function DNAHelixVisual({ isPlaying, genre, compact }: DNAHelixVi
         contain: "layout style paint",
         willChange: "opacity, transform",
       }}
+      aria-hidden="true"
     />
   );
 }
