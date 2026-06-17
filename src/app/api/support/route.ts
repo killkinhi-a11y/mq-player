@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { isTurso, getTursoClient } from "@/lib/database";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
 
@@ -78,22 +78,89 @@ export async function POST(req: NextRequest) {
     if (!content || !content.trim()) {
       return NextResponse.json({ error: "Сообщение не может быть пустым" }, { status: 400 });
     }
-
     if (content.length > 2000) {
       return NextResponse.json({ error: "Сообщение слишком длинное (макс. 2000 символов)" }, { status: 400 });
     }
 
-    // Find or create a support chat session for this user
+    const now = new Date().toISOString();
+    const truncated = (s: string) => s.length > 100 ? s.substring(0, 100) + "..." : s;
+
+    if (isTurso()) {
+      const t = getTursoClient();
+
+      // Find or create support session
+      let sessionId: string;
+      if (userId) {
+        const existingResult = await t.execute({
+          sql: "SELECT sessionId, status FROM SupportChatSession WHERE userId = ? ORDER BY updatedAt DESC LIMIT 1",
+          args: [userId],
+        });
+        if (existingResult.rows.length > 0) {
+          const row = existingResult.rows[0] as Record<string, unknown>;
+          if (String(row.status ?? "open") !== "closed") {
+            sessionId = String(row.sessionId ?? "");
+          } else {
+            // Create new — old one is closed
+            sessionId = `user_${userId}_${Date.now()}`;
+            await t.execute({
+              sql: "INSERT INTO SupportChatSession (id, sessionId, userId, userName, status, lastMessage, messageCount, createdAt, updatedAt) VALUES (?, ?, ?, ?, 'open', '', 0, ?, ?)",
+              args: [`c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`, sessionId, userId, userName || null, now, now],
+            });
+          }
+        } else {
+          sessionId = `user_${userId}`;
+          await t.execute({
+            sql: "INSERT INTO SupportChatSession (id, sessionId, userId, userName, status, lastMessage, messageCount, createdAt, updatedAt) VALUES (?, ?, ?, ?, 'open', '', 0, ?, ?)",
+            args: [`c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`, sessionId, userId, userName || null, now, now],
+          });
+        }
+      } else {
+        sessionId = `guest_${Date.now()}`;
+        await t.execute({
+          sql: "INSERT INTO SupportChatSession (id, sessionId, userId, userName, status, lastMessage, messageCount, createdAt, updatedAt) VALUES (?, ?, NULL, ?, 'open', '', 0, ?, ?)",
+          args: [`c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`, sessionId, userName || null, now, now],
+        });
+      }
+
+      // Insert user message
+      const userMsgId = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+      await t.execute({
+        sql: "INSERT INTO SupportChatMessage (id, sessionId, role, content, createdAt) VALUES (?, ?, 'user', ?, ?)",
+        args: [userMsgId, sessionId, content.trim(), now],
+      });
+
+      // Generate + insert bot response
+      const botReply = findBotResponse(content);
+      const botMsgId = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+      const botNow = new Date().toISOString();
+      await t.execute({
+        sql: "INSERT INTO SupportChatMessage (id, sessionId, role, content, createdAt) VALUES (?, ?, 'bot', ?, ?)",
+        args: [botMsgId, sessionId, botReply, botNow],
+      });
+
+      // Update session
+      await t.execute({
+        sql: "UPDATE SupportChatSession SET lastMessage = ?, messageCount = messageCount + 2, updatedAt = ? WHERE sessionId = ?",
+        args: [truncated(botReply), botNow, sessionId],
+      });
+
+      return NextResponse.json({
+        success: true,
+        sessionId,
+        userMessage: { id: userMsgId, sessionId, role: "user", content: content.trim(), createdAt: now },
+        botMessage: { id: botMsgId, sessionId, role: "bot", content: botReply, createdAt: botNow },
+      });
+    }
+
+    // Prisma fallback
+    const { db } = await import("@/lib/db");
     let supportSession = await db.supportChatSession.findFirst({
       where: userId ? { userId } : { sessionId: `guest_${Date.now()}` },
       orderBy: { updatedAt: "desc" },
     });
-
-    // If session exists but is closed, create a new one
     if (supportSession && supportSession.status === "closed") {
       supportSession = null;
     }
-
     if (!supportSession) {
       supportSession = await db.supportChatSession.create({
         data: {
@@ -106,36 +173,21 @@ export async function POST(req: NextRequest) {
         },
       });
     }
-
-    // Create user message
     const message = await db.supportChatMessage.create({
-      data: {
-        sessionId: supportSession.sessionId,
-        role: "user",
-        content: content.trim(),
-      },
+      data: { sessionId: supportSession.sessionId, role: "user", content: content.trim() },
     });
-
-    // Generate bot auto-response
     const botReply = findBotResponse(content);
     const botMessage = await db.supportChatMessage.create({
-      data: {
-        sessionId: supportSession.sessionId,
-        role: "bot",
-        content: botReply,
-      },
+      data: { sessionId: supportSession.sessionId, role: "bot", content: botReply },
     });
-
-    // Update session
     await db.supportChatSession.update({
       where: { sessionId: supportSession.sessionId },
       data: {
-        lastMessage: botReply.length > 100 ? botReply.substring(0, 100) + "..." : botReply,
+        lastMessage: truncated(botReply),
         messageCount: { increment: 2 },
         updatedAt: new Date(),
       },
     });
-
     return NextResponse.json({
       success: true,
       sessionId: supportSession.sessionId,
@@ -152,8 +204,6 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const ip = getClientIp(req);
-
-    // Rate limit: 30 reads per minute per IP
     const { success } = rateLimit({ ip, limit: 30, window: 60, key: "support-get" });
     if (!success) {
       return NextResponse.json({ error: "Слишком много запросов" }, { status: 429 });
@@ -161,7 +211,6 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const sessionId = searchParams.get("sessionId");
-
     const session = await getSession();
     const userId = session?.userId || null;
 
@@ -169,34 +218,62 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Укажите sessionId" }, { status: 400 });
     }
 
-    // Find session
+    if (isTurso()) {
+      const t = getTursoClient();
+      const sessionResult = sessionId
+        ? await t.execute({ sql: "SELECT * FROM SupportChatSession WHERE sessionId = ? ORDER BY updatedAt DESC LIMIT 1", args: [sessionId] })
+        : await t.execute({ sql: "SELECT * FROM SupportChatSession WHERE userId = ? ORDER BY updatedAt DESC LIMIT 1", args: [userId] });
+
+      if (sessionResult.rows.length === 0) {
+        return NextResponse.json({ messages: [], sessionId: null });
+      }
+      const sRow = sessionResult.rows[0] as Record<string, unknown>;
+      const sUserId = sRow.userId != null ? String(sRow.userId) : null;
+      const sSessionId = String(sRow.sessionId ?? "");
+
+      // IDOR check
+      if (sUserId && sUserId !== userId) {
+        return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
+      }
+      if (!sUserId && !sessionId) {
+        return NextResponse.json({ messages: [], sessionId: null });
+      }
+
+      const msgsResult = await t.execute({
+        sql: "SELECT * FROM SupportChatMessage WHERE sessionId = ? ORDER BY createdAt ASC",
+        args: [sSessionId],
+      });
+      const messages = msgsResult.rows.map((r) => {
+        const row = r as Record<string, unknown>;
+        return {
+          id: String(row.id ?? ""),
+          sessionId: String(row.sessionId ?? ""),
+          role: String(row.role ?? "user"),
+          content: String(row.content ?? ""),
+          createdAt: String(row.createdAt ?? ""),
+        };
+      });
+      return NextResponse.json({ messages, sessionId: sSessionId });
+    }
+
+    const { db } = await import("@/lib/db");
     const supportSession = await db.supportChatSession.findFirst({
-      where: sessionId
-        ? { sessionId }
-        : userId
-        ? { userId }
-        : undefined,
+      where: sessionId ? { sessionId } : userId ? { userId } : undefined,
       orderBy: { updatedAt: "desc" },
     });
-
     if (!supportSession) {
       return NextResponse.json({ messages: [], sessionId: null });
     }
-
-    // IDOR check: user can only access their own support sessions
     if (supportSession.userId && supportSession.userId !== userId) {
       return NextResponse.json({ error: "Нет доступа" }, { status: 403 });
     }
-    // For guest sessions, verify the sessionId matches expected pattern
     if (!supportSession.userId && !sessionId) {
       return NextResponse.json({ messages: [], sessionId: null });
     }
-
     const messages = await db.supportChatMessage.findMany({
       where: { sessionId: supportSession.sessionId },
       orderBy: { createdAt: "asc" },
     });
-
     return NextResponse.json({ messages, sessionId: supportSession.sessionId });
   } catch (error) {
     console.error("Support chat fetch error:", error);

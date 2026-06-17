@@ -192,3 +192,47 @@ Remaining work (next iterations):
 - M3.5: split useAppStore.ts (2778L) into slice stores
 - M4: virtualize long lists, lazy-import god components, focus trap, ARIA, Lighthouse ≥90
 - M5: ReplayGain, Last.fm scrobbling, lyrics translation, smart playlists, real recommendations, mini-player, podcasts
+
+---
+Task ID: M3.3-M3.4-M4
+Agent: Main Agent (Claude)
+Task: M3.3 dedupe eq.ts, M3.4 extract tasteProfile, M4.1 lazy-load god views, M4.2 shortcuts help, M4.3 skip-link, M4.4 aria-live+aria-hidden, M4.5 verify MediaSession
+
+Work Log:
+- M3.3 (dedupe eq.ts): rewrote src/lib/eq.ts to export ONLY data (EQ_BANDS, EQ_PRESETS, EQ_MIN/MAX/STEP, EQBand/EQPreset interfaces). Removed ~165 lines of duplicated runtime functions (enableEQ/disableEQ/setEQBand/setAllEQBands/resetEQBands/getEQFilters/createEQChain/destroyEQChain/isEQEnabled/getEQBand) — nobody imported them from eq.ts (rg verified), all importers used the audioEngine.ts versions. Removed unused `import { getAudioContext, getAnalyser } from './audioEngine'` at top of eq.ts. All 3 importers (EqualizerView, useAppStore, audioEngine.test) keep working unchanged.
+
+- M3.4 (extract tasteProfile): new file src/lib/tasteProfile.ts (158L) with extractTasteProfile(), tasteProfileToSearchQuery(), tasteProfileToSummary(). Pure functions, documented thresholds. Replaced ~175 lines of copy-pasted genre/artist/language extraction across 3 components:
+  * AISmartRecs.tsx — buildTasteContext now delegates to extractTasteProfile; tasteInsight useEffect uses tasteProfileToSummary.
+  * MainView.tsx — AIRecommendationsBar useEffect uses extractTasteProfile instead of 50 inline lines.
+  * AIAssistant.tsx — getTasteProfile callback uses extractTasteProfile; kept feedback-batch + session-duration inline (store-specific).
+
+- M4.1 (lazy-load god views): in AppShell.tsx, moved MessengerView (3554L), SettingsView (2219L), SearchView (916L) from eager imports to next/dynamic with ssr:false + inline ViewSkeleton loading fallback (aria-busy=true, aria-live=polite). AuthView + MainView + LibraryView stay eager (entry points). Expected initial JS bundle reduction: ~200-400KB.
+
+- M4.2 (shortcuts help modal): new component KeyboardShortcutsHelp.tsx (190L) with categorized list (playback/navigation/library) of all 13 shortcuts. framer-motion enter/exit, role=dialog + aria-modal + aria-labelledby. Closes on Escape (capture-phase listener), click outside, or X button. Store additions: shortcutsHelpOpen + setShortcutsHelpOpen. useKeyboardShortcuts.ts: added '?' (toggle) and '/' (open-only) cases. AppShell mounts <KeyboardShortcutsHelp /> next to <FullTrackView />.
+
+- M4.3 (skip-to-content): layout.tsx — added <a href='#main-content' class='mq-skip-link'> visually hidden (left:-9999) until focused, then slides to left:0. AppShell.tsx — added id='main-content' to the <main> element.
+
+- M4.4 (aria-live + aria-hidden): components/ui/toaster.tsx — ToastViewport now has aria-live='polite', aria-atomic='false', role='status'. Decorative canvases aria-hidden='true': HeroParticles.tsx, SeasonalEffects.tsx, SideVisuals.tsx (x2), DNAHelixVisual.tsx (x2). CinematicAtmosphere.tsx already had it.
+
+- M4.5 (MediaSession): verified useMediaSession.ts already has seekbackward/seekforward/stop handlers (lines 57-74). No code change needed.
+
+- Deploy: 1 push, 1 build, READY on first try. Smoke test: curl https://mq1.vercel.app/ → HTTP 307, HTML contains 'mq-skip-link' + 'Перейти к основному' (skip-link is in SSR output).
+
+Stage Summary:
+- eq.ts: 245L → 80L (data only). 165 lines of dead duplicate code removed.
+- tasteProfile.ts: 158L new shared lib. 3 components refactored to use it. ~175 lines of duplicated code removed.
+- AppShell: 3 god views moved to lazy imports → expected ~200-400KB initial bundle reduction.
+- KeyboardShortcutsHelp: new modal accessible via '?' or '/' key. Lists all 13 shortcuts.
+- Skip-to-content link: Tab key reveals it, Enter jumps to #main-content.
+- Toaster: now aria-live=polite → screen readers announce toasts.
+- 6 decorative canvases: now aria-hidden → screen readers skip them.
+- MediaSession: hardware media keys (Fn+F7/F8/F9, Bluetooth headsets) already work — verified.
+
+Total lines changed this session: +558 / -358 across 11 files.
+Total dead code removed across M3.1 + M3.3 + M3.4: ~1430 lines.
+
+Remaining work:
+- M2 final: 14 Prisma-direct routes still pending (telegram-bot.ts 1174L is the big one)
+- M3.5: split useAppStore.ts (2778L) into slice stores
+- M4 cont'd: virtualize long lists (@tanstack/react-virtual), focus trap in modals, color contrast audit
+- M5: ReplayGain, Last.fm/ListenBrainz scrobbling, lyrics translation, smart playlists, real recommendations, mini-player, podcasts
