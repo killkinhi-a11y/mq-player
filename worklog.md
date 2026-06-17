@@ -236,3 +236,27 @@ Remaining work:
 - M3.5: split useAppStore.ts (2778L) into slice stores
 - M4 cont'd: virtualize long lists (@tanstack/react-virtual), focus trap in modals, color contrast audit
 - M5: ReplayGain, Last.fm/ListenBrainz scrobbling, lyrics translation, smart playlists, real recommendations, mini-player, podcasts
+
+---
+Task ID: M2-FINAL-PARTIAL
+Agent: Main Agent (Claude)
+Task: Migrate remaining Prisma-direct routes — seasonal-theme, support, listen-session
+
+Work Log:
+- src/app/api/seasonal-theme/route.ts (42L): Turso path uses LIKE 'theme\\_%' ESCAPE '\\' to match feature-flag keys starting with 'theme_'. Underscore is LIKE's wildcard so it needs escaping.
+- src/app/api/support/route.ts (205L): full Turso migration for both POST and GET. POST handles find-or-create session (per-user session reuse, new session if previous closed), inserts user + bot messages, updates session counters. GET has IDOR check (user can only access own sessions). All SQL parameterized.
+- src/app/api/listen-session/route.ts (223L): fetchSessionTurso helper JOINs User table for host/guest usernames. POST handles create (with friendship verification via Friend table query), update (per-field SET clause builder), and leave (batch DELETE).
+- Deploy: 1 push, 1 build, READY. Smoke test: curl /api/seasonal-theme → {"activeTheme":null,"flags":[]} (correct — no theme flags enabled).
+
+Stage Summary:
+- Total Prisma-direct routes migrated: 30 of 41 (was 27, now 30).
+- Remaining 11 routes: support/sse, listen-session/accept, listen-session/invite, group-chats/[id]/* (3 routes), telegram/diagnose, telegram-bot.ts (1174L), playlists/auto-generate, playlists/generate-cover, playlists/recommendations, playlists/curated (1019L static data).
+- ESLint rule mq-internal/no-prisma-direct-in-api will catch any new violations.
+
+Cumulative stats since start of session:
+- 47 files changed, ~1900 lines of net code change
+- Dead code removed: ~1430 lines (playbackEngine + usePlaybackEngine + eq.ts dup + tasteProfile dup)
+- New shared lib: src/lib/tasteProfile.ts (158L)
+- New component: src/components/mq/KeyboardShortcutsHelp.tsx (190L)
+- Database adapter methods added: 11 (findManyUsers, countTransactions, sumRevenue, findAllFeatureFlags, deleteFeatureFlag, findAuditLogs, countSupportMessages, countCronJobs, findAllCronJobs, deleteUserCascade, findMessageById, updateMessage)
+- Production: https://mq1.vercel.app — READY, all changes live
