@@ -481,6 +481,20 @@ function parseMessageRow(row: Record<string, unknown>): MessageRow {
   };
 }
 
+function parseTelegramBotStateRow(row: Record<string, unknown>): TelegramBotStateRow {
+  return {
+    id: toString(row.id),
+    chatId: toString(row.chatId),
+    state: toString(row.state),
+    data: toString(row.data),
+    results: toString(row.results),
+    audioBatch: toString(row.audioBatch),
+    collectingMessageId: toNullableNumber(row.collectingMessageId),
+    updatedAt: toString(row.updatedAt),
+    createdAt: toString(row.createdAt),
+  };
+}
+
 // ── Unified Database Adapter ─────────────────────────────────────────────────
 
 export const database = {
@@ -2065,6 +2079,79 @@ export const database = {
       return;
     }
     await db.userSync.deleteMany({ where: { userId, key } });
+  },
+
+  // ─── TelegramBotState operations ──────────────────────────────────────────
+
+  async findTelegramBotState(chatId: string): Promise<TelegramBotStateRow | null> {
+    if (isTurso()) {
+      const result = await getTurso().execute({
+        sql: "SELECT * FROM TelegramBotState WHERE chatId = ?",
+        args: [chatId],
+      });
+      if (result.rows.length === 0) return null;
+      return parseTelegramBotStateRow(result.rows[0] as Record<string, unknown>);
+    }
+    const row = await db.telegramBotState.findUnique({ where: { chatId } });
+    if (!row) return null;
+    return {
+      id: row.id, chatId: row.chatId, state: row.state,
+      data: row.data, results: row.results, audioBatch: row.audioBatch,
+      collectingMessageId: row.collectingMessageId ?? null,
+      updatedAt: row.updatedAt.toISOString(),
+      createdAt: row.createdAt.toISOString(),
+    };
+  },
+
+  async upsertTelegramBotState(data: {
+    chatId: string;
+    state: string;
+    data: string;
+    results: string;
+    audioBatch: string;
+    collectingMessageId?: number | null;
+  }): Promise<void> {
+    if (isTurso()) {
+      const now = new Date().toISOString();
+      // Try update first, then insert
+      const existing = await getTurso().execute({
+        sql: "SELECT id FROM TelegramBotState WHERE chatId = ?",
+        args: [data.chatId],
+      });
+      if (existing.rows.length > 0) {
+        await getTurso().execute({
+          sql: "UPDATE TelegramBotState SET state = ?, data = ?, results = ?, audioBatch = ?, collectingMessageId = ?, updatedAt = ? WHERE chatId = ?",
+          args: [data.state, data.data, data.results, data.audioBatch, data.collectingMessageId ?? null, now, data.chatId],
+        });
+        return;
+      }
+      const id = createId();
+      await getTurso().execute({
+        sql: "INSERT INTO TelegramBotState (id, chatId, state, data, results, audioBatch, collectingMessageId, updatedAt, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        args: [id, data.chatId, data.state, data.data, data.results, data.audioBatch, data.collectingMessageId ?? null, now, now],
+      });
+      return;
+    }
+    await db.telegramBotState.upsert({
+      where: { chatId: data.chatId },
+      create: {
+        chatId: data.chatId, state: data.state,
+        data: data.data, results: data.results, audioBatch: data.audioBatch,
+        collectingMessageId: data.collectingMessageId ?? null,
+      },
+      update: {
+        state: data.state, data: data.data, results: data.results,
+        audioBatch: data.audioBatch, collectingMessageId: data.collectingMessageId ?? null,
+      },
+    });
+  },
+
+  async deleteTelegramBotState(chatId: string): Promise<void> {
+    if (isTurso()) {
+      await getTurso().execute({ sql: "DELETE FROM TelegramBotState WHERE chatId = ?", args: [chatId] });
+      return;
+    }
+    await db.telegramBotState.delete({ where: { chatId } }).catch(() => {});
   },
 
   // ─── Transaction support ──────────────────────────────────────────────────

@@ -1,8 +1,9 @@
 /**
  * Telegram Bot command handler & state machine (serverless-safe).
  *
- * All conversation state is persisted to PostgreSQL via TelegramBotState model,
- * making it reliable across serverless function invocations on Vercel.
+ * All conversation state is persisted via the unified database adapter
+ * (Turso on Vercel / Prisma+PostgreSQL in dev), making it reliable
+ * across serverless function invocations.
  *
  * Features:
  *   - Auth: /start, /code
@@ -14,7 +15,7 @@
  * Uses callback_query for inline keyboard interactions.
  */
 
-import { db } from "@/lib/db";
+import { database, isTurso, getTursoClient } from "@/lib/database";
 import {
   sendTelegramMessage,
   sendTelegramAudio,
@@ -117,12 +118,12 @@ interface ChatState {
 
 async function getChatState(chatId: string): Promise<ChatState | null> {
   try {
-    const row = await db.telegramBotState.findUnique({ where: { chatId } });
+    const row = await database.findTelegramBotState(chatId);
     if (!row) return null;
     // Expire states older than 15 minutes
-    const ago = Date.now() - row.updatedAt.getTime();
+    const ago = Date.now() - new Date(row.updatedAt).getTime();
     if (ago > 15 * 60 * 1000) {
-      await db.telegramBotState.delete({ where: { chatId } });
+      await database.deleteTelegramBotState(chatId);
       return null;
     }
     return {
@@ -145,28 +146,18 @@ async function setChatState(
   audioBatch?: AudioBatchItem[],
   collectingMessageId?: number,
 ): Promise<void> {
-  await db.telegramBotState.upsert({
-    where: { chatId },
-    create: {
-      chatId,
-      state,
-      data: JSON.stringify(data),
-      results: JSON.stringify(searchResults || []),
-      audioBatch: JSON.stringify(audioBatch || []),
-      collectingMessageId: collectingMessageId || null,
-    },
-    update: {
-      state,
-      data: JSON.stringify(data),
-      results: JSON.stringify(searchResults || []),
-      audioBatch: JSON.stringify(audioBatch || []),
-      collectingMessageId: collectingMessageId || null,
-    },
+  await database.upsertTelegramBotState({
+    chatId,
+    state,
+    data: JSON.stringify(data),
+    results: JSON.stringify(searchResults || []),
+    audioBatch: JSON.stringify(audioBatch || []),
+    collectingMessageId: collectingMessageId || null,
   });
 }
 
 async function clearChatState(chatId: string): Promise<void> {
-  await db.telegramBotState.delete({ where: { chatId } }).catch(() => {});
+  await database.deleteTelegramBotState(chatId);
 }
 
 /* ------------------------------------------------------------------ */
@@ -174,10 +165,13 @@ async function clearChatState(chatId: string): Promise<void> {
 /* ------------------------------------------------------------------ */
 
 async function findUserByChatId(chatId: string) {
-  return db.user.findUnique({
-    where: { telegramChatId: chatId },
-    select: { id: true, username: true, telegramChatId: true },
-  });
+  const user = await database.findUserByTelegramChatId(chatId);
+  if (!user) return null;
+  return {
+    id: user.id,
+    username: user.username,
+    telegramChatId: user.telegramChatId,
+  };
 }
 
 interface PlaylistSummary {
@@ -187,6 +181,22 @@ interface PlaylistSummary {
 }
 
 async function getUserPlaylists(userId: string): Promise<PlaylistSummary[]> {
+  if (isTurso()) {
+    const t = getTursoClient();
+    const result = await t.execute({
+      sql: "SELECT id, name, tracksJson FROM Playlist WHERE userId = ? ORDER BY updatedAt DESC",
+      args: [userId],
+    });
+    return result.rows.map((r) => {
+      const row = r as Record<string, unknown>;
+      return {
+        id: String(row.id ?? ""),
+        name: String(row.name ?? ""),
+        trackCount: trackCountFromJson(String(row.tracksJson ?? "[]")),
+      };
+    });
+  }
+  const { db } = await import("@/lib/db");
   const playlists = await db.playlist.findMany({
     where: { userId },
     orderBy: { updatedAt: "desc" },
@@ -203,6 +213,185 @@ function trackCountFromJson(tracksJson: string): number {
   try { return JSON.parse(tracksJson || "[]").length; } catch { return 0; }
 }
 
+/* ------------------------------------------------------------------ */
+/*  Playlist helpers (Turso/Prisma dual path)                          */
+/* ------------------------------------------------------------------ */
+
+interface PlaylistRow {
+  id: string;
+  userId: string;
+  name: string;
+  description: string;
+  cover: string;
+  isPublic: boolean;
+  tags: string;
+  tracksJson: string;
+  playCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+async function findPlaylistById(playlistId: string): Promise<PlaylistRow | null> {
+  if (isTurso()) {
+    const t = getTursoClient();
+    const result = await t.execute({
+      sql: "SELECT * FROM Playlist WHERE id = ?",
+      args: [playlistId],
+    });
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0] as Record<string, unknown>;
+    return {
+      id: String(row.id ?? ""),
+      userId: String(row.userId ?? ""),
+      name: String(row.name ?? ""),
+      description: String(row.description ?? ""),
+      cover: String(row.cover ?? ""),
+      isPublic: row.isPublic === 1 || row.isPublic === true,
+      tags: String(row.tags ?? ""),
+      tracksJson: String(row.tracksJson ?? "[]"),
+      playCount: Number(row.playCount ?? 0),
+      createdAt: String(row.createdAt ?? ""),
+      updatedAt: String(row.updatedAt ?? ""),
+    };
+  }
+  const { db } = await import("@/lib/db");
+  const p = await db.playlist.findUnique({ where: { id: playlistId } });
+  if (!p) return null;
+  return {
+    id: p.id, userId: p.userId, name: p.name, description: p.description,
+    cover: p.cover, isPublic: p.isPublic, tags: p.tags, tracksJson: p.tracksJson,
+    playCount: p.playCount,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  };
+}
+
+async function findPlaylistByUserAndName(userId: string, name: string): Promise<PlaylistRow | null> {
+  if (isTurso()) {
+    const t = getTursoClient();
+    const result = await t.execute({
+      sql: "SELECT * FROM Playlist WHERE userId = ? AND name = ? LIMIT 1",
+      args: [userId, name.trim()],
+    });
+    if (result.rows.length === 0) return null;
+    const row = result.rows[0] as Record<string, unknown>;
+    return {
+      id: String(row.id ?? ""),
+      userId: String(row.userId ?? ""),
+      name: String(row.name ?? ""),
+      description: String(row.description ?? ""),
+      cover: String(row.cover ?? ""),
+      isPublic: row.isPublic === 1 || row.isPublic === true,
+      tags: String(row.tags ?? ""),
+      tracksJson: String(row.tracksJson ?? "[]"),
+      playCount: Number(row.playCount ?? 0),
+      createdAt: String(row.createdAt ?? ""),
+      updatedAt: String(row.updatedAt ?? ""),
+    };
+  }
+  const { db } = await import("@/lib/db");
+  const p = await db.playlist.findFirst({ where: { userId, name: name.trim() } });
+  if (!p) return null;
+  return {
+    id: p.id, userId: p.userId, name: p.name, description: p.description,
+    cover: p.cover, isPublic: p.isPublic, tags: p.tags, tracksJson: p.tracksJson,
+    playCount: p.playCount,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  };
+}
+
+async function createPlaylist(userId: string, name: string, tracksJson: string = "[]"): Promise<PlaylistRow> {
+  if (isTurso()) {
+    const t = getTursoClient();
+    const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+    const now = new Date().toISOString();
+    await t.execute({
+      sql: "INSERT INTO Playlist (id, userId, name, description, cover, isPublic, tags, tracksJson, playCount, createdAt, updatedAt) VALUES (?, ?, ?, '', '', 0, '', ?, 0, ?, ?)",
+      args: [id, userId, name, tracksJson, now, now],
+    });
+    const p = await findPlaylistById(id);
+    return p!;
+  }
+  const { db } = await import("@/lib/db");
+  const p = await db.playlist.create({
+    data: { userId, name, tracksJson },
+  });
+  return {
+    id: p.id, userId: p.userId, name: p.name, description: p.description,
+    cover: p.cover, isPublic: p.isPublic, tags: p.tags, tracksJson: p.tracksJson,
+    playCount: p.playCount,
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  };
+}
+
+async function updatePlaylistTracks(playlistId: string, tracksJson: string): Promise<void> {
+  if (isTurso()) {
+    const t = getTursoClient();
+    await t.execute({
+      sql: "UPDATE Playlist SET tracksJson = ?, updatedAt = ? WHERE id = ?",
+      args: [tracksJson, new Date().toISOString(), playlistId],
+    });
+    return;
+  }
+  const { db } = await import("@/lib/db");
+  await db.playlist.update({ where: { id: playlistId }, data: { tracksJson } });
+}
+
+async function deletePlaylist(playlistId: string): Promise<void> {
+  if (isTurso()) {
+    const t = getTursoClient();
+    await t.batch([
+      { sql: "DELETE FROM PlaylistLike WHERE playlistId = ?", args: [playlistId] },
+      { sql: "DELETE FROM Playlist WHERE id = ?", args: [playlistId] },
+    ]);
+    return;
+  }
+  const { db } = await import("@/lib/db");
+  await db.playlist.delete({ where: { id: playlistId } });
+}
+
+async function createTelegramAuthCode(data: {
+  chatId: string;
+  telegramUserId: number;
+  telegramUsername?: string | null;
+  code: string;
+  expiresAt: string;
+}): Promise<void> {
+  if (isTurso()) {
+    const t = getTursoClient();
+    const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+    const now = new Date().toISOString();
+    await t.execute({
+      sql: "INSERT INTO TelegramAuthCode (id, chatId, telegramUserId, telegramUsername, code, expiresAt, used, createdAt) VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
+      args: [id, data.chatId, data.telegramUserId, data.telegramUsername ?? null, data.code, data.expiresAt, now],
+    });
+    return;
+  }
+  const { db } = await import("@/lib/db");
+  await db.telegramAuthCode.create({
+    data: {
+      chatId: data.chatId,
+      telegramUserId: BigInt(data.telegramUserId),
+      telegramUsername: data.telegramUsername ?? null,
+      code: data.code,
+      expiresAt: new Date(data.expiresAt),
+    },
+  });
+}
+
+async function deleteExpiredTelegramAuthCodes(chatId: string): Promise<void> {
+  if (isTurso()) {
+    const t = getTursoClient();
+    const now = new Date().toISOString();
+    await t.execute({ sql: "DELETE FROM TelegramAuthCode WHERE chatId = ? AND (used = 1 OR expiresAt < ?)", args: [chatId, now] });
+    return;
+  }
+  const { db } = await import("@/lib/db");
+  await db.telegramAuthCode.deleteMany({ where: { chatId, OR: [{ used: true }, { expiresAt: { lt: new Date() } }] } });
+}
+
 /**
  * Get user playlists, auto-create "Избранное" if none exist.
  */
@@ -212,9 +401,21 @@ async function getUserPlaylistsOrCreate(chatId: string): Promise<{ userId: strin
 
   let playlists = await getUserPlaylists(user.id);
   if (playlists.length === 0) {
-    await db.playlist.create({
-      data: { userId: user.id, name: "Избранное", tracksJson: "[]" },
-    });
+    // Create default playlist
+    if (isTurso()) {
+      const t = getTursoClient();
+      const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+      const now = new Date().toISOString();
+      await t.execute({
+        sql: "INSERT INTO Playlist (id, userId, name, description, cover, isPublic, tags, tracksJson, playCount, createdAt, updatedAt) VALUES (?, ?, 'Избранное', '', '', 0, '', '[]', 0, ?, ?)",
+        args: [id, user.id, now, now],
+      });
+    } else {
+      const { db } = await import("@/lib/db");
+      await db.playlist.create({
+        data: { userId: user.id, name: "Избранное", tracksJson: "[]" },
+      });
+    }
     playlists = await getUserPlaylists(user.id);
   }
   return { userId: user.id, playlists };
@@ -601,9 +802,7 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     const playlists = await getUserPlaylists(user.id);
     if (playlists.length === 0) {
       // Auto-create "Избранное" and try again
-      await db.playlist.create({
-        data: { userId: user.id, name: "Избранное", tracksJson: "[]" },
-      });
+      await createPlaylist(user.id, "Избранное", "[]");
       const newPlaylists = await getUserPlaylists(user.id);
       await setChatState(chatId, "awaiting_add_to_playlist",
         { ...state.data, scTrackId: track.scTrackId, scData: track },
@@ -678,12 +877,12 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     const playlistId = data.slice("delete_playlist:".length);
     const user = await findUserByChatId(chatId);
     if (!user) return;
-    const existing = await db.playlist.findUnique({ where: { id: playlistId } });
+    const existing = await findPlaylistById(playlistId);
     if (!existing || existing.userId !== user.id) {
       await editMessageText(chatId, messageId, "Плейлист не найден.");
       return;
     }
-    await db.playlist.delete({ where: { id: playlistId } });
+    await deletePlaylist(playlistId);
     await editMessageText(chatId, messageId, `Плейлист "${existing.name}" удалён.`);
     return;
   }
@@ -700,26 +899,23 @@ async function handleAuthCode(chatId: string, from: Record<string, any>) {
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     // Delete old unused codes first (sequential to avoid unique constraint race)
-    await db.telegramAuthCode.deleteMany({
-      where: { chatId, used: false, expiresAt: { gt: new Date() } },
-    }).catch(() => {});
+    await deleteExpiredTelegramAuthCodes(chatId).catch(() => {});
 
-    // Create new code — handle BigInt safely
-    let telegramUserId: bigint;
+    // Telegram user ID — BigInt in Prisma, regular number in Turso.
+    // BigInt() can throw on invalid input; fall back to Number.
+    let telegramUserId: number;
     try {
-      telegramUserId = BigInt(from.id);
+      telegramUserId = BigInt(from.id) as unknown as number;
     } catch {
-      telegramUserId = BigInt(Math.abs(Number(from.id)) || 0);
+      telegramUserId = Math.abs(Number(from.id)) || 0;
     }
 
-    await db.telegramAuthCode.create({
-      data: {
-        chatId,
-        telegramUserId,
-        telegramUsername: from.username || null,
-        code,
-        expiresAt,
-      },
+    await createTelegramAuthCode({
+      chatId,
+      telegramUserId: Number(telegramUserId),
+      telegramUsername: from.username || null,
+      code,
+      expiresAt: expiresAt.toISOString(),
     });
 
     await sendTelegramMessage(chatId,
@@ -899,7 +1095,7 @@ async function handleBatchImportToPlaylist(chatId: string, messageId: number, pl
   const user = await findUserByChatId(chatId);
   if (!user) return;
 
-  const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
+  const playlist = await findPlaylistById(playlistId);
   if (!playlist || playlist.userId !== user.id) {
     await sendTelegramMessage(chatId, "Плейлист не найден.");
     return;
@@ -951,7 +1147,7 @@ async function handleBatchImportToPlaylist(chatId: string, messageId: number, pl
     return;
   }
 
-  await db.playlist.update({ where: { id: playlistId }, data: { tracksJson: JSON.stringify(tracks) } });
+  await updatePlaylistTracks(playlistId, JSON.stringify(tracks));
 
   let resultText = `В <b>${playlist.name}</b> добавлено <b>${added.length}</b> ${getTrackWord(added.length)}:\n`;
   for (const t of added.slice(0, 5)) resultText += `+ ${t}\n`;
@@ -985,7 +1181,7 @@ async function handleImportToPlaylist(chatId: string, playlistId: string, data: 
   const user = await findUserByChatId(chatId);
   if (!user) return;
 
-  const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
+  const playlist = await findPlaylistById(playlistId);
   if (!playlist || playlist.userId !== user.id) {
     await sendTelegramMessage(chatId, "Плейлист не найден.");
     return;
@@ -1025,7 +1221,7 @@ async function handleImportToPlaylist(chatId: string, playlistId: string, data: 
   }
 
   tracks.push(newTrack);
-  await db.playlist.update({ where: { id: playlistId }, data: { tracksJson: JSON.stringify(tracks) } });
+  await updatePlaylistTracks(playlistId, JSON.stringify(tracks));
 
   await sendTelegramMessage(chatId,
     `Трек добавлен в <b>${playlist.name}</b>:\n${trackTitle} — ${trackArtist} (${formatDuration(data.fileDuration)})\n\nВсего треков: ${tracks.length}\nТрек доступен для воспроизведения на сайте.`,
@@ -1075,7 +1271,7 @@ async function handleAddSearchTrackToPlaylist(chatId: string, playlistId: string
   const user = await findUserByChatId(chatId);
   if (!user) return;
 
-  const playlist = await db.playlist.findUnique({ where: { id: playlistId } });
+  const playlist = await findPlaylistById(playlistId);
   if (!playlist || playlist.userId !== user.id) {
     await sendTelegramMessage(chatId, "Плейлист не найден.");
     return;
@@ -1094,7 +1290,7 @@ async function handleAddSearchTrackToPlaylist(chatId: string, playlistId: string
   }
 
   tracks.push(scTrack);
-  await db.playlist.update({ where: { id: playlistId }, data: { tracksJson: JSON.stringify(tracks) } });
+  await updatePlaylistTracks(playlistId, JSON.stringify(tracks));
 
   await sendTelegramMessage(chatId,
     `Трек добавлен в <b>${playlist.name}</b>:\n${scTrack.title} — ${scTrack.artist}\n\nВсего треков: ${tracks.length}\nТрек доступен для воспроизведения на сайте.`,
@@ -1117,27 +1313,19 @@ async function handlePlaylists(chatId: string, messageId?: number) {
     return;
   }
 
-  let playlists = await db.playlist.findMany({
-    where: { userId: user.id },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, name: true, description: true, tracksJson: true, createdAt: true },
-  });
+  // M3/M2: use shared getUserPlaylists helper (returns PlaylistSummary with
+  // id/name/trackCount). For the playlist-list command we only need name +
+  // track count — no description or createdAt, so the helper is enough.
+  let playlists = await getUserPlaylists(user.id);
 
   // Auto-create "Избранное" if no playlists exist
   if (playlists.length === 0) {
-    await db.playlist.create({
-      data: { userId: user.id, name: "Избранное", tracksJson: "[]" },
-    });
-    playlists = await db.playlist.findMany({
-      where: { userId: user.id },
-      orderBy: { updatedAt: "desc" },
-      select: { id: true, name: true, description: true, tracksJson: true, createdAt: true },
-    });
+    await createPlaylist(user.id, "Избранное", "[]");
+    playlists = await getUserPlaylists(user.id);
   }
 
   const lines = playlists.map((pl, i) => {
-    const count = trackCountFromJson(pl.tracksJson);
-    return `<b>${i + 1}.</b> ${pl.name} — ${count} треков`;
+    return `<b>${i + 1}.</b> ${pl.name} — ${pl.trackCount} треков`;
   });
 
   const deleteButtons = playlists.slice(0, 6).map((pl) => ({
@@ -1172,13 +1360,13 @@ async function handleNewPlaylist(chatId: string, name: string) {
     return;
   }
 
-  const existing = await db.playlist.findFirst({ where: { userId: user.id, name: name.trim() } });
+  const existing = await findPlaylistByUserAndName(user.id, name);
   if (existing) {
     await sendTelegramMessage(chatId, `Плейлист "${name.trim()}" уже существует.`);
     return;
   }
 
-  await db.playlist.create({ data: { userId: user.id, name: name.trim(), tracksJson: "[]" } });
+  await createPlaylist(user.id, name.trim(), "[]");
 
   await sendTelegramMessage(chatId,
     `Плейлист <b>${name.trim()}</b> создан!\nОн также доступен на сайте в вашем аккаунте.\n\nТеперь вы можете:\n` +
