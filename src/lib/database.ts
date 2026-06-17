@@ -996,7 +996,11 @@ export const database = {
             sql: "SELECT * FROM AuditLog ORDER BY createdAt DESC LIMIT ?",
             args: [limit],
           });
-      const logs = result.rows.map((r) => {
+      const logs: Array<{
+        id: string; adminId: string; action: string; targetId: string | null;
+        details: string | null; createdAt: string;
+        admin?: { id: string; username: string; avatar: string };
+      }> = result.rows.map((r) => {
         const row = r as Record<string, unknown>;
         return {
           id: String(row.id ?? ""),
@@ -1005,6 +1009,7 @@ export const database = {
           targetId: row.targetId != null ? String(row.targetId) : null,
           details: row.details != null ? String(row.details) : null,
           createdAt: String(row.createdAt ?? ""),
+          admin: undefined as { id: string; username: string; avatar: string } | undefined,
         };
       });
       // Hydrate admin usernames
