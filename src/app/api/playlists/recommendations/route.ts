@@ -542,7 +542,7 @@ async function handler(req: NextRequest) {
           }
           return true;
         })
-        .sort((a, b) => (b._count?.likes || 0) * 3 + b.playCount - ((a._count?.likes || 0) * 3 + a.playCount))
+        .sort((a, b) => (b.likeCount || 0) * 3 + b.playCount - ((a.likeCount || 0) * 3 + a.playCount))
         .slice(0, limit - result.length)
         .map((p) => {
           let tracks: any[] = [];
