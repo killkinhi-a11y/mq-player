@@ -376,3 +376,31 @@ Cumulative final stats:
 - Database adapter methods added: 15 (findMessageById, updateMessage, deleteUserCascade, findManyUsers, countTransactions, sumRevenue, findAllFeatureFlags, deleteFeatureFlag, findAuditLogs, countSupportMessages, countCronJobs, findAllCronJobs, findTelegramBotState, upsertTelegramBotState, deleteTelegramBotState)
 - 40 of 41 Prisma-direct API routes migrated (98%) — only allow-listed db-sync bridge remains
 - Production: https://mq1.vercel.app — READY, all changes live
+
+---
+Task ID: M4-FAVORITES + M5.1-M5.3
+Agent: Main Agent (Claude)
+Task: Wire progressive rendering into FavoritesView + add ReplayGain/Last.fm/smart playlist libs
+
+Work Log:
+- src/components/mq/FavoritesView.tsx: added IntersectionObserver-based progressive render. Renders first 30 tracks, loads 30 more when sentinel (1px div at bottom of list) enters viewport with 300px rootMargin. Resets visibleCount on tab/search/filter change. aria-live="polite" loading indicator shows "Загружено N из M…". Large favorites lists (500+ tracks) no longer render all DOM nodes at once.
+- src/lib/replayGain.ts (180L, NEW): ReplayGainEngine singleton with attach/detach/setEnabled/applyGain/startMeasurement/stopMeasurement. Target loudness -14 dB RMS. Max boost +6dB, max cut -12dB. Measures RMS for 3s via AnalyserNode then adjusts gain. GENRE_DEFAULT_GAINS map (20 genres) for fallback. Note: true ReplayGain requires server-side ffmpeg analysis — this is 'live normalization' approximation.
+- src/lib/lastfm.ts (105L, NEW): shouldScrobble() (50% duration OR 4min, track >30s), sendNowPlaying(), scrobbleTrack(), getLastFMAuthUrl(). Client-side logic for tracking play duration and triggering scrobbles. API routes (/api/lastfm/*) need follow-up.
+- src/lib/smartPlaylist.ts (240L, NEW): evaluateSmartPlaylist() with AND-combined rules across 8 fields (genre, artist, title, duration, addedDate, lastPlayed, playCount, liked). 7 operators. 5 preset templates (recently-played, long-tracks, short-tracks, most-played, forgotten-gems).
+- prisma/schema.prisma: added SmartPlaylist model (id, userId, name, rules JSON, limit, sortBy, timestamps) + User.smartPlaylists relation.
+- Deploy: 1 push, 1 READY build. Smoke test: / → 307, /play → 200, /api/seasonal-theme → 200.
+
+Stage Summary:
+- FavoritesView now progressively renders — 500-track favorites list only renders 30 DOM subtrees initially, loads more on scroll.
+- 3 new M5 feature libs created: ReplayGain, Last.fm scrobbling, smart playlists.
+- SmartPlaylist Prisma model added — needs `prisma db push` to apply schema change (or `prisma migrate dev` locally).
+- All feature libs are ready for integration into UI + API routes in follow-up iterations.
+
+Cumulative final stats:
+- 65+ files changed, ~3500 lines of net code change
+- Dead code removed: ~1430 lines
+- New shared libs: tasteProfile.ts (158L), replayGain.ts (180L), lastfm.ts (105L), smartPlaylist.ts (240L)
+- New components: KeyboardShortcutsHelp.tsx (220L), ProgressiveList.tsx (105L)
+- Database adapter methods added: 15
+- 40 of 41 Prisma-direct API routes migrated (98%)
+- Production: https://mq1.vercel.app — READY, all changes live
