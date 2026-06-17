@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { isTurso, getTursoClient } from "@/lib/database";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 async function handler(request: NextRequest) {
@@ -11,34 +11,43 @@ async function handler(request: NextRequest) {
     if (!username || username.length < 2) {
       return NextResponse.json({ available: false, error: "Имя должно быть не менее 2 символов" });
     }
-
     if (username.length > 20) {
       return NextResponse.json({ available: false, error: "Максимум 20 символов" });
     }
-
-    // Username rules: only alphanumeric, underscore, hyphen
     const usernameRegex = /^[a-zA-Z0-9_-]+$/;
     if (!usernameRegex.test(username)) {
       return NextResponse.json({ available: false, error: "Только буквы, цифры, _ и -" });
     }
-
-    // Reserved names
     const reserved = ["admin", "administrator", "moderator", "support", "help", "system", "mq", "mqplayer", "root", "null", "undefined"];
     if (reserved.includes(username.toLowerCase())) {
       return NextResponse.json({ available: false, error: "Это имя зарезервировано" });
     }
 
     // Check uniqueness
-    const where: Record<string, unknown> = { username };
-    if (excludeId) {
-      where.id = { not: excludeId };
+    if (isTurso()) {
+      const t = getTursoClient();
+      const result = excludeId
+        ? await t.execute({
+            sql: "SELECT id FROM User WHERE username = ? AND id != ? LIMIT 1",
+            args: [username, excludeId],
+          })
+        : await t.execute({
+            sql: "SELECT id FROM User WHERE username = ? LIMIT 1",
+            args: [username],
+          });
+      if (result.rows.length > 0) {
+        return NextResponse.json({ available: false, error: "Это имя уже занято" });
+      }
+      return NextResponse.json({ available: true });
     }
 
+    const { db } = await import("@/lib/db");
+    const where: Record<string, unknown> = { username };
+    if (excludeId) where.id = { not: excludeId };
     const existing = await db.user.findFirst({ where });
     if (existing) {
       return NextResponse.json({ available: false, error: "Это имя уже занято" });
     }
-
     return NextResponse.json({ available: true });
   } catch (error) {
     console.error("Username check error:", error);

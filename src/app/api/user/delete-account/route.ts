@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { database } from "@/lib/database";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { withAuth, validateContentType } from "@/lib/withAuth";
 import bcrypt from "bcryptjs";
@@ -18,39 +18,16 @@ async function handler(
     if (!email) return NextResponse.json({ error: "email обязателен" }, { status: 400 });
     if (!password) return NextResponse.json({ error: "Пароль обязателен для удаления аккаунта" }, { status: 400 });
 
-    const user = await db.user.findUnique({ where: { id: userId } });
+    const user = await database.findUserById(userId);
     if (!user || user.email !== email) return NextResponse.json({ error: "Неверные данные" }, { status: 403 });
 
-    // Verify password for destructive action
     const passwordValid = await bcrypt.compare(password, user.password);
     if (!passwordValid) {
       return NextResponse.json({ error: "Неверный пароль" }, { status: 401 });
     }
 
-    // Delete all related data in a transaction to prevent partial deletion
-    await db.$transaction(async (tx) => {
-      await tx.message.deleteMany({ where: { OR: [{ senderId: userId }, { receiverId: userId }] } });
-      await tx.friend.deleteMany({ where: { OR: [{ requesterId: userId }, { addresseeId: userId }] } });
-      await tx.storyLike.deleteMany({ where: { userId } });
-      await tx.storyComment.deleteMany({ where: { userId } });
-      await tx.story.deleteMany({ where: { userId } });
-      await tx.playlistLike.deleteMany({ where: { userId } });
-      await tx.playlist.deleteMany({ where: { userId } });
-      await tx.userSync.deleteMany({ where: { userId } });
-      await tx.groupChatMember.deleteMany({ where: { userId } });
-      await tx.groupMessage.deleteMany({ where: { senderId: userId } });
-
-      // Get group chats created by user and delete them
-      const createdGroups = await tx.groupChat.findMany({ where: { createdBy: userId }, select: { id: true } });
-      for (const g of createdGroups) {
-        await tx.groupChatMember.deleteMany({ where: { groupChatId: g.id } });
-        await tx.groupMessage.deleteMany({ where: { groupChatId: g.id } });
-        await tx.groupChat.delete({ where: { id: g.id } });
-      }
-
-      await tx.verificationCode.deleteMany({ where: { userId } });
-      await tx.user.delete({ where: { id: userId } });
-    });
+    // Cascade-delete all related data via the shared adapter method
+    await database.deleteUserCascade(userId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

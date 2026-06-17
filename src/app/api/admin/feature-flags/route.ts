@@ -41,8 +41,8 @@ async function postHandler(
     const flag = await database.createFeatureFlag({
       key: key as string,
       name: name as string,
-      description: (description as string | undefined) ?? null,
-      enabled: (enabled as boolean | undefined) ?? false,
+      description: typeof description === "string" ? description : undefined,
+      enabled: typeof enabled === "boolean" ? enabled : false,
     });
 
     return NextResponse.json({ flag });

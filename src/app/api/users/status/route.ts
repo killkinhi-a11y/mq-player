@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { isTurso, getTursoClient } from "@/lib/database";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
 
@@ -12,35 +12,48 @@ async function handler(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const idsParam = searchParams.get("ids") || "";
-    const ids = idsParam.split(",").filter(Boolean).slice(0, 100); // Cap at 100
+    const ids = idsParam.split(",").filter(Boolean).slice(0, 100);
 
     if (ids.length === 0) {
       return NextResponse.json({ statuses: {} });
     }
 
-    // Batch fetch: get all users' last seen time in a single query
-    const users = await db.user.findMany({
-      where: {
-        id: { in: ids },
-      },
-      select: {
-        id: true,
-        lastSeen: true,
-      },
-    });
+    let userRows: Array<{ id: string; lastSeen: string | null }> = [];
+    if (isTurso()) {
+      const t = getTursoClient();
+      const placeholders = ids.map(() => "?").join(",");
+      const result = await t.execute({
+        sql: `SELECT id, lastSeen FROM User WHERE id IN (${placeholders})`,
+        args: ids,
+      });
+      userRows = result.rows.map((r) => {
+        const row = r as Record<string, unknown>;
+        return {
+          id: String(row.id ?? ""),
+          lastSeen: row.lastSeen != null ? String(row.lastSeen) : null,
+        };
+      });
+    } else {
+      const { db } = await import("@/lib/db");
+      const users = await db.user.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, lastSeen: true },
+      });
+      userRows = users.map((u) => ({
+        id: u.id,
+        lastSeen: u.lastSeen ? u.lastSeen.toISOString() : null,
+      }));
+    }
 
-    // Also check if any are invisible (via localStorage — but that's client-side)
-    // Server only knows lastSeen; the client-side hideOnline flag is checked separately
     const now = Date.now();
-    const ONLINE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+    const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
     const statuses: Record<string, { online: boolean; lastSeen: number | null }> = {};
-    for (const user of users) {
+    for (const user of userRows) {
       const lastSeen = user.lastSeen ? new Date(user.lastSeen).getTime() : null;
       const online = lastSeen !== null && (now - lastSeen) < ONLINE_THRESHOLD;
       statuses[user.id] = { online, lastSeen };
     }
-
     // Include IDs that weren't found as offline
     for (const id of ids) {
       if (!statuses[id]) {
