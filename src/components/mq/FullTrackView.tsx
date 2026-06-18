@@ -1674,7 +1674,7 @@ export default function FullTrackView() {
         ctx.fill();
       }
     };
-    draw();
+    draw(performance.now());
     return () => { if (waveAnimRef.current) cancelAnimationFrame(waveAnimRef.current); clearInterval(waveAccentInterval); };
   }, [isFullTrackViewOpen, currentTrack?.id, currentStyle]);
 
