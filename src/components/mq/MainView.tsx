@@ -1165,11 +1165,14 @@ export default function MainView() {
   }, [playTrack, shuffleArray]);
 
   // ── Artist detail view — fully redesigned P2 (extracted to ArtistDetailView) ──
+  // P2: stable callbacks so memo(ArtistDetailView) actually prevents re-renders
+  const handleArtistBack = useCallback(() => setSelectedArtist(null), [setSelectedArtist]);
+
   if (selectedArtist) {
     return (
       <ArtistDetailView
         artist={selectedArtist}
-        onBack={() => setSelectedArtist(null)}
+        onBack={handleArtistBack}
         compactMode={compactMode}
         animationsEnabled={animationsEnabled}
       />

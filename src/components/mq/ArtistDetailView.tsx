@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
+import { motion } from "framer-motion";
 import {
   ChevronLeft, Play, Shuffle, UserPlus, UserCheck, Users, Music,
   Check, Share2, MoreHorizontal, Headphones, Disc3, Clock, TrendingUp,
@@ -30,7 +30,7 @@ interface ArtistDetailViewProps {
 
 type ArtistTab = "all" | "popular" | "releases";
 
-export default function ArtistDetailView({
+function ArtistDetailViewBase({
   artist,
   onBack,
   compactMode,
@@ -56,24 +56,33 @@ export default function ArtistDetailView({
   const [artistInfo, setArtistInfo] = useState<ArtistInfo>(artist);
 
   // Track if artist changed (avoid refetch on re-renders)
-  const artistNameRef = useRef(artist.name);
+  // NOTE: only depend on primitive fields to avoid infinite re-render when
+  // parent passes a new object reference with the same name/avatar.
+  const artistKey = `${artist.name}::${artist.avatar || ""}::${artist.followers || 0}`;
+
+  // Keep local artistInfo in sync with the prop — but only when the
+  // identifying key actually changes. This prevents the previous infinite
+  // setArtistInfo → re-render → useEffect → setArtistInfo loop that
+  // triggered React error #300.
   useEffect(() => {
-    artistNameRef.current = artist.name;
     setArtistInfo(artist);
-  }, [artist]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [artistKey]);
 
   // ── Fetch artist tracks ──
   useEffect(() => {
     if (!artist.name) return;
-    if (artist.name === artistNameRef.current && tracks.length > 0) return;
     let cancelled = false;
     const run = async () => {
-      // Defer setState to avoid React error #300
-      queueMicrotask(() => {
+      // Defer setState to next macrotask to avoid React error #300
+      // (cannot update a component while rendering a different component).
+      // setTimeout(0) is safer than queueMicrotask here — microtasks run
+      // before the next render commit, macrotasks run after.
+      setTimeout(() => {
         if (cancelled) return;
         setTracksLoading(true);
         setTracks([]);
-      });
+      }, 0);
       try {
         const res = await fetch(`/api/music/artist-tracks?q=${encodeURIComponent(artist.name)}&limit=30`);
         if (!res.ok) return;
@@ -104,9 +113,9 @@ export default function ArtistDetailView({
     if (!artist.name) return;
     let cancelled = false;
     const run = async () => {
-      queueMicrotask(() => {
+      setTimeout(() => {
         if (!cancelled) setSimilarLoading(true);
-      });
+      }, 0);
       try {
         const res = await fetch(`/api/music/search?q=${encodeURIComponent(artist.name)}&limit=15`);
         const data = await res.json();
@@ -144,6 +153,10 @@ export default function ArtistDetailView({
     [tracks]
   );
 
+  // Top 5 by play count — highlighted in separate section above the full list
+  const top5 = useMemo(() => popularTracks.slice(0, 5), [popularTracks]);
+  const top5Ids = useMemo(() => new Set(top5.map(t => t.id)), [top5]);
+
   const releaseTracks = useMemo(() => {
     const twoYearsAgo = Date.now() - 2 * 365 * 24 * 60 * 60 * 1000;
     return tracks.filter((t: any) => {
@@ -152,7 +165,14 @@ export default function ArtistDetailView({
     });
   }, [tracks]);
 
-  const displayTracks = tab === "popular" ? popularTracks : tab === "releases" ? releaseTracks : tracks;
+  // For "all" tab, exclude top-5 to avoid duplication with the Popular section above.
+  // For "popular" tab, show all sorted (user explicitly wants popular).
+  // For "releases" tab, show releases sorted by date desc.
+  const displayTracks = useMemo(() => {
+    if (tab === "popular") return popularTracks;
+    if (tab === "releases") return releaseTracks;
+    return tracks.filter(t => !top5Ids.has(t.id));
+  }, [tab, popularTracks, releaseTracks, tracks, top5Ids]);
 
   const totalDuration = useMemo(() => {
     const sec = tracks.reduce((sum, t) => sum + (t.duration || 0), 0);
@@ -224,8 +244,7 @@ export default function ArtistDetailView({
     return n.toString();
   };
 
-  // ── Top 5 popular tracks (highlighted) ──
-  const top5 = popularTracks.slice(0, 5);
+  // ── Top 5 popular tracks (highlighted) — declared above as memoized value ──
 
   return (
     <div className={`${compactMode ? "pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24" : "pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28"} max-w-[var(--mq-container-wide)] mx-auto`}>
@@ -736,3 +755,8 @@ export default function ArtistDetailView({
     </div>
   );
 }
+
+// P2: memo prevents re-renders when MainView re-renders for unrelated reasons
+// (e.g. progress tick) — only re-renders when artist/compactMode/animationsEnabled change.
+const ArtistDetailView = memo(ArtistDetailViewBase);
+export default ArtistDetailView;
