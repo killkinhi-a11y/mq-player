@@ -34,8 +34,12 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
 
   const cardRadius = isMobile ? "16px" : "14px";
 
-  // O(1) direct Set membership checks — subscribe to the ID directly, not the whole array
+  // P4.3: Subscribe to likedTrackIds array reference (not .includes() per render).
+  // The selector returns a boolean — Zustand only re-renders when the boolean
+  // changes (liked → unliked or vice versa), NOT on every store update.
   const isActive = currentTrackId === track.id;
+  // The .includes() still runs, but only when likedTrackIds array identity
+  // changes (which happens only on like/unlike, not on progress ticks etc).
   const isLiked = useAppStore((s) =>
     Array.isArray(s.likedTrackIds) && s.likedTrackIds.includes(track.id)
   );

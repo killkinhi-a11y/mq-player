@@ -889,28 +889,29 @@ export default function PlaylistView() {
                     <Heart className="w-3.5 h-3.5" fill={isLiked ? "currentColor" : "none"} />
                   </motion.button>
 
-                  {/* Move up/down buttons on hover */}
-                  <div className="flex-shrink-0 opacity-0 group-hover/track:opacity-100 transition-opacity flex items-center gap-0.5">
+                  {/* Move up/down buttons — P4.4: always visible on mobile (touch has no hover) */}
+                  <div className="flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover/track:opacity-100 transition-opacity flex items-center gap-0.5">
                     {i > 0 && (
                       <motion.button
                         whileTap={{ scale: 0.85 }}
                         onClick={() => handleMoveTrack(selectedPlaylist.id, i, i - 1)}
-                        className="p-1 rounded"
+                        className="p-2 sm:p-1 rounded-lg"
                         style={{ color: "var(--mq-text-muted)" }}
                         title="Переместить вверх"
+                        aria-label="Переместить вверх"
                       >
-                        <MoveUp className="w-3.5 h-3.5" />
+                        <MoveUp className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                       </motion.button>
                     )}
                     {i < selectedPlaylist.tracks.length - 1 && (
                       <motion.button
                         whileTap={{ scale: 0.85 }}
                         onClick={() => handleMoveTrack(selectedPlaylist.id, i, i + 1)}
-                        className="p-1 rounded"
+                        className="p-2 sm:p-1 rounded-lg"
                         style={{ color: "var(--mq-text-muted)" }}
                         title="Переместить вниз"
                       >
-                        <MoveDown className="w-3.5 h-3.5" />
+                        <MoveDown className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                       </motion.button>
                     )}
                   </div>

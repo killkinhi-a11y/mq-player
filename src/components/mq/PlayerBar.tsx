@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { motion, AnimatePresence, useSpring } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1, Repeat, Repeat1,
   Shuffle, Music, Loader2, ListMusic,
@@ -56,46 +56,6 @@ function ShareButton({ scTrackId }: { scTrackId: number }) {
         </span>
       )}
     </div>
-  );
-}
-
-function MagneticPlayButton({ children, onClick, className, style, disabled }: {
-  children: React.ReactNode;
-  onClick: () => void;
-  className?: string;
-  style?: React.CSSProperties;
-  disabled?: boolean;
-}) {
-  const contentX = useSpring(0, { stiffness: 400, damping: 25 });
-  const contentY = useSpring(0, { stiffness: 400, damping: 25 });
-
-  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const strength = 0.35;
-    contentX.set((e.clientX - cx) * strength);
-    contentY.set((e.clientY - cy) * strength);
-  }, [contentX, contentY]);
-
-  const handleMouseLeave = useCallback(() => {
-    contentX.set(0);
-    contentY.set(0);
-  }, [contentX, contentY]);
-
-  return (
-    <motion.button
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      onClick={onClick}
-      className={className}
-      style={style}
-      disabled={disabled}
-    >
-      <motion.span style={{ x: contentX, y: contentY, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-        {children}
-      </motion.span>
-    </motion.button>
   );
 }
 

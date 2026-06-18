@@ -122,6 +122,7 @@ export default function AppShell() {
   const currentStyle = useAppStore((s) => s.currentStyle);
   const currentTrack = useAppStore((s) => s.currentTrack);
   const isFullTrackViewOpen = useAppStore((s) => s.isFullTrackViewOpen);
+  const catEnabled = useAppStore((s) => s.catEnabled);
   const isPlaying = useAppStore((s) => s.isPlaying);
   const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
   const demoLoading = useAppStore((s) => s.demoLoading);
@@ -482,7 +483,7 @@ export default function AppShell() {
       <Suspense fallback={null}><PlayerBar /></Suspense>
       <Suspense fallback={null}><FullTrackView /></Suspense>
       <Suspense fallback={null}><KeyboardShortcutsHelp /></Suspense>
-      <Suspense fallback={null}><MqCat /></Suspense>
+      <Suspense fallback={null}>{catEnabled && <MqCat />}</Suspense>
       {/* Cobalt Turnstile — invisible widget for SNIP bypass JWT */}
       <CobaltTurnstile />
       <Suspense fallback={null}>{showNav && !hideUiForFullscreen && <MobileNav />}</Suspense>
