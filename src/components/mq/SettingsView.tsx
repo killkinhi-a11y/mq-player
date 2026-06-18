@@ -21,14 +21,17 @@ import EqualizerView from "./EqualizerView";
 // ── Reusable section header ──
 function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
-    <div className="px-4 pt-3.5 pb-1.5 flex items-center gap-2.5">
+    <div className="px-4 pt-4 pb-2 flex items-center gap-2.5">
       <div
         className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+          border: "1px solid color-mix(in srgb, var(--mq-accent) 18%, transparent)",
+        }}
       >
         <Icon className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
       </div>
-      <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
+      <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
         {title}
       </span>
     </div>
@@ -125,7 +128,7 @@ function SettingNav({
 // ── Reusable section card ──
 const sectionCardStyle: React.CSSProperties = {
   backgroundColor: "var(--mq-card)",
-  border: "1px solid rgba(255,255,255,0.06)",
+  border: "1px solid var(--mq-border)",
   boxShadow: "var(--mq-shadow-card)",
 };
 
@@ -734,15 +737,17 @@ export default function SettingsView() {
 
   return (
     <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] space-y-4" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] space-y-5"} max-w-[var(--mq-container-narrow)] mx-auto`}>
-      {/* ── Header ── */}
+      {/* ── Header — redesigned P2 ── */}
       <motion.div
-        initial={anim ? { opacity: 0, y: 20 } : undefined}
+        initial={anim ? { opacity: 0, y: 12 } : undefined}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        className="mb-1"
       >
-        <h1 className="text-2xl font-bold mb-1" style={{ color: "var(--mq-text)" }}>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
           Настройки
         </h1>
-        <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+        <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
           Персонализируйте ваш mq
         </p>
       </motion.div>
