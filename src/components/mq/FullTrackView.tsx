@@ -6,7 +6,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1, Repeat, Repeat1,
-  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronDown, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, Waves, Dna, MoreVertical, Headphones, Radio, Mic2, Sunrise, Star, Gauge, SlidersHorizontal, Repeat2, Share2, ArrowRight, Check
+  Shuffle, X, Heart, ThumbsDown, ListMusic, Music, ChevronDown, ChevronLeft, FileText, ExternalLink, Download, Moon, Clock, MessageSquare, Sparkles, Waves, Dna, MoreVertical, Headphones, Radio, Mic2, Sunrise, Star, Gauge, SlidersHorizontal, Repeat2, Share2, ArrowRight, Check, Languages, Loader2
 } from "lucide-react";
 import SongDNA from "./SongDNA";
 import { formatDuration, searchTracks, type Track } from "@/lib/musicApi";
@@ -24,6 +24,7 @@ import {
   isCompressorEnabled, isReverbEnabled, getReverbMix,
 } from "@/lib/audioEngine";
 import { toast } from "@/hooks/use-toast";
+import { translateLyrics, detectLyricsLanguage } from "@/lib/lyricsTranslation";
 
 // ── Sleep Timer Wheel Picker (scrollable drum-style) ──
 const SLEEP_TIME_OPTIONS = [5, 10, 15, 20, 25, 30, 45, 60, 90, 120, 150, 180];
@@ -716,6 +717,9 @@ export default function FullTrackView() {
   const [lyricsLines, setLyricsLines] = useState<{ time: number; text: string }[]>([]);
   const [lyricsPlainText, setLyricsPlainText] = useState("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
+  const [translatedLyrics, setTranslatedLyrics] = useState<string | null>(null);
+  const [translationLoading, setTranslationLoading] = useState(false);
+  const [showTranslation, setShowTranslation] = useState(false);
   const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const activeLineIndexRef = useRef(-1);
   const lyricsScrollRef = useRef<HTMLDivElement>(null);
@@ -831,6 +835,8 @@ export default function FullTrackView() {
     setLyricsLoading(true);
     setLyricsLines([]);
     setLyricsPlainText("");
+    setTranslatedLyrics(null);
+    setShowTranslation(false);
     setActiveLineIndex(-1);
 
     fetch(`/api/music/lyrics?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`)
@@ -2865,6 +2871,63 @@ export default function FullTrackView() {
                       </motion.button>
                     </div>
                   </div>
+                )}
+
+                {/* Translate button (M5.5) */}
+                {(lyricsLines.length > 0 || lyricsPlainText) && !showTranslation && (
+                  <motion.button
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={async () => {
+                      const fullText = lyricsPlainText || lyricsLines.map(l => l.text).join("\n");
+                      const lang = detectLyricsLanguage(fullText);
+                      if (lang === "russian") { toast({ title: "Текст уже на русском" }); return; }
+                      setTranslationLoading(true);
+                      const translated = await translateLyrics(fullText, lang);
+                      setTranslationLoading(false);
+                      if (translated) { setTranslatedLyrics(translated); setShowTranslation(true); }
+                      else { toast({ title: "Не удалось перевести" }); }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium mb-3"
+                    style={{
+                      backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, transparent)",
+                      color: "var(--mq-accent)",
+                      border: "1px solid color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+                    }}
+                  >
+                    {translationLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Languages className="w-3 h-3" />}
+                    {translationLoading ? "Перевод…" : "Перевести на русский"}
+                  </motion.button>
+                )}
+
+                {/* Translated lyrics overlay */}
+                {showTranslation && translatedLyrics && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-20 flex flex-col"
+                    style={{ backgroundColor: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)" }}
+                  >
+                    <div className="flex items-center justify-between px-4 py-2 flex-shrink-0">
+                      <span className="text-xs font-medium" style={{ color: "var(--mq-accent)" }}>Перевод</span>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setShowTranslation(false)} className="text-[11px] px-2 py-1 rounded-lg" style={{ color: "var(--mq-text-muted)" }}>Оригинал</button>
+                        <button onClick={() => { setShowTranslation(false); setTranslatedLyrics(null); }} className="p-1 rounded-lg" style={{ color: "var(--mq-text-muted)" }}>
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-y-auto px-6 py-4" style={{ scrollbarWidth: "none" }}>
+                      {translatedLyrics.split("\n").map((line, i) => (
+                        <p key={i} className="py-1.5 text-center text-base leading-relaxed"
+                          style={{ color: line.trim() ? "var(--mq-text)" : "transparent", opacity: line.trim() ? 0.85 : 0 }}>
+                          {line || "\u00A0"}
+                        </p>
+                      ))}
+                    </div>
+                  </motion.div>
                 )}
               </div>
 

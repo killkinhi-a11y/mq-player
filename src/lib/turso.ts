@@ -423,6 +423,18 @@ export async function initTursoSchema(): Promise<void> {
       log TEXT,
       createdAt TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS SmartPlaylist (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      name TEXT NOT NULL,
+      rules TEXT NOT NULL DEFAULT '[]',
+      limit INTEGER DEFAULT 100,
+      sortBy TEXT DEFAULT 'createdAt',
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_smartplaylist_userId ON SmartPlaylist(userId);
   `);
 
   console.log("[Turso] Schema initialized ✓");

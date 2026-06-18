@@ -13,6 +13,7 @@ import TrackCard from "./TrackCard";
 import PlaylistExportView from "./PlaylistExportView";
 import ScrollReveal from "./ScrollReveal";
 import { PlaylistCardSkeleton } from "./Skeleton";
+import { SmartPlaylistBuilder } from "./SmartPlaylistBuilder";
 import { EmptyState } from "./EmptyState";
 
 // ── Gradient cover generator (muted dark tones) ──
@@ -97,6 +98,7 @@ export default function PlaylistView() {
   }, []);
 
   const [showCreate, setShowCreate] = useState(false);
+  const [showSmartBuilder, setShowSmartBuilder] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDesc, setNewDesc] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1530,9 +1532,33 @@ export default function PlaylistView() {
               <Download className="w-4 h-4" />
               Импорт
             </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowSmartBuilder(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium"
+              style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-accent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 20%, transparent)" }}
+            >
+              <Sparkles className="w-4 h-4" />
+              Smart Playlist
+            </motion.button>
           </div>
         </div>
       )}
+
+      {/* Smart Playlist Builder modal */}
+      <AnimatePresence>
+        {showSmartBuilder && (
+          <SmartPlaylistBuilder
+            onClose={() => setShowSmartBuilder(false)}
+            onPlayTracks={(tracks) => {
+              if (tracks.length > 0) {
+                playTrack(tracks[0], tracks);
+                setShowSmartBuilder(false);
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
       </ScrollReveal>
     </div>
   );
