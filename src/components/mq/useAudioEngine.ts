@@ -9,6 +9,7 @@ import {
   setGaplessPreloadedTrackId, clearGaplessPreload, crossfadeToGapless,
   preloadTrack, isGaplessEnabled, setAudioPlaybackRate,
 } from "@/lib/audioEngine";
+import { replayGain, getDefaultGainForGenre } from "@/lib/replayGain";
 import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
 import Hls from "hls.js";
@@ -1102,6 +1103,23 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         useAppStore.setState({ playbackState: 'playing', isBuffering: false });
       }
       crossfadeRef.current = false;
+
+      // ── ReplayGain (M5.1) ──
+      // Apply genre-based gain normalization when enabled.
+      const rgEnabled = useAppStore.getState().replayGainEnabled;
+      const audioEl = getAudioElement();
+      if (rgEnabled && audioEl) {
+        const track = useAppStore.getState().currentTrack;
+        if (track) {
+          const defaultGain = getDefaultGainForGenre(track.genre || "");
+          replayGain.attach(audioEl);
+          replayGain.setEnabled(true);
+          replayGain.setBaseVolume(audioEl.volume);
+          replayGain.applyGain(defaultGain);
+        }
+      } else {
+        replayGain.setEnabled(false);
+      }
     };
 
     let loadingTimeoutId: ReturnType<typeof setTimeout> | null = null;

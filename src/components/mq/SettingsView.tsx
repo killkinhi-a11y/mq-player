@@ -862,6 +862,38 @@ export default function SettingsView() {
             </a>
           )}
 
+          {/* Last.fm Connect (M5.2) */}
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch("/api/lastfm/token");
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.connected) {
+                  // Already connected — disconnect
+                  toast({ title: "Last.fm подключён", description: "Сессия активна" });
+                } else if (data.apiKey) {
+                  // Redirect to Last.fm auth
+                  const callback = `${window.location.origin}/api/lastfm/callback`;
+                  window.location.href = `https://www.last.fm/api/auth/?api_key=${data.apiKey}&cb=${encodeURIComponent(callback)}`;
+                } else {
+                  toast({ title: "Last.fm не настроен", description: "LASTFM_API_KEY не задан на сервере" });
+                }
+              } catch {
+                toast({ title: "Ошибка", description: "Не удалось проверить статус Last.fm" });
+              }
+            }}
+            className="w-full px-4 py-3.5 text-left text-sm flex items-center gap-3 transition-colors hover:bg-white/[0.03]"
+            style={{ borderTop: "1px solid rgba(255,255,255,0.04)", color: "var(--mq-text)" }}
+          >
+            <Music className="w-4 h-4" style={{ color: "#d51007" }} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Last.fm</p>
+              <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Scrobbling прослушиваний</p>
+            </div>
+            <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+          </button>
+
           {/* Cloud Sync */}
           <div
             className="px-4 py-3.5 flex items-center justify-between gap-3"
