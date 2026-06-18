@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import {
   Plus, Trash2, Play, Music, ListMusic, ChevronRight, ChevronLeft,
-  Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle, Image, Camera, Sparkles, ImagePlus, Share2, Shuffle, Wand2, GripVertical, Pin, Users, MoveUp, MoveDown
+  Edit3, X, Check, Disc3, Clock, Heart, Upload, Download, Link, Loader2, AlertCircle, Image, Camera, Sparkles, ImagePlus, Share2, Shuffle, Wand2, Pin, Users, MoveUp, MoveDown, MoreVertical
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import TrackCard from "./TrackCard";
@@ -123,6 +123,8 @@ export default function PlaylistView() {
   const [aiGeneratingCover, setAiGeneratingCover] = useState(false);
   const [aiAutoGenerating, setAiAutoGenerating] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  // P2: which track's action menu is open (track id or null)
+  const [openMenuTrackId, setOpenMenuTrackId] = useState<string | null>(null);
   const [playlistRecs, setPlaylistRecs] = useState<Track[]>([]);
   const [playlistRecsLoading, setPlaylistRecsLoading] = useState(false);
   const [autoFilling, setAutoFilling] = useState(false);
@@ -183,6 +185,24 @@ export default function PlaylistView() {
       .catch(() => setPlaylistRecs([]))
       .finally(() => setPlaylistRecsLoading(false));
   }, [playlists, selectedPlaylistId]);
+
+  // Close track action menu on outside click / Escape
+  useEffect(() => {
+    if (!openMenuTrackId) return;
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement;
+      if (!t.closest('.group/menu')) setOpenMenuTrackId(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpenMenuTrackId(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [openMenuTrackId]);
 
   // ── Auto-generate description & cover when playlist has tracks but no description ──
   useEffect(() => {
@@ -797,10 +817,19 @@ export default function PlaylistView() {
           </ScrollReveal>
         )}
 
-        {/* Tracks list — enhanced with numbering, duration, like buttons, drag reorder */}
+        {/* Tracks list — redesigned P2: clean rows with cover thumbnail, clear hierarchy */}
         <ScrollReveal direction="up" delay={0.2}>
         {selectedPlaylist.tracks.length > 0 ? (
           <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--mq-card)" }}>
+            {/* Column header — desktop only */}
+            <div className="hidden sm:grid grid-cols-[2.5rem_1fr_3.5rem_2.5rem_2.5rem] items-center px-3 py-2 text-[11px] uppercase tracking-wider font-semibold border-b"
+              style={{ color: "var(--mq-text-muted)", borderColor: "var(--mq-border)", opacity: 0.7 }}>
+              <span className="text-center">#</span>
+              <span>Название</span>
+              <span className="text-right pr-2"><Clock className="w-3 h-3 inline" /></span>
+              <span></span>
+              <span></span>
+            </div>
             {selectedPlaylist.tracks.map((track, i) => {
               const isCurrentlyPlaying = currentTrack?.id === track.id;
               const isLiked = likedTrackIds.includes(track.id);
@@ -814,116 +843,177 @@ export default function PlaylistView() {
                   onDragOver={(e) => handleDragOver(e, i)}
                   onDrop={(e) => handleDrop(e, i)}
                   onDragEnd={handleDragEnd}
-                  className={`relative group/track flex items-center gap-2 transition-colors overflow-hidden ${
-                    isDragTarget ? "border-t-2" : ""
-                  }`}
+                  className="group/track grid grid-cols-[2.5rem_2.5rem_1fr_3.5rem_2.5rem_2.5rem] sm:grid-cols-[2.5rem_1fr_3.5rem_2.5rem_2.5rem] items-center gap-2 px-3 py-2 transition-colors relative"
                   style={{
                     backgroundColor: isDragTarget
                       ? "rgba(255,255,255,0.06)"
                       : isCurrentlyPlaying
-                        ? "rgba(var(--mq-accent-rgb, 255,255,255), 0.06)"
+                        ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)"
                         : "transparent",
-                    borderTopColor: isDragTarget ? "var(--mq-accent)" : "transparent",
+                    borderTop: isDragTarget ? "2px solid var(--mq-accent)" : "1px solid transparent",
+                    borderBottom: "1px solid color-mix(in srgb, var(--mq-border) 50%, transparent)",
                   }}
                 >
-                  {/* Track number + drag grip */}
-                  <div className="flex-shrink-0 w-10 flex items-center justify-center relative">
-                    <span
-                      className="text-xs tabular-nums group-hover/track:hidden"
-                      style={{
-                        color: isCurrentlyPlaying ? "var(--mq-accent)" : "var(--mq-text-muted)",
-                        opacity: isCurrentlyPlaying ? 1 : 0.5,
-                        fontWeight: isCurrentlyPlaying ? 700 : 400,
-                      }}
-                    >
-                      {isCurrentlyPlaying ? (
+                  {/* Track number + play-on-hover + drag grip */}
+                  <div className="flex items-center justify-center relative w-10 h-10 cursor-pointer"
+                    onClick={() => {
+                      if (isCurrentlyPlaying) {
+                        useAppStore.getState().togglePlay();
+                      } else {
+                        playTrack(track, selectedPlaylist.tracks);
+                      }
+                    }}
+                  >
+                    {isCurrentlyPlaying ? (
+                      <motion.span
+                        className="flex items-end gap-[2px] h-3.5"
+                        style={{ color: "var(--mq-accent)" }}
+                        aria-hidden
+                      >
                         <motion.span
-                          className="flex items-end gap-[2px] h-3"
-                          style={{ color: "var(--mq-accent)" }}
+                          className="w-[2px] rounded-full"
+                          style={{ backgroundColor: "var(--mq-accent)", height: "100%", transformOrigin: "bottom" }}
+                          animate={{ scaleY: [0.4, 1, 0.6, 0.8, 0.4] }}
+                          transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
+                        />
+                        <motion.span
+                          className="w-[2px] rounded-full"
+                          style={{ backgroundColor: "var(--mq-accent)", height: "100%", transformOrigin: "bottom" }}
+                          animate={{ scaleY: [0.7, 0.4, 0.9, 0.5, 0.7] }}
+                          transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.15 }}
+                        />
+                        <motion.span
+                          className="w-[2px] rounded-full"
+                          style={{ backgroundColor: "var(--mq-accent)", height: "100%", transformOrigin: "bottom" }}
+                          animate={{ scaleY: [0.5, 0.8, 0.4, 1, 0.5] }}
+                          transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
+                        />
+                      </motion.span>
+                    ) : (
+                      <>
+                        <span
+                          className="text-xs tabular-nums group-hover/track:hidden"
+                          style={{
+                            color: "var(--mq-text-muted)",
+                            opacity: 0.6,
+                            fontWeight: 500,
+                          }}
                         >
-                          <motion.span
-                            className="w-[2px] rounded-full"
-                            style={{ backgroundColor: "var(--mq-accent)", height: "100%", transformOrigin: "bottom", willChange: "transform" }}
-                            animate={{ scaleY: [0.4, 1, 0.6, 0.8, 0.4] }}
-                            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-                          />
-                          <motion.span
-                            className="w-[2px] rounded-full"
-                            style={{ backgroundColor: "var(--mq-accent)", height: "100%", transformOrigin: "bottom", willChange: "transform" }}
-                            animate={{ scaleY: [0.7, 0.4, 0.9, 0.5, 0.7] }}
-                            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.15 }}
-                          />
-                          <motion.span
-                            className="w-[2px] rounded-full"
-                            style={{ backgroundColor: "var(--mq-accent)", height: "100%", transformOrigin: "bottom", willChange: "transform" }}
-                            animate={{ scaleY: [0.5, 0.8, 0.4, 1, 0.5] }}
-                            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.3 }}
-                          />
-                        </motion.span>
-                      ) : (
-                        i + 1
-                      )}
-                    </span>
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/track:opacity-40 transition-opacity cursor-grab">
-                      <GripVertical className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                    </div>
+                          {i + 1}
+                        </span>
+                        <Play
+                          className="absolute inset-0 m-auto w-4 h-4 opacity-0 group-hover/track:opacity-100 transition-opacity"
+                          style={{ color: "var(--mq-text)" }}
+                          fill="currentColor"
+                        />
+                      </>
+                    )}
                   </div>
 
-                  <div className="flex-1 min-w-0">
-                  <TrackCard track={track} index={i} queue={selectedPlaylist.tracks} onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })} />
+                  {/* Cover thumbnail (mobile-only) */}
+                  <div className="sm:hidden flex-shrink-0 w-10 h-10 rounded-md overflow-hidden"
+                    style={{ backgroundColor: "var(--mq-input-bg)" }}>
+                    {track.cover ? (
+                      <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Title + artist */}
+                  <div className="min-w-0 flex-1 cursor-pointer"
+                    onClick={() => {
+                      if (!isCurrentlyPlaying) {
+                        playTrack(track, selectedPlaylist.tracks);
+                      }
+                    }}>
+                    <div
+                      className="text-sm font-medium truncate leading-tight"
+                      style={{
+                        color: isCurrentlyPlaying ? "var(--mq-accent)" : "var(--mq-text)",
+                        fontWeight: isCurrentlyPlaying ? 600 : 500,
+                      }}
+                      title={track.title}
+                    >
+                      {track.title}
+                    </div>
+                    <button
+                      className="text-xs truncate leading-tight block max-w-full text-left hover:underline underline-offset-2"
+                      style={{ color: "var(--mq-text-muted)", background: "none", border: "none", padding: 0, font: "inherit" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedArtist({ name: track.artist, avatar: track.cover });
+                      }}
+                      title={track.artist}
+                    >
+                      {track.artist}
+                    </button>
                   </div>
 
                   {/* Duration */}
-                  <span className="text-[11px] tabular-nums flex-shrink-0 mr-1 hidden sm:block"
-                    style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                  <span className="text-[11px] tabular-nums text-right pr-1 hidden sm:block"
+                    style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
                     {formatDuration(track.duration)}
                   </span>
 
                   {/* Like button */}
                   <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => useAppStore.getState().toggleLike(track.id, track)}
-                    className="p-1.5 flex-shrink-0 opacity-0 group-hover/track:opacity-100 transition-opacity"
+                    whileTap={{ scale: 0.9 }}
+                    onClick={(e) => { e.stopPropagation(); useAppStore.getState().toggleLike(track.id, track); }}
+                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors"
                     style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+                    aria-label={isLiked ? "Убрать из любимых" : "В любимые"}
                   >
-                    <Heart className="w-3.5 h-3.5" fill={isLiked ? "currentColor" : "none"} />
+                    <Heart className="w-4 h-4" fill={isLiked ? "currentColor" : "none"} />
                   </motion.button>
 
-                  {/* Move up/down buttons — P4.4: always visible on mobile (touch has no hover) */}
-                  <div className="flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover/track:opacity-100 transition-opacity flex items-center gap-0.5">
-                    {i > 0 && (
-                      <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleMoveTrack(selectedPlaylist.id, i, i - 1)}
-                        className="p-2 sm:p-1 rounded-lg"
-                        style={{ color: "var(--mq-text-muted)" }}
-                        title="Переместить вверх"
-                        aria-label="Переместить вверх"
-                      >
-                        <MoveUp className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                      </motion.button>
-                    )}
-                    {i < selectedPlaylist.tracks.length - 1 && (
-                      <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleMoveTrack(selectedPlaylist.id, i, i + 1)}
-                        className="p-2 sm:p-1 rounded-lg"
-                        style={{ color: "var(--mq-text-muted)" }}
-                        title="Переместить вниз"
-                      >
-                        <MoveDown className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                      </motion.button>
+                  {/* More menu — remove / move up / move down */}
+                  <div className="relative group/menu">
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuTrackId(openMenuTrackId === track.id ? null : track.id);
+                      }}
+                      className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors"
+                      style={{ color: "var(--mq-text-muted)" }}
+                      aria-label="Действия с треком"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </motion.button>
+                    {openMenuTrackId === track.id && (
+                      <div className="absolute right-0 top-full mt-1 z-30 rounded-xl py-1 min-w-[180px] shadow-2xl"
+                        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
+                        {i > 0 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleMoveTrack(selectedPlaylist.id, i, i - 1); setOpenMenuTrackId(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                            style={{ color: "var(--mq-text)" }}
+                          >
+                            <MoveUp className="w-3.5 h-3.5" /> Вверх
+                          </button>
+                        )}
+                        {i < selectedPlaylist.tracks.length - 1 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleMoveTrack(selectedPlaylist.id, i, i + 1); setOpenMenuTrackId(null); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                            style={{ color: "var(--mq-text)" }}
+                          >
+                            <MoveDown className="w-3.5 h-3.5" /> Вниз
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); removeFromPlaylist(selectedPlaylist.id, track.id); setOpenMenuTrackId(null); }}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-white/5 transition-colors"
+                          style={{ color: "#ef4444" }}
+                        >
+                          <X className="w-3.5 h-3.5" /> Удалить
+                        </button>
+                      </div>
                     )}
                   </div>
-
-                  {/* Remove button */}
-                  <button
-                    onClick={() => removeFromPlaylist(selectedPlaylist.id, track.id)}
-                    className="p-1.5 flex-shrink-0 opacity-0 hover:opacity-100 transition-opacity group-hover/track:opacity-100"
-                    style={{ color: "var(--mq-text-muted)" }}
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
                 </div>
               );
             })}

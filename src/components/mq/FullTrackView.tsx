@@ -873,6 +873,8 @@ export default function FullTrackView() {
     if (!canvas || !showLyrics) return;
     // P1-fix: skip when animations disabled or reduceMotion on
     if (!animationsEnabled || useAppStore.getState().reduceMotion) return;
+    // P2-perf: skip when paused — visualizer is audio-reactive, no audio = no point
+    if (!isPlaying) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -884,7 +886,8 @@ export default function FullTrackView() {
     const dataArray = new Uint8Array(bufferLength);
 
     let animId: number;
-    // Cache accent color — avoid getComputedStyle on every frame for 60fps
+    // Cache accent color — read once, then update only when theme actually changes
+    // (via MutationObserver on documentElement style attribute). No more 2s polling.
     let cachedAccent = { r: 224, g: 49, b: 49 };
     const updateAccent = () => {
       const accentColor = getComputedStyle(document.documentElement).getPropertyValue("--mq-accent").trim() || "#e03131";
@@ -897,13 +900,17 @@ export default function FullTrackView() {
       }
     };
     updateAccent();
-    const accentInterval = setInterval(updateAccent, 2000);
+    // Listen for theme changes via MutationObserver instead of polling every 2s
+    const themeObserver = new MutationObserver(updateAccent);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "class", "data-theme"] });
 
     const draw = (time: number) => {
       if (document.hidden) { animId = requestAnimationFrame(draw); return; }
-      if (time - lastFrame < 33) { animId = requestAnimationFrame(draw); return; }
+      // P2-perf: throttle to ~20fps (was 30fps) — barely visible difference for bg ambience
+      if (time - lastFrame < 50) { animId = requestAnimationFrame(draw); return; }
       lastFrame = time;
-      const dpr = window.devicePixelRatio || 1;
+      // P2-perf: cap DPR at 1.5 — full retina DPR (2-3x) is overkill for subtle bg ambience
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
       if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
@@ -1032,8 +1039,8 @@ export default function FullTrackView() {
     };
 
     animId = requestAnimationFrame(draw);
-    return () => { cancelAnimationFrame(animId); clearInterval(accentInterval); };
-  }, [showLyrics, isPlaying, currentTrack?.id]);
+    return () => { cancelAnimationFrame(animId); themeObserver.disconnect(); };
+  }, [showLyrics, isPlaying, currentTrack?.id, animationsEnabled]);
 
   // Fetch similar tracks using the smart similarity algorithm
   useEffect(() => {
@@ -1103,11 +1110,13 @@ export default function FullTrackView() {
     if (!canvas || !isFullTrackViewOpen) return;
     // P1-fix: skip expensive canvas when animations disabled or reduceMotion on
     if (!animationsEnabled || useAppStore.getState().reduceMotion) return;
+    // P2-perf: skip when paused — at 0.04 opacity it's invisible anyway
+    if (!isPlaying) return;
 
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // P1-fix: throttle to 30fps (was 60fps) — background visualizer doesn't need 60fps
+    // P2-perf: throttle to ~20fps (was 30fps) — background visualizer doesn't need 30fps
     let lastFrame = 0;
 
     // Default waves
@@ -1128,7 +1137,8 @@ export default function FullTrackView() {
 
     // Japan petals for wave canvas
     interface WavePetal { x: number; y: number; size: number; speed: number; sway: number; phase: number; rot: number; rotSpeed: number; opacity: number; }
-    const japanPetals: WavePetal[] = Array.from({ length: 20 }, () => ({
+    // P2-perf: 20 → 12 petals
+    const japanPetals: WavePetal[] = Array.from({ length: 12 }, () => ({
       x: Math.random() * 2000, y: Math.random() * 1200 - 600,
       size: 3 + Math.random() * 6, speed: 0.4 + Math.random() * 0.6,
       sway: 0.3 + Math.random() * 0.5, phase: Math.random() * Math.PI * 2,
@@ -1136,9 +1146,9 @@ export default function FullTrackView() {
       opacity: 0.15 + Math.random() * 0.35,
     }));
 
-    // Swag constellation particles for wave canvas
+    // Swag constellation particles for wave canvas (P2-perf: 35 → 20 nodes)
     interface ConstellationNode { x: number; y: number; vx: number; vy: number; size: number; angle: number; rotSpeed: number; alpha: number; pulsePhase: number; }
-    const swagConstellation: ConstellationNode[] = Array.from({ length: 35 }, () => ({
+    const swagConstellation: ConstellationNode[] = Array.from({ length: 20 }, () => ({
       x: Math.random() * 2000, y: Math.random() * 1200,
       vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.2,
       size: 1.5 + Math.random() * 3, angle: Math.random() * Math.PI * 2,
@@ -1148,7 +1158,7 @@ export default function FullTrackView() {
 
     // iPod scan dots removed for performance (CSS handles LCD effect)
 
-    // Cache accent color for 60fps — avoid getComputedStyle on every frame
+    // Cache accent color — read once, then update only when theme changes
     let waveAccent = { r: 224, g: 49, b: 49 };
     const updateWaveAccent = () => {
       const c = getComputedStyle(document.documentElement).getPropertyValue("--mq-accent").trim() || "#e03131";
@@ -1157,14 +1167,18 @@ export default function FullTrackView() {
       }
     };
     updateWaveAccent();
-    const waveAccentInterval = setInterval(updateWaveAccent, 2000);
+    // P2-perf: replace 2s polling with MutationObserver — only fires when theme actually changes
+    const waveThemeObserver = new MutationObserver(updateWaveAccent);
+    waveThemeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "class", "data-theme"] });
 
     const draw = (time: number) => {
       waveAnimRef.current = requestAnimationFrame(draw);
       if (document.hidden) return; // P1-fix: skip when tab hidden
-      if (time - lastFrame < 33) return; // P1-fix: throttle to ~30fps
+      // P2-perf: throttle to ~20fps (was 30fps) — bg visualizer doesn't need 30fps
+      if (time - lastFrame < 50) return;
       lastFrame = time;
-      const dpr = window.devicePixelRatio || 1;
+      // P2-perf: cap DPR at 1.5 — full retina DPR is overkill for subtle bg ambience
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
       if (canvas.width !== w * dpr || canvas.height !== h * dpr) {
@@ -1675,8 +1689,8 @@ export default function FullTrackView() {
       }
     };
     draw(performance.now());
-    return () => { if (waveAnimRef.current) cancelAnimationFrame(waveAnimRef.current); clearInterval(waveAccentInterval); };
-  }, [isFullTrackViewOpen, currentTrack?.id, currentStyle]);
+    return () => { if (waveAnimRef.current) cancelAnimationFrame(waveAnimRef.current); waveThemeObserver.disconnect(); };
+  }, [isFullTrackViewOpen, currentTrack?.id, currentStyle, isPlaying, animationsEnabled]);
 
   // Fetch release radar when component mounts and liked tracks are available
   useEffect(() => {
