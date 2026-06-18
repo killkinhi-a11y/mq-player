@@ -18,26 +18,7 @@ interface TrackCardProps {
   onArtistClick?: (artistName: string, coverUrl?: string) => void;
 }
 
-/* ── Mini equalizer bars for "now playing" indicator — 60fps CSS animation ── */
-const NowPlayingEqualizer = memo(function NowPlayingEqualizer() {
-  return (
-    <span className="inline-flex items-end gap-[2px] h-3.5 ml-1.5 flex-shrink-0" aria-label="Now playing">
-      {[0, 1, 2, 3].map((i) => (
-        <span
-          key={i}
-          className="mq-track-eq w-[2px] rounded-full inline-block origin-bottom"
-          style={{
-            backgroundColor: "var(--mq-accent)",
-            boxShadow: "0 0 6px color-mix(in srgb, var(--mq-accent) 50%, transparent), 0 0 12px color-mix(in srgb, var(--mq-accent) 20%, transparent)",
-            animationName: `trackEq${i}`,
-            animationDuration: "0.5s",
-            animationDelay: `${i * 0.08}s`,
-          }}
-        />
-      ))}
-    </span>
-  );
-});
+import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 
 const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistClick }: TrackCardProps) {
   // Use Zustand selectors to minimize re-renders — only subscribe to needed slices

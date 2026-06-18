@@ -11,7 +11,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Pause, Music2, ChevronLeft, ChevronRight, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending, X, Check, Square, Brain, Sunrise, User } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
 import HeroParticles from "./HeroParticles";
-import CursorSpotlight from "./CursorSpotlight";
 import ScrollReveal from "./ScrollReveal";
 import ScrollProgressBar from "./ScrollProgressBar";
 import ArtistCard from "./ArtistCard";
@@ -1758,8 +1757,7 @@ export default function MainView() {
 
   return (
     <div ref={mainRef} className={`p-4 sm:p-5 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28 max-w-6xl mx-auto relative`} style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
-      {/* Cursor Spotlight — global mouse glow */}
-      <CursorSpotlight />
+      {/* P3.3: CursorSpotlight removed — permanent RAF for 7% opacity effect that most users don't see */}
 
       {/* ── Hero Section — Premium mobile / Classic desktop ── */}
       <div
