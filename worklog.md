@@ -404,3 +404,50 @@ Cumulative final stats:
 - Database adapter methods added: 15
 - 40 of 41 Prisma-direct API routes migrated (98%)
 - Production: https://mq1.vercel.app — READY, all changes live
+
+---
+Task ID: M5-API-ROUTES
+Agent: Main Agent (Claude)
+Task: Create Last.fm + Smart Playlist API routes + ReplayGain UI toggle
+
+Work Log:
+- Last.fm API routes (4 new):
+  * /api/lastfm/token GET — returns public API key + connection status
+  * /api/lastfm/scrobble POST — track.scrobble with MD5 API signature
+  * /api/lastfm/now-playing POST — track.updateNowPlaying
+  * /api/lastfm/callback GET — auth.getSession token exchange, stores
+    session key in UserSync as 'lastfm_session'
+- Smart Playlist API routes (4 new):
+  * /api/smart-playlists GET — list user's smart playlists
+  * /api/smart-playlists POST — create (name, rules JSON, limit, sortBy)
+  * /api/smart-playlists/[id] PATCH/DELETE — update/delete (ownership-verified)
+  * /api/smart-playlists/[id]/evaluate GET — evaluates rules against
+    user's library (fetched from UserSync likedTracks + history)
+- ReplayGain UI:
+  * useAppStore: added replayGainEnabled (default false) + setReplayGainEnabled
+  * Added to persisted partialize so it survives page reload
+  * SettingsView: added SettingToggle (icon: Gauge, label: 'ReplayGain',
+    subtitle: 'Нормализация громкости между треками')
+- Build fix: smart-playlists/[id]/evaluate/route.ts was importing
+  useAppStore (client-side) — removed + added missing 'database' import
+- Deploy: 2 pushes, 1 build error (TS), 1 fix, final READY. Smoke test:
+  / → 307, /play → 200, /api/smart-playlists (no auth) → 401,
+  /api/lastfm/token (no auth) → 401.
+
+Stage Summary:
+- 8 new API routes created for Last.fm (4) + Smart Playlists (4)
+- ReplayGain toggle visible in Settings → Audio section
+- All routes are auth-protected (withAuth wrapper)
+- SmartPlaylist Prisma model needs `prisma db push` or migration to apply
+  (the schema change is in prisma/schema.prisma but not yet pushed to
+  the Turso/PostgreSQL database — user needs to run this locally or
+  via CI)
+
+Cumulative final stats:
+- 75+ files changed, ~4000 lines of net code change
+- Dead code removed: ~1430 lines
+- New shared libs: tasteProfile.ts, replayGain.ts, lastfm.ts, smartPlaylist.ts (683L total)
+- New components: KeyboardShortcutsHelp.tsx, ProgressiveList.tsx (325L total)
+- Database adapter methods: 15
+- API routes: 40 of 41 original migrated + 8 new M5 routes = 48 auth-protected routes
+- Production: https://mq1.vercel.app — READY
