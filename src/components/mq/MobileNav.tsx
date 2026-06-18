@@ -98,7 +98,7 @@ const MobileNav = React.memo(function MobileNav() {
                     )}
                   </div>
                   <span
-                    className="text-[11px] font-medium leading-tight"
+                    className="text-[11px] font-medium leading-tight max-w-[60px] truncate"
                     style={{ letterSpacing: "-0.01em" }}
                   >
                     {item.label}

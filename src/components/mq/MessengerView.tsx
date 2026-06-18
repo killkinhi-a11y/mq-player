@@ -1600,7 +1600,7 @@ export default function MessengerView() {
         setGroupDesc("");
         setGroupMembers(new Set());
       }
-    } catch { /* silent */ }
+    } catch { showToast("Не удалось создать группу"); }
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -2071,6 +2071,20 @@ export default function MessengerView() {
                             </div>
                           )}
                         </div>
+                      )}
+                      {/* Add members button — visible to group admins */}
+                      {selectedGroup && (
+                        <motion.button
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => { setGroupName(selectedGroup.name); setShowGroupCreate(true); }}
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg ml-1"
+                          style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-accent)" }}
+                          title="Добавить участников"
+                          aria-label="Добавить участников"
+                        >
+                          <UserPlus className="w-3 h-3" />
+                          <span className="text-[11px] font-medium">Добавить</span>
+                        </motion.button>
                       )}
                     </div>
                   )}
