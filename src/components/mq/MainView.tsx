@@ -429,23 +429,15 @@ function MoodTag({ label, icon, onClick, active, gradient }: {
       whileHover={{ scale: 1.05, y: -1 }}
       whileTap={{ scale: 0.95 }}
       onClick={onClick}
-      className={`flex items-center gap-1.5 px-4 py-2.5 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-all duration-200 ${active ? "mq-breathe-glow" : ""}`}
+      className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-medium whitespace-nowrap cursor-pointer transition-all duration-200`}
       style={{
         background: active
           ? "var(--mq-accent)"
-          : gradient || "var(--mq-glass-bg)",
-        color: active ? "var(--mq-text)" : "var(--mq-text-muted)",
-        boxShadow: active
-          ? "0 2px 12px color-mix(in srgb, var(--mq-accent) 30%, transparent)"
-          : gradient
-            ? "0 2px 8px rgba(0,0,0,0.12)"
-            : "none",
+          : "color-mix(in srgb, var(--mq-accent) 8%, transparent)",
+        color: active ? "var(--mq-text)" : "var(--mq-accent)",
         border: active
           ? "1px solid var(--mq-accent)"
-          : "1px solid var(--mq-glass-border)",
-        backdropFilter: active ? "none" : "var(--mq-glass-blur)",
-        WebkitBackdropFilter: active ? "none" : "var(--mq-glass-blur)",
-        animation: active ? "mq-breathe-glow 3s ease-in-out infinite" : "none",
+          : "1px solid color-mix(in srgb, var(--mq-accent) 15%, transparent)",
       }}
     >
       {icon}
@@ -1491,12 +1483,16 @@ export default function MainView() {
 
               {tasteProfile.topGenres.length > 0 && (
                 <div className="flex gap-2 mt-4 overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-                  {tasteProfile.topGenres.slice(0, 5).map((genre) => (
+                  {tasteProfile.topGenres.slice(0, 3).map((genre) => (
                     <motion.button key={genre} whileHover={{ scale: 1.04, y: -1 }} whileTap={{ scale: 0.96 }}
                       onClick={() => setSearchQuery(genre)}
-                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap cursor-pointer transition-all duration-200"
-                      style={{ background: "color-mix(in srgb, rgba(255,255,255,0.06) 60%, transparent)", backdropFilter: "blur(16px) saturate(160%)", WebkitBackdropFilter: "blur(16px) saturate(160%)", color: "var(--mq-text-muted)", border: "1px solid rgba(255,255,255,0.06)", boxShadow: "var(--mq-shadow-xs), var(--mq-shadow-inner-glow)" }}>
-                      <Music2 className="w-3 h-3" style={{ opacity: 0.5 }} />{displayGenre(genre)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap cursor-pointer transition-all duration-200"
+                      style={{
+                        background: "color-mix(in srgb, var(--mq-accent) 8%, transparent)",
+                        color: "var(--mq-accent)",
+                        border: "1px solid color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+                      }}>
+                      <Music2 className="w-3 h-3" style={{ opacity: 0.7 }} />{displayGenre(genre)}
                     </motion.button>
                   ))}
                 </div>
@@ -1536,7 +1532,7 @@ export default function MainView() {
 
               {tasteProfile.topGenres.length > 0 && (
                 <div className="flex gap-2 mt-5 overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
-                  {tasteProfile.topGenres.slice(0, 5).map((genre) => (
+                  {tasteProfile.topGenres.slice(0, 3).map((genre) => (
                     <MoodTag key={genre} label={displayGenre(genre)} icon={<Music2 className="w-3 h-3" />} onClick={() => setSearchQuery(genre)} />
                   ))}
                 </div>
@@ -1686,8 +1682,12 @@ export default function MainView() {
                     {tasteProfile.topGenres.length > 0 && (
                       <div className="flex gap-1.5 mt-2 overflow-hidden">
                         {tasteProfile.topGenres.slice(0, 3).map((genre) => (
-                          <span key={genre} className="text-[11px] px-2.5 py-0.5 rounded-full whitespace-nowrap"
-                            style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.06)" }}>{displayGenre(genre)}</span>
+                          <span key={genre} className="text-[11px] px-2.5 py-0.5 rounded-full whitespace-nowrap font-medium"
+                            style={{
+                              backgroundColor: "rgba(255,255,255,0.12)",
+                              color: "rgba(255,255,255,0.85)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                            }}>{displayGenre(genre)}</span>
                         ))}
                       </div>
                     )}
@@ -1715,8 +1715,12 @@ export default function MainView() {
                     {tasteProfile.topGenres.length > 0 && (
                       <div className="flex gap-1.5 mt-2 overflow-hidden">
                         {tasteProfile.topGenres.slice(0, 3).map((genre) => (
-                          <span key={genre} className="text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap"
-                            style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.8)" }}>{displayGenre(genre)}</span>
+                          <span key={genre} className="text-[11px] px-2.5 py-0.5 rounded-full whitespace-nowrap font-medium"
+                            style={{
+                              backgroundColor: "rgba(255,255,255,0.15)",
+                              color: "rgba(255,255,255,0.9)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                            }}>{displayGenre(genre)}</span>
                         ))}
                       </div>
                     )}
@@ -1834,70 +1838,67 @@ export default function MainView() {
             <div className="relative group/playlistrow">
               <div ref={curatedScrollRef} className="mq-scroll-row" style={{ scrollSnapType: "x proximity", gap: isMobile ? "12px" : "var(--mq-space-3)" }}>
                 {curatedPlaylists.map((pl, i) => (
-                  isMobile ? (
-                    /* ── Mobile Premium Playlist Card ── */
-                    <motion.button
-                      key={pl.id}
-                      initial={animationsEnabled ? { opacity: 0, x: 30 } : undefined}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => setSelectedCurated(pl)}
-                      className="flex-shrink-0 w-[150px] sm:w-[170px] relative cursor-pointer group rounded-[24px] overflow-hidden"
-                      style={{ border: "1px solid rgba(255,255,255,0.06)", boxShadow: "var(--mq-shadow-card-hover)" }}
-                    >
-                      <div className="absolute inset-0 overflow-hidden">
-                        <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className="!w-full !h-full group-hover:scale-110 transition-transform duration-700" />
+                  <motion.button
+                    key={pl.id}
+                    initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.04, duration: 0.3 }}
+                    whileHover={{ y: -4 }}
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => setSelectedCurated(pl)}
+                    className="flex-shrink-0 w-[160px] sm:w-[180px] cursor-pointer group relative"
+                    style={{
+                      backgroundColor: "var(--mq-card)",
+                      borderRadius: 16,
+                      border: "1px solid var(--mq-border)",
+                      boxShadow: "var(--mq-shadow-card)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {/* ── Cover art — square, top ── */}
+                    <div className="relative aspect-square overflow-hidden">
+                      <PlaylistArtwork
+                        playlistId={pl.id}
+                        size={200}
+                        rounded="rounded-none"
+                        className="!w-full !h-full group-hover:scale-105 transition-transform duration-500"
+                      />
+                      {/* Play button overlay on hover */}
+                      <div
+                        className="absolute bottom-2 right-2 w-9 h-9 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:scale-110 sm:translate-y-1 group-hover:translate-y-0"
+                        style={{
+                          backgroundColor: "var(--mq-accent)",
+                          color: "var(--mq-text)",
+                          boxShadow: "var(--mq-shadow-accent)",
+                        }}
+                        aria-hidden
+                      >
+                        <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
                       </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                      <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 10%, transparent) 0%, transparent 50%)` }} />
-                      <div className="relative z-10 h-[200px] sm:h-[230px] flex flex-col justify-between p-3.5">
-                        <div className="mt-1">
-                          <p className="text-[14px] font-bold leading-tight drop-shadow-md" style={{ color: "#fff", letterSpacing: "-0.01em" }}>{pl.name}</p>
-                          <p className="text-[12px] mt-1 leading-snug line-clamp-2 drop-shadow-sm" style={{ color: "rgba(255,255,255,0.85)" }}>{pl.subtitle}</p>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-[11px] drop-shadow-sm font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>{pl.tracks.length} треков</p>
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg shadow-black/20 transition-all duration-300 group-hover:scale-110"
-                            style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px) saturate(160%)", WebkitBackdropFilter: "blur(12px) saturate(160%)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                            <Play className="w-3.5 h-3.5 ml-[1px]" style={{ color: "rgba(255,255,255,0.9)" }} fill="currentColor" />
-                          </div>
-                        </div>
-                      </div>
-                    </motion.button>
-                  ) : (
-                    /* ── Desktop Classic Playlist Card ── */
-                    <motion.button
-                      key={pl.id}
-                      initial={animationsEnabled ? { opacity: 0, x: 30 } : undefined}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05 }}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => setSelectedCurated(pl)}
-                      className={`${i === 0 ? "mq-hero-card" : "mq-card-cinematic"} flex-shrink-0 w-36 h-52 sm:w-44 sm:h-60 relative cursor-pointer group`}
-                    >
-                      <div className="absolute inset-0 overflow-hidden">
-                        <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className={`!w-full !h-full group-hover:scale-110 transition-transform duration-700 mq-cover-shadow ${i === 0 ? "group-hover:scale-[1.15]" : ""}`} />
-                      </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                      <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 12%, transparent) 0%, transparent 50%)` }} />
-                      <div className="relative z-10 h-full flex flex-col justify-between p-2.5 sm:p-3.5">
-                        <div className="mt-1">
-                          <p className="text-sm font-bold leading-tight drop-shadow-md" style={{ color: "#fff" }}>{pl.name}</p>
-                          <p className="text-[12px] mt-1 leading-snug line-clamp-2 drop-shadow-sm" style={{ color: "rgba(255,255,255,0.85)" }}>{pl.subtitle}</p>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <p className="text-[11px] drop-shadow-sm font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>{pl.tracks.length} треков</p>
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center shadow-lg shadow-black/30 transition-all duration-300 group-hover:scale-110"
-                            style={{ background: "rgba(255,255,255,0.95)" }}>
-                            <Play className="w-4 h-4 ml-0.5" style={{ color: "#1a1a2e" }} fill="currentColor" />
-                          </div>
-                        </div>
-                      </div>
-                    </motion.button>
-                  )
+                    </div>
+                    {/* ── Text info — solid bg, below cover ── */}
+                    <div className="p-3 text-left">
+                      <p
+                        className="text-sm font-bold truncate leading-tight"
+                        style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}
+                        title={pl.name}
+                      >
+                        {pl.name}
+                      </p>
+                      <p
+                        className="text-[11px] mt-1 leading-snug line-clamp-2"
+                        style={{ color: "var(--mq-text-muted)" }}
+                      >
+                        {pl.subtitle}
+                      </p>
+                      <p
+                        className="text-[10px] mt-2 font-medium uppercase tracking-wider"
+                        style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}
+                      >
+                        {pl.tracks.length} треков
+                      </p>
+                    </div>
+                  </motion.button>
                 ))}
               </div>
               {/* PC scroll buttons for playlists — hidden on mobile */}
