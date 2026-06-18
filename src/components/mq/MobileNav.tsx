@@ -43,10 +43,10 @@ const MobileNav = React.memo(function MobileNav() {
       <div
         className="rounded-[24px] overflow-hidden"
         style={{
-          background: "color-mix(in srgb, var(--mq-bg) 65%, transparent)",
+          background: "color-mix(in srgb, var(--mq-bg) 75%, transparent)",
           backdropFilter: "blur(32px) saturate(200%)",
           WebkitBackdropFilter: "blur(32px) saturate(200%)",
-          border: "1px solid rgba(255,255,255,0.06)",
+          border: "1px solid var(--mq-glass-border)",
           boxShadow: "var(--mq-shadow-float), var(--mq-shadow-inner-glow)",
         }}
       >
@@ -58,21 +58,29 @@ const MobileNav = React.memo(function MobileNav() {
             return (
               <motion.button
                 key={item.id}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setView(item.id)}
+                whileTap={{ scale: 0.92 }}
+                onClick={() => {
+                  setView(item.id);
+                  if (item.id === "search") {
+                    setTimeout(() => {
+                      const searchInput = document.querySelector<HTMLInputElement>("[data-search-input]");
+                      searchInput?.focus();
+                    }, 100);
+                  }
+                }}
                 aria-label={item.label}
                 aria-current={isActive ? "page" : undefined}
                 tabIndex={0}
-                className="flex flex-col items-center gap-0.5 px-3 py-1.5 min-w-[48px] min-h-[44px] cursor-pointer relative"
-                style={{ color: isActive ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text-muted) 70%, transparent)", background: "transparent" }}
+                className="flex flex-col items-center gap-0.5 px-2 py-1.5 min-w-[44px] min-h-[44px] cursor-pointer relative"
+                style={{ color: isActive ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text-muted) 75%, transparent)", background: "transparent" }}
               >
                 {isActive && (
                   <motion.div
                     layoutId="mobileNavPill"
-                    className="absolute inset-0 rounded-2xl"
+                    className="absolute inset-0 rounded-xl"
                     style={{
-                      background: "color-mix(in srgb, var(--mq-accent) 10%, transparent)",
-                      border: "1px solid color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+                      background: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--mq-accent) 20%, transparent)",
                     }}
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   />
@@ -81,8 +89,8 @@ const MobileNav = React.memo(function MobileNav() {
                   <div className="relative">
                     <Icon
                       className="w-[18px] h-[18px]"
-                      strokeWidth={isActive ? 2.2 : 1.5}
-                      style={isActive ? { color: "var(--mq-accent)", filter: "drop-shadow(0 0 6px color-mix(in srgb, var(--mq-accent) 40%, transparent))" } : undefined}
+                      strokeWidth={isActive ? 2.2 : 1.6}
+                      style={isActive ? { color: "var(--mq-accent)" } : undefined}
                     />
                     {badgeCount > 0 && (
                       <span
@@ -98,21 +106,12 @@ const MobileNav = React.memo(function MobileNav() {
                     )}
                   </div>
                   <span
-                    className="text-[11px] font-medium leading-tight max-w-[60px] truncate"
+                    className="text-[10px] font-medium leading-tight max-w-[56px] truncate"
                     style={{ letterSpacing: "-0.01em" }}
                   >
                     {item.label}
                   </span>
                 </div>
-                {/* Active dot indicator */}
-                {isActive && (
-                  <motion.div
-                    layoutId="mobileNavDot"
-                    className="absolute -bottom-0.5 h-[3px] rounded-full"
-                    style={{ backgroundColor: "var(--mq-accent)", width: 12, boxShadow: "0 0 8px color-mix(in srgb, var(--mq-accent) 50%, transparent)" }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
-                )}
               </motion.button>
             );
           })}

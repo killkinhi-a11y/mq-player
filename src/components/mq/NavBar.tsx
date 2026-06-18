@@ -4,13 +4,14 @@ import React, { useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import {
-  Home, Search, MessageCircle, Settings, LogOut, User,
+  Home, Search, MessageCircle, Settings, User,
   Library,
 } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
 const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
   { id: "main", icon: Home, label: "Главная" },
+  { id: "search", icon: Search, label: "Поиск" },
   { id: "library", icon: Library, label: "Библиотека" },
   { id: "messenger", icon: MessageCircle, label: "Чаты", badgeKey: "messenger" },
   { id: "settings", icon: Settings, label: "Настройки", badgeKey: "settings" },
@@ -19,7 +20,6 @@ const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "me
 const NavBar = React.memo(function NavBar() {
   const currentView = useAppStore((s) => s.currentView);
   const setView = useAppStore((s) => s.setView);
-  const logout = useAppStore((s) => s.logout);
   const username = useAppStore((s) => s.username);
   const avatar = useAppStore((s) => s.avatar);
   const compactMode = useAppStore((s) => s.compactMode);
@@ -102,9 +102,9 @@ const NavBar = React.memo(function NavBar() {
         </span>
       </motion.div>
 
-      {/* ── Navigation pills with labels ── */}
+      {/* ── Navigation pills with labels (includes Search) ── */}
       <nav
-        className="flex items-center gap-1 p-1 rounded-full ml-2"
+        className="flex items-center gap-0.5 p-1 rounded-full ml-2"
         role="navigation"
         aria-label="Основная навигация"
         style={{
@@ -121,10 +121,18 @@ const NavBar = React.memo(function NavBar() {
               key={item.id}
               whileHover={isActive ? {} : { scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
-              onClick={() => setView(item.id)}
+              onClick={() => {
+                setView(item.id);
+                if (item.id === "search") {
+                  setTimeout(() => {
+                    const searchInput = document.querySelector<HTMLInputElement>("[data-search-input]");
+                    searchInput?.focus();
+                  }, 100);
+                }
+              }}
               aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
-              className="relative flex items-center gap-1.5 px-3.5 py-2 rounded-full mq-focus-premium cursor-pointer select-none"
+              className="relative flex items-center gap-1.5 px-3 py-2 rounded-full mq-focus-premium cursor-pointer select-none"
               style={{
                 color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
                 transition: "color 0.15s ease",
@@ -170,38 +178,7 @@ const NavBar = React.memo(function NavBar() {
       {/* ── Spacer ── */}
       <div className="flex-1" />
 
-      {/* ── Search button — navigates to search view ── */}
-      <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.97 }}
-        onClick={() => {
-          setView("search");
-          // Focus SearchView's input after a short delay to allow view to render
-          setTimeout(() => {
-            const searchInput = document.querySelector<HTMLInputElement>("[data-search-input]");
-            searchInput?.focus();
-          }, 100);
-        }}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-full mq-focus-premium shrink-0"
-        style={{
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.06)",
-          color: "var(--mq-text-muted)",
-          fontSize: 13,
-        }}
-        aria-label="Поиск (⌘K)"
-      >
-        <Search className="w-4 h-4" />
-        <span className="hidden sm:inline">Поиск</span>
-        <span
-          className="text-[11px] px-1.5 py-0.5 rounded ml-1"
-          style={{ background: "rgba(255,255,255,0.06)", fontSize: 10 }}
-        >
-          ⌘K
-        </span>
-      </motion.button>
-
-      {/* ── User ── */}
+      {/* ── User (profile button) — logout moved to profile/settings ── */}
       <motion.button
         whileHover={{ scale: 1.03 }}
         whileTap={{ scale: 0.97 }}
@@ -237,28 +214,6 @@ const NavBar = React.memo(function NavBar() {
             {username || "User"}
           </span>
         )}
-      </motion.button>
-
-      {/* ── Logout (icon only, subtle) ── */}
-      <motion.button
-        whileHover={{ scale: 1.08 }}
-        whileTap={{ scale: 0.95 }}
-        onClick={logout}
-        className="p-2 rounded-full mq-focus-premium"
-        aria-label="Выйти"
-        style={{
-          color: "var(--mq-text-muted)",
-          transition: "color 0.15s ease",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = "var(--mq-accent)";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = "var(--mq-text-muted)";
-        }}
-        title="Выйти"
-      >
-        <LogOut className="w-4 h-4" />
       </motion.button>
     </header>
   );
