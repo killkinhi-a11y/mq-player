@@ -49,7 +49,7 @@ function ShareButton({ scTrackId }: { scTrackId: number }) {
       </motion.button>
       {copied && (
         <span
-          className="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] px-2 py-0.5 rounded whitespace-nowrap"
+          className="absolute -top-7 left-1/2 -translate-x-1/2 text-[11px] px-2 py-0.5 rounded whitespace-nowrap"
           style={{ background: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
         >
           Скопировано!
@@ -1478,7 +1478,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                   transition={{ type: "spring", stiffness: 400, damping: 28, delay: 0.08 }}
                 >
                   {/* Time left */}
-                  <span ref={miniTimeDisplayRef} className="text-[10px] font-mono tabular-nums w-10 text-left" style={{ color: "var(--mq-text-muted)" }}>
+                  <span ref={miniTimeDisplayRef} className="text-[11px] font-mono tabular-nums w-10 text-left" style={{ color: "var(--mq-text-muted)" }}>
                     {formatDuration(Math.floor(progress))}
                   </span>
 
@@ -1566,7 +1566,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                   </div>
 
                   {/* Duration right */}
-                  <span className="text-[10px] font-mono tabular-nums w-10 text-right" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="text-[11px] font-mono tabular-nums w-10 text-right" style={{ color: "var(--mq-text-muted)" }}>
                     {formatDuration(Math.floor(duration))}
                   </span>
                 </motion.div>

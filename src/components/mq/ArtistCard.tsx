@@ -135,10 +135,10 @@ export default function ArtistCard({
           <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{username}</p>
           <div className="flex items-center gap-1.5 mt-0.5">
             {genre && (
-              <span className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{genre}</span>
+              <span className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{genre}</span>
             )}
             {followers != null && followers > 0 && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: "var(--mq-surface, #1a1a1a)", color: "var(--mq-text-muted)" }}>
                 {formatNumber(followers)}
               </span>
@@ -284,13 +284,13 @@ export default function ArtistCard({
         {/* Stats row — muted color system */}
         <div className="flex items-center justify-center gap-2 z-10 relative mt-1">
           {followers != null && followers > 0 && (
-            <span className="text-[10px] flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.8 }}>
+            <span className="text-[11px] flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.8 }}>
               <Users className="w-2.5 h-2.5" />
               {formatNumber(followers)}
             </span>
           )}
           {trackCount != null && trackCount > 0 && (
-            <span className="text-[10px] flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.8 }}>
+            <span className="text-[11px] flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.8 }}>
               <Headphones className="w-2.5 h-2.5" />
               {formatNumber(trackCount)}
             </span>
@@ -300,7 +300,7 @@ export default function ArtistCard({
         {/* Genre tag */}
         {genre && (
           <motion.span
-            className="text-[10px] px-2.5 py-0.5 rounded-full truncate max-w-full z-10 relative mt-1.5"
+            className="text-[11px] px-2.5 py-0.5 rounded-full truncate max-w-full z-10 relative mt-1.5"
             style={{
               backgroundColor: isHovered ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-surface, #1a1a1a)",
               color: isHovered ? "var(--mq-accent)" : "var(--mq-text-muted)",

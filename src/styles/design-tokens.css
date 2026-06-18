@@ -110,7 +110,10 @@
   /* Focus ring */
   --mq-focus-ring: 0 0 0 2px var(--mq-bg), 0 0 0 4px var(--mq-accent);
 
-  /* Glass/Blur System — premium glassmorphism */
+  /* Glass/Blur System — premium glassmorphism
+     P2.1: Adaptive glass tokens that work on both dark AND light themes.
+     Previously hardcoded as rgba(255,255,255,0.x) — invisible on daylight theme.
+     Dark themes override these in their theme class. Light theme overrides below. */
   --mq-glass-bg: rgba(255,255,255,0.04);
   --mq-glass-bg-hover: rgba(255,255,255,0.08);
   --mq-glass-bg-active: rgba(255,255,255,0.12);
@@ -118,6 +121,18 @@
   --mq-glass-border-hover: rgba(255,255,255,0.15);
   --mq-glass-blur: blur(40px) saturate(180%);
   --mq-glass-blur-heavy: blur(60px) saturate(200%);
+
+  /* P2.1: Light theme overrides — daylight theme sets these via .daylight-theme class */
+  --mq-overlay-scrim: rgba(0,0,0,0.6);     /* modal backdrop */
+  --mq-overlay-hover: rgba(255,255,255,0.04); /* card hover */
+  --mq-overlay-active: rgba(255,255,255,0.06); /* card active/pressed */
+  --mq-border-subtle: rgba(255,255,255,0.06);  /* hairline borders */
+  --mq-border-default: rgba(255,255,255,0.1);   /* standard borders */
+
+  /* P2.4: Container widths — consistent max-width across views */
+  --mq-container-narrow: 640px;   /* Settings, Profile */
+  --mq-container-base: 768px;     /* Library, Favorites, Search */
+  --mq-container-wide: 1024px;    /* Main, Messenger */
 
   /* Dynamic Color System — album art reactive */
   --mq-accent-rgb: 224,49,49;

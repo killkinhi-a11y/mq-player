@@ -448,14 +448,14 @@ export default function OnboardingView() {
           )}
         </div>
         <p
-          className={`${isSmall ? "text-[10px]" : "text-xs"} font-medium text-center leading-tight w-full truncate px-1`}
+          className={`${isSmall ? "text-[11px]" : "text-xs"} font-medium text-center leading-tight w-full truncate px-1`}
           style={{ color: isSelected ? "var(--mq-text, #fff)" : "var(--mq-text-muted, #888)" }}
         >
           {artist.username}
         </p>
         {!isSmall && artist.genre && (
           <span
-            className="text-[9px] px-1.5 py-0.5 truncate max-w-full"
+            className="text-[11px] px-1.5 py-0.5 truncate max-w-full"
             style={{
               borderRadius: "3px",
               backgroundColor: "rgba(255,255,255,0.04)",
@@ -466,7 +466,7 @@ export default function OnboardingView() {
           </span>
         )}
         {!isSmall && (
-          <p className="text-[10px]" style={{ color: "var(--mq-text-muted, #444)" }}>
+          <p className="text-[11px]" style={{ color: "var(--mq-text-muted, #444)" }}>
             {formatFollowers(artist.followers)}
           </p>
         )}
@@ -511,7 +511,7 @@ export default function OnboardingView() {
                 />
                 {catSelected > 0 && (
                   <span
-                    className="text-[10px] font-bold px-1.5 py-0.5"
+                    className="text-[11px] font-bold px-1.5 py-0.5"
                     style={{
                       backgroundColor: "color-mix(in srgb, var(--mq-accent, #e03131) 15%, transparent)",
                       color: "var(--mq-accent, #e03131)",

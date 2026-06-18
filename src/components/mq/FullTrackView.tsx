@@ -297,7 +297,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                             <span className="text-sm font-semibold block" style={{ color: "var(--mq-text)" }}>
                               {formatSleepTime(rec.totalMin)}
                             </span>
-                            <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                            <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                               {rec.cycles} циклов
                             </span>
                           </div>
@@ -305,7 +305,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                             <span className="text-base font-bold block" style={{ color: "var(--mq-text)" }}>
                               {rec.wakeTime}
                             </span>
-                            <span className="text-[10px] font-medium" style={{ color: rec.qualityColor }}>
+                            <span className="text-[11px] font-medium" style={{ color: rec.qualityColor }}>
                               {rec.quality}
                             </span>
                           </div>
@@ -443,7 +443,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                       <span className="text-3xl font-bold font-mono tracking-wider" style={{ color: "var(--mq-text)", lineHeight: 1 }}>
                         {minutes.toString().padStart(2, "0")}:{seconds.toString().padStart(2, "0")}
                       </span>
-                      <span className="text-[10px] mt-1" style={{ color: "var(--mq-text-muted)" }}>осталось</span>
+                      <span className="text-[11px] mt-1" style={{ color: "var(--mq-text-muted)" }}>осталось</span>
                     </div>
                   </div>
 
@@ -452,7 +452,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                     <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)" }}>
                       <div className="flex items-center gap-1.5 mb-1">
                         <Sunrise className="w-3 h-3" style={{ color: "var(--mq-wake-color, #fbbf24)" }} />
-                        <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Пробуждение</span>
+                        <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Пробуждение</span>
                       </div>
                       <span className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
                         {getWakeTimeForMinutes(timerMinutes)}
@@ -461,7 +461,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                     <div className="px-3 py-2.5 rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)" }}>
                       <div className="flex items-center gap-1.5 mb-1">
                         <Clock className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                        <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Длительность</span>
+                        <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Длительность</span>
                       </div>
                       <span className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
                         {formatSleepTime(timerMinutes)}
@@ -472,7 +472,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1.5">
                           <Moon className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                          <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Циклы</span>
+                          <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Циклы</span>
                         </div>
                         <span className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)" }}>
                           ~{Math.round(timerMinutes / SLEEP_CYCLE_MIN)} циклов
@@ -496,10 +496,10 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                     style={{ width: `${progress * 100}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 8px var(--mq-glow)" }} />
                 </div>
                 <div className="flex justify-between mb-5 sm:mb-4">
-                  <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                     Пробуждение: {getWakeTimeForMinutes(timerMinutes)}
                   </span>
-                  <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                     {formatSleepTime(timerMinutes)}
                   </span>
                 </div>
@@ -2004,7 +2004,7 @@ export default function FullTrackView() {
             </motion.div>
           </motion.button>
           <div className="flex flex-col items-center">
-            <span className="text-[10px] uppercase tracking-[0.2em] font-semibold" style={{ color: "var(--mq-text-muted)" }}>
+            <span className="text-[11px] uppercase tracking-[0.2em] font-semibold" style={{ color: "var(--mq-text-muted)" }}>
               Сейчас играет
             </span>
           </div>
@@ -2354,7 +2354,7 @@ export default function FullTrackView() {
                 style={{ color: repeat !== "off" ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 {repeat === "one" ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
                 {repeat === "one" && (
-                  <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full flex items-center justify-center text-[6px] font-bold"
+                  <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full flex items-center justify-center text-[11px] font-bold"
                     style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-bg)" }}>1</span>
                 )}
               </motion.button>
@@ -2432,9 +2432,9 @@ export default function FullTrackView() {
             {queue.length > 1 && (
               <div className="mt-1 sm:mt-2" data-tour="queue">
                 <div className="flex items-center justify-between mb-1.5 px-1">
-                  <span className="text-[10px] uppercase tracking-[0.15em] font-semibold" style={{ color: "var(--mq-text-muted)" }}>Далее</span>
+                  <span className="text-[11px] uppercase tracking-[0.15em] font-semibold" style={{ color: "var(--mq-text-muted)" }}>Далее</span>
                   <motion.button whileTap={{ scale: 0.95 }} onClick={() => { setShowSimilar(true); setShowLyrics(false); }}
-                    className="flex items-center gap-0.5 text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>
+                    className="flex items-center gap-0.5 text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>
                     Ещё <ArrowRight className="w-3 h-3" />
                   </motion.button>
                 </div>
@@ -2455,7 +2455,7 @@ export default function FullTrackView() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-[11px] font-medium truncate leading-tight" style={{ color: "var(--mq-text)" }}>{track.title}</p>
-                        <p className="text-[9px] truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+                        <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
                       </div>
                     </motion.div>
                   ))}
@@ -2505,7 +2505,7 @@ export default function FullTrackView() {
               <div className="py-2 px-1.5">
                 {/* Section: Воспроизведение */}
                 <div className="px-3 pt-1 pb-1.5">
-                  <span className="text-[10px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)", letterSpacing: "0.14em" }}>
+                  <span className="text-[11px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)", letterSpacing: "0.14em" }}>
                     Воспроизведение
                   </span>
                 </div>
@@ -2540,7 +2540,7 @@ export default function FullTrackView() {
 
                 {/* Section: Настройки */}
                 <div className="px-3 pt-1 pb-1.5">
-                  <span className="text-[10px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)", letterSpacing: "0.14em" }}>
+                  <span className="text-[11px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)", letterSpacing: "0.14em" }}>
                     Настройки
                   </span>
                 </div>
@@ -2581,7 +2581,7 @@ export default function FullTrackView() {
 
                 {/* Section: Действия */}
                 <div className="px-3 pt-1 pb-1.5">
-                  <span className="text-[10px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)", letterSpacing: "0.14em" }}>
+                  <span className="text-[11px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)", letterSpacing: "0.14em" }}>
                     Действия
                   </span>
                 </div>
@@ -2650,7 +2650,7 @@ export default function FullTrackView() {
               <div className="px-2 pb-6 pt-1 overflow-y-auto" style={{ maxHeight: "calc(75vh - 6rem)" }}>
                 {/* Section: Воспроизведение */}
                 <div className="px-3 pt-2 pb-1.5">
-                  <span className="text-[10px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)", letterSpacing: "0.14em" }}>
+                  <span className="text-[11px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)", letterSpacing: "0.14em" }}>
                     Воспроизведение
                   </span>
                 </div>
@@ -2685,7 +2685,7 @@ export default function FullTrackView() {
 
                 {/* Section: Настройки */}
                 <div className="px-3 pt-2 pb-1.5">
-                  <span className="text-[10px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)", letterSpacing: "0.14em" }}>
+                  <span className="text-[11px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)", letterSpacing: "0.14em" }}>
                     Настройки
                   </span>
                 </div>
@@ -2726,7 +2726,7 @@ export default function FullTrackView() {
 
                 {/* Section: Действия */}
                 <div className="px-3 pt-2 pb-1.5">
-                  <span className="text-[10px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)", letterSpacing: "0.14em" }}>
+                  <span className="text-[11px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-text-muted)", letterSpacing: "0.14em" }}>
                     Действия
                   </span>
                 </div>
@@ -2937,8 +2937,8 @@ export default function FullTrackView() {
                   <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 8px var(--mq-glow)" }} />
                 </div>
                 <div className="flex justify-between mt-1.5">
-                  <span className="text-[10px] tabular-nums font-medium" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{formatDuration(Math.floor(progress))}</span>
-                  <span className="text-[10px] tabular-nums font-medium" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{formatDuration(Math.floor(duration))}</span>
+                  <span className="text-[11px] tabular-nums font-medium" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{formatDuration(Math.floor(progress))}</span>
+                  <span className="text-[11px] tabular-nums font-medium" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{formatDuration(Math.floor(duration))}</span>
                 </div>
               </div>
             </motion.div>
@@ -3033,12 +3033,12 @@ export default function FullTrackView() {
                             style={{ color: currentTrack?.id === track.id ? "var(--mq-text)" : "var(--mq-text)" }}>
                             {track.title}
                           </p>
-                          <p className="text-[10px] truncate mt-0.5"
+                          <p className="text-[11px] truncate mt-0.5"
                             style={{ color: currentTrack?.id === track.id ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)" }}>
                             {track.artist}
                           </p>
                           {track.genre && (
-                            <span className="inline-block text-[9px] mt-1 px-1.5 py-0.5 rounded-md truncate max-w-full"
+                            <span className="inline-block text-[11px] mt-1 px-1.5 py-0.5 rounded-md truncate max-w-full"
                               style={{ backgroundColor: "rgba(255,255,255,0.05)", color: "var(--mq-text-muted)" }}>
                               {track.genre}
                             </span>

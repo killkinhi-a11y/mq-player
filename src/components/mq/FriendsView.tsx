@@ -395,7 +395,7 @@ export default function FriendsView() {
             )}
             {showOnlineOnly ? "Только онлайн" : "Все друзья"}
             <span
-              className="px-1.5 py-0.5 rounded-md text-[10px] font-bold"
+              className="px-1.5 py-0.5 rounded-md text-[11px] font-bold"
               style={{
                 backgroundColor: showOnlineOnly ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.06)",
               }}

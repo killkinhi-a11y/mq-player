@@ -657,7 +657,7 @@ export default function PlaylistView() {
                     {isCollaborative && (
                       <div className="flex items-center gap-1 px-2 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
                         <Users className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
-                        <span className="text-[10px] font-medium" style={{ color: "var(--mq-accent)" }}>Shared</span>
+                        <span className="text-[11px] font-medium" style={{ color: "var(--mq-accent)" }}>Shared</span>
                       </div>
                     )}
                   </div>
@@ -1001,7 +1001,7 @@ export default function PlaylistView() {
                       onClick={() => {
                         if (playlistRecs.length > 0) playTrack(playlistRecs[0], [...selectedPlaylist.tracks, ...playlistRecs]);
                       }}
-                      className="flex items-center gap-1 px-2 py-1.5 rounded-xl text-[10px] font-medium"
+                      className="flex items-center gap-1 px-2 py-1.5 rounded-xl text-[11px] font-medium"
                       style={{ backgroundColor: "var(--mq-card-hover)", color: "var(--mq-text)", border: "1px solid rgba(255,255,255,0.06)" }}
                     >
                       <Play className="w-2.5 h-2.5" style={{ marginLeft: 1 }} />
@@ -1300,7 +1300,7 @@ export default function PlaylistView() {
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-medium" style={{ color: "var(--mq-text)" }}>VK API-токен</label>
                       <a href="https://vk.com/dev/audio.getPlaylistById" target="_blank" rel="noopener noreferrer"
-                        className="text-[10px] underline" style={{ color: "var(--mq-accent)" }}>Как получить?</a>
+                        className="text-[11px] underline" style={{ color: "var(--mq-accent)" }}>Как получить?</a>
                     </div>
                     <input
                       type={showVkToken ? "text" : "password"}
@@ -1334,7 +1334,7 @@ export default function PlaylistView() {
                     </p>
                   </div>
                 )}
-                <p className="text-[10px]" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                <p className="text-[11px]" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
                   Поддержка: VK, Яндекс.Музыка, YouTube Music, Apple Music, SoundCloud
                 </p>
               </>
@@ -1376,7 +1376,7 @@ export default function PlaylistView() {
                   ) : (
                     <div className="flex flex-col items-center justify-center gap-1 w-full h-full" style={generatePatternStyle(pl.name)}>
                       <ListMusic className="w-8 h-8" style={{ color: "rgba(255,255,255,0.6)" }} />
-                      <span className="text-[10px] font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>{pl.tracks.length}</span>
+                      <span className="text-[11px] font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>{pl.tracks.length}</span>
                     </div>
                   )}
                   {/* Hover overlay for changing cover */}
@@ -1445,11 +1445,11 @@ export default function PlaylistView() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ color: "var(--mq-text-muted)", backgroundColor: "rgba(255,255,255,0.06)" }}>
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ color: "var(--mq-text-muted)", backgroundColor: "rgba(255,255,255,0.06)" }}>
                         {pl.tracks.length} треков
                       </span>
                       {plDur && (
-                        <span className="text-[10px] flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                        <span className="text-[11px] flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
                           <Clock className="w-2.5 h-2.5" />
                           {plDur}
                         </span>

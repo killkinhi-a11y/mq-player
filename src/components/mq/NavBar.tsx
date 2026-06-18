@@ -152,7 +152,7 @@ const NavBar = React.memo(function NavBar() {
               {/* Badge with count */}
               {badgeCount > 0 && (
                 <span
-                  className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full z-20 flex items-center justify-center text-[8px] font-bold px-1"
+                  className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full z-20 flex items-center justify-center text-[11px] font-bold px-1"
                   style={{
                     backgroundColor: "#ef4444",
                     color: "white",
@@ -194,7 +194,7 @@ const NavBar = React.memo(function NavBar() {
         <Search className="w-4 h-4" />
         <span className="hidden sm:inline">Поиск</span>
         <span
-          className="text-[10px] px-1.5 py-0.5 rounded ml-1"
+          className="text-[11px] px-1.5 py-0.5 rounded ml-1"
           style={{ background: "rgba(255,255,255,0.06)", fontSize: 10 }}
         >
           ⌘K

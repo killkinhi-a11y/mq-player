@@ -646,11 +646,11 @@ export default function SynthVisualizerView({ show, onClose }: SynthVisualizerVi
                       boxShadow: isPlaying ? "0 0 6px var(--mq-glow)" : "none",
                     }}
                   />
-                  <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>
                     {isPlaying ? "LIVE" : "PAUSED"}
                   </span>
                 </div>
-                <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
+                <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
                   Web Audio API &bull; AnalyserNode FFT 2048
                 </span>
               </div>

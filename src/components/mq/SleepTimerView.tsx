@@ -321,14 +321,14 @@ export default function SleepTimerView() {
                 <div className="flex items-center gap-2 mb-3">
                   <Zap className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
                   <h3 className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>Циклы сна</h3>
-                  <span className="text-[10px] ml-auto" style={{ color: "var(--mq-text-muted)" }}>~90 мин/цикл · 14 мин на засыпание</span>
+                  <span className="text-[11px] ml-auto" style={{ color: "var(--mq-text-muted)" }}>~90 мин/цикл · 14 мин на засыпание</span>
                 </div>
                 <div className="grid grid-cols-5 gap-2">
                   {recommendations.map((rec) => (
                     <motion.div key={rec.cycles} whileHover={{ y: -2 }} className="rounded-xl p-3 text-center cursor-pointer transition-all" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--mq-border)" }} onClick={() => { setSelectedMinutes(rec.cycles * SLEEP_CYCLE_MINUTES); }}>
                       <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>{rec.wakeTime}</p>
                       <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{rec.cycles} цикл</p>
-                      <p className="text-[10px] mt-1 font-medium" style={{ color: rec.qualityColor }}>{rec.quality}</p>
+                      <p className="text-[11px] mt-1 font-medium" style={{ color: rec.qualityColor }}>{rec.quality}</p>
                     </motion.div>
                   ))}
                 </div>
@@ -337,8 +337,8 @@ export default function SleepTimerView() {
 
             {/* Keyboard shortcuts hint (PC) */}
             <div className="hidden lg:flex gap-4 mt-4 text-[11px]" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
-              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded text-[10px]" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Space</kbd>Старт</span>
-              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded text-[10px]" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Esc</kbd>Стоп</span>
+              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded text-[11px]" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Space</kbd>Старт</span>
+              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded text-[11px]" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Esc</kbd>Стоп</span>
             </div>
           </motion.div>
         ) : (
@@ -416,7 +416,7 @@ export default function SleepTimerView() {
 
             {/* Desktop keyboard hint */}
             <div className="hidden lg:flex gap-4 mt-4 text-[11px]" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
-              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded text-[10px]" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Space</kbd>Стоп</span>
+              <span className="flex items-center gap-1"><kbd className="px-1.5 py-0.5 rounded text-[11px]" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>Space</kbd>Стоп</span>
             </div>
           </motion.div>
         )}

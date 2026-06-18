@@ -149,7 +149,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                   Уведомления
                 </h2>
                 {unreadCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold"
                     style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
                     {unreadCount}
                   </span>
@@ -216,7 +216,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                             {notif.body}
                           </p>
                         )}
-                        <p className="text-[9px] mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                        <p className="text-[11px] mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
                           {formatNotifTime(notif.createdAt)}
                         </p>
                       </div>

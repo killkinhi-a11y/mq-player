@@ -333,7 +333,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                       Слушать дальше
                     </p>
                     {upNext.length > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                      <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
                         {upNext.length}
                       </span>
                     )}
@@ -422,7 +422,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                     >
                       Из очереди
                     </p>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                    <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
                       {remainingQueue.length}
                     </span>
                   </div>
@@ -713,7 +713,7 @@ function HistoryTrackItem({
           {track.title}
         </p>
         <p
-          className="text-[10px] truncate"
+          className="text-[11px] truncate"
           style={{ color: "var(--mq-text-muted)" }}
         >
           {track.artist}
@@ -722,7 +722,7 @@ function HistoryTrackItem({
 
       {/* Duration */}
       <span
-        className="text-[10px] tabular-nums flex-shrink-0"
+        className="text-[11px] tabular-nums flex-shrink-0"
         style={{ color: "var(--mq-text-muted)" }}
       >
         {formatDuration(track.duration)}

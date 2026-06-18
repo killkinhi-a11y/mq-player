@@ -63,6 +63,36 @@ const noPrismaDirectInApi = {
   },
 };
 
+// ── no-sub-11px-text (P2.5) ──────────────────────────────────────────────────
+// Bans text-[Npx] where N < 11 — below the legibility floor.
+const noSub11pxText = {
+  meta: {
+    type: "problem",
+    docs: { description: "Ban text-[Npx] classes where N < 11 (legibility floor)" },
+    schema: [],
+  },
+  create(context) {
+    return {
+      JSXAttribute(node) {
+        if (node.name?.name !== "className") return;
+        const value = node.value;
+        if (!value || value.type !== "Literal") return;
+        const val = String(value.value || "");
+        const matches = val.matchAll(/text-\[(\d+)px\]/g);
+        for (const m of matches) {
+          const px = parseInt(m[1]);
+          if (px < 11) {
+            context.report({
+              node,
+              message: `text-[${px}px] is below the 11px legibility floor. Use text-[11px] or larger, or use a --mq-text-* token.`,
+            });
+          }
+        }
+      },
+    };
+  },
+};
+
 const eslintConfig = [
   {
     ignores: [
@@ -79,7 +109,7 @@ const eslintConfig = [
   {
     files: ["**/*.{ts,tsx,js,jsx}"],
     plugins: {
-      "mq-internal": { rules: { "no-prisma-direct-in-api": noPrismaDirectInApi } },
+      "mq-internal": { rules: { "no-prisma-direct-in-api": noPrismaDirectInApi, "no-sub-11px-text": noSub11pxText } },
     },
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
@@ -89,6 +119,7 @@ const eslintConfig = [
       "no-empty": "off",
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "mq-internal/no-prisma-direct-in-api": "error",
+      "mq-internal/no-sub-11px-text": "error",
     },
   },
 ];

@@ -370,7 +370,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
                       </div>
                       {/* AI badge */}
                       <div className="absolute top-0.5 right-0.5">
-                        <span className="text-[7px] px-1 py-[1px] rounded-full font-bold"
+                        <span className="text-[11px] px-1 py-[1px] rounded-full font-bold"
                           style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", backdropFilter: "blur(4px)" }}>
                           AI
                         </span>
@@ -382,7 +382,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
                       <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>
                         {track.title}
                       </p>
-                      <p className="text-[10px] truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+                      <p className="text-[11px] truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
                         {track.artist}
                         {track.genre ? ` · ${track.genre}` : ""}
                       </p>

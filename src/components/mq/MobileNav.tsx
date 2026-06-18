@@ -86,7 +86,7 @@ const MobileNav = React.memo(function MobileNav() {
                     />
                     {badgeCount > 0 && (
                       <span
-                        className="absolute -top-1.5 -right-2 min-w-[12px] h-[12px] rounded-full flex items-center justify-center text-[7px] font-bold px-px"
+                        className="absolute -top-1.5 -right-2 min-w-[12px] h-[12px] rounded-full flex items-center justify-center text-[11px] font-bold px-px"
                         style={{
                           background: "var(--mq-accent)",
                           color: "var(--mq-text-on-accent, #fff)",
@@ -98,7 +98,7 @@ const MobileNav = React.memo(function MobileNav() {
                     )}
                   </div>
                   <span
-                    className="text-[9px] font-medium leading-tight"
+                    className="text-[11px] font-medium leading-tight"
                     style={{ letterSpacing: "-0.01em" }}
                   >
                     {item.label}

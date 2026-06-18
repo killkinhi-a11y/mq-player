@@ -406,7 +406,7 @@ export default function FavoritesView() {
                     <Icon className="w-3.5 h-3.5" style={{ color: isActive ? tab.color : undefined }} />
                     <span className="hidden sm:inline">{tab.label}</span>
                     <span
-                      className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+                      className="text-[11px] px-1.5 py-0.5 rounded-full font-bold"
                       style={{
                         backgroundColor: isActive ? `${tab.color}22` : "rgba(255,255,255,0.06)",
                         color: isActive ? tab.color : "var(--mq-text-muted)",
@@ -538,7 +538,7 @@ export default function FavoritesView() {
                   }}
                 >
                   <div className="px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Сортировка</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Сортировка</p>
                   </div>
                   {sortOptions.map((opt) => {
                     const Icon = opt.icon;
@@ -807,12 +807,12 @@ export default function FavoritesView() {
                           </span>
                         )}
                         {artist.followers > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "var(--mq-text-muted)" }}>
+                          <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "var(--mq-text-muted)" }}>
                             {formatNumber(artist.followers)}
                           </span>
                         )}
                         {artist.trackCount > 0 && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "var(--mq-text-muted)" }}>
+                          <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.04)", color: "var(--mq-text-muted)" }}>
                             {artist.trackCount} треков
                           </span>
                         )}
@@ -1076,7 +1076,7 @@ export default function FavoritesView() {
                           {/* Genre tag */}
                           {track.genre && (
                             <span
-                              className="text-[9px] font-medium px-1.5 py-0 rounded-md flex-shrink-0"
+                              className="text-[11px] font-medium px-1.5 py-0 rounded-md flex-shrink-0"
                               style={{
                                 backgroundColor: "rgba(255,255,255,0.06)",
                                 color: "var(--mq-text-muted)",
@@ -1090,7 +1090,7 @@ export default function FavoritesView() {
 
                       {/* Duration */}
                       {track.duration > 0 && (
-                        <span className="text-[10px] flex-shrink-0 hidden sm:block tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                        <span className="text-[11px] flex-shrink-0 hidden sm:block tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
                           {formatDuration(track.duration)}
                         </span>
                       )}

@@ -433,7 +433,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                     {/* Genre */}
                     <div>
                       <p
-                        className="text-[10px] uppercase tracking-wider mb-1"
+                        className="text-[11px] uppercase tracking-wider mb-1"
                         style={{ color: "var(--mq-text-muted)" }}
                       >
                         Жанр
@@ -463,7 +463,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                     {/* Mood */}
                     <div>
                       <p
-                        className="text-[10px] uppercase tracking-wider mb-1"
+                        className="text-[11px] uppercase tracking-wider mb-1"
                         style={{ color: "var(--mq-text-muted)" }}
                       >
                         Настроение
@@ -485,7 +485,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                     {/* Duration */}
                     <div>
                       <p
-                        className="text-[10px] uppercase tracking-wider mb-1"
+                        className="text-[11px] uppercase tracking-wider mb-1"
                         style={{ color: "var(--mq-text-muted)" }}
                       >
                         Длительность
@@ -501,7 +501,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                     {/* Source */}
                     <div>
                       <p
-                        className="text-[10px] uppercase tracking-wider mb-1"
+                        className="text-[11px] uppercase tracking-wider mb-1"
                         style={{ color: "var(--mq-text-muted)" }}
                       >
                         Источник
@@ -517,7 +517,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                     {/* BPM */}
                     <div>
                       <p
-                        className="text-[10px] uppercase tracking-wider mb-1"
+                        className="text-[11px] uppercase tracking-wider mb-1"
                         style={{ color: "var(--mq-text-muted)" }}
                       >
                         BPM (оценка)
@@ -656,7 +656,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                           {t.title}
                         </p>
                         <p
-                          className="text-[9px] truncate leading-tight mt-0.5"
+                          className="text-[11px] truncate leading-tight mt-0.5"
                           style={{ color: "var(--mq-text-muted)" }}
                         >
                           {t.artist}
@@ -709,13 +709,13 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                   {/* Labels */}
                   <div className="flex justify-between mb-2 px-1">
                     <p
-                      className="text-[9px] uppercase tracking-widest"
+                      className="text-[11px] uppercase tracking-widest"
                       style={{ color: "var(--mq-text-muted)" }}
                     >
                       Влияние
                     </p>
                     <p
-                      className="text-[9px] uppercase tracking-widest"
+                      className="text-[11px] uppercase tracking-widest"
                       style={{ color: "var(--mq-text-muted)" }}
                     >
                       Похожим нравится

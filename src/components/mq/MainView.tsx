@@ -153,7 +153,7 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
                 </div>
                 {/* AI badge */}
                 <div className="absolute top-1 right-1">
-                  <span className="text-[7px] px-1.5 py-[2px] rounded-full font-semibold tracking-wide uppercase"
+                  <span className="text-[11px] px-1.5 py-[2px] rounded-full font-semibold tracking-wide uppercase"
                     style={{ backgroundColor: "rgba(0,0,0,0.5)", color: "rgba(255,255,255,0.8)", backdropFilter: "blur(8px)", letterSpacing: "0.05em" }}>
                     AI
                   </span>
@@ -504,7 +504,7 @@ function ListeningActivityBar({ history }: { history: any[] }) {
               <motion.div
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="absolute -top-8 px-2.5 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap z-10"
+                className="absolute -top-8 px-2.5 py-1 rounded-full text-[11px] font-semibold whitespace-nowrap z-10"
                 style={{
                   backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text)",
@@ -1372,11 +1372,11 @@ export default function MainView() {
                   {/* Info */}
                   <div className="flex-1 min-w-0 text-center sm:text-left">
                     <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
-                      <span className="text-[10px] sm:text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
+                      <span className="text-[11px] sm:text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
                         Артист
                       </span>
                       {isVerified && (
-                        <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
+                        <span className="flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium"
                           style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
                           <Check className="w-2.5 h-2.5" />
                           Verified
@@ -1844,7 +1844,7 @@ export default function MainView() {
                       <div className="flex items-end gap-[2px] h-2">
                         {[0, 1, 2].map((i) => (<motion.div key={i} className="w-[1.5px] rounded-full" style={{ height: "100%", transformOrigin: "bottom", backgroundColor: "var(--mq-accent)" }} animate={{ scaleY: [0.4, 1, 0.6] }} transition={{ duration: 0.5 + i * 0.1, repeat: Infinity, ease: "easeInOut", delay: i * 0.08 }} />))}
                       </div>
-                      <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>Сейчас играет</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>Сейчас играет</span>
                     </div>
                     <p className="text-[13px] font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
                     <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
@@ -1889,7 +1889,7 @@ export default function MainView() {
                       <div className="flex items-end gap-[2px] h-2.5">
                         {[0, 1, 2].map((i) => (<motion.div key={i} className="w-[2px] rounded-full" style={{ height: "100%", transformOrigin: "bottom", backgroundColor: "var(--mq-accent)" }} animate={{ scaleY: [0.4, 1, 0.6] }} transition={{ duration: 0.5 + i * 0.1, repeat: Infinity, ease: "easeInOut", delay: i * 0.08 }} />))}
                       </div>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>Сейчас играет</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>Сейчас играет</span>
                     </div>
                     <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
                     <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
@@ -1977,7 +1977,7 @@ export default function MainView() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5">
                       <Waves className="w-3 h-3" style={{ color: "rgba(255,255,255,0.7)" }} />
-                      <span className="text-[9px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.6)" }}>Волна · Играет</span>
+                      <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.6)" }}>Волна · Играет</span>
                     </div>
                     <p className="text-base sm:text-lg font-bold truncate" style={{ color: "#fff", letterSpacing: "-0.02em" }}>{currentTrack.title}</p>
                     <p className="text-[13px] truncate" style={{ color: "rgba(255,255,255,0.55)" }}>{currentTrack.artist}</p>
@@ -2048,7 +2048,7 @@ export default function MainView() {
                     {tasteProfile.topGenres.length > 0 && (
                       <div className="flex gap-1.5 mt-2 overflow-hidden">
                         {tasteProfile.topGenres.slice(0, 3).map((genre) => (
-                          <span key={genre} className="text-[10px] px-2.5 py-0.5 rounded-full whitespace-nowrap"
+                          <span key={genre} className="text-[11px] px-2.5 py-0.5 rounded-full whitespace-nowrap"
                             style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.06)" }}>{genre}</span>
                         ))}
                       </div>
@@ -2077,7 +2077,7 @@ export default function MainView() {
                     {tasteProfile.topGenres.length > 0 && (
                       <div className="flex gap-1.5 mt-2 overflow-hidden">
                         {tasteProfile.topGenres.slice(0, 3).map((genre) => (
-                          <span key={genre} className="text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap"
+                          <span key={genre} className="text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap"
                             style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.8)" }}>{genre}</span>
                         ))}
                       </div>
@@ -2230,7 +2230,7 @@ export default function MainView() {
                           <p className="text-[11px] mt-1 leading-tight truncate drop-shadow-sm" style={{ color: "rgba(255,255,255,0.65)" }}>{pl.subtitle}</p>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className="text-[10px] drop-shadow-sm" style={{ color: "rgba(255,255,255,0.5)" }}>{pl.tracks.length} треков</p>
+                          <p className="text-[11px] drop-shadow-sm" style={{ color: "rgba(255,255,255,0.5)" }}>{pl.tracks.length} треков</p>
                           <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg shadow-black/20 transition-all duration-300 group-hover:scale-110"
                             style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px) saturate(160%)", WebkitBackdropFilter: "blur(12px) saturate(160%)", border: "1px solid rgba(255,255,255,0.1)" }}>
                             <Play className="w-3.5 h-3.5 ml-[1px]" style={{ color: "rgba(255,255,255,0.9)" }} fill="currentColor" />
@@ -2261,7 +2261,7 @@ export default function MainView() {
                           <p className="text-[11px] mt-1 leading-tight truncate drop-shadow-sm" style={{ color: "rgba(255,255,255,0.75)" }}>{pl.subtitle}</p>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className="text-[10px] drop-shadow-sm" style={{ color: "rgba(255,255,255,0.65)" }}>{pl.tracks.length} треков</p>
+                          <p className="text-[11px] drop-shadow-sm" style={{ color: "rgba(255,255,255,0.65)" }}>{pl.tracks.length} треков</p>
                           <div className="w-9 h-9 rounded-full flex items-center justify-center shadow-lg shadow-black/30 transition-all duration-300 group-hover:scale-110"
                             style={{ background: "rgba(255,255,255,0.95)" }}>
                             <Play className="w-4 h-4 ml-0.5" style={{ color: "#1a1a2e" }} fill="currentColor" />

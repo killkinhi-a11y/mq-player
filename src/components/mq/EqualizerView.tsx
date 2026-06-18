@@ -602,7 +602,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                   return (
                     <div key={band.frequency} className="flex flex-col items-center gap-1 flex-1 h-full min-w-0">
                       <span
-                        className="text-[9px] font-mono font-bold tabular-nums"
+                        className="text-[11px] font-mono font-bold tabular-nums"
                         style={{
                           color: isZero
                             ? "var(--mq-text-muted)"
@@ -660,13 +660,13 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                       </div>
 
                       <span
-                        className="text-[8px] font-medium text-center leading-tight truncate w-full"
+                        className="text-[11px] font-medium text-center leading-tight truncate w-full"
                         style={{ color: "var(--mq-text-muted)" }}
                       >
                         {band.labelRu}
                       </span>
                       <span
-                        className="text-[7px] text-center leading-tight"
+                        className="text-[11px] text-center leading-tight"
                         style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}
                       >
                         {band.frequency >= 1000
@@ -681,7 +681,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
 
             {/* dB scale labels */}
             <div className="px-5 pb-4">
-              <div className="flex justify-between text-[9px]" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>
+              <div className="flex justify-between text-[11px]" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>
                 <span>+{EQ_MAX} дБ</span>
                 <span>0 дБ</span>
                 <span>{EQ_MIN} дБ</span>

@@ -390,7 +390,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
                   <motion.span
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    className="text-[10px] font-semibold px-2 py-[1px] rounded-md"
+                    className="text-[11px] font-semibold px-2 py-[1px] rounded-md"
                     style={{
                       backgroundColor: `rgba(${moodRgb.r},${moodRgb.g},${moodRgb.b},0.14)`,
                       color: moodColor,

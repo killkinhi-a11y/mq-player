@@ -283,7 +283,7 @@ export default function HistoryView() {
               <p className="text-base font-bold leading-none" style={{ color: "var(--mq-text)" }}>
                 {stats.totalPlays}
               </p>
-              <p className="text-[10px] mt-1 font-medium" style={{ color: "var(--mq-text-muted)" }}>
+              <p className="text-[11px] mt-1 font-medium" style={{ color: "var(--mq-text-muted)" }}>
                 Прослушиваний
               </p>
             </motion.div>
@@ -304,7 +304,7 @@ export default function HistoryView() {
               <p className="text-sm font-bold leading-none" style={{ color: "var(--mq-text)" }}>
                 {stats.totalDurationSec > 0 ? formatListeningTime(stats.totalHours, stats.totalMinutes) : "0"}
               </p>
-              <p className="text-[10px] mt-1 font-medium" style={{ color: "var(--mq-text-muted)" }}>
+              <p className="text-[11px] mt-1 font-medium" style={{ color: "var(--mq-text-muted)" }}>
                 Время
               </p>
             </motion.div>
@@ -325,7 +325,7 @@ export default function HistoryView() {
               <p className="text-base font-bold leading-none" style={{ color: "var(--mq-text)" }}>
                 {stats.todayPlays}
               </p>
-              <p className="text-[10px] mt-1 font-medium" style={{ color: "var(--mq-text-muted)" }}>
+              <p className="text-[11px] mt-1 font-medium" style={{ color: "var(--mq-text-muted)" }}>
                 Сегодня
               </p>
             </motion.div>
@@ -351,10 +351,10 @@ export default function HistoryView() {
                     <Disc3 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-medium" style={{ color: "var(--mq-text-muted)" }}>Топ артист</p>
+                    <p className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)" }}>Топ артист</p>
                     <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{stats.topArtist.name}</p>
                   </div>
-                  <span className="text-[10px] font-bold flex-shrink-0" style={{ color: "var(--mq-accent)" }}>{stats.topArtist.count}×</span>
+                  <span className="text-[11px] font-bold flex-shrink-0" style={{ color: "var(--mq-accent)" }}>{stats.topArtist.count}×</span>
                 </div>
               )}
               {stats.topGenre && (
@@ -369,10 +369,10 @@ export default function HistoryView() {
                     <TrendingUp className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-medium" style={{ color: "var(--mq-text-muted)" }}>Топ жанр</p>
+                    <p className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)" }}>Топ жанр</p>
                     <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{stats.topGenre.name}</p>
                   </div>
-                  <span className="text-[10px] font-bold flex-shrink-0" style={{ color: "var(--mq-accent)" }}>{stats.topGenre.count}×</span>
+                  <span className="text-[11px] font-bold flex-shrink-0" style={{ color: "var(--mq-accent)" }}>{stats.topGenre.count}×</span>
                 </div>
               )}
             </motion.div>
@@ -407,7 +407,7 @@ export default function HistoryView() {
                       {group.label}
                     </span>
                     <span
-                      className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-full"
                       style={{ color: "var(--mq-accent)", backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}
                     >
                       {group.items.length}
@@ -421,7 +421,7 @@ export default function HistoryView() {
                           const tracks = group.items.map(g => g.track);
                           playTrack(tracks[0], tracks);
                         }}
-                        className="ml-auto flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg"
+                        className="ml-auto flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg"
                         style={{ color: "var(--mq-accent)", backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}
                       >
                         <Play className="w-2.5 h-2.5" fill="currentColor" />
@@ -552,7 +552,7 @@ export default function HistoryView() {
                                 {/* Genre tag */}
                                 {track.genre && (
                                   <span
-                                    className="inline-flex items-center text-[9px] font-medium px-1.5 py-0 rounded-md flex-shrink-0"
+                                    className="inline-flex items-center text-[11px] font-medium px-1.5 py-0 rounded-md flex-shrink-0"
                                     style={{
                                       backgroundColor: "rgba(255,255,255,0.06)",
                                       color: "var(--mq-text-muted)",
@@ -564,7 +564,7 @@ export default function HistoryView() {
                                 {/* Play count badge */}
                                 {entry.playCount > 1 && (
                                   <span
-                                    className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0 rounded-md flex-shrink-0"
+                                    className="inline-flex items-center gap-0.5 text-[11px] font-bold px-1.5 py-0 rounded-md flex-shrink-0"
                                     style={{
                                       backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
                                       color: "var(--mq-accent)",
@@ -579,11 +579,11 @@ export default function HistoryView() {
 
                             {/* Time ago + duration */}
                             <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
-                              <span className="text-[10px] font-medium" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                              <span className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
                                 {formatTimeAgo(entry.playedAt)}
                               </span>
                               {track.duration > 0 && (
-                                <span className="text-[10px] tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
+                                <span className="text-[11px] tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
                                   {formatDuration(track.duration)}
                                 </span>
                               )}
@@ -641,7 +641,7 @@ export default function HistoryView() {
               <Music className="w-3.5 h-3.5" />
               Начать слушать
             </motion.button>
-            <p className="text-[10px] flex items-center gap-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+            <p className="text-[11px] flex items-center gap-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
               <ListMusic className="w-3 h-3" />
               История поможет вспомнить, что вы слушали
             </p>

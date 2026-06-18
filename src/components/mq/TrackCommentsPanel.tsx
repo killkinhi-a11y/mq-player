@@ -168,7 +168,7 @@ export default function TrackCommentsPanel({
                 Комментарии
               </h3>
               {comments.length > 0 && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                <span className="text-[11px] px-1.5 py-0.5 rounded-full"
                   style={{ backgroundColor: "rgba(224,49,49,0.1)", color: "var(--mq-accent)" }}>
                   {comments.length}
                 </span>
@@ -269,7 +269,7 @@ export default function TrackCommentsPanel({
                                 {comment.username}
                               </span>
                               <button
-                                className="text-[10px] font-mono cursor-pointer transition-colors rounded px-1 py-0.5"
+                                className="text-[11px] font-mono cursor-pointer transition-colors rounded px-1 py-0.5"
                                 style={{
                                   backgroundColor: "var(--mq-input-bg)",
                                   color: "var(--mq-text-muted)",
@@ -279,7 +279,7 @@ export default function TrackCommentsPanel({
                               >
                                 {formatTimestamp(comment.timestamp)}
                               </button>
-                              <span className="text-[9px]" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
+                              <span className="text-[11px]" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
                                 {formatRelativeTime(comment.createdAt)}
                               </span>
                             </div>
@@ -307,7 +307,7 @@ export default function TrackCommentsPanel({
                 <div className="flex items-center gap-1 px-2 py-1 rounded-lg flex-shrink-0"
                   style={{ backgroundColor: "var(--mq-input-bg)" }}>
                   <Clock className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
-                  <span className="text-[10px] font-mono" style={{ color: "var(--mq-accent)" }}>
+                  <span className="text-[11px] font-mono" style={{ color: "var(--mq-accent)" }}>
                     {formatTimestamp(commentTimestamp)}
                   </span>
                 </div>

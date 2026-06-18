@@ -347,7 +347,7 @@ export default function StoriesView() {
                   ? `Поделился треком: ${story.trackData?.title || ""}`
                   : "Фото"}
               </p>
-              <p className="text-[10px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+              <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
                 {Math.floor((Date.now() - new Date(story.createdAt).getTime()) / 3600000)}ч назад
               </p>
             </div>
@@ -449,7 +449,7 @@ export default function StoriesView() {
                 />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-white">{viewingStory.username}</p>
-                  <p className="text-[10px] text-white/60">
+                  <p className="text-[11px] text-white/60">
                     {new Date(viewingStory.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>

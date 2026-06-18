@@ -398,7 +398,7 @@ export default function SearchView() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-semibold truncate" style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}>{track.title}</p>
-                  <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+                  <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
                 </div>
               </motion.button>
             ))}
@@ -575,7 +575,7 @@ export default function SearchView() {
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={handleClearHistory}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-medium transition-colors hover:bg-white/5"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5"
                 style={{ color: "var(--mq-text-muted)" }}
               >
                 <Trash2 className="w-3 h-3" />
@@ -654,7 +654,7 @@ export default function SearchView() {
                 <motion.span
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
+                  className="text-[11px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
                   style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}
                 >
                   {genreIcons[selectedGenre] && <span className="inline-flex" style={{ opacity: 0.7 }}>{genreIcons[selectedGenre]}</span>}

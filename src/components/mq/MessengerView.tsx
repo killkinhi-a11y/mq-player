@@ -1784,7 +1784,7 @@ export default function MessengerView() {
             <h2 className="font-bold text-lg" style={{ color: "var(--mq-text)" }}>Чаты</h2>
             <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" title="Transport encryption (TLS)" style={{ backgroundColor: "rgba(var(--mq-accent-rgb, 255,45,109),0.1)" }}>
               <Lock className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
-              <span className="text-[9px] font-bold" style={{ color: "var(--mq-accent)" }}>TLS</span>
+              <span className="text-[11px] font-bold" style={{ color: "var(--mq-accent)" }}>TLS</span>
             </div>
           </div>
           <div className="flex items-center gap-1">
@@ -1794,7 +1794,7 @@ export default function MessengerView() {
                 <Bell className="w-4 h-4" />
               </motion.button>
               {notificationCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full text-[9px] flex items-center justify-center px-0.5 font-bold" style={{ backgroundColor: "#ef4444", color: "#fff" }}>
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full text-[11px] flex items-center justify-center px-0.5 font-bold" style={{ backgroundColor: "#ef4444", color: "#fff" }}>
                   {notificationCount > 99 ? "99" : notificationCount}
                 </span>
               )}
@@ -1805,7 +1805,7 @@ export default function MessengerView() {
                 <Users className="w-4 h-4" />
               </motion.button>
               {pendingRequests.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full text-[9px] flex items-center justify-center px-0.5 font-bold" style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
+                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full text-[11px] flex items-center justify-center px-0.5 font-bold" style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
                   {pendingRequests.length}
                 </span>
               )}
@@ -1832,7 +1832,7 @@ export default function MessengerView() {
                 style={{ border: "2px dashed var(--mq-border)", width: 52, height: 52 }}>
                 <Plus className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
               </div>
-              <span className="text-[9px] max-w-[52px] truncate" style={{ color: "var(--mq-text-muted)" }}>Вы</span>
+              <span className="text-[11px] max-w-[52px] truncate" style={{ color: "var(--mq-text-muted)" }}>Вы</span>
             </motion.button>
             {storyGroupKeys.map((uid) => {
               const userStories = storyGroups[uid];
@@ -1850,7 +1850,7 @@ export default function MessengerView() {
                       <AvatarImg src={firstStory.avatar} alt={firstStory.username} className="w-full h-full object-cover" />
                     </div>
                   </div>
-                  <span className="text-[9px] max-w-[52px] truncate" style={{ color: hasUnviewed ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
+                  <span className="text-[11px] max-w-[52px] truncate" style={{ color: hasUnviewed ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
                     {firstStory.username}
                   </span>
                 </motion.button>
@@ -1905,7 +1905,7 @@ export default function MessengerView() {
               {/* ── Pinned section ── */}
               {sortedContacts.filter((c) => pinnedChatIds.has(c.id)).length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider px-3 py-1.5" style={{ color: "var(--mq-text-muted)" }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5" style={{ color: "var(--mq-text-muted)" }}>
                     📌 Закреплённые
                   </p>
                   {sortedContacts.filter((c) => pinnedChatIds.has(c.id)).map((contact, i) => (
@@ -1919,7 +1919,7 @@ export default function MessengerView() {
               {/* ── Group chats section ── */}
               {groupChats.length > 0 && (
                 <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider px-3 py-1.5 mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 mt-1" style={{ color: "var(--mq-text-muted)" }}>
                     👥 Группы
                   </p>
                   {groupChats.map((g, i) => {
@@ -2044,7 +2044,7 @@ export default function MessengerView() {
                         title="Подробнее о защите соединения"
                       >
                         <Lock className="w-2.5 h-2.5" style={{ color: "#64748b" }} />
-                        <span className="text-[10px] font-medium" style={{ color: "#64748b" }}>TLS</span>
+                        <span className="text-[11px] font-medium" style={{ color: "#64748b" }}>TLS</span>
                       </motion.button>
                     </>
                   )}
@@ -2065,7 +2065,7 @@ export default function MessengerView() {
                             );
                           })}
                           {selectedGroup.memberIds.length > 4 && (
-                            <div className="w-4.5 h-4.5 rounded-full flex items-center justify-center text-[7px] font-bold border" style={{ borderColor: "var(--mq-bg)", width: 18, height: 18, backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)" }}>
+                            <div className="w-4.5 h-4.5 rounded-full flex items-center justify-center text-[11px] font-bold border" style={{ borderColor: "var(--mq-bg)", width: 18, height: 18, backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)" }}>
                               +{selectedGroup.memberIds.length - 4}
                             </div>
                           )}
@@ -2148,7 +2148,7 @@ export default function MessengerView() {
                   <div className="mx-3 mt-2 p-2.5 rounded-xl flex items-center gap-2" style={{ ...glassPanel }}>
                     <div className="w-0.5 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>{replyingTo.senderName}</p>
+                      <p className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>{replyingTo.senderName}</p>
                       <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{replyingTo.content}</p>
                     </div>
                     <button onClick={() => setReplyingTo(null)} className="p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}><X className="w-3.5 h-3.5" /></button>
@@ -2163,10 +2163,10 @@ export default function MessengerView() {
                 <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 80, opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden flex-shrink-0">
                   <div className="mx-3 mt-2 p-2.5 rounded-xl flex items-center gap-2" style={{ ...glassPanel }}>
                     <Edit3 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-                    <span className="text-[10px] font-semibold flex-shrink-0" style={{ color: "var(--mq-accent)" }}>Редактирование</span>
+                    <span className="text-[11px] font-semibold flex-shrink-0" style={{ color: "var(--mq-accent)" }}>Редактирование</span>
                     <div className="flex gap-1 ml-auto flex-shrink-0">
-                      <button onClick={handleCancelEdit} className="px-2.5 py-1 rounded-lg text-[10px] cursor-pointer" style={{ color: "var(--mq-text-muted)", ...glassPanel }}>Отмена</button>
-                      <button onClick={handleSaveEdit} className="px-2.5 py-1 rounded-lg text-[10px] font-semibold cursor-pointer" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>Сохранить</button>
+                      <button onClick={handleCancelEdit} className="px-2.5 py-1 rounded-lg text-[11px] cursor-pointer" style={{ color: "var(--mq-text-muted)", ...glassPanel }}>Отмена</button>
+                      <button onClick={handleSaveEdit} className="px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>Сохранить</button>
                     </div>
                   </div>
                 </motion.div>
@@ -2195,7 +2195,7 @@ export default function MessengerView() {
                           return (
                             <button key={m.id} onClick={() => handleSearchResultClick(m)}
                               className="w-full text-left p-2.5 hover:opacity-80 transition-opacity cursor-pointer" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                              <p className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>
+                              <p className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>
                                 {m.senderId === userId ? "Вы" : m.sender?.username || "User"}
                               </p>
                               <p className="text-xs truncate" style={{ color: "var(--mq-text)" }}>{preview}</p>
@@ -2396,14 +2396,14 @@ export default function MessengerView() {
                       </div>
                       {/* Info row instead of fake fingerprint */}
                       <div className="w-full rounded-xl p-3" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                        <p className="text-[10px] font-medium mb-1.5" style={{ color: "var(--mq-text-muted)" }}>Режим защиты</p>
-                        <p className="text-[10px] font-mono tracking-wider break-all" style={{ color: "#64748b" }}>{fingerprint}</p>
+                        <p className="text-[11px] font-medium mb-1.5" style={{ color: "var(--mq-text-muted)" }}>Режим защиты</p>
+                        <p className="text-[11px] font-mono tracking-wider break-all" style={{ color: "#64748b" }}>{fingerprint}</p>
                       </div>
                       {/* Algorithm info */}
                       <div className="w-full rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
                         <Lock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#64748b" }} />
                         <div className="text-left">
-                          <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Протокол</p>
+                          <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Протокол</p>
                           <p className="text-xs font-medium" style={{ color: "var(--mq-text)" }}>{getEncryptionStatus()}</p>
                         </div>
                       </div>
@@ -2429,7 +2429,7 @@ export default function MessengerView() {
               {showMentions && (
                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 200 }} exit={{ opacity: 0, height: 0 }}
                   className="overflow-hidden mx-3 mb-1 rounded-xl flex-shrink-0" style={glassPanelSolid}>
-                  <div className="px-3 py-1.5"><p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Упомянуть пользователя</p></div>
+                  <div className="px-3 py-1.5"><p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Упомянуть пользователя</p></div>
                   {filteredMentions.length > 0 ? (
                     filteredMentions.slice(0, 5).map((c) => (
                       <button key={c.id} onClick={() => handleMentionSelect(c)}
@@ -2523,7 +2523,7 @@ export default function MessengerView() {
                             )}
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
-                              <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
+                              <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
                             </div>
                             <Send className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
                           </button>
@@ -2619,7 +2619,7 @@ export default function MessengerView() {
                       <div className="flex gap-1 px-3 pb-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
                         {stickerCategories.map((cat, i) => (
                           <button key={cat.name} onClick={() => setStickerTab(i)}
-                            className="px-2.5 py-1 rounded-lg text-[10px] font-medium whitespace-nowrap cursor-pointer transition-all"
+                            className="px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap cursor-pointer transition-all"
                             style={stickerTab === i ? { backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" } : { ...glassPanel, color: "var(--mq-text-muted)" }}>
                             {cat.name}
                           </button>
@@ -2697,7 +2697,7 @@ export default function MessengerView() {
                 <Lock className="w-3 h-3" style={{ color: "#64748b" }} />
                 <span className="text-[11px] font-medium" style={{ color: "#64748b" }}>Transport encryption (TLS)</span>
               </div>
-              <p className="text-[10px] font-mono mt-2 px-3 py-1.5 rounded-lg inline-block" style={{ color: "var(--mq-text-muted)", ...glassPanel }}>
+              <p className="text-[11px] font-mono mt-2 px-3 py-1.5 rounded-lg inline-block" style={{ color: "var(--mq-text-muted)", ...glassPanel }}>
                 {fingerprint}
               </p>
             </div>
@@ -2902,7 +2902,7 @@ export default function MessengerView() {
                 <AvatarImg src={viewingStory.avatar} alt={viewingStory.username} className="w-9 h-9 rounded-full object-cover" style={{ border: "2px solid white" }} />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-white">{viewingStory.username}</p>
-                  <p className="text-[10px] text-white/60">{new Date(viewingStory.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</p>
+                  <p className="text-[11px] text-white/60">{new Date(viewingStory.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</p>
                 </div>
                 <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setStoryPaused(!storyPaused); }}
                   className="p-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.15)" }}>
@@ -2999,21 +2999,21 @@ export default function MessengerView() {
                   className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
                   style={{ ...glassPanel }}>
                   <MessageCircle className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                  <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Чат</span>
+                  <span className="text-[11px] font-medium" style={{ color: "var(--mq-text)" }}>Чат</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.9 }}
                   onClick={() => { showToast("Звонки скоро будут доступны"); }}
                   className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
                   style={{ ...glassPanel }}>
                   <Phone className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                  <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Звонок</span>
+                  <span className="text-[11px] font-medium" style={{ color: "var(--mq-text)" }}>Звонок</span>
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.9 }}
                   onClick={() => { requestNotifPermission(); showToast(notificationPermission === "granted" ? "Уведомления включены" : "Разрешите уведомления в браузере"); }}
                   className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
                   style={{ ...glassPanel }}>
                   <Bell className="w-5 h-5" style={{ color: notificationPermission === "granted" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                  <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Звук</span>
+                  <span className="text-[11px] font-medium" style={{ color: "var(--mq-text)" }}>Звук</span>
                 </motion.button>
                 <div className="relative flex flex-col items-center gap-1.5 flex-1 max-w-[80px]">
                   <motion.button whileTap={{ scale: 0.9 }}
@@ -3021,7 +3021,7 @@ export default function MessengerView() {
                     className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer w-full"
                     style={{ ...glassPanel }}>
                     <MoreVertical className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                    <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>Ещё</span>
+                    <span className="text-[11px] font-medium" style={{ color: "var(--mq-text)" }}>Ещё</span>
                   </motion.button>
                   <AnimatePresence>
                     {showProfileMore && (
@@ -3070,9 +3070,9 @@ export default function MessengerView() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-semibold tracking-wide uppercase" style={{ color: "var(--mq-accent)" }}>Сейчас слушает</p>
+                    <p className="text-[11px] font-semibold tracking-wide uppercase" style={{ color: "var(--mq-accent)" }}>Сейчас слушает</p>
                     <p className="text-xs font-medium truncate mt-0.5" style={{ color: "var(--mq-text)" }}>{friendNowPlaying.title}</p>
-                    <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{friendNowPlaying.artist}</p>
+                    <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{friendNowPlaying.artist}</p>
                   </div>
                   {friendNowPlayingActive && (
                     <div className="flex items-end gap-[3px] flex-shrink-0 h-5">
@@ -3189,8 +3189,8 @@ export default function MessengerView() {
           className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
           {replyPreview && (
             <div className="mb-1 ml-1 px-2.5 py-1.5 rounded-lg max-w-[85%] lg:max-w-[70%] w-fit" style={{ ...glassPanel, borderLeft: "2px solid var(--mq-accent)" }}>
-              <p className="text-[9px] font-semibold" style={{ color: "var(--mq-accent)" }}>{replyPreview.senderName}</p>
-              <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>{replyPreview.content}</p>
+              <p className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>{replyPreview.senderName}</p>
+              <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{replyPreview.content}</p>
             </div>
           )}
           {isSticker ? (
@@ -3286,7 +3286,7 @@ export default function MessengerView() {
                 {senderInfo && (
                   <AvatarImg src={senderInfo.avatar} alt={senderInfo.name} className="w-4 h-4 rounded-full object-cover" />
                 )}
-                <p className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>
+                <p className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>
                   {msg.senderName || "User"}
                 </p>
               </div>
@@ -3298,7 +3298,7 @@ export default function MessengerView() {
                 <MessageBubble message={{ id: msg.id, content: msg.content, senderId: msg.senderId, receiverId: userId || "", encrypted: false, createdAt: msg.createdAt, senderName: msg.senderName, messageType: msg.messageType, replyToId: msg.replyToId, edited: msg.edited }} currentUserId={userId || undefined} />
               )}
               {msg.edited && !stickerEmoji && !voiceData && (
-                <p className={`text-[9px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
+                <p className={`text-[11px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
               )}
             </div>
           ) : (
@@ -3311,7 +3311,7 @@ export default function MessengerView() {
                 <MessageBubble message={{ id: msg.id, content: msg.content, senderId: msg.senderId, receiverId: userId || "", encrypted: false, createdAt: msg.createdAt, senderName: msg.senderName, messageType: msg.messageType, replyToId: msg.replyToId, edited: msg.edited }} currentUserId={userId || undefined} />
               )}
               {msg.edited && !stickerEmoji && !voiceData && (
-                <p className={`text-[9px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
+                <p className={`text-[11px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
               )}
             </>
           )}
@@ -3411,7 +3411,7 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: { voiceUrl: string; 
         })}
       </div>
       {/* Time */}
-      <span className="text-[10px] font-mono flex-shrink-0 w-10 text-right"
+      <span className="text-[11px] font-mono flex-shrink-0 w-10 text-right"
         style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)" }}>
         {isPlaying ? formatTime(currentTime) : formatTime(duration)}
       </span>
@@ -3493,11 +3493,11 @@ function ContactItem({ contact, selected, userId, lastMsg, unread, pinned, onlin
           <div className="flex items-center gap-1.5 min-w-0">
             <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{contact.name}</p>
             {isOnline && !isTyping && (
-              <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ color: "#22c55e", backgroundColor: "rgba(34,197,94,0.12)" }}>в сети</span>
+              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ color: "#22c55e", backgroundColor: "rgba(34,197,94,0.12)" }}>в сети</span>
             )}
           </div>
           {lastMsg && (
-            <span className={`text-[10px] flex-shrink-0 ${unread > 0 ? "font-semibold" : ""}`}
+            <span className={`text-[11px] flex-shrink-0 ${unread > 0 ? "font-semibold" : ""}`}
               style={{ color: unread > 0 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
               {formatTime(lastMsg.createdAt)}
             </span>
@@ -3518,7 +3518,7 @@ function ContactItem({ contact, selected, userId, lastMsg, unread, pinned, onlin
             </div>
           )}
           {unread > 0 && (
-            <span className="min-w-[20px] h-[20px] rounded-full text-[10px] flex items-center justify-center px-1.5 flex-shrink-0 font-bold"
+            <span className="min-w-[20px] h-[20px] rounded-full text-[11px] flex items-center justify-center px-1.5 flex-shrink-0 font-bold"
               style={{
                 background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 70%, #f5576c))",
                 color: "#fff",

@@ -2192,3 +2192,20 @@ a:focus-visible,
   outline: 2px solid #fff;
   outline-offset: -2px;
 }
+
+/* ── P2.1: Daylight theme glass token overrides ──
+   On light themes, rgba(255,255,255,0.x) is invisible (white on white).
+   These overrides switch glass tokens to dark overlays (rgba(0,0,0,0.x))
+   so glass panels, borders, and hover states remain visible. */
+.daylight-theme {
+  --mq-glass-bg: rgba(0,0,0,0.03);
+  --mq-glass-bg-hover: rgba(0,0,0,0.06);
+  --mq-glass-bg-active: rgba(0,0,0,0.09);
+  --mq-glass-border: rgba(0,0,0,0.08);
+  --mq-glass-border-hover: rgba(0,0,0,0.15);
+  --mq-overlay-hover: rgba(0,0,0,0.03);
+  --mq-overlay-active: rgba(0,0,0,0.05);
+  --mq-border-subtle: rgba(0,0,0,0.06);
+  --mq-border-default: rgba(0,0,0,0.1);
+  --mq-shadow-inner-glow: inset 0 1px 0 rgba(0,0,0,0.04);
+}

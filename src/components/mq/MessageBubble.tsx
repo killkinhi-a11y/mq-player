@@ -194,7 +194,7 @@ function VoicePlayer({
 
         {/* Duration */}
         <span
-          className="text-[10px] flex-shrink-0 tabular-nums"
+          className="text-[11px] flex-shrink-0 tabular-nums"
           style={{
             color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)",
           }}
@@ -240,7 +240,7 @@ function VoicePlayer({
 
       {/* Transcription error */}
       {transcriptionError && (
-        <p className="text-[10px] self-start mt-0.5" style={{ color: isMine ? "rgba(255,255,255,0.4)" : "var(--mq-text-muted)" }}>
+        <p className="text-[11px] self-start mt-0.5" style={{ color: isMine ? "rgba(255,255,255,0.4)" : "var(--mq-text-muted)" }}>
           {transcriptionError}
         </p>
       )}
@@ -281,13 +281,13 @@ function ReplyPreview({
     >
       <div className="min-w-0 flex-1">
         <p
-          className="text-[10px] font-bold leading-tight truncate"
+          className="text-[11px] font-bold leading-tight truncate"
           style={{ color: isMine ? "rgba(255,255,255,0.8)" : "var(--mq-accent)" }}
         >
           {senderLabel}
         </p>
         <p
-          className="text-[10px] leading-snug truncate mt-0.5"
+          className="text-[11px] leading-snug truncate mt-0.5"
           style={{ color: isMine ? "rgba(255,255,255,0.55)" : "var(--mq-text-muted)" }}
         >
           {truncated}
@@ -510,7 +510,7 @@ export default function MessageBubble({
         <div className="max-w-[85%] lg:max-w-[70%] w-fit">
           {!isMine && message.senderName && (
             <p
-              className="text-[10px] mb-1 ml-3 font-semibold"
+              className="text-[11px] mb-1 ml-3 font-semibold"
               style={{ color: "var(--mq-accent)" }}
             >
               {message.senderName}
@@ -542,7 +542,7 @@ export default function MessageBubble({
                 <span title="Передано по TLS"><Lock className="w-3 h-3" style={{ color: "#64748b" }} /></span>
               )}
               <span
-                className="text-[10px]"
+                className="text-[11px]"
                 style={{ color: isMine ? "rgba(255,255,255,0.6)" : "var(--mq-text-muted)" }}
               >
                 {time}
@@ -653,7 +653,7 @@ export default function MessageBubble({
         {/* Sender name (received messages only) */}
         {!isMine && message.senderName && (
           <p
-            className="text-[10px] mb-1 ml-3 font-semibold"
+            className="text-[11px] mb-1 ml-3 font-semibold"
             style={{ color: "var(--mq-accent)" }}
           >
             {message.senderName}
@@ -696,7 +696,7 @@ export default function MessageBubble({
           {/* Timestamp + lock + edited + checkmarks — inline at end */}
           <div className="flex items-center justify-end gap-1 mt-1 -mb-0.5">
             {isEdited && (
-              <span className="text-[9px] italic" style={{ color: isMine ? "rgba(255,255,255,0.45)" : "var(--mq-text-muted)" }}>
+              <span className="text-[11px] italic" style={{ color: isMine ? "rgba(255,255,255,0.45)" : "var(--mq-text-muted)" }}>
                 ред.
               </span>
             )}
@@ -704,7 +704,7 @@ export default function MessageBubble({
               <span title="Передано по TLS"><Lock className="w-3 h-3" style={{ color: "#64748b" }} /></span>
             )}
             <span
-              className="text-[9px] tabular-nums"
+              className="text-[11px] tabular-nums"
               style={{ color: isMine ? "rgba(255,255,255,0.5)" : "var(--mq-text-muted)" }}
             >
               {time}

@@ -353,7 +353,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
                   </div>
                 ))}
                 {previewTracks.length > 20 && (
-                  <p className="text-center py-1 text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <p className="text-center py-1 text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                     ...и ещё {previewTracks.length - 20}
                   </p>
                 )}
@@ -371,7 +371,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
                 <div key={pl.id} className="flex items-center gap-2 px-3 py-2 rounded-lg mb-1" style={{ backgroundColor: "rgba(255,255,255,0.02)" }}>
                   <ListFilter className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
                   <span className="flex-1 text-xs truncate" style={{ color: "var(--mq-text)" }}>{pl.name}</span>
-                  <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>лимит {pl.limit}</span>
+                  <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>лимит {pl.limit}</span>
                 </div>
               ))}
             </div>

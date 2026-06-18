@@ -67,7 +67,7 @@ function SettingToggle({
           <div className="flex items-center gap-2">
             <p className="text-[15px] sm:text-sm font-medium" style={{ color: "var(--mq-text)" }}>{label}</p>
             {valueLabel && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: value ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: value ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: value ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: value ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 {valueLabel}
               </span>
             )}
@@ -113,7 +113,7 @@ function SettingNav({
         {subtitle && <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{subtitle}</p>}
       </div>
       {valueLabel && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: accentIcon ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: accentIcon ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+        <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: accentIcon ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: accentIcon ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
           {valueLabel}
         </span>
       )}
@@ -771,7 +771,7 @@ export default function SettingsView() {
           </div>
           {messengerBadge > 0 && (
             <span
-              className="min-w-[20px] h-5 rounded-full flex items-center justify-center text-[10px] font-bold px-1.5 flex-shrink-0"
+              className="min-w-[20px] h-5 rounded-full flex items-center justify-center text-[11px] font-bold px-1.5 flex-shrink-0"
               style={{
                 backgroundColor: "#ef4444",
                 color: "#fff",
@@ -917,7 +917,7 @@ export default function SettingsView() {
               <button
                 onClick={() => syncFromServer()}
                 disabled={isSyncing}
-                className="px-2.5 py-1.5 rounded-lg text-[10px] font-medium"
+                className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium"
                 style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)", color: "var(--mq-text)", opacity: isSyncing ? 0.5 : 1 }}
               >
                 Загрузить
@@ -925,7 +925,7 @@ export default function SettingsView() {
               <button
                 onClick={() => syncToServer()}
                 disabled={isSyncing}
-                className="px-2.5 py-1.5 rounded-lg text-[10px] font-medium"
+                className="px-2.5 py-1.5 rounded-lg text-[11px] font-medium"
                 style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", opacity: isSyncing ? 0.5 : 1 }}
               >
                 Сохранить
@@ -979,7 +979,7 @@ export default function SettingsView() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Тема оформления</p>
               </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-accent)" }}>
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-accent)" }}>
                 {themeList.find(t => t.id === currentTheme)?.name || "—"}
               </span>
               {showThemeMenu ? <ChevronUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} /> : <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />}
@@ -1026,7 +1026,7 @@ export default function SettingsView() {
                       {/* Core themes */}
                       {filteredCore.length > 0 && (
                         <>
-                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--mq-text-muted)" }}>Основные</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--mq-text-muted)" }}>Основные</p>
                           <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-6 gap-2.5 mb-4">
                             {filteredCore.map((theme) => {
                               const isActive = currentTheme === theme.id;
@@ -1072,7 +1072,7 @@ export default function SettingsView() {
                                       )}
                                     </div>
                                   </div>
-                                  <span className="text-[9px] font-medium truncate block leading-tight" style={{ color: isActive ? theme.accent : "var(--mq-text-muted)" }}>
+                                  <span className="text-[11px] font-medium truncate block leading-tight" style={{ color: isActive ? theme.accent : "var(--mq-text-muted)" }}>
                                     {theme.name}
                                   </span>
                                 </motion.button>
@@ -1085,7 +1085,7 @@ export default function SettingsView() {
                       {/* Seasonal themes */}
                       {filteredSeasonal.length > 0 && (
                         <>
-                          <p className="text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--mq-text-muted)" }}>Сезонные</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "var(--mq-text-muted)" }}>Сезонные</p>
                           <div className="grid grid-cols-4 sm:grid-cols-5 lg:grid-cols-6 gap-2.5">
                             {filteredSeasonal.map((theme) => {
                               const isActive = currentTheme === theme.id;
@@ -1129,7 +1129,7 @@ export default function SettingsView() {
                                       )}
                                     </div>
                                   </div>
-                                  <span className="text-[9px] font-medium truncate block leading-tight" style={{ color: isActive ? theme.accent : "var(--mq-text-muted)" }}>
+                                  <span className="text-[11px] font-medium truncate block leading-tight" style={{ color: isActive ? theme.accent : "var(--mq-text-muted)" }}>
                                     {seasonalInfo?.icon ? `${seasonalInfo.icon} ` : ""}{theme.name}
                                   </span>
                                 </motion.button>
@@ -1244,7 +1244,7 @@ export default function SettingsView() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Стиль интерфейса</p>
             </div>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+            <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
               {currentStyle ? styleList.find(s => s.id === currentStyle)?.name : "Стандартный"}
             </span>
             {showStyleMenu ? <ChevronUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} /> : <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />}
@@ -1295,7 +1295,7 @@ export default function SettingsView() {
                     </div>
                     <div>
                       <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Стандартный</span>
-                      <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Обычный вид mq</p>
+                      <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Обычный вид mq</p>
                     </div>
                     {!currentStyle && (
                       <Check className="absolute top-2.5 right-2.5 w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
@@ -1390,7 +1390,7 @@ export default function SettingsView() {
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-[10px] flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>A</span>
+                  <span className="text-[11px] flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>A</span>
                   <input
                     type="range"
                     min="12"
@@ -1443,7 +1443,7 @@ export default function SettingsView() {
                     style={{ backgroundColor: "var(--mq-border)", accentColor: "var(--mq-accent)" }}
                   />
                 </div>
-                <p className="text-[10px] mt-1.5" style={{ color: "var(--mq-text-muted)" }}>Колёсико мыши для регулировки</p>
+                <p className="text-[11px] mt-1.5" style={{ color: "var(--mq-text-muted)" }}>Колёсико мыши для регулировки</p>
               </div>
             </div>
           </div>
@@ -1468,7 +1468,7 @@ export default function SettingsView() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Кроссфейд</p>
               </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: crossfadeEnabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: crossfadeEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: crossfadeEnabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: crossfadeEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 {crossfadeEnabled ? `${crossfadeDuration}s` : "ВЫКЛ"}
               </span>
               {showCrossfadeSettings ? <ChevronUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} /> : <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />}
@@ -1536,8 +1536,8 @@ export default function SettingsView() {
                         />
                       </div>
                       <div className="flex justify-between mt-1.5">
-                        <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>0.5s</span>
-                        <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>8s</span>
+                        <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>0.5s</span>
+                        <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>8s</span>
                       </div>
                     </div>
                   </div>
@@ -1584,7 +1584,7 @@ export default function SettingsView() {
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Эквалайзер</p>
             </div>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: eqEnabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+            <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: eqEnabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
               {eqEnabled ? eqPreset : "ВЫКЛ"}
             </span>
             <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
@@ -1631,7 +1631,7 @@ export default function SettingsView() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Push-уведомления</p>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: pushEnabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: pushEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                    <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: pushEnabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: pushEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                       {pushEnabled ? "Вкл" : "Выкл"}
                     </span>
                   </div>
@@ -1679,7 +1679,7 @@ export default function SettingsView() {
             </div>
             {supportUnreadCount > 0 && (
               <span
-                className="min-w-[20px] h-5 rounded-full flex items-center justify-center text-[10px] font-bold px-1.5 flex-shrink-0"
+                className="min-w-[20px] h-5 rounded-full flex items-center justify-center text-[11px] font-bold px-1.5 flex-shrink-0"
                 style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
               >
                 {supportUnreadCount > 99 ? "99+" : supportUnreadCount}
@@ -1713,7 +1713,7 @@ export default function SettingsView() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Музыкальные вкусы</p>
               </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: showFullTaste ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: showFullTaste ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: showFullTaste ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: showFullTaste ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 {showFullTaste ? "Открыто" : "Настроить"}
               </span>
               {showFullTaste ? <ChevronUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} /> : <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />}
@@ -1745,7 +1745,7 @@ export default function SettingsView() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Маскот mq</p>
               </div>
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: catEnabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: catEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0" style={{ backgroundColor: catEnabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.06)", color: catEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 {catEnabled ? "Включён" : "Выключен"}
               </span>
               {showCatSettings ? <ChevronUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} /> : <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />}
@@ -1818,7 +1818,7 @@ export default function SettingsView() {
                                 <div className="flex justify-center mb-1">
                                   <MascotPreview size={opt.px} isSelected={catSize === opt.id} />
                                 </div>
-                                <p className="text-[10px] font-semibold" style={{ color: catSize === opt.id ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                                <p className="text-[11px] font-semibold" style={{ color: catSize === opt.id ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                                   {opt.label}
                                 </p>
                               </button>
@@ -1831,7 +1831,7 @@ export default function SettingsView() {
                         >
                           <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Всего взаимодействий</p>
                           <p className="text-2xl font-bold mt-1" style={{ color: "var(--mq-accent)" }}>{catPetCount}</p>
-                          <p className="text-[10px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                          <p className="text-[11px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
                             {catPetCount === 0 ? "Нажмите на маскота!" : catPetCount < 10 ? "Маскот начинает доверять вам" : catPetCount < 50 ? "Маскот вас полюбил!" : catPetCount < 100 ? "Вы — лучший друг маскота!" : "Легендарный друг!"}
                           </p>
                         </div>
@@ -1852,7 +1852,7 @@ export default function SettingsView() {
                   <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Офлайн</p>
                   <div className="flex items-center gap-1.5">
                     <div className="w-2 h-2 rounded-full" style={{ backgroundColor: swActive ? "#4ade80" : "#ef4444" }} />
-                    <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                    <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                       {swActive ? "SW активен" : "SW неактивен"}
                     </span>
                   </div>
@@ -1939,7 +1939,7 @@ export default function SettingsView() {
                 style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
               >
                 <Monitor className="w-5 h-5" style={{ color: "#3b82f6" }} />
-                <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
+                <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
               </motion.a>
               <motion.a
                 whileHover={{ scale: 1.03 }}
@@ -1951,7 +1951,7 @@ export default function SettingsView() {
                 style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
               >
                 <Apple className="w-5 h-5" style={{ color: "#a855f7" }} />
-                <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>macOS</span>
+                <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>macOS</span>
               </motion.a>
               <motion.a
                 whileHover={{ scale: 1.03 }}
@@ -1963,12 +1963,12 @@ export default function SettingsView() {
                 style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
               >
                 <Smartphone className="w-5 h-5" style={{ color: "#eab308" }} />
-                <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
+                <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
               </motion.a>
             </div>
             <div className="mt-2 flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#4ade80" }} />
-              <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>v1.0.1</span>
+              <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>v1.0.1</span>
             </div>
           </div>
         </motion.div>
@@ -2201,12 +2201,12 @@ export default function SettingsView() {
                   <div key={msg.id} className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
                     <div className="max-w-[85%]">
                       {isBot && (
-                        <p className="text-[10px] font-medium mb-1 flex items-center gap-1" style={{ color: "#06b6d4" }}>
+                        <p className="text-[11px] font-medium mb-1 flex items-center gap-1" style={{ color: "#06b6d4" }}>
                           <Bot className="w-2.5 h-2.5" /> MQ Bot
                         </p>
                       )}
                       {msg.role === "admin" && (
-                        <p className="text-[10px] font-medium mb-1" style={{ color: "var(--mq-accent)" }}>Администратор</p>
+                        <p className="text-[11px] font-medium mb-1" style={{ color: "var(--mq-accent)" }}>Администратор</p>
                       )}
                       <div
                         className="rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap"
