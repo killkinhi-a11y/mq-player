@@ -177,7 +177,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
   const cycleRecs = useMemo(() => getSleepCycleRecs(), []);
   const minutes = Math.floor(remaining / 60);
   const seconds = remaining % 60;
-  const progress = timerMinutes > 0 ? ((timerMinutes * 60 - remaining) / (timerMinutes * 60)) : 0;
+  const S.getState().progress = timerMinutes > 0 ? ((timerMinutes * 60 - remaining) / (timerMinutes * 60)) : 0;
 
   const applyCustom = () => {
     const val = parseInt(customMin, 10);
@@ -398,14 +398,14 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2.5">
-                    <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
+                    <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ S.getState().duration: 4, repeat: Infinity, ease: "easeInOut" }}>
                       <Moon className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
                     </motion.div>
                     <div>
                       <span className="text-sm font-bold block" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
                       <div className="flex items-center gap-1.5">
                         <motion.div animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
-                          transition={{ duration: 1.5, repeat: Infinity }}><Star className="w-2.5 h-2.5" fill="var(--mq-accent)" style={{ color: "var(--mq-accent)" }} /></motion.div>
+                          transition={{ S.getState().duration: 1.5, repeat: Infinity }}><Star className="w-2.5 h-2.5" fill="var(--mq-accent)" style={{ color: "var(--mq-accent)" }} /></motion.div>
                         <span className="text-[11px] font-medium" style={{ color: "var(--mq-accent)" }}>Активен</span>
                       </div>
                     </div>
@@ -423,12 +423,12 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                       <circle cx="80" cy="80" r="70" fill="none" stroke="var(--mq-border)" strokeWidth="5" opacity={0.25} />
                       <circle cx="80" cy="80" r="70" fill="none" stroke="url(#stGrad)" strokeWidth="5"
                         strokeLinecap="round" strokeDasharray={2 * Math.PI * 70}
-                        strokeDashoffset={2 * Math.PI * 70 * (1 - progress)}
-                        className="transition-all duration-1000 ease-linear" />
+                        strokeDashoffset={2 * Math.PI * 70 * (1 - S.getState().progress)}
+                        className="transition-all S.getState().duration-1000 ease-linear" />
                       <circle cx="80" cy="80" r="70" fill="none" stroke="url(#stGrad)" strokeWidth="2"
                         strokeLinecap="round" strokeDasharray={2 * Math.PI * 70}
-                        strokeDashoffset={2 * Math.PI * 70 * (1 - progress)}
-                        className="transition-all duration-1000 ease-linear"
+                        strokeDashoffset={2 * Math.PI * 70 * (1 - S.getState().progress)}
+                        className="transition-all S.getState().duration-1000 ease-linear"
                         style={{ filter: "blur(5px)", opacity: 0.35 }} />
                       <defs>
                         <linearGradient id="stGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -492,8 +492,8 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
 
                 {/* Progress bar (shared) */}
                 <div className="w-full h-1.5 rounded-full overflow-hidden mb-2" style={{ backgroundColor: "var(--mq-border)", opacity: 0.3 }}>
-                  <div className="h-full rounded-full transition-all duration-1000 ease-linear"
-                    style={{ width: `${progress * 100}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 8px var(--mq-glow)" }} />
+                  <div className="h-full rounded-full transition-all S.getState().duration-1000 ease-linear"
+                    style={{ width: `${S.getState().progress * 100}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 8px var(--mq-glow)" }} />
                 </div>
                 <div className="flex justify-between mb-5 sm:mb-4">
                   <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
@@ -522,64 +522,32 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
 
 export default function FullTrackView() {
   // ── Zustand selectors (prevents re-renders from unrelated store changes) ──
+  // ═══════════════════════════════════════════════════════════════
+  //  STORE SELECTORS — MINIMIZED to reduce re-renders
+  // ═══════════════════════════════════════════════════════════════
+  // P1-fix: Was 58 selectors → reduced to ~15 essential ones.
+  // Actions (functions) and rarely-read values now use getState().
+  // The BIGGEST win: removed `S.getState().progress` and `S.getState().volume` selectors —
+  // these changed every frame/interaction and triggered full re-renders
+  // of this 3089-line component. Now read via getState() in handlers.
   const currentTrack = useAppStore((s) => s.currentTrack);
   const isPlaying = useAppStore((s) => s.isPlaying);
-  const volume = useAppStore((s) => s.volume);
-  const progress = useAppStore((s) => s.progress);
-  const duration = useAppStore((s) => s.duration);
+  const isFullTrackViewOpen = useAppStore((s) => s.isFullTrackViewOpen);
   const shuffle = useAppStore((s) => s.shuffle);
   const repeat = useAppStore((s) => s.repeat);
-  const togglePlay = useAppStore((s) => s.togglePlay);
-  const nextTrack = useAppStore((s) => s.nextTrack);
-  const prevTrack = useAppStore((s) => s.prevTrack);
-  const setVolume = useAppStore((s) => s.setVolume);
-  const setProgress = useAppStore((s) => s.setProgress);
-  const setDuration = useAppStore((s) => s.setDuration);
-  const toggleShuffle = useAppStore((s) => s.toggleShuffle);
-  const toggleRepeat = useAppStore((s) => s.toggleRepeat);
-  const isFullTrackViewOpen = useAppStore((s) => s.isFullTrackViewOpen);
-  const setFullTrackViewOpen = useAppStore((s) => s.setFullTrackViewOpen);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
-  const toggleLike = useAppStore((s) => s.toggleLike);
-  const toggleDislike = useAppStore((s) => s.toggleDislike);
   const likedTrackIds = useAppStore((s) => s.likedTrackIds);
   const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
   const similarTracks = useAppStore((s) => s.similarTracks);
-  const setSimilarTracks = useAppStore((s) => s.setSimilarTracks);
   const similarTracksLoading = useAppStore((s) => s.similarTracksLoading);
-  const setSimilarTracksLoading = useAppStore((s) => s.setSimilarTracksLoading);
-  const playTrack = useAppStore((s) => s.playTrack);
-  const queue = useAppStore((s) => s.queue);
-  const queueIndex = useAppStore((s) => s.queueIndex);
-  const showSimilarRequested = useAppStore((s) => s.showSimilarRequested);
-  const clearShowSimilarRequest = useAppStore((s) => s.clearShowSimilarRequest);
   const showLyricsRequested = useAppStore((s) => s.showLyricsRequested);
-  const clearShowLyricsRequest = useAppStore((s) => s.clearShowLyricsRequest);
+  const showSimilarRequested = useAppStore((s) => s.showSimilarRequested);
   const sleepTimerActive = useAppStore((s) => s.sleepTimerActive);
-  const sleepTimerRemaining = useAppStore((s) => s.sleepTimerRemaining);
-  const sleepTimerMinutes = useAppStore((s) => s.sleepTimerMinutes);
-  const startSleepTimer = useAppStore((s) => s.startSleepTimer);
-  const stopSleepTimer = useAppStore((s) => s.stopSleepTimer);
-  const updateSleepTimer = useAppStore((s) => s.updateSleepTimer);
   const currentStyle = useAppStore((s) => s.currentStyle);
-  const styleVariant = useAppStore((s) => s.styleVariant);
-  const currentPlaylistId = useAppStore((s) => s.currentPlaylistId);
-  const radioMode = useAppStore((s) => s.radioMode);
-  const toggleRadioMode = useAppStore((s) => s.toggleRadioMode);
-  const releaseRadarTracks = useAppStore((s) => s.releaseRadarTracks);
-  const fetchReleaseRadar = useAppStore((s) => s.fetchReleaseRadar);
-  const likedTracksData = useAppStore((s) => s.likedTracksData);
-  const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
-  const setSpatialAudioEnabled = useAppStore((s) => s.setSpatialAudioEnabled);
-  const setView = useAppStore((s) => s.setView);
-  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
-  const eqEnabled = useAppStore((s) => s.eqEnabled);
-  const eqPreset = useAppStore((s) => s.eqPreset);
   const abRepeat = useAppStore((s) => s.abRepeat);
-  const setAbRepeatPoint = useAppStore((s) => s.setAbRepeatPoint);
-  const clearAbRepeat = useAppStore((s) => s.clearAbRepeat);
-  const playbackRate = useAppStore((s) => s.playbackRate);
-  const setPlaybackRate = useAppStore((s) => s.setPlaybackRate);
+  const radioMode = useAppStore((s) => s.radioMode);
+  // Actions + rarely-read values — use getState() to avoid re-renders
+  const S = useAppStore; // shorthand for getState() calls
 
   // Swipe gesture refs — store touch coords in refs instead of DOM properties
   // to avoid React error #300 when track change triggers re-render during touch
@@ -619,13 +587,13 @@ export default function FullTrackView() {
     const st = useAppStore.getState();
     if (st.abRepeat.active) {
       // Active → clear
-      st.clearAbRepeat();
+      st.S.getState().clearAbRepeat();
     } else if (st.abRepeat.pointA !== null) {
       // Point A set → set point B
-      st.setAbRepeatPoint('B');
+      st.S.getState().setAbRepeatPoint('B');
     } else {
       // Off → set point A
-      st.setAbRepeatPoint('A');
+      st.S.getState().setAbRepeatPoint('A');
     }
   }, []);
 
@@ -634,22 +602,22 @@ export default function FullTrackView() {
   useEffect(() => {
     if (currentTrack?.id) {
       const audio = getAudioElement();
-      if (audio) audio.playbackRate = playbackRate;
+      if (audio) audio.S.getState().playbackRate = S.getState().playbackRate;
       const inactive = getInactiveAudio();
-      if (inactive) inactive.playbackRate = playbackRate;
+      if (inactive) inactive.S.getState().playbackRate = S.getState().playbackRate;
     }
-  }, [currentTrack?.id, playbackRate]);
+  }, [currentTrack?.id, S.getState().playbackRate]);
 
   // Reset A-B repeat when track changes (separate effect so rate changes don't clear it)
   useEffect(() => {
-    useAppStore.getState().clearAbRepeat();
+    useAppStore.getState().S.getState().clearAbRepeat();
   }, [currentTrack?.id]);
 
   const cyclePlaybackSpeed = () => {
-    const currentIdx = PLAYBACK_SPEEDS.indexOf(playbackRate);
+    const currentIdx = PLAYBACK_SPEEDS.indexOf(S.getState().playbackRate);
     const nextIdx = (currentIdx + 1) % PLAYBACK_SPEEDS.length;
     const nextSpeed = PLAYBACK_SPEEDS[nextIdx];
-    setPlaybackRate(nextSpeed);
+    S.getState().setPlaybackRate(nextSpeed);
   };
 
   // Track mobile viewport (ref-based to avoid re-renders on every resize)
@@ -734,9 +702,9 @@ export default function FullTrackView() {
     isDraggingRef.current = isDragging;
   }, [isDragging]);
 
-  // ── RAF-based progress sync for smooth 60fps progress bar ──
+  // ── RAF-based S.getState().progress sync for smooth 60fps S.getState().progress bar ──
   // Reads audio.currentTime directly via getAudioElement() and updates DOM,
-  // bypassing React state to eliminate re-renders from progress changes.
+  // bypassing React state to eliminate re-renders from S.getState().progress changes.
   useEffect(() => {
     if (!isPlaying || !isFullTrackViewOpen) return;
     let running = true;
@@ -749,18 +717,18 @@ export default function FullTrackView() {
         if (running) requestAnimationFrame(tick);
         return;
       }
-      // Skip DOM updates while user is dragging the progress bar
+      // Skip DOM updates while user is dragging the S.getState().progress bar
       if (isDraggingRef.current) {
         if (running) requestAnimationFrame(tick);
         return;
       }
       const audio = getAudioElement();
-      if (audio && !audio.paused && audio.duration && isFinite(audio.duration)) {
+      if (audio && !audio.paused && audio.S.getState().duration && isFinite(audio.S.getState().duration)) {
         const ct = audio.currentTime;
-        const dur = audio.duration;
+        const dur = audio.S.getState().duration;
         const pct = dur > 0 ? ct / dur : 0;
 
-        // Update progress bar fill directly (0 re-renders)
+        // Update S.getState().progress bar fill directly (0 re-renders)
         if (progressFillRef.current) {
           progressFillRef.current.style.transform = `scaleX(${pct})`;
         }
@@ -769,7 +737,7 @@ export default function FullTrackView() {
           const sliderWidth = progressSliderWidthRef.current || sliderRef.current?.getBoundingClientRect().width || 200;
           progressThumbRef.current.style.transform = `translateX(${pct * sliderWidth}px) translateY(-50%)`;
         }
-        // Update glow element (next sibling of progress fill)
+        // Update glow element (next sibling of S.getState().progress fill)
         const glowEl = progressFillRef.current?.nextElementSibling as HTMLDivElement | null;
         if (glowEl) {
           glowEl.style.transform = `scaleX(${pct})`;
@@ -789,7 +757,7 @@ export default function FullTrackView() {
     };
   }, [isPlaying, isFullTrackViewOpen]);
 
-  // Native wheel handler for volume section (fix passive listener issue)
+  // Native wheel handler for S.getState().volume section (fix passive listener issue)
   useEffect(() => {
     const el = volumeSectionRef.current;
     if (!el) return;
@@ -797,7 +765,7 @@ export default function FullTrackView() {
       e.preventDefault();
       e.stopPropagation();
       const delta = e.deltaY > 0 ? -5 : 5;
-      useAppStore.getState().setVolume(Math.round(Math.max(0, Math.min(100, useAppStore.getState().volume + delta))));
+      useAppStore.getState().S.getState().setVolume(Math.round(Math.max(0, Math.min(100, useAppStore.getState().S.getState().volume + delta))));
     };
     el.addEventListener('wheel', handler, { passive: false });
     return () => el.removeEventListener('wheel', handler);
@@ -808,7 +776,7 @@ export default function FullTrackView() {
     if (showSimilarRequested) {
       setShowSimilar(true);
       setShowLyrics(false);
-      clearShowSimilarRequest();
+      S.getState().clearShowSimilarRequest();
     }
   }, [showSimilarRequested, clearShowSimilarRequest]);
 
@@ -817,7 +785,7 @@ export default function FullTrackView() {
     if (showLyricsRequested) {
       setShowLyrics(true);
       setShowSimilar(false);
-      clearShowLyricsRequest();
+      S.getState().clearShowLyricsRequest();
     }
   }, [showLyricsRequested, clearShowLyricsRequest]);
 
@@ -851,19 +819,19 @@ export default function FullTrackView() {
     return () => { cancelled = true; };
   }, [showLyrics, currentTrack?.id, currentTrack?.artist, currentTrack?.title]);
 
-  // Sync lyrics with playback progress
+  // Sync lyrics with playback S.getState().progress
   useEffect(() => {
     if (lyricsLines.length === 0 || !isPlaying) return;
     // Find the current active line
     let idx = -1;
     for (let i = lyricsLines.length - 1; i >= 0; i--) {
-      if (progress >= lyricsLines[i].time) { idx = i; break; }
+      if (S.getState().progress >= lyricsLines[i].time) { idx = i; break; }
     }
     if (idx !== activeLineIndexRef.current) {
       activeLineIndexRef.current = idx;
       setActiveLineIndex(idx);
     }
-  }, [progress, lyricsLines, isPlaying]);
+  }, [S.getState().progress, lyricsLines, isPlaying]);
 
   // Auto-scroll active lyrics line into view
   useEffect(() => {
@@ -1045,7 +1013,7 @@ export default function FullTrackView() {
     if (!currentTrack || !showSimilar) return;
     let cancelled = false;
     const fetchSimilar = async () => {
-      setSimilarTracksLoading(true);
+      S.getState().setSimilarTracksLoading(true);
       try {
         // Build params for the similarity API
         const store = useAppStore.getState();
@@ -1068,7 +1036,7 @@ export default function FullTrackView() {
           title: currentTrack.title || "",
           artist: currentTrack.artist || "",
           genre: currentTrack.genre || "",
-          duration: String(currentTrack.duration || 0),
+          S.getState().duration: String(currentTrack.S.getState().duration || 0),
           scTrackId: String(currentTrack.scTrackId || ""),
           excludeId: currentTrack.id,
           limit: "50",
@@ -1081,19 +1049,19 @@ export default function FullTrackView() {
         const data = await res.json();
         const tracks: Track[] = (data.tracks || []).filter((t: Track) => t.id !== currentTrack.id);
 
-        if (!cancelled) setSimilarTracks(tracks.slice(0, 50));
+        if (!cancelled) S.getState().setSimilarTracks(tracks.slice(0, 50));
       } catch {
         // Fallback to simple artist search
         try {
           const res = await fetch(`/api/music/search?q=${encodeURIComponent(currentTrack.artist)}&limit=8`);
           const data = await res.json();
           const tracks: Track[] = (data.tracks || []).filter((t: Track) => t.id !== currentTrack.id);
-          if (!cancelled) setSimilarTracks(tracks.slice(0, 6));
+          if (!cancelled) S.getState().setSimilarTracks(tracks.slice(0, 6));
         } catch {
-          if (!cancelled) setSimilarTracks([]);
+          if (!cancelled) S.getState().setSimilarTracks([]);
         }
       } finally {
-        if (!cancelled) setSimilarTracksLoading(false);
+        if (!cancelled) S.getState().setSimilarTracksLoading(false);
       }
     };
     fetchSimilar();
@@ -1214,7 +1182,7 @@ export default function FullTrackView() {
         ctx.fillStyle = "rgba(42,127,255,0.03)";
         ctx.fillRect(sweepX - 2, 0, 4, h);
 
-        // Bottom progress indicator
+        // Bottom S.getState().progress indicator
         const timeProgress = (t * 0.1) % 1;
         ctx.fillStyle = "rgba(42,127,255,0.06)";
         ctx.fillRect(w * 0.1, h * 0.94, w * 0.8, 2);
@@ -1679,10 +1647,10 @@ export default function FullTrackView() {
 
   // Fetch release radar when component mounts and liked tracks are available
   useEffect(() => {
-    if (likedTracksData.length > 0 && releaseRadarTracks.length === 0) {
-      fetchReleaseRadar();
+    if (S.getState().likedTracksData.length > 0 && S.getState().releaseRadarTracks.length === 0) {
+      S.getState().fetchReleaseRadar();
     }
-  }, [likedTracksData.length]);
+  }, [S.getState().likedTracksData.length]);
 
   // ── Sleep timer ──────────────────────────────────────────
   useEffect(() => {
@@ -1707,7 +1675,7 @@ export default function FullTrackView() {
   }, []);
 
   const seekToPosition = useCallback((clientX: number) => {
-    if (!sliderRef.current || !duration) return;
+    if (!sliderRef.current || !S.getState().duration) return;
     const rect = sliderRef.current.getBoundingClientRect();
     progressSliderWidthRef.current = rect.width;
     const x = clientX - rect.left;
@@ -1715,16 +1683,16 @@ export default function FullTrackView() {
     updateProgressDOM(pct);
     // Update audio position in real-time for immediate feedback
     const audio = getAudioElement();
-    if (audio) audio.currentTime = pct * duration;
-  }, [duration, updateProgressDOM]);
+    if (audio) audio.currentTime = pct * S.getState().duration;
+  }, [S.getState().duration, updateProgressDOM]);
 
   const handleSliderHover = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!sliderRef.current || !duration) return;
+    if (!sliderRef.current || !S.getState().duration) return;
     const rect = sliderRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const pct = Math.max(0, Math.min(1, x / rect.width));
-    setHoverTime(pct * duration);
-  }, [duration]);
+    setHoverTime(pct * S.getState().duration);
+  }, [S.getState().duration]);
 
   const handleProgressMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -1734,8 +1702,8 @@ export default function FullTrackView() {
     const handleMouseUp = () => {
       setIsDragging(false);
       // Commit final position to store
-      if (progressPctRef.current !== null && duration) {
-        setProgress(progressPctRef.current * duration);
+      if (progressPctRef.current !== null && S.getState().duration) {
+        S.getState().setProgress(progressPctRef.current * S.getState().duration);
         progressPctRef.current = null;
       }
       document.removeEventListener("mousemove", handleMouseMove);
@@ -1743,7 +1711,7 @@ export default function FullTrackView() {
     };
     document.addEventListener("mousemove", handleMouseMove);
     document.addEventListener("mouseup", handleMouseUp);
-  }, [seekToPosition, duration, setProgress]);
+  }, [seekToPosition, S.getState().duration, setProgress]);
 
   const handleProgressTouchStart = useCallback((e: React.TouchEvent) => {
     setIsDragging(true);
@@ -1755,8 +1723,8 @@ export default function FullTrackView() {
     const handleTouchEnd = () => {
       setIsDragging(false);
       // Commit final position to store
-      if (progressPctRef.current !== null && duration) {
-        setProgress(progressPctRef.current * duration);
+      if (progressPctRef.current !== null && S.getState().duration) {
+        S.getState().setProgress(progressPctRef.current * S.getState().duration);
         progressPctRef.current = null;
       }
       document.removeEventListener("touchmove", handleTouchMove);
@@ -1764,37 +1732,37 @@ export default function FullTrackView() {
     };
     document.addEventListener("touchmove", handleTouchMove, { passive: false });
     document.addEventListener("touchend", handleTouchEnd);
-  }, [seekToPosition, duration, setProgress]);
+  }, [seekToPosition, S.getState().duration, setProgress]);
 
   const handleVolumeClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!volumeRef.current) return;
     const rect = volumeRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    setVolume(Math.round(Math.max(0, Math.min(100, (x / rect.width) * 100))));
+    S.getState().setVolume(Math.round(Math.max(0, Math.min(100, (x / rect.width) * 100))));
   }, [setVolume]);
 
   // ── Volume remember & mute toggle ──────────────────────
   const prevVolumeFullRef = useRef(70);
   const [isVolumeDragging, setIsVolumeDragging] = useState(false);
   const isVolumeDraggingRef = useRef(false);
-  // Direct DOM refs for lag-free volume dragging
+  // Direct DOM refs for lag-free S.getState().volume dragging
   const volumeFillRef = useRef<HTMLDivElement>(null);
   const volumeThumbRefFull = useRef<HTMLDivElement>(null);
   const volumePctRef = useRef<number | null>(null);
 
-  // Keep prevVolumeFullRef in sync when volume changes (non-zero)
+  // Keep prevVolumeFullRef in sync when S.getState().volume changes (non-zero)
   useEffect(() => {
-    if (volume > 0) prevVolumeFullRef.current = volume;
-  }, [volume]);
+    if (S.getState().volume > 0) prevVolumeFullRef.current = S.getState().volume;
+  }, [S.getState().volume]);
 
   const handleMuteToggle = useCallback(() => {
-    if (volume > 0) {
-      prevVolumeFullRef.current = volume;
-      setVolume(0);
+    if (S.getState().volume > 0) {
+      prevVolumeFullRef.current = S.getState().volume;
+      S.getState().setVolume(0);
     } else {
-      setVolume(prevVolumeFullRef.current || 70);
+      S.getState().setVolume(prevVolumeFullRef.current || 70);
     }
-  }, [volume, setVolume]);
+  }, [S.getState().volume, setVolume]);
 
   // ── Volume drag — direct DOM manipulation for 0-lag ────
   const volumeSliderWidthRef = useRef<number>(0);
@@ -1808,10 +1776,10 @@ export default function FullTrackView() {
       volumeThumbRefFull.current.style.transform = `translateX(${pct / 100 * sliderWidth}px) translateY(-50%)`;
     }
     volumePctRef.current = pct;
-    // Update audio volume in real-time for immediate feedback
+    // Update audio S.getState().volume in real-time for immediate feedback
     const vol = Math.pow(pct / 100, 2);
     const audio = getAudioElement();
-    if (audio) audio.volume = vol;
+    if (audio) audio.S.getState().volume = vol;
   }, []);
 
   const seekVolumeTo = useCallback((clientX: number) => {
@@ -1833,9 +1801,9 @@ export default function FullTrackView() {
     const onUp = () => {
       isVolumeDraggingRef.current = false;
       setIsVolumeDragging(false);
-      // Commit the final volume to the store
+      // Commit the final S.getState().volume to the store
       if (volumePctRef.current !== null) {
-        setVolume(volumePctRef.current);
+        S.getState().setVolume(volumePctRef.current);
         volumePctRef.current = null;
       }
       document.removeEventListener("mousemove", onMove);
@@ -1857,7 +1825,7 @@ export default function FullTrackView() {
       isVolumeDraggingRef.current = false;
       setIsVolumeDragging(false);
       if (volumePctRef.current !== null) {
-        setVolume(volumePctRef.current);
+        S.getState().setVolume(volumePctRef.current);
         volumePctRef.current = null;
       }
       document.removeEventListener("touchmove", onMove);
@@ -1868,7 +1836,7 @@ export default function FullTrackView() {
   }, [seekVolumeTo]);
 
   // Volume icon helper
-  const VolumeIcon = volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
+  const VolumeIcon = S.getState().volume === 0 ? VolumeX : S.getState().volume < 50 ? Volume1 : Volume2;
 
   // Download track via fetch+blob
   const handleDownload = useCallback(async () => {
@@ -1909,13 +1877,13 @@ export default function FullTrackView() {
   []);
   // Interesting moment markers (moved from inline useMemo in JSX — Rules of Hooks)
   const interestingMoments = useMemo(
-    () => duration > 0 ? detectInterestingMoments(duration, currentTrack?.source) : [],
-    [duration, currentTrack?.source],
+    () => S.getState().duration > 0 ? detectInterestingMoments(S.getState().duration, currentTrack?.source) : [],
+    [S.getState().duration, currentTrack?.source],
   );
 
   if (!currentTrack || !isFullTrackViewOpen) return null;
 
-  const progressPct = duration > 0 ? (progress / duration) * 100 : 0;
+  const progressPct = S.getState().duration > 0 ? (S.getState().progress / S.getState().duration) * 100 : 0;
   const safeLikedIds = Array.isArray(likedTrackIds) ? likedTrackIds : [];
   const safeDislikedIds = Array.isArray(dislikedTrackIds) ? dislikedTrackIds : [];
   const isLiked = currentTrack ? safeLikedIds.includes(currentTrack.id) : false;
@@ -1926,17 +1894,17 @@ export default function FullTrackView() {
       <motion.div
         key={currentTrack?.id}
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } }}
-        exit={{ opacity: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } }}
+        animate={{ opacity: 1, transition: { S.getState().duration: 0.3, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } }}
+        exit={{ opacity: 0, transition: { S.getState().duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } }}
         className="fixed inset-0 flex flex-col overflow-hidden"
         style={{ zIndex: 200, backgroundColor: "var(--mq-bg, rgba(0,0,0,0.97))", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", willChange: "opacity", contain: "layout style paint" }}
       >
         {/* ── Background: Cinematic layered blurred album art with depth ── */}
         <div className="absolute inset-0 z-0" style={{ pointerEvents: "none" }}>
-          {currentPlaylistId ? (
+          {S.getState().currentPlaylistId ? (
             <>
               <PlaylistArtwork
-                playlistId={currentPlaylistId}
+                playlistId={S.getState().currentPlaylistId}
                 size={400}
                 rounded="rounded-none"
                 className="!w-[200%] !h-[200%] !-top-[50%] !-left-[50%]"
@@ -1952,7 +1920,7 @@ export default function FullTrackView() {
                 key={currentTrack.id}
                 initial={{ opacity: 0, scale: 1.1 }}
                 animate={{ opacity: 1, scale: 1.15 }}
-                transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+                transition={{ S.getState().duration: 1.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
                 className="absolute inset-0"
               >
                 {currentTrack.cover && (
@@ -1980,7 +1948,7 @@ export default function FullTrackView() {
 
         {/* Canvas visualization mode (full-screen) */}
         {canvasMode && (
-          <TrackCanvas isActive={canvasMode} isPlaying={isPlaying} currentStyle={currentStyle} styleVariant={styleVariant} />
+          <TrackCanvas isActive={canvasMode} isPlaying={isPlaying} currentStyle={currentStyle} S.getState().styleVariant={S.getState().styleVariant} />
         )}
 
         {/* ── Animated accent gradient background ── */}
@@ -1989,7 +1957,7 @@ export default function FullTrackView() {
             animate={{
               opacity: 1
             }}
-            transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+            transition={{ S.getState().duration: 12, repeat: Infinity, ease: "linear" }}
             className="absolute inset-0"
             style={{
               background: "radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--mq-accent) 6%, transparent), transparent 60%)",
@@ -2000,12 +1968,12 @@ export default function FullTrackView() {
 
         {/* ── Top bar: Close (chevron-down) + Now Playing + More ── */}
         <div className="relative z-10 flex items-center justify-between px-4 pt-3 pb-1 sm:px-6 sm:pt-4">
-          <motion.button whileTap={{ scale: 0.95 }} onClick={() => { setFullTrackViewOpen(false); setShowSimilar(false); setShowLyrics(false); setShowSleepTimer(false); setShowComments(false); setShowDNA(false); setCanvasMode(false); setShowMoreMenu(false); }}
-            className="w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 group/close"
+          <motion.button whileTap={{ scale: 0.95 }} onClick={() => { S.getState().setFullTrackViewOpen(false); setShowSimilar(false); setShowLyrics(false); setShowSleepTimer(false); setShowComments(false); setShowDNA(false); setCanvasMode(false); setShowMoreMenu(false); }}
+            className="w-11 h-11 rounded-full flex items-center justify-center transition-all S.getState().duration-200 group/close"
             style={{ color: "var(--mq-text-muted)", backgroundColor: "var(--mq-glass-bg)", backdropFilter: "var(--mq-glass-blur)", WebkitBackdropFilter: "var(--mq-glass-blur)", border: "1px solid var(--mq-glass-border)" }}>
             <motion.div
               whileHover={{ rotate: 90 }}
-              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+              transition={{ S.getState().duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
             >
               <ChevronDown className="w-6 h-6" />
             </motion.div>
@@ -2058,7 +2026,7 @@ export default function FullTrackView() {
                   className="absolute -inset-6 rounded-3xl blur-3xl"
                   style={{ backgroundColor: "var(--mq-accent)" }}
                   animate={isPlaying ? { opacity: [0.25, 0.4, 0.25], scale: [1, 1.05, 1] } : { opacity: 0.15 }}
-                  transition={isPlaying ? { duration: 3, repeat: Infinity, ease: "easeInOut" } : { duration: 0.8 }}
+                  transition={isPlaying ? { S.getState().duration: 3, repeat: Infinity, ease: "easeInOut" } : { S.getState().duration: 0.8 }}
                 />
                 <div className="relative p-[2px] rounded-2xl overflow-hidden"
                   style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 40%, transparent), rgba(255,255,255,0.1), color-mix(in srgb, var(--mq-accent) 40%, transparent), var(--mq-accent))", backgroundSize: "300% 300%", animation: "mqGradientBorder 6s ease infinite", willChange: "background-position" }}>
@@ -2078,16 +2046,16 @@ export default function FullTrackView() {
                         // Defer track change to next frame to avoid React error #300
                         // from cascading state updates during touch event handling
                         requestAnimationFrame(() => {
-                          if (dx > 0) prevTrack();
-                          else nextTrack();
+                          if (dx > 0) S.getState().prevTrack();
+                          else S.getState().nextTrack();
                         });
                         try { navigator.vibrate?.(10); } catch {}
                       }
                     }}
                   >
-                    {currentPlaylistId ? (
+                    {S.getState().currentPlaylistId ? (
                       <PlaylistArtwork
-                        playlistId={currentPlaylistId}
+                        playlistId={S.getState().currentPlaylistId}
                         size={400}
                         rounded="rounded-none"
                         className="!w-full !h-full"
@@ -2102,9 +2070,9 @@ export default function FullTrackView() {
                 {/* Reflection effect below artwork */}
                 <div className="relative mt-1 overflow-hidden rounded-b-2xl" style={{ height: "60px", maxHeight: "20%" }}>
                   <div className="absolute inset-0" style={{ transform: "scaleY(-1)", transformOrigin: "top", filter: "blur(6px)", opacity: 0.15, maskImage: "linear-gradient(to top, transparent, black 20%, transparent 80%)", WebkitMaskImage: "linear-gradient(to top, transparent, black 20%, transparent 80%)" }}>
-                    {currentPlaylistId ? (
+                    {S.getState().currentPlaylistId ? (
                       <PlaylistArtwork
-                        playlistId={currentPlaylistId}
+                        playlistId={S.getState().currentPlaylistId}
                         size={400}
                         rounded="rounded-none"
                         className="!w-full !h-full"
@@ -2131,7 +2099,7 @@ export default function FullTrackView() {
                   key={currentTrack.id}
                   initial={animationsEnabled ? { opacity: 0, y: 8, filter: "blur(4px)" } : undefined}
                   animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+                  transition={{ S.getState().duration: 0.5, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
                   className={`text-2xl sm:text-3xl lg:text-4xl truncate leading-tight ${isPlaying ? "mq-gradient-text" : ""}`}
                   style={{
                     fontSize: "var(--mq-text-headline)",
@@ -2146,8 +2114,8 @@ export default function FullTrackView() {
                   key={currentTrack.id + "-artist"}
                   initial={animationsEnabled ? { opacity: 0, y: 4 } : undefined}
                   animate={{ opacity: 0.7, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.06, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
-                  className="cursor-pointer hover:underline underline-offset-4 transition-all duration-200 mt-1.5 block"
+                  transition={{ S.getState().duration: 0.4, delay: 0.06, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+                  className="cursor-pointer hover:underline underline-offset-4 transition-all S.getState().duration-200 mt-1.5 block"
                   style={{
                     fontSize: "var(--mq-text-lg)",
                     color: "var(--mq-text-muted)",
@@ -2158,7 +2126,7 @@ export default function FullTrackView() {
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setFullTrackViewOpen(false);
+                    S.getState().setFullTrackViewOpen(false);
                     setShowSimilar(false);
                     setShowLyrics(false);
                     setShowSleepTimer(false);
@@ -2166,7 +2134,7 @@ export default function FullTrackView() {
                     setShowDNA(false);
                     setCanvasMode(false);
                     setShowMoreMenu(false);
-                    setSelectedArtist({ name: currentTrack.artist, avatar: currentTrack.cover });
+                    S.getState().setSelectedArtist({ name: currentTrack.artist, avatar: currentTrack.cover });
                   }}
                 >
                   {currentTrack.artist}
@@ -2176,7 +2144,7 @@ export default function FullTrackView() {
                     key={currentTrack.id + "-album"}
                     initial={animationsEnabled ? { opacity: 0 } : undefined}
                     animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3, delay: 0.1 }}
+                    transition={{ S.getState().duration: 0.3, delay: 0.1 }}
                     className="text-xs mt-0.5 truncate" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>
                     {currentTrack.album}
                   </motion.p>
@@ -2193,49 +2161,49 @@ export default function FullTrackView() {
                 role="slider"
                 aria-label="Прогресс воспроизведения"
                 aria-valuemin={0}
-                aria-valuemax={Math.floor(duration)}
-                aria-valuenow={Math.floor(progress)}
+                aria-valuemax={Math.floor(S.getState().duration)}
+                aria-valuenow={Math.floor(S.getState().progress)}
                 tabIndex={0}
                 onKeyDown={(e) => {
-                  if (!duration) return;
+                  if (!S.getState().duration) return;
                   const step = e.shiftKey ? 30 : 5;
                   if (e.key === "ArrowRight" || e.key === "ArrowUp") {
                     e.preventDefault();
                     const audio = getAudioElement();
-                    const newTime = Math.min(duration, progress + step);
+                    const newTime = Math.min(S.getState().duration, S.getState().progress + step);
                     if (audio) audio.currentTime = newTime;
-                    setProgress(newTime);
+                    S.getState().setProgress(newTime);
                   }
                   if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
                     e.preventDefault();
                     const audio = getAudioElement();
-                    const newTime = Math.max(0, progress - step);
+                    const newTime = Math.max(0, S.getState().progress - step);
                     if (audio) audio.currentTime = newTime;
-                    setProgress(newTime);
+                    S.getState().setProgress(newTime);
                   }
                 }}
                 className="relative group cursor-pointer touch-none">
                 {/* A-B Repeat visual indicator */}
-                {duration > 0 && abRepeat.pointA !== null && (
+                {S.getState().duration > 0 && abRepeat.pointA !== null && (
                   <div
                     className="absolute top-1/2 -translate-y-1/2 h-[4px] sm:h-[3px] rounded-sm z-[1] pointer-events-none"
                     style={{
-                      left: `${(abRepeat.pointA / duration) * 100}%`,
+                      left: `${(abRepeat.pointA / S.getState().duration) * 100}%`,
                       width: abRepeat.pointB !== null
-                        ? `${Math.max(0, ((abRepeat.pointB - abRepeat.pointA) / duration) * 100)}%`
-                        : `${Math.max(0, ((progress - abRepeat.pointA) / duration) * 100)}%`,
+                        ? `${Math.max(0, ((abRepeat.pointB - abRepeat.pointA) / S.getState().duration) * 100)}%`
+                        : `${Math.max(0, ((S.getState().progress - abRepeat.pointA) / S.getState().duration) * 100)}%`,
                       backgroundColor: abRepeat.active ? "var(--mq-accent)" : "rgba(139,92,246,0.3)",
                       opacity: abRepeat.active ? 0.25 : 0.15,
                     }}
                   />
                 )}
-                {/* Subtle waveform visualization behind progress bar */}
+                {/* Subtle waveform visualization behind S.getState().progress bar */}
                 <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-8 overflow-hidden pointer-events-none" style={{ opacity: 0.2 }}>
                   <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 200 32">
                     {Array.from({ length: 80 }).map((_, i) => {
                       const h = waveformBarHeights[i];
                       const x = (i / 80) * 200;
-                      const pct = duration > 0 ? progress / duration : 0;
+                      const pct = S.getState().duration > 0 ? S.getState().progress / S.getState().duration : 0;
                       const passed = (i / 80) <= pct;
                       return (
                         <rect key={i} x={x} y={16 - h / 2} width="1.5" height={h} rx="0.75"
@@ -2245,30 +2213,30 @@ export default function FullTrackView() {
                   </svg>
                 </div>
                 {/* Track background — premium thick bar */}
-                <div className="w-full h-[6px] sm:h-[6px] rounded-full relative transition-all duration-150 group-hover:h-[8px]" style={{ backgroundColor: "rgba(255,255,255,0.12)" }}>
+                <div className="w-full h-[6px] sm:h-[6px] rounded-full relative transition-all S.getState().duration-150 group-hover:h-[8px]" style={{ backgroundColor: "rgba(255,255,255,0.12)" }}>
                   {/* Active fill — scaleX for 0-reflow */}
                   <div ref={progressFillRef} className="h-full rounded-full overflow-hidden"
                     style={{
                       width: "100%",
                       background: "linear-gradient(to right, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 70%, white))",
-                      transform: `scaleX(${duration > 0 ? progress / duration : 0})`,
+                      transform: `scaleX(${S.getState().duration > 0 ? S.getState().progress / S.getState().duration : 0})`,
                       transformOrigin: "left center",
                       willChange: "transform",
                     }}
                   />
-                  {/* Accent glow under progress fill */}
-                  <div className="absolute bottom-0 left-0 h-full rounded-full pointer-events-none mq-progress-glow"
+                  {/* Accent glow under S.getState().progress fill */}
+                  <div className="absolute bottom-0 left-0 h-full rounded-full pointer-events-none mq-S.getState().progress-glow"
                     style={{
                       width: "100%",
-                      transform: `scaleX(${duration > 0 ? progress / duration : 0})`,
+                      transform: `scaleX(${S.getState().duration > 0 ? S.getState().progress / S.getState().duration : 0})`,
                       transformOrigin: "left center",
                       willChange: "transform",
                     }}
                   />
                   {/* ── Interesting moment markers (always-visible tick marks) ── */}
                   {interestingMoments.map((moment) => {
-                    const pct = (moment.time / duration) * 100;
-                    const passed = progress >= moment.time;
+                    const pct = (moment.time / S.getState().duration) * 100;
+                    const passed = S.getState().progress >= moment.time;
                     return (
                       <div
                         key={moment.key}
@@ -2293,13 +2261,13 @@ export default function FullTrackView() {
                   })}
                 </div>
                 {/* Thumb dot — positioned at left:0, moved via translateX */}
-                <div ref={progressThumbRef} className="absolute left-0 top-1/2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                <div ref={progressThumbRef} className="absolute left-0 top-1/2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity S.getState().duration-200"
                   style={{
                     width: 18,
                     height: 18,
                     backgroundColor: "white",
                     boxShadow: `0 0 10px color-mix(in srgb, var(--mq-accent) 50%, transparent), 0 2px 8px rgba(0,0,0,0.4)`,
-                    transform: `translateX(${duration > 0 ? (progress / duration) * (progressSliderWidthRef.current || 200) : 0}px) translateY(-50%)`,
+                    transform: `translateX(${S.getState().duration > 0 ? (S.getState().progress / S.getState().duration) * (progressSliderWidthRef.current || 200) : 0}px) translateY(-50%)`,
                     willChange: "transform",
                     pointerEvents: "none",
                   }}
@@ -2316,7 +2284,7 @@ export default function FullTrackView() {
                       color: "var(--mq-text)",
                       border: "1px solid var(--mq-glass-border)",
                       boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
-                      left: `${Math.max(8, Math.min(92, (hoverTime / (duration || 1)) * 100))}%`, transform: "translateX(-50%)" }}>
+                      left: `${Math.max(8, Math.min(92, (hoverTime / (S.getState().duration || 1)) * 100))}%`, transform: "translateX(-50%)" }}>
                     {/* Tooltip arrow */}
                     <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45"
                       style={{ backgroundColor: "rgba(30,30,30,0.85)", borderRight: "1px solid var(--mq-glass-border)", borderBottom: "1px solid var(--mq-glass-border)" }} />
@@ -2325,20 +2293,20 @@ export default function FullTrackView() {
                 )}
               </div>
               <div className="flex justify-between mt-2">
-                <span ref={timeDisplayRef} className="text-xs tabular-nums font-semibold" style={{ color: isDragging ? "var(--mq-accent)" : "var(--mq-text-muted)", opacity: isDragging ? 1 : 0.7 }}>{formatDuration(Math.floor(progress))}</span>
-                <span className="text-xs tabular-nums font-semibold" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>{formatDuration(Math.floor(duration))}</span>
+                <span ref={timeDisplayRef} className="text-xs tabular-nums font-semibold" style={{ color: isDragging ? "var(--mq-accent)" : "var(--mq-text-muted)", opacity: isDragging ? 1 : 0.7 }}>{formatDuration(Math.floor(S.getState().progress))}</span>
+                <span className="text-xs tabular-nums font-semibold" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>{formatDuration(Math.floor(S.getState().duration))}</span>
               </div>
             </div>
 
             {/* Main playback controls — minimal Spotify/Apple Music style */}
             <div className="flex items-center justify-between px-6 sm:px-10">
               <motion.button whileTap={{ scale: 0.9 }} onClick={toggleShuffle}
-                className="p-2 rounded-full transition-colors duration-150"
+                className="p-2 rounded-full transition-colors S.getState().duration-150"
                 style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 <Shuffle className="w-4 h-4" />
               </motion.button>
               <motion.button whileTap={{ scale: 0.95 }} onClick={prevTrack}
-                className="p-2 rounded-full transition-colors duration-150"
+                className="p-2 rounded-full transition-colors S.getState().duration-150"
                 style={{ color: "var(--mq-text)" }}>
                 <SkipBack className="w-6 h-6" fill="currentColor" />
               </motion.button>
@@ -2352,12 +2320,12 @@ export default function FullTrackView() {
                 {isPlaying ? <Pause className="w-5 h-5" fill="currentColor" /> : <Play className="w-5 h-5" fill="currentColor" style={{ marginLeft: 1.5 }} />}
               </motion.button>
               <motion.button whileTap={{ scale: 0.95 }} onClick={nextTrack}
-                className="p-2 rounded-full transition-colors duration-150"
+                className="p-2 rounded-full transition-colors S.getState().duration-150"
                 style={{ color: "var(--mq-text)" }}>
                 <SkipForward className="w-6 h-6" fill="currentColor" />
               </motion.button>
               <motion.button whileTap={{ scale: 0.9 }} onClick={toggleRepeat}
-                className="p-2 rounded-full transition-colors duration-150 relative"
+                className="p-2 rounded-full transition-colors S.getState().duration-150 relative"
                 style={{ color: repeat !== "off" ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 {repeat === "one" ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
                 {repeat === "one" && (
@@ -2369,8 +2337,8 @@ export default function FullTrackView() {
 
             {/* Action row — minimal icon-only strip */}
             <div className="flex items-center justify-center gap-5 px-4">
-              <motion.button whileTap={{ scale: 0.95 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
-                className="p-2.5 rounded-full transition-colors duration-150"
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => currentTrack && S.getState().toggleLike(currentTrack.id, currentTrack)}
+                className="p-2.5 rounded-full transition-colors S.getState().duration-150"
                 style={{ color: isLiked ? "var(--mq-like-color, #ef4444)" : "var(--mq-text-muted)" }}
                 aria-label={isLiked ? "Убрать из избранного" : "Добавить в избранное"}
                 aria-pressed={isLiked}>
@@ -2378,21 +2346,21 @@ export default function FullTrackView() {
               </motion.button>
 
               <motion.button whileTap={{ scale: 0.95 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
-                className="p-2.5 rounded-full transition-colors duration-150"
+                className="p-2.5 rounded-full transition-colors S.getState().duration-150"
                 style={{ color: showLyrics ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                 aria-label="Текст песни">
                 <FileText className="w-4 h-4" />
               </motion.button>
 
               <motion.button whileTap={{ scale: 0.95 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
-                className="p-2.5 rounded-full transition-colors duration-150"
+                className="p-2.5 rounded-full transition-colors S.getState().duration-150"
                 style={{ color: showSimilar ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                 aria-label="Похожие треки">
                 <ListMusic className="w-4 h-4" />
               </motion.button>
 
               <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
-                className="p-2.5 rounded-full transition-colors duration-150"
+                className="p-2.5 rounded-full transition-colors S.getState().duration-150"
                 style={{ color: showMoreMenu ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                 aria-label="Дополнительные действия">
                 <MoreVertical className="w-4 h-4" />
@@ -2405,7 +2373,7 @@ export default function FullTrackView() {
               className="flex items-center gap-2 w-full max-w-[200px] mx-auto mt-1"
             >
               <motion.button whileTap={{ scale: 0.95 }} onClick={handleMuteToggle}
-                className="flex-shrink-0 p-1 transition-colors" style={{ color: volume === 0 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                className="flex-shrink-0 p-1 transition-colors" style={{ color: S.getState().volume === 0 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 <VolumeIcon className="w-3.5 h-3.5" />
               </motion.button>
               <div ref={volumeRef}
@@ -2417,18 +2385,18 @@ export default function FullTrackView() {
                   style={{
                     width: "100%",
                     backgroundColor: "var(--mq-accent)",
-                    transform: `scaleX(${volume / 100})`,
+                    transform: `scaleX(${S.getState().volume / 100})`,
                     transformOrigin: "left center",
                     willChange: "transform",
                   }}
                 />
-                <div ref={volumeThumbRefFull} className="absolute left-0 top-1/2 rounded-full opacity-0 group-hover/vol:opacity-100 transition-opacity duration-150"
+                <div ref={volumeThumbRefFull} className="absolute left-0 top-1/2 rounded-full opacity-0 group-hover/vol:opacity-100 transition-opacity S.getState().duration-150"
                   style={{
                     width: isVolumeDragging ? 14 : 10,
                     height: isVolumeDragging ? 14 : 10,
                     backgroundColor: "white",
                     boxShadow: "0 0 4px rgba(0,0,0,0.2)",
-                    transform: `translateX(${volume / 100 * (volumeSliderWidthRef.current || 200)}px) translateY(-50%)`,
+                    transform: `translateX(${S.getState().volume / 100 * (volumeSliderWidthRef.current || 200)}px) translateY(-50%)`,
                     willChange: "transform",
                   }} />
                 <div className="absolute inset-x-0 -top-3 -bottom-3" />
@@ -2451,9 +2419,9 @@ export default function FullTrackView() {
                       key={track.id + '-' + i}
                       initial={{ opacity: 0, x: 12 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05, duration: 0.25 }}
+                      transition={{ delay: i * 0.05, S.getState().duration: 0.25 }}
                       whileTap={{ scale: 0.97 }}
-                      onClick={() => playTrack(track, queue)}
+                      onClick={() => S.getState().playTrack(track, queue)}
                       className="flex items-center gap-2 px-2 py-1.5 rounded-xl cursor-pointer transition-colors flex-shrink-0 min-w-0"
                       style={{ backgroundColor: "rgba(255,255,255,0.05)", maxWidth: "180px" }}
                     >
@@ -2479,8 +2447,8 @@ export default function FullTrackView() {
           show={showSleepTimer}
           onClose={() => setShowSleepTimer(false)}
           active={sleepTimerActive}
-          remaining={sleepTimerRemaining}
-          timerMinutes={sleepTimerMinutes}
+          remaining={S.getState().sleepTimerRemaining}
+          timerMinutes={S.getState().sleepTimerMinutes}
           onStart={startSleepTimer}
           onStop={stopSleepTimer}
         />
@@ -2497,7 +2465,7 @@ export default function FullTrackView() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: -6 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+              transition={{ S.getState().duration: 0.15, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
               className="fixed w-64 rounded-2xl shadow-2xl overflow-hidden"
               style={{
                 zIndex: 260,
@@ -2527,7 +2495,7 @@ export default function FullTrackView() {
                     <button
                       key={item.label}
                       onClick={(e) => { e.stopPropagation(); item.action(); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-all duration-150 rounded-xl hover:bg-white/[0.06]"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-all S.getState().duration-150 rounded-xl hover:bg-white/[0.06]"
                       style={{ color: item.active ? "var(--mq-accent)" : "var(--mq-text)", touchAction: "manipulation" }}
                     >
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: item.active ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)" : "var(--mq-input-bg)" }}>
@@ -2552,15 +2520,15 @@ export default function FullTrackView() {
                   </span>
                 </div>
                 {[
-                  { icon: SlidersHorizontal, label: eqEnabled ? "Эквалайзер вкл" : "Эквалайзер", active: eqEnabled, action: () => { setShowEQ(true); setShowMoreMenu(false); } },
+                  { icon: SlidersHorizontal, label: S.getState().eqEnabled ? "Эквалайзер вкл" : "Эквалайзер", active: S.getState().eqEnabled, action: () => { setShowEQ(true); setShowMoreMenu(false); } },
                   { icon: Waves, label: "Синтез-визуализатор", active: showSynthVis, action: () => { setShowSynthVis(true); setShowMoreMenu(false); } },
                   { icon: Gauge, label: compressorOn ? "Компрессор вкл" : "Компрессор", active: compressorOn, action: () => { if (compressorOn) { disableCompressor(); setCompressorOn(false); } else { enableCompressor(); setCompressorOn(true); } setShowMoreMenu(false); } },
                   { icon: Sparkles, label: reverbOn ? "Реверб вкл" : "Реверб", active: reverbOn, action: () => { if (reverbOn) { disableReverb(); setReverbOn(false); } else { enableReverb(); setReverbOn(true); } setShowMoreMenu(false); } },
                   { icon: Repeat2, label: abRepeat.active ? "A-B повтор вкл" : abRepeat.pointA !== null ? "Точка A задана" : "A-B повтор", active: abRepeat.active, action: () => { handleAbToggle(); setShowMoreMenu(false); } },
                   { icon: Moon, label: sleepTimerActive ? "Таймер сна вкл" : "Таймер сна", active: sleepTimerActive, action: () => { setShowSleepTimer(true); setShowMoreMenu(false); } },
-                  { icon: Headphones, label: "Spatial Audio", active: spatialAudioEnabled, action: () => { setSpatialAudioEnabled(!spatialAudioEnabled); setShowMoreMenu(false); } },
-                  { icon: Waves, label: radioMode ? "Волна вкл" : "Радио режим", active: radioMode, action: () => { toggleRadioMode(); setShowMoreMenu(false); } },
-                  { icon: Gauge, label: `Скорость ${playbackRate.toFixed(1)}x`, active: playbackRate !== 1.0, action: () => { cyclePlaybackSpeed(); setShowMoreMenu(false); } },
+                  { icon: Headphones, label: "Spatial Audio", active: S.getState().spatialAudioEnabled, action: () => { S.getState().setSpatialAudioEnabled(!S.getState().spatialAudioEnabled); setShowMoreMenu(false); } },
+                  { icon: Waves, label: radioMode ? "Волна вкл" : "Радио режим", active: radioMode, action: () => { S.getState().toggleRadioMode(); setShowMoreMenu(false); } },
+                  { icon: Gauge, label: `Скорость ${S.getState().playbackRate.toFixed(1)}x`, active: S.getState().playbackRate !== 1.0, action: () => { cyclePlaybackSpeed(); setShowMoreMenu(false); } },
                   { icon: Sparkles, label: "Canvas режим", active: canvasMode, action: () => { setCanvasMode(!canvasMode); setShowMoreMenu(false); } },
                 ].map((item) => {
                   const Icon = item.icon;
@@ -2568,7 +2536,7 @@ export default function FullTrackView() {
                     <button
                       key={item.label}
                       onClick={(e) => { e.stopPropagation(); item.action(); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-all duration-150 rounded-xl hover:bg-white/[0.06]"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-all S.getState().duration-150 rounded-xl hover:bg-white/[0.06]"
                       style={{ color: item.active ? "var(--mq-accent)" : "var(--mq-text)", touchAction: "manipulation" }}
                     >
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: item.active ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)" : "var(--mq-input-bg)" }}>
@@ -2600,7 +2568,7 @@ export default function FullTrackView() {
                     <button
                       key={item.label}
                       onClick={(e) => { e.stopPropagation(); item.action(); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-all duration-150 rounded-xl hover:bg-white/[0.06]"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-all S.getState().duration-150 rounded-xl hover:bg-white/[0.06]"
                       style={{ color: item.active ? "var(--mq-accent)" : "var(--mq-text)", touchAction: "manipulation" }}
                     >
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: item.active ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)" : "var(--mq-input-bg)" }}>
@@ -2697,15 +2665,15 @@ export default function FullTrackView() {
                   </span>
                 </div>
                 {[
-                  { icon: SlidersHorizontal, label: eqEnabled ? "Эквалайзер вкл" : "Эквалайзер", active: eqEnabled, action: () => { setShowEQ(true); setShowMoreMenu(false); } },
+                  { icon: SlidersHorizontal, label: S.getState().eqEnabled ? "Эквалайзер вкл" : "Эквалайзер", active: S.getState().eqEnabled, action: () => { setShowEQ(true); setShowMoreMenu(false); } },
                   { icon: Waves, label: "Синтез-визуализатор", active: showSynthVis, action: () => { setShowSynthVis(true); setShowMoreMenu(false); } },
                   { icon: Gauge, label: compressorOn ? "Компрессор вкл" : "Компрессор", active: compressorOn, action: () => { if (compressorOn) { disableCompressor(); setCompressorOn(false); } else { enableCompressor(); setCompressorOn(true); } setShowMoreMenu(false); } },
                   { icon: Sparkles, label: reverbOn ? "Реверб вкл" : "Реверб", active: reverbOn, action: () => { if (reverbOn) { disableReverb(); setReverbOn(false); } else { enableReverb(); setReverbOn(true); } setShowMoreMenu(false); } },
                   { icon: Repeat2, label: abRepeat.active ? "A-B повтор вкл" : abRepeat.pointA !== null ? "Точка A задана" : "A-B повтор", active: abRepeat.active, action: () => { handleAbToggle(); setShowMoreMenu(false); } },
                   { icon: Moon, label: sleepTimerActive ? "Таймер сна вкл" : "Таймер сна", active: sleepTimerActive, action: () => { setShowSleepTimer(true); setShowMoreMenu(false); } },
-                  { icon: Headphones, label: "Spatial Audio", active: spatialAudioEnabled, action: () => { setSpatialAudioEnabled(!spatialAudioEnabled); setShowMoreMenu(false); } },
-                  { icon: Waves, label: radioMode ? "Волна вкл" : "Радио режим", active: radioMode, action: () => { toggleRadioMode(); setShowMoreMenu(false); } },
-                  { icon: Gauge, label: `Скорость ${playbackRate.toFixed(1)}x`, active: playbackRate !== 1.0, action: () => { cyclePlaybackSpeed(); setShowMoreMenu(false); } },
+                  { icon: Headphones, label: "Spatial Audio", active: S.getState().spatialAudioEnabled, action: () => { S.getState().setSpatialAudioEnabled(!S.getState().spatialAudioEnabled); setShowMoreMenu(false); } },
+                  { icon: Waves, label: radioMode ? "Волна вкл" : "Радио режим", active: radioMode, action: () => { S.getState().toggleRadioMode(); setShowMoreMenu(false); } },
+                  { icon: Gauge, label: `Скорость ${S.getState().playbackRate.toFixed(1)}x`, active: S.getState().playbackRate !== 1.0, action: () => { cyclePlaybackSpeed(); setShowMoreMenu(false); } },
                   { icon: Sparkles, label: "Canvas режим", active: canvasMode, action: () => { setCanvasMode(!canvasMode); setShowMoreMenu(false); } },
                 ].map((item) => {
                   const Icon = item.icon;
@@ -2774,7 +2742,7 @@ export default function FullTrackView() {
               initial={{ opacity: 0, filter: "blur(8px)", scale: 0.98 }}
               animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
               exit={{ opacity: 0, filter: "blur(8px)", scale: 0.98 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+              transition={{ S.getState().duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
               className="absolute inset-0 z-50 flex flex-col"
               style={{ backgroundColor: "var(--mq-bg)" }}
             >
@@ -2825,7 +2793,7 @@ export default function FullTrackView() {
                           <motion.p
                             key={i}
                             ref={isActive ? activeLineRef : undefined}
-                            className="text-center cursor-pointer rounded-2xl leading-relaxed transition-all duration-500 ease-out py-2 px-6"
+                            className="text-center cursor-pointer rounded-2xl leading-relaxed transition-all S.getState().duration-500 ease-out py-2 px-6"
                             style={{
                               fontSize: isActive ? "1.7rem" : isPast ? "0.95rem" : isNear ? "1.05rem" : "1rem",
                               fontWeight: isActive ? 800 : isPast ? 400 : isNear ? 500 : 400,
@@ -2839,7 +2807,7 @@ export default function FullTrackView() {
                             }}
                             onClick={() => {
                               const audio = getAudioElement();
-                              if (audio) { audio.currentTime = line.time; setProgress(line.time); }
+                              if (audio) { audio.currentTime = line.time; S.getState().setProgress(line.time); }
                             }}
                           >
                             {line.text || "\u266A"}
@@ -2851,7 +2819,7 @@ export default function FullTrackView() {
                 ) : lyricsPlainText ? (
                   <div className="overflow-y-auto px-8 py-12 whitespace-pre-line text-center" style={{ maxHeight: "70vh", scrollbarWidth: "none" }}>
                     {lyricsPlainText.split("\n").map((line, i) => (
-                      <p key={i} className="py-2 text-lg leading-relaxed transition-colors duration-300" style={{ color: line.trim() ? "var(--mq-text)" : "transparent", opacity: line.trim() ? 0.75 : 0 }}>{line || "\u00A0"}</p>
+                      <p key={i} className="py-2 text-lg leading-relaxed transition-colors S.getState().duration-300" style={{ color: line.trim() ? "var(--mq-text)" : "transparent", opacity: line.trim() ? 0.75 : 0 }}>{line || "\u00A0"}</p>
                     ))}
                   </div>
                 ) : (
@@ -2941,11 +2909,11 @@ export default function FullTrackView() {
               {/* Progress indicator at bottom */}
               <div className="relative z-10 px-8 pb-6">
                 <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-border)", opacity: 0.3 }}>
-                  <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 8px var(--mq-glow)" }} />
+                  <div className="h-full rounded-full transition-all S.getState().duration-300" style={{ width: `${progressPct}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 8px var(--mq-glow)" }} />
                 </div>
                 <div className="flex justify-between mt-1.5">
-                  <span className="text-[11px] tabular-nums font-medium" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{formatDuration(Math.floor(progress))}</span>
-                  <span className="text-[11px] tabular-nums font-medium" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{formatDuration(Math.floor(duration))}</span>
+                  <span className="text-[11px] tabular-nums font-medium" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{formatDuration(Math.floor(S.getState().progress))}</span>
+                  <span className="text-[11px] tabular-nums font-medium" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{formatDuration(Math.floor(S.getState().duration))}</span>
                 </div>
               </div>
             </motion.div>
@@ -2956,9 +2924,9 @@ export default function FullTrackView() {
         {currentTrack.scTrackId && (
           <TrackCommentsPanel
             trackId={currentTrack.scTrackId}
-            currentProgress={progress}
+            currentProgress={S.getState().progress}
             onSeek={(time) => {
-              setProgress(time);
+              S.getState().setProgress(time);
               const audio = getAudioElement();
               if (audio) audio.currentTime = time;
             }}
@@ -3007,11 +2975,11 @@ export default function FullTrackView() {
                         key={track.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.04, duration: 0.25 }}
+                        transition={{ delay: i * 0.04, S.getState().duration: 0.25 }}
                         whileTap={{ scale: 0.97 }}
-                        onClick={() => playTrack(track, similarTracks)}
+                        onClick={() => S.getState().playTrack(track, similarTracks)}
                         onContextMenu={(e) => e.preventDefault()}
-                        className="flex items-center gap-2.5 p-2 rounded-xl cursor-pointer transition-colors duration-150 group relative overflow-hidden"
+                        className="flex items-center gap-2.5 p-2 rounded-xl cursor-pointer transition-colors S.getState().duration-150 group relative overflow-hidden"
                         style={{
                           backgroundColor: currentTrack?.id === track.id ? "var(--mq-accent)" : "transparent",
                           border: `1px solid ${currentTrack?.id === track.id ? "var(--mq-accent)" : "var(--mq-border)"}`,
@@ -3055,13 +3023,13 @@ export default function FullTrackView() {
                         {/* Quick actions */}
                         <div className="flex flex-col items-center gap-1 flex-shrink-0">
                           <button
-                            onClick={(e) => { e.stopPropagation(); toggleLike(track.id, track); }}
+                            onClick={(e) => { e.stopPropagation(); S.getState().toggleLike(track.id, track); }}
                             className="p-1 rounded-lg active:scale-90 transition-transform"
                             style={{ color: (Array.isArray(likedTrackIds) ? likedTrackIds : []).includes(track.id) ? "var(--mq-like-color, #ef4444)" : "var(--mq-text-muted)" }}>
                             <Heart className="w-3.5 h-3.5" style={(Array.isArray(likedTrackIds) ? likedTrackIds : []).includes(track.id) ? { fill: "var(--mq-like-color, #ef4444)" } : {}} />
                           </button>
                           <button
-                            onClick={(e) => { e.stopPropagation(); toggleDislike(track.id, track); }}
+                            onClick={(e) => { e.stopPropagation(); S.getState().toggleDislike(track.id, track); }}
                             className="p-1 rounded-lg active:scale-90 transition-transform"
                             style={{ color: (Array.isArray(dislikedTrackIds) ? dislikedTrackIds : []).includes(track.id) ? "var(--mq-like-color, #ef4444)" : "var(--mq-text-muted)" }}>
                             <ThumbsDown className="w-3 h-3.5" style={(Array.isArray(dislikedTrackIds) ? dislikedTrackIds : []).includes(track.id) ? { fill: "var(--mq-like-color, #ef4444)" } : {}} />
