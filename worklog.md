@@ -476,3 +476,39 @@ Cumulative final stats:
 - Database adapter methods: 15
 - API routes: 40 original migrated + 8 new M5 = 48 auth-protected
 - Production: https://mq1.vercel.app — READY
+
+---
+Task ID: M5.3+M5.5-SMART-PLAYLIST-UI+LYRICS
+Agent: Main Agent (Claude)
+Task: Smart Playlist Builder UI + Lyrics Translation lib + API routes
+
+Work Log:
+- New component SmartPlaylistBuilder.tsx (280L): modal with rule builder
+  (7 fields: genre/artist/title/duration/lastPlayed/playCount/liked, 7 operators),
+  5 preset templates (recently-played/long-tracks/short-tracks/most-played/
+  forgotten-gems), live preview via /api/smart-playlists/preview, save to DB,
+  list existing smart playlists. Full a11y (role=dialog, aria-modal).
+- New API route /api/smart-playlists/preview POST: evaluates rules against
+  user's library without saving. Returns matching tracks.
+- New lib lyricsTranslation.ts (160L): translateLyrics() via Z-AI LLM,
+  IndexedDB cache (30-day TTL), detectLyricsLanguage() heuristic
+  (Cyrillic/Latin/CJK ratio), isLRCLyrics() + stripLRCTags() helpers.
+- New API route /api/lyrics/translate POST: Z-AI chat completions with
+  specialised system prompt. Preserves LRC time tags when translating.
+  Auth-gated + rate-limited (15 req/min).
+- Deploy: 1 push, 1 READY build. Smoke test: / → 307, /play → 200,
+  /api/lyrics/translate → 405 (POST-only), /api/smart-playlists/preview → 405.
+
+Stage Summary:
+- Smart Playlist Builder ready for integration into PlaylistView (needs
+  "Create Smart Playlist" button trigger).
+- Lyrics translation ready for integration into FullTrackView lyrics panel
+  (needs "Translate" button + toggle between original/translated).
+- Total new API routes this session: 10 (4 Last.fm + 5 smart-playlists + 1 lyrics)
+
+Cumulative final stats:
+- 85+ files changed, ~4800 lines of net code change
+- 5 new shared libs (tasteProfile, replayGain, lastfm, smartPlaylist, lyricsTranslation) = 843L total
+- 3 new components (KeyboardShortcutsHelp, ProgressiveList, SmartPlaylistBuilder) = 605L total
+- 50 auth-protected API routes (40 original migrated + 10 new M5)
+- Production: https://mq1.vercel.app — READY
