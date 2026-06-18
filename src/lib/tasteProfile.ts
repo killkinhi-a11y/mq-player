@@ -66,6 +66,181 @@ export const LANGUAGE_MIN_SIGNAL = 5;
 export const RUSSIAN_RATIO_THRESHOLD = 0.4;
 /** Latin ratio threshold for 'english' detection. */
 export const ENGLISH_RATIO_THRESHOLD = 0.6;
+/** Min length of a valid genre tag. */
+export const GENRE_MIN_LENGTH = 2;
+/** Max length of a valid genre tag. */
+export const GENRE_MAX_LENGTH = 24;
+/** Max words allowed in a genre tag (genres are short, not sentences). */
+export const GENRE_MAX_WORDS = 2;
+
+/**
+ * Curated list of known music genres for validation.
+ * Any "genre" not matching this list (and not passing basic sanity checks)
+ * is likely garbage from SoundCloud's free-text genre field.
+ */
+export const KNOWN_GENRES = new Set([
+  // Electronic
+  "electronic", "edm", "house", "deep house", "tech house", "progressive house",
+  "electro house", "bass house", "future house", "tropical house", "tropical",
+  "techno", "minimal techno", "detroit techno", "trance", "progressive trance",
+  "psytrance", "goa", "hard trance", "drum and bass", "dnb", "liquid dnb",
+  "neurofunk", "jungle", "dubstep", "riddim", "future bass", "melodic dubstep",
+  "brostep", "chillstep", "trap", "hybrid trap", "future trap", "phonk",
+  "drift phonk", "lofi", "lo-fi", "lofi hip hop", "chillhop", "vaporwave",
+  "synthwave", "retrowave", "outrun", "cyberpunk", "ambient", "dark ambient",
+  "drone", "new age", "trip hop", "idm", "glitch", "glitch hop", "wonky",
+  "downtempo", "chillout", "electronica", "breakbeat", "big beat", "garage",
+  "uk garage", "future garage", "2-step", "bassline", "grime", "dub",
+  "dub techno", "minimal", "hardstyle", "happy hardcore", "gabber",
+  "speedcore", "breakcore", "footwork", "juke", "wonky",
+  // Hip-Hop / Rap
+  "hip hop", "hip-hop", "rap", "trap", "drill", "uk drill", "ny drill",
+  "boom bap", "lo-fi hip hop", "jazz rap", "conscious rap", "mumble rap",
+  "soundcloud rap", "emo rap", "cloud rap", "gangsta rap", "old school rap",
+  "new school rap", "freestyle", "battle rap",
+  // Rock
+  "rock", "alternative rock", "alt rock", "indie rock", "post rock",
+  "punk rock", "punk", "post punk", "hardcore", "post hardcore", "emo",
+  "screamo", "metal", "heavy metal", "death metal", "black metal",
+  "thrash metal", "doom metal", "sludge metal", "progressive metal",
+  "metalcore", "deathcore", "grindcore", "nu metal", "industrial metal",
+  "grunge", "garage rock", "surf rock", "psychedelic rock", "psych rock",
+  "stoner rock", "space rock", "shoegaze", "dream pop", "noise rock",
+  "math rock", "krautrock", "glam rock", "arena rock", "classic rock",
+  "soft rock", "hard rock", "blues rock", "folk rock", "country rock",
+  "southern rock", "christian rock",
+  // Pop
+  "pop", "indie pop", "synth pop", "synth-pop", "electropop", "dream pop",
+  "chamber pop", "baroque pop", "art pop", "teen pop", "k-pop", "kpop",
+  "j-pop", "jpop", "c-pop", "mandopop", "latin pop", "tropical pop",
+  "dance pop", "country pop", "folk pop", "pop punk", "pop rock",
+  "power pop", "hyperpop", "bedroom pop", "alt pop",
+  // R&B / Soul / Funk
+  "r&b", "rnb", "rhythm and blues", "soul", "neo soul", "funk", "disco",
+  "motown", "gospel", "quiet storm", "contemporary r&b", "alternative r&b",
+  "pbr&b", "new jack swing", "electronic r&b",
+  // Jazz / Blues
+  "jazz", "smooth jazz", "bebop", "cool jazz", "free jazz", "fusion",
+  "jazz fusion", "jazz funk", "swing", "big band", "latin jazz",
+  "soul jazz", "modal jazz", "post bop", "hard bop", "blues", "delta blues",
+  "chicago blues", "electric blues", "rhythm and blues", "blues rock",
+  // Country / Folk
+  "country", "country pop", "country rock", "outlaw country", "bluegrass",
+  "americana", "alt country", "alternative country", "folk", "indie folk",
+  "folk rock", "folk pop", "singer songwriter", "singer-songwriter",
+  "acoustic", "acoustic pop",
+  // Latin
+  "latin", "latin pop", "reggaeton", "latin trap", "salsa", "bachata",
+  "merengue", "cumbia", "bossa nova", "samba", "tango", "flamenco",
+  "rumba", "mariachi", "banda", "norteño", "corrido",
+  // Reggae / Caribbean
+  "reggae", "dub", "ska", "rocksteady", "dancehall", "ragga", "roots reggae",
+  "reggaeton", "moombahton", "moombahcore",
+  // World / Traditional
+  "world", "world music", "african", "afrobeats", "afrobeat", "afro pop",
+  "highlife", "fuji", "kizomba", "soukous", "bollywood", "bhangra",
+  "arabic", "middle eastern", "turkish", "greek", "celtic", "irish",
+  "scottish", "nordic", "scandinavian", "japanese", "chinese", "korean",
+  "russian", "russian rap", "russian rock", "russian pop", "shanson",
+  "russian chanson", "soviet", "ukrainian", "ukrainian pop", "ukrainian rock",
+  // Classical / Orchestral
+  "classical", "orchestral", "symphony", "chamber music", "opera",
+  "choral", "contemporary classical", "minimalism", "neoclassical",
+  "neo-classical", "ambient classical", "film score", "soundtrack",
+  "score", "movie soundtrack", "video game music", "vgm",
+  // Other / Crossover
+  "soundtrack", "musical", "spoken word", "comedy", "audio book",
+  "podcast", "interview", "audio drama", "radio drama",
+  "experimental", "avant garde", "avant-garde", "noise", "musique concrète",
+  "field recording", "sound art",
+  "christian", "gospel", "worship", "ccm", "contemporary christian",
+  "praise", "hymn", "liturgical",
+  "holiday", "christmas", "xmas", "halloween", "seasonal",
+  // Moods / Energies (often used as genres on SoundCloud)
+  "chill", "relax", "relaxing", "calm", "peaceful", "meditation",
+  "focus", "study", "sleep", "ambient chill", "study music",
+  "energetic", "hype", "epic", "motivational", "uplifting", "upbeat",
+  "sad", "melancholy", "nostalgic", "dark", "moody", "atmospheric",
+  "happy", "feel good", "feel-good", "summer", "beach", "sunny",
+  "workout", "gym", "running", "cardio", "pump up",
+  "cinematic", "trailer", "trailer music", "epic music",
+]);
+
+/**
+ * Check if a string looks like a valid genre tag.
+ * Returns the cleaned-up genre string, or null if invalid.
+ *
+ * Rejects:
+ * - Empty / whitespace-only strings
+ * - Strings longer than GENRE_MAX_LENGTH chars
+ * - Strings with more than GENRE_MAX_WORDS words
+ * - Strings that contain numbers/digits (likely typos or IDs)
+ * - Strings with weird characters (URLs, emails, file paths)
+ * - Strings that are all uppercase (likely abbreviations or shouted text)
+ * - Cyrillic multi-word strings that aren't in the known-genres list
+ *   (SoundCloud users often put artist names in the genre field)
+ *
+ * Returns the genre lowercased for consistent comparison.
+ */
+export function sanitizeGenre(input: string | undefined | null): string | null {
+  if (!input) return null;
+  const raw = String(input).trim();
+  if (raw.length < GENRE_MIN_LENGTH) return null;
+  if (raw.length > GENRE_MAX_LENGTH) return null;
+  // Reject strings with digits (likely IDs, years, etc.)
+  if (/\d/.test(raw)) return null;
+  // Reject strings with @, /, ., http (URLs, emails, paths)
+  if (/[\/@.:]/.test(raw)) return null;
+  // Reject strings with newlines or tabs
+  if (/[\r\n\t]/.test(raw)) return null;
+  // Reject strings with more than GENRE_MAX_WORDS words
+  const words = raw.split(/\s+/);
+  if (words.length > GENRE_MAX_WORDS) return null;
+  // Reject strings that are all uppercase in the ORIGINAL (look like shouting or acronyms > 4 chars)
+  // Allow known short abbreviations
+  if (raw.length > 4 && raw === raw.toUpperCase() && /[a-zа-я]/i.test(raw)) {
+    const lower = raw.toLowerCase();
+    if (!["dnb", "edm", "idm", "rnb", "kpop", "jpop", "ccm", "vgm"].includes(lower)) {
+      return null;
+    }
+  }
+  const lower = raw.toLowerCase();
+  // Reject strings where most chars are non-letter (punctuation/symbols)
+  const letters = (lower.match(/[a-zа-яё]/gi) || []).length;
+  if (letters < lower.length * 0.7) return null;
+  // P2-genre: reject Cyrillic multi-word genres UNLESS they're in the known list
+  // (SoundCloud users often put artist names like "уран гайсин" in the genre field)
+  const hasCyrillic = /[а-яё]/i.test(raw);
+  if (hasCyrillic && words.length > 1) {
+    if (!KNOWN_GENRES.has(lower)) return null;
+  }
+  return lower;
+}
+
+/**
+ * Normalize a genre for display — Title Case for multi-word, capitalize for single-word.
+ * "tropical" → "Tropical", "drum and bass" → "Drum and Bass", "dnb" → "DNB"
+ */
+export function displayGenre(genre: string): string {
+  const lower = genre.toLowerCase();
+  // Known abbreviations — keep uppercase
+  if (["dnb", "edm", "idm", "rnb", "kpop", "jpop", "ccm", "vgm"].includes(lower)) {
+    return lower.toUpperCase();
+  }
+  // Known lowercase genres — keep as-is
+  if (["lofi", "lo-fi", "phonk", "vaporwave", "synthwave", "retrowave",
+       "outrun", "cyberpunk", "chillhop", "shoegaze"].includes(lower)) {
+    return lower;
+  }
+  // Title Case for the rest
+  return lower.split(/\s+/).map(word => {
+    // Small words stay lowercase in Title Case
+    if (["and", "or", "the", "a", "an", "of", "in", "on", "at", "to", "for", "via", "n"].includes(word)) {
+      return word;
+    }
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  }).join(" ");
+}
 
 /**
  * Extract a structured taste profile from raw store data.
@@ -82,12 +257,14 @@ export function extractTasteProfile(input: TasteProfileInput): TasteProfile {
     tasteMoods = {},
   } = input;
 
-  // ── Explicit likes (from taste sliders) ──
+  // ── Explicit likes (from taste sliders) — sanitize each genre ──
   const topGenres = Object.entries(tasteGenres)
     .filter(([, v]) => v >= GENRE_LIKE_THRESHOLD)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 6)
-    .map(([g]) => g);
+    .map(([g]) => g)
+    .map(g => sanitizeGenre(g))
+    .filter((g): g is string => g !== null);
 
   const topArtists = Object.entries(tasteArtists)
     .filter(([, v]) => v >= GENRE_LIKE_THRESHOLD)
@@ -95,11 +272,12 @@ export function extractTasteProfile(input: TasteProfileInput): TasteProfile {
     .slice(0, 4)
     .map(([a]) => a);
 
-  // ── History-derived signals ──
+  // ── History-derived signals — also sanitize ──
   const historyGenreCounts: Record<string, number> = {};
   const historyArtistCounts: Record<string, number> = {};
   for (const h of history.slice(0, HISTORY_SCAN_LIMIT)) {
-    const genre = (h.track.genre || "").trim();
+    const rawGenre = (h.track.genre || "").trim();
+    const genre = sanitizeGenre(rawGenre);
     const artist = (h.track.artist || "").trim();
     if (genre) historyGenreCounts[genre] = (historyGenreCounts[genre] || 0) + h.playCount;
     if (artist) historyArtistCounts[artist] = (historyArtistCounts[artist] || 0) + h.playCount;

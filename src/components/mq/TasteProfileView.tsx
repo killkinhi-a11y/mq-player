@@ -3,6 +3,7 @@
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
+import { sanitizeGenre } from "@/lib/tasteProfile";
 import {
   Zap,
   Coffee,
@@ -323,12 +324,20 @@ export default function TasteProfileView() {
       .sort((a, b) => b.count - a.count);
   }, [likedTracksData, history, favoriteArtists]);
 
-  /* ── Add custom genre ── */
+  /* ── Add custom genre — validate via sanitizeGenre ── */
   const addCustomGenre = useCallback(() => {
     const trimmed = customGenreInput.trim();
-    if (trimmed && !allGenres.includes(trimmed)) {
-      setTasteGenre(trimmed, 50);
+    // P2: validate against garbage — same rules as tasteProfile.ts
+    const sanitized = sanitizeGenre(trimmed);
+    if (sanitized && !allGenres.map(g => g.toLowerCase()).includes(sanitized)) {
+      setTasteGenre(sanitized, 50);
       setCustomGenreInput("");
+    } else if (!sanitized) {
+      // Show error toast instead of silently failing
+      try {
+        const { toast } = require("@/hooks/use-toast");
+        toast({ title: "Неверный жанр", description: "Жанр должен быть 2-24 символа, только буквы, без цифр и символов", variant: "destructive" });
+      } catch {}
     }
   }, [customGenreInput, allGenres, setTasteGenre]);
 

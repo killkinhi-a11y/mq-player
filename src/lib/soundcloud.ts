@@ -8,6 +8,8 @@
  * module scope and in `localStorage`/process.env with a 24h TTL.
  */
 
+import { sanitizeGenre } from "@/lib/tasteProfile";
+
 /* ------------------------------------------------------------------ */
 /*  Client ID pool — rotated on 401 errors                            */
 /* ------------------------------------------------------------------ */
@@ -434,7 +436,7 @@ export async function getSCUserTracks(
           album: "",
           duration: Math.round(fullDuration / 1000),
           cover: cover || "",
-          genre: (t.genre as string) || "",
+          genre: sanitizeGenre((t.genre as string) || "") || "",
           audioUrl: "",
           previewUrl: "",
           source: "soundcloud" as const,
@@ -512,7 +514,7 @@ export async function searchSCTracks(
         album: "",
         duration: Math.round(fullDuration / 1000),
         cover: cover || "",
-        genre: (t.genre as string) || "",
+        genre: sanitizeGenre((t.genre as string) || "") || "",
         audioUrl: "",
         previewUrl: "",
         source: "soundcloud" as const,

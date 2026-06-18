@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
-import { extractTasteProfile } from "@/lib/tasteProfile";
+import { extractTasteProfile, displayGenre } from "@/lib/tasteProfile";
 import TrackCard from "./TrackCard";
 import AISmartRecs from "./AISmartRecs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1859,7 +1859,7 @@ export default function MainView() {
                       onClick={() => setSearchQuery(genre)}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-medium whitespace-nowrap cursor-pointer transition-all duration-200"
                       style={{ background: "color-mix(in srgb, rgba(255,255,255,0.06) 60%, transparent)", backdropFilter: "blur(16px) saturate(160%)", WebkitBackdropFilter: "blur(16px) saturate(160%)", color: "var(--mq-text-muted)", border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 2px 8px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.04)" }}>
-                      <Music2 className="w-3 h-3" style={{ opacity: 0.5 }} />{genre}
+                      <Music2 className="w-3 h-3" style={{ opacity: 0.5 }} />{displayGenre(genre)}
                     </motion.button>
                   ))}
                 </div>
@@ -1900,7 +1900,7 @@ export default function MainView() {
               {tasteProfile.topGenres.length > 0 && (
                 <div className="flex gap-2 mt-5 overflow-x-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
                   {tasteProfile.topGenres.slice(0, 5).map((genre) => (
-                    <MoodTag key={genre} label={genre} icon={<Music2 className="w-3 h-3" />} onClick={() => setSearchQuery(genre)} />
+                    <MoodTag key={genre} label={displayGenre(genre)} icon={<Music2 className="w-3 h-3" />} onClick={() => setSearchQuery(genre)} />
                   ))}
                 </div>
               )}
@@ -2049,7 +2049,7 @@ export default function MainView() {
                       <div className="flex gap-1.5 mt-2 overflow-hidden">
                         {tasteProfile.topGenres.slice(0, 3).map((genre) => (
                           <span key={genre} className="text-[11px] px-2.5 py-0.5 rounded-full whitespace-nowrap"
-                            style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.06)" }}>{genre}</span>
+                            style={{ backgroundColor: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.06)" }}>{displayGenre(genre)}</span>
                         ))}
                       </div>
                     )}
@@ -2078,7 +2078,7 @@ export default function MainView() {
                       <div className="flex gap-1.5 mt-2 overflow-hidden">
                         {tasteProfile.topGenres.slice(0, 3).map((genre) => (
                           <span key={genre} className="text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap"
-                            style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.8)" }}>{genre}</span>
+                            style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.8)" }}>{displayGenre(genre)}</span>
                         ))}
                       </div>
                     )}
