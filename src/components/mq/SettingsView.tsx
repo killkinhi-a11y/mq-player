@@ -758,6 +758,8 @@ export default function SettingsView() {
           initial={anim ? { opacity: 0, y: 12 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.02, duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          whileHover={{ scale: 1.01, y: -2 }}
+          whileTap={{ scale: 0.99 }}
           onClick={() => setView("messenger")}
           className="w-full rounded-2xl overflow-hidden flex items-center gap-4 px-4 py-4 text-left transition-colors active:bg-white/[0.06] cursor-pointer"
           style={{
@@ -769,7 +771,7 @@ export default function SettingsView() {
             className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{
               backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
-              border: "1px solid rgba(255,255,255,0.06)",
+              border: "1px solid color-mix(in srgb, var(--mq-accent) 18%, transparent)",
             }}
           >
             <MessageCircle className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
@@ -781,7 +783,10 @@ export default function SettingsView() {
             </p>
           </div>
           {messengerBadge > 0 && (
-            <span
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", stiffness: 500, damping: 25 }}
               className="min-w-[20px] h-5 rounded-full flex items-center justify-center text-[11px] font-bold px-1.5 flex-shrink-0"
               style={{
                 backgroundColor: "#ef4444",
@@ -790,9 +795,14 @@ export default function SettingsView() {
               }}
             >
               {messengerBadge > 99 ? "99+" : messengerBadge}
-            </span>
+            </motion.span>
           )}
-          <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+          <motion.div
+            whileHover={{ x: 2 }}
+            className="flex-shrink-0"
+          >
+            <ChevronRight className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+          </motion.div>
         </motion.button>
       </ScrollReveal>
 
