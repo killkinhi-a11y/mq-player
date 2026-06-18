@@ -451,3 +451,28 @@ Cumulative final stats:
 - Database adapter methods: 15
 - API routes: 40 of 41 original migrated + 8 new M5 routes = 48 auth-protected routes
 - Production: https://mq1.vercel.app — READY
+
+---
+Task ID: M5-AUDIO-UI-INTEGRATION
+Agent: Main Agent (Claude)
+Task: Integrate ReplayGain into audioEngine + Last.fm connect button in Settings
+
+Work Log:
+- src/lib/replayGain.ts: rewritten as simplified version. Original tried to create a second AnalyserNode for the same audio element (impossible — audioEngine already owns the MediaElementAudioSourceNode). New version uses genre-based default gains + adjusts audio.volume property. setBaseVolume() re-applies gain when user changes volume slider. startMeasurement/stopMeasurement are no-ops (stubs for future RMS measurement).
+- src/components/mq/useAudioEngine.ts: added ReplayGain import + integration in onPlaying handler. When replayGainEnabled: attach to audio element, set base volume, apply genre-based gain. When disabled: reset.
+- src/components/mq/SettingsView.tsx: added Last.fm connect button in Account section. Click flow: fetch /api/lastfm/token → if connected, toast "сессия активна"; if apiKey, redirect to Last.fm auth; if not configured, error toast. Added toast import (was missing → build error).
+- Deploy: 2 pushes, 1 TS error (missing toast import), 1 fix, READY. Smoke test: / → 307, /play → 200, /api/lastfm/token → 401, /api/smart-playlists → 401.
+
+Stage Summary:
+- ReplayGain now actively adjusts audio.volume when enabled in Settings. Genre-based gains: hip-hop/edm cut -3 to -4 dB, acoustic/classical boost +3 to +4 dB, pop/rock near 0 dB.
+- Last.fm connect button visible in Settings → Account section. Redirects to Last.fm auth page, callback exchanges token for session key.
+- Smart Playlist API routes ready (CRUD + evaluate) — UI builder still needs to be created.
+
+Cumulative final stats:
+- 80+ files changed, ~4200 lines of net code change
+- Dead code removed: ~1430 lines
+- New shared libs: tasteProfile.ts, replayGain.ts, lastfm.ts, smartPlaylist.ts (683L)
+- New components: KeyboardShortcutsHelp.tsx, ProgressiveList.tsx (325L)
+- Database adapter methods: 15
+- API routes: 40 original migrated + 8 new M5 = 48 auth-protected
+- Production: https://mq1.vercel.app — READY
