@@ -119,80 +119,27 @@ function formatFollowers(n: number): string {
   return String(n);
 }
 
-// ── 60fps Animated equalizer bars using requestAnimationFrame ──
+// ── P5.4: CSS-based animated equalizer bars (was canvas + RAF) ──
+// 7 bars with CSS @keyframes — 0 JS, 0 RAF, GPU-accelerated.
 function AnimatedEqualizer() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number>(0);
-  const barsRef = useRef<number[]>([0.3, 0.5, 0.7, 0.4, 0.6, 0.8, 0.35]);
-  const targetsRef = useRef<number[]>([0.3, 0.5, 0.7, 0.4, 0.6, 0.8, 0.35]);
-  const lastSwitchRef = useRef<number>(0);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const BAR_COUNT = 7;
-    const BAR_WIDTH = 3;
-    const GAP = 4;
-    const HEIGHT = 32;
-    const WIDTH = BAR_COUNT * (BAR_WIDTH + GAP) - GAP;
-
-    canvas.width = WIDTH * 2; // 2x for retina
-    canvas.height = HEIGHT * 2;
-    canvas.style.width = `${WIDTH}px`;
-    canvas.style.height = `${HEIGHT}px`;
-    ctx.scale(2, 2);
-
-    let lastTime = 0;
-    let switchInterval = 120; // ms between target changes
-
-    const animate = (time: number) => {
-      // Switch targets periodically
-      if (time - lastSwitchRef.current > switchInterval) {
-        lastSwitchRef.current = time;
-        for (let i = 0; i < BAR_COUNT; i++) {
-          targetsRef.current[i] = 0.15 + Math.random() * 0.85;
-        }
-        switchInterval = 80 + Math.random() * 100; // randomize slightly
-      }
-
-      const dt = lastTime ? Math.min((time - lastTime) / 1000, 0.05) : 0.016;
-      lastTime = time;
-
-      // Smooth interpolation toward targets
-      const speed = 12; // higher = snappier
-      for (let i = 0; i < BAR_COUNT; i++) {
-        barsRef.current[i] += (targetsRef.current[i] - barsRef.current[i]) * speed * dt;
-      }
-
-      // Clear
-      ctx.clearRect(0, 0, WIDTH, HEIGHT);
-
-      // Draw bars
-      const accentColor = getComputedStyle(document.documentElement).getPropertyValue("--mq-accent").trim() || "#e03131";
-      for (let i = 0; i < BAR_COUNT; i++) {
-        const x = i * (BAR_WIDTH + GAP);
-        const barH = Math.max(2, barsRef.current[i] * HEIGHT);
-        const y = HEIGHT - barH;
-
-        ctx.fillStyle = accentColor;
-        ctx.globalAlpha = 0.6 + barsRef.current[i] * 0.4;
-        ctx.fillRect(x, y, BAR_WIDTH, barH);
-      }
-      ctx.globalAlpha = 1;
-
-      rafRef.current = requestAnimationFrame(animate);
-    };
-
-    rafRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, []);
-
-  return <canvas ref={canvasRef} style={{ display: "block", margin: "0 auto 8px" }} />;
+  return (
+    <div style={{ display: "flex", gap: "4px", justifyContent: "center", alignItems: "flex-end", height: "32px", margin: "0 auto 8px" }}>
+      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+        <span
+          key={i}
+          style={{
+            display: "block",
+            width: "3px",
+            height: "100%",
+            borderRadius: "2px",
+            backgroundColor: "var(--mq-accent)",
+            transformOrigin: "bottom",
+            animation: `mq-onboard-eq ${0.4 + i * 0.08}s ease-in-out ${i * 0.05}s infinite alternate`,
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
 export default function OnboardingView() {

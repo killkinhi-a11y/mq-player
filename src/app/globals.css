@@ -2209,3 +2209,29 @@ a:focus-visible,
   --mq-border-default: rgba(0,0,0,0.1);
   --mq-shadow-inner-glow: inset 0 1px 0 rgba(0,0,0,0.04);
 }
+
+/* ── P5.1: Master Reduce Motion (WCAG 2.3.3) ──
+   When .mq-reduce-motion is on <html>, kill ALL non-essential animations.
+   Essential: progress bar updates, state transitions (opacity only, no transform).
+   Non-essential: particles, drift, breathing, floating dots, scale bounces. */
+.mq-reduce-motion *,
+.mq-reduce-motion *::before,
+.mq-reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+/* But keep essential transitions for UI feedback (opacity, color) */
+.mq-reduce-motion .mq-essential-transition {
+  transition-duration: 150ms !important;
+}
+
+/* P5.4: Onboarding equalizer — CSS keyframes (replaces canvas RAF) */
+@keyframes mq-onboard-eq {
+  0% { transform: scaleY(0.2); }
+  25% { transform: scaleY(0.8); }
+  50% { transform: scaleY(0.4); }
+  75% { transform: scaleY(0.9); }
+  100% { transform: scaleY(0.3); }
+}

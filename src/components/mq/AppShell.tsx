@@ -110,6 +110,7 @@ export default function AppShell() {
   const currentTheme = useAppStore((s) => s.currentTheme);
   const customAccent = useAppStore((s) => s.customAccent);
   const fontSize = useAppStore((s) => s.fontSize);
+  const reduceMotion = useAppStore((s) => s.reduceMotion);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
   const setView = useAppStore((s) => s.setView);
@@ -242,6 +243,32 @@ export default function AppShell() {
   useEffect(() => {
     document.documentElement.style.fontSize = `${fontSize}px`;
   }, [fontSize]);
+
+  // P5.2: Auto-detect prefers-reduced-motion and enable reduceMotion
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handler = (e: MediaQueryListEvent) => {
+      if (e.matches) {
+        useAppStore.getState().setReduceMotion(true);
+      }
+    };
+    // On first mount: if system says reduce, enable it
+    if (mq.matches) {
+      useAppStore.getState().setReduceMotion(true);
+    }
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  // P5.1: When reduceMotion is on, add a class to <html> so CSS can kill animations
+  useEffect(() => {
+    if (reduceMotion) {
+      document.documentElement.classList.add("mq-reduce-motion");
+    } else {
+      document.documentElement.classList.remove("mq-reduce-motion");
+    }
+  }, [reduceMotion]);
 
   // ── Auto-sync to server periodically + on tab close ──
   useEffect(() => {

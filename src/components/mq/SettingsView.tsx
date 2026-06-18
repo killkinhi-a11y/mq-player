@@ -310,6 +310,8 @@ export default function SettingsView() {
   const setCustomAccent = useAppStore((s) => s.setCustomAccent);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const setAnimationsEnabled = useAppStore((s) => s.setAnimationsEnabled);
+  const reduceMotion = useAppStore((s) => s.reduceMotion);
+  const setReduceMotion = useAppStore((s) => s.setReduceMotion);
   const compactMode = useAppStore((s) => s.compactMode);
   const setCompactMode = useAppStore((s) => s.setCompactMode);
   const fontSize = useAppStore((s) => s.fontSize);
@@ -1339,6 +1341,15 @@ export default function SettingsView() {
             value={animationsEnabled}
             onCheckedChange={setAnimationsEnabled}
             valueLabel={animationsEnabled ? "Вкл" : "Выкл"}
+          />
+          {/* P5.1: Master Reduce Motion toggle */}
+          <SettingToggle
+            icon={Gauge}
+            label="Минимум движения"
+            subtitle="Отключить все анимации кроме необходимых (WCAG 2.3.3)"
+            value={reduceMotion}
+            onCheckedChange={setReduceMotion}
+            valueLabel={reduceMotion ? "Вкл" : "Выкл"}
           />
           <SettingToggle
             icon={Minimize2}

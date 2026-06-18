@@ -113,6 +113,7 @@ interface AppState {
   currentTheme: string;
   customAccent: string | null;
   animationsEnabled: boolean;
+  reduceMotion: boolean; // P5.1: master kill switch — overrides animationsEnabled when true
   compactMode: boolean;
   fontSize: number;
   liquidGlassEnabled: boolean;
@@ -252,6 +253,7 @@ interface AppState {
   setTheme: (theme: string) => void;
   setCustomAccent: (color: string | null) => void;
   setAnimationsEnabled: (enabled: boolean) => void;
+  setReduceMotion: (enabled: boolean) => void;
   setCompactMode: (compact: boolean) => void;
   setFontSize: (size: number) => void;
   setLiquidGlassEnabled: (enabled: boolean) => void;
@@ -514,6 +516,7 @@ const initialState = {
   currentTheme: "default",
   customAccent: null as string | null,
   animationsEnabled: true,
+  reduceMotion: false as boolean,
   compactMode: false,
   fontSize: 16,
   liquidGlassEnabled: false,
@@ -917,6 +920,7 @@ export const useAppStore = create<AppState>()(
       },
 
       setAnimationsEnabled: (enabled) => set({ animationsEnabled: enabled }),
+      setReduceMotion: (enabled) => set({ reduceMotion: enabled }),
 
       setCompactMode: (compact) => set({ compactMode: compact }),
 
@@ -2521,6 +2525,7 @@ export const useAppStore = create<AppState>()(
           currentTheme: persistent.currentTheme,
           customAccent: persistent.customAccent,
           animationsEnabled: persistent.animationsEnabled,
+          reduceMotion: persistent.reduceMotion,
           compactMode: persistent.compactMode,
           fontSize: persistent.fontSize,
           liquidGlassEnabled: persistent.liquidGlassEnabled,
@@ -2596,6 +2601,7 @@ export const useAppStore = create<AppState>()(
             currentTheme: old?.currentTheme ?? initialState.currentTheme,
             customAccent: old?.customAccent ?? initialState.customAccent,
             animationsEnabled: old?.animationsEnabled ?? initialState.animationsEnabled,
+            reduceMotion: old?.reduceMotion ?? initialState.reduceMotion,
             compactMode: old?.compactMode ?? initialState.compactMode,
             fontSize: old?.fontSize ?? initialState.fontSize,
             liquidGlassEnabled: old?.liquidGlassEnabled ?? initialState.liquidGlassEnabled,
