@@ -1766,7 +1766,10 @@ export default function MessengerView() {
   })();
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
       className="flex flex-col lg:flex-row overflow-hidden relative"
       style={{ backgroundColor: "var(--mq-bg)", height: messengerHeight }}
       onTouchStart={handleSwipeStart}
@@ -1779,48 +1782,102 @@ export default function MessengerView() {
         className={`w-full lg:w-80 flex-shrink-0 ${mobileView === "chat" && isMobileView ? "hidden" : ""} flex-col ${!isMobileView || !activeChatId ? "flex" : ""} ${isMobileView && activeChatId ? "hidden lg:flex" : ""}`}
         style={{ borderRight: "1px solid var(--mq-border)", flex: "0 0 auto", overflow: "hidden", ...glassPanel }}
       >
-        {/* ── Sidebar header ── */}
-        <div className="px-3 py-3 flex items-center justify-between flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-          <div className="flex items-center gap-2.5">
-            <h2 className="font-bold text-lg" style={{ color: "var(--mq-text)" }}>Чаты</h2>
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full" title="Transport encryption (TLS)" style={{ backgroundColor: "rgba(var(--mq-accent-rgb, 255,45,109),0.1)" }}>
-              <Lock className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
-              <span className="text-[11px] font-bold" style={{ color: "var(--mq-accent)" }}>TLS</span>
-            </div>
+        {/* ── Sidebar header — redesigned P2 ── */}
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          className="px-4 py-3.5 flex items-center justify-between flex-shrink-0"
+          style={{ borderBottom: "1px solid var(--mq-border)" }}
+        >
+          <div className="flex items-center gap-2">
+            <h2 className="font-bold text-xl tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
+              Чаты
+            </h2>
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, type: "spring", stiffness: 400, damping: 25 }}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full"
+              title="Transport encryption (TLS)"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--mq-accent) 18%, transparent)",
+              }}
+            >
+              <Lock className="w-2.5 h-2.5" style={{ color: "var(--mq-accent)" }} />
+              <span className="text-[10px] font-bold tracking-wide" style={{ color: "var(--mq-accent)" }}>TLS</span>
+            </motion.div>
           </div>
-          <div className="flex items-center gap-1">
-            <div className="relative">
-              <motion.button whileTap={{ scale: 0.9 }} onClick={() => useAppStore.getState().setNotifPanelOpen(true)}
-                className="p-2 rounded-xl cursor-pointer" style={{ color: "var(--mq-text-muted)" }} title="Уведомления">
-                <Bell className="w-4 h-4" />
-              </motion.button>
+          <div className="flex items-center gap-0.5">
+            <motion.button
+              whileTap={{ scale: 0.88 }}
+              whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.06)" }}
+              onClick={() => useAppStore.getState().setNotifPanelOpen(true)}
+              className="p-2 rounded-xl cursor-pointer relative transition-colors"
+              style={{ color: "var(--mq-text-muted)" }}
+              title="Уведомления"
+              aria-label="Уведомления"
+            >
+              <Bell className="w-4 h-4" />
               {notificationCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full text-[11px] flex items-center justify-center px-0.5 font-bold" style={{ backgroundColor: "#ef4444", color: "#fff" }}>
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                  className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full text-[10px] flex items-center justify-center px-1 font-bold"
+                  style={{ backgroundColor: "#ef4444", color: "#fff", boxShadow: "0 0 6px rgba(239,68,68,0.5)" }}
+                >
                   {notificationCount > 99 ? "99" : notificationCount}
-                </span>
+                </motion.span>
               )}
-            </div>
-            <div className="relative">
-              <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowFriendRequests(!showFriendRequests)}
-                className="p-2 rounded-xl cursor-pointer" style={{ color: "var(--mq-text-muted)" }} title="Заявки в друзья">
-                <Users className="w-4 h-4" />
-              </motion.button>
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.88 }}
+              whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.06)" }}
+              onClick={() => setShowFriendRequests(!showFriendRequests)}
+              className="p-2 rounded-xl cursor-pointer relative transition-colors"
+              style={{ color: showFriendRequests ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+              title="Заявки в друзья"
+              aria-label="Заявки в друзья"
+            >
+              <Users className="w-4 h-4" />
               {pendingRequests.length > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full text-[11px] flex items-center justify-center px-0.5 font-bold" style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                  className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full text-[10px] flex items-center justify-center px-1 font-bold"
+                  style={{ backgroundColor: "var(--mq-accent)", color: "#fff", boxShadow: "0 0 6px color-mix(in srgb, var(--mq-accent) 40%, transparent)" }}
+                >
                   {pendingRequests.length}
-                </span>
+                </motion.span>
               )}
-            </div>
-            <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowNewChatDialog(true); setShowFriendRequests(false); }}
-              className="p-2 rounded-xl cursor-pointer" style={{ color: "var(--mq-text-muted)" }} title="Новый чат">
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.88 }}
+              whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.06)" }}
+              onClick={() => { setShowNewChatDialog(true); setShowFriendRequests(false); }}
+              className="p-2 rounded-xl cursor-pointer transition-colors"
+              style={{ color: "var(--mq-text-muted)" }}
+              title="Новый чат"
+              aria-label="Новый чат"
+            >
               <Plus className="w-4 h-4" />
             </motion.button>
-            <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowGroupCreate(true)}
-              className="p-2 rounded-xl cursor-pointer" style={{ color: "var(--mq-text-muted)" }} title="Создать группу">
+            <motion.button
+              whileTap={{ scale: 0.88 }}
+              whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.06)" }}
+              onClick={() => setShowGroupCreate(true)}
+              className="p-2 rounded-xl cursor-pointer transition-colors"
+              style={{ color: "var(--mq-text-muted)" }}
+              title="Создать группу"
+              aria-label="Создать группу"
+            >
               <MessageSquare className="w-4 h-4" />
             </motion.button>
           </div>
-        </div>
+        </motion.div>
 
         {/* ── Stories carousel ── */}
         {storyGroupKeys.length > 0 && (
@@ -1888,14 +1945,38 @@ export default function MessengerView() {
           )}
         </AnimatePresence>
 
-        {/* ── Search contacts ── */}
-        <div className="px-3 py-2 flex-shrink-0">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+        {/* ── Search contacts — redesigned P2 ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05, duration: 0.3 }}
+          className="px-3 py-2.5 flex-shrink-0"
+        >
+          <div className="relative group/search">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors" style={{ color: searchContact ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
             <Input placeholder="Поиск чатов..." value={searchContact} onChange={(e) => setSearchContact(e.target.value)}
-              className="pl-10 min-h-[38px] rounded-xl" style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--mq-text)", transition: "all 0.2s" }} />
+              className="pl-10 min-h-[40px] rounded-xl text-sm transition-all duration-200"
+              style={{
+                backgroundColor: "var(--mq-card)",
+                border: searchContact ? "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)" : "1px solid rgba(255,255,255,0.06)",
+                color: "var(--mq-text)",
+              }} />
+            {searchContact && (
+              <motion.button
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0, opacity: 0 }}
+                whileTap={{ scale: 0.88 }}
+                onClick={() => setSearchContact("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/5 transition-colors"
+                style={{ color: "var(--mq-text-muted)" }}
+                aria-label="Очистить"
+              >
+                <X className="w-3.5 h-3.5" />
+              </motion.button>
+            )}
           </div>
-        </div>
+        </motion.div>
 
         {/* ── Contacts list ── */}
         <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
@@ -1906,8 +1987,8 @@ export default function MessengerView() {
               {/* ── Pinned section ── */}
               {sortedContacts.filter((c) => pinnedChatIds.has(c.id)).length > 0 && (
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5" style={{ color: "var(--mq-text-muted)" }}>
-                    📌 Закреплённые
+                  <p className="text-[10px] font-semibold uppercase tracking-widest px-3 py-1.5" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                    Закреплённые
                   </p>
                   {sortedContacts.filter((c) => pinnedChatIds.has(c.id)).map((contact, i) => (
                     <ContactItem key={contact.id} contact={contact} selected={selectedContactId === contact.id} userId={userId || ""}
@@ -1920,23 +2001,29 @@ export default function MessengerView() {
               {/* ── Group chats section ── */}
               {groupChats.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 mt-1" style={{ color: "var(--mq-text-muted)" }}>
-                    👥 Группы
+                  <p className="text-[10px] font-semibold uppercase tracking-widest px-3 py-1.5 mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                    Группы
                   </p>
                   {groupChats.map((g, i) => {
                     const lastMsg = currentGroupMessages[0];
                     return (
-                      <motion.button key={g.id} initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.02 }}
+                      <motion.button key={g.id} initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03, duration: 0.25 }}
+                        whileHover={{ backgroundColor: selectedGroupId === g.id ? undefined : "rgba(255,255,255,0.04)" }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => handleSelectGroup(g.id)}
-                        className="w-full flex items-center gap-2.5 px-2.5 py-2 hover:opacity-80 transition-all text-left cursor-pointer"
-                        style={{ backgroundColor: selectedGroupId === g.id ? "var(--mq-accent)" : "transparent", borderBottom: "1px solid var(--mq-border)" }}>
+                        className="w-full flex items-center gap-3 px-3 py-2.5 transition-all text-left cursor-pointer rounded-xl mx-1"
+                        style={{
+                          width: "calc(100% - 8px)",
+                          backgroundColor: selectedGroupId === g.id ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "transparent",
+                          borderLeft: selectedGroupId === g.id ? "3px solid var(--mq-accent)" : "3px solid transparent",
+                        }}>
                         <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-                          style={{ background: "linear-gradient(135deg, var(--mq-accent), #f5576c)", color: "#fff" }}>
+                          style={{ background: "linear-gradient(135deg, var(--mq-accent), #f5576c)", color: "#fff", boxShadow: "var(--mq-shadow-card)" }}>
                           {g.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{g.name}</p>
-                          <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+                          <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{g.name}</p>
+                          <p className="text-xs truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
                             {g.memberIds?.length || 0} участников
                           </p>
                         </div>
@@ -3154,7 +3241,7 @@ export default function MessengerView() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 
   // ═══════════════════════════════════════════════════════════
