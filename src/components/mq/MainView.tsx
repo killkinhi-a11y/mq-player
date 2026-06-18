@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { type Track, getRecommendations } from "@/lib/musicApi";
-import { extractTasteProfile, displayGenre } from "@/lib/tasteProfile";
+import { extractTasteProfile, displayGenre, sanitizeGenre } from "@/lib/tasteProfile";
 import TrackCard from "./TrackCard";
 import AISmartRecs from "./AISmartRecs";
 import ArtistDetailView from "./ArtistDetailView";
@@ -710,8 +710,11 @@ export default function MainView() {
     for (const track of likedTracksData) {
       const recency = timeDecay(now - 14 * 24 * 60 * 60 * 1000); // treat likes as ~14 days old for decay
       const weight = 3 * recency;
-      if (track.genre) {
-        genreCounts[track.genre] = (genreCounts[track.genre] || 0) + weight;
+      // P2-genre: sanitize genre before counting — filters out garbage like
+      // "Урал гайсин", "Hip-hop/rap", "Religion & Spirituality" etc.
+      const g = sanitizeGenre(track.genre);
+      if (g) {
+        genreCounts[g] = (genreCounts[g] || 0) + weight;
       }
       artistCounts[track.artist] = (artistCounts[track.artist] || 0) + weight;
     }
@@ -721,8 +724,9 @@ export default function MainView() {
       const t = entry.track;
       const count = (entry as any).playCount || 1;
       const weight = timeDecay(entry.playedAt) * Math.min(count, 10); // cap at 10x to prevent domination
-      if (t.genre) {
-        genreCounts[t.genre] = (genreCounts[t.genre] || 0) + weight;
+      const g = sanitizeGenre(t.genre);
+      if (g) {
+        genreCounts[g] = (genreCounts[g] || 0) + weight;
       }
       artistCounts[t.artist] = (artistCounts[t.artist] || 0) + weight;
     }
@@ -1553,6 +1557,7 @@ export default function MainView() {
                 : getWaveGradient())
               : getWaveGradient(),
             minHeight: isMobile ? 140 : 160,
+            boxShadow: "var(--mq-shadow-float)",
           }}
         >
           {/* Blurred album art background (mobile only) */}
@@ -1849,11 +1854,11 @@ export default function MainView() {
                       <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 10%, transparent) 0%, transparent 50%)` }} />
                       <div className="relative z-10 h-[200px] sm:h-[230px] flex flex-col justify-between p-3.5">
                         <div className="mt-1">
-                          <p className="text-[13px] font-bold leading-tight drop-shadow-md" style={{ color: "#fff", letterSpacing: "-0.01em" }}>{pl.name}</p>
-                          <p className="text-[11px] mt-1 leading-tight truncate drop-shadow-sm" style={{ color: "rgba(255,255,255,0.65)" }}>{pl.subtitle}</p>
+                          <p className="text-[14px] font-bold leading-tight drop-shadow-md" style={{ color: "#fff", letterSpacing: "-0.01em" }}>{pl.name}</p>
+                          <p className="text-[12px] mt-1 leading-snug line-clamp-2 drop-shadow-sm" style={{ color: "rgba(255,255,255,0.85)" }}>{pl.subtitle}</p>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className="text-[11px] drop-shadow-sm" style={{ color: "rgba(255,255,255,0.5)" }}>{pl.tracks.length} треков</p>
+                          <p className="text-[11px] drop-shadow-sm font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>{pl.tracks.length} треков</p>
                           <div className="w-8 h-8 rounded-full flex items-center justify-center shadow-lg shadow-black/20 transition-all duration-300 group-hover:scale-110"
                             style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(12px) saturate(160%)", WebkitBackdropFilter: "blur(12px) saturate(160%)", border: "1px solid rgba(255,255,255,0.1)" }}>
                             <Play className="w-3.5 h-3.5 ml-[1px]" style={{ color: "rgba(255,255,255,0.9)" }} fill="currentColor" />
@@ -1881,10 +1886,10 @@ export default function MainView() {
                       <div className="relative z-10 h-full flex flex-col justify-between p-2.5 sm:p-3.5">
                         <div className="mt-1">
                           <p className="text-sm font-bold leading-tight drop-shadow-md" style={{ color: "#fff" }}>{pl.name}</p>
-                          <p className="text-[11px] mt-1 leading-tight truncate drop-shadow-sm" style={{ color: "rgba(255,255,255,0.75)" }}>{pl.subtitle}</p>
+                          <p className="text-[12px] mt-1 leading-snug line-clamp-2 drop-shadow-sm" style={{ color: "rgba(255,255,255,0.85)" }}>{pl.subtitle}</p>
                         </div>
                         <div className="flex items-center justify-between">
-                          <p className="text-[11px] drop-shadow-sm" style={{ color: "rgba(255,255,255,0.65)" }}>{pl.tracks.length} треков</p>
+                          <p className="text-[11px] drop-shadow-sm font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>{pl.tracks.length} треков</p>
                           <div className="w-9 h-9 rounded-full flex items-center justify-center shadow-lg shadow-black/30 transition-all duration-300 group-hover:scale-110"
                             style={{ background: "rgba(255,255,255,0.95)" }}>
                             <Play className="w-4 h-4 ml-0.5" style={{ color: "#1a1a2e" }} fill="currentColor" />

@@ -189,8 +189,8 @@ export function sanitizeGenre(input: string | undefined | null): string | null {
   if (raw.length > GENRE_MAX_LENGTH) return null;
   // Reject strings with digits (likely IDs, years, etc.)
   if (/\d/.test(raw)) return null;
-  // Reject strings with @, /, ., http (URLs, emails, paths)
-  if (/[\/@.:]/.test(raw)) return null;
+  // Reject strings with @, /, ., :, & (URLs, emails, paths, compound tags)
+  if (/[\/@.:&]/.test(raw)) return null;
   // Reject strings with newlines or tabs
   if (/[\r\n\t]/.test(raw)) return null;
   // Reject strings with more than GENRE_MAX_WORDS words
@@ -212,6 +212,12 @@ export function sanitizeGenre(input: string | undefined | null): string | null {
   // (SoundCloud users often put artist names like "уран гайсин" in the genre field)
   const hasCyrillic = /[а-яё]/i.test(raw);
   if (hasCyrillic && words.length > 1) {
+    if (!KNOWN_GENRES.has(lower)) return null;
+  }
+  // P2-genre: reject Latin multi-word genres UNLESS they're in the known list
+  // (filters out "Religion & Spirituality" — caught by & above, but also
+  //  "New Age", "Adult Alternative" etc. that aren't real genres)
+  if (!hasCyrillic && words.length > 1) {
     if (!KNOWN_GENRES.has(lower)) return null;
   }
   return lower;
