@@ -43,7 +43,7 @@ function ShareButton({ scTrackId }: { scTrackId: number }) {
 
   return (
     <div className="relative p-1 flex-shrink-0 flex items-center justify-center">
-      <motion.button whileTap={{ scale: 0.85 }} onClick={handleShare}
+      <motion.button whileTap={{ scale: 0.95 }} onClick={handleShare}
         style={{ color: "var(--mq-text-muted)" }} title="Поделиться" aria-label="Поделиться">
         <Share2 className="w-4 h-4" />
       </motion.button>
@@ -639,7 +639,7 @@ const PlayerBar = React.memo(function PlayerBar() {
             </div>
             <motion.button
               type="button"
-              whileTap={{ scale: 0.85 }}
+              whileTap={{ scale: 0.95 }}
               onClick={(e) => { e.stopPropagation(); togglePlay(); }}
               className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
               style={{ color: "var(--mq-accent)" }}
@@ -1036,7 +1036,7 @@ const PlayerBar = React.memo(function PlayerBar() {
 
                     {/* Prev */}
                     <motion.button
-                      whileTap={{ scale: 0.85 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={engine.handlePrevTrack}
                       className="w-9 h-9 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
                       style={{ color: "var(--mq-text)" }}
@@ -1068,7 +1068,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                         }}
                       />
                       <motion.button
-                        whileTap={{ scale: 0.88 }}
+                        whileTap={{ scale: 0.95 }}
                         whileHover={{ scale: 1.06 }}
                         onClick={togglePlay}
                         className="rounded-full flex items-center justify-center relative"
@@ -1102,7 +1102,7 @@ const PlayerBar = React.memo(function PlayerBar() {
 
                     {/* Next */}
                     <motion.button
-                      whileTap={{ scale: 0.85 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => {
                         const st = useAppStore.getState();
                         if (st.currentTrack?.id) st.recordSkip(st.currentTrack.id, st.progress || 0);
@@ -1141,7 +1141,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                   {/* Volume (desktop) */}
                   <div className="flex items-center gap-1 mr-0.5">
                     <motion.button
-                      whileTap={{ scale: 0.85 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={handleMuteToggleWithTooltip}
                       className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
                       style={{ color: "var(--mq-text-muted)" }}
@@ -1317,7 +1317,7 @@ const PlayerBar = React.memo(function PlayerBar() {
 
                   {/* Queue */}
                   <motion.button
-                    whileTap={{ scale: 0.85 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => setShowQueue(!showQueue)}
                     className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
                     style={{
@@ -1446,7 +1446,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                   <div className="flex items-center gap-0.5">
                     {/* Prev — 44px touch target */}
                     <motion.button
-                      whileTap={{ scale: 0.82 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={engine.handlePrevTrack}
                       className="w-11 h-11 flex items-center justify-center rounded-full mq-focus-premium"
                       style={{ color: "var(--mq-text)" }}
@@ -1478,7 +1478,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                         }}
                       />
                       <motion.button
-                        whileTap={{ scale: 0.88 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={togglePlay}
                         className="rounded-full flex items-center justify-center flex-shrink-0 relative mq-focus-premium"
                         style={{
@@ -1511,7 +1511,7 @@ const PlayerBar = React.memo(function PlayerBar() {
 
                     {/* Next — 44px touch target */}
                     <motion.button
-                      whileTap={{ scale: 0.82 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={() => {
                         const st = useAppStore.getState();
                         if (st.currentTrack?.id) st.recordSkip(st.currentTrack.id, st.progress || 0);

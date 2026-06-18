@@ -10,7 +10,6 @@ import AISmartRecs from "./AISmartRecs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Pause, Music2, ChevronLeft, ChevronRight, Shuffle, Disc3, Mic2, Waves, Compass, Activity, Zap, Radio, Headphones, TrendingUp, BarChart3, Flame, UserPlus, UserCheck, Users, TrendingUp as Trending, X, Check, Square, Brain, Sunrise, User } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
-import HeroParticles from "./HeroParticles";
 import ScrollReveal from "./ScrollReveal";
 import ScrollProgressBar from "./ScrollProgressBar";
 import ArtistCard from "./ArtistCard";
@@ -25,6 +24,8 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
   const [aiTracks, setAiTracks] = useState<Track[]>([]);
   const [aiSummary, setAiSummary] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  // P1-fix: subscribe to history length so the "AI анализирует..." text updates reactively
+  const history = useAppStore((s) => s.history);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,7 +106,8 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
         style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 1px 4px rgba(0,0,0,0.12)" }}>
         <Sparkles className="w-5 h-5 mx-auto mb-1.5" style={{ color: "var(--mq-accent)", opacity: 0.5 }} />
         <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-          {useAppStore.getState().history.length >= 3
+          {/* P1-fix: was useAppStore.getState() — didn't re-render on history change */}
+          {history.length >= 3
             ? "AI анализирует вашу историю прослушиваний..."
             : "Слушайте больше музыки, чтобы AI подобрал рекомендации"}
         </p>
@@ -1314,7 +1316,7 @@ export default function MainView() {
     const isVerified = (selectedArtist.followers || 0) >= 100_000;
 
     return (
-      <div className={`${compactMode ? "pb-[148px] sm:pb-24 lg:pb-24" : "pb-[148px] sm:pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
+      <div className={`${compactMode ? "pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24" : "pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
         {/* Hero header with blurred background */}
         <div className="relative overflow-hidden">
           {/* Blurred avatar background */}
@@ -1550,7 +1552,7 @@ export default function MainView() {
   if (selectedRecCategory) {
     const cat = selectedRecCategory;
     return (
-      <div className={`${compactMode ? "p-3 lg:p-4 pb-[148px] sm:pb-24 lg:pb-24" : "p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
         {/* Back button */}
         <motion.button
           initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
@@ -1642,7 +1644,7 @@ export default function MainView() {
   // ── Curated playlist detail view ──
   if (selectedCurated) {
     return (
-      <div className={`${compactMode ? "p-3 lg:p-4 pb-[148px] sm:pb-24 lg:pb-24" : "p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
         {/* Back button */}
         <motion.button
           initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
@@ -1756,7 +1758,7 @@ export default function MainView() {
   }
 
   return (
-    <div ref={mainRef} className={`p-4 sm:p-5 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28 max-w-6xl mx-auto relative`} style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
+    <div ref={mainRef} className={`p-4 sm:p-5 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28 max-w-6xl mx-auto relative`} style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
       {/* P3.3: CursorSpotlight removed — permanent RAF for 7% opacity effect that most users don't see */}
 
       {/* ── Hero Section — Premium mobile / Classic desktop ── */}

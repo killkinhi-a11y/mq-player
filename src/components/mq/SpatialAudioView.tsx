@@ -429,7 +429,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
         }}
       >
         <div className="relative" style={{ height: compactMode ? 240 : 300 }}>
-          <canvas ref={canvasRef} className="w-full h-full" style={{ display: "block" }} />
+          <canvas aria-hidden="true" ref={canvasRef} className="w-full h-full" style={{ display: "block" }} />
 
           {/* OFF state overlay */}
           <AnimatePresence>

@@ -116,11 +116,12 @@ function formatRecordingTime(seconds: number): string {
 //  GLASSMORPHISM STYLE HELPERS
 // ═══════════════════════════════════════════════════════════════
 
+// P1-fix: Use glass tokens instead of hardcoded rgba — invisible on Daylight theme otherwise
 const glassPanel: React.CSSProperties = {
-  background: "rgba(255,255,255,0.04)",
+  background: "var(--mq-glass-bg)",
   backdropFilter: "blur(12px)",
   WebkitBackdropFilter: "blur(12px)",
-  border: "1px solid rgba(255,255,255,0.08)",
+  border: "1px solid var(--mq-glass-border)",
 };
 
 const glassPanelSolid: React.CSSProperties = {
@@ -2451,7 +2452,7 @@ export default function MessengerView() {
             {isRecording ? (
               <div className="px-3 py-2 flex items-center gap-3 flex-shrink-0 relative z-50" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
                 {/* Cancel button */}
-                <motion.button whileTap={{ scale: 0.85 }} onClick={cancelRecording}
+                <motion.button whileTap={{ scale: 0.95 }} onClick={cancelRecording}
                   className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
                   style={{ backgroundColor: "rgba(239,68,68,0.15)" }}>
                   <X className="w-4 h-4" style={{ color: "#ef4444" }} />
@@ -2475,7 +2476,7 @@ export default function MessengerView() {
                 </div>
 
                 {/* Send voice button */}
-                <motion.button whileTap={{ scale: 0.85 }} onClick={stopRecording}
+                <motion.button whileTap={{ scale: 0.95 }} onClick={stopRecording}
                   className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
                   style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)", boxShadow: "0 4px 15px rgba(239,68,68,0.3)" }}>
                 <Send className="w-4 h-4 text-white" style={{ marginLeft: 1 }} />
@@ -2553,7 +2554,7 @@ export default function MessengerView() {
 
                 {/* Mic button (when no text) OR Send button (when has text) */}
                 {(!inputText.trim() && !editingMessage) ? (
-                  <motion.button whileTap={{ scale: 0.85 }} onClick={startRecording}
+                  <motion.button whileTap={{ scale: 0.95 }} onClick={startRecording}
                     className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer transition-all"
                     style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.08)" }}
                     title="Голосовое сообщение">

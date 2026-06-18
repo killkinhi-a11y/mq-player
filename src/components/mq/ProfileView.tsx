@@ -373,7 +373,7 @@ const ProfileView = React.memo(function ProfileView() {
   };
 
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4 pb-[148px] sm:pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28 space-y-4"} max-w-2xl mx-auto`} style={{ scrollBehavior: "smooth" }}>
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28 space-y-4"} max-w-2xl mx-auto`} style={{ scrollBehavior: "smooth" }}>
 
       {/* ════════════════════════════════════════════
           Profile Header — gradient + larger avatar + edit overlay + member since

@@ -77,7 +77,7 @@ function TrackChip({ track, onPlay, onAdd }: { track: Track; onPlay: () => void;
 
       {/* Add button */}
       <motion.button
-        whileTap={{ scale: 0.85 }}
+        whileTap={{ scale: 0.95 }}
         onClick={(e) => { e.stopPropagation(); onAdd(); }}
         className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
         style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
@@ -480,7 +480,7 @@ export default function AIAssistant() {
             disabled={isLoading}
           />
           <motion.button
-            whileTap={{ scale: 0.85 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || isLoading}
             className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-all disabled:opacity-30"

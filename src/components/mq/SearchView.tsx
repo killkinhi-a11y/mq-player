@@ -330,7 +330,7 @@ export default function SearchView() {
 
   // ── Main Search View ──
   return (
-    <div className={`${compactMode ? "p-3 sm:p-4 lg:p-5 pb-[148px] sm:pb-32 lg:pb-32 space-y-4" : "p-4 sm:p-5 lg:p-6 pb-[148px] sm:pb-36 lg:pb-36 space-y-5"} max-w-3xl mx-auto relative`} style={{ scrollBehavior: "smooth" }}>
+    <div className={`${compactMode ? "p-3 sm:p-4 lg:p-5 pb-[var(--mq-player-clearance)] sm:pb-32 lg:pb-32 space-y-4" : "p-4 sm:p-5 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-36 lg:pb-36 space-y-5"} max-w-3xl mx-auto relative`} style={{ scrollBehavior: "smooth" }}>
       {/* Upload progress toast */}
       {uploadProgress && (
         <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -365,7 +365,7 @@ export default function SearchView() {
             <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
             <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Быстрый доступ</h2>
             <motion.button
-              whileTap={{ scale: 0.85 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => setQuickPicksSeed(s => s + 1)}
               className="ml-auto p-1 rounded-lg transition-colors hover:bg-white/5"
               style={{ color: "var(--mq-text-muted)" }}
@@ -452,7 +452,7 @@ export default function SearchView() {
             <motion.button
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              whileTap={{ scale: 0.85 }}
+              whileTap={{ scale: 0.95 }}
               onClick={handleClearSearch}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-white/10"
               style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "var(--mq-text-muted)" }}

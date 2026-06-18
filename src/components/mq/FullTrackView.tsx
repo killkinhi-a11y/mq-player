@@ -678,30 +678,22 @@ export default function FullTrackView() {
     prevFullTrackOpenRef.current = isFullTrackViewOpen;
   }, [isFullTrackViewOpen]);
 
-  // Lock body scroll when fullscreen player is open
+  // P1-fix: Removed body/documentElement overflow lock + touchmove/wheel preventDefault.
+  // FullTrackView is `position: fixed inset-0 overflow-hidden` (line 1924) which
+  // already prevents background scroll. The overflow lock on documentElement caused:
+  //   - iOS Safari: page jumps to top on open, scroll-stuck after close
+  //   - rubber-band glitches
+  // The touchmove/wheel preventDefault with {passive:false} also killed scrolling
+  // INSIDE the player's own scrollable areas (lyrics, comments) on some devices.
+  // The `.mq-scroll-view` / `[data-scrollable]` exception was fragile.
   useEffect(() => {
-    if (isFullTrackViewOpen) {
-      document.body.style.overflow = 'hidden';
-      document.documentElement.style.overflow = 'hidden';
-      const preventTouchMove = (e: TouchEvent) => {
-        const target = e.target as HTMLElement;
-        if (target.closest('.mq-scroll-view, [data-scrollable]')) return;
-        e.preventDefault();
-      };
-      const preventWheel = (e: WheelEvent) => {
-        const target = e.target as HTMLElement;
-        if (target.closest('.mq-scroll-view, [data-scrollable]')) return;
-        e.preventDefault();
-      };
-      document.addEventListener('touchmove', preventTouchMove, { passive: false });
-      document.addEventListener('wheel', preventWheel, { passive: false });
-      return () => {
-        document.body.style.overflow = '';
-        document.documentElement.style.overflow = '';
-        document.removeEventListener('touchmove', preventTouchMove);
-        document.removeEventListener('wheel', preventWheel);
-      };
-    }
+    if (!isFullTrackViewOpen) return;
+    // Only lock body (not documentElement — documentElement lock causes iOS issues)
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
   }, [isFullTrackViewOpen]);
 
   // Close more menu on Escape key
@@ -1993,7 +1985,7 @@ export default function FullTrackView() {
 
         {/* ── Top bar: Close (chevron-down) + Now Playing + More ── */}
         <div className="relative z-10 flex items-center justify-between px-4 pt-3 pb-1 sm:px-6 sm:pt-4">
-          <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setFullTrackViewOpen(false); setShowSimilar(false); setShowLyrics(false); setShowSleepTimer(false); setShowComments(false); setShowDNA(false); setCanvasMode(false); setShowMoreMenu(false); }}
+          <motion.button whileTap={{ scale: 0.95 }} onClick={() => { setFullTrackViewOpen(false); setShowSimilar(false); setShowLyrics(false); setShowSleepTimer(false); setShowComments(false); setShowDNA(false); setCanvasMode(false); setShowMoreMenu(false); }}
             className="w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 group/close"
             style={{ color: "var(--mq-text-muted)", backgroundColor: "var(--mq-glass-bg)", backdropFilter: "var(--mq-glass-blur)", WebkitBackdropFilter: "var(--mq-glass-blur)", border: "1px solid var(--mq-glass-border)" }}>
             <motion.div
@@ -2330,7 +2322,7 @@ export default function FullTrackView() {
                 style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 <Shuffle className="w-4 h-4" />
               </motion.button>
-              <motion.button whileTap={{ scale: 0.88 }} onClick={prevTrack}
+              <motion.button whileTap={{ scale: 0.95 }} onClick={prevTrack}
                 className="p-2 rounded-full transition-colors duration-150"
                 style={{ color: "var(--mq-text)" }}>
                 <SkipBack className="w-6 h-6" fill="currentColor" />
@@ -2344,7 +2336,7 @@ export default function FullTrackView() {
               >
                 {isPlaying ? <Pause className="w-5 h-5" fill="currentColor" /> : <Play className="w-5 h-5" fill="currentColor" style={{ marginLeft: 1.5 }} />}
               </motion.button>
-              <motion.button whileTap={{ scale: 0.88 }} onClick={nextTrack}
+              <motion.button whileTap={{ scale: 0.95 }} onClick={nextTrack}
                 className="p-2 rounded-full transition-colors duration-150"
                 style={{ color: "var(--mq-text)" }}>
                 <SkipForward className="w-6 h-6" fill="currentColor" />
@@ -2362,7 +2354,7 @@ export default function FullTrackView() {
 
             {/* Action row — minimal icon-only strip */}
             <div className="flex items-center justify-center gap-5 px-4">
-              <motion.button whileTap={{ scale: 0.85 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => currentTrack && toggleLike(currentTrack.id, currentTrack)}
                 className="p-2.5 rounded-full transition-colors duration-150"
                 style={{ color: isLiked ? "var(--mq-like-color, #ef4444)" : "var(--mq-text-muted)" }}
                 aria-label={isLiked ? "Убрать из избранного" : "Добавить в избранное"}
@@ -2370,21 +2362,21 @@ export default function FullTrackView() {
                 <Heart className={`w-4 h-4 ${isLiked ? "fill-current" : ""}`} />
               </motion.button>
 
-              <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
                 className="p-2.5 rounded-full transition-colors duration-150"
                 style={{ color: showLyrics ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                 aria-label="Текст песни">
                 <FileText className="w-4 h-4" />
               </motion.button>
 
-              <motion.button whileTap={{ scale: 0.85 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
                 className="p-2.5 rounded-full transition-colors duration-150"
                 style={{ color: showSimilar ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                 aria-label="Похожие треки">
                 <ListMusic className="w-4 h-4" />
               </motion.button>
 
-              <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
+              <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
                 className="p-2.5 rounded-full transition-colors duration-150"
                 style={{ color: showMoreMenu ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                 aria-label="Дополнительные действия">
@@ -2397,7 +2389,7 @@ export default function FullTrackView() {
               ref={volumeSectionRef}
               className="flex items-center gap-2 w-full max-w-[200px] mx-auto mt-1"
             >
-              <motion.button whileTap={{ scale: 0.85 }} onClick={handleMuteToggle}
+              <motion.button whileTap={{ scale: 0.95 }} onClick={handleMuteToggle}
                 className="flex-shrink-0 p-1 transition-colors" style={{ color: volume === 0 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 <VolumeIcon className="w-3.5 h-3.5" />
               </motion.button>
@@ -2793,7 +2785,7 @@ export default function FullTrackView() {
                   <p className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
                   <p className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
                 </div>
-                <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowLyrics(false)}
+                <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowLyrics(false)}
                   className="p-2 rounded-full" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
                   <X className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
                 </motion.button>

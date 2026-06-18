@@ -156,8 +156,18 @@ export default function FriendsView() {
       setOnlineStatuses(statuses);
     };
     fetchStatuses();
-    const interval = setInterval(fetchStatuses, 10000);
-    return () => clearInterval(interval);
+    // P1-fix: pause polling when tab is hidden to save battery
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      fetchStatuses();
+    }, 10000);
+    // Refetch when tab becomes visible again
+    const onVisible = () => { if (!document.hidden) fetchStatuses(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [userId, friends]);
 
   // Search users
@@ -448,7 +458,7 @@ export default function FriendsView() {
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <motion.button
-                          whileTap={{ scale: 0.85 }}
+                          whileTap={{ scale: 0.95 }}
                           onClick={() => acceptRequest(req.requestId)}
                           disabled={actionLoading === req.requestId}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer"
@@ -462,7 +472,7 @@ export default function FriendsView() {
                           <span className="hidden sm:inline">Принять</span>
                         </motion.button>
                         <motion.button
-                          whileTap={{ scale: 0.85 }}
+                          whileTap={{ scale: 0.95 }}
                           onClick={() => rejectRequest(req.requestId)}
                           disabled={actionLoading === req.requestId}
                           className="flex items-center justify-center w-9 h-9 rounded-lg cursor-pointer"

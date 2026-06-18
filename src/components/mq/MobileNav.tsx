@@ -58,7 +58,7 @@ const MobileNav = React.memo(function MobileNav() {
             return (
               <motion.button
                 key={item.id}
-                whileTap={{ scale: 0.88 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setView(item.id)}
                 aria-label={item.label}
                 aria-current={isActive ? "page" : undefined}

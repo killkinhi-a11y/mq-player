@@ -876,7 +876,7 @@ function SortableUpNextTrackItem({
         {/* Reorder up */}
         {!isFirst && onMoveUp ? (
           <motion.button
-            whileTap={{ scale: 0.85 }}
+            whileTap={{ scale: 0.95 }}
             onClick={onMoveUp}
             className="p-1 rounded"
             style={{ color: "var(--mq-text-muted)" }}
@@ -891,7 +891,7 @@ function SortableUpNextTrackItem({
         {/* Reorder down */}
         {!isLast && onMoveDown ? (
           <motion.button
-            whileTap={{ scale: 0.85 }}
+            whileTap={{ scale: 0.95 }}
             onClick={onMoveDown}
             className="p-1 rounded"
             style={{ color: "var(--mq-text-muted)" }}
@@ -905,7 +905,7 @@ function SortableUpNextTrackItem({
 
         {/* Remove */}
         <motion.button
-          whileTap={{ scale: 0.85 }}
+          whileTap={{ scale: 0.95 }}
           onClick={onRemove}
           className="p-1 rounded hover:text-red-400 transition-colors"
           style={{ color: "var(--mq-text-muted)" }}
@@ -1067,7 +1067,7 @@ function SortableQueueTrackItem({
       <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
         {!isFirst && onMoveUp ? (
           <motion.button
-            whileTap={{ scale: 0.85 }}
+            whileTap={{ scale: 0.95 }}
             onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
             className="p-1 rounded"
             style={{ color: "var(--mq-text-muted)" }}
@@ -1080,7 +1080,7 @@ function SortableQueueTrackItem({
         )}
         {!isLast && onMoveDown ? (
           <motion.button
-            whileTap={{ scale: 0.85 }}
+            whileTap={{ scale: 0.95 }}
             onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
             className="p-1 rounded"
             style={{ color: "var(--mq-text-muted)" }}

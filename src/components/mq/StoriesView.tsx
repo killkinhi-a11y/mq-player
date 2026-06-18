@@ -64,7 +64,8 @@ function mapApiStories(rawStories: any[]): Story[] {
       id: s.id,
       userId: s.userId,
       username: s.user?.username || 'User',
-      avatar: `https://picsum.photos/seed/${s.user?.username || s.userId}/100/100`,
+      // P1-fix: was picsum.photos (external dependency, random images). Now use real avatar from story data.
+      avatar: s.user?.avatar || '',
       content: contentType === 'track' ? contentStr : contentStr,
       contentType,
       createdAt: s.createdAt,
@@ -213,7 +214,7 @@ export default function StoriesView() {
   const groupKeys = Object.keys(storyGroups);
 
   return (
-    <div className="p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28">
+    <div className="p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

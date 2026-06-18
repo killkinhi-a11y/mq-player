@@ -552,7 +552,7 @@ export default function PlaylistView() {
     const isCollaborative = selectedPlaylist.id.startsWith('pl_url_') || selectedPlaylist.description?.includes('воспроизводимы');
 
     return (
-      <div className={`${compactMode ? "p-3 lg:p-4 pb-[148px] sm:pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28 space-y-6"} max-w-2xl mx-auto`} style={{ scrollBehavior: "smooth" }}>
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28 space-y-6"} max-w-2xl mx-auto`} style={{ scrollBehavior: "smooth" }}>
         {/* Back button */}
         <motion.button
           whileTap={{ scale: 0.9 }}
@@ -881,7 +881,7 @@ export default function PlaylistView() {
 
                   {/* Like button */}
                   <motion.button
-                    whileTap={{ scale: 0.85 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => useAppStore.getState().toggleLike(track.id, track)}
                     className="p-1.5 flex-shrink-0 opacity-0 group-hover/track:opacity-100 transition-opacity"
                     style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
@@ -893,7 +893,7 @@ export default function PlaylistView() {
                   <div className="flex-shrink-0 opacity-100 sm:opacity-0 sm:group-hover/track:opacity-100 transition-opacity flex items-center gap-0.5">
                     {i > 0 && (
                       <motion.button
-                        whileTap={{ scale: 0.85 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => handleMoveTrack(selectedPlaylist.id, i, i - 1)}
                         className="p-2 sm:p-1 rounded-lg"
                         style={{ color: "var(--mq-text-muted)" }}
@@ -905,7 +905,7 @@ export default function PlaylistView() {
                     )}
                     {i < selectedPlaylist.tracks.length - 1 && (
                       <motion.button
-                        whileTap={{ scale: 0.85 }}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => handleMoveTrack(selectedPlaylist.id, i, i + 1)}
                         className="p-2 sm:p-1 rounded-lg"
                         style={{ color: "var(--mq-text-muted)" }}
@@ -1074,7 +1074,7 @@ export default function PlaylistView() {
 
   // ── All playlists grid ──
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4 pb-[148px] sm:pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28 space-y-6"} max-w-2xl mx-auto`} style={{ scrollBehavior: "smooth" }}>
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28 space-y-6"} max-w-2xl mx-auto`} style={{ scrollBehavior: "smooth" }}>
       <ScrollReveal direction="up" delay={0.05}>
       <motion.div
         initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}

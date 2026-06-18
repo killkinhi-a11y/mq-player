@@ -696,7 +696,7 @@ export default function VisualizerCanvas({ currentStyle, styleVariant, trackId }
         className="absolute inset-0 w-full h-full pointer-events-none"
         style={{ opacity: 1, pointerEvents: "none" }}
       />
-      <canvas ref={miniEqRef} className="hidden" style={{ width: 0, height: 0 }} />
+      <canvas aria-hidden="true" ref={miniEqRef} className="hidden" style={{ width: 0, height: 0 }} />
     </>
   );
 }

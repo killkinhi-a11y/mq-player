@@ -302,7 +302,7 @@ export default function FavoritesView() {
 
   return (
     <div
-      className={`${compactMode ? "p-3 lg:p-4 pb-[148px] sm:pb-24 lg:pb-28" : "p-4 lg:p-6 pb-[148px] sm:pb-24 lg:pb-28"} max-w-2xl mx-auto`}
+      className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28"} max-w-2xl mx-auto`}
       onClick={handleSortOutsideClick}
     >
       {/* ── Header ── */}
@@ -822,7 +822,7 @@ export default function FavoritesView() {
                     {/* Open artist */}
                     <motion.button
                       whileHover={{ scale: 1.12 }}
-                      whileTap={{ scale: 0.85 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={(e) => { e.stopPropagation(); handleArtistClick(artist); }}
                       className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer opacity-0 group-hover:opacity-70 transition-opacity"
                       style={{ color: "var(--mq-accent)" }}
@@ -834,7 +834,7 @@ export default function FavoritesView() {
                     {/* Unsubscribe button */}
                     <motion.button
                       whileHover={{ scale: 1.12, backgroundColor: "rgba(239,68,68,0.12)" }}
-                      whileTap={{ scale: 0.85 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={(e) => { e.stopPropagation(); removeFavoriteArtist(artist.id); }}
                       className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer opacity-0 group-hover:opacity-70 transition-all"
                       style={{ color: "#ef4444" }}
@@ -993,7 +993,7 @@ export default function FavoritesView() {
                       {/* Batch checkbox */}
                       {batchMode ? (
                         <motion.button
-                          whileTap={{ scale: 0.85 }}
+                          whileTap={{ scale: 0.95 }}
                           className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors"
                           style={{
                             backgroundColor: isSelected ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
@@ -1013,7 +1013,7 @@ export default function FavoritesView() {
                             {index + 1}
                           </span>
                           <motion.button
-                            whileTap={{ scale: 0.85 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => handlePlayTrack(track)}
                             className="hidden group-hover:flex w-6 h-6 items-center justify-center cursor-pointer mx-auto"
                             style={{ color: "var(--mq-text)" }}
@@ -1099,7 +1099,7 @@ export default function FavoritesView() {
                       {!batchMode && (
                         <motion.button
                           whileHover={{ scale: 1.12 }}
-                          whileTap={{ scale: 0.85 }}
+                          whileTap={{ scale: 0.95 }}
                           onClick={(e) => { e.stopPropagation(); handleRemoveTrack(track.id, track); }}
                           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-all sm:opacity-0 sm:group-hover:opacity-100"
                           style={{

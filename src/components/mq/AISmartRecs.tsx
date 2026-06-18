@@ -390,7 +390,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
 
                     {/* Add to queue */}
                     <motion.button
-                      whileTap={{ scale: 0.85 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={(e) => { e.stopPropagation(); addToUpNext(track); }}
                       className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                       style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}

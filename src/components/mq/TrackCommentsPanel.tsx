@@ -329,7 +329,7 @@ export default function TrackCommentsPanel({
                   />
                 </div>
                 <motion.button
-                  whileTap={{ scale: 0.85 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={handleSubmit}
                   disabled={!inputText.trim() || sending}
                   className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-opacity"
