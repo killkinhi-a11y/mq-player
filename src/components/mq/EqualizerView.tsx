@@ -654,7 +654,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                             top: `calc(${norm * 100}% - 8px)`,
                             backgroundColor: "var(--mq-card)",
                             borderColor: isZero ? "var(--mq-accent)" : isPositive ? "var(--mq-accent)" : "#f97316",
-                            boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+                            boxShadow: "var(--mq-shadow-card)",
                           }}
                         />
                       </div>

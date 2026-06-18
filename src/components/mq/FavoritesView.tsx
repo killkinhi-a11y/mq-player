@@ -397,7 +397,7 @@ export default function FavoritesView() {
                       style={{
                         backgroundColor: tab.color,
                         opacity: 0.2,
-                        boxShadow: "0 1px 4px rgba(0,0,0,0.15)",
+                        boxShadow: "var(--mq-shadow-xs)",
                       }}
                       transition={{ type: "spring", stiffness: 400, damping: 30 }}
                     />
@@ -534,7 +534,7 @@ export default function FavoritesView() {
                   style={{
                     backgroundColor: "var(--mq-card)",
                     border: "1px solid rgba(255,255,255,0.06)",
-                    boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+                    boxShadow: "var(--mq-shadow-float)",
                   }}
                 >
                   <div className="px-3 py-2">
@@ -624,7 +624,7 @@ export default function FavoritesView() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -5, scale: 0.95 }}
                     className="absolute right-0 top-full mt-1 w-48 rounded-xl overflow-hidden z-50"
-                    style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}
+                    style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)", boxShadow: "var(--mq-shadow-float)" }}
                     onClick={e => e.stopPropagation()}
                   >
                     {playlists.map(pl => (
@@ -667,14 +667,14 @@ export default function FavoritesView() {
           className="flex items-center gap-2.5 mb-4 px-1"
         >
           <motion.button
-            whileHover={{ scale: 1.02, boxShadow: "0 4px 16px rgba(0,0,0,0.2)" }}
+            whileHover={{ scale: 1.02, boxShadow: "var(--mq-shadow-card-hover)" }}
             whileTap={{ scale: 0.97 }}
             onClick={handlePlayAll}
             className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-all duration-200"
             style={{
               backgroundColor: "var(--mq-accent)",
               color: "var(--mq-text)",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+              boxShadow: "var(--mq-shadow-card)",
             }}
           >
             <Play className="w-3.5 h-3.5" fill="currentColor" />
@@ -719,7 +719,7 @@ export default function FavoritesView() {
           style={{
             backgroundColor: "var(--mq-card)",
             border: "1px solid rgba(255,255,255,0.06)",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)",
+            boxShadow: "var(--mq-shadow-xs)",
           }}
         >
           {artists.length === 0 && !isSearchActive ? (
@@ -865,7 +865,7 @@ export default function FavoritesView() {
           style={{
             backgroundColor: "var(--mq-card)",
             border: "1px solid rgba(255,255,255,0.06)",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)",
+            boxShadow: "var(--mq-shadow-xs)",
           }}
         >
           {tracks.length === 0 && !isSearchActive && !activeFilter ? (

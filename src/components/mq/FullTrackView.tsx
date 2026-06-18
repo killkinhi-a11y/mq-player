@@ -2330,7 +2330,7 @@ export default function FullTrackView() {
                       WebkitBackdropFilter: "blur(12px)",
                       color: "var(--mq-text)",
                       border: "1px solid var(--mq-glass-border)",
-                      boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+                      boxShadow: "var(--mq-shadow-card-hover)",
                       left: `${Math.max(8, Math.min(92, (hoverTime / (duration || 1)) * 100))}%`, transform: "translateX(-50%)" }}>
                     {/* Tooltip arrow */}
                     <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 rotate-45"
@@ -2442,7 +2442,7 @@ export default function FullTrackView() {
                     width: isVolumeDragging ? 14 : 10,
                     height: isVolumeDragging ? 14 : 10,
                     backgroundColor: "white",
-                    boxShadow: "0 0 4px rgba(0,0,0,0.2)",
+                    boxShadow: "var(--mq-shadow-xs)",
                     transform: `translateX(${volume / 100 * (volumeSliderWidthRef.current || 200)}px) translateY(-50%)`,
                     willChange: "transform",
                   }} />
@@ -2520,7 +2520,7 @@ export default function FullTrackView() {
                 right: moreMenuPos.right,
                 backgroundColor: "var(--mq-card)",
                 border: "1px solid var(--mq-border)",
-                boxShadow: "0 8px 40px rgba(0,0,0,0.35), 0 0 0 1px color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+                boxShadow: "var(--mq-shadow-elevated), 0 0 0 1px color-mix(in srgb, var(--mq-accent) 12%, transparent)",
                 pointerEvents: "auto",
               }}
             >
@@ -2649,7 +2649,7 @@ export default function FullTrackView() {
                 zIndex: 260,
                 backgroundColor: "var(--mq-card)",
                 borderTop: "1px solid var(--mq-border)",
-                boxShadow: "0 -8px 40px rgba(0,0,0,0.4)",
+                boxShadow: "var(--mq-shadow-float)",
                 pointerEvents: "auto",
               }}
             >

@@ -129,7 +129,7 @@ export function KeyboardShortcutsHelp() {
             style={{
               backgroundColor: "var(--mq-card, #1a1a1a)",
               border: "1px solid var(--mq-border, #2a2a2a)",
-              boxShadow: "0 25px 60px rgba(0,0,0,0.5)",
+              boxShadow: "var(--mq-shadow-dramatic)",
               maxHeight: "85vh",
               display: "flex",
               flexDirection: "column",

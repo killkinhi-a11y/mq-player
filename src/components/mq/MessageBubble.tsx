@@ -417,7 +417,7 @@ export default function MessageBubble({
             style={{
               backgroundColor: "var(--mq-card)",
               border: "1px solid var(--mq-border)",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
+              boxShadow: "var(--mq-shadow-card)",
             }}
           >
             <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}>

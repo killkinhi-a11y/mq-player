@@ -436,7 +436,7 @@ export default function HistoryView() {
                     style={{
                       backgroundColor: "var(--mq-card)",
                       border: "1px solid rgba(255,255,255,0.05)",
-                      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                      boxShadow: "var(--mq-shadow-xs)",
                     }}
                   >
                     <div className="space-y-0">
@@ -666,7 +666,7 @@ export default function HistoryView() {
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-sm rounded-2xl p-6 text-center"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", boxShadow: "var(--mq-shadow-float)" }}
             >
               <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "rgba(239,68,68,0.12)" }}>
                 <Trash2 className="w-6 h-6" style={{ color: "#ef4444" }} />

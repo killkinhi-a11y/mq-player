@@ -47,7 +47,7 @@ const MobileNav = React.memo(function MobileNav() {
           backdropFilter: "blur(32px) saturate(200%)",
           WebkitBackdropFilter: "blur(32px) saturate(200%)",
           border: "1px solid rgba(255,255,255,0.06)",
-          boxShadow: "0 8px 40px rgba(0,0,0,0.3), 0 0 20px color-mix(in srgb, var(--mq-accent) 5%, transparent), inset 0 1px 0 rgba(255,255,255,0.04)",
+          boxShadow: "var(--mq-shadow-float), var(--mq-shadow-inner-glow)",
         }}
       >
         <div className={`flex items-center justify-around ${compactMode ? "py-2" : "py-2.5"} px-2`}>

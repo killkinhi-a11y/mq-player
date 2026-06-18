@@ -387,7 +387,7 @@ export default function SearchView() {
                 className="flex items-center gap-2.5 p-2.5 rounded-2xl text-left cursor-pointer group transition-all duration-200"
                 style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.04)" }}
               >
-                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.2)" }}>
+                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ boxShadow: "var(--mq-shadow-xs)" }}>
                   {track.cover ? (
                     <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
                   ) : (
@@ -670,7 +670,7 @@ export default function SearchView() {
               style={{
                 backgroundColor: "var(--mq-accent)",
                 color: "var(--mq-text)",
-                boxShadow: "0 2px 12px rgba(var(--mq-accent-rgb, 224,49,49), 0.25)",
+                boxShadow: "var(--mq-shadow-accent)",
               }}
             >
               <Play className="w-3 h-3" fill="currentColor" />
@@ -726,7 +726,7 @@ export default function SearchView() {
               justifyContent: "center",
               background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 15%, transparent), color-mix(in srgb, var(--mq-accent) 6%, transparent))",
               border: "1px solid color-mix(in srgb, var(--mq-accent) 10%, transparent)",
-              boxShadow: "0 4px 20px color-mix(in srgb, var(--mq-accent) 8%, transparent)",
+              boxShadow: "var(--mq-shadow-accent)",
             }}
           >
             <Search className="w-9 h-9" style={{ color: "var(--mq-accent)", opacity: 0.45 }} />
@@ -817,7 +817,7 @@ export default function SearchView() {
               justifyContent: "center",
               background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 15%, transparent), color-mix(in srgb, var(--mq-accent) 6%, transparent))",
               border: "1px solid color-mix(in srgb, var(--mq-accent) 10%, transparent)",
-              boxShadow: "0 4px 20px color-mix(in srgb, var(--mq-accent) 8%, transparent)",
+              boxShadow: "var(--mq-shadow-accent)",
             }}>
               <Headphones className="w-9 h-9" style={{ color: "var(--mq-accent)", opacity: 0.6 }} />
             </div>

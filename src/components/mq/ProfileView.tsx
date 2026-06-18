@@ -888,7 +888,7 @@ const ProfileView = React.memo(function ProfileView() {
                       className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center mb-1.5"
                       style={{
                         backgroundColor: artist.cover ? "transparent" : "color-mix(in srgb, var(--mq-accent) 20%, transparent)",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+                        boxShadow: "var(--mq-shadow-card)",
                       }}
                     >
                       {artist.cover ? (
@@ -1112,7 +1112,7 @@ const ProfileView = React.memo(function ProfileView() {
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-sm rounded-2xl p-6 text-center"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", boxShadow: "var(--mq-shadow-float)" }}
             >
               <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "rgba(239,68,68,0.1)" }}>
                 <LogOut className="w-7 h-7" style={{ color: "#ef4444" }} />
