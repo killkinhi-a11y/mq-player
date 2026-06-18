@@ -168,7 +168,8 @@ export default function PlaylistView() {
 
     if (topGenres.length === 0 && topArtists.length === 0) return;
 
-    setPlaylistRecsLoading(true);
+    // Defer state update — avoid React error #300 (update during render)
+    queueMicrotask(() => setPlaylistRecsLoading(true));
     const params = new URLSearchParams();
     if (topGenres.length > 0) params.set("genres", topGenres.join(","));
     if (topArtists.length > 0) params.set("artists", topArtists.join(","));
@@ -217,7 +218,10 @@ export default function PlaylistView() {
     const playlistId = playlist.id;
     const playlistName = playlist.name;
     const playlistTracks = playlist.tracks;
-    setAiAutoGenerating(true);
+    // Defer state update to avoid React error #300 (cannot update component
+    // while rendering a different component). Use queueMicrotask to ensure
+    // the state update runs after the current render is committed.
+    queueMicrotask(() => setAiAutoGenerating(true));
 
     fetch('/api/playlists/auto-generate', {
       method: 'POST',
@@ -826,13 +830,13 @@ export default function PlaylistView() {
         {selectedPlaylist.tracks.length > 0 ? (
           <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--mq-card)" }}>
             {/* Column header — desktop only */}
-            <div className="hidden sm:grid grid-cols-[2.5rem_1fr_3.5rem_2.5rem_2.5rem] items-center px-3 py-2 text-[11px] uppercase tracking-wider font-semibold border-b"
+            <div className="hidden sm:flex items-center gap-2 px-3 py-2 text-[11px] uppercase tracking-wider font-semibold border-b"
               style={{ color: "var(--mq-text-muted)", borderColor: "var(--mq-border)", opacity: 0.7 }}>
-              <span className="text-center">#</span>
-              <span>Название</span>
-              <span className="text-right pr-2"><Clock className="w-3 h-3 inline" /></span>
-              <span></span>
-              <span></span>
+              <span className="w-10 text-center">#</span>
+              <span className="flex-1">Название</span>
+              <span className="w-14 text-right pr-1"><Clock className="w-3 h-3 inline" /></span>
+              <span className="w-10"></span>
+              <span className="w-10"></span>
             </div>
             {selectedPlaylist.tracks.map((track, i) => {
               const isCurrentlyPlaying = currentTrack?.id === track.id;
@@ -847,7 +851,7 @@ export default function PlaylistView() {
                   onDragOver={(e) => handleDragOver(e, i)}
                   onDrop={(e) => handleDrop(e, i)}
                   onDragEnd={handleDragEnd}
-                  className="group/track grid grid-cols-[2rem_2.5rem_1fr_2.25rem_2.25rem] sm:grid-cols-[2.5rem_1fr_3.5rem_2.5rem_2.5rem] items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 transition-colors relative"
+                  className="group/track flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 transition-colors relative"
                   style={{
                     backgroundColor: isDragTarget
                       ? "rgba(255,255,255,0.06)"
@@ -859,7 +863,7 @@ export default function PlaylistView() {
                   }}
                 >
                   {/* Track number + play-on-hover + drag grip */}
-                  <div className="flex items-center justify-center relative w-8 h-8 sm:w-10 sm:h-10 cursor-pointer"
+                  <div className="flex items-center justify-center relative w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 cursor-pointer"
                     onClick={() => {
                       if (isCurrentlyPlaying) {
                         useAppStore.getState().togglePlay();
@@ -914,7 +918,7 @@ export default function PlaylistView() {
                     )}
                   </div>
 
-                  {/* Cover thumbnail (mobile-only) — same grid cell as duration on desktop */}
+                  {/* Cover thumbnail (mobile-only) — fixed width */}
                   <div className="sm:hidden flex-shrink-0 w-10 h-10 rounded-md overflow-hidden"
                     style={{ backgroundColor: "var(--mq-input-bg)" }}>
                     {track.cover ? (
@@ -926,13 +930,13 @@ export default function PlaylistView() {
                     )}
                   </div>
 
-                  {/* Duration (desktop-only) — same grid cell as cover on mobile */}
-                  <span className="hidden sm:block text-[11px] tabular-nums text-right pr-1"
+                  {/* Duration (desktop-only) — fixed width */}
+                  <span className="hidden sm:block flex-shrink-0 w-14 text-[11px] tabular-nums text-right pr-1"
                     style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
                     {formatDuration(track.duration)}
                   </span>
 
-                  {/* Title + artist */}
+                  {/* Title + artist — takes remaining space */}
                   <div className="min-w-0 flex-1 cursor-pointer"
                     onClick={() => {
                       if (!isCurrentlyPlaying) {
@@ -966,7 +970,7 @@ export default function PlaylistView() {
                   <motion.button
                     whileTap={{ scale: 0.9 }}
                     onClick={(e) => { e.stopPropagation(); useAppStore.getState().toggleLike(track.id, track); }}
-                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors"
+                    className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-full hover:bg-white/5 transition-colors"
                     style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                     aria-label={isLiked ? "Убрать из любимых" : "В любимые"}
                   >
@@ -974,7 +978,7 @@ export default function PlaylistView() {
                   </motion.button>
 
                   {/* More menu — remove / move up / move down */}
-                  <div className="relative group/menu">
+                  <div className="relative group/menu flex-shrink-0">
                     <motion.button
                       whileTap={{ scale: 0.9 }}
                       onClick={(e) => {
