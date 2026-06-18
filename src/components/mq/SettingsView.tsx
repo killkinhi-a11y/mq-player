@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import ScrollReveal from "./ScrollReveal";
 import TasteProfileView from "./TasteProfileView";
 import { setCrossfadeEnabled as engineSetCrossfadeEnabled, setCrossfadeDuration as engineSetCrossfadeDuration, setGaplessEnabled as engineSetGaplessEnabled } from "@/lib/audioEngine";
+import { toast } from "@/hooks/use-toast";
 import EqualizerView from "./EqualizerView";
 
 // ── Reusable section header ──
