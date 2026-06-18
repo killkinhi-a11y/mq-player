@@ -33,8 +33,22 @@ export async function simulateEncrypt(text: string): Promise<string> {
   return text;
 }
 
-/** Synchronous no-op decrypt — see simulateEncrypt. */
+/** Synchronous decrypt — strips old ENC: prefix from legacy messages. */
 export function simulateDecryptSync(encryptedText: string): string {
+  // P1-fix: Old messages in the DB still have the "ENC:IV:base64data" format
+  // from the previous base64 theater. The no-op version returned them as-is,
+  // showing "ENC:a1b2c3d4e5f6g7h8:SGVsbG8=" to users.
+  // Now we detect and decode old-format messages so users see readable text.
+  if (encryptedText && encryptedText.startsWith("ENC:")) {
+    try {
+      const parts = encryptedText.replace("ENC:", "").split(":");
+      const encoded = parts.slice(1).join(":");
+      return decodeURIComponent(atob(encoded));
+    } catch {
+      // If decoding fails, strip the prefix and return what's left
+      return encryptedText.replace(/^ENC:[^:]*:/, "");
+    }
+  }
   return encryptedText;
 }
 

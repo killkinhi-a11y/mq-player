@@ -454,6 +454,21 @@ export default function MessageBubble({
       );
     }
 
+    // P1-fix: don't show raw system content (JSON, codes, etc.)
+    let systemText = displayContent;
+    if (systemText.startsWith("{") || systemText.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(systemText);
+        systemText = parsed.type === "track_share" ? "🎵 Трек" :
+                     parsed.type === "voice" ? "🎤 Голосовое сообщение" :
+                     parsed.title || parsed.content || "Системное сообщение";
+      } catch { /* keep original */ }
+    }
+    // Hide raw ENC: prefix if it somehow survived
+    if (systemText.startsWith("ENC:")) {
+      systemText = "Зашифрованное сообщение";
+    }
+
     return (
       <motion.div
         initial={{ opacity: 0, y: 6 }}
@@ -471,7 +486,7 @@ export default function MessageBubble({
             className="text-[11px] text-center break-words"
             style={{ color: "var(--mq-text-muted)" }}
           >
-            {displayContent}
+            {systemText}
           </p>
         </div>
       </motion.div>

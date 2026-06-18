@@ -3454,7 +3454,17 @@ function ContactItem({ contact, selected, userId, lastMsg, unread, pinned, onlin
   let lastMsgPreview = "";
   if (lastMsg) {
     try {
-      const decrypted = simulateDecryptSync(lastMsg.content);
+      let decrypted = simulateDecryptSync(lastMsg.content);
+      // P1-fix: hide system message codes in preview
+      if (lastMsg.messageType === "system") {
+        if (decrypted.startsWith("listen_invite:")) {
+          decrypted = "🎵 Приглашение слушать вместе";
+        } else if (decrypted.startsWith("{") || decrypted.startsWith("[")) {
+          decrypted = "Системное сообщение";
+        } else if (decrypted.startsWith("ENC:")) {
+          decrypted = "Зашифрованное сообщение";
+        }
+      }
       lastMsgPreview = decrypted.length > 35 ? decrypted.slice(0, 35) + "…" : decrypted;
     } catch {
       lastMsgPreview = lastMsg.content.slice(0, 35) + "…";
