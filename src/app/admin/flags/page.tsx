@@ -346,7 +346,7 @@ export default function AdminFlagsPage() {
           </div>
 
           <span
-            className="text-[10px] font-medium px-2.5 py-1 rounded-lg flex-shrink-0"
+            className="text-[11px] font-medium px-2.5 py-1 rounded-lg flex-shrink-0"
             style={{
               backgroundColor: maintenanceFlag?.enabled
                 ? "rgba(234,179,8,0.15)"
@@ -395,7 +395,7 @@ export default function AdminFlagsPage() {
               style={{ backgroundColor: "rgba(224,49,49,0.06)", border: "1px solid rgba(224,49,49,0.12)" }}
             >
               <Sparkles className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
-              <span className="text-[10px] font-medium" style={{ color: "var(--mq-accent)" }}>
+              <span className="text-[11px] font-medium" style={{ color: "var(--mq-accent)" }}>
                 Сейчас: {currentSeasonalThemes.map(st => st.icon).join(" ")}
               </span>
             </div>
@@ -460,7 +460,7 @@ export default function AdminFlagsPage() {
                       </h3>
                       {isCurrentMonth && (
                         <span
-                          className="text-[9px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0"
+                          className="text-[11px] font-medium px-1.5 py-0.5 rounded-md flex-shrink-0"
                           style={{
                             backgroundColor: "rgba(224,49,49,0.15)",
                             color: "var(--mq-accent)",
@@ -477,7 +477,7 @@ export default function AdminFlagsPage() {
                 </div>
 
                 <span
-                  className="text-[10px] font-medium px-2 py-0.5 rounded-md flex-shrink-0"
+                  className="text-[11px] font-medium px-2 py-0.5 rounded-md flex-shrink-0"
                   style={{
                     backgroundColor: isEnabled ? "rgba(74,222,128,0.12)" : "rgba(136,136,136,0.12)",
                     color: isEnabled ? "#4ade80" : "var(--mq-text-muted)",
@@ -554,7 +554,7 @@ export default function AdminFlagsPage() {
               </div>
 
               <span
-                className="text-[10px] font-medium px-2 py-0.5 rounded-md flex-shrink-0"
+                className="text-[11px] font-medium px-2 py-0.5 rounded-md flex-shrink-0"
                 style={{
                   backgroundColor: flag.enabled ? "rgba(74,222,128,0.12)" : "rgba(136,136,136,0.12)",
                   color: flag.enabled ? "#4ade80" : "var(--mq-text-muted)",

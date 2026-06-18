@@ -276,7 +276,7 @@ export default function SleepTimerView() {
       <AnimatePresence mode="wait">
         {!sleepTimerActive ? (
           /* ═══════════════════════════ PICKER MODE ═══════════════════════════ */
-          <motion.div key="picker" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }} className="flex flex-col items-center w-full max-w-2xl flex-1">
+          <motion.div key="picker" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.3 }} className="flex flex-col items-center w-full max-w-[var(--mq-container-narrow)] flex-1">
             {/* Header */}
             <motion.div className="flex flex-col items-center mb-6" animate={animationsEnabled ? { y: [0, -4, 0] } : undefined} transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}>
               <Moon className="w-10 h-10 mb-3" style={{ color: "var(--mq-accent)", opacity: 0.8 }} />
@@ -343,7 +343,7 @@ export default function SleepTimerView() {
           </motion.div>
         ) : (
           /* ═══════════════════════════ ACTIVE MODE ═══════════════════════════ */
-          <motion.div key="active" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} transition={{ duration: 0.3 }} className="flex flex-col items-center w-full max-w-2xl flex-1">
+          <motion.div key="active" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }} transition={{ duration: 0.3 }} className="flex flex-col items-center w-full max-w-[var(--mq-container-narrow)] flex-1">
             {/* Header */}
             <div className="flex flex-col items-center mb-6">
               <motion.div animate={animationsEnabled ? { y: [0, -6, 0], rotate: [0, 5, -5, 0] } : undefined} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>

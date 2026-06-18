@@ -309,7 +309,7 @@ export default function AdminBillingPage() {
               <div className="flex items-end gap-2 h-40">
                 {data.mrrData.map((m) => (
                   <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[10px] font-medium" style={{ color: "var(--mq-text)" }}>
+                    <span className="text-[11px] font-medium" style={{ color: "var(--mq-text)" }}>
                       ${m.revenue.toFixed(0)}
                     </span>
                     <div
@@ -320,7 +320,7 @@ export default function AdminBillingPage() {
                         background: "linear-gradient(180deg, var(--mq-accent), rgba(224,49,49,0.5))",
                       }}
                     />
-                    <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                    <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                       {formatMonth(m.month)}
                     </span>
                   </div>
@@ -387,7 +387,7 @@ export default function AdminBillingPage() {
                       <td className="px-5 py-3.5 hidden sm:table-cell">
                         <Badge
                           variant="secondary"
-                          className="text-[10px] px-1.5 py-0"
+                          className="text-[11px] px-1.5 py-0"
                           style={{
                             backgroundColor: `${typeColors[t.type] || "var(--mq-text-muted)"}18`,
                             color: typeColors[t.type] || "var(--mq-text-muted)",

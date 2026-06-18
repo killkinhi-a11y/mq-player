@@ -124,11 +124,7 @@
 
 /* Small text / labels */
 [data-style="pixel-flower"] p[class*="text-xs"],
-[data-style="pixel-flower"] p[class*="text-[10px]"],
-[data-style="pixel-flower"] p[class*="text-[9px]"],
 [data-style="pixel-flower"] span[class*="text-xs"],
-[data-style="pixel-flower"] span[class*="text-[10px]"],
-[data-style="pixel-flower"] span[class*="text-[9px]"],
 [data-style="pixel-flower"] span[class*="text-[8px]"] {
   font-weight: 500 !important;
   letter-spacing: 0.03em !important;

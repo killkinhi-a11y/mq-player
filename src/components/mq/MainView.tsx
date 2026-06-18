@@ -1316,7 +1316,7 @@ export default function MainView() {
     const isVerified = (selectedArtist.followers || 0) >= 100_000;
 
     return (
-      <div className={`${compactMode ? "pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24" : "pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
+      <div className={`${compactMode ? "pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24" : "pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28"} max-w-[var(--mq-container-wide)] mx-auto`}>
         {/* Hero header with blurred background */}
         <div className="relative overflow-hidden">
           {/* Blurred avatar background */}
@@ -1552,7 +1552,7 @@ export default function MainView() {
   if (selectedRecCategory) {
     const cat = selectedRecCategory;
     return (
-      <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28"} max-w-[var(--mq-container-wide)] mx-auto`}>
         {/* Back button */}
         <motion.button
           initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
@@ -1644,7 +1644,7 @@ export default function MainView() {
   // ── Curated playlist detail view ──
   if (selectedCurated) {
     return (
-      <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28"} max-w-4xl mx-auto`}>
+      <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28"} max-w-[var(--mq-container-wide)] mx-auto`}>
         {/* Back button */}
         <motion.button
           initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
@@ -1758,7 +1758,7 @@ export default function MainView() {
   }
 
   return (
-    <div ref={mainRef} className={`p-4 sm:p-5 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28 max-w-6xl mx-auto relative`} style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
+    <div ref={mainRef} className={`p-4 sm:p-5 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28 max-w-[var(--mq-container-wide)] mx-auto relative`} style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
       {/* P3.3: CursorSpotlight removed — permanent RAF for 7% opacity effect that most users don't see */}
 
       {/* ── Hero Section — Premium mobile / Classic desktop ── */}

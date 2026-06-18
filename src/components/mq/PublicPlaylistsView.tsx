@@ -108,7 +108,7 @@ export default function PublicPlaylistsView() {
   if (selectedPlaylist) {
     return (
       <div className="min-h-screen" style={{ backgroundColor: "var(--mq-bg)", paddingBottom: 140 }}>
-        <div className="max-w-2xl mx-auto px-4 py-4">
+        <div className="max-w-[var(--mq-container-narrow)] mx-auto px-4 py-4">
           <button onClick={() => setSelectedPlaylist(null)} className="flex items-center gap-2 mb-4 cursor-pointer"
             style={{ color: "var(--mq-text-muted)" }}>
             <ChevronLeft className="w-5 h-5" />
@@ -203,7 +203,7 @@ export default function PublicPlaylistsView() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "var(--mq-bg)", paddingBottom: 140 }}>
-      <div className="max-w-2xl mx-auto px-4 py-4">
+      <div className="max-w-[var(--mq-container-narrow)] mx-auto px-4 py-4">
         {/* Header */}
         <ScrollReveal direction="up" delay={0.05}>
         <div className="flex items-center justify-between mb-4">

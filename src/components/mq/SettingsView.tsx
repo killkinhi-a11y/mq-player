@@ -454,7 +454,11 @@ export default function SettingsView() {
       }
     };
     countAudio();
-    const interval = setInterval(countAudio, 10000);
+    // P1-fix: pause when tab hidden
+    const interval = setInterval(() => {
+      if (document.hidden) return;
+      countAudio();
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -729,7 +733,7 @@ export default function SettingsView() {
   const crossfadePercent = ((crossfadeDuration - 0.5) / (8 - 0.5)) * 100;
 
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] space-y-4" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] space-y-5"} max-w-2xl mx-auto`}>
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] space-y-4" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] space-y-5"} max-w-[var(--mq-container-narrow)] mx-auto`}>
       {/* ── Header ── */}
       <motion.div
         initial={anim ? { opacity: 0, y: 20 } : undefined}

@@ -163,7 +163,7 @@ export default function HistoryView() {
   };
 
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28 space-y-5"} max-w-2xl mx-auto`} style={{ scrollBehavior: "smooth" }}>
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-24 space-y-4" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28 space-y-5"} max-w-[var(--mq-container-narrow)] mx-auto`} style={{ scrollBehavior: "smooth" }}>
       {/* ── Header ── */}
       <ScrollReveal direction="up" delay={0.05}>
         <motion.div

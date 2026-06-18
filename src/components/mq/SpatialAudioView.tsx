@@ -301,7 +301,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
   }, [spatialAudioEnabled, spatialMood, compactMode, moodRgb.r, moodRgb.g, moodRgb.b]);
 
   return (
-    <div className="p-4 lg:p-6 pb-28 lg:pb-28 space-y-5 max-w-2xl mx-auto">
+    <div className="p-4 lg:p-6 pb-28 lg:pb-28 space-y-5 max-w-[var(--mq-container-narrow)] mx-auto">
 
       {/* ── Header ── */}
       <motion.div

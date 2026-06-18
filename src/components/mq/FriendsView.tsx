@@ -339,7 +339,7 @@ export default function FriendsView() {
 
   return (
     <div
-      className={`${compactMode ? "p-3 lg:p-4 pb-32 lg:pb-32" : "p-4 lg:p-6 pb-36 lg:pb-36"} max-w-2xl mx-auto`}
+      className={`${compactMode ? "p-3 lg:p-4 pb-32 lg:pb-32" : "p-4 lg:p-6 pb-36 lg:pb-36"} max-w-[var(--mq-container-narrow)] mx-auto`}
     >
       {/* Header */}
       <motion.div

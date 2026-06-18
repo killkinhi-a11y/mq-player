@@ -95,11 +95,7 @@
 
 /* Small text / labels */
 [data-style="swag"] p[class*="text-xs"],
-[data-style="swag"] p[class*="text-[10px]"],
-[data-style="swag"] p[class*="text-[9px]"],
 [data-style="swag"] span[class*="text-xs"],
-[data-style="swag"] span[class*="text-[10px]"],
-[data-style="swag"] span[class*="text-[9px]"],
 [data-style="swag"] span[class*="text-[8px]"] {
   font-weight: 500 !important;
   letter-spacing: 0.06em !important;

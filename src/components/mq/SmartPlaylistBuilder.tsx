@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 import {
   X, Plus, Trash2, Play, Sparkles, ListFilter,
   Clock, Music, Heart, RotateCcw, ChevronRight, Loader2,
@@ -49,6 +50,9 @@ const SORT_OPTIONS = [
 ];
 
 export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBuilderProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, true); // trap is always active while component is mounted
+
   const [name, setName] = useState("");
   const [rules, setRules] = useState<SmartPlaylistRule[]>([]);
   const [limit, setLimit] = useState(100);
@@ -174,11 +178,12 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
       aria-labelledby="smart-playlist-title"
     >
       <motion.div
+        ref={dialogRef}
         initial={{ scale: 0.95, opacity: 0, y: 10 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.95, opacity: 0, y: 10 }}
         transition={{ type: "spring", stiffness: 400, damping: 30 }}
-        className="w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col"
+        className="w-full max-w-[var(--mq-container-narrow)] rounded-2xl overflow-hidden flex flex-col"
         style={{
           backgroundColor: "var(--mq-card, #1a1a1a)",
           border: "1px solid var(--mq-border, #2a2a2a)",

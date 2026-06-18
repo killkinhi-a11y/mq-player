@@ -231,7 +231,7 @@ export default function AdminCronPage() {
                         {job.name}
                       </h3>
                       <span
-                        className="text-[10px] font-medium px-2 py-0.5 rounded-md"
+                        className="text-[11px] font-medium px-2 py-0.5 rounded-md"
                         style={{
                           backgroundColor: `${config.color}15`,
                           color: config.color,
@@ -303,7 +303,7 @@ export default function AdminCronPage() {
                       backgroundColor: "var(--mq-input-bg)",
                     }}
                   >
-                    <p className="text-[10px] font-medium mb-2 uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                    <p className="text-[11px] font-medium mb-2 uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                       Лог выполнения
                     </p>
                     <pre

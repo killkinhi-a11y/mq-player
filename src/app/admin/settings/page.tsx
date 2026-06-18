@@ -184,7 +184,7 @@ export default function AdminSettingsPage() {
                 </div>
                 <Badge
                   variant="secondary"
-                  className="text-[10px] px-2 py-0.5"
+                  className="text-[11px] px-2 py-0.5"
                   style={{
                     backgroundColor: isOk
                       ? `${card.color}18`

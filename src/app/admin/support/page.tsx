@@ -238,7 +238,7 @@ export default function AdminSupportPage() {
               </h3>
               <div className="flex items-center gap-1.5">
                 <Bot className="w-3.5 h-3.5" style={{ color: botEnabled ? "#06b6d4" : "var(--mq-text-muted)" }} />
-                <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                   Авто-бот {botEnabled ? "активен" : "выключен"}
                 </span>
               </div>
@@ -292,7 +292,7 @@ export default function AdminSupportPage() {
                         }}
                       />
                       <span
-                        className="text-[10px] px-1.5 py-0.5 rounded-md font-medium"
+                        className="text-[11px] px-1.5 py-0.5 rounded-md font-medium"
                         style={{
                           backgroundColor:
                             session.status === "open"
@@ -311,7 +311,7 @@ export default function AdminSupportPage() {
                   >
                     {session.lastMessage || "Нет сообщений"}
                   </p>
-                  <div className="flex items-center gap-2 text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <div className="flex items-center gap-2 text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                     <span>{formatDate(session.updatedAt)}</span>
                     <span>•</span>
                     <span>{session.messageCount} сообщ.</span>
@@ -348,7 +348,7 @@ export default function AdminSupportPage() {
                       <div className="w-1.5 h-1.5 rounded-full" style={{
                         backgroundColor: activeSession?.status === "open" ? "#4ade80" : "var(--mq-text-muted)"
                       }} />
-                      <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                      <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                         ID: {selectedSession.substring(0, 12)}
                       </p>
                     </div>
@@ -363,7 +363,7 @@ export default function AdminSupportPage() {
                     }}
                   >
                     <Sparkles className="w-3 h-3" style={{ color: "#06b6d4" }} />
-                    <span className="text-[10px] font-medium" style={{ color: "#06b6d4" }}>Бот активен</span>
+                    <span className="text-[11px] font-medium" style={{ color: "#06b6d4" }}>Бот активен</span>
                   </div>
                 )}
               </div>
@@ -424,14 +424,14 @@ export default function AdminSupportPage() {
                           )}
                           <div>
                             {isBot && (
-                              <p className="text-[10px] font-medium mb-1 flex items-center gap-1"
+                              <p className="text-[11px] font-medium mb-1 flex items-center gap-1"
                                 style={{ color: "#06b6d4" }}>
                                 <Sparkles className="w-2.5 h-2.5" />
                                 MQ Bot
                               </p>
                             )}
                             {isAdmin && (
-                              <p className="text-[10px] font-medium mb-1" style={{ color: "var(--mq-accent)" }}>
+                              <p className="text-[11px] font-medium mb-1" style={{ color: "var(--mq-accent)" }}>
                                 Вы (админ)
                               </p>
                             )}
@@ -449,7 +449,7 @@ export default function AdminSupportPage() {
                             >
                               {msg.content}
                             </div>
-                            <p className="text-[10px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                            <p className="text-[11px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
                               {formatDate(msg.createdAt)}
                             </p>
                           </div>

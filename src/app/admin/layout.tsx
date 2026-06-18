@@ -209,7 +209,7 @@ export default function AdminLayout({
               <span className="font-bold text-sm truncate block" style={{ color: "var(--mq-text)" }}>
                 MQ Admin
               </span>
-              <span className="text-[10px] truncate block" style={{ color: "var(--mq-text-muted)" }}>
+              <span className="text-[11px] truncate block" style={{ color: "var(--mq-text-muted)" }}>
                 Панель управления
               </span>
             </div>
@@ -239,7 +239,7 @@ export default function AdminLayout({
         <nav className="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
           {!collapsed && (
             <p
-              className="px-3 py-2 text-[10px] font-semibold uppercase tracking-wider"
+              className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider"
               style={{ color: "var(--mq-text-muted)" }}
             >
               Навигация

@@ -122,11 +122,7 @@
 
 /* Small text / labels */
 [data-style="neon"] p[class*="text-xs"],
-[data-style="neon"] p[class*="text-[10px]"],
-[data-style="neon"] p[class*="text-[9px]"],
 [data-style="neon"] span[class*="text-xs"],
-[data-style="neon"] span[class*="text-[10px]"],
-[data-style="neon"] span[class*="text-[9px]"],
 [data-style="neon"] span[class*="text-[8px]"] {
   font-weight: 500 !important;
   letter-spacing: 0.04em !important;

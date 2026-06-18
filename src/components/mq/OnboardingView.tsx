@@ -423,7 +423,7 @@ export default function OnboardingView() {
 
   // ── Step 1: Dark strict genre selection ──
   const renderGenresStep = () => (
-    <div className="flex flex-col items-center gap-6 w-full max-w-2xl mx-auto px-4 pb-4">
+    <div className="flex flex-col items-center gap-6 w-full max-w-[var(--mq-container-narrow)] mx-auto px-4 pb-4">
       {/* Header */}
       <div className="text-center">
         <AnimatedEqualizer />
@@ -518,7 +518,7 @@ export default function OnboardingView() {
 
   // ── Step 2: Artist selection ──
   const renderArtistsStep = () => (
-    <div className="flex flex-col items-center gap-5 w-full max-w-3xl mx-auto px-4 pb-4">
+    <div className="flex flex-col items-center gap-5 w-full max-w-[var(--mq-container-base)] mx-auto px-4 pb-4">
       <div className="text-center">
         <h1
           className="text-xl sm:text-2xl font-bold mb-1.5"
@@ -624,7 +624,7 @@ export default function OnboardingView() {
 
   // ── Step 3: Discover ──
   const renderDiscoverStep = () => (
-    <div className="flex flex-col items-center gap-5 w-full max-w-3xl mx-auto px-4 pb-4">
+    <div className="flex flex-col items-center gap-5 w-full max-w-[var(--mq-container-base)] mx-auto px-4 pb-4">
       <div className="text-center">
         <h1
           className="text-xl sm:text-2xl font-bold mb-1.5"
@@ -811,7 +811,7 @@ export default function OnboardingView() {
 
         {/* Bottom action bar — clean minimal */}
         <div
-          className="sticky bottom-0 left-0 right-0 w-full max-w-2xl mx-auto mt-4 pt-4 pb-4 flex items-center justify-between z-20"
+          className="sticky bottom-0 left-0 right-0 w-full max-w-[var(--mq-container-narrow)] mx-auto mt-4 pt-4 pb-4 flex items-center justify-between z-20"
           style={{
             background: "linear-gradient(to top, var(--mq-bg, #0a0a0a) 60%, transparent 100%)",
           }}

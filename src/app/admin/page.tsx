@@ -283,7 +283,7 @@ export default function AdminDashboard() {
                 >
                   <Icon className="w-5 h-5" style={{ color: card.color }} />
                 </div>
-                <span className="text-[10px] font-medium px-2 py-0.5 rounded-md" style={{
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-md" style={{
                   backgroundColor: `${card.color}10`,
                   color: card.color,
                 }}>
@@ -330,7 +330,7 @@ export default function AdminDashboard() {
                 <p className="text-lg font-bold leading-tight" style={{ color: "var(--mq-text)" }}>
                   {formatNumber(stat.value)}
                 </p>
-                <p className="text-[10px] font-medium" style={{ color: "var(--mq-text-muted)" }}>
+                <p className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)" }}>
                   {stat.label}
                 </p>
               </div>
@@ -384,7 +384,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium">{item.label}</p>
-                      <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                      <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                         {item.desc}
                       </p>
                     </div>
@@ -420,7 +420,7 @@ export default function AdminDashboard() {
                 <h2 className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
                   Последние регистрации
                 </h2>
-                <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                   Новые пользователи системы
                 </p>
               </div>
@@ -439,31 +439,31 @@ export default function AdminDashboard() {
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--mq-border)" }}>
                   <th
-                    className="text-left px-5 py-3 font-medium text-[10px] uppercase tracking-wider"
+                    className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     Пользователь
                   </th>
                   <th
-                    className="text-left px-5 py-3 font-medium text-[10px] uppercase tracking-wider hidden sm:table-cell"
+                    className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden sm:table-cell"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     Email
                   </th>
                   <th
-                    className="text-left px-5 py-3 font-medium text-[10px] uppercase tracking-wider"
+                    className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     Статус
                   </th>
                   <th
-                    className="text-left px-5 py-3 font-medium text-[10px] uppercase tracking-wider hidden md:table-cell"
+                    className="text-left px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden md:table-cell"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     Роль
                   </th>
                   <th
-                    className="text-right px-5 py-3 font-medium text-[10px] uppercase tracking-wider hidden lg:table-cell"
+                    className="text-right px-5 py-3 font-medium text-[11px] uppercase tracking-wider hidden lg:table-cell"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     Дата
@@ -605,7 +605,7 @@ export default function AdminDashboard() {
             >
               <Icon className="w-4 h-4 flex-shrink-0" style={{ color: item.color }} />
               <div className="min-w-0">
-                <p className="text-[10px] font-medium" style={{ color: "var(--mq-text-muted)" }}>
+                <p className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)" }}>
                   {item.label}
                 </p>
                 <p className="text-xs font-semibold" style={{ color: item.color }}>
