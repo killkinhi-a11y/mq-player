@@ -744,6 +744,11 @@ export default function FullTrackView() {
     let lastTimeUpdate = 0;
     const tick = () => {
       if (!running) return;
+      // P1-fix: skip DOM updates when tab is hidden (saves CPU)
+      if (document.hidden) {
+        if (running) requestAnimationFrame(tick);
+        return;
+      }
       // Skip DOM updates while user is dragging the progress bar
       if (isDraggingRef.current) {
         if (running) requestAnimationFrame(tick);
@@ -868,11 +873,17 @@ export default function FullTrackView() {
   }, [activeLineIndex]);
 
   // Lyrics visualization — audio-reactive frequency bars & wave
+  // P1-fix: pause canvas drawing when tab is hidden to save CPU
   useEffect(() => {
     const canvas = lyricsVisCanvasRef.current;
     if (!canvas || !showLyrics) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    // P1-fix: skip drawing when tab is hidden
+    let tabHidden = false;
+    const onVisChange = () => { tabHidden = document.hidden; };
+    document.addEventListener("visibilitychange", onVisChange);
 
     const analyser = getAnalyser();
     const bufferLength = analyser ? analyser.frequencyBinCount : 128;
@@ -892,9 +903,11 @@ export default function FullTrackView() {
       }
     };
     updateAccent();
-    const accentInterval = setInterval(updateAccent, 2000);
+    // P1-fix: poll accent color less frequently (was 2s, now 5s — accent rarely changes)
+    const accentInterval = setInterval(updateAccent, 5000);
 
     const draw = () => {
+      if (tabHidden) { animId = requestAnimationFrame(draw); return; }
       const dpr = window.devicePixelRatio || 1;
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
@@ -1024,7 +1037,7 @@ export default function FullTrackView() {
     };
 
     animId = requestAnimationFrame(draw);
-    return () => { cancelAnimationFrame(animId); clearInterval(accentInterval); };
+    return () => { cancelAnimationFrame(animId); clearInterval(accentInterval); document.removeEventListener("visibilitychange", onVisChange); };
   }, [showLyrics, isPlaying, currentTrack?.id]);
 
   // Fetch similar tracks using the smart similarity algorithm
@@ -1144,10 +1157,12 @@ export default function FullTrackView() {
       }
     };
     updateWaveAccent();
-    const waveAccentInterval = setInterval(updateWaveAccent, 2000);
+    // P1-fix: poll accent color less frequently (was 2s, now 5s)
+    const waveAccentInterval = setInterval(updateWaveAccent, 5000);
 
     const draw = () => {
       waveAnimRef.current = requestAnimationFrame(draw);
+      if (document.hidden) return; // P1-fix: skip drawing when tab hidden
       const dpr = window.devicePixelRatio || 1;
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;

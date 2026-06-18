@@ -574,7 +574,7 @@ export default function PlaylistView() {
         >
           <div className="flex items-start gap-4">
             {/* Cover with upload overlay — larger for detail view */}
-            <div className="relative group/cover flex-shrink-0">
+            <div className="relative group/cover flex-shrink-0 self-center">
               <div className="w-28 h-28 rounded-2xl overflow-hidden flex items-center justify-center"
                 style={selectedPlaylist.cover
                   ? { backgroundColor: "transparent" }
@@ -814,7 +814,7 @@ export default function PlaylistView() {
                   onDragOver={(e) => handleDragOver(e, i)}
                   onDrop={(e) => handleDrop(e, i)}
                   onDragEnd={handleDragEnd}
-                  className={`relative group/track flex items-center gap-1 transition-colors ${
+                  className={`relative group/track flex items-center gap-2 transition-colors overflow-hidden ${
                     isDragTarget ? "border-t-2" : ""
                   }`}
                   style={{
