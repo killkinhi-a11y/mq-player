@@ -650,8 +650,8 @@ export default function PlaylistView() {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-2xl font-bold truncate" style={{ color: "var(--mq-text)" }}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <h1 className="text-2xl font-bold truncate max-w-full" style={{ color: "var(--mq-text)" }}>
                       {selectedPlaylist.name}
                     </h1>
                     {isCollaborative && (
@@ -1435,7 +1435,7 @@ export default function PlaylistView() {
                 ) : (
                   <>
                     <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+                      <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }} title={pl.name}>
                         {pl.name}
                       </p>
                       {pinnedIds.has(pl.id) && (

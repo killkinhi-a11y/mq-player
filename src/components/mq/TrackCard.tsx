@@ -341,7 +341,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
                 textShadow: isActive ? "0 0 12px color-mix(in srgb, var(--mq-accent) 25%, transparent)" : "none",
               }}
             >
-              {track.title}
+              <span title={`${track.title} — ${track.artist}`}>{track.title}</span>
             </p>
             {/* Gradient fade on long titles */}
             <span
@@ -360,6 +360,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
           <p
             className={`truncate mt-0.5 ${compactMode ? "text-[11px]" : "text-xs"}`}
             style={{ color: "var(--mq-text-muted)" }}
+            title={track.artist}
           >
             {onArtistClick ? (
               <span
