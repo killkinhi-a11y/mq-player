@@ -121,30 +121,33 @@
   }
 }
 
-/* ── Focus visibility (P1.1 — was killing ALL keyboard focus indicators) ──
-   Previously: `*:focus-visible { outline: none !important }` stripped ALL
-   keyboard focus rings. WCAG 2.1 SC 2.4.7 (Focus Visible) — Level AA fail.
-   Now: only suppress the ugly default *box* outline on mouse focus (:focus),
-   but RESTORE :focus-visible for keyboard navigation with a themed ring. */
+/* ── Focus visibility ──
+   P2-focus: Use box-shadow ring instead of outline.
+   CSS outline does NOT follow border-radius in most browsers — it draws
+   a square box around rounded elements (buttons, pills, cards), which
+   looks broken. box-shadow follows border-radius perfectly.
+   We keep :focus (mouse/touch) suppressed to avoid noise on click. */
 
 /* Mouse/touch focus — suppress default browser outline (which is a square box) */
 *:focus {
   outline: none;
 }
 
-/* Keyboard focus (:focus-visible) — show a themed ring on ALL elements */
+/* Keyboard focus (:focus-visible) — themed ring via box-shadow (follows border-radius) */
 *:focus-visible {
-  outline: 2px solid var(--mq-accent, #e03131);
-  outline-offset: 2px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--mq-bg, #0e0e0e), 0 0 0 4px var(--mq-accent, #e03131);
+  /* The first shadow creates a gap (offset ring), the second is the accent ring.
+     Both follow border-radius because box-shadow does. */
   border-radius: inherit;
 }
 
-/* Form elements get a softer box-shadow ring instead of outline */
+/* Form elements — softer accent ring without the bg gap */
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 60%, transparent) !important;
   border-radius: inherit;
 }
 
