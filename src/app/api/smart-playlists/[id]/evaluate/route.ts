@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isTurso, getTursoClient } from "@/lib/database";
+import { isTurso, getTursoClient, database } from "@/lib/database";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { withAuth } from "@/lib/withAuth";
 import { evaluateSmartPlaylist, type SmartPlaylistConfig } from "@/lib/smartPlaylist";
-import { useAppStore } from "@/store/useAppStore";
 
 /**
  * GET /api/smart-playlists/[id]/evaluate
