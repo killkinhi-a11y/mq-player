@@ -85,6 +85,12 @@
   --mq-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --mq-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --mq-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  /* P2-shadow: extra intermediate tiers for finer control */
+  --mq-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.18);
+  --mq-shadow-card: 0 2px 8px rgba(0, 0, 0, 0.22);
+  --mq-shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.32);
+  --mq-shadow-button: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --mq-shadow-button-hover: 0 4px 12px rgba(0, 0, 0, 0.3);
 
   /* Elevation System — premium shadows with depth */
   --mq-shadow-float: 0 8px 32px rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.2);
@@ -92,6 +98,9 @@
   --mq-shadow-dramatic: 0 24px 64px rgba(0,0,0,0.6), 0 8px 24px rgba(0,0,0,0.4);
   --mq-shadow-glow: 0 0 40px color-mix(in srgb, var(--mq-accent) 20%, transparent);
   --mq-shadow-inner-glow: inset 0 1px 0 rgba(255,255,255,0.06);
+  /* P2-shadow: accent-tinted elevation for primary buttons / play buttons */
+  --mq-shadow-accent: 0 4px 16px color-mix(in srgb, var(--mq-accent) 25%, rgba(0,0,0,0.3));
+  --mq-shadow-accent-hover: 0 6px 24px color-mix(in srgb, var(--mq-accent) 35%, rgba(0,0,0,0.35));
 
   /* Z-index scale */
   --mq-z-base: 0;

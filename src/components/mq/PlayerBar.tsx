@@ -563,7 +563,7 @@ const PlayerBar = React.memo(function PlayerBar() {
               bottom: "calc(82px + env(safe-area-inset-bottom, 8px))",
               backgroundColor: "var(--mq-player-bg)",
               border: "1px solid var(--mq-border-subtle, rgba(255,255,255,0.08))",
-              boxShadow: "0 4px 24px rgba(0,0,0,0.5), 0 0 24px color-mix(in srgb, var(--mq-accent) 10%, transparent)",
+              boxShadow: "var(--mq-shadow-float)",
               backdropFilter: "blur(40px) saturate(200%)",
               WebkitBackdropFilter: "blur(40px) saturate(200%)",
             }}
@@ -591,7 +591,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                   transition: "opacity 0.5s ease",
                   zIndex: 0,
                 }} />
-                <Image src={currentTrack.cover} alt="" width={40} height={40} className="w-10 h-10 rounded-xl object-cover relative" style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.4)", zIndex: 1 }} unoptimized />
+                <Image src={currentTrack.cover} alt="" width={40} height={40} className="w-10 h-10 rounded-xl object-cover relative" style={{ boxShadow: "var(--mq-shadow-card)", zIndex: 1 }} unoptimized />
               </motion.div>
             ) : (
               <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center relative" style={{ backgroundColor: "var(--mq-accent)", opacity: 0.4 }}>
@@ -681,7 +681,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                 backdropFilter: "blur(24px) saturate(160%)",
                 WebkitBackdropFilter: "blur(24px) saturate(160%)",
                 borderTop: "1px solid var(--mq-border-subtle, rgba(255,255,255,0.06))",
-                boxShadow: "0 -8px 40px rgba(0,0,0,0.3)",
+                boxShadow: "var(--mq-shadow-float)",
                 // No border-radius on mobile — the nav bar sits flush below,
                 // rounding creates a visible "floating" gap between the two.
                 // On desktop (sm+) radius is applied via the media query below.
@@ -829,7 +829,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                           fontWeight: 600,
                           fontFamily: "var(--font-geist-mono), monospace",
                           whiteSpace: "nowrap",
-                          boxShadow: "0 4px 16px rgba(0,0,0,0.4), 0 0 8px color-mix(in srgb, var(--mq-accent) 20%, transparent)",
+                          boxShadow: "var(--mq-shadow-accent)",
                           pointerEvents: "none",
                           zIndex: 100,
                           letterSpacing: "0.02em",
@@ -929,7 +929,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                         fontWeight: 700,
                         fontFamily: "var(--font-geist-mono), monospace",
                         whiteSpace: "nowrap",
-                        boxShadow: "0 6px 20px rgba(0,0,0,0.5), 0 0 16px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+                        boxShadow: "var(--mq-shadow-accent-hover)",
                         pointerEvents: "none",
                         zIndex: 100,
                         letterSpacing: "0.03em",
@@ -973,7 +973,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                         width: 48,
                         height: 48,
                         borderRadius: 12,
-                        boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
+                        boxShadow: "var(--mq-shadow-card-hover)",
                         zIndex: 1,
                       }}
                       initial={{ scale: 0.85, opacity: 0 }}
@@ -1221,7 +1221,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                           left: `${volume}%`,
                           transform: "translate(-50%, -50%)",
                           backgroundColor: "var(--mq-text-on-accent, #fff)",
-                          boxShadow: "0 0 0 2px var(--mq-accent), 0 1px 4px rgba(0,0,0,0.3)",
+                          boxShadow: "0 0 0 2px var(--mq-accent), var(--mq-shadow-sm)",
                           pointerEvents: "none",
                           opacity: isVolumeDragging ? 1 : 0,
                           transition: isVolumeDragging ? "none" : "opacity 0.15s ease",
@@ -1236,7 +1236,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                           left: `${volume}%`,
                           transform: "translate(-50%, -50%)",
                           backgroundColor: "var(--mq-text-on-accent, #fff)",
-                          boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
+                          boxShadow: "var(--mq-shadow-sm)",
                           pointerEvents: "none",
                           transition: "opacity 0.15s ease",
                         }}
@@ -1266,7 +1266,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                           fontWeight: 600,
                           fontFamily: "var(--font-geist-mono), monospace",
                           whiteSpace: "nowrap",
-                          boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+                          boxShadow: "var(--mq-shadow-card)",
                           pointerEvents: "none",
                           zIndex: 100,
                         }}
@@ -1376,7 +1376,7 @@ const PlayerBar = React.memo(function PlayerBar() {
                         width: 46,
                         height: 46,
                         borderRadius: 12,
-                        boxShadow: "0 3px 12px rgba(0,0,0,0.3)",
+                        boxShadow: "var(--mq-shadow-card)",
                         zIndex: 1,
                       }}
                       initial={{ scale: 0.85, opacity: 0 }}

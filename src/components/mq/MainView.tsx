@@ -103,7 +103,7 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
   if (aiTracks.length === 0 && !aiLoading) {
     return (
       <div className="rounded-2xl p-4 text-center"
-        style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 1px 4px rgba(0,0,0,0.12)" }}>
+        style={{ backgroundColor: "var(--mq-card)", boxShadow: "var(--mq-shadow-xs)" }}>
         <Sparkles className="w-5 h-5 mx-auto mb-1.5" style={{ color: "var(--mq-accent)", opacity: 0.5 }} />
         <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
           {/* P1-fix: was useAppStore.getState() — didn't re-render on history change */}
@@ -509,7 +509,7 @@ function ListeningActivityBar({ history }: { history: any[] }) {
                 style={{
                   backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text)",
-                  boxShadow: "0 2px 12px rgba(0,0,0,0.25)",
+                  boxShadow: "var(--mq-shadow-card)",
                   border: "1px solid rgba(255,255,255,0.08)",
                 }}
               >
@@ -1422,7 +1422,7 @@ export default function MainView() {
                     onClick={() => { if (displayTracks.length > 0) playTrack(displayTracks[0], displayTracks); }}
                     disabled={artistTracks.length === 0 || artistTracksLoading}
                     className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-40 transition-all"
-                    style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", boxShadow: "0 4px 15px rgba(0,0,0,0.2)" }}
+                    style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", boxShadow: "var(--mq-shadow-button)" }}
                   >
                     <Play className="w-4 h-4" style={{ marginLeft: 1 }} />
                     Слушать
@@ -2029,7 +2029,7 @@ export default function MainView() {
                     <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
                       onClick={() => useAppStore.getState().toggleRadioMode()}
                       className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "0 6px 24px rgba(0,0,0,0.25)" }}>
+                      style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "var(--mq-shadow-card-hover)" }}>
                       <Pause className="w-6 h-6" fill="currentColor" />
                     </motion.button>
                   </div>
@@ -2057,7 +2057,7 @@ export default function MainView() {
                   <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
                     onClick={handleStartWave} disabled={waveLoading}
                     className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ background: "rgba(255,255,255,0.9)", color: "var(--mq-bg)", boxShadow: "0 4px 20px rgba(0,0,0,0.25), 0 0 24px color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
+                    style={{ background: "rgba(255,255,255,0.9)", color: "var(--mq-bg)", boxShadow: "var(--mq-shadow-accent)" }}>
                     {waveLoading ? (
                       <motion.div className="w-5 h-5 border-2 rounded-full" style={{ borderColor: "var(--mq-bg)", borderTopColor: "transparent" }} animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} />
                     ) : (
@@ -2086,7 +2086,7 @@ export default function MainView() {
                   <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
                     onClick={handleStartWave} disabled={waveLoading}
                     className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "0 6px 24px rgba(0,0,0,0.25)" }}>
+                    style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "var(--mq-shadow-card-hover)" }}>
                     {waveLoading ? (
                       <motion.div className="w-6 h-6 border-2 rounded-full" style={{ borderColor: "#1a1a2e", borderTopColor: "transparent" }} animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} />
                     ) : (

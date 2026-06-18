@@ -589,13 +589,13 @@ export default function PlaylistView() {
         <motion.div
           initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl p-5"
-          style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 4px 24px rgba(0,0,0,0.2)" }}
+          className="rounded-2xl p-4 sm:p-5"
+          style={{ backgroundColor: "var(--mq-card)", boxShadow: "var(--mq-shadow-card)" }}
         >
-          <div className="flex items-start gap-4">
+          <div className="flex items-start gap-3 sm:gap-4">
             {/* Cover with upload overlay — larger for detail view */}
             <div className="relative group/cover flex-shrink-0 self-center">
-              <div className="w-28 h-28 rounded-2xl overflow-hidden flex items-center justify-center"
+              <div className="w-20 h-20 sm:w-28 sm:h-28 rounded-2xl overflow-hidden flex items-center justify-center"
                 style={selectedPlaylist.cover
                   ? { backgroundColor: "transparent" }
                   : { background: generateGradientCover(selectedPlaylist.name) }
@@ -706,24 +706,26 @@ export default function PlaylistView() {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
               {editingId !== selectedPlaylist.id && (
                 <>
                   <motion.button
                     whileTap={{ scale: 0.9 }}
                     onClick={() => { setEditingId(selectedPlaylist.id); setEditName(selectedPlaylist.name); setEditDesc(selectedPlaylist.description); }}
-                    className="p-2 rounded-full"
+                    className="p-1.5 sm:p-2 rounded-full hover:bg-white/5 transition-colors"
                     style={{ color: "var(--mq-text-muted)" }}
                     title="Редактировать"
+                    aria-label="Редактировать"
                   >
                     <Edit3 className="w-4 h-4" />
                   </motion.button>
                   <motion.button
                     whileTap={{ scale: 0.9 }}
                     onClick={() => setShowExport(true)}
-                    className="p-2 rounded-full"
+                    className="p-1.5 sm:p-2 rounded-full hover:bg-white/5 transition-colors"
                     style={{ color: "var(--mq-text-muted)" }}
                     title="Экспорт"
+                    aria-label="Экспорт"
                   >
                     <Share2 className="w-4 h-4" />
                   </motion.button>
@@ -731,20 +733,22 @@ export default function PlaylistView() {
               )}
               {selectedPlaylist.tracks.length > 0 && (
                 <motion.button
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.92 }}
                   onClick={() => handlePlayAll(selectedPlaylist)}
-                  className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)", boxShadow: "var(--mq-shadow-accent)" }}
+                  aria-label="Воспроизвести всё"
                 >
-                  <Play className="w-5 h-5 ml-0.5" />
+                  <Play className="w-4 h-4 sm:w-5 sm:h-5 ml-0.5" fill="currentColor" />
                 </motion.button>
               )}
               <motion.button
                 whileTap={{ scale: 0.9 }}
                 onClick={() => deletePlaylist(selectedPlaylist.id)}
-                className="p-2 rounded-full"
+                className="p-1.5 sm:p-2 rounded-full hover:bg-white/5 transition-colors"
                 style={{ color: "var(--mq-text-muted)" }}
+                aria-label="Удалить плейлист"
               >
                 <Trash2 className="w-4 h-4" />
               </motion.button>
@@ -760,7 +764,7 @@ export default function PlaylistView() {
             initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
             animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl p-4"
-            style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}
+            style={{ backgroundColor: "var(--mq-card)", boxShadow: "var(--mq-shadow-card)" }}
           >
             <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text-muted)" }}>
               Перегенерировать ИИ
@@ -843,7 +847,7 @@ export default function PlaylistView() {
                   onDragOver={(e) => handleDragOver(e, i)}
                   onDrop={(e) => handleDrop(e, i)}
                   onDragEnd={handleDragEnd}
-                  className="group/track grid grid-cols-[2.5rem_2.5rem_1fr_3.5rem_2.5rem_2.5rem] sm:grid-cols-[2.5rem_1fr_3.5rem_2.5rem_2.5rem] items-center gap-2 px-3 py-2 transition-colors relative"
+                  className="group/track grid grid-cols-[2rem_2.5rem_1fr_2.25rem_2.25rem] sm:grid-cols-[2.5rem_1fr_3.5rem_2.5rem_2.5rem] items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 transition-colors relative"
                   style={{
                     backgroundColor: isDragTarget
                       ? "rgba(255,255,255,0.06)"
@@ -855,7 +859,7 @@ export default function PlaylistView() {
                   }}
                 >
                   {/* Track number + play-on-hover + drag grip */}
-                  <div className="flex items-center justify-center relative w-10 h-10 cursor-pointer"
+                  <div className="flex items-center justify-center relative w-8 h-8 sm:w-10 sm:h-10 cursor-pointer"
                     onClick={() => {
                       if (isCurrentlyPlaying) {
                         useAppStore.getState().togglePlay();
@@ -910,7 +914,7 @@ export default function PlaylistView() {
                     )}
                   </div>
 
-                  {/* Cover thumbnail (mobile-only) */}
+                  {/* Cover thumbnail (mobile-only) — same grid cell as duration on desktop */}
                   <div className="sm:hidden flex-shrink-0 w-10 h-10 rounded-md overflow-hidden"
                     style={{ backgroundColor: "var(--mq-input-bg)" }}>
                     {track.cover ? (
@@ -921,6 +925,12 @@ export default function PlaylistView() {
                       </div>
                     )}
                   </div>
+
+                  {/* Duration (desktop-only) — same grid cell as cover on mobile */}
+                  <span className="hidden sm:block text-[11px] tabular-nums text-right pr-1"
+                    style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                    {formatDuration(track.duration)}
+                  </span>
 
                   {/* Title + artist */}
                   <div className="min-w-0 flex-1 cursor-pointer"
@@ -951,12 +961,6 @@ export default function PlaylistView() {
                       {track.artist}
                     </button>
                   </div>
-
-                  {/* Duration */}
-                  <span className="text-[11px] tabular-nums text-right pr-1 hidden sm:block"
-                    style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
-                    {formatDuration(track.duration)}
-                  </span>
 
                   {/* Like button */}
                   <motion.button
@@ -1132,7 +1136,7 @@ export default function PlaylistView() {
                         toast({ title: "Добавлено", description: `${track.artist} — ${track.title}` });
                       }}
                       className="absolute top-3 right-3 p-1.5 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
-                      style={{ color: "var(--mq-accent)", backgroundColor: "var(--mq-card)", boxShadow: "0 2px 8px rgba(0,0,0,0.2)" }}
+                      style={{ color: "var(--mq-accent)", backgroundColor: "var(--mq-card)", boxShadow: "var(--mq-shadow-card)" }}
                       title="Добавить в плейлист"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -1210,7 +1214,7 @@ export default function PlaylistView() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             className="rounded-2xl p-5 space-y-3"
-            style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 4px 24px rgba(0,0,0,0.2)" }}
+            style={{ backgroundColor: "var(--mq-card)", boxShadow: "var(--mq-shadow-card-hover)" }}
           >
             <div className="flex items-center justify-between">
               <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Новый плейлист</h3>
@@ -1259,7 +1263,7 @@ export default function PlaylistView() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             className="rounded-2xl p-5 space-y-3"
-            style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 4px 24px rgba(0,0,0,0.2)" }}
+            style={{ backgroundColor: "var(--mq-card)", boxShadow: "var(--mq-shadow-card-hover)" }}
           >
             <div className="flex items-center justify-between">
               <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Импорт плейлиста</h3>
@@ -1454,7 +1458,7 @@ export default function PlaylistView() {
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setSelectedPlaylistId(pl.id)}
                 className="rounded-2xl p-3 cursor-pointer relative group flex-shrink-0 w-[140px]"
-                style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}
+                style={{ backgroundColor: "var(--mq-card)", boxShadow: "var(--mq-shadow-card)" }}
               >
                 {/* Cover with upload hover + zoom on hover — larger now */}
                 <div className="relative group/cover w-full aspect-square rounded-2xl overflow-hidden mb-3 flex items-center justify-center"
