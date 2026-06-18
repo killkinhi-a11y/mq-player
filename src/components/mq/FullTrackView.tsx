@@ -398,14 +398,14 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                   <div className="flex items-center gap-2.5">
-                    <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ S.getState().duration: 4, repeat: Infinity, ease: "easeInOut" }}>
+                    <motion.div animate={{ rotate: [0, 10, -10, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
                       <Moon className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
                     </motion.div>
                     <div>
                       <span className="text-sm font-bold block" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
                       <div className="flex items-center gap-1.5">
                         <motion.div animate={{ opacity: [0.4, 1, 0.4], scale: [0.8, 1.2, 0.8] }}
-                          transition={{ S.getState().duration: 1.5, repeat: Infinity }}><Star className="w-2.5 h-2.5" fill="var(--mq-accent)" style={{ color: "var(--mq-accent)" }} /></motion.div>
+                          transition={{ duration: 1.5, repeat: Infinity }}><Star className="w-2.5 h-2.5" fill="var(--mq-accent)" style={{ color: "var(--mq-accent)" }} /></motion.div>
                         <span className="text-[11px] font-medium" style={{ color: "var(--mq-accent)" }}>Активен</span>
                       </div>
                     </div>
@@ -424,11 +424,11 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                       <circle cx="80" cy="80" r="70" fill="none" stroke="url(#stGrad)" strokeWidth="5"
                         strokeLinecap="round" strokeDasharray={2 * Math.PI * 70}
                         strokeDashoffset={2 * Math.PI * 70 * (1 - S.getState().progress)}
-                        className="transition-all S.getState().duration-1000 ease-linear" />
+                        className="transition-all duration-1000 ease-linear" />
                       <circle cx="80" cy="80" r="70" fill="none" stroke="url(#stGrad)" strokeWidth="2"
                         strokeLinecap="round" strokeDasharray={2 * Math.PI * 70}
                         strokeDashoffset={2 * Math.PI * 70 * (1 - S.getState().progress)}
-                        className="transition-all S.getState().duration-1000 ease-linear"
+                        className="transition-all duration-1000 ease-linear"
                         style={{ filter: "blur(5px)", opacity: 0.35 }} />
                       <defs>
                         <linearGradient id="stGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -492,7 +492,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
 
                 {/* Progress bar (shared) */}
                 <div className="w-full h-1.5 rounded-full overflow-hidden mb-2" style={{ backgroundColor: "var(--mq-border)", opacity: 0.3 }}>
-                  <div className="h-full rounded-full transition-all S.getState().duration-1000 ease-linear"
+                  <div className="h-full rounded-full transition-all duration-1000 ease-linear"
                     style={{ width: `${S.getState().progress * 100}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 8px var(--mq-glow)" }} />
                 </div>
                 <div className="flex justify-between mb-5 sm:mb-4">
@@ -1036,7 +1036,7 @@ export default function FullTrackView() {
           title: currentTrack.title || "",
           artist: currentTrack.artist || "",
           genre: currentTrack.genre || "",
-          S.getState().duration: String(currentTrack.S.getState().duration || 0),
+          duration: String(currentTrack.duration || 0),
           scTrackId: String(currentTrack.scTrackId || ""),
           excludeId: currentTrack.id,
           limit: "50",
@@ -1894,8 +1894,8 @@ export default function FullTrackView() {
       <motion.div
         key={currentTrack?.id}
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1, transition: { S.getState().duration: 0.3, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } }}
-        exit={{ opacity: 0, transition: { S.getState().duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } }}
+        animate={{ opacity: 1, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } }}
+        exit={{ opacity: 0, transition: { duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } }}
         className="fixed inset-0 flex flex-col overflow-hidden"
         style={{ zIndex: 200, backgroundColor: "var(--mq-bg, rgba(0,0,0,0.97))", backdropFilter: "blur(40px)", WebkitBackdropFilter: "blur(40px)", willChange: "opacity", contain: "layout style paint" }}
       >
@@ -1920,7 +1920,7 @@ export default function FullTrackView() {
                 key={currentTrack.id}
                 initial={{ opacity: 0, scale: 1.1 }}
                 animate={{ opacity: 1, scale: 1.15 }}
-                transition={{ S.getState().duration: 1.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+                transition={{ duration: 1.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
                 className="absolute inset-0"
               >
                 {currentTrack.cover && (
@@ -1957,7 +1957,7 @@ export default function FullTrackView() {
             animate={{
               opacity: 1
             }}
-            transition={{ S.getState().duration: 12, repeat: Infinity, ease: "linear" }}
+            transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
             className="absolute inset-0"
             style={{
               background: "radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--mq-accent) 6%, transparent), transparent 60%)",
@@ -1969,11 +1969,11 @@ export default function FullTrackView() {
         {/* ── Top bar: Close (chevron-down) + Now Playing + More ── */}
         <div className="relative z-10 flex items-center justify-between px-4 pt-3 pb-1 sm:px-6 sm:pt-4">
           <motion.button whileTap={{ scale: 0.95 }} onClick={() => { S.getState().setFullTrackViewOpen(false); setShowSimilar(false); setShowLyrics(false); setShowSleepTimer(false); setShowComments(false); setShowDNA(false); setCanvasMode(false); setShowMoreMenu(false); }}
-            className="w-11 h-11 rounded-full flex items-center justify-center transition-all S.getState().duration-200 group/close"
+            className="w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 group/close"
             style={{ color: "var(--mq-text-muted)", backgroundColor: "var(--mq-glass-bg)", backdropFilter: "var(--mq-glass-blur)", WebkitBackdropFilter: "var(--mq-glass-blur)", border: "1px solid var(--mq-glass-border)" }}>
             <motion.div
               whileHover={{ rotate: 90 }}
-              transition={{ S.getState().duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
             >
               <ChevronDown className="w-6 h-6" />
             </motion.div>
@@ -2026,7 +2026,7 @@ export default function FullTrackView() {
                   className="absolute -inset-6 rounded-3xl blur-3xl"
                   style={{ backgroundColor: "var(--mq-accent)" }}
                   animate={isPlaying ? { opacity: [0.25, 0.4, 0.25], scale: [1, 1.05, 1] } : { opacity: 0.15 }}
-                  transition={isPlaying ? { S.getState().duration: 3, repeat: Infinity, ease: "easeInOut" } : { S.getState().duration: 0.8 }}
+                  transition={isPlaying ? { duration: 3, repeat: Infinity, ease: "easeInOut" } : { duration: 0.8 }}
                 />
                 <div className="relative p-[2px] rounded-2xl overflow-hidden"
                   style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 40%, transparent), rgba(255,255,255,0.1), color-mix(in srgb, var(--mq-accent) 40%, transparent), var(--mq-accent))", backgroundSize: "300% 300%", animation: "mqGradientBorder 6s ease infinite", willChange: "background-position" }}>
@@ -2099,7 +2099,7 @@ export default function FullTrackView() {
                   key={currentTrack.id}
                   initial={animationsEnabled ? { opacity: 0, y: 8, filter: "blur(4px)" } : undefined}
                   animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  transition={{ S.getState().duration: 0.5, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
                   className={`text-2xl sm:text-3xl lg:text-4xl truncate leading-tight ${isPlaying ? "mq-gradient-text" : ""}`}
                   style={{
                     fontSize: "var(--mq-text-headline)",
@@ -2114,8 +2114,8 @@ export default function FullTrackView() {
                   key={currentTrack.id + "-artist"}
                   initial={animationsEnabled ? { opacity: 0, y: 4 } : undefined}
                   animate={{ opacity: 0.7, y: 0 }}
-                  transition={{ S.getState().duration: 0.4, delay: 0.06, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
-                  className="cursor-pointer hover:underline underline-offset-4 transition-all S.getState().duration-200 mt-1.5 block"
+                  transition={{ duration: 0.4, delay: 0.06, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+                  className="cursor-pointer hover:underline underline-offset-4 transition-all duration-200 mt-1.5 block"
                   style={{
                     fontSize: "var(--mq-text-lg)",
                     color: "var(--mq-text-muted)",
@@ -2144,7 +2144,7 @@ export default function FullTrackView() {
                     key={currentTrack.id + "-album"}
                     initial={animationsEnabled ? { opacity: 0 } : undefined}
                     animate={{ opacity: 1 }}
-                    transition={{ S.getState().duration: 0.3, delay: 0.1 }}
+                    transition={{ duration: 0.3, delay: 0.1 }}
                     className="text-xs mt-0.5 truncate" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>
                     {currentTrack.album}
                   </motion.p>
@@ -2213,7 +2213,7 @@ export default function FullTrackView() {
                   </svg>
                 </div>
                 {/* Track background — premium thick bar */}
-                <div className="w-full h-[6px] sm:h-[6px] rounded-full relative transition-all S.getState().duration-150 group-hover:h-[8px]" style={{ backgroundColor: "rgba(255,255,255,0.12)" }}>
+                <div className="w-full h-[6px] sm:h-[6px] rounded-full relative transition-all duration-150 group-hover:h-[8px]" style={{ backgroundColor: "rgba(255,255,255,0.12)" }}>
                   {/* Active fill — scaleX for 0-reflow */}
                   <div ref={progressFillRef} className="h-full rounded-full overflow-hidden"
                     style={{
@@ -2225,7 +2225,7 @@ export default function FullTrackView() {
                     }}
                   />
                   {/* Accent glow under S.getState().progress fill */}
-                  <div className="absolute bottom-0 left-0 h-full rounded-full pointer-events-none mq-S.getState().progress-glow"
+                  <div className="absolute bottom-0 left-0 h-full rounded-full pointer-events-none mq-progress-glow"
                     style={{
                       width: "100%",
                       transform: `scaleX(${S.getState().duration > 0 ? S.getState().progress / S.getState().duration : 0})`,
@@ -2261,7 +2261,7 @@ export default function FullTrackView() {
                   })}
                 </div>
                 {/* Thumb dot — positioned at left:0, moved via translateX */}
-                <div ref={progressThumbRef} className="absolute left-0 top-1/2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity S.getState().duration-200"
+                <div ref={progressThumbRef} className="absolute left-0 top-1/2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"
                   style={{
                     width: 18,
                     height: 18,
@@ -2301,12 +2301,12 @@ export default function FullTrackView() {
             {/* Main playback controls — minimal Spotify/Apple Music style */}
             <div className="flex items-center justify-between px-6 sm:px-10">
               <motion.button whileTap={{ scale: 0.9 }} onClick={toggleShuffle}
-                className="p-2 rounded-full transition-colors S.getState().duration-150"
+                className="p-2 rounded-full transition-colors duration-150"
                 style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 <Shuffle className="w-4 h-4" />
               </motion.button>
               <motion.button whileTap={{ scale: 0.95 }} onClick={prevTrack}
-                className="p-2 rounded-full transition-colors S.getState().duration-150"
+                className="p-2 rounded-full transition-colors duration-150"
                 style={{ color: "var(--mq-text)" }}>
                 <SkipBack className="w-6 h-6" fill="currentColor" />
               </motion.button>
@@ -2320,12 +2320,12 @@ export default function FullTrackView() {
                 {isPlaying ? <Pause className="w-5 h-5" fill="currentColor" /> : <Play className="w-5 h-5" fill="currentColor" style={{ marginLeft: 1.5 }} />}
               </motion.button>
               <motion.button whileTap={{ scale: 0.95 }} onClick={nextTrack}
-                className="p-2 rounded-full transition-colors S.getState().duration-150"
+                className="p-2 rounded-full transition-colors duration-150"
                 style={{ color: "var(--mq-text)" }}>
                 <SkipForward className="w-6 h-6" fill="currentColor" />
               </motion.button>
               <motion.button whileTap={{ scale: 0.9 }} onClick={toggleRepeat}
-                className="p-2 rounded-full transition-colors S.getState().duration-150 relative"
+                className="p-2 rounded-full transition-colors duration-150 relative"
                 style={{ color: repeat !== "off" ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                 {repeat === "one" ? <Repeat1 className="w-4 h-4" /> : <Repeat className="w-4 h-4" />}
                 {repeat === "one" && (
@@ -2338,7 +2338,7 @@ export default function FullTrackView() {
             {/* Action row — minimal icon-only strip */}
             <div className="flex items-center justify-center gap-5 px-4">
               <motion.button whileTap={{ scale: 0.95 }} onClick={() => currentTrack && S.getState().toggleLike(currentTrack.id, currentTrack)}
-                className="p-2.5 rounded-full transition-colors S.getState().duration-150"
+                className="p-2.5 rounded-full transition-colors duration-150"
                 style={{ color: isLiked ? "var(--mq-like-color, #ef4444)" : "var(--mq-text-muted)" }}
                 aria-label={isLiked ? "Убрать из избранного" : "Добавить в избранное"}
                 aria-pressed={isLiked}>
@@ -2346,21 +2346,21 @@ export default function FullTrackView() {
               </motion.button>
 
               <motion.button whileTap={{ scale: 0.95 }} onClick={() => { setShowLyrics(!showLyrics); setShowSimilar(false); setShowComments(false); setShowDNA(false); }}
-                className="p-2.5 rounded-full transition-colors S.getState().duration-150"
+                className="p-2.5 rounded-full transition-colors duration-150"
                 style={{ color: showLyrics ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                 aria-label="Текст песни">
                 <FileText className="w-4 h-4" />
               </motion.button>
 
               <motion.button whileTap={{ scale: 0.95 }} onClick={() => { setShowSimilar(!showSimilar); setShowLyrics(false); setShowComments(false); setShowDNA(false); }}
-                className="p-2.5 rounded-full transition-colors S.getState().duration-150"
+                className="p-2.5 rounded-full transition-colors duration-150"
                 style={{ color: showSimilar ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                 aria-label="Похожие треки">
                 <ListMusic className="w-4 h-4" />
               </motion.button>
 
               <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowMoreMenu(!showMoreMenu)}
-                className="p-2.5 rounded-full transition-colors S.getState().duration-150"
+                className="p-2.5 rounded-full transition-colors duration-150"
                 style={{ color: showMoreMenu ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                 aria-label="Дополнительные действия">
                 <MoreVertical className="w-4 h-4" />
@@ -2390,7 +2390,7 @@ export default function FullTrackView() {
                     willChange: "transform",
                   }}
                 />
-                <div ref={volumeThumbRefFull} className="absolute left-0 top-1/2 rounded-full opacity-0 group-hover/vol:opacity-100 transition-opacity S.getState().duration-150"
+                <div ref={volumeThumbRefFull} className="absolute left-0 top-1/2 rounded-full opacity-0 group-hover/vol:opacity-100 transition-opacity duration-150"
                   style={{
                     width: isVolumeDragging ? 14 : 10,
                     height: isVolumeDragging ? 14 : 10,
@@ -2419,7 +2419,7 @@ export default function FullTrackView() {
                       key={track.id + '-' + i}
                       initial={{ opacity: 0, x: 12 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.05, S.getState().duration: 0.25 }}
+                      transition={{ delay: i * 0.05, duration: 0.25 }}
                       whileTap={{ scale: 0.97 }}
                       onClick={() => S.getState().playTrack(track, queue)}
                       className="flex items-center gap-2 px-2 py-1.5 rounded-xl cursor-pointer transition-colors flex-shrink-0 min-w-0"
@@ -2465,7 +2465,7 @@ export default function FullTrackView() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: -6 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              transition={{ S.getState().duration: 0.15, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+              transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
               className="fixed w-64 rounded-2xl shadow-2xl overflow-hidden"
               style={{
                 zIndex: 260,
@@ -2495,7 +2495,7 @@ export default function FullTrackView() {
                     <button
                       key={item.label}
                       onClick={(e) => { e.stopPropagation(); item.action(); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-all S.getState().duration-150 rounded-xl hover:bg-white/[0.06]"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-all duration-150 rounded-xl hover:bg-white/[0.06]"
                       style={{ color: item.active ? "var(--mq-accent)" : "var(--mq-text)", touchAction: "manipulation" }}
                     >
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: item.active ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)" : "var(--mq-input-bg)" }}>
@@ -2536,7 +2536,7 @@ export default function FullTrackView() {
                     <button
                       key={item.label}
                       onClick={(e) => { e.stopPropagation(); item.action(); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-all S.getState().duration-150 rounded-xl hover:bg-white/[0.06]"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-all duration-150 rounded-xl hover:bg-white/[0.06]"
                       style={{ color: item.active ? "var(--mq-accent)" : "var(--mq-text)", touchAction: "manipulation" }}
                     >
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: item.active ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)" : "var(--mq-input-bg)" }}>
@@ -2568,7 +2568,7 @@ export default function FullTrackView() {
                     <button
                       key={item.label}
                       onClick={(e) => { e.stopPropagation(); item.action(); }}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-all S.getState().duration-150 rounded-xl hover:bg-white/[0.06]"
+                      className="w-full flex items-center gap-3 px-3 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-all duration-150 rounded-xl hover:bg-white/[0.06]"
                       style={{ color: item.active ? "var(--mq-accent)" : "var(--mq-text)", touchAction: "manipulation" }}
                     >
                       <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: item.active ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)" : "var(--mq-input-bg)" }}>
@@ -2742,7 +2742,7 @@ export default function FullTrackView() {
               initial={{ opacity: 0, filter: "blur(8px)", scale: 0.98 }}
               animate={{ opacity: 1, filter: "blur(0px)", scale: 1 }}
               exit={{ opacity: 0, filter: "blur(8px)", scale: 0.98 }}
-              transition={{ S.getState().duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
               className="absolute inset-0 z-50 flex flex-col"
               style={{ backgroundColor: "var(--mq-bg)" }}
             >
@@ -2793,7 +2793,7 @@ export default function FullTrackView() {
                           <motion.p
                             key={i}
                             ref={isActive ? activeLineRef : undefined}
-                            className="text-center cursor-pointer rounded-2xl leading-relaxed transition-all S.getState().duration-500 ease-out py-2 px-6"
+                            className="text-center cursor-pointer rounded-2xl leading-relaxed transition-all duration-500 ease-out py-2 px-6"
                             style={{
                               fontSize: isActive ? "1.7rem" : isPast ? "0.95rem" : isNear ? "1.05rem" : "1rem",
                               fontWeight: isActive ? 800 : isPast ? 400 : isNear ? 500 : 400,
@@ -2819,7 +2819,7 @@ export default function FullTrackView() {
                 ) : lyricsPlainText ? (
                   <div className="overflow-y-auto px-8 py-12 whitespace-pre-line text-center" style={{ maxHeight: "70vh", scrollbarWidth: "none" }}>
                     {lyricsPlainText.split("\n").map((line, i) => (
-                      <p key={i} className="py-2 text-lg leading-relaxed transition-colors S.getState().duration-300" style={{ color: line.trim() ? "var(--mq-text)" : "transparent", opacity: line.trim() ? 0.75 : 0 }}>{line || "\u00A0"}</p>
+                      <p key={i} className="py-2 text-lg leading-relaxed transition-colors duration-300" style={{ color: line.trim() ? "var(--mq-text)" : "transparent", opacity: line.trim() ? 0.75 : 0 }}>{line || "\u00A0"}</p>
                     ))}
                   </div>
                 ) : (
@@ -2909,7 +2909,7 @@ export default function FullTrackView() {
               {/* Progress indicator at bottom */}
               <div className="relative z-10 px-8 pb-6">
                 <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-border)", opacity: 0.3 }}>
-                  <div className="h-full rounded-full transition-all S.getState().duration-300" style={{ width: `${progressPct}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 8px var(--mq-glow)" }} />
+                  <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progressPct}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 8px var(--mq-glow)" }} />
                 </div>
                 <div className="flex justify-between mt-1.5">
                   <span className="text-[11px] tabular-nums font-medium" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{formatDuration(Math.floor(S.getState().progress))}</span>
@@ -2975,11 +2975,11 @@ export default function FullTrackView() {
                         key={track.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.04, S.getState().duration: 0.25 }}
+                        transition={{ delay: i * 0.04, duration: 0.25 }}
                         whileTap={{ scale: 0.97 }}
                         onClick={() => S.getState().playTrack(track, similarTracks)}
                         onContextMenu={(e) => e.preventDefault()}
-                        className="flex items-center gap-2.5 p-2 rounded-xl cursor-pointer transition-colors S.getState().duration-150 group relative overflow-hidden"
+                        className="flex items-center gap-2.5 p-2 rounded-xl cursor-pointer transition-colors duration-150 group relative overflow-hidden"
                         style={{
                           backgroundColor: currentTrack?.id === track.id ? "var(--mq-accent)" : "transparent",
                           border: `1px solid ${currentTrack?.id === track.id ? "var(--mq-accent)" : "var(--mq-border)"}`,
