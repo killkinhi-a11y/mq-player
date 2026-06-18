@@ -651,7 +651,7 @@ export default function PlaylistView() {
               ) : (
                 <>
                   <div className="flex items-center gap-2 min-w-0">
-                    <h1 className="text-2xl font-bold truncate max-w-full" style={{ color: "var(--mq-text)" }}>
+                    <h1 className="text-xl sm:text-2xl font-bold truncate flex-1 min-w-0" style={{ color: "var(--mq-text)" }} title={selectedPlaylist.name}>
                       {selectedPlaylist.name}
                     </h1>
                     {isCollaborative && (
@@ -742,7 +742,7 @@ export default function PlaylistView() {
             className="rounded-2xl p-4"
             style={{ backgroundColor: "var(--mq-card)", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}
           >
-            <p className="text-xs font-medium mb-3" style={{ color: "var(--mq-text-muted)" }}>
+            <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text-muted)" }}>
               Перегенерировать ИИ
             </p>
             <div className="flex items-center gap-2">
