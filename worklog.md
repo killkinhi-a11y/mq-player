@@ -512,3 +512,39 @@ Cumulative final stats:
 - 3 new components (KeyboardShortcutsHelp, ProgressiveList, SmartPlaylistBuilder) = 605L total
 - 50 auth-protected API routes (40 original migrated + 10 new M5)
 - Production: https://mq1.vercel.app — READY
+
+---
+Task ID: M5-UI-WIRING
+Agent: Main Agent (Claude)
+Task: Wire SmartPlaylistBuilder into PlaylistView + Lyrics translation into FullTrackView + Turso schema for SmartPlaylist
+
+Work Log:
+- PlaylistView.tsx: added 'Smart Playlist' button (Sparkles icon) in empty
+  state next to Import. Opens SmartPlaylistBuilder modal. onPlayTracks
+  callback plays preview tracks via playTrack(). SmartPlaylistBuilder
+  lazy-rendered via AnimatePresence.
+- FullTrackView.tsx: added 'Перевести на русский' button (Languages icon)
+  shown when lyrics available and not Russian. Click triggers
+  translateLyrics() via Z-AI LLM. Translated lyrics shown in overlay with
+  blur backdrop, 'Оригинал' button to switch back. State: translatedLyrics,
+  translationLoading, showTranslation. Reset on track change. Added
+  Languages + Loader2 to lucide-react imports.
+- turso.ts: added SmartPlaylist table CREATE statement to initSchema.
+  Auto-created on cold start (no manual migration needed). Indexed on
+  userId for fast lookups. Fields: id, userId, name, rules (JSON), limit,
+  sortBy, createdAt, updatedAt.
+- Deploy: 1 push, 1 READY build. Smoke test: / → 307, /play → 200,
+  /api/smart-playlists/preview → 405 (POST-only), /api/lyrics/translate → 405.
+
+Stage Summary:
+- Smart Playlist Builder fully wired: button in PlaylistView → modal opens
+  → user picks rules/presets → preview tracks → save to DB.
+- Lyrics translation fully wired: button in FullTrackView lyrics panel →
+  Z-AI translates → overlay shows translated text → switch back to original.
+- Turso SmartPlaylist table auto-created on cold start — no manual migration.
+
+Cumulative final stats:
+- 90+ files changed, ~5000 lines of net code change
+- 5 new shared libs (843L), 3 new components (605L)
+- 50 auth-protected API routes (40 original + 10 new M5)
+- Production: https://mq1.vercel.app — READY
