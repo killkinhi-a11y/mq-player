@@ -33,9 +33,17 @@ async function handler(
       });
       const messages = result.rows.map((row) => {
         const r = row as Record<string, unknown>;
+        // P1-fix: decode old ENC: format
+        let content = String(r.content ?? "");
+        if (content.startsWith("ENC:")) {
+          try {
+            const parts = content.replace("ENC:", "").split(":");
+            content = decodeURIComponent(Buffer.from(parts.slice(1).join(":"), "base64").toString("utf-8"));
+          } catch { content = content.replace(/^ENC:[^:]*:/, ""); }
+        }
         return {
           id: String(r.id ?? ""),
-          content: String(r.content ?? ""),
+          content,
           senderId: String(r.senderId ?? ""),
           receiverId: String(r.receiverId ?? ""),
           encrypted: r.encrypted === 1 || r.encrypted === true,

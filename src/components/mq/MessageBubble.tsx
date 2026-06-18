@@ -702,7 +702,7 @@ export default function MessageBubble({
             <div className="text-sm break-words whitespace-pre-wrap" style={{
               color: isMine ? "#fff" : "var(--mq-text)",
               overflowWrap: "break-word",
-              wordBreak: "break-word",
+              wordBreak: displayContent.length > 100 ? "break-all" : "break-word",
             }}>
               {renderTextWithMentions(displayContent, isMine)}
             </div>

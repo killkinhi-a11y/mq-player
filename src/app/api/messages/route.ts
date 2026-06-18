@@ -28,7 +28,23 @@ async function getHandler(
       limit: 200,
     });
 
-    return NextResponse.json({ messages });
+    // P1-fix: Decode old ENC: format messages server-side so the client
+    // doesn't have to. Also catches messages fetched via SSE.
+    const decodedMessages = messages.map((m) => {
+      let content = m.content;
+      if (content && content.startsWith("ENC:")) {
+        try {
+          const parts = content.replace("ENC:", "").split(":");
+          const encoded = parts.slice(1).join(":");
+          content = decodeURIComponent(Buffer.from(encoded, "base64").toString("utf-8"));
+        } catch {
+          content = content.replace(/^ENC:[^:]*:/, "");
+        }
+      }
+      return { ...m, content, encrypted: false };
+    });
+
+    return NextResponse.json({ messages: decodedMessages });
   } catch (error) {
     console.error("Get messages error:", error);
     return NextResponse.json(
