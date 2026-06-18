@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes, seasonalThemes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, ChevronRight, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download, Sun, ThumbsDown, ArrowLeftRight, Bell, Info, LogOut, PenLine, SlidersHorizontal, AudioWaveform, Search
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, ChevronRight, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download, Sun, ThumbsDown, ArrowLeftRight, Bell, Info, LogOut, PenLine, SlidersHorizontal, AudioWaveform, Search, Gauge
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
@@ -354,6 +354,8 @@ export default function SettingsView() {
   const setCrossfadeDuration = useAppStore((s) => s.setCrossfadeDuration);
   const gaplessEnabled = useAppStore((s) => s.gaplessEnabled);
   const setGaplessEnabled = useAppStore((s) => s.setGaplessEnabled);
+  const replayGainEnabled = useAppStore((s) => s.replayGainEnabled);
+  const setReplayGainEnabled = useAppStore((s) => s.setReplayGainEnabled);
   const eqEnabled = useAppStore((s) => s.eqEnabled);
   const eqPreset = useAppStore((s) => s.eqPreset);
 
@@ -1522,6 +1524,16 @@ export default function SettingsView() {
               engineSetGaplessEnabled(checked);
             }}
             valueLabel={gaplessEnabled ? "ВКЛ" : "ВЫКЛ"}
+          />
+
+          {/* ReplayGain (M5.1) */}
+          <SettingToggle
+            icon={Gauge}
+            label="ReplayGain"
+            subtitle="Нормализация громкости между треками"
+            value={replayGainEnabled}
+            onCheckedChange={(checked) => setReplayGainEnabled(checked)}
+            valueLabel={replayGainEnabled ? "ВКЛ" : "ВЫКЛ"}
           />
 
           {/* ── Equalizer ── */}

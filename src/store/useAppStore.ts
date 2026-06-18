@@ -205,6 +205,9 @@ interface AppState {
   // Gapless playback
   gaplessEnabled: boolean;
 
+  // ReplayGain (M5.1) — normalizes perceived loudness across tracks
+  replayGainEnabled: boolean;
+
   // Cobalt SNIP bypass (no subscription required)
   _cobaltJwt: string | null;
   _cobaltJwtExpiry: number | null;
@@ -411,6 +414,7 @@ interface AppState {
   // Crossfade actions
   setCrossfadeEnabled: (enabled: boolean) => void;
   setCrossfadeDuration: (duration: number) => void;
+  setReplayGainEnabled: (enabled: boolean) => void;
 
   // Gapless playback actions
   setGaplessEnabled: (enabled: boolean) => void;
@@ -590,6 +594,7 @@ const initialState = {
 
   // Gapless playback
   gaplessEnabled: true as boolean,
+  replayGainEnabled: false as boolean,
 
   // Cobalt SNIP bypass
   _cobaltJwt: null as string | null,
@@ -1892,6 +1897,7 @@ export const useAppStore = create<AppState>()(
         engineSetCrossfadeEnabled(enabled);
       },
       setCrossfadeDuration: (duration) => set({ crossfadeDuration: Math.max(0.5, Math.min(8, duration)) }),
+      setReplayGainEnabled: (enabled) => set({ replayGainEnabled: enabled }),
 
       // ── Gapless playback actions ──
       setGaplessEnabled: (enabled) => set({ gaplessEnabled: enabled }),
@@ -2600,6 +2606,7 @@ export const useAppStore = create<AppState>()(
             crossfadeEnabled: old?.crossfadeEnabled ?? initialState.crossfadeEnabled,
             crossfadeDuration: old?.crossfadeDuration ?? initialState.crossfadeDuration,
             gaplessEnabled: old?.gaplessEnabled ?? initialState.gaplessEnabled,
+            replayGainEnabled: old?.replayGainEnabled ?? initialState.replayGainEnabled,
             eqEnabled: old?.eqEnabled ?? initialState.eqEnabled,
             eqBands: old?.eqBands ?? initialState.eqBands,
             eqPreset: old?.eqPreset ?? initialState.eqPreset,
