@@ -36,6 +36,11 @@
 [data-style="minimal"] *::after {
   border-radius: 6px !important;
 }
+/* P1.3: Preserve rounded-full */
+[data-style="minimal"] .rounded-full,
+[data-style="minimal"] [class*="rounded-full"] {
+  border-radius: 9999px !important;
+}
 
 /* ── Typography: Inter / Helvetica — Swiss design ───────────────────── */
 [data-style="minimal"],

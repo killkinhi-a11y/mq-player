@@ -34,6 +34,12 @@
 [data-style="japan"] *::after {
   border-radius: 8px !important;
 }
+/* P1.3: Preserve rounded-full (avatars, progress dots, etc.) */
+[data-style="japan"] .rounded-full,
+[data-style="japan"] [class*="rounded-full"],
+[data-style="japan"] img[class*="rounded-full"] {
+  border-radius: 9999px !important;
+}
 
 /* ── Typography: Clean serif-leaning ──────────────────────────────────── */
 [data-style="japan"],

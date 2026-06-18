@@ -13,7 +13,7 @@ const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "me
   { id: "main", icon: Home, label: "Главная" },
   { id: "library", icon: Library, label: "Библиотека" },
   { id: "messenger", icon: MessageCircle, label: "Чаты", badgeKey: "messenger" },
-  { id: "settings", icon: Settings, label: "Ещё", badgeKey: "settings" },
+  { id: "settings", icon: Settings, label: "Настройки", badgeKey: "settings" },
 ];
 
 const NavBar = React.memo(function NavBar() {

@@ -36,6 +36,11 @@
 [data-style="swag"] *::after {
   border-radius: 10px !important;
 }
+/* P1.3: Preserve rounded-full */
+[data-style="swag"] .rounded-full,
+[data-style="swag"] [class*="rounded-full"] {
+  border-radius: 9999px !important;
+}
 
 /* ── Typography: Space Grotesk — geometric, tech ─────────────────────────── */
 [data-style="swag"],

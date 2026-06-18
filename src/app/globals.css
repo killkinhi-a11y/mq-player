@@ -115,27 +115,35 @@
 @layer base {
   * {
     @apply border-border;
-    outline: none !important;
   }
   body {
     @apply bg-background text-foreground;
   }
 }
 
-/* ── Kill ALL default focus outlines globally ── */
+/* ── Focus visibility (P1.1 — was killing ALL keyboard focus indicators) ──
+   Previously: `*:focus-visible { outline: none !important }` stripped ALL
+   keyboard focus rings. WCAG 2.1 SC 2.4.7 (Focus Visible) — Level AA fail.
+   Now: only suppress the ugly default *box* outline on mouse focus (:focus),
+   but RESTORE :focus-visible for keyboard navigation with a themed ring. */
+
+/* Mouse/touch focus — suppress default browser outline (which is a square box) */
 *:focus {
-  outline: none !important;
+  outline: none;
 }
-/* Only show focus ring for keyboard navigation (not touch/mouse) */
-/* Uses :focus-visible which only activates on keyboard tab, NOT on tap/click */
+
+/* Keyboard focus (:focus-visible) — show a themed ring on ALL elements */
 *:focus-visible {
-  outline: none !important;
-  box-shadow: none !important;
+  outline: 2px solid var(--mq-accent, #e03131);
+  outline-offset: 2px;
+  border-radius: inherit;
 }
-/* Specific keyboard focus indicators — only for form elements, not buttons/cards */
+
+/* Form elements get a softer box-shadow ring instead of outline */
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
+  outline: none;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent) !important;
   border-radius: inherit;
 }
@@ -889,13 +897,9 @@ html.blood-theme body::before {
   border-radius: 4px;
 }
 
-/* Remove default square focus outline */
-input:focus, button:focus, select:focus, textarea:focus, a:focus {
-  outline: none !important;
-}
-input:focus-visible, button:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
-  outline: none !important;
-}
+/* P1.1: Removed the `*:focus-visible { outline: none !important }` rules
+   that were killing keyboard focus on buttons, links, and cards.
+   The global `*:focus-visible` rule above now provides a themed ring. */
 
 /* Better skeleton loading */
 .mq-skeleton {
@@ -1700,8 +1704,9 @@ a:not([data-framer-motion-id]),
 }
 
 /* ── Premium Focus Visible States ── */
-/* Only show focus ring on form inputs for keyboard navigation — NOT on buttons/links */
-/* On mobile, tap triggers focus-visible which creates unwanted square outlines */
+/* P1.1: Replaced the old focus-killing block with themed :focus-visible.
+   Buttons/links now get outline: 2px solid var(--mq-accent) via the
+   global rule at the top of this file. Form inputs get box-shadow ring. */
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
@@ -1714,10 +1719,9 @@ textarea:focus-visible {
 button:focus-visible,
 a:focus-visible,
 [role="button"]:focus-visible {
-  outline: none !important;
   --tw-ring-shadow: 0 0 #0000 !important;
   --tw-ring-color: transparent !important;
-  box-shadow: none !important;
+  /* outline is set by the global *:focus-visible rule above */
 }
 
 /* Kill any Tailwind ring outlines that create square focus indicators */

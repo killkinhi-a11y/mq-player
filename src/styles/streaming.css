@@ -64,6 +64,11 @@
 [data-style="streaming"] *::after {
   border-radius: 12px !important;
 }
+/* P1.3: Preserve rounded-full */
+[data-style="streaming"] .rounded-full,
+[data-style="streaming"] [class*="rounded-full"] {
+  border-radius: 9999px !important;
+}
 
 /* ── Typography: Inter / System UI — premium streaming feel ─────────── */
 [data-style="streaming"],

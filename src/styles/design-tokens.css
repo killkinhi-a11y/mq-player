@@ -101,6 +101,12 @@
   --mq-z-modal: 40;
   --mq-z-toast: 50;
 
+  /* Player clearance (P1.5) — replaces magic pb-[148px] across views */
+  --mq-player-height: 90px;
+  --mq-player-height-desktop: 72px;
+  --mq-nav-height-mobile: 50px;
+  --mq-player-clearance: calc(var(--mq-player-height) + var(--mq-space-4, 16px) + env(safe-area-inset-bottom, 0px));
+
   /* Focus ring */
   --mq-focus-ring: 0 0 0 2px var(--mq-bg), 0 0 0 4px var(--mq-accent);
 

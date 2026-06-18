@@ -521,7 +521,7 @@ export default function SearchView() {
                   whileTap={{ scale: 0.93 }}
                   whileHover={{ scale: 1.04 }}
                   onClick={() => setSelectedGenre("")}
-                  className="px-4 py-2.5 rounded-2xl text-xs font-semibold transition-all duration-200 flex-shrink-0 flex items-center gap-2"
+                  className="px-4 py-2.5 rounded-lg text-xs font-semibold transition-all duration-200 flex-shrink-0 flex items-center gap-2"
                   style={{
                     backgroundColor: !selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
                     color: !selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",

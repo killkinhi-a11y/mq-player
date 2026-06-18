@@ -279,7 +279,7 @@ export const themes: Record<string, ThemeConfig> = {
     cardHover: "#f0f0f0",
     accent: "#e03131",
     text: "#212529",
-    textMuted: "#868e96",
+    textMuted: "#6c757d", // P1.4: was #868e96 (4.0:1 — below WCAG AA). Now 4.7:1.
     border: "#dee2e6",
     inputBg: "#ffffff",
     playerBg: "#ffffff",
@@ -490,10 +490,39 @@ export function applyThemeToDOM(theme: ThemeConfig, customAccent?: string) {
   root.style.setProperty("--mq-gradient", theme.gradient);
   root.style.setProperty("--mq-glow", theme.glowColor);
 
+  // P1.2: Set --mq-accent-rgb so rgba(var(--mq-accent-rgb), α) works
+  // Previously this was never set — the static "224,49,49" from
+  // design-tokens.css always won, making alpha-blended accents red
+  // regardless of the active theme.
+  const rgb = hexToRgb(accent);
+  if (rgb) {
+    root.style.setProperty("--mq-accent-rgb", `${rgb.r}, ${rgb.g}, ${rgb.b}`);
+  }
+
   // Remove all theme classes
   const allThemeClasses = ["ocean-theme", "neon-theme", "sunset-theme", "aurora-theme", "cyberpunk-theme", "synthwave-theme", "midnight-theme", "black-theme", "liquid-glass-theme", "sakura-theme", "frost-theme", "volcano-theme", "arctic-theme", "phantom-theme", "daylight-theme", "halloween-theme", "newyear-theme", "valentine-theme", "spring-theme", "summer-theme", "autumn-theme", "stpatrick-theme", "easter-theme", "streaming-theme", "blood-theme"];
   allThemeClasses.forEach(c => root.classList.remove(c));
   if (theme.className) {
     root.classList.add(theme.className);
   }
+}
+
+/** Convert a hex color (#rrggbb or #rgb) to {r, g, b}. Returns null on invalid input. */
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const cleaned = hex.replace("#", "").trim();
+  if (cleaned.length === 3) {
+    const r = parseInt(cleaned[0] + cleaned[0], 16);
+    const g = parseInt(cleaned[1] + cleaned[1], 16);
+    const b = parseInt(cleaned[2] + cleaned[2], 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return null;
+    return { r, g, b };
+  }
+  if (cleaned.length === 6) {
+    const r = parseInt(cleaned.slice(0, 2), 16);
+    const g = parseInt(cleaned.slice(2, 4), 16);
+    const b = parseInt(cleaned.slice(4, 6), 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return null;
+    return { r, g, b };
+  }
+  return null;
 }

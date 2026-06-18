@@ -3537,12 +3537,13 @@ function ContactItem({ contact, selected, userId, lastMsg, unread, pinned, onlin
 //  TOAST HELPER
 // ═══════════════════════════════════════════════════════════════
 
+// P1.6: Replaced raw DOM toast with useToast hook.
+// The old showToast() created a document.createElement("div") with
+// hardcoded cssText — completely outside the design system. Now uses
+// the shared toast() from @/hooks/use-toast.
+import { toast } from "@/hooks/use-toast";
 function showToast(message: string) {
-  const notif = document.createElement("div");
-  notif.style.cssText = "position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:99999;padding:12px 24px;border-radius:12px;font-size:14px;font-family:system-ui,sans-serif;color:#f5f5f5;background:rgba(30,30,30,0.95);border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.3);transition:opacity 0.3s ease;";
-  notif.textContent = message;
-  document.body.appendChild(notif);
-  setTimeout(() => { notif.style.opacity = "0"; setTimeout(() => notif.remove(), 300); }, 2000);
+  toast({ title: message });
 }
 
 // Notification permission helper

@@ -63,6 +63,11 @@
 [data-style="neon"] *::after {
   border-radius: 10px !important;
 }
+/* P1.3: Preserve rounded-full */
+[data-style="neon"] .rounded-full,
+[data-style="neon"] [class*="rounded-full"] {
+  border-radius: 9999px !important;
+}
 
 /* ── Typography: System UI — clean, cyberpunk-ready ─────────────────── */
 [data-style="neon"],
