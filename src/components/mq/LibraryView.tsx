@@ -24,7 +24,7 @@ const LibraryView = React.memo(function LibraryView() {
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
 
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4" : "p-4 lg:p-6"} max-w-[var(--mq-container-narrow)] mx-auto`}>
+    <div className={`${compactMode ? "p-3 lg:p-4" : "p-4 lg:p-6"} max-w-[var(--mq-container-narrow)] mx-auto mq-anim-fade-in`}>
       {/* Header */}
       <motion.div
         initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}

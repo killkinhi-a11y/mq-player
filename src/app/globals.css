@@ -3,6 +3,101 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ═══════════════════════════════════════════════════════════════
+   P2-ANIM: Global entrance + interaction animations
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Entrance: fade in from bottom */
+@keyframes mqFadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Entrance: fade in from left */
+@keyframes mqFadeInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Entrance: scale in */
+@keyframes mqScaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Entrance: simple fade */
+@keyframes mqFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Interaction: subtle press feedback */
+@keyframes mqPressDown {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.97); }
+  100% { transform: scale(1); }
+}
+
+/* Utility classes */
+.mq-anim-fade-in-up {
+  animation: mqFadeInUp 0.35s ease-out forwards;
+}
+.mq-anim-fade-in-left {
+  animation: mqFadeInLeft 0.3s ease-out forwards;
+}
+.mq-anim-scale-in {
+  animation: mqScaleIn 0.25s ease-out forwards;
+}
+.mq-anim-fade-in {
+  animation: mqFadeIn 0.2s ease-out forwards;
+}
+
+/* Staggered children entrance — apply to parent */
+.mq-stagger > * {
+  opacity: 0;
+  animation: mqFadeInUp 0.3s ease-out forwards;
+}
+.mq-stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.mq-stagger > *:nth-child(2) { animation-delay: 0.06s; }
+.mq-stagger > *:nth-child(3) { animation-delay: 0.1s; }
+.mq-stagger > *:nth-child(4) { animation-delay: 0.14s; }
+.mq-stagger > *:nth-child(5) { animation-delay: 0.18s; }
+.mq-stagger > *:nth-child(6) { animation-delay: 0.22s; }
+.mq-stagger > *:nth-child(7) { animation-delay: 0.26s; }
+.mq-stagger > *:nth-child(8) { animation-delay: 0.3s; }
+.mq-stagger > *:nth-child(n+9) { animation-delay: 0.34s; }
+
+/* Global smooth transitions on interactive elements */
+button, a, [role="button"] {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+}
+
+/* Card hover transitions */
+.mq-card-cinematic, .mq-hero-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+/* Input focus transitions */
+input, textarea, select {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+/* Respect reduce-motion */
+.mq-reduce-motion *,
+.mq-reduce-motion *::before,
+.mq-reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

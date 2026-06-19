@@ -665,15 +665,18 @@ export default function FullTrackView() {
   const prevFullTrackOpenRef = useRef(isFullTrackViewOpen);
   useEffect(() => {
     if (prevFullTrackOpenRef.current && !isFullTrackViewOpen) {
-      setShowSimilar(false);
-      setShowLyrics(false);
-      setShowSleepTimer(false);
-      setShowComments(false);
-      setShowDNA(false);
-      setCanvasMode(false);
-      setShowMoreMenu(false);
-      setShowEQ(false);
-      setShowSynthVis(false);
+      // P2-#300: defer panel-close state updates to avoid React error #300
+      setTimeout(() => {
+        setShowSimilar(false);
+        setShowLyrics(false);
+        setShowSleepTimer(false);
+        setShowComments(false);
+        setShowDNA(false);
+        setCanvasMode(false);
+        setShowMoreMenu(false);
+        setShowEQ(false);
+        setShowSynthVis(false);
+      }, 0);
     }
     prevFullTrackOpenRef.current = isFullTrackViewOpen;
   }, [isFullTrackViewOpen]);
@@ -824,12 +827,16 @@ export default function FullTrackView() {
     if (!artist || !title) return;
 
     let cancelled = false;
-    setLyricsLoading(true);
-    setLyricsLines([]);
-    setLyricsPlainText("");
-    setTranslatedLyrics(null);
-    setShowTranslation(false);
-    setActiveLineIndex(-1);
+    // P2-#300: defer initial state reset to avoid React error #300
+    setTimeout(() => {
+      if (cancelled) return;
+      setLyricsLoading(true);
+      setLyricsLines([]);
+      setLyricsPlainText("");
+      setTranslatedLyrics(null);
+      setShowTranslation(false);
+      setActiveLineIndex(-1);
+    }, 0);
 
     fetch(`/api/music/lyrics?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`)
       .then(res => res.json())

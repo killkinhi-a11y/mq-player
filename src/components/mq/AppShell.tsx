@@ -209,7 +209,10 @@ export default function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated && currentView === "auth") setView("main");
+    // P2-#300: defer setView to avoid React error #300 when auth state changes
+    if (isAuthenticated && currentView === "auth") {
+      setTimeout(() => setView("main"), 0);
+    }
   }, [isAuthenticated, currentView, setView]);
 
   // ── Browser back/forward button support ──
@@ -250,12 +253,13 @@ export default function AppShell() {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const handler = (e: MediaQueryListEvent) => {
       if (e.matches) {
-        useAppStore.getState().setReduceMotion(true);
+        // P2-#300: defer to avoid React error #300
+        setTimeout(() => useAppStore.getState().setReduceMotion(true), 0);
       }
     };
     // On first mount: if system says reduce, enable it
     if (mq.matches) {
-      useAppStore.getState().setReduceMotion(true);
+      setTimeout(() => useAppStore.getState().setReduceMotion(true), 0);
     }
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);

@@ -172,8 +172,11 @@ export default function SearchView() {
   // (SearchQuery is cleared by AppShell, we only clear local results here)
   useEffect(() => {
     if (currentView !== "search") {
-      setSearchResults([]);
-      setHasSearched(false);
+      // P2-#300: defer to avoid React error #300 when leaving search view
+      setTimeout(() => {
+        setSearchResults([]);
+        setHasSearched(false);
+      }, 0);
     }
   }, [currentView]);
 
@@ -330,7 +333,7 @@ export default function SearchView() {
 
   // ── Main Search View ──
   return (
-    <div className={`${compactMode ? "p-3 sm:p-4 lg:p-5 pb-[var(--mq-player-clearance)] sm:pb-32 lg:pb-32 space-y-4" : "p-4 sm:p-5 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-36 lg:pb-36 space-y-5"} max-w-[var(--mq-container-base)] mx-auto relative`} style={{ scrollBehavior: "smooth" }}>
+    <div className={`${compactMode ? "p-3 sm:p-4 lg:p-5 pb-[var(--mq-player-clearance)] sm:pb-32 lg:pb-32 space-y-4" : "p-4 sm:p-5 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-36 lg:pb-36 space-y-5"} max-w-[var(--mq-container-base)] mx-auto relative mq-anim-fade-in`} style={{ scrollBehavior: "smooth" }}>
       {/* Upload progress toast */}
       {uploadProgress && (
         <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}

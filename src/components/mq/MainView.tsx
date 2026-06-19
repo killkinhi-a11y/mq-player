@@ -1387,7 +1387,7 @@ export default function MainView() {
   }
 
   return (
-    <div ref={mainRef} className={`p-4 sm:p-5 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28 max-w-[var(--mq-container-wide)] mx-auto relative`} style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
+    <div ref={mainRef} className={`p-4 sm:p-5 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-24 lg:pb-28 max-w-[var(--mq-container-wide)] mx-auto relative mq-anim-fade-in`} style={{ scrollBehavior: "smooth", paddingTop: "var(--mq-space-8)" }}>
       {/* P3.3: CursorSpotlight removed — permanent RAF for 7% opacity effect that most users don't see */}
 
       {/* ── Hero Section — Premium mobile / Classic desktop ── */}

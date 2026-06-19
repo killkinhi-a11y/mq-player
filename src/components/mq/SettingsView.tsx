@@ -736,7 +736,7 @@ export default function SettingsView() {
   const crossfadePercent = ((crossfadeDuration - 0.5) / (8 - 0.5)) * 100;
 
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] space-y-4" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] space-y-5"} max-w-[var(--mq-container-narrow)] mx-auto`}>
+    <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] space-y-4" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] space-y-5"} max-w-[var(--mq-container-narrow)] mx-auto mq-anim-fade-in`}>
       {/* ── Header — redesigned P2 ── */}
       <motion.div
         initial={anim ? { opacity: 0, y: 12 } : undefined}
