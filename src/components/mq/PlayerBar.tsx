@@ -160,8 +160,11 @@ const PlayerBar = React.memo(function PlayerBar() {
   useEffect(() => {
     if (!spatialAudioEnabled || !spatialAutoDetect || !currentTrack) return;
     const mood = detectMoodFromTrack(currentTrack.title, currentTrack.genre);
-    setMoodPreset(mood);
-    setSpatialMood(mood);
+    // P2-#300: defer store update to avoid React error #300
+    setTimeout(() => {
+      setMoodPreset(mood);
+      setSpatialMood(mood);
+    }, 0);
   }, [spatialAudioEnabled, spatialAutoDetect, currentTrack?.id, setSpatialMood]);
 
   // ── Spatial Audio: enable/disable ──
@@ -172,8 +175,11 @@ const PlayerBar = React.memo(function PlayerBar() {
         enableSpatialAudio(true);
         if (currentTrack) {
           const mood = detectMoodFromTrack(currentTrack.title, currentTrack.genre);
-          setMoodPreset(mood);
-          setSpatialMood(mood);
+          // P2-#300: defer store update
+          setTimeout(() => {
+            setMoodPreset(mood);
+            setSpatialMood(mood);
+          }, 0);
         }
       }
     } else {

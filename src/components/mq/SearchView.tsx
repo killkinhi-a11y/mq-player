@@ -185,15 +185,19 @@ export default function SearchView() {
   useEffect(() => {
     if (abortRef.current) abortRef.current.abort();
     if (!searchQuery.trim() || selectedGenre) {
-      setIsDebouncing(false);
-      if (!selectedGenre) {
-        setSearchResults([]);
-        setHasSearched(false);
-      }
+      // P2-#300: defer to avoid React error #300
+      setTimeout(() => {
+        setIsDebouncing(false);
+        if (!selectedGenre) {
+          setSearchResults([]);
+          setHasSearched(false);
+        }
+      }, 0);
       return;
     }
 
-    setIsDebouncing(true);
+    // P2-#300: defer to avoid React error #300
+    setTimeout(() => setIsDebouncing(true), 0);
     const timer = setTimeout(async () => {
       setIsDebouncing(false);
       const controller = new AbortController();

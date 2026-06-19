@@ -31,7 +31,8 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
   useEffect(() => {
     let cancelled = false;
     const fetchAIRecs = async () => {
-      setAiLoading(true);
+      // P2-#300: defer to avoid React error #300
+      setTimeout(() => { if (!cancelled) setAiLoading(true); }, 0);
       try {
         const state = useAppStore.getState();
 
@@ -53,7 +54,8 @@ function AIRecommendationsBar({ playTrack, animationsEnabled, compactMode }: {
 
         // ── Also works without taste profile — uses history only ──
         if (tp.allGenres.length === 0 && state.history.length < 3) {
-          setAiLoading(false);
+          // P2-#300: defer to avoid React error #300
+          setTimeout(() => { if (!cancelled) setAiLoading(false); }, 0);
           return;
         }
 

@@ -1362,15 +1362,24 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   // ── Load track effect ──
   useEffect(() => {
     if (!currentTrack) {
-      setPlaybackMode("idle");
-      setIsLoadingTrack(false);
+      // P2-#300: defer store updates to avoid React error #300
+      setTimeout(() => {
+        setPlaybackMode("idle");
+        setIsLoadingTrack(false);
+      }, 0);
       return;
     }
 
     if (currentTrack.id !== prevTrackIdRef.current) {
       prevTrackIdRef.current = currentTrack.id;
-      setProgress(0);
-      setDuration(currentTrack.duration || 0);
+      // P2-#300: defer store updates (setProgress/setDuration are store actions
+      // that trigger re-renders of PlayerBar/MainView/FullTrackView — calling
+      // them synchronously during the commit phase causes React error #300)
+      const dur = currentTrack.duration || 0;
+      setTimeout(() => {
+        setProgress(0);
+        setDuration(dur);
+      }, 0);
       retryCountRef.current = 0;
     }
 
@@ -1986,7 +1995,13 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     } else {
       if (audio.src) audio.pause();
       if (secondary && secondary.src) secondary.pause();
-      useAppStore.setState({ playbackState: 'paused', isBuffering: false });
+      // P2-#300: defer store update to avoid React error #300
+      // (isPlaying effect fires during PlayerBar's render commit — calling
+      // setState synchronously triggers a re-render of PlayerBar while it's
+      // still rendering, causing #300)
+      setTimeout(() => {
+        useAppStore.setState({ playbackState: 'paused', isBuffering: false });
+      }, 0);
     }
   }, [isPlaying, isLoadingTrack]);
 
