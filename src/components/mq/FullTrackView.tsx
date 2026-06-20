@@ -383,7 +383,7 @@ function SleepTimerPopover({ show, onClose, active, remaining, timerMinutes, onS
                 </div>
 
                 {/* Start button */}
-                <motion.button whileHover={{ scale: 1.02, boxShadow: "0 8px 24px rgba(139,92,246,0.3)" }}
+                <motion.button whileHover={{ scale: 1.02, boxShadow: "var(--mq-shadow-accent)" }}
                   whileTap={{ scale: 0.97 }} onClick={() => { onStart(selected); onClose(); }}
                   className="w-full mt-5 flex items-center justify-center gap-2.5 py-3.5 rounded-2xl text-sm font-semibold shadow-lg"
                   style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-bg)" }}>

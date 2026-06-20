@@ -173,9 +173,8 @@ export default function AppShell() {
 
   // ── DB sync: ensure all tables exist on first load ──
   useEffect(() => {
-    fetch("/api/db-sync").then(r => r.json()).then(data => {
-      if (data.ok) console.log("[db-sync] Database synced");
-      else console.warn("[db-sync] Sync issue:", data.details);
+    fetch("/api/db-sync").then(r => r.json()).then(() => {
+      // DB synced successfully
     }).catch(() => {});
   }, []);
 

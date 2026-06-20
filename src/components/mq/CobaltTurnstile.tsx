@@ -67,7 +67,7 @@ export default function CobaltTurnstile() {
     isRequestingRef.current = true;
 
     try {
-      console.log("[CobaltTurnstile] Turnstile solved, exchanging for JWT...");
+      // "[CobaltTurnstile] Turnstile solved, exchanging for JWT...";
       const res = await fetch(COBALT_SESSION_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -87,7 +87,7 @@ export default function CobaltTurnstile() {
           : Date.now() + 4 * 60 * 60 * 1000;
 
         useAppStore.getState().setCobaltJwt(data.token, expiry);
-        console.log("[CobaltTurnstile] JWT obtained and cached ✓");
+        // "[CobaltTurnstile] JWT obtained and cached ✓";
       } else {
         console.warn("[CobaltTurnstile] No JWT in response:", data.error || "unknown");
       }
@@ -105,7 +105,7 @@ export default function CobaltTurnstile() {
       // Check if we already have a valid JWT
       const existingJwt = useAppStore.getState().getCobaltJwt();
       if (existingJwt) {
-        console.log("[CobaltTurnstile] JWT already cached, skipping Turnstile");
+        // "[CobaltTurnstile] JWT already cached, skipping Turnstile";
         return;
       }
 
@@ -116,7 +116,7 @@ export default function CobaltTurnstile() {
         const turnstile = (window as any).turnstile;
         if (!turnstile || !containerRef.current) return;
 
-        console.log("[CobaltTurnstile] Rendering invisible widget...");
+        // "[CobaltTurnstile] Rendering invisible widget...";
 
         widgetIdRef.current = turnstile.render(containerRef.current, {
           sitekey: TURNSTILE_SITEKEY,
@@ -128,7 +128,7 @@ export default function CobaltTurnstile() {
           },
           "expired-callback": () => {
             // Turnstile token expired — reset widget
-            console.log("[CobaltTurnstile] Token expired, resetting...");
+            // "[CobaltTurnstile] Token expired, resetting...";
             useAppStore.getState().setCobaltJwt(null, null);
             if (widgetIdRef.current) {
               try { turnstile.reset(widgetIdRef.current); } catch {}

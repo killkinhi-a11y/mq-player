@@ -822,7 +822,7 @@ function FriendCard({
       initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
-      whileHover={{ y: -1, boxShadow: "0 4px 20px rgba(0,0,0,0.15)" }}
+      whileHover={{ y: -1, boxShadow: "var(--mq-shadow-card-hover)" }}
       className="flex items-center gap-3 p-3 rounded-2xl transition-all"
       style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)" }}
     >

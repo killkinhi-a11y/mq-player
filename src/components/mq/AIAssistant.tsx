@@ -286,7 +286,7 @@ export default function AIAssistant() {
         <div className="w-9 h-9 rounded-xl flex items-center justify-center"
           style={{
             background: "linear-gradient(135deg, var(--mq-accent), rgba(166,147,175,0.6))",
-            boxShadow: "0 2px 12px rgba(166,147,175,0.3)",
+            boxShadow: "var(--mq-shadow-card)",
           }}>
           <Sparkles className="w-4.5 h-4.5" style={{ color: "var(--mq-text)" }} />
         </div>
@@ -333,7 +333,7 @@ export default function AIAssistant() {
                   color: msg.role === "user"
                     ? "var(--mq-text)"
                     : "var(--mq-text)",
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.1)",
+                  boxShadow: "var(--mq-shadow-xs)",
                 }}
               >
                 {/* Message text */}

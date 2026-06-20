@@ -196,7 +196,7 @@ export function KeyboardShortcutsHelp() {
                                   backgroundColor: "rgba(255,255,255,0.06)",
                                   border: "1px solid var(--mq-border, #2a2a2a)",
                                   color: "var(--mq-text, #fff)",
-                                  boxShadow: "0 1px 0 rgba(0,0,0,0.3)",
+                                  boxShadow: "var(--mq-shadow-xs)",
                                 }}
                               >
                                 {k}
