@@ -12,7 +12,8 @@ import {
   Plus, Music2, X, Loader2, Copy, Reply, UserPlus, UserCheck, Users, AlertCircle,
   Play, Pause, ChevronLeft, ChevronRight, ChevronDown, BookOpen, Pin,
   Mic, MicOff, Edit3, MessageSquare, Sticker,
-  MoreVertical, Check, Bell, Ban, Download, MessageCircle, Phone, Headphones
+  MoreVertical, Check, Bell, Ban, Download, MessageCircle, Phone, Headphones,
+  Palette
 } from "lucide-react";
 import { simulateEncrypt, getEncryptionStatus, generateMockFingerprint, simulateDecryptSync } from "@/lib/crypto";
 import Image from "next/image";
@@ -269,6 +270,34 @@ export default function MessengerView() {
 
   // ── Server messages loaded flag ──
   const [serverMessagesLoaded, setServerMessagesLoaded] = useState<Record<string, boolean>>({});
+
+  // ── Chat themes — P2: custom backgrounds per chat ──
+  const CHAT_THEMES = useMemo(() => ({
+    default: { name: "По умолчанию", bg: "transparent", pattern: "none", patternSize: "0" },
+    midnight: { name: "Полночь", bg: "linear-gradient(180deg, #0a0a1a 0%, #0e0e0e 100%)", pattern: "none", patternSize: "0" },
+    sunset: { name: "Закат", bg: "linear-gradient(180deg, #1a0a1e 0%, #0e0e0e 100%)", pattern: "none", patternSize: "0" },
+    forest: { name: "Лес", bg: "linear-gradient(180deg, #0a1a0e 0%, #0e0e0e 100%)", pattern: "none", patternSize: "0" },
+    ocean: { name: "Океан", bg: "linear-gradient(180deg, #0a1a2a 0%, #0e0e0e 100%)", pattern: "none", patternSize: "0" },
+    rose: { name: "Роза", bg: "linear-gradient(180deg, #2a0a1a 0%, #0e0e0e 100%)", pattern: "none", patternSize: "0" },
+    dots: { name: "Точки", bg: "var(--mq-bg)", pattern: "radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)", patternSize: "20px 20px" },
+    grid: { name: "Сетка", bg: "var(--mq-bg)", pattern: "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)", patternSize: "30px 30px" },
+  }), []);
+  const [chatThemes, setChatThemes] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("mq-chat-themes") || "{}"); } catch { return {}; }
+  });
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  const activeChatId = selectedGroupId || selectedContactId;
+  const currentChatTheme = chatThemes[activeChatId || ""] || "default";
+
+  const setChatTheme = useCallback((themeId: string) => {
+    if (!activeChatId) return;
+    setChatThemes(prev => {
+      const next = { ...prev, [activeChatId]: themeId };
+      try { localStorage.setItem("mq-chat-themes", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    setShowThemePicker(false);
+  }, [activeChatId]);
 
   // ── Listen together state ──
   const [listenInviteLoading, setListenInviteLoading] = useState(false);
@@ -1252,8 +1281,8 @@ export default function MessengerView() {
 
 
 
-  // Active chat: either DM or group
-  const activeChatId = selectedGroupId || selectedContactId;
+  // Active chat: either DM or group (declared above with chat themes)
+  // const activeChatId = selectedGroupId || selectedContactId;
 
   // Sync mobileView with activeChatId
   useEffect(() => {
@@ -2217,6 +2246,10 @@ export default function MessengerView() {
                               className="w-full flex items-center gap-3 px-4 py-3 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
                               <Users className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Профиль
                             </button>
+                            <button onClick={() => { setShowChatSettings(false); setShowThemePicker(true); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
+                              <Palette className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Тема чата
+                            </button>
                             <button onClick={() => { setShowChatSettings(false); handleExportChat(); }}
                               className="w-full flex items-center gap-3 px-4 py-3 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
                               <Download className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Экспорт истории чата
@@ -2314,8 +2347,17 @@ export default function MessengerView() {
               )}
             </AnimatePresence>
 
-            {/* ── Messages area ── */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 pt-2 pb-4 space-y-1.5 min-h-0" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}
+            {/* ── Messages area — with custom chat theme ── */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 pt-2 pb-4 space-y-1.5 min-h-0 transition-all duration-300"
+              style={{
+                scrollbarWidth: "thin",
+                scrollbarColor: "var(--mq-border) transparent",
+                background: CHAT_THEMES[currentChatTheme as keyof typeof CHAT_THEMES]?.bg || "transparent",
+                backgroundImage: CHAT_THEMES[currentChatTheme as keyof typeof CHAT_THEMES]?.pattern !== "none"
+                  ? CHAT_THEMES[currentChatTheme as keyof typeof CHAT_THEMES]?.pattern
+                  : undefined,
+                backgroundSize: CHAT_THEMES[currentChatTheme as keyof typeof CHAT_THEMES]?.patternSize,
+              }}
               onScroll={() => {
                 // RAF-throttled scroll handler to prevent excessive re-renders
                 if (scrollRafRef.current) return;
@@ -3236,6 +3278,83 @@ export default function MessengerView() {
                   className="w-full py-2.5 rounded-xl text-sm" style={{ backgroundColor: "var(--mq-input-bg)", color: "var(--mq-text-muted)" }}>
                   Отмена
                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ════════════════════════════════════════════════════════
+          Chat Theme Picker — P2: custom backgrounds per chat
+          ════════════════════════════════════════════════════════ */}
+      <AnimatePresence>
+        {showThemePicker && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
+            onClick={() => setShowThemePicker(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="rounded-2xl p-5 max-w-sm w-full"
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", boxShadow: "var(--mq-shadow-dramatic)" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>Тема чата</h3>
+                <button onClick={() => setShowThemePicker(false)} className="p-1 rounded-lg" style={{ color: "var(--mq-text-muted)" }}>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-2.5">
+                {Object.entries(CHAT_THEMES).map(([themeId, theme]) => (
+                  <motion.button
+                    key={themeId}
+                    whileTap={{ scale: 0.92 }}
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    onClick={() => setChatTheme(themeId)}
+                    className="aspect-square rounded-xl flex items-end justify-center p-1.5 relative overflow-hidden"
+                    style={{
+                      background: theme.bg !== "transparent" && theme.bg !== "var(--mq-bg)"
+                        ? theme.bg
+                        : theme.pattern !== "none"
+                          ? `var(--mq-bg)`
+                          : "var(--mq-card-hover)",
+                      backgroundImage: theme.pattern !== "none" ? theme.pattern : undefined,
+                      backgroundSize: theme.patternSize,
+                      border: currentChatTheme === themeId
+                        ? "2px solid var(--mq-accent)"
+                        : "1px solid var(--mq-border)",
+                      boxShadow: currentChatTheme === themeId ? "var(--mq-shadow-accent)" : "none",
+                    }}
+                    aria-label={theme.name}
+                    title={theme.name}
+                  >
+                    <span
+                      className="text-[9px] font-medium truncate w-full text-center"
+                      style={{ color: "var(--mq-text-muted)" }}
+                    >
+                      {theme.name}
+                    </span>
+                    {currentChatTheme === themeId && (
+                      <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 20 }}
+                        className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: "var(--mq-accent)" }}
+                      >
+                        <Check className="w-2.5 h-2.5" style={{ color: "#fff" }} strokeWidth={3} />
+                      </motion.div>
+                    )}
+                  </motion.button>
+                ))}
               </div>
             </motion.div>
           </motion.div>
