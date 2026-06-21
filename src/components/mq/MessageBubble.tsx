@@ -41,31 +41,53 @@ interface MessageBubbleProps {
 
 // ── CSS Keyframes for waveform — moved to globals.css ─────────
 
-// ── Fake waveform bars generator ────────────────────────────
+// ── Fake waveform bars generator — P2: deterministic + seekable ──
 
-function FakeWaveform({ playing, isMine, progress }: { playing: boolean; isMine: boolean; progress: number }) {
-  const bars = 32;
+function FakeWaveform({ playing, isMine, progress, onSeek }: { playing: boolean; isMine: boolean; progress: number; onSeek?: (pct: number) => void }) {
+  const bars = 36;
+  // Deterministic heights via sine — looks organic but stable across renders
   const heights = useRef(
-    Array.from({ length: bars }, () => 10 + Math.random() * 26)
+    Array.from({ length: bars }, (_, i) => {
+      const base = 8 + Math.sin(i * 0.35) * 12 + Math.cos(i * 0.7) * 6;
+      const variation = ((i * 7 + 13) % 11) / 11 * 8;
+      return Math.max(4, Math.min(30, base + variation));
+    })
   );
+  const waveRef = useRef<HTMLDivElement>(null);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (!onSeek || !waveRef.current) return;
+    const rect = waveRef.current.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    onSeek(pct);
+  }, [onSeek]);
 
   return (
-    <div className="flex items-center gap-[2px] h-8 flex-1 min-w-0 relative">
+    <div
+      ref={waveRef}
+      onClick={handleClick}
+      className="flex items-center gap-[2px] h-8 flex-1 min-w-0 relative cursor-pointer"
+      role="slider"
+      aria-label="Прогресс голосового сообщения"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(progress)}
+      tabIndex={0}
+    >
       {heights.current.map((h, i) => {
         const isPlayed = (i / bars) * 100 < progress;
         return (
           <div
             key={i}
-            className="w-[2.5px] rounded-full mq-wave-bar transition-colors duration-300"
+            className="w-[2.5px] rounded-full transition-all duration-200"
             style={{
               height: `${h}px`,
               backgroundColor: isMine
-                ? (isPlayed ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.35)")
-                : (isPlayed ? "var(--mq-accent)" : "rgba(255,255,255,0.15)"),
-              opacity: playing ? 0.9 : 0.3,
-              animation: playing
-                ? `mq-wave 0.${6 + (i % 4)}s ease-in-out ${i * 0.03}s infinite alternate`
-                : "none",
+                ? (isPlayed ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.3)")
+                : (isPlayed ? "var(--mq-accent)" : "rgba(255,255,255,0.18)"),
+              opacity: playing && !isPlayed ? 0.7 : 1,
+              transform: playing && isPlayed ? "scaleY(1.1)" : "scaleY(1)",
+              transformOrigin: "center",
             }}
           />
         );
@@ -74,7 +96,7 @@ function FakeWaveform({ playing, isMine, progress }: { playing: boolean; isMine:
   );
 }
 
-// ── Voice Player Component ──────────────────────────────────
+// ── Voice Player Component — P2: speed control + seekable waveform ──
 
 function VoicePlayer({
   voiceUrl,
@@ -92,9 +114,11 @@ function VoicePlayer({
   const [transcribing, setTranscribing] = useState(false);
   const [transcription, setTranscription] = useState<string | null>(null);
   const [transcriptionError, setTranscriptionError] = useState<string | null>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
   useEffect(() => {
     const audio = new Audio(voiceUrl);
+    audio.playbackRate = playbackSpeed;
     audioRef.current = audio;
 
     const onLoaded = () => setDuration(audio.duration || voiceDuration || 0);
@@ -117,6 +141,11 @@ function VoicePlayer({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceUrl]);
+
+  // Sync playback speed
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.playbackRate = playbackSpeed;
+  }, [playbackSpeed]);
 
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
@@ -169,32 +198,66 @@ function VoicePlayer({
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  const handleSeek = useCallback((pct: number) => {
+    const audio = audioRef.current;
+    if (!audio || !duration) return;
+    audio.currentTime = pct * duration;
+    setCurrentTime(audio.currentTime);
+  }, [duration]);
+
+  const cycleSpeed = useCallback(() => {
+    setPlaybackSpeed(prev => {
+      if (prev === 1) return 1.5;
+      if (prev === 1.5) return 2;
+      return 1;
+    });
+  }, []);
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-3 min-w-[200px]">
         {/* Play / Pause */}
-        <button
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.05 }}
           onClick={togglePlay}
-          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-transform hover:scale-105 active:scale-95"
+          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
           style={{
             backgroundColor: isMine ? "rgba(255,255,255,0.2)" : "var(--mq-accent)",
+            boxShadow: isMine ? "none" : "var(--mq-shadow-accent)",
           }}
+          aria-label={playing ? "Пауза" : "Воспроизвести"}
         >
           {playing ? (
-            <Pause className="w-4 h-4" style={{ color: isMine ? "#fff" : "#fff" }} />
+            <Pause className="w-4 h-4" style={{ color: "#fff" }} />
           ) : (
-            <Play className="w-4 h-4" style={{ color: "#fff", marginLeft: 1 }} />
+            <Play className="w-4 h-4" style={{ color: "#fff", marginLeft: 1 }} fill="currentColor" />
           )}
-        </button>
+        </motion.button>
 
-        {/* Waveform with progress */}
+        {/* Waveform with progress — seekable */}
         <div className="flex-1 min-w-0">
-          <FakeWaveform playing={playing} isMine={isMine} progress={progress} />
+          <FakeWaveform playing={playing} isMine={isMine} progress={progress} onSeek={handleSeek} />
         </div>
+
+        {/* Speed control — cycles 1x → 1.5x → 2x → 1x */}
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={cycleSpeed}
+          className="text-[10px] font-bold tabular-nums flex-shrink-0 px-1.5 py-0.5 rounded-md transition-colors"
+          style={{
+            color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)",
+            backgroundColor: isMine ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)",
+          }}
+          title="Скорость воспроизведения"
+          aria-label={`Скорость ${playbackSpeed}x`}
+        >
+          {playbackSpeed}x
+        </motion.button>
 
         {/* Duration */}
         <span
-          className="text-[11px] flex-shrink-0 tabular-nums"
+          className="text-[11px] flex-shrink-0 tabular-nums min-w-[36px] text-right"
           style={{
             color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)",
           }}
