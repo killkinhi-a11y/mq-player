@@ -320,7 +320,7 @@ main {
   --mq-spring-decel: cubic-bezier(0, 0, 0.2, 1);
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar — P2: themed, thin, smooth */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -331,12 +331,19 @@ main {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--mq-border);
+  background: color-mix(in srgb, var(--mq-text-muted) 25%, transparent);
   border-radius: 3px;
+  transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--mq-text-muted);
+  background: color-mix(in srgb, var(--mq-accent) 40%, transparent);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--mq-text-muted) 25%, transparent) transparent;
 }
 
 /* Cyberpunk theme styles */
