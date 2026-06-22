@@ -91,6 +91,7 @@ const SeasonalEffects = dynamic(() => import("@/components/mq/SeasonalEffects"),
 const CinematicAtmosphere = dynamic(() => import("@/components/mq/CinematicAtmosphere"), { ssr: false });
 const MaintenanceBanner = dynamic(() => import("@/components/mq/MaintenanceBanner"), { ssr: false });
 const OnboardingTour = dynamic(() => import("@/components/mq/OnboardingTour"), { ssr: false });
+const CommandPalette = dynamic(() => import("@/components/mq/CommandPalette"), { ssr: false });
 
 // Views tracked by the visited-Set pattern — mounted once and kept alive
 // with display:none so state is preserved when switching back.
@@ -513,6 +514,7 @@ export default function AppShell() {
       <Suspense fallback={null}><PlayerBar /></Suspense>
       <Suspense fallback={null}><FullTrackView /></Suspense>
       <Suspense fallback={null}><KeyboardShortcutsHelp /></Suspense>
+      <Suspense fallback={null}>{showNav && <CommandPalette />}</Suspense>
       <Suspense fallback={null}>{catEnabled && <MqCat />}</Suspense>
       {/* Cobalt Turnstile — invisible widget for SNIP bypass JWT */}
       <CobaltTurnstile />
