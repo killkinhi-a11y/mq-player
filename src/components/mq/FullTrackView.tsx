@@ -611,6 +611,8 @@ export default function FullTrackView() {
   const [compressorOn, setCompressorOn] = useState(false);
   const [reverbOn, setReverbOn] = useState(false);
   const [reverbMixVal, setReverbMixVal] = useState(0.3);
+  // P2: Visualizer mode for background wave canvas
+  const [visualizerMode, setVisualizerMode] = useState<"wave" | "bars" | "circle">("wave");
 
   const PLAYBACK_SPEEDS = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
@@ -1694,10 +1696,74 @@ export default function FullTrackView() {
         ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
         ctx.fill();
       }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // P2: Visualizer modes (bars + circle) — overrides default waves
+      // ═══════════════════════════════════════════════════════════════════
+      if (style === "default" && visualizerMode !== "wave") {
+        const analyser = getAnalyser();
+        const bufferLength = analyser ? analyser.frequencyBinCount : 128;
+        const dataArray = new Uint8Array(bufferLength);
+        if (analyser) analyser.getByteFrequencyData(dataArray);
+
+        const { r, g, b } = waveAccent;
+        const cx = w / 2;
+        const cy = h / 2;
+
+        if (visualizerMode === "bars") {
+          const barCount = 48;
+          const barWidth = w / barCount;
+          const maxBarHeight = h * 0.25;
+          for (let i = 0; i < barCount; i++) {
+            const freqIndex = Math.floor((i / barCount) * bufferLength * 0.7);
+            const value = dataArray[freqIndex] || 0;
+            const barHeight = (value / 255) * maxBarHeight * (isPlaying ? 1 : 0.15);
+            const x = i * barWidth;
+            const y = h - barHeight;
+            const alpha = 0.08 + (value / 255) * 0.15;
+            ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+            ctx.fillRect(x + barWidth * 0.15, y, barWidth * 0.7, barHeight);
+          }
+        } else if (visualizerMode === "circle") {
+          const radius = Math.min(w, h) * 0.15;
+          const maxBarLen = Math.min(w, h) * 0.1;
+          const barCount = 64;
+          for (let i = 0; i < barCount; i++) {
+            const angle = (i / barCount) * Math.PI * 2 - Math.PI / 2;
+            const freqIndex = Math.floor((i / barCount) * bufferLength * 0.6);
+            const value = dataArray[freqIndex] || 0;
+            const barLen = (value / 255) * maxBarLen * (isPlaying ? 1 : 0.1);
+            const x1 = cx + Math.cos(angle) * radius;
+            const y1 = cy + Math.sin(angle) * radius;
+            const x2 = cx + Math.cos(angle) * (radius + barLen);
+            const y2 = cy + Math.sin(angle) * (radius + barLen);
+            const alpha = 0.1 + (value / 255) * 0.25;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+            ctx.lineWidth = 2;
+            ctx.lineCap = "round";
+            ctx.stroke();
+          }
+          const glowAlpha = isPlaying ? 0.04 : 0.015;
+          const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+          glow.addColorStop(0, `rgba(${r},${g},${b},${glowAlpha})`);
+          glow.addColorStop(1, `rgba(${r},${g},${b},0)`);
+          ctx.beginPath();
+          ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+          ctx.fillStyle = glow;
+          ctx.fill();
+        }
+        return; // Skip default wave rendering
+      }
+
+      return; // Default wave rendering done
     };
+
     draw(performance.now());
     return () => { if (waveAnimRef.current) cancelAnimationFrame(waveAnimRef.current); waveThemeObserver.disconnect(); };
-  }, [isFullTrackViewOpen, currentTrack?.id, currentStyle, isPlaying, animationsEnabled]);
+  }, [isFullTrackViewOpen, currentTrack?.id, currentStyle, isPlaying, animationsEnabled, visualizerMode]);
 
   // Fetch release radar when component mounts and liked tracks are available
   useEffect(() => {
@@ -2584,6 +2650,7 @@ export default function FullTrackView() {
                   { icon: Waves, label: radioMode ? "Волна вкл" : "Радио режим", active: radioMode, action: () => { toggleRadioMode(); setShowMoreMenu(false); } },
                   { icon: Gauge, label: `Скорость ${playbackRate.toFixed(1)}x`, active: playbackRate !== 1.0, action: () => { cyclePlaybackSpeed(); setShowMoreMenu(false); } },
                   { icon: Sparkles, label: "Canvas режим", active: canvasMode, action: () => { setCanvasMode(!canvasMode); setShowMoreMenu(false); } },
+                  { icon: Waves, label: `Визуализация: ${visualizerMode === "wave" ? "Волна" : visualizerMode === "bars" ? "Полосы" : "Круг"}`, active: true, action: () => { setVisualizerMode(prev => prev === "wave" ? "bars" : prev === "bars" ? "circle" : "wave"); setShowMoreMenu(false); } },
                 ].map((item) => {
                   const Icon = item.icon;
                   return (
@@ -2729,6 +2796,7 @@ export default function FullTrackView() {
                   { icon: Waves, label: radioMode ? "Волна вкл" : "Радио режим", active: radioMode, action: () => { toggleRadioMode(); setShowMoreMenu(false); } },
                   { icon: Gauge, label: `Скорость ${playbackRate.toFixed(1)}x`, active: playbackRate !== 1.0, action: () => { cyclePlaybackSpeed(); setShowMoreMenu(false); } },
                   { icon: Sparkles, label: "Canvas режим", active: canvasMode, action: () => { setCanvasMode(!canvasMode); setShowMoreMenu(false); } },
+                  { icon: Waves, label: `Визуализация: ${visualizerMode === "wave" ? "Волна" : visualizerMode === "bars" ? "Полосы" : "Круг"}`, active: true, action: () => { setVisualizerMode(prev => prev === "wave" ? "bars" : prev === "bars" ? "circle" : "wave"); setShowMoreMenu(false); } },
                 ].map((item) => {
                   const Icon = item.icon;
                   return (
