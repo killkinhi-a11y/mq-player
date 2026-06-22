@@ -138,17 +138,29 @@ const shadowDeep = "0 8px 32px rgba(0,0,0,0.35)";
 // ═══════════════════════════════════════════════════════════════
 
 function TypingBubble({ contactId }: { contactId: string }) {
+  // P2-#310: use a stable selector — s.typingUsers[contactId] returns undefined
+  // which is a primitive (stable). But when typingUsers object changes (new ref),
+  // this selector re-runs. If the value is the same, Zustand skips re-render.
+  // The forceUpdate interval was causing #310: every 500ms it called forceUpdate,
+  // which triggered re-render, which triggered the AnimatePresence to re-mount
+  // its child, which triggered another state update → infinite loop.
   const typingTs = useAppStore((s) => s.typingUsers[contactId]);
-  const [, forceUpdate] = useState(0);
+  const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (!typingTs) return;
-    // Force re-check every 500ms to auto-hide after 4s TTL
-    const interval = setInterval(() => forceUpdate((n) => n + 1), 500);
-    return () => clearInterval(interval);
+    if (!typingTs) { setVisible(false); return; }
+    const isRecent = Date.now() - typingTs < 4000;
+    setVisible(isRecent);
+    
+    if (!isRecent) return;
+    
+    // Set a timeout to hide after 4s TTL — single timeout, not interval
+    const remaining = 4000 - (Date.now() - typingTs);
+    const timer = setTimeout(() => setVisible(false), Math.max(500, remaining));
+    return () => clearTimeout(timer);
   }, [typingTs]);
 
-  if (!typingTs || Date.now() - typingTs > 4000) return null;
+  if (!visible) return null;
 
   return (
     <AnimatePresence>
