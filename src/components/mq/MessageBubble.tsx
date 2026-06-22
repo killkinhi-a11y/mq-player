@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { motion } from "framer-motion";
-import { Lock, Play, Pause, Music2, Headphones, BookOpen, Loader2, Check, CheckCheck, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Lock, Play, Pause, Music2, Headphones, BookOpen, Loader2, Check, CheckCheck, ChevronDown, Smile, Reply } from "lucide-react";
 import { simulateDecryptSync } from "@/lib/crypto";
 
 // ── Types ────────────────────────────────────────────────────
@@ -434,6 +434,40 @@ export default function MessageBubble({
   const isSystem = message.messageType === "system";
   const isEdited = message.edited === true;
 
+  // ── Reactions state — P2: emoji reactions on messages ──
+  const [showReactions, setShowReactions] = useState(false);
+  const [reactions, setReactions] = useState<Record<string, string[]>>(() => {
+    try {
+      const stored = localStorage.getItem(`mq-reactions-${message.id}`);
+      return stored ? JSON.parse(stored) : {};
+    } catch { return {}; }
+  });
+
+  const REACTION_EMOJIS = ["👍", "❤️", "🔥", "😂", "😮", "😢", "🎉", "🙏"];
+
+  const addReaction = useCallback((emoji: string) => {
+    if (!currentUserId) return;
+    const key = String(emoji);
+    const uid = String(currentUserId);
+    setReactions(prev => {
+      const next = { ...prev };
+      const existing: string[] = next[key] || [];
+      const userIdx = existing.indexOf(uid);
+      if (userIdx >= 0) {
+        const filtered = existing.filter(id => id !== uid);
+        if (filtered.length === 0) delete next[key];
+        else next[key] = filtered;
+      } else {
+        next[key] = [...existing, uid];
+      }
+      try { localStorage.setItem(`mq-reactions-${message.id}`, JSON.stringify(next)); } catch {}
+      return next;
+    });
+    setShowReactions(false);
+  }, [currentUserId, message.id]);
+
+  const reactionEntries = Object.entries(reactions).filter(([, users]) => users.length > 0);
+
   // ── Deleted message ──
   if (isDeleted) {
     return (
@@ -727,7 +761,7 @@ export default function MessageBubble({
       animate={{ opacity: 1, y: 0, scale: 1 }}
       className={`flex ${isMine ? "justify-end" : "justify-start"} w-full`}
     >
-      <div className="max-w-[85%] lg:max-w-[70%] w-fit" style={{ minWidth: 0 }}>
+      <div className="max-w-[85%] lg:max-w-[70%] w-fit group/msg relative" style={{ minWidth: 0 }}>
         {/* Sender name (received messages only) */}
         {!isMine && message.senderName && (
           <p
@@ -789,6 +823,99 @@ export default function MessageBubble({
             </span>
             {isMine && (
               <CheckCheck className="w-3 h-3" style={{ color: "rgba(255,255,255,0.5)" }} />
+            )}
+          </div>
+
+          {/* ── Reactions display — P2 ── */}
+          {reactionEntries.length > 0 && (
+            <div className={`flex flex-wrap gap-1 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
+              {reactionEntries.map(([emoji, users]: [string, string[]]) => {
+                const hasMine = currentUserId ? users.includes(currentUserId) : false;
+                return (
+                  <motion.button
+                    key={emoji}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                    whileTap={{ scale: 0.85 }}
+                    onClick={() => addReaction(emoji)}
+                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] transition-colors"
+                    style={{
+                      backgroundColor: hasMine
+                        ? "color-mix(in srgb, var(--mq-accent) 20%, transparent)"
+                        : "rgba(255,255,255,0.06)",
+                      border: hasMine
+                        ? "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)"
+                        : "1px solid rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <span>{emoji}</span>
+                    <span style={{ color: hasMine ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{users.length}</span>
+                  </motion.button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── Reaction picker — P2 ── */}
+          <AnimatePresence>
+            {showReactions && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                className={`absolute z-50 ${isMine ? "right-0" : "left-0"} -top-12 flex gap-0.5 p-1.5 rounded-full`}
+                style={{
+                  backgroundColor: "color-mix(in srgb, var(--mq-card) 95%, transparent)",
+                  backdropFilter: "blur(16px) saturate(180%)",
+                  WebkitBackdropFilter: "blur(16px) saturate(180%)",
+                  border: "1px solid var(--mq-glass-border)",
+                  boxShadow: "var(--mq-shadow-card-hover)",
+                }}
+                onMouseLeave={() => setShowReactions(false)}
+              >
+                {REACTION_EMOJIS.map((emoji, i) => (
+                  <motion.button
+                    key={emoji}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: i * 0.02, type: "spring", stiffness: 500, damping: 25 }}
+                    whileHover={{ scale: 1.3, y: -2 }}
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => addReaction(emoji)}
+                    className="w-8 h-8 flex items-center justify-center rounded-full text-lg"
+                  >
+                    {emoji}
+                  </motion.button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* ── Hover actions bar — reply + react ── */}
+          <div className={`absolute ${isMine ? "right-full mr-1" : "left-full ml-1"} top-1/2 -translate-y-1/2 opacity-0 group-hover/msg:opacity-100 transition-opacity flex gap-0.5`}>
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              onClick={() => setShowReactions(!showReactions)}
+              className="w-7 h-7 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}
+              aria-label="Реакция"
+              title="Реакция"
+            >
+              <Smile className="w-3.5 h-3.5" />
+            </motion.button>
+            {onReplyClick && (
+              <motion.button
+                whileTap={{ scale: 0.85 }}
+                onClick={() => onReplyClick(message.id)}
+                className="w-7 h-7 rounded-full flex items-center justify-center"
+                style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}
+                aria-label="Ответить"
+                title="Ответить"
+              >
+                <Reply className="w-3.5 h-3.5" />
+              </motion.button>
             )}
           </div>
         </div>
