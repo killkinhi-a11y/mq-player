@@ -207,6 +207,12 @@ export default function MessengerView() {
   const [showEncryptionDialog, setShowEncryptionDialog] = useState(false);
   const [showProfileView, setShowProfileView] = useState<string | null>(null);
   const [showProfileMore, setShowProfileMore] = useState(false);
+
+  // ── Pinned messages — per chat (state only, logic below after activeChatId) ──
+  const [pinnedMessages, setPinnedMessages] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem("mq-pinned-messages") || "{}"); } catch { return {}; }
+  });
+  const [showPinnedBar, setShowPinnedBar] = useState(false);
   const [friendNowPlaying, setFriendNowPlaying] = useState<{ title: string; artist: string; cover: string } | null>(null);
   const [friendNowPlayingActive, setFriendNowPlayingActive] = useState(false);
   const [hideOnline, setHideOnline] = useState(() => {
@@ -1785,6 +1791,26 @@ export default function MessengerView() {
   const isGroupChat = !!selectedGroupId && !selectedContactId;
   const displayMessages = isGroupChat ? currentGroupMessages : contactMessages;
 
+  // ── Pinned message logic (after activeChatId + isGroupChat are available) ──
+  const togglePinMessage = useCallback((msgId: string) => {
+    if (!activeChatId) return;
+    const chatId = activeChatId;
+    setPinnedMessages(prev => {
+      const next = { ...prev };
+      if (next[chatId] === msgId) delete next[chatId];
+      else next[chatId] = msgId;
+      try { localStorage.setItem("mq-pinned-messages", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, [activeChatId]);
+
+  const pinnedMsgId = activeChatId ? pinnedMessages[activeChatId] : undefined;
+  const pinnedMessage = useMemo(() => {
+    if (!pinnedMsgId) return null;
+    const allMsgs = isGroupChat ? currentGroupMessages : messages;
+    return allMsgs.find((m: any) => m.id === pinnedMsgId) || null;
+  }, [pinnedMsgId, isGroupChat, currentGroupMessages, messages]);
+
   // Compute messenger container height
   // PlayerBar (floating card): bottom margin(16px) + card(~84px) ≈ 100px ≈ 6.25rem
   const messengerHeight = (() => {
@@ -2326,15 +2352,36 @@ export default function MessengerView() {
                         {searchResults.map((m: any) => {
                           let preview = m.content || "";
                           try { preview = simulateDecryptSync(preview); } catch { /* */ }
-                          if (preview.length > 50) preview = preview.slice(0, 50) + "...";
+                          const highlightedPreview = (() => {
+                            if (!searchQuery.trim()) return preview.length > 50 ? preview.slice(0, 50) + "..." : preview;
+                            const q = searchQuery.trim().toLowerCase();
+                            const lowerPreview = preview.toLowerCase();
+                            const idx = lowerPreview.indexOf(q);
+                            if (idx < 0) return preview.length > 50 ? preview.slice(0, 50) + "..." : preview;
+                            const start = Math.max(0, idx - 20);
+                            const end = Math.min(preview.length, idx + q.length + 30);
+                            const before = preview.slice(start, idx);
+                            const match = preview.slice(idx, idx + q.length);
+                            const after = preview.slice(idx + q.length, end);
+                            return (start > 0 ? "..." : "") + before + "«" + match + "»" + after + (end < preview.length ? "..." : "");
+                          })();
+                          const time = new Date(m.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
                           return (
-                            <button key={m.id} onClick={() => handleSearchResultClick(m)}
-                              className="w-full text-left p-2.5 hover:opacity-80 transition-opacity cursor-pointer" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                              <p className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>
-                                {m.senderId === userId ? "Вы" : m.sender?.username || "User"}
-                              </p>
-                              <p className="text-xs truncate" style={{ color: "var(--mq-text)" }}>{preview}</p>
-                            </button>
+                            <motion.button
+                              key={m.id}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={() => handleSearchResultClick(m)}
+                              className="w-full text-left p-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer"
+                              style={{ borderBottom: "1px solid var(--mq-border)" }}
+                            >
+                              <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <p className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>
+                                  {m.senderId === userId ? "Вы" : m.sender?.username || "User"}
+                                </p>
+                                <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>{time}</span>
+                              </div>
+                              <p className="text-xs truncate" style={{ color: "var(--mq-text)" }}>{highlightedPreview}</p>
+                            </motion.button>
                           );
                         })}
                       </div>
@@ -2344,6 +2391,53 @@ export default function MessengerView() {
                     )}
                   </div>
                 </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* ── Pinned message bar — P2 ── */}
+            <AnimatePresence>
+              {pinnedMessage && !showPinnedBar && (
+                <motion.button
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 44, opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  onClick={() => {
+                    // Scroll to pinned message
+                    const el = document.querySelector(`[data-msg-id="${pinnedMessage.id}"]`);
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      el.classList.add("mq-pulse-highlight");
+                      setTimeout(() => el.classList.remove("mq-pulse-highlight"), 2000);
+                    }
+                  }}
+                  className="flex items-center gap-2.5 px-4 py-2 w-full text-left flex-shrink-0"
+                  style={{
+                    backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, var(--mq-player-bg))",
+                    borderBottom: "1px solid color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <Pin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} fill="currentColor" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>
+                      Закреплено
+                    </p>
+                    <p className="text-[11px] truncate" style={{ color: "var(--mq-text)" }}>
+                      {(() => {
+                        try { return simulateDecryptSync(pinnedMessage.content).slice(0, 60); }
+                        catch { return (pinnedMessage.content || "").slice(0, 60); }
+                      })()}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); togglePinMessage(pinnedMessage.id); }}
+                    className="p-1 rounded-full hover:bg-white/5 transition-colors flex-shrink-0"
+                    style={{ color: "var(--mq-text-muted)" }}
+                    aria-label="Открепить"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </motion.button>
               )}
             </AnimatePresence>
 
@@ -3403,7 +3497,7 @@ export default function MessengerView() {
     const isEdited = msg.edited;
 
     return (
-      <div key={msg.id} id={`msg-${msg.id}`} className="relative group/bubble"
+      <div key={msg.id} id={`msg-${msg.id}`} data-msg-id={msg.id} className="relative group/bubble"
         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenuMsgId({ id: msg.id, x: e.clientX, y: e.clientY }); }}
         onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchMove={handleTouchMove}>
         <motion.div initial={animationsEnabled ? { opacity: 0, y: 8, scale: 0.97 } : undefined} animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -3463,6 +3557,11 @@ export default function MessengerView() {
             <button onClick={() => handleCopyMessage(msg)}
               className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
               <Copy className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Копировать
+            </button>
+            <button onClick={() => { togglePinMessage(msg.id); setContextMenuMsgId(null); }}
+              className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
+              <Pin className="w-4 h-4" style={{ color: pinnedMsgId === msg.id ? "var(--mq-accent)" : "var(--mq-accent)" }} fill={pinnedMsgId === msg.id ? "currentColor" : "none"} />
+              {pinnedMsgId === msg.id ? "Открепить" : "Закрепить"}
             </button>
             {/* Quick reactions */}
             <div className="flex items-center gap-1 px-4 py-2" style={{ borderTop: "1px solid var(--mq-border)", borderBottom: "1px solid var(--mq-border)" }}>

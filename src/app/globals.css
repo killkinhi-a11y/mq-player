@@ -1734,6 +1734,16 @@ a:not([data-framer-motion-id]),
   display: none;
 }
 
+/* P2: Pulse highlight for pinned message scroll-to */
+@keyframes mqPulseHighlight {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: color-mix(in srgb, var(--mq-accent) 15%, transparent); }
+}
+.mq-pulse-highlight {
+  animation: mqPulseHighlight 0.5s ease-in-out 3;
+  border-radius: 12px;
+}
+
 /* ── Stagger Animation Helper ── */
 .mq-stagger > *:nth-child(1) { animation-delay: 0ms; }
 .mq-stagger > *:nth-child(2) { animation-delay: 50ms; }
