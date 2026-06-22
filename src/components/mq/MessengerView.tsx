@@ -1795,6 +1795,7 @@ export default function MessengerView() {
   const displayMessages = isGroupChat ? currentGroupMessages : contactMessages;
 
   // ── Pinned message logic (after activeChatId + isGroupChat are available) ──
+  // P2-#310: pinnedMessage wrapped in useMemo to prevent infinite re-render
   const togglePinMessage = useCallback((msgId: string) => {
     if (!activeChatId) return;
     const chatId = activeChatId;
@@ -1814,14 +1815,13 @@ export default function MessengerView() {
     return allMsgs.find((m: any) => m.id === pinnedMsgId) || null;
   }, [pinnedMsgId, isGroupChat, currentGroupMessages, messages]);
 
-  // Compute messenger container height
-  // PlayerBar (floating card): bottom margin(16px) + card(~84px) ≈ 100px ≈ 6.25rem
-  const messengerHeight = (() => {
+  // P2-#310: useMemo for messengerHeight to prevent re-computation each render
+  const messengerHeight = useMemo(() => {
     const topNav = isMobileView ? 3.5 : 3.5;
     const mobileNav = isMobileView ? 3.5 : 0;
     const playerBar = currentTrack ? 6.25 : 0;
     return `calc(100dvh - ${topNav + mobileNav + playerBar}rem)`;
-  })();
+  }, [isMobileView, currentTrack]);
 
   return (
     <motion.div
