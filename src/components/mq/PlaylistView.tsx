@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useAppStore, type UserPlaylist } from "@/store/useAppStore";
+import { useTouchDrag } from "@/hooks/useTouchDrag";
 import { motion, AnimatePresence } from "framer-motion";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import {
@@ -478,6 +479,17 @@ export default function PlaylistView() {
     });
   }, [playlists]);
 
+  // ── Touch D&D — P2: touch-friendly reordering via long-press ──
+  const touchDrag = useTouchDrag({
+    onReorder: (from, to) => {
+      if (selectedPlaylist) {
+        handleMoveTrack(selectedPlaylist.id, from, to);
+      }
+    },
+    itemCount: selectedPlaylist?.tracks.length || 0,
+    itemHeight: 52,
+  });
+
   const triggerUrlImport = useCallback(async () => {
     if (!importUrl.trim() || importing) return;
     setImporting(true);
@@ -851,15 +863,22 @@ export default function PlaylistView() {
                   onDragOver={(e) => handleDragOver(e, i)}
                   onDrop={(e) => handleDrop(e, i)}
                   onDragEnd={handleDragEnd}
-                  className="group/track flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 transition-colors relative"
+                  onTouchStart={touchDrag.handleTouchStart(i)}
+                  onTouchMove={touchDrag.handleTouchMove}
+                  onTouchEnd={touchDrag.handleTouchEnd}
+                  className="group/track flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-2 transition-colors relative select-none"
                   style={{
-                    backgroundColor: isDragTarget
-                      ? "rgba(255,255,255,0.06)"
-                      : isCurrentlyPlaying
-                        ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)"
-                        : "transparent",
-                    borderTop: isDragTarget ? "2px solid var(--mq-accent)" : "1px solid transparent",
+                    backgroundColor: touchDrag.hoverIndex === i && touchDrag.isDragging
+                      ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)"
+                      : isDragTarget
+                        ? "rgba(255,255,255,0.06)"
+                        : isCurrentlyPlaying
+                          ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)"
+                          : "transparent",
+                    borderTop: (touchDrag.hoverIndex === i && touchDrag.isDragging) || isDragTarget ? "2px solid var(--mq-accent)" : "1px solid transparent",
                     borderBottom: "1px solid color-mix(in srgb, var(--mq-border) 50%, transparent)",
+                    opacity: touchDrag.dragIndex === i && touchDrag.isDragging ? 0.5 : 1,
+                    transform: touchDrag.dragIndex === i && touchDrag.isDragging ? "scale(0.98)" : "scale(1)",
                   }}
                 >
                   {/* Track number + play-on-hover + drag grip */}
