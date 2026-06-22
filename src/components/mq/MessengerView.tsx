@@ -24,9 +24,10 @@ import Image from "next/image";
 
 interface Story {
   id: string; userId: string; username: string; avatar: string;
-  content: string; contentType: "text" | "image" | "track";
+  content: string; contentType: "text" | "image" | "track" | "video";
   createdAt: string; expiresAt: string; viewed: boolean; likes: number;
   trackData?: { id: string; title: string; artist: string; cover: string; duration: number; streamUrl: string };
+  videoUrl?: string;
 }
 
 interface FriendUser { id: string; username: string; avatar: string; addedAt: string; }
@@ -685,12 +686,14 @@ export default function MessengerView() {
           const mapped: Story[] = (data.stories || []).map((s: any) => {
             let trackData: Story["trackData"] | undefined;
             let contentType: Story["contentType"] = "text";
+            let videoUrl: string | undefined;
             const cStr = typeof s.content === "string" ? s.content : "";
             if (s.type === "music" || s.type === "track") {
               contentType = "track";
               try { const p = JSON.parse(cStr); if (p.track) trackData = p.track; } catch { /* */ }
             } else if (s.type === "image") { contentType = "image"; }
-            return { id: s.id, userId: s.userId, username: s.user?.username || "User", avatar: "", content: cStr, contentType, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed: false, likes: s.likes?.length || 0, trackData };
+            else if (s.type === "video") { contentType = "video"; videoUrl = cStr; }
+            return { id: s.id, userId: s.userId, username: s.user?.username || "User", avatar: "", content: cStr, contentType, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed: false, likes: s.likes?.length || 0, trackData, videoUrl };
           });
           setStories(mapped);
         }
@@ -2882,13 +2885,34 @@ export default function MessengerView() {
             {/* ── Story creation ── */}
             <AnimatePresence>
               {showStoryCreate && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 200 }} exit={{ opacity: 0, height: 0 }}
+                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 240 }} exit={{ opacity: 0, height: 0 }}
                   className="p-3 flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
                   <div className="flex items-center gap-2 mb-2">
                     <BookOpen className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
                     <span className="text-xs font-medium" style={{ color: "var(--mq-text)" }}>Новая история</span>
+                    {/* Quick content type buttons */}
+                    <div className="flex gap-1 ml-auto">
+                      {currentTrack && (
+                        <motion.button
+                          whileTap={{ scale: 0.9 }}
+                          onClick={async () => {
+                            if (!userId || !currentTrack) return;
+                            try {
+                              const content = JSON.stringify({ type: "track_share", track: { id: currentTrack.id, title: currentTrack.title, artist: currentTrack.artist, cover: currentTrack.cover, duration: currentTrack.duration, streamUrl: currentTrack.audioUrl || "" } });
+                              const res = await fetch("/api/stories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "music", content }) });
+                              if (res.ok) { setShowStoryCreate(false); showToast("Трек в истории!"); }
+                            } catch { /* */ }
+                          }}
+                          className="p-1.5 rounded-lg flex items-center gap-1 text-[11px] font-medium"
+                          style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
+                          title="Поделиться текущим треком"
+                        >
+                          <Music2 className="w-3 h-3" /> Трек
+                        </motion.button>
+                      )}
+                    </div>
                   </div>
-                  <textarea value={storyText} onChange={(e) => setStoryText(e.target.value)} placeholder="Что у вас нового?" rows={2}
+                  <textarea value={storyText} onChange={(e) => setStoryText(e.target.value)} placeholder="Что у вас нового?" rows={3}
                     className="w-full rounded-xl px-3 py-2 text-sm resize-none" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} />
                   <div className="flex gap-2 mt-2">
                     <motion.button whileTap={{ scale: 0.95 }} onClick={async () => {
@@ -3172,6 +3196,19 @@ export default function MessengerView() {
                       </div>
                     </div>
                   </div>
+                )}
+                {viewingStory.contentType === "image" && viewingStory.content && (
+                  <img src={viewingStory.content} alt="Story" className="w-full h-full object-cover" />
+                )}
+                {viewingStory.contentType === "video" && viewingStory.videoUrl && (
+                  <video
+                    src={viewingStory.videoUrl}
+                    className="w-full h-full object-cover"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                  />
                 )}
               </div>
             </motion.div>
