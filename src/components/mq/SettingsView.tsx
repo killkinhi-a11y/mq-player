@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes, seasonalThemes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, ChevronRight, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download, Sun, ThumbsDown, ArrowLeftRight, Bell, Info, LogOut, PenLine, SlidersHorizontal, AudioWaveform, Search, Gauge
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, ChevronRight, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download, Sun, ThumbsDown, ArrowLeftRight, Bell, Info, LogOut, PenLine, SlidersHorizontal, AudioWaveform, Search, Gauge, Hand, MoveHorizontal, Keyboard, Command
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
@@ -1635,6 +1635,105 @@ export default function SettingsView() {
 
       {/* EQ Modal */}
       <EqualizerView show={showEQ} onClose={() => setShowEQ(false)} />
+
+      {/* ═══════════════════════════════════════════════════ */}
+      {/* ── ЖЕСТЫ И УПРАВЛЕНИЕ ── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <ScrollReveal direction="up" delay={0.11}>
+        <motion.div
+          initial={anim ? { opacity: 0, y: 20 } : undefined}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.11, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="rounded-2xl overflow-hidden"
+          style={sectionCardStyle}
+        >
+          <SectionHeader icon={Hand} title="Жесты и управление" />
+
+          {/* Swipe to change track */}
+          <div className="px-4 py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
+                <MoveHorizontal className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Swipe смена трека</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Горизонтальный swipe на обложке в плеере</p>
+              </div>
+              <Switch
+                checked={animationsEnabled}
+                onCheckedChange={(v) => useAppStore.getState().setAnimationsEnabled(v)}
+              />
+            </div>
+          </div>
+
+          {/* Volume wheel scroll */}
+          <div className="px-4 py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
+                <Volume2 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Колесо мыши = громкость</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Скролл на плеере меняет громкость</p>
+              </div>
+              <Switch checked={true} onCheckedChange={() => {}} disabled />
+            </div>
+          </div>
+
+          {/* Keyboard shortcuts info */}
+          <div className="px-4 py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
+                <Keyboard className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Горячие клавиши</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Space, ←→, ↑↓, N, P, M, L, F, B</p>
+              </div>
+              <button
+                onClick={() => useAppStore.getState().setShortcutsHelpOpen(true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium"
+                style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
+              >
+                Показать
+              </button>
+            </div>
+          </div>
+
+          {/* Cmd+K info */}
+          <div className="px-4 py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
+                <Command className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Командное меню</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Быстрый доступ ко всем функциям</p>
+              </div>
+              <kbd className="text-[11px] font-mono px-2 py-1 rounded-md" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                ⌘K
+              </kbd>
+            </div>
+          </div>
+
+          {/* Reduce motion */}
+          <div className="px-4 py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
+                <Zap className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Уменьшить анимации</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Отключить плавные переходы и эффекты</p>
+              </div>
+              <Switch
+                checked={reduceMotion}
+                onCheckedChange={(v) => useAppStore.getState().setReduceMotion(v)}
+              />
+            </div>
+          </div>
+        </motion.div>
+      </ScrollReveal>
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* ── УВЕДОМЛЕНИЯ ── */}
