@@ -159,6 +159,68 @@ const ProfileView = React.memo(function ProfileView() {
     ];
   }, [history, likedTrackIds, contacts, playlists]);
 
+  // ── Listening heatmap — 7 days × 24 hours — P2: visual listening pattern ──
+  const listeningHeatmap = useMemo(() => {
+    const days = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+    const grid: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+    const now = new Date();
+    const weekAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+
+    for (const h of history) {
+      if (h.playedAt < weekAgo) continue;
+      const d = new Date(h.playedAt);
+      const dayIdx = (d.getDay() + 6) % 7; // Monday = 0
+      const hourIdx = d.getHours();
+      grid[dayIdx][hourIdx]++;
+    }
+
+    const maxVal = Math.max(...grid.flat(), 1);
+    return { grid, days, maxVal };
+  }, [history]);
+
+  // ── Peak listening hour + day — P2: insights ──
+  const listeningInsights = useMemo(() => {
+    const { grid, days } = listeningHeatmap;
+    let peakHour = 0, peakHourCount = 0;
+    let peakDay = 0, peakDayCount = 0;
+    const hourTotals = Array(24).fill(0);
+
+    for (let d = 0; d < 7; d++) {
+      let dayCount = 0;
+      for (let h = 0; h < 24; h++) {
+        hourTotals[h] += grid[d][h];
+        dayCount += grid[d][h];
+      }
+      if (dayCount > peakDayCount) {
+        peakDayCount = dayCount;
+        peakDay = d;
+      }
+    }
+
+    for (let h = 0; h < 24; h++) {
+      if (hourTotals[h] > peakHourCount) {
+        peakHourCount = hourTotals[h];
+        peakHour = h;
+      }
+    }
+
+    const formatHour = (h: number) => {
+      if (h === 0) return "00:00";
+      if (h < 6) return "Ночь";
+      if (h < 12) return "Утро";
+      if (h < 18) return "День";
+      return "Вечер";
+    };
+
+    return {
+      peakHour,
+      peakHourLabel: `${peakHour}:00`,
+      peakHourPeriod: formatHour(peakHour),
+      peakDay: days[peakDay],
+      peakDayCount,
+    };
+  }, [listeningHeatmap]);
+
   // ── Recent tracks (last 5) ──
   const recentTracks = useMemo(() => {
     return history.slice(0, 5).map((h) => ({
@@ -794,6 +856,90 @@ const ProfileView = React.memo(function ProfileView() {
           </div>
         </motion.div>
       </ScrollReveal>
+
+      {/* ════════════════════════════════════════════
+          Listening Heatmap — 7 days × 24 hours
+          ════════════════════════════════════════════ */}
+      {history.length > 0 && (
+        <ScrollReveal direction="up" delay={0.12}>
+          <motion.div
+            initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl overflow-hidden"
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", boxShadow: "var(--mq-shadow-card)" }}
+          >
+            <div className="px-4 pt-4 pb-2 flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 18%, transparent)" }}>
+                <Clock className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+              </div>
+              <h3 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
+                Тепловая карта
+              </h3>
+            </div>
+
+            {/* Insights */}
+            <div className="px-4 pb-2 flex flex-wrap gap-2">
+              <span className="text-[11px] px-2.5 py-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-accent)" }}>
+                🕐 Пик: {listeningInsights.peakHourLabel} ({listeningInsights.peakHourPeriod})
+              </span>
+              <span className="text-[11px] px-2.5 py-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-accent)" }}>
+                📅 День: {listeningInsights.peakDay}
+              </span>
+            </div>
+
+            {/* Heatmap grid */}
+            <div className="px-4 pb-4 pt-2 overflow-x-auto" style={{ scrollbarWidth: "thin" }}>
+              <div className="min-w-[280px]">
+                {/* Hour labels */}
+                <div className="flex gap-[2px] mb-1 ml-7">
+                  {[0, 4, 8, 12, 16, 20].map(h => (
+                    <span key={h} className="text-[8px] flex-1 text-center" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
+                      {h}
+                    </span>
+                  ))}
+                </div>
+                {/* Day rows */}
+                {listeningHeatmap.days.map((day, dIdx) => (
+                  <div key={day} className="flex items-center gap-1 mb-[2px]">
+                    <span className="text-[9px] w-6 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                      {day}
+                    </span>
+                    <div className="flex gap-[2px] flex-1">
+                      {listeningHeatmap.grid[dIdx].map((count, hIdx) => {
+                        const intensity = listeningHeatmap.maxVal > 0 ? count / listeningHeatmap.maxVal : 0;
+                        return (
+                          <div
+                            key={hIdx}
+                            className="aspect-square rounded-sm flex-1 min-w-[6px]"
+                            style={{
+                              backgroundColor: count === 0
+                                ? "rgba(255,255,255,0.03)"
+                                : `color-mix(in srgb, var(--mq-accent) ${Math.max(15, intensity * 100)}%, transparent)`,
+                            }}
+                            title={`${day} ${hIdx}:00 — ${count} треков`}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {/* Legend */}
+                <div className="flex items-center justify-end gap-1 mt-2">
+                  <span className="text-[9px]" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>меньше</span>
+                  {[0.1, 0.3, 0.5, 0.7, 1].map(i => (
+                    <div
+                      key={i}
+                      className="w-2.5 h-2.5 rounded-sm"
+                      style={{ backgroundColor: `color-mix(in srgb, var(--mq-accent) ${i * 100}%, transparent)` }}
+                    />
+                  ))}
+                  <span className="text-[9px]" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>больше</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </ScrollReveal>
+      )}
 
       {/* ════════════════════════════════════════════
           Taste Profile — genres + artists with frequency bars
