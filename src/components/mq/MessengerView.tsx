@@ -841,13 +841,13 @@ export default function MessengerView() {
     return () => document.removeEventListener("visibilitychange", handler);
   }, [userId, selectedContactId, fetchFriends]);
 
-  // ── Stories grouping ──
-  const storyGroups = stories.reduce<Record<string, Story[]>>((acc, s) => {
+  // ── Stories grouping — P2: useMemo to prevent re-computation on every render (#310 fix) ──
+  const storyGroups = useMemo(() => stories.reduce<Record<string, Story[]>>((acc, s) => {
     if (!acc[s.userId]) acc[s.userId] = [];
     acc[s.userId].push(s);
     return acc;
-  }, {});
-  const storyGroupKeys = Object.keys(storyGroups);
+  }, {}), [stories]);
+  const storyGroupKeys = useMemo(() => Object.keys(storyGroups), [storyGroups]);
 
   // ═══════════════════════════════════════════════════════════
   //  CALLBACKS (defined before effects to avoid TDZ in minifier)
