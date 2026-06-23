@@ -1008,7 +1008,9 @@ export default function SettingsView() {
             </div>
 
             <motion.a
-              href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk"
+              href="https://github.com/killkinhi-a11y/mq-player/releases"
+              target="_blank"
+              rel="noopener noreferrer"
               download
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -2123,56 +2125,76 @@ export default function SettingsView() {
             </button>
           </div>
 
-          {/* Desktop App Download */}
+          {/* Desktop + Mobile App Download */}
           <div className="px-4 py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
             <div className="flex items-center gap-3 mb-3">
               <Monitor className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Приложение для компьютера</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Нативное приложение с автообновлениями</p>
+                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Скачать приложение</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Нативные приложения для всех платформ</p>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-4 gap-2">
+              {/* Windows */}
               <motion.a
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip"
+                href="https://github.com/killkinhi-a11y/mq-player/releases"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl cursor-pointer transition-opacity active:opacity-80"
                 style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
+                title="Скачать для Windows"
               >
                 <Monitor className="w-5 h-5" style={{ color: "#3b82f6" }} />
-                <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
+                <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
               </motion.a>
+              {/* macOS */}
               <motion.a
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player.dmg"
+                href="https://github.com/killkinhi-a11y/mq-player/releases"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl cursor-pointer transition-opacity active:opacity-80"
                 style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
+                title="Скачать для macOS"
               >
                 <Apple className="w-5 h-5" style={{ color: "#a855f7" }} />
-                <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>macOS</span>
+                <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>macOS</span>
               </motion.a>
+              {/* Linux */}
               <motion.a
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player.AppImage"
+                href="https://github.com/killkinhi-a11y/mq-player/releases"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl cursor-pointer transition-opacity active:opacity-80"
                 style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
+                title="Скачать для Linux"
               >
-                <Smartphone className="w-5 h-5" style={{ color: "#eab308" }} />
-                <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
+                <Monitor className="w-5 h-5" style={{ color: "#eab308" }} />
+                <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
+              </motion.a>
+              {/* Android */}
+              <motion.a
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                href="https://github.com/killkinhi-a11y/mq-player/releases"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl cursor-pointer transition-opacity active:opacity-80"
+                style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
+                title="Скачать APK для Android"
+              >
+                <Smartphone className="w-5 h-5" style={{ color: "#3ddc84" }} />
+                <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Android</span>
               </motion.a>
             </div>
             <div className="mt-2 flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#4ade80" }} />
-              <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>v1.0.1</span>
+              <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Все платформы · GitHub Releases</span>
             </div>
           </div>
         </motion.div>
