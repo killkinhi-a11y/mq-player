@@ -1169,6 +1169,10 @@ export default function MessengerView() {
     if (!userId || !selectedContactId) return;
     const cacheKey = `${userId}-${selectedContactId}`;
     if (serverMessagesLoaded[cacheKey]) return;
+    // P2-#300: mark as loaded IMMEDIATELY (before async fetch) to prevent
+    // re-entry. The previous check was racey: while fetch was in-flight,
+    // a re-render could re-run this effect and start a second fetch.
+    setServerMessagesLoaded((p) => ({ ...p, [cacheKey]: true }));
     const load = async () => {
       try {
         const res = await fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId}`);
@@ -1181,13 +1185,15 @@ export default function MessengerView() {
               messageType: m.messageType, replyToId: m.replyToId, edited: m.edited,
               voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration, editedAt: m.editedAt,
             }));
-            loadMessages(serverMsgs);
+            // P2-#300: defer loadMessages to macrotask — it calls setState
+            // on the store which triggers re-renders of MessengerView
+            setTimeout(() => loadMessages(serverMsgs), 0);
           }
         }
-      } catch { /* silent */ } finally { setServerMessagesLoaded((p) => ({ ...p, [cacheKey]: true })); }
+      } catch { /* silent */ }
     };
     load();
-  }, [userId, selectedContactId, serverMessagesLoaded, loadMessages]);
+  }, [userId, selectedContactId, loadMessages]);
 
   // ── Group chat messages polling ──
   useEffect(() => {

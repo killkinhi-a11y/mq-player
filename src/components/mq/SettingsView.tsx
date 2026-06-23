@@ -977,6 +977,81 @@ export default function SettingsView() {
       </ScrollReveal>
 
       {/* ═══════════════════════════════════════════════════ */}
+      {/* ── МОБИЛЬНОЕ ПРИЛОЖЕНИЕ ── */}
+      {/* ═══════════════════════════════════════════════════ */}
+      <ScrollReveal direction="up" delay={0.055}>
+        <motion.div
+          initial={anim ? { opacity: 0, y: 20 } : undefined}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.055, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          className="rounded-2xl overflow-hidden"
+          style={sectionCardStyle}
+        >
+          <SectionHeader icon={Smartphone} title="Мобильное приложение" />
+
+          {/* Download APK */}
+          <div className="px-4 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: "linear-gradient(135deg, #3ddc84, #00a86b)",
+                  boxShadow: "0 2px 12px rgba(61,220,132,0.25)",
+                }}>
+                <Smartphone className="w-5 h-5" style={{ color: "#fff" }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>MQ Player для Android</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+                  Полноценное приложение · APK · ~15 МБ
+                </p>
+              </div>
+            </div>
+
+            <motion.a
+              href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk"
+              download
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold cursor-pointer"
+              style={{
+                background: "linear-gradient(135deg, #3ddc84, #00d97e)",
+                color: "#fff",
+                boxShadow: "0 4px 16px rgba(61,220,132,0.3)",
+              }}
+            >
+              <Download className="w-4 h-4" />
+              Скачать APK
+            </motion.a>
+
+            <div className="flex items-start gap-2 mt-3 p-3 rounded-xl" style={{ backgroundColor: "rgba(255,255,255,0.03)" }}>
+              <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "var(--mq-text-muted)" }} />
+              <div>
+                <p className="text-[11px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+                  <strong style={{ color: "var(--mq-text)" }}>Установка:</strong> Скачайте APK → откройте файл → разрешите установку из неизвестных источников → установите.
+                </p>
+                <p className="text-[11px] leading-relaxed mt-1.5" style={{ color: "var(--mq-text-muted)" }}>
+                  <strong style={{ color: "var(--mq-text)" }}>Также доступно:</strong> PWA — установите через браузер (Chrome → меню → «Установить приложение»).
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* PWA install hint */}
+          <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
+                <Download className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Установить как PWA</p>
+                <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Chrome → меню (⋮) → «Установить приложение»</p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </ScrollReveal>
+
+      {/* ═══════════════════════════════════════════════════ */}
       {/* ── ВНЕШНИЙ ВИД ── */}
       {/* ═══════════════════════════════════════════════════ */}
       <ScrollReveal direction="up" delay={0.06}>

@@ -160,7 +160,8 @@ export default function PlaylistView() {
     const genreCounts: Record<string, number> = {};
     const artistCounts: Record<string, number> = {};
     for (const t of tracks) {
-      if (t.genre) genreCounts[t.genre] = (genreCounts[t.genre] || 0) + 1;
+      const g = t.genre ? t.genre.trim() : null;
+      if (g) genreCounts[g] = (genreCounts[g] || 0) + 1;
       if (t.artist) artistCounts[t.artist] = (artistCounts[t.artist] || 0) + 1;
     }
     const topGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([g]) => g);
@@ -169,8 +170,9 @@ export default function PlaylistView() {
 
     if (topGenres.length === 0 && topArtists.length === 0) return;
 
-    // Defer state update — avoid React error #300 (update during render)
-    queueMicrotask(() => setPlaylistRecsLoading(true));
+    // P2-#300: defer to macrotask — setTimeout(0) is safer than queueMicrotask
+    // because microtasks run before the render commit completes
+    setTimeout(() => setPlaylistRecsLoading(true), 0);
     const params = new URLSearchParams();
     if (topGenres.length > 0) params.set("genres", topGenres.join(","));
     if (topArtists.length > 0) params.set("artists", topArtists.join(","));
@@ -219,10 +221,8 @@ export default function PlaylistView() {
     const playlistId = playlist.id;
     const playlistName = playlist.name;
     const playlistTracks = playlist.tracks;
-    // Defer state update to avoid React error #300 (cannot update component
-    // while rendering a different component). Use queueMicrotask to ensure
-    // the state update runs after the current render is committed.
-    queueMicrotask(() => setAiAutoGenerating(true));
+    // P2-#300: defer to macrotask — setTimeout(0) runs AFTER render commit
+    setTimeout(() => setAiAutoGenerating(true), 0);
 
     fetch('/api/playlists/auto-generate', {
       method: 'POST',
