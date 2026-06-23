@@ -224,6 +224,7 @@ export default function PlaylistView() {
     // P2-#300: defer to macrotask — setTimeout(0) runs AFTER render commit
     setTimeout(() => setAiAutoGenerating(true), 0);
 
+    setTimeout(() => {
     fetch('/api/playlists/auto-generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -233,11 +234,11 @@ export default function PlaylistView() {
       .then(data => {
         if (data.description) {
           const { playlists: currentPlaylists } = useAppStore.getState();
-          useAppStore.setState({
-            playlists: currentPlaylists.map(p =>
+          setTimeout(() => useAppStore.setState({
+            playlists: useAppStore.getState().playlists.map((p: any) =>
               p.id === playlistId ? { ...p, description: data.description } : p
             ),
-          });
+          }), 0);
         }
         // Then auto-generate cover if none
         const updated = useAppStore.getState().playlists.find(p => p.id === playlistId);
@@ -260,6 +261,7 @@ export default function PlaylistView() {
       })
       .catch(() => {})
       .finally(() => setAiAutoGenerating(false));
+    }, 0);
   }, [playlists, selectedPlaylistId]);
 
   // Upload playlist cover image

@@ -844,7 +844,7 @@ export default function MessengerView() {
         }
         // Refresh unread counts
         fetch(`/api/notifications?userId=${userId}`)
-          .then(r => r.json()).then(data => { useAppStore.getState().setNotificationCount(data.unreadCount || 0); }).catch(() => {});
+          .then(r => r.json()).then(data => { setTimeout(() => useAppStore.getState().setNotificationCount(data.unreadCount || 0), 0); }).catch(() => {});
         // Refresh friends
         fetchFriends();
       }
@@ -1028,7 +1028,7 @@ export default function MessengerView() {
       } catch { /* silent */ }
     };
 
-    poll();
+    setTimeout(() => poll(), 0);
     const interval = setInterval(poll, 3000);
     return () => clearInterval(interval);
   }, [userId, selectedContactId]);
@@ -1466,7 +1466,7 @@ export default function MessengerView() {
       const encrypted = await simulateEncrypt(editingMessage.content);
       await fetch(`/api/messages/${editingMessage.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: encrypted }) });
       // Update local state with encrypted content
-      useAppStore.setState({ messages: useAppStore.getState().messages.map((m) => m.id === editingMessage.id ? { ...m, content: encrypted, edited: true, editedAt: new Date().toISOString() } : m) });
+      setTimeout(() => useAppStore.setState({ messages: useAppStore.getState().messages.map((m) => m.id === editingMessage.id ? { ...m, content: encrypted, edited: true, editedAt: new Date().toISOString() } : m) }), 0);
     } catch { /* */ }
     setEditingMessage(null);
   };
@@ -1734,10 +1734,10 @@ export default function MessengerView() {
       });
       if (res.ok) {
         const data = await res.json();
-        useAppStore.getState().setListenSession(data.session);
+        setTimeout(() => useAppStore.getState().setListenSession(data.session), 0);
         showToast("Вы присоединились к прослушиванию! 🎶");
         // Switch to play view to show the synced player
-        useAppStore.getState().setView("main");
+        setTimeout(() => useAppStore.getState().setView("main"), 0);
       } else {
         const err = await res.json().catch(() => ({}));
         showToast(err.error || "Ошибка при принятии приглашения");
