@@ -1,0 +1,125 @@
+name: Build Android APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          sdk-platform: '34'
+          sdk-build-tools: '34.0.0'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Capacitor CLI
+        run: npm install @capacitor/cli @capacitor/core @capacitor/android @capacitor/splash-screen
+
+      - name: Add Android platform
+        run: npx cap add android || true
+
+      - name: Copy web assets
+        run: |
+          mkdir -p out
+          # Create a minimal index.html that redirects to the web app
+          cat > out/index.html << 'HTMLEOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+            <title>MQ Player</title>
+            <style>
+              body { margin: 0; background: #0e0e0e; }
+              .loader {
+                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                width: 60px; height: 60px; border: 3px solid rgba(255,255,255,0.1);
+                border-top: 3px solid #e03131; border-radius: 50%;
+                animation: spin 1s linear infinite;
+              }
+              @keyframes spin { 0% { transform: translate(-50%,-50%) rotate(0deg); } 100% { transform: translate(-50%,-50%) rotate(360deg); } }
+            </style>
+          </head>
+          <body><div class="loader"></div></body>
+          </html>
+          HTMLEOF
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Build APK
+        working-directory: android
+        run: ./gradlew assembleDebug -x lintVitalAnalyzeRelease
+
+      - name: Sign APK
+        uses: r0adkll/sign-android-release@v1
+        id: sign_apk
+        with:
+          releaseDirectory: android/app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_KEY }}
+          alias: ${{ secrets.ANDROID_ALIAS }}
+          password: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
+
+      - name: Rename APK
+        run: |
+          cp ${{ steps.sign_apk.outputs.signedReleaseFile }} mq-player.apk
+          # Also copy debug APK as fallback
+          cp android/app/build/outputs/apk/debug/app-debug.apk mq-player-debug.apk 2>/dev/null || true
+
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            mq-player.apk
+            mq-player-debug.apk
+          tag_name: ${{ github.ref_name || 'latest' }}
+          name: MQ Player ${{ github.ref_name || 'Latest' }}
+          body: |
+            ## MQ Player Android
+
+            ### Установка
+            1. Скачайте `mq-player.apk`
+            2. Откройте файл на телефоне
+            3. Разрешите установку из неизвестных источников
+            4. Установите и запустите
+
+            ### PWA альтернатива
+            Откройте https://mq1.vercel.app в Chrome → меню → «Установить приложение»
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload debug APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mq-player-apk
+          path: |
+            mq-player.apk
+            mq-player-debug.apk
+          retention-days: 30

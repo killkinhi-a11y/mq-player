@@ -2131,11 +2131,11 @@ export default function SettingsView() {
               <Monitor className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Скачать приложение</p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Нативные приложения для всех платформ</p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Для всех платформ</p>
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {/* Windows — direct download */}
+              {/* Windows */}
               <motion.a
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
@@ -2149,7 +2149,7 @@ export default function SettingsView() {
                 <Monitor className="w-5 h-5" style={{ color: "#3b82f6" }} />
                 <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
               </motion.a>
-              {/* macOS — PWA link */}
+              {/* macOS */}
               <motion.a
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
@@ -2163,7 +2163,7 @@ export default function SettingsView() {
                 <Apple className="w-5 h-5" style={{ color: "#a855f7" }} />
                 <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>macOS</span>
               </motion.a>
-              {/* Linux — PWA link */}
+              {/* Linux */}
               <motion.a
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
@@ -2177,33 +2177,39 @@ export default function SettingsView() {
                 <Monitor className="w-5 h-5" style={{ color: "#eab308" }} />
                 <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
               </motion.a>
-              {/* Android — PWA install */}
-              <motion.button
+              {/* Android — direct APK download */}
+              <motion.a
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => {
-                  // Try PWA install prompt
-                  const deferredPrompt = (window as any).deferredPrompt;
-                  if (deferredPrompt) {
-                    deferredPrompt.prompt();
-                    deferredPrompt.userChoice.then(() => {
-                      (window as any).deferredPrompt = null;
-                    });
-                  } else {
-                    window.open("https://github.com/killkinhi-a11y/mq-player/releases", "_blank");
-                  }
-                }}
+                href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk"
+                target="_blank"
+                rel="noopener noreferrer"
+                download
                 className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
-                style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
-                title="Установить на Android"
+                style={{ backgroundColor: "color-mix(in srgb, #3ddc84 10%, var(--mq-input-bg))", border: "1px solid color-mix(in srgb, #3ddc84 25%, transparent)" }}
+                title="Скачать APK для Android"
               >
                 <Smartphone className="w-5 h-5" style={{ color: "#3ddc84" }} />
-                <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Android</span>
-              </motion.button>
+                <span className="text-[10px] font-semibold" style={{ color: "#3ddc84" }}>Android</span>
+              </motion.a>
             </div>
+
+            {/* Android install instructions */}
+            <div className="mt-3 p-3 rounded-xl flex items-start gap-2" style={{ backgroundColor: "rgba(61,220,132,0.05)", border: "1px solid rgba(61,220,132,0.1)" }}>
+              <Smartphone className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "#3ddc84" }} />
+              <div>
+                <p className="text-[11px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+                  <strong style={{ color: "#3ddc84" }}>Android:</strong> Скачайте APK → откройте файл → разрешите установку из неизвестных источников → установите.
+                </p>
+                <p className="text-[11px] leading-relaxed mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                  <strong style={{ color: "var(--mq-text)" }}>PWA:</strong> Откройте сайт в Chrome → меню (⋮) → «Установить приложение».
+                </p>
+              </div>
+            </div>
+
             <div className="mt-2 flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#4ade80" }} />
-              <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Windows: готово · macOS/Linux: через PWA · Android: через PWA</span>
+              <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Windows: готово · Android: APK · macOS/Linux: PWA</span>
             </div>
           </div>
         </motion.div>
