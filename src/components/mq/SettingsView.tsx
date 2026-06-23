@@ -2134,67 +2134,76 @@ export default function SettingsView() {
                 <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Нативные приложения для всех платформ</p>
               </div>
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              {/* Windows */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {/* Windows — direct download */}
               <motion.a
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                href="https://github.com/killkinhi-a11y/mq-player/releases"
+                href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl cursor-pointer transition-opacity active:opacity-80"
+                className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
                 style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
-                title="Скачать для Windows"
+                title="Скачать для Windows (117 МБ)"
               >
                 <Monitor className="w-5 h-5" style={{ color: "#3b82f6" }} />
                 <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
               </motion.a>
-              {/* macOS */}
+              {/* macOS — PWA link */}
               <motion.a
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 href="https://github.com/killkinhi-a11y/mq-player/releases"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl cursor-pointer transition-opacity active:opacity-80"
+                className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
                 style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
                 title="Скачать для macOS"
               >
                 <Apple className="w-5 h-5" style={{ color: "#a855f7" }} />
                 <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>macOS</span>
               </motion.a>
-              {/* Linux */}
+              {/* Linux — PWA link */}
               <motion.a
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
                 href="https://github.com/killkinhi-a11y/mq-player/releases"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl cursor-pointer transition-opacity active:opacity-80"
+                className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
                 style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
                 title="Скачать для Linux"
               >
                 <Monitor className="w-5 h-5" style={{ color: "#eab308" }} />
                 <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
               </motion.a>
-              {/* Android */}
-              <motion.a
+              {/* Android — PWA install */}
+              <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                href="https://github.com/killkinhi-a11y/mq-player/releases"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl cursor-pointer transition-opacity active:opacity-80"
+                onClick={() => {
+                  // Try PWA install prompt
+                  const deferredPrompt = (window as any).deferredPrompt;
+                  if (deferredPrompt) {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then(() => {
+                      (window as any).deferredPrompt = null;
+                    });
+                  } else {
+                    window.open("https://github.com/killkinhi-a11y/mq-player/releases", "_blank");
+                  }
+                }}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
                 style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
-                title="Скачать APK для Android"
+                title="Установить на Android"
               >
                 <Smartphone className="w-5 h-5" style={{ color: "#3ddc84" }} />
                 <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Android</span>
-              </motion.a>
+              </motion.button>
             </div>
             <div className="mt-2 flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#4ade80" }} />
-              <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Все платформы · GitHub Releases</span>
+              <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Windows: готово · macOS/Linux: через PWA · Android: через PWA</span>
             </div>
           </div>
         </motion.div>

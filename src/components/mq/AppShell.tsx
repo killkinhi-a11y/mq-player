@@ -208,6 +208,17 @@ export default function AppShell() {
     }
   }, []);
 
+  // P2: PWA install prompt — capture for Android install button
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = (e: any) => {
+      e.preventDefault();
+      (window as any).deferredPrompt = e;
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
   useEffect(() => {
     // P2-#300: defer setView to avoid React error #300 when auth state changes
     if (isAuthenticated && currentView === "auth") {
