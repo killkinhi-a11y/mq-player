@@ -8,11 +8,11 @@ export interface Track {
   genre: string;
   audioUrl: string;
   previewUrl?: string;
-  source: "soundcloud" | "local" | "demo";
+  source: "soundcloud" | "local" | "demo" | "jamendo" | "audius";
   scTrackId?: number;
   scStreamPolicy?: string;
   scIsFull?: boolean;
-
+  createdAt?: string;
 }
 
 export interface Playlist {

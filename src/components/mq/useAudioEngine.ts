@@ -10,6 +10,7 @@ import {
   preloadTrack, isGaplessEnabled, setAudioPlaybackRate,
 } from "@/lib/audioEngine";
 import { replayGain, getDefaultGainForGenre } from "@/lib/replayGain";
+import { getAudiusStream, isAudiusTrack } from "@/lib/audius";
 import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
 import Hls from "hls.js";
@@ -1568,6 +1569,36 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
           }
           prevTrackIdForCrossfade.current = currentTrack.id;
+        } else if (currentTrack.source === "audius" || isAudiusTrack(currentTrack.id)) {
+          // P2: Audius — free, decentralized music. Resolve stream URL.
+          setPlaybackMode("soundcloud");
+          resetCorsState();
+          const audiusUrl = await getAudiusStream(currentTrack.id);
+          if (cancelled) return;
+          if (audiusUrl) {
+            ensureWebAudioConnected(audioEl);
+            audioEl.crossOrigin = "anonymous";
+            audioEl.src = audiusUrl;
+            audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
+            audioEl.load();
+            if (canCrossfade) {
+              crossfadeRef.current = true;
+              if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
+              crossfadeTo(audioEl);
+            } else {
+              cancelCrossfade();
+              if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
+            }
+            prevTrackIdForCrossfade.current = currentTrack.id;
+          } else {
+            console.warn("[Player] Audius stream failed:", currentTrack.title);
+            setPlayError(true);
+            setIsLoadingTrack(false);
+            try {
+              toast({ title: "Трек недоступен", description: currentTrack.title });
+            } catch {}
+            setTimeout(() => nextTrackRef.current(), 1500);
+          }
         } else if (currentTrack.source === "soundcloud" && currentTrack.scTrackId) {
           setPlaybackMode("soundcloud");
           resetCorsState();
