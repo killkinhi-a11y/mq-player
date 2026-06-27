@@ -44,7 +44,6 @@ const MessengerView = dynamic(() => import("@/components/mq/MessengerView"), {
 // ── Dynamic imports for rarely-used views (still lazy) ──
 const ProfileView = dynamic(() => import("@/components/mq/ProfileView"), { ssr: false });
 const PublicPlaylistsView = dynamic(() => import("@/components/mq/PublicPlaylistsView"), { ssr: false });
-const HistoryView = dynamic(() => import("@/components/mq/HistoryView"), { ssr: false });
 const StoriesView = dynamic(() => import("@/components/mq/StoriesView"), { ssr: false });
 const OnboardingView = dynamic(() => import("@/components/mq/OnboardingView"), { ssr: false });
 const SpatialAudioView = dynamic(() => import("@/components/mq/SpatialAudioView"), { ssr: false });
@@ -92,10 +91,16 @@ import { ViewErrorBoundary } from "@/components/mq/ViewErrorBoundary";
 
 // Views tracked by the visited-Set pattern — mounted once and kept alive
 // with display:none so state is preserved when switching back.
+// NOTE: "playlists" / "favorites" / "history" all render LibraryView, which
+// internally syncs its activeTab based on currentView. This way MainView's
+// quick cards (Плейлисты / Избранное / История) land on the right tab.
 const VISITED_VIEW_COMPONENTS: { id: string; Component: React.ComponentType }[] = [
   { id: "main", Component: MainView },
   { id: "search", Component: SearchView },
   { id: "library", Component: LibraryView },
+  { id: "playlists", Component: LibraryView },
+  { id: "favorites", Component: LibraryView },
+  { id: "history", Component: LibraryView },
   { id: "messenger", Component: MessengerView },
   { id: "settings", Component: SettingsView },
   { id: "profile", Component: ProfileView },
@@ -359,7 +364,6 @@ export default function AppShell() {
     switch (currentView) {
       case "auth": return <AuthView />;
       case "public-playlists": return <PublicPlaylistsView />;
-      case "history": return <HistoryView />;
       case "stories": return <StoriesView />;
       case "onboarding": return <OnboardingView />;
       case "spatial": return <SpatialAudioView currentTrack={currentTrack} />;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, lazy, Suspense } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { Heart, ListMusic, Clock } from "lucide-react";
@@ -19,9 +19,24 @@ const tabs: { id: LibraryTab; label: string; icon: React.ElementType }[] = [
 ];
 
 const LibraryView = React.memo(function LibraryView() {
-  const [activeTab, setActiveTab] = useState<LibraryTab>("favorites");
   const compactMode = useAppStore((s) => s.compactMode);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const currentView = useAppStore((s) => s.currentView);
+
+  // Map top-level views to library tabs.
+  // "playlists" / "favorites" / "history" are entry points from MainView quick cards
+  // that should land on the corresponding Library tab.
+  const targetTab: LibraryTab =
+    currentView === "playlists" ? "playlists" :
+    currentView === "history" ? "history" :
+    "favorites";
+  const [activeTab, setActiveTab] = useState<LibraryTab>(targetTab);
+
+  // When the user clicks a MainView quick card ("Плейлисты", "Избранное", "История"),
+  // currentView changes — sync our local tab to match.
+  useEffect(() => {
+    setActiveTab(targetTab);
+  }, [targetTab]);
 
   return (
     <div className={`${compactMode ? "p-3 lg:p-4" : "p-4 lg:p-6"} max-w-[var(--mq-container-narrow)] mx-auto mq-anim-fade-in`}>
