@@ -251,12 +251,14 @@ export default function PlaylistView() {
             body: JSON.stringify({ playlistId, playlistName, tracks: playlistTracks }),
           }).then(r => r.json()).then(coverData => {
             if (coverData.cover) {
-              const { playlists: pls } = useAppStore.getState();
-              useAppStore.setState({
-                playlists: pls.map(p =>
-                  p.id === playlistId ? { ...p, cover: coverData.cover } : p
-                ),
-              });
+              setTimeout(() => {
+                const { playlists: pls } = useAppStore.getState();
+                useAppStore.setState({
+                  playlists: pls.map((p: any) =>
+                    p.id === playlistId ? { ...p, cover: coverData.cover } : p
+                  ),
+                });
+              }, 0);
             }
           }).catch(() => {});
         }
@@ -1103,13 +1105,15 @@ export default function PlaylistView() {
                         setAutoFilling(true);
                         // Add top 5 recommended tracks to playlist
                         const topRecs = playlistRecs.slice(0, 5);
-                        const { playlists: currentPlaylists } = useAppStore.getState();
-                        const updatedTracks = [...selectedPlaylist.tracks, ...topRecs];
-                        useAppStore.setState({
-                          playlists: currentPlaylists.map(p =>
-                            p.id === selectedPlaylist.id ? { ...p, tracks: updatedTracks } : p
-                          ),
-                        });
+                        setTimeout(() => {
+                          const { playlists: currentPlaylists } = useAppStore.getState();
+                          const updatedTracks = [...selectedPlaylist.tracks, ...topRecs];
+                          useAppStore.setState({
+                            playlists: currentPlaylists.map((p: any) =>
+                              p.id === selectedPlaylist.id ? { ...p, tracks: updatedTracks } : p
+                            ),
+                          });
+                        }, 0);
                         // Remove added tracks from recs
                         const addedIds = new Set(topRecs.map(t => t.id));
                         setPlaylistRecs(prev => prev.filter(t => !addedIds.has(t.id)));
@@ -1379,7 +1383,7 @@ export default function PlaylistView() {
                       id, name: `Импорт ${new Date().toLocaleDateString("ru-RU")}`,
                       description: `${tracks.length} треков`, cover: "", tracks, createdAt: Date.now(),
                     };
-                    useAppStore.setState(s => ({ playlists: [...s.playlists, newPl] }));
+                    setTimeout(() => useAppStore.setState(s => ({ playlists: [...s.playlists, newPl] })), 0);
                     setShowImport(false); setImportText(""); setImporting(false); setImportProgress("");
                     toast({ title: "Плейлист импортирован", description: `${tracks.length} треков добавлено` });
                   }}
