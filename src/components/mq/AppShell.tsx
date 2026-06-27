@@ -93,6 +93,9 @@ const MaintenanceBanner = dynamic(() => import("@/components/mq/MaintenanceBanne
 const OnboardingTour = dynamic(() => import("@/components/mq/OnboardingTour"), { ssr: false });
 const CommandPalette = dynamic(() => import("@/components/mq/CommandPalette"), { ssr: false });
 
+// P2-#300/#310: Error boundary per view — catches React errors without crashing the whole app
+import { ViewErrorBoundary } from "@/components/mq/ViewErrorBoundary";
+
 // Views tracked by the visited-Set pattern — mounted once and kept alive
 // with display:none so state is preserved when switching back.
 const VISITED_VIEW_COMPONENTS: { id: string; Component: React.ComponentType }[] = [
@@ -474,23 +477,21 @@ export default function AppShell() {
       </Suspense>
 
       <main id="main-content" className={showNav && !hideUiForFullscreen ? "lg:pt-14" : ""}>
-        {/* ── Visited-Set view rendering ──
-            Views are mounted lazily on first visit and kept alive with display:none.
-            This preserves component state (scroll position, form inputs, etc.) while
-            avoiding mounting unvisited views that would subscribe to the store. */}
-        {showNav && VISITED_VIEW_COMPONENTS.map(({ id, Component }) => {
-          if (!visitedViews.has(id)) return null;
-          const isActive = currentView === id;
+        {/* ── Active view rendering ──
+            P2-#300/#310 FIX: Only render the ACTIVE view, not all visited views.
+            Previous pattern mounted ALL visited views simultaneously (display:none),
+            which caused #300 when one view's useEffect triggered a store update
+            during another view's render commit phase. */}
+        {showNav && (() => {
+          const active = VISITED_VIEW_COMPONENTS.find(v => v.id === currentView);
+          if (!active || !visitedViews.has(active.id)) return null;
+          const Component = active.Component;
           return (
-            <div
-              key={id}
-              style={{ display: isActive ? "block" : "none" }}
-              aria-hidden={!isActive}
-            >
+            <ViewErrorBoundary key={active.id}>
               <Component />
-            </div>
+            </ViewErrorBoundary>
           );
-        })}
+        })()}
 
         {/* ── Auth view: shown when not authenticated ── */}
         {!showNav && currentView === "auth" && <AuthView />}
