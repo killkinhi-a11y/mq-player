@@ -92,15 +92,14 @@ export default function RootLayout({
       // Runs BEFORE React hydrates, so it can auto-recover before the error boundary.
       window.addEventListener('error',function(e){
         var msg=(e&&e.message)||'';
+        // TDZ recovery
         if(/can\\'t access.*lexical declaration/i.test(msg)){
           console.warn('[MQ] TDZ chunk error detected, auto-recovering...');
-          // Only auto-reload once per session to prevent loops
           var key='mq-tdz-recovered';
           try{
             if(sessionStorage.getItem(key))return;
             sessionStorage.setItem(key,'1');
           }catch(ex){return}
-          // Clear all caches and reload
           if(navigator.serviceWorker){
             navigator.serviceWorker.getRegistrations().then(function(regs){
               regs.forEach(function(r){r.unregister()});
@@ -115,6 +114,32 @@ export default function RootLayout({
             return;
           }
           window.location.replace(window.location.pathname+'?_tdz='+Date.now());
+        }
+        // Chunk loading error recovery
+        if(msg.indexOf('Failed to load chunk')>=0||msg.indexOf('Loading chunk')>=0||msg.indexOf('Loading CSS chunk')>=0){
+          console.warn('[MQ] Chunk loading error detected, auto-reloading...');
+          var ckey='mq-chunk-recovered';
+          try{
+            if(sessionStorage.getItem(ckey))return;
+            sessionStorage.setItem(ckey,'1');
+          }catch(ex){return}
+          window.location.reload();
+        }
+        // React #300/#310 recovery — auto-reload once
+        if(msg.indexOf('Minified React error #300')>=0||msg.indexOf('Minified React error #310')>=0){
+          console.warn('[MQ] React error detected, auto-reloading...');
+          var rkey='mq-react-recovered';
+          try{
+            if(sessionStorage.getItem(rkey))return;
+            sessionStorage.setItem(rkey,'1');
+          }catch(ex){return}
+          // Clear service worker cache to get fresh chunks
+          if(navigator.serviceWorker){
+            navigator.serviceWorker.getRegistrations().then(function(regs){
+              regs.forEach(function(r){r.unregister()});
+            });
+          }
+          setTimeout(function(){window.location.reload()},100);
         }
       },true);
 
