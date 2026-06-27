@@ -178,16 +178,18 @@ export default function PlaylistView() {
     if (topArtists.length > 0) params.set("artists", topArtists.join(","));
     if (excludeIds) params.set("excludeIds", excludeIds);
 
-    fetch(`/api/music/recommendations?${params}`)
-      .then(res => res.json())
-      .then(data => {
-        const recTracks = (data.tracks || []).filter(
-          (t: Track) => !tracks.some(pt => pt.id === t.id)
-        );
-        setPlaylistRecs(recTracks.slice(0, 50));
-      })
-      .catch(() => setPlaylistRecs([]))
-      .finally(() => setPlaylistRecsLoading(false));
+    setTimeout(() => {
+      fetch(`/api/music/recommendations?${params}`)
+        .then(res => res.json())
+        .then(data => {
+          const recTracks = (data.tracks || []).filter(
+            (t: Track) => !tracks.some(pt => pt.id === t.id)
+          );
+          setPlaylistRecs(recTracks.slice(0, 50));
+        })
+        .catch(() => setPlaylistRecs([]))
+        .finally(() => setPlaylistRecsLoading(false));
+    }, 0);
   }, [playlists, selectedPlaylistId]);
 
   // Close track action menu on outside click / Escape
@@ -293,12 +295,14 @@ export default function PlaylistView() {
       const imageUrl = data.url || data.fileUrl || `/api/music/upload/file/${data.filename}`;
 
       // Update playlist cover in store
-      const { playlists: currentPlaylists } = useAppStore.getState();
-      useAppStore.setState({
-        playlists: currentPlaylists.map(p =>
-          p.id === playlistId ? { ...p, cover: imageUrl } : p
-        ),
-      });
+      setTimeout(() => {
+        const { playlists: currentPlaylists } = useAppStore.getState();
+        useAppStore.setState({
+          playlists: currentPlaylists.map((p: any) =>
+            p.id === playlistId ? { ...p, cover: imageUrl } : p
+          ),
+        });
+      }, 0);
 
       toast({ title: "Обложка обновлена", description: "Новая обложка плейлиста установлена" });
     } catch (err) {
@@ -322,12 +326,14 @@ export default function PlaylistView() {
 
   // Remove playlist cover
   const handleRemoveCover = useCallback((playlistId: string) => {
-    const { playlists: currentPlaylists } = useAppStore.getState();
-    useAppStore.setState({
-      playlists: currentPlaylists.map(p =>
-        p.id === playlistId ? { ...p, cover: '' } : p
-      ),
-    });
+    setTimeout(() => {
+      const { playlists: currentPlaylists } = useAppStore.getState();
+      useAppStore.setState({
+        playlists: currentPlaylists.map((p: any) =>
+          p.id === playlistId ? { ...p, cover: '' } : p
+        ),
+      });
+    }, 0);
     toast({ title: "Обложка удалена", description: "Установлена обложка по умолчанию" });
   }, [toast]);
 
@@ -349,12 +355,14 @@ export default function PlaylistView() {
         return;
       }
       // Update local store with new description and tags
-      const { playlists: currentPlaylists } = useAppStore.getState();
-      useAppStore.setState({
-        playlists: currentPlaylists.map(p =>
-          p.id === playlistId ? { ...p, description: data.description || p.description } : p
-        ),
-      });
+      setTimeout(() => {
+        const { playlists: currentPlaylists } = useAppStore.getState();
+        useAppStore.setState({
+          playlists: currentPlaylists.map((p: any) =>
+            p.id === playlistId ? { ...p, description: data.description || p.description } : p
+          ),
+        });
+      }, 0);
       toast({
         title: "Теги сгенерированы",
         description: data.tags.length > 0 ? data.tags.join(', ') : "Теги созданы",
@@ -388,12 +396,14 @@ export default function PlaylistView() {
         return;
       }
       // Update local store with new cover
-      const { playlists: currentPlaylists } = useAppStore.getState();
-      useAppStore.setState({
-        playlists: currentPlaylists.map(p =>
-          p.id === playlistId ? { ...p, cover: data.cover } : p
-        ),
-      });
+      setTimeout(() => {
+        const { playlists: currentPlaylists } = useAppStore.getState();
+        useAppStore.setState({
+          playlists: currentPlaylists.map((p: any) =>
+            p.id === playlistId ? { ...p, cover: data.cover } : p
+          ),
+        });
+      }, 0);
       toast({ title: "Обложка создана", description: "Обложка установлена" });
     } catch {
       toast({ title: "Ошибка", description: "Не удалось связаться с сервером" });
@@ -563,7 +573,7 @@ export default function PlaylistView() {
         createdAt: Date.now(),
       };
 
-      useAppStore.setState(s => ({ playlists: [...s.playlists, newPl] }));
+      setTimeout(() => useAppStore.setState(s => ({ playlists: [...s.playlists, newPl] })), 0);
       setShowImport(false);
       setImportUrl('');
       setImportProgress('');

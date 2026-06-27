@@ -1134,7 +1134,7 @@ export default function MessengerView() {
         }
       } catch { /* silent */ }
     };
-    fetchCount();
+    setTimeout(() => fetchCount(), 0);
     const interval = setInterval(fetchCount, 20000);
     return () => clearInterval(interval);
   }, [userId]);
@@ -1169,10 +1169,9 @@ export default function MessengerView() {
     if (!userId || !selectedContactId) return;
     const cacheKey = `${userId}-${selectedContactId}`;
     if (serverMessagesLoaded[cacheKey]) return;
-    // P2-#300: mark as loaded IMMEDIATELY (before async fetch) to prevent
-    // re-entry. The previous check was racey: while fetch was in-flight,
-    // a re-render could re-run this effect and start a second fetch.
     setServerMessagesLoaded((p) => ({ ...p, [cacheKey]: true }));
+    // P2-#300: defer the entire fetch+setState to next macrotask
+    // to ensure it runs AFTER the current render commit
     const load = async () => {
       try {
         const res = await fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId}`);
@@ -1217,7 +1216,7 @@ export default function MessengerView() {
         }
       } catch { /* silent */ }
     };
-    load();
+    setTimeout(() => load(), 0);
     const interval = setInterval(load, 8000);
     return () => clearInterval(interval);
   }, [userId, selectedGroupId]);
