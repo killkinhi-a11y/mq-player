@@ -88,7 +88,10 @@ export default function PlaylistView() {
   const [importUrl, setImportUrl] = useState("");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState("");
+  const [importHint, setImportHint] = useState("");
   const [importProgress, setImportProgress] = useState("");
+  const [importMode, setImportMode] = useState<"url" | "text">("url");
+  const [importText, setImportText] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [coverUploadingId, setCoverUploadingId] = useState<string | null>(null);
@@ -247,10 +250,113 @@ export default function PlaylistView() {
     }), 0);
   }, []);
 
+  // Parse text like "Artist - Title" (one per line) and search them on SoundCloud.
+  // This is the fallback when direct playlist URL import fails (e.g. Yandex.Music
+  // blocks server-side requests from outside Russia).
+  const triggerTextImport = useCallback(async () => {
+    const text = importText.trim();
+    if (!text || importing) return;
+
+    // Each non-empty line should look like "Artist - Title" or "Title - Artist"
+    const lines = text.split("\n").map(l => l.trim()).filter(l => l && l.length > 2);
+    if (lines.length === 0) {
+      setImportError("Вставьте хотя бы один трек в формате «Исполнитель — Название».");
+      return;
+    }
+
+    setImporting(true);
+    setImportError("");
+    setImportHint("");
+    setImportProgress(`Поиск треков: 0/${lines.length}…`);
+
+    try {
+      const results: any[] = [];
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        // Split on " — " (em-dash), " - ", " – "
+        const m = line.match(/^(.+?)\s*[—–-]\s*(.+)$/);
+        const artist = m ? m[1].trim() : "";
+        const title = m ? m[2].trim() : line;
+        const query = artist ? `${artist} ${title}` : title;
+        setImportProgress(`Поиск: ${i + 1}/${lines.length} — ${query.slice(0, 40)}…`);
+        try {
+          const res = await fetch(`/api/music/search?q=${encodeURIComponent(query)}`);
+          if (res.ok) {
+            const data = await res.json();
+            const t = data.tracks?.[0];
+            if (t) {
+              results.push({
+                title: t.title || title,
+                artist: t.artist || artist,
+                cover: t.cover || "",
+                duration: t.duration || 0,
+                scTrackId: t.scTrackId || null,
+                scStreamPolicy: t.scStreamPolicy || "",
+                scIsFull: t.scIsFull || false,
+                audioUrl: t.audioUrl || "",
+                album: t.album || "",
+                genre: t.genre || "",
+              });
+            }
+          }
+        } catch {}
+        // Tiny delay to not hammer the API
+        await new Promise(r => setTimeout(r, 60));
+      }
+
+      if (results.length === 0) {
+        setImportError("Ничего не найдено. Проверьте формат: «Исполнитель — Название» по строке.");
+        return;
+      }
+
+      const tracks: Track[] = results.map((t, i) => ({
+        id: t.scTrackId ? `sc_${t.scTrackId}` : `imp_${i}_${Date.now()}`,
+        title: t.title,
+        artist: t.artist,
+        album: t.album,
+        cover: t.cover,
+        duration: t.duration,
+        genre: t.genre,
+        audioUrl: t.audioUrl,
+        previewUrl: "",
+        source: "soundcloud" as const,
+        scTrackId: t.scTrackId,
+        scStreamPolicy: t.scStreamPolicy,
+        scIsFull: t.scIsFull,
+      }));
+
+      const playableCount = tracks.filter(t => !!t.scTrackId).length;
+
+      const newPl: UserPlaylist = {
+        id: `pl_url_${Date.now()}`,
+        name: `Импорт ${new Date().toLocaleDateString("ru-RU")}`,
+        description: `${tracks.length} треков · из текста${playableCount > 0 && playableCount < tracks.length ? ` · ${playableCount} воспроизводимы` : ""}`,
+        cover: "",
+        tracks,
+        createdAt: Date.now(),
+      };
+
+      setTimeout(() => useAppStore.setState(s => ({ playlists: [...s.playlists, newPl] })), 0);
+      setShowImport(false);
+      setImportText("");
+      setImportProgress("");
+      toast({
+        title: "Плейлист импортирован",
+        description: `${tracks.length} треков${playableCount > 0 ? ` · ${playableCount} воспроизводимы` : ""}`,
+      });
+    } catch (e) {
+      setImportError("Не удалось импортировать. Попробуйте ещё раз.");
+    } finally {
+      setImporting(false);
+      setImportProgress("");
+    }
+  }, [importText, importing, toast]);
+
   const triggerUrlImport = useCallback(async () => {
     if (!importUrl.trim() || importing) return;
     setImporting(true);
     setImportError("");
+    setImportHint("");
     setImportProgress("Импорт…");
     try {
       const res = await fetch("/api/music/import-playlist", {
@@ -266,12 +372,15 @@ export default function PlaylistView() {
 
       // Handle VK token requirement
       if (data.needVkToken) {
-        setImportError("VK требует API-токен. Используйте другую ссылку или импорт текстом.");
+        setImportError("VK требует API-токен. Используйте «Импорт текстом» — вставьте список треков вручную.");
+        setImportHint("Откройте плейлист в VK, скопируйте названия треков и вставьте их в режиме «Импорт текстом».");
         return;
       }
 
       if (data.error && (!data.tracks || data.tracks.length === 0)) {
         setImportError(data.error);
+        // Backend returns a hint with a workaround — show it
+        if (data.hint) setImportHint(data.hint);
         return;
       }
 
@@ -295,7 +404,7 @@ export default function PlaylistView() {
       const totalCount = tracks.length;
 
       if (totalCount === 0) {
-        setImportError("Треки не найдены. Попробуйте другую ссылку.");
+        setImportError("Треки не найдены. Попробуйте другую ссылку или «Импорт текстом».");
         return;
       }
 
@@ -318,7 +427,7 @@ export default function PlaylistView() {
         description: `${totalCount} треков${playableCount > 0 ? ` · ${playableCount} воспроизводимы` : ""}`,
       });
     } catch (e) {
-      setImportError("Не удалось импортировать. Проверьте ссылку и попробуйте снова.");
+      setImportError("Не удалось импортировать. Проверьте ссылку или используйте «Импорт текстом».");
     } finally {
       setImporting(false);
       setImportProgress("");
@@ -646,42 +755,129 @@ export default function PlaylistView() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-                Вставьте ссылку: VK, Яндекс.Музыка, YouTube Music, Apple Music, SoundCloud
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  value={importUrl}
-                  onChange={(e) => { setImportUrl(e.target.value); setImportError(""); }}
-                  placeholder="https://..."
-                  className="flex-1 rounded-xl px-3.5 py-2.5 text-sm outline-none"
-                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)", color: "var(--mq-text)" }}
-                  onKeyDown={(e) => e.key === "Enter" && triggerUrlImport()}
-                  autoFocus
-                />
+
+              {/* Mode switcher — URL vs Text */}
+              <div
+                className="flex gap-1 p-1 rounded-xl"
+                style={{ backgroundColor: "var(--mq-input-bg)" }}
+              >
                 <button
-                  onClick={triggerUrlImport}
-                  disabled={importing || !importUrl.trim()}
-                  className="px-4 py-2.5 rounded-xl text-sm font-medium"
+                  onClick={() => { setImportMode("url"); setImportError(""); setImportHint(""); }}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
                   style={{
-                    backgroundColor: importUrl.trim() && !importing ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
-                    color: importUrl.trim() && !importing ? "#fff" : "var(--mq-text-muted)",
+                    backgroundColor: importMode === "url" ? "var(--mq-accent)" : "transparent",
+                    color: importMode === "url" ? "#fff" : "var(--mq-text-muted)",
                   }}
                 >
-                  {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  По ссылке
+                </button>
+                <button
+                  onClick={() => { setImportMode("text"); setImportError(""); setImportHint(""); }}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
+                  style={{
+                    backgroundColor: importMode === "text" ? "var(--mq-accent)" : "transparent",
+                    color: importMode === "text" ? "#fff" : "var(--mq-text-muted)",
+                  }}
+                >
+                  Из текста
                 </button>
               </div>
-              {importing && importProgress && (
+
+              {importMode === "url" ? (
+                <>
+                  <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                    VK · Яндекс.Музыка · YouTube Music · Apple Music · SoundCloud
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={importUrl}
+                      onChange={(e) => { setImportUrl(e.target.value); setImportError(""); setImportHint(""); }}
+                      placeholder="https://music.yandex.ru/playlist/..."
+                      className="flex-1 rounded-xl px-3.5 py-2.5 text-sm outline-none"
+                      style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)", color: "var(--mq-text)" }}
+                      onKeyDown={(e) => e.key === "Enter" && triggerUrlImport()}
+                      autoFocus
+                    />
+                    <button
+                      onClick={triggerUrlImport}
+                      disabled={importing || !importUrl.trim()}
+                      className="px-4 py-2.5 rounded-xl text-sm font-medium"
+                      style={{
+                        backgroundColor: importUrl.trim() && !importing ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                        color: importUrl.trim() && !importing ? "#fff" : "var(--mq-text-muted)",
+                      }}
+                    >
+                      {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                    Вставьте список треков — по одному в строке, в формате «Исполнитель — Название».
+                    Каждый трек будет найден на SoundCloud.
+                  </p>
+                  <textarea
+                    value={importText}
+                    onChange={(e) => { setImportText(e.target.value); setImportError(""); setImportHint(""); }}
+                    placeholder={"Queen — Bohemian Rhapsody\nMetallica — Nothing Else Matters\nNirvana — Smells Like Teen Spirit"}
+                    rows={6}
+                    className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none font-mono"
+                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)", color: "var(--mq-text)" }}
+                    autoFocus
+                  />
+                  <button
+                    onClick={triggerTextImport}
+                    disabled={importing || !importText.trim()}
+                    className="w-full py-2.5 rounded-xl text-sm font-semibold"
+                    style={{
+                      backgroundColor: importText.trim() && !importing ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                      color: importText.trim() && !importing ? "#fff" : "var(--mq-text-muted)",
+                    }}
+                  >
+                    {importing
+                      ? (importProgress || "Поиск…")
+                      : `Импортировать${importText.trim() ? ` (${importText.trim().split("\n").filter(l => l.trim()).length} треков)` : ""}`}
+                  </button>
+                </>
+              )}
+
+              {importing && importProgress && importMode === "url" && (
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-3 h-3 animate-spin" style={{ color: "var(--mq-accent)" }} />
                   <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>{importProgress}</p>
                 </div>
               )}
               {importError && (
-                <div className="flex items-start gap-2">
-                  <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#ef4444" }} />
-                  <p className="text-xs" style={{ color: "#ef4444" }}>{importError}</p>
+                <div
+                  className="rounded-xl p-3"
+                  style={{ backgroundColor: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#ef4444" }} />
+                    <p className="text-xs" style={{ color: "#ef4444" }}>{importError}</p>
+                  </div>
+                </div>
+              )}
+              {importHint && !importing && (
+                <div
+                  className="rounded-xl p-3"
+                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
+                >
+                  <p className="text-[11px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+                    {importHint}
+                  </p>
+                  {/* Quick switch to text mode button */}
+                  {importMode === "url" && (
+                    <button
+                      onClick={() => { setImportMode("text"); setImportError(""); setImportHint(""); }}
+                      className="mt-2 text-[11px] font-semibold"
+                      style={{ color: "var(--mq-accent)" }}
+                    >
+                      Перейти к «Импорт текстом» →
+                    </button>
+                  )}
                 </div>
               )}
             </motion.div>
