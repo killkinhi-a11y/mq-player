@@ -67,6 +67,20 @@
 [data-active-tab="account"] .mq-settings-chat-entry { display: block; }
 [data-active-tab]:not([data-active-tab="account"]) .mq-settings-chat-entry { display: none; }
 
+/* ── View transition — non-destructive fade-in on view switch ──
+   The main element gets data-view="<currentView>" attribute. When the
+   attribute changes, we toggle a class via JS (see AppShell) that
+   re-triggers the CSS animation. This gives a premium fade+slide
+   effect WITHOUT unmounting the view (which would re-run useEffects
+   in MessengerView and trigger React #185). */
+@keyframes mqViewEnter {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.mq-view-enter {
+  animation: mqViewEnter 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 /* Staggered children entrance — apply to parent */
 .mq-stagger > * {
   opacity: 0;

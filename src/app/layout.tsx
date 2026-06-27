@@ -125,8 +125,8 @@ export default function RootLayout({
           }catch(ex){return}
           window.location.reload();
         }
-        // React #300/#310 recovery — auto-reload once
-        if(msg.indexOf('Minified React error #300')>=0||msg.indexOf('Minified React error #310')>=0){
+        // React #300/#310/#185 recovery — auto-reload once
+        if(msg.indexOf('Minified React error #300')>=0||msg.indexOf('Minified React error #310')>=0||msg.indexOf('Minified React error #185')>=0){
           console.warn('[MQ] React error detected, auto-reloading...');
           var rkey='mq-react-recovered';
           try{

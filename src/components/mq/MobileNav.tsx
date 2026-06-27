@@ -51,16 +51,23 @@ const MobileNav = React.memo(function MobileNav() {
         }}
       >
         <div className={`flex items-center justify-around ${compactMode ? "py-2" : "py-2.5"} px-2`}>
-          {navItems.map((item) => {
+          {navItems.map((item, index) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
             const badgeCount = getBadgeCount(item.badgeKey);
             return (
               <motion.button
                 key={item.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 * index, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                 whileTap={{ scale: 0.9 }}
                 whileHover={{ scale: isActive ? 1 : 1.05 }}
                 onClick={() => {
+                  // Haptic feedback
+                  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+                    try { navigator.vibrate(isActive ? 5 : 12); } catch {}
+                  }
                   setView(item.id);
                   if (item.id === "search") {
                     setTimeout(() => {

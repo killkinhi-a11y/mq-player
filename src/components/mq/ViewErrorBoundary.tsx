@@ -13,9 +13,13 @@ interface State {
 }
 
 /**
- * ViewErrorBoundary — catches React #300/#310 errors per-view.
+ * ViewErrorBoundary — catches React #300/#310/#185 errors per-view.
  * Instead of crashing the entire app, it retries rendering the view.
  * After 3 retries, it shows a minimal fallback.
+ *
+ * #185 = "Maximum update depth exceeded" — caused by setState loops in
+ * useEffect. We auto-retry once; if it happens again, we fall back so
+ * the user can at least navigate elsewhere.
  */
 export class ViewErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -32,8 +36,13 @@ export class ViewErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error) {
     const msg = error?.message || "";
-    // Only auto-retry for React #300/#310 errors
-    if (msg.includes("Minified React error #300") || msg.includes("Minified React error #310")) {
+    // Only auto-retry for React #300/#310/#185 errors
+    if (
+      msg.includes("Minified React error #300") ||
+      msg.includes("Minified React error #310") ||
+      msg.includes("Minified React error #185") ||
+      msg.includes("Maximum update depth exceeded")
+    ) {
       this.setState((prev) => ({
         hasError: false,
         errorCount: prev.errorCount + 1,

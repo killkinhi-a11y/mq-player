@@ -88,6 +88,7 @@ const CommandPalette = dynamic(() => import("@/components/mq/CommandPalette"), {
 
 // P2-#300/#310: Error boundary per view — catches React errors without crashing the whole app
 import { ViewErrorBoundary } from "@/components/mq/ViewErrorBoundary";
+import { ViewTransition } from "@/components/mq/ViewTransition";
 
 // Views tracked by the visited-Set pattern — mounted once and kept alive
 // with display:none so state is preserved when switching back.
@@ -469,36 +470,33 @@ export default function AppShell() {
         {showNav && !hideUiForFullscreen && <NavBar />}
       </Suspense>
 
-      <main id="main-content" className={showNav && !hideUiForFullscreen ? "lg:pt-14" : ""}>
+      <main id="main-content" className={showNav && !hideUiForFullscreen ? "lg:pt-14" : ""} data-view={currentView}>
         {/* ── Active view rendering ──
-            P2-#300/#310 FIX: Only render the ACTIVE view, not all visited views.
+            P2-#300/#310/#185 FIX: Only render the ACTIVE view, not all visited views.
             Previous pattern mounted ALL visited views simultaneously (display:none),
             which caused #300 when one view's useEffect triggered a store update
             during another view's render commit phase.
 
-            P3: Added cross-fade + slide-up transition between views for premium feel.
-            AnimatePresence mode="wait" ensures old view fully exits before new enters. */}
+            P3-revised: NO AnimatePresence around <Component /> here.
+            AnimatePresence mode="wait" caused the view to fully unmount on
+            switch (220ms exit + 220ms enter = 440ms gap), which re-triggered
+            all useEffects in MessengerView (SSE reconnect, polling, heartbeat)
+            on every re-entry — that cascade produced React #185
+            (Maximum update depth exceeded) when switching fast.
+
+            Instead: wrap <Component /> in a <ViewTransition> div that toggles
+            a CSS class on currentView change. The class re-triggers a CSS
+            keyframe animation (fade-in + slide-up) WITHOUT unmounting the
+            Component — so useEffects in MessengerView stay alive. */}
         {showNav && (() => {
           const active = VISITED_VIEW_COMPONENTS.find(v => v.id === currentView);
           if (!active || !visitedViews.has(active.id)) return null;
           const Component = active.Component;
           return (
             <ViewErrorBoundary key={active.id}>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={active.id}
-                  initial={animationsEnabled ? { opacity: 0, y: 12, filter: "blur(4px)" } : false}
-                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-                  exit={animationsEnabled ? { opacity: 0, y: -8, filter: "blur(4px)" } : { opacity: 1 }}
-                  transition={{
-                    duration: 0.22,
-                    ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
-                  }}
-                  style={{ willChange: "opacity, transform" }}
-                >
-                  <Component />
-                </motion.div>
-              </AnimatePresence>
+              <ViewTransition trigger={currentView} animationsEnabled={animationsEnabled}>
+                <Component />
+              </ViewTransition>
             </ViewErrorBoundary>
           );
         })()}
@@ -509,16 +507,20 @@ export default function AppShell() {
         {/* ── Onboarding: shown separately ── */}
         {!showNav && currentView === "onboarding" && <OnboardingView />}
 
-        {/* ── Dynamic views: loaded lazily, with AnimatePresence ── */}
+        {/* ── Dynamic views: loaded lazily, with AnimatePresence ──
+            These are rarely-visited views (stories, onboarding, spatial, etc.)
+            that don't have heavy useEffects like MessengerView, so the
+            mount/unmount cycle is safe here. AnimatePresence gives the
+            cross-fade + slide for premium feel on these. */}
         {showNav && !isMountedView && !["auth", "onboarding"].includes(currentView) && (
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={currentView}
-              initial={animationsEnabled ? { opacity: 0, y: 12, filter: "blur(4px)" } : false}
-              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-              exit={animationsEnabled ? { opacity: 0, y: -8, filter: "blur(4px)" } : { opacity: 1 }}
+              initial={animationsEnabled ? { opacity: 0, y: 12 } : false}
+              animate={{ opacity: 1, y: 0 }}
+              exit={animationsEnabled ? { opacity: 0, y: -8 } : { opacity: 1 }}
               transition={{
-                duration: 0.22,
+                duration: 0.2,
                 ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
               }}
               style={{ willChange: "opacity, transform" }}

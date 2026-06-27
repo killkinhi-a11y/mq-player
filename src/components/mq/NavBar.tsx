@@ -112,16 +112,23 @@ const NavBar = React.memo(function NavBar() {
           border: "1px solid rgba(255,255,255,0.04)",
         }}
       >
-        {navItems.map((item) => {
+        {navItems.map((item, index) => {
           const Icon = item.icon;
           const isActive = currentView === item.id;
           const badgeCount = getBadgeCount(item.badgeKey);
           return (
             <motion.button
               key={item.id}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.04 * index, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
               whileHover={isActive ? {} : { scale: 1.05, y: -1 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => {
+                // Haptic feedback on mobile
+                if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+                  try { navigator.vibrate(8); } catch {}
+                }
                 setView(item.id);
                 if (item.id === "search") {
                   setTimeout(() => {
