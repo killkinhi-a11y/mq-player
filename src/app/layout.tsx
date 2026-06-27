@@ -142,38 +142,6 @@ export default function RootLayout({
           setTimeout(function(){window.location.reload()},100);
         }
       },true);
-
-      function initSplash(){
-        if(!document.body){document.addEventListener('DOMContentLoaded',initSplash);return}
-        var splash=document.createElement('div');
-        splash.id='mq-splash';
-        splash.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#0e0e0e;overflow:hidden';
-        
-        // Wave splash — animated sound waves with mq logo
-        splash.innerHTML = 
-          '<div style="position:relative;display:flex;flex-direction:column;align-items:center;gap:20px">'+
-            // Animated waves (SVG)
-            '<svg width="200" height="80" viewBox="0 0 200 80" style="overflow:visible">'+
-              '<path id="mq-wave1" d="M0,40 Q25,10 50,40 T100,40 T150,40 T200,40" fill="none" stroke="#e03131" stroke-width="2" stroke-linecap="round" opacity="0.8" style="animation:mqWave1 2s ease-in-out infinite"/>'+
-              '<path id="mq-wave2" d="M0,40 Q25,70 50,40 T100,40 T150,40 T200,40" fill="none" stroke="#e03131" stroke-width="1.5" stroke-linecap="round" opacity="0.4" style="animation:mqWave2 2.5s ease-in-out infinite"/>'+
-              '<path id="mq-wave3" d="M0,40 Q25,20 50,40 T100,40 T150,40 T200,40" fill="none" stroke="#e03131" stroke-width="1" stroke-linecap="round" opacity="0.2" style="animation:mqWave3 3s ease-in-out infinite"/>'+
-            '</svg>'+
-            // mq logo text
-            '<span style="font-size:18px;font-weight:200;color:rgba(255,255,255,0.4);font-family:var(--font-outfit),system-ui,sans-serif;letter-spacing:8px;animation:mqFadeIn 0.8s ease-out 0.3s both">mq</span>'+
-          '</div>';
-        
-        var style=document.createElement('style');
-        style.textContent = 
-          '@keyframes mqWave1{0%,100%{d:path("M0,40 Q25,10 50,40 T100,40 T150,40 T200,40")}50%{d:path("M0,40 Q25,65 50,40 T100,40 T150,40 T200,40")}}'+
-          '@keyframes mqWave2{0%,100%{d:path("M0,40 Q25,70 50,40 T100,40 T150,40 T200,40")}50%{d:path("M0,40 Q25,15 50,40 T100,40 T150,40 T200,40")}}'+
-          '@keyframes mqWave3{0%,100%{d:path("M0,40 Q25,20 50,40 T100,40 T150,40 T200,40")}50%{d:path("M0,40 Q25,55 50,40 T100,40 T150,40 T200,40")}}'+
-          '@keyframes mqFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:0.4;transform:translateY(0)}}';
-        document.head.appendChild(style);
-        document.body.appendChild(splash);
-        window.__mqRemoveSplash=function(){splash.style.transition='opacity 0.4s ease';splash.style.opacity='0';setTimeout(function(){splash.remove()},400)};
-        setTimeout(function(){if(splash.parentNode){splash.style.transition='opacity 0.4s ease';splash.style.opacity='0';setTimeout(function(){splash.remove()},400)}},3000);
-      }
-      initSplash();
     })()`,
           }}
         />

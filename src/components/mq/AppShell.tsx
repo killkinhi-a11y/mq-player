@@ -18,12 +18,6 @@ import "@/styles/pixel-flower.css";
 import "@/styles/streaming.css";
 import "@/styles/design-tokens.css";
 
-declare global {
-  interface Window {
-    __mqRemoveSplash?: () => void;
-  }
-}
-
 // ── Eager imports for critical first-paint views only ──
 // AuthView is the entry point for unauthenticated users — must be eager.
 // MainView is the entry point for authenticated users — must be eager.
@@ -205,11 +199,6 @@ export default function AppShell() {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.__mqRemoveSplash) {
-      window.__mqRemoveSplash();
-    }
-  }, []);
 
   // P2: PWA install prompt — capture for Android install button
   useEffect(() => {
