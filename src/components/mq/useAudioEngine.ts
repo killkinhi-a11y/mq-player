@@ -1074,7 +1074,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       // The isPlaying effect (which depends on isLoadingTrack) will detect
       // that loading finished and call play() centrally, eliminating race
       // conditions between multiple play() calls.
-      useAppStore.setState({ playbackState: st.isPlaying ? 'playing' : 'paused', isBuffering: false });
+      setTimeout(() => useAppStore.setState({ playbackState: st.isPlaying ? 'playing' : 'paused', isBuffering: false }), 0);
     };
 
     const onPlaying = (e: Event) => {
@@ -1101,7 +1101,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         const a = getActive();
         if (a) a.pause();
       } else {
-        useAppStore.setState({ playbackState: 'playing', isBuffering: false });
+        setTimeout(() => useAppStore.setState({ playbackState: 'playing', isBuffering: false }), 0);
       }
       crossfadeRef.current = false;
 
@@ -2003,7 +2003,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
       audio.play().then(() => {
         // Successfully started playing — update playback state
-        useAppStore.setState({ playbackState: 'playing', isBuffering: false });
+        setTimeout(() => useAppStore.setState({ playbackState: 'playing', isBuffering: false }), 0);
       }).catch((err) => {
         if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
           // Real playback error — retry once after a short delay
@@ -2011,7 +2011,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             const a = getAudioElement();
             if (a && useAppStore.getState().isPlaying) {
               a.play().then(() => {
-                useAppStore.setState({ playbackState: 'playing', isBuffering: false });
+                setTimeout(() => useAppStore.setState({ playbackState: 'playing', isBuffering: false }), 0);
               }).catch(() => {
                 // If retry also fails, pause to avoid spinning forever
                 useAppStore.setState({ playbackState: 'paused', isPlaying: false });

@@ -103,7 +103,7 @@ export function useGlobalNotifications() {
             if (state.currentView !== "messenger" || state.selectedContactId !== lm.senderId) {
               const counts = { ...state.unreadCounts };
               counts[lm.senderId] = (counts[lm.senderId] || 0) + 1;
-              useAppStore.setState({ unreadCounts: counts });
+              setTimeout(() => useAppStore.setState({ unreadCounts: counts }), 0);
             }
           }
           lastMessageIdRef.current = lm.id;

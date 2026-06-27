@@ -54,25 +54,26 @@ export function useListenSessionSync() {
 
         // Track changed
         if (activeSession.trackId && activeSession.trackId !== store.currentTrack?.id) {
-          useAppStore.setState({
-            currentTrack: {
-              id: activeSession.trackId,
-              title: activeSession.trackTitle || "",
-              artist: activeSession.trackArtist || "",
-              cover: activeSession.trackCover || "",
-              audioUrl: activeSession.audioUrl || "",
-              duration: 0,
-              album: "",
-              genre: "",
-              source: (activeSession.source as any) || "soundcloud",
-              scTrackId: activeSession.scTrackId,
-            } as Track,
+          const newTrack = {
+            id: activeSession.trackId,
+            title: activeSession.trackTitle || "",
+            artist: activeSession.trackArtist || "",
+            cover: activeSession.trackCover || "",
+            audioUrl: activeSession.audioUrl || "",
+            duration: 0,
+            album: "",
+            genre: "",
+            source: (activeSession.source as any) || "soundcloud",
+            scTrackId: activeSession.scTrackId,
+          } as Track;
+          setTimeout(() => useAppStore.setState({
+            currentTrack: newTrack,
             queue: [],
             queueIndex: 0,
             progress: 0,
             duration: 0,
             isPlaying: true,
-          });
+          }), 0);
         }
 
         // Sync progress (seek if differs by > 3s)
