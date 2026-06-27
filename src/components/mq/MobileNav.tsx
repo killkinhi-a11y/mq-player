@@ -58,7 +58,8 @@ const MobileNav = React.memo(function MobileNav() {
             return (
               <motion.button
                 key={item.id}
-                whileTap={{ scale: 0.92 }}
+                whileTap={{ scale: 0.9 }}
+                whileHover={{ scale: isActive ? 1 : 1.05 }}
                 onClick={() => {
                   setView(item.id);
                   if (item.id === "search") {
@@ -79,21 +80,31 @@ const MobileNav = React.memo(function MobileNav() {
                     layoutId="mobileNavPill"
                     className="absolute inset-0 rounded-xl"
                     style={{
-                      background: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
-                      border: "1px solid color-mix(in srgb, var(--mq-accent) 20%, transparent)",
+                      background: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--mq-accent) 22%, transparent)",
+                      boxShadow:
+                        "0 0 12px color-mix(in srgb, var(--mq-accent) 18%, transparent), " +
+                        "inset 0 1px 0 rgba(255,255,255,0.04)",
                     }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 32, mass: 0.7 }}
                   />
                 )}
-                <div className="relative z-10 flex flex-col items-center gap-0.5">
+                <motion.div
+                  animate={isActive ? { scale: 1.1, y: -1 } : { scale: 1, y: 0 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 22 }}
+                  className="relative z-10 flex flex-col items-center gap-0.5"
+                >
                   <div className="relative">
                     <Icon
                       className="w-[18px] h-[18px]"
-                      strokeWidth={isActive ? 2.2 : 1.6}
-                      style={isActive ? { color: "var(--mq-accent)" } : undefined}
+                      strokeWidth={isActive ? 2.4 : 1.6}
+                      style={isActive ? { color: "var(--mq-accent)", filter: "drop-shadow(0 0 4px color-mix(in srgb, var(--mq-accent) 35%, transparent))" } : undefined}
                     />
                     {badgeCount > 0 && (
-                      <span
+                      <motion.span
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: "spring", stiffness: 500, damping: 25 }}
                         className="absolute -top-1.5 -right-2 min-w-[12px] h-[12px] rounded-full flex items-center justify-center text-[11px] font-bold px-px"
                         style={{
                           background: "var(--mq-accent)",
@@ -102,7 +113,7 @@ const MobileNav = React.memo(function MobileNav() {
                         }}
                       >
                         {badgeCount > 99 ? "99" : badgeCount}
-                      </span>
+                      </motion.span>
                     )}
                   </div>
                   <span
@@ -111,7 +122,7 @@ const MobileNav = React.memo(function MobileNav() {
                   >
                     {item.label}
                   </span>
-                </div>
+                </motion.div>
               </motion.button>
             );
           })}

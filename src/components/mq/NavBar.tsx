@@ -119,8 +119,8 @@ const NavBar = React.memo(function NavBar() {
           return (
             <motion.button
               key={item.id}
-              whileHover={isActive ? {} : { scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
+              whileHover={isActive ? {} : { scale: 1.05, y: -1 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => {
                 setView(item.id);
                 if (item.id === "search") {
@@ -135,7 +135,7 @@ const NavBar = React.memo(function NavBar() {
               className="relative flex items-center gap-1.5 px-3 py-2 rounded-full mq-focus-premium cursor-pointer select-none"
               style={{
                 color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
-                transition: "color 0.15s ease",
+                transition: "color 0.2s ease",
                 fontSize: 13,
                 fontWeight: isActive ? 600 : 400,
                 minHeight: 36,
@@ -148,18 +148,45 @@ const NavBar = React.memo(function NavBar() {
                   style={{
                     background: "var(--mq-glass-bg-active)",
                     border: "1px solid var(--mq-glass-border-hover)",
-                    boxShadow: "0 0 12px color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+                    boxShadow:
+                      "0 0 12px color-mix(in srgb, var(--mq-accent) 18%, transparent), " +
+                      "inset 0 1px 0 rgba(255,255,255,0.05)",
                   }}
-                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 500,
+                    damping: 32,
+                    mass: 0.7,
+                  }}
                 />
               )}
 
-              <Icon className="w-4 h-4 relative z-10" />
-              <span className="relative z-10 hidden sm:inline">{item.label}</span>
+              {/* Hover halo (non-active items only) */}
+              {!isActive && (
+                <motion.div
+                  className="absolute inset-0 rounded-full pointer-events-none"
+                  style={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+                  initial={{ opacity: 0 }}
+                  whileHover={{ opacity: 1 }}
+                  transition={{ duration: 0.15 }}
+                />
+              )}
+
+              <motion.div
+                animate={isActive ? { scale: 1.05 } : { scale: 1 }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                className="relative z-10 flex items-center gap-1.5"
+              >
+                <Icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{item.label}</span>
+              </motion.div>
 
               {/* Badge with count */}
               {badgeCount > 0 && (
-                <span
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
                   className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full z-20 flex items-center justify-center text-[11px] font-bold px-1"
                   style={{
                     backgroundColor: "#ef4444",
@@ -168,7 +195,7 @@ const NavBar = React.memo(function NavBar() {
                   }}
                 >
                   {badgeCount}
-                </span>
+                </motion.span>
               )}
             </motion.button>
           );

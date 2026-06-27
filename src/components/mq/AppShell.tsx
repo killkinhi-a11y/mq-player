@@ -474,14 +474,31 @@ export default function AppShell() {
             P2-#300/#310 FIX: Only render the ACTIVE view, not all visited views.
             Previous pattern mounted ALL visited views simultaneously (display:none),
             which caused #300 when one view's useEffect triggered a store update
-            during another view's render commit phase. */}
+            during another view's render commit phase.
+
+            P3: Added cross-fade + slide-up transition between views for premium feel.
+            AnimatePresence mode="wait" ensures old view fully exits before new enters. */}
         {showNav && (() => {
           const active = VISITED_VIEW_COMPONENTS.find(v => v.id === currentView);
           if (!active || !visitedViews.has(active.id)) return null;
           const Component = active.Component;
           return (
             <ViewErrorBoundary key={active.id}>
-              <Component />
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={active.id}
+                  initial={animationsEnabled ? { opacity: 0, y: 12, filter: "blur(4px)" } : false}
+                  animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                  exit={animationsEnabled ? { opacity: 0, y: -8, filter: "blur(4px)" } : { opacity: 1 }}
+                  transition={{
+                    duration: 0.22,
+                    ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+                  }}
+                  style={{ willChange: "opacity, transform" }}
+                >
+                  <Component />
+                </motion.div>
+              </AnimatePresence>
             </ViewErrorBoundary>
           );
         })()}
@@ -497,10 +514,14 @@ export default function AppShell() {
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={currentView}
-              initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
-              animate={{ opacity: 1, y: 0 }}
-              exit={animationsEnabled ? { opacity: 0 } : undefined}
-              transition={{ duration: 0.12, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+              initial={animationsEnabled ? { opacity: 0, y: 12, filter: "blur(4px)" } : false}
+              animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+              exit={animationsEnabled ? { opacity: 0, y: -8, filter: "blur(4px)" } : { opacity: 1 }}
+              transition={{
+                duration: 0.22,
+                ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+              }}
+              style={{ willChange: "opacity, transform" }}
             >
               <Suspense fallback={
                 <div className="flex items-center justify-center py-8">
