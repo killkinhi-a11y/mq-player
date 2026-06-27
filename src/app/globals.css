@@ -52,6 +52,21 @@
   animation: mqFadeIn 0.2s ease-out forwards;
 }
 
+/* ── Settings tabbed layout ──
+   Sections marked with .mq-settings-section[data-tab="..."] are hidden
+   unless they match the active tab on the root container
+   [data-active-tab="..."]. The "account" tab also shows the chat entry card
+   (which has no data-tab attribute) for backwards compat. */
+.mq-settings-section { display: none; }
+[data-active-tab="account"] .mq-settings-section[data-tab="account"] { display: block; }
+[data-active-tab="appearance"] .mq-settings-section[data-tab="appearance"] { display: block; }
+[data-active-tab="playback"] .mq-settings-section[data-tab="playback"] { display: block; }
+[data-active-tab="notifications"] .mq-settings-section[data-tab="notifications"] { display: block; }
+[data-active-tab="more"] .mq-settings-section[data-tab="more"] { display: block; }
+/* Chat entry card — only on account tab */
+[data-active-tab="account"] .mq-settings-chat-entry { display: block; }
+[data-active-tab]:not([data-active-tab="account"]) .mq-settings-chat-entry { display: none; }
+
 /* Staggered children entrance — apply to parent */
 .mq-stagger > * {
   opacity: 0;

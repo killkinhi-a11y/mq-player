@@ -17,7 +17,7 @@ type PlaybackState = "idle" | "buffering" | "loading" | "playing" | "paused" | "
 
 // ── Storage versioning ──
 // Bump this number to force a fresh store for all users with old data.
-const STORE_VERSION = 8;
+const STORE_VERSION = 9;
 const STORAGE_KEY = "mq-store-v8";
 
 // Nuke stale data BEFORE Zustand tries to hydrate.
@@ -664,7 +664,7 @@ const initialState = {
   miniPlayerHidden: false as boolean,
 
   // AI Recommendations visibility
-  aiRecsHidden: false as boolean,
+  aiRecsHidden: true as boolean,
 
   // Demo loading indicator
   demoLoading: false as boolean,
@@ -2619,7 +2619,8 @@ export const useAppStore = create<AppState>()(
             playbackRate: old?.playbackRate ?? initialState.playbackRate,
             radioMode: old?.radioMode ?? initialState.radioMode,
             smartShuffle: old?.smartShuffle ?? initialState.smartShuffle,
-            aiRecsHidden: old?.aiRecsHidden ?? initialState.aiRecsHidden,
+            // v9: AI recs now OFF by default — force true for migrating users
+            aiRecsHidden: true,
           };
         }
         return { ...initialState };

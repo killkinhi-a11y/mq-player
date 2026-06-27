@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { themes, seasonalThemes } from "@/lib/themes";
 import {
-  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, ChevronRight, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download, Sun, ThumbsDown, ArrowLeftRight, Bell, Info, LogOut, PenLine, SlidersHorizontal, AudioWaveform, Search, Gauge, Hand, MoveHorizontal, Keyboard, Command
+  Palette, Type, Sparkles, Minimize2, Volume2, RotateCcw, Check, Moon, Music, Shield, Zap, User, ChevronDown, ChevronUp, ChevronRight, Settings, MessageCircle, Send, X, Loader2, Headphones, Lock, Eye, Server, Trash2, Fingerprint, Cloud, CloudOff, Bot, Sparkles as SparklesIcon, KeyRound, Monitor, Apple, Smartphone, Download, Sun, ThumbsDown, ArrowLeftRight, Bell, Info, LogOut, PenLine, SlidersHorizontal, AudioWaveform, Search, Gauge, Hand, MoveHorizontal, Keyboard, Command, MoreHorizontal
 } from "lucide-react";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
@@ -735,16 +735,41 @@ export default function SettingsView() {
   // ── Crossfade slider visual fill ──
   const crossfadePercent = ((crossfadeDuration - 0.5) / (8 - 0.5)) * 100;
 
+  // ── Tabbed navigation ──
+  // Sections grouped into tabs to declutter the long settings page.
+  type SettingsTab = "account" | "appearance" | "playback" | "notifications" | "more";
+  const [activeTab, setActiveTab] = useState<SettingsTab>(() => {
+    try {
+      const stored = localStorage.getItem("mq-settings-tab") as SettingsTab | null;
+      if (stored && ["account", "appearance", "playback", "notifications", "more"].includes(stored)) return stored;
+    } catch {}
+    return "account";
+  });
+  useEffect(() => {
+    try { localStorage.setItem("mq-settings-tab", activeTab); } catch {}
+  }, [activeTab]);
+
+  const tabs: { id: SettingsTab; label: string; icon: React.ElementType }[] = [
+    { id: "account", label: "Аккаунт", icon: User },
+    { id: "appearance", label: "Оформление", icon: Palette },
+    { id: "playback", label: "Звук", icon: Headphones },
+    { id: "notifications", label: "Уведомления", icon: Bell },
+    { id: "more", label: "Ещё", icon: MoreHorizontal },
+  ];
+
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)] space-y-4" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)] space-y-5"} max-w-[var(--mq-container-narrow)] mx-auto mq-anim-fade-in`}>
-      {/* ── Header — redesigned P2 ── */}
+    <div
+      className={`${compactMode ? "p-3 lg:p-4 pb-[var(--mq-player-clearance)]" : "p-4 lg:p-6 pb-[var(--mq-player-clearance)]"} max-w-[var(--mq-container-narrow)] mx-auto mq-anim-fade-in`}
+      data-active-tab={activeTab}
+    >
+      {/* ── Header ── */}
       <motion.div
         initial={anim ? { opacity: 0, y: 12 } : undefined}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="mb-1"
+        className="mb-4"
       >
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
           Настройки
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
@@ -752,7 +777,47 @@ export default function SettingsView() {
         </p>
       </motion.div>
 
-      {/* ── Чаты entry card (quick access to messenger) ── */}
+      {/* ── Tab bar — sticky, premium pills ── */}
+      <div
+        className="sticky z-30 mb-5 -mx-1 px-1"
+        style={{ top: 56, paddingTop: 8, paddingBottom: 8 }}
+      >
+        <div
+          className="flex gap-1 p-1 rounded-2xl overflow-x-auto scrollbar-none"
+          style={{
+            background: "var(--mq-card)",
+            border: "1px solid rgba(255,255,255,0.05)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+          }}
+        >
+          {tabs.map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all flex-shrink-0"
+                style={{
+                  background: isActive ? "var(--mq-accent)" : "transparent",
+                  color: isActive ? "#fff" : "var(--mq-text-muted)",
+                  boxShadow: isActive ? "0 4px 12px color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "none",
+                }}
+              >
+                <Icon className="w-3.5 h-3.5" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="space-y-4 sm:space-y-5">
+
+      {/* ── Чаты entry card (quick access to messenger) — account tab only ── */}
+      <div className="mq-settings-chat-entry">
       <ScrollReveal direction="up" delay={0.02}>
         <motion.button
           initial={anim ? { opacity: 0, y: 12 } : undefined}
@@ -805,10 +870,12 @@ export default function SettingsView() {
           </motion.div>
         </motion.button>
       </ScrollReveal>
+      </div>{/* /.mq-settings-chat-entry */}
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* ── АККАУНТ ── */}
       {/* ═══════════════════════════════════════════════════ */}
+      <div className="mq-settings-section" data-tab="account">
       <ScrollReveal direction="up" delay={0.03}>
         <motion.div
           initial={anim ? { opacity: 0, y: 20 } : undefined}
@@ -1052,10 +1119,12 @@ export default function SettingsView() {
           </div>
         </motion.div>
       </ScrollReveal>
+      </div>{/* /.mq-settings-section[account] */}
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* ── ВНЕШНИЙ ВИД ── */}
       {/* ═══════════════════════════════════════════════════ */}
+      <div className="mq-settings-section" data-tab="appearance">
       <ScrollReveal direction="up" delay={0.06}>
         <motion.div
           initial={anim ? { opacity: 0, y: 20 } : undefined}
@@ -1514,10 +1583,12 @@ export default function SettingsView() {
           </div>
         </motion.div>
       </ScrollReveal>
+      </div>{/* /.mq-settings-section[appearance] */}
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* ── ВОСПРОИЗВЕДЕНИЕ ── */}
       {/* ═══════════════════════════════════════════════════ */}
+      <div className="mq-settings-section" data-tab="playback">
       <ScrollReveal direction="up" delay={0.09}>
         <motion.div
           initial={anim ? { opacity: 0, y: 20 } : undefined}
@@ -1811,10 +1882,12 @@ export default function SettingsView() {
           </div>
         </motion.div>
       </ScrollReveal>
+      </div>{/* /.mq-settings-section[playback] */}
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* ── УВЕДОМЛЕНИЯ ── */}
       {/* ═══════════════════════════════════════════════════ */}
+      <div className="mq-settings-section" data-tab="notifications">
       <ScrollReveal direction="up" delay={0.12}>
         <motion.div
           initial={anim ? { opacity: 0, y: 20 } : undefined}
@@ -1895,10 +1968,12 @@ export default function SettingsView() {
           </button>
         </motion.div>
       </ScrollReveal>
+      </div>{/* /.mq-settings-section[notifications] */}
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* ── О ПРИЛОЖЕНИИ ── */}
       {/* ═══════════════════════════════════════════════════ */}
+      <div className="mq-settings-section" data-tab="more">
       <ScrollReveal direction="up" delay={0.15}>
         <motion.div
           initial={anim ? { opacity: 0, y: 20 } : undefined}
@@ -2214,6 +2289,7 @@ export default function SettingsView() {
           </div>
         </motion.div>
       </ScrollReveal>
+      </div>{/* /.mq-settings-section[more] */}
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* ── DIALOGS ── */}
@@ -2499,6 +2575,7 @@ export default function SettingsView() {
           </form>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

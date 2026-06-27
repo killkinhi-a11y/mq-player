@@ -10,7 +10,7 @@ import AISmartRecs from "./AISmartRecs";
 import ArtistDetailView from "./ArtistDetailView";
 import SectionHeader from "./SectionHeader";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Pause, Music2, ChevronLeft, ChevronRight, Shuffle, Mic2, Waves, Compass, Activity, Radio, Flame, Users, TrendingUp as Trending, X, User } from "lucide-react";
+import { Heart, MessageCircle, Clock, ListMusic, Music, Sparkles, RefreshCw, Play, Pause, Music2, ChevronLeft, ChevronRight, Shuffle, Mic2, Waves, Compass, Activity, Radio, Flame, Users, TrendingUp as Trending, X, User, Plus } from "lucide-react";
 import PlaylistArtwork from "./PlaylistArtwork";
 import ScrollReveal from "./ScrollReveal";
 import ScrollProgressBar from "./ScrollProgressBar";
@@ -415,6 +415,154 @@ function MagneticButton({ children, className, style, onClick, strength = 0.3 }:
         {children}
       </motion.span>
     </motion.button>
+  );
+}
+
+// ── Helpers for user-playlist cards in main view ──
+
+// Deterministic dark gradient from playlist name (two colors)
+const PLAYLIST_GRADIENTS: [string, string][] = [
+  ["#2d1b3d", "#0e0e0e"],
+  ["#1b2d3a", "#0e0e0e"],
+  ["#3d2b1b", "#0e0e0e"],
+  ["#1b3a2d", "#0e0e0e"],
+  ["#3a1b2d", "#0e0e0e"],
+  ["#2d2d1b", "#0e0e0e"],
+];
+function hashHue(name: string, idx: 0 | 1): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  const pair = PLAYLIST_GRADIENTS[Math.abs(h) % PLAYLIST_GRADIENTS.length];
+  return pair[idx];
+}
+
+// Mini equalizer indicator (when playlist is currently playing)
+function EqualizerMini() {
+  return (
+    <div className="w-4 h-4 flex items-end justify-center gap-[2px]">
+      {[0, 1, 2].map(i => (
+        <motion.span
+          key={i}
+          className="w-[2px] rounded-full"
+          style={{ backgroundColor: "currentColor", height: "100%" }}
+          animate={{ scaleY: [0.3, 1, 0.3] }}
+          transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.15, ease: "easeInOut" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Trending section — collapsible, collapsed by default ──
+// Remembers expansion state in localStorage so user choice persists.
+function TrendingSection({
+  trendingTracks,
+  isLoading,
+  animationsEnabled,
+  onPlayAll,
+  onArtistClick,
+}: {
+  trendingTracks: Track[];
+  isLoading: boolean;
+  animationsEnabled: boolean;
+  onPlayAll: () => void;
+  onArtistClick: (artist: string) => void;
+}) {
+  const [expanded, setExpanded] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("mq-trending-expanded") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleExpanded = useCallback(() => {
+    setExpanded(prev => {
+      const next = !prev;
+      try { localStorage.setItem("mq-trending-expanded", next ? "1" : "0"); } catch {}
+      return next;
+    });
+  }, []);
+
+  return (
+    <ScrollReveal direction="up" delay={0.15}>
+      <div className="mb-8">
+        {/* Header — clickable to toggle */}
+        <motion.button
+          whileTap={{ scale: 0.99 }}
+          onClick={toggleExpanded}
+          className="w-full flex items-center justify-between mb-3 cursor-pointer"
+          aria-expanded={expanded}
+        >
+          <div className="flex items-center gap-2">
+            <Flame className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+            <h2 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>Популярное</h2>
+            {trendingTracks.length > 0 && (
+              <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}>
+                {trendingTracks.length}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Quick play (doesn't toggle expansion) */}
+            {trendingTracks.length > 0 && expanded && (
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={(e) => { e.stopPropagation(); onPlayAll(); }}
+                className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium"
+                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
+              >
+                <Play className="w-3 h-3" style={{ marginLeft: 1 }} fill="currentColor" />Все
+              </motion.button>
+            )}
+            {/* Chevron toggle */}
+            <motion.div
+              animate={{ rotate: expanded ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="w-7 h-7 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: "rgba(255,255,255,0.05)" }}
+            >
+              <ChevronLeft className="w-4 h-4 -rotate-90" style={{ color: "var(--mq-text-muted)" }} />
+            </motion.div>
+          </div>
+        </motion.button>
+
+        <AnimatePresence initial={false}>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0, overflow: "hidden" }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              style={{ overflow: "hidden" }}
+            >
+              {isLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 rounded-xl" style={{ backgroundColor: "var(--mq-card)" }}>
+                      <Skeleton className="w-12 h-12 rounded-lg flex-shrink-0" />
+                      <div className="flex-1 space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-1/2" /></div>
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                  ))}
+                </div>
+              ) : trendingTracks.length > 0 ? (
+                <div className="space-y-1.5">
+                  {trendingTracks.slice(0, 50).map((track, i) => (
+                    <TrackCard key={track.id} track={track} index={i} queue={trendingTracks} onArtistClick={onArtistClick} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 rounded-2xl" style={{ backgroundColor: "var(--mq-card)" }}>
+                  <Music className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+                  <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Не удалось загрузить</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </ScrollReveal>
   );
 }
 
@@ -1832,102 +1980,146 @@ export default function MainView() {
         )}
       </AnimatePresence>
 
-      {/* ── Плейлисты (Playlists) — Premium (mobile) / Classic (desktop) ── */}
-      {curatedPlaylists.length > 0 && (
-        <ScrollReveal direction="up" delay={0.05}>
-          <div className="mb-8">
-            <SectionHeader title="Плейлисты" icon={ListMusic} />
-            <div className="relative group/playlistrow">
-              <div ref={curatedScrollRef} className="mq-scroll-row" style={{ scrollSnapType: "x proximity", gap: isMobile ? "12px" : "var(--mq-space-3)" }}>
-                {curatedPlaylists.map((pl, i) => (
+      {/* ── Плейлисты (User Playlists) — rebuilt from scratch ── */}
+      <ScrollReveal direction="up" delay={0.05}>
+        <div className="mb-8">
+          <SectionHeader
+            title="Плейлисты"
+            icon={ListMusic}
+            action={
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setView("playlists")}
+                className="text-xs px-3 py-1.5 rounded-full font-medium"
+                style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
+              >
+                Все
+              </motion.button>
+            }
+          />
+          {playlists.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {playlists.slice(0, 8).map((pl, i) => {
+                const isCurrent = currentTrack && pl.tracks.some(t => t.id === currentTrack.id) && isPlaying;
+                return (
                   <motion.button
                     key={pl.id}
                     initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: i * 0.04, duration: 0.3 }}
-                    whileHover={{ y: -4 }}
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => setSelectedCurated(pl)}
-                    className="flex-shrink-0 w-[160px] sm:w-[180px] cursor-pointer group relative"
+                    whileHover={{ y: -3 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      // Open playlist detail directly in MainView via store
+                      setTimeout(() => useAppStore.getState().setSelectedPlaylistId(pl.id), 0);
+                      setView("playlists");
+                    }}
+                    className="group relative text-left cursor-pointer rounded-2xl overflow-hidden"
                     style={{
                       backgroundColor: "var(--mq-card)",
-                      borderRadius: 16,
-                      border: "1px solid var(--mq-border)",
-                      boxShadow: "var(--mq-shadow-card)",
-                      overflow: "hidden",
+                      border: "1px solid rgba(255,255,255,0.05)",
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
                     }}
                   >
-                    {/* ── Cover art — square, top ── */}
-                    <div className="relative aspect-square overflow-hidden">
-                      <PlaylistArtwork
-                        playlistId={pl.id}
-                        size={200}
-                        rounded="rounded-none"
-                        className="!w-full !h-full group-hover:scale-105 transition-transform duration-500"
-                      />
-                      {/* Play button overlay on hover */}
-                      <div
-                        className="absolute bottom-2 right-2 w-9 h-9 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:scale-110 sm:translate-y-1 group-hover:translate-y-0"
-                        style={{
-                          backgroundColor: "var(--mq-accent)",
-                          color: "var(--mq-text)",
-                          boxShadow: "var(--mq-shadow-accent)",
-                        }}
-                        aria-hidden
-                      >
-                        <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
-                      </div>
+                    {/* Cover */}
+                    <div
+                      className="relative aspect-square overflow-hidden flex items-center justify-center"
+                      style={pl.cover
+                        ? { backgroundColor: "transparent" }
+                        : { background: `linear-gradient(135deg, ${hashHue(pl.name, 0)}, ${hashHue(pl.name, 1)})` }
+                      }
+                    >
+                      {pl.cover ? (
+                        <img
+                          src={pl.cover}
+                          alt=""
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center w-full h-full">
+                          <ListMusic className="w-8 h-8" style={{ color: "rgba(255,255,255,0.55)" }} />
+                          <span className="text-[11px] font-medium mt-1" style={{ color: "rgba(255,255,255,0.35)" }}>
+                            {pl.tracks.length}
+                          </span>
+                        </div>
+                      )}
+                      {/* Play button on hover */}
+                      {pl.tracks.length > 0 && (
+                        <div
+                          className="absolute bottom-2 right-2 w-9 h-9 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-y-0 translate-y-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (pl.tracks.length > 0) {
+                              setTimeout(() => playTrack(pl.tracks[0], [...pl.tracks], pl.id), 0);
+                            }
+                          }}
+                          style={{
+                            backgroundColor: "var(--mq-accent)",
+                            color: "#fff",
+                            boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
+                          }}
+                        >
+                          {isCurrent ? (
+                            <EqualizerMini />
+                          ) : (
+                            <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                          )}
+                        </div>
+                      )}
                     </div>
-                    {/* ── Text info — solid bg, below cover ── */}
-                    <div className="p-3 text-left">
+                    {/* Info */}
+                    <div className="p-3">
                       <p
-                        className="text-sm font-bold truncate leading-tight"
+                        className="text-sm font-semibold truncate leading-tight"
                         style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}
                         title={pl.name}
                       >
                         {pl.name}
                       </p>
                       <p
-                        className="text-[11px] mt-1 leading-snug line-clamp-2"
+                        className="text-[11px] mt-1 truncate"
                         style={{ color: "var(--mq-text-muted)" }}
-                      >
-                        {pl.subtitle}
-                      </p>
-                      <p
-                        className="text-[10px] mt-2 font-medium uppercase tracking-wider"
-                        style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}
                       >
                         {pl.tracks.length} треков
                       </p>
                     </div>
                   </motion.button>
-                ))}
-              </div>
-              {/* PC scroll buttons for playlists — hidden on mobile */}
-              <button
-                onClick={() => {
-                  if (curatedScrollRef.current) curatedScrollRef.current.scrollBy({ left: -400, behavior: 'smooth' });
-                }}
-                className="hidden sm:flex absolute left-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/playlistrow:opacity-100 transition-opacity z-10"
-                style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => {
-                  if (curatedScrollRef.current) curatedScrollRef.current.scrollBy({ left: 400, behavior: 'smooth' });
-                }}
-                className="hidden sm:flex absolute right-0 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full items-center justify-center opacity-0 group-hover/playlistrow:opacity-100 transition-opacity z-10"
-                style={{ background: 'var(--mq-card)', border: '1px solid var(--mq-border)', color: 'var(--mq-text)' }}
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-              <div className="absolute top-0 right-0 bottom-2 w-12 pointer-events-none z-10"
-                style={{ background: "linear-gradient(to right, transparent, var(--mq-bg))" }} />
+                );
+              })}
             </div>
-          </div>
-        </ScrollReveal>
-      )}
+          ) : (
+            // Empty state — suggest creating first playlist
+            <motion.button
+              initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
+              animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setView("playlists")}
+              className="w-full rounded-2xl p-6 flex items-center gap-4 cursor-pointer"
+              style={{
+                backgroundColor: "var(--mq-card)",
+                border: "1px dashed rgba(255,255,255,0.1)",
+              }}
+            >
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}
+              >
+                <Plus className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
+                  Создайте первый плейлист
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+                  Организуйте любимую музыку в коллекции
+                </p>
+              </div>
+            </motion.button>
+          )}
+        </div>
+      </ScrollReveal>
 
       {/* ── AI Подбор — Smart AI Recommendations ── */}
       {!useAppStore((s) => s.aiRecsHidden) && (
@@ -1940,44 +2132,14 @@ export default function MainView() {
       </ScrollReveal>
       )}
 
-      {/* ── Популярное (Trending) ── */}
-      <ScrollReveal direction="up" delay={0.15}>
-        <div className="mb-8">
-          <SectionHeader
-            title="Популярное"
-            icon={Flame}
-            action={trendingTracks.length > 0 ? (
-              <motion.button whileTap={{ scale: 0.95 }} onClick={handlePlayAll}
-                className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium"
-                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
-                <Play className="w-3 h-3" style={{ marginLeft: 1 }} fill="currentColor" />Все
-              </motion.button>
-            ) : undefined}
-          />
-          {isLoading ? (
-            <div className="space-y-2">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 p-3 rounded-xl" style={{ backgroundColor: "var(--mq-card)" }}>
-                  <Skeleton className="w-12 h-12 rounded-lg flex-shrink-0" />
-                  <div className="flex-1 space-y-2"><Skeleton className="h-4 w-3/4" /><Skeleton className="h-3 w-1/2" /></div>
-                  <Skeleton className="h-4 w-16" />
-                </div>
-              ))}
-            </div>
-          ) : trendingTracks.length > 0 ? (
-            <div className="space-y-1.5">
-              {trendingTracks.slice(0, 50).map((track, i) => (
-                <TrackCard key={track.id} track={track} index={i} queue={trendingTracks} onArtistClick={handleNavigateToArtist} />
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-6 rounded-2xl" style={{ backgroundColor: "var(--mq-card)" }}>
-              <Music className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Не удалось загрузить</p>
-            </div>
-          )}
-        </div>
-      </ScrollReveal>
+      {/* ── Популярное (Trending) — collapsible, collapsed by default ── */}
+      <TrendingSection
+        trendingTracks={trendingTracks}
+        isLoading={isLoading}
+        animationsEnabled={animationsEnabled}
+        onPlayAll={handlePlayAll}
+        onArtistClick={handleNavigateToArtist}
+      />
 
       {/* ── Недавно (Recent) ── */}
       {recentTracks.length > 0 && (
