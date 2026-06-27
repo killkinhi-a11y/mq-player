@@ -1069,28 +1069,18 @@ export default function SettingsView() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>MQ Player для Android</p>
                 <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
-                  Установите как приложение · PWA · бесплатно
+                  Нативное приложение · APK · ~4 МБ · v1.1.0
                 </p>
               </div>
             </div>
 
-            <motion.button
+            <motion.a
+              href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.1.0/mq-player.apk"
+              target="_blank"
+              rel="noopener noreferrer"
+              download
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => {
-                const deferredPrompt = (window as any).deferredPrompt;
-                if (deferredPrompt) {
-                  deferredPrompt.prompt();
-                  deferredPrompt.userChoice.catch(() => {}).finally(() => {
-                    (window as any).deferredPrompt = null;
-                  });
-                } else {
-                  toast({
-                    title: "Установка PWA",
-                    description: "В Chrome: меню (⋮) → «Установить приложение»",
-                  });
-                }
-              }}
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold cursor-pointer"
               style={{
                 background: "linear-gradient(135deg, #3ddc84, #00d97e)",
@@ -1099,17 +1089,17 @@ export default function SettingsView() {
               }}
             >
               <Download className="w-4 h-4" />
-              Установить приложение
-            </motion.button>
+              Скачать APK
+            </motion.a>
 
             <div className="flex items-start gap-2 mt-3 p-3 rounded-xl" style={{ backgroundColor: "rgba(255,255,255,0.03)" }}>
               <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "var(--mq-text-muted)" }} />
               <div>
                 <p className="text-[11px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-                  <strong style={{ color: "var(--mq-text)" }}>PWA:</strong> Откройте сайт в Chrome → меню (⋮) → «Установить приложение». Работает офлайн, Push-уведомления, иконка на главном экране.
+                  <strong style={{ color: "var(--mq-text)" }}>Установка:</strong> Скачайте APK → откройте файл → разрешите установку из неизвестных источников → установите.
                 </p>
                 <p className="text-[11px] leading-relaxed mt-1.5" style={{ color: "var(--mq-text-muted)" }}>
-                  <strong style={{ color: "var(--mq-text)" }}>Нативный APK:</strong> В разработке. Следите за <a href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer" style={{ color: "var(--mq-accent)", textDecoration: "underline" }}>релизами на GitHub</a>.
+                  <strong style={{ color: "var(--mq-text)" }}>PWA-альтернатива:</strong> Откройте сайт в Chrome → меню (⋮) → «Установить приложение».
                 </p>
               </div>
             </div>
@@ -2262,33 +2252,21 @@ export default function SettingsView() {
                 <Monitor className="w-5 h-5" style={{ color: "#eab308" }} />
                 <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
               </motion.a>
-              {/* Android — PWA install (no APK built yet) */}
-              <motion.button
+              {/* Android — direct APK download */}
+              <motion.a
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => {
-                  // Trigger PWA install prompt if available (captured in AppShell)
-                  const deferredPrompt = (window as any).deferredPrompt;
-                  if (deferredPrompt) {
-                    deferredPrompt.prompt();
-                    deferredPrompt.userChoice.catch(() => {}).finally(() => {
-                      (window as any).deferredPrompt = null;
-                    });
-                  } else {
-                    // Fallback — open Chrome instructions
-                    toast({
-                      title: "Установка PWA",
-                      description: "Chrome → меню (⋮) → «Установить приложение»",
-                    });
-                  }
-                }}
+                href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.1.0/mq-player.apk"
+                target="_blank"
+                rel="noopener noreferrer"
+                download
                 className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer transition-opacity active:opacity-80"
                 style={{ backgroundColor: "color-mix(in srgb, #3ddc84 10%, var(--mq-input-bg))", border: "1px solid color-mix(in srgb, #3ddc84 25%, transparent)" }}
-                title="Установить как PWA на Android"
+                title="Скачать APK для Android (4 МБ)"
               >
                 <Smartphone className="w-5 h-5" style={{ color: "#3ddc84" }} />
                 <span className="text-[10px] font-semibold" style={{ color: "#3ddc84" }}>Android</span>
-              </motion.button>
+              </motion.a>
             </div>
 
             {/* Android install instructions */}
@@ -2296,17 +2274,17 @@ export default function SettingsView() {
               <Smartphone className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "#3ddc84" }} />
               <div>
                 <p className="text-[11px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-                  <strong style={{ color: "#3ddc84" }}>Android:</strong> Нажмите кнопку выше, чтобы установить как PWA-приложение (Chrome → меню → «Установить приложение»).
+                  <strong style={{ color: "#3ddc84" }}>Android:</strong> Скачайте APK (4 МБ) → откройте файл → разрешите установку из неизвестных источников → установите.
                 </p>
                 <p className="text-[11px] leading-relaxed mt-1" style={{ color: "var(--mq-text-muted)" }}>
-                  <strong style={{ color: "var(--mq-text)" }}>Нативный APK:</strong> В разработке. Подпишитесь на <a href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer" style={{ color: "var(--mq-accent)", textDecoration: "underline" }}>релизы на GitHub</a>, чтобы узнать первым.
+                  <strong style={{ color: "var(--mq-text)" }}>PWA-альтернатива:</strong> Откройте сайт в Chrome → меню (⋮) → «Установить приложение».
                 </p>
               </div>
             </div>
 
             <div className="mt-2 flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#4ade80" }} />
-              <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Windows: готово · Android/macOS/Linux: PWA</span>
+              <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Windows + Android: готово · macOS/Linux: PWA</span>
             </div>
           </div>
         </motion.div>

@@ -94,3 +94,8 @@ bun.lockb
 
 # OpenNext (Cloudflare) build output
 .open-next/
+
+# Capacitor / Android build output
+/android/
+/out/
+/capacitor.config.json
