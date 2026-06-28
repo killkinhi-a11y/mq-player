@@ -208,7 +208,7 @@ function ArtistDetailViewBase({
             ? `linear-gradient(180deg, transparent 0%, var(--mq-bg) 100%), url(${artist.avatar}) center/cover`
             : coverGradient,
           border: "1px solid rgba(255,255,255,0.06)",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
           minHeight: 280,
         }}
       >

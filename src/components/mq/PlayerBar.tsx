@@ -683,11 +683,11 @@ const PlayerBar = React.memo(function PlayerBar() {
             <div
               className="relative w-full mobile-player-inner"
               style={{
-                backgroundColor: "color-mix(in srgb, var(--mq-player-bg) 85%, transparent)",
-                backdropFilter: "blur(32px) saturate(180%)",
-                WebkitBackdropFilter: "blur(32px) saturate(180%)",
+                backgroundColor: "color-mix(in srgb, var(--mq-player-bg) 75%, transparent)",
+                backdropFilter: "blur(40px) saturate(200%)",
+                WebkitBackdropFilter: "blur(40px) saturate(200%)",
                 borderTop: "1px solid color-mix(in srgb, var(--mq-glass-border) 80%, transparent)",
-                boxShadow: "var(--mq-shadow-float), inset 0 1px 0 color-mix(in srgb, rgba(255,255,255,0.04), transparent)",
+                boxShadow: "0 -8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)",
                 // No border-radius on mobile — the nav bar sits flush below,
                 // rounding creates a visible "floating" gap between the two.
                 // On desktop (sm+) radius is applied via the media query below.

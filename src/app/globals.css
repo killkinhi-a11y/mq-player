@@ -344,8 +344,112 @@ main {
   --mq-elevation-4: 0 16px 48px rgba(0,0,0,0.6);
   --mq-elevation-float: 0 24px 64px rgba(0,0,0,0.7);
 
+  /* Premium shadows — softer, layered */
+  --mq-shadow-premium-sm:
+    0 1px 2px rgba(0,0,0,0.18),
+    0 2px 6px rgba(0,0,0,0.12);
+  --mq-shadow-premium-md:
+    0 2px 4px rgba(0,0,0,0.2),
+    0 8px 24px rgba(0,0,0,0.18);
+  --mq-shadow-premium-lg:
+    0 4px 8px rgba(0,0,0,0.22),
+    0 16px 40px rgba(0,0,0,0.28);
+  --mq-shadow-premium-xl:
+    0 8px 16px rgba(0,0,0,0.25),
+    0 24px 64px rgba(0,0,0,0.35);
+  --mq-shadow-glow-accent:
+    0 0 0 1px color-mix(in srgb, var(--mq-accent) 20%, transparent),
+    0 4px 16px color-mix(in srgb, var(--mq-accent) 25%, transparent);
+
+  /* Premium motion — Apple-style easing */
+  --mq-ease-premium: cubic-bezier(0.32, 0.72, 0, 1);
+  --mq-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --mq-ease-decel: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Premium glass */
+  --mq-glass-premium: color-mix(in srgb, var(--mq-bg) 60%, transparent);
+
   /* Spring decel alias (for consistency with design-tokens.css) */
   --mq-spring-decel: cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Premium utility classes */
+.mq-premium-card {
+  background: var(--mq-card);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 20px;
+  box-shadow: var(--mq-shadow-premium-md);
+  position: relative;
+  overflow: hidden;
+}
+.mq-premium-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.mq-premium-hover {
+  transition: transform 0.3s var(--mq-ease-premium), box-shadow 0.3s var(--mq-ease-premium);
+}
+.mq-premium-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--mq-shadow-premium-lg);
+}
+
+.mq-premium-tap {
+  transition: transform 0.15s var(--mq-ease-premium);
+}
+.mq-premium-tap:active {
+  transform: scale(0.97);
+}
+
+/* Premium text styles */
+.mq-text-display {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+.mq-text-headline {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.mq-text-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--mq-text-muted);
+}
+
+/* Premium gradient text */
+.mq-text-gradient {
+  background: linear-gradient(135deg, var(--mq-text) 0%, color-mix(in srgb, var(--mq-accent) 70%, var(--mq-text)) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Premium shimmer effect for loading */
+@keyframes mqShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.mq-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: mqShimmer 1.8s ease-in-out infinite;
 }
 
 /* Custom scrollbar — P2: themed, thin, smooth */

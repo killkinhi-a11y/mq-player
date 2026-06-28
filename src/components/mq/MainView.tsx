@@ -275,13 +275,14 @@ export default function MainView() {
         <motion.div
           initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="mb-5 sm:mb-6"
         >
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
+          <p className="mq-text-eyebrow mb-1.5">{currentDate()}</p>
+          <h1 className="mq-text-display text-2xl sm:text-3xl lg:text-4xl" style={{ color: "var(--mq-text)" }}>
             {greeting()}
           </h1>
-          <p className="text-xs sm:text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="text-xs sm:text-sm mt-1.5" style={{ color: "var(--mq-text-muted)" }}>
             Что слушаем сегодня?
           </p>
         </motion.div>
@@ -942,15 +943,14 @@ function QuickStat({
       whileTap={{ scale: 0.97 }}
       whileHover={{ y: -2 }}
       onClick={onClick}
-      className="rounded-2xl p-3 flex items-center gap-2.5 cursor-pointer"
-      style={{
-        backgroundColor: "var(--mq-card)",
-        border: "1px solid rgba(255,255,255,0.05)",
-      }}
+      className="mq-premium-card rounded-2xl p-3 flex items-center gap-2.5 cursor-pointer mq-premium-hover"
     >
       <div
         className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)` }}
+        style={{
+          backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`,
+          boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${accent} 20%, transparent)`,
+        }}
       >
         <Icon className="w-4 h-4" style={{ color: accent }} />
       </div>
@@ -970,6 +970,14 @@ function greeting(): string {
   if (h < 12) return "Доброе утро";
   if (h < 18) return "Добрый день";
   return "Добрый вечер";
+}
+
+function currentDate(): string {
+  return new Date().toLocaleDateString("ru-RU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 }
 
 // ─── Recommendation Card ──────────────────────────────────────────────────
@@ -995,8 +1003,8 @@ function RecommendationCard({
     <motion.button
       initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.04, 0.3), duration: 0.25 }}
-      whileHover={{ y: -3 }}
+      transition={{ delay: Math.min(index * 0.04, 0.3), duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -4 }}
       whileTap={{ scale: 0.97 }}
       onClick={onClick}
       className="text-left cursor-pointer group flex-shrink-0"
@@ -1008,8 +1016,9 @@ function RecommendationCard({
         className="relative aspect-square rounded-2xl overflow-hidden mb-2"
         style={{
           boxShadow: isCurrent
-            ? "0 0 16px color-mix(in srgb, var(--mq-accent) 25%, transparent)"
-            : "0 4px 16px rgba(0,0,0,0.2)",
+            ? "0 0 0 2px var(--mq-accent), 0 8px 24px color-mix(in srgb, var(--mq-accent) 30%, transparent)"
+            : "var(--mq-shadow-premium-md)",
+          transition: "box-shadow 0.3s var(--mq-ease-premium)",
         }}
       >
         {track.cover ? (
@@ -1022,24 +1031,24 @@ function RecommendationCard({
         ) : (
           <div
             className="w-full h-full flex items-center justify-center"
-            style={{ backgroundColor: "var(--mq-accent)", opacity: 0.6 }}
+            style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}
           >
-            <Music className="w-7 h-7" style={{ color: "var(--mq-text)" }} />
+            <Music className="w-7 h-7" style={{ color: "rgba(255,255,255,0.7)" }} />
           </div>
         )}
+        {/* Gradient overlay for play button readability */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         {/* Play overlay */}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100"
-            style={{ backgroundColor: "var(--mq-accent)" }}
-          >
-            <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
-          </div>
+        <div className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100 translate-y-2 group-hover:translate-y-0" style={{
+          backgroundColor: "var(--mq-accent)",
+          boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
+        }}>
+          <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
         </div>
         {/* Current track indicator */}
         {isCurrent && (
-          <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
-            ИГРАЕТ
+          <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-md" style={{ backgroundColor: "rgba(0,0,0,0.5)", color: "var(--mq-accent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}>
+            ● ИГРАЕТ
           </div>
         )}
       </div>

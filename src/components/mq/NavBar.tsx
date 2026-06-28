@@ -68,17 +68,17 @@ const NavBar = React.memo(function NavBar() {
       className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center justify-between"
       role="banner"
       style={{
-        margin: "10px 20px 0",
+        margin: "12px 24px 0",
         right: "auto",
-        width: "calc(100% - 40px)",
-        borderRadius: 20,
-        background: "color-mix(in srgb, var(--mq-bg) 65%, transparent)",
-        backdropFilter: "blur(28px) saturate(180%)",
-        WebkitBackdropFilter: "blur(28px) saturate(180%)",
+        width: "calc(100% - 48px)",
+        borderRadius: 24,
+        background: "color-mix(in srgb, var(--mq-bg) 55%, transparent)",
+        backdropFilter: "blur(32px) saturate(200%)",
+        WebkitBackdropFilter: "blur(32px) saturate(200%)",
         border: "1px solid rgba(255,255,255,0.06)",
         boxShadow:
-          "0 8px 32px rgba(0,0,0,0.25), " +
-          "inset 0 1px 0 rgba(255,255,255,0.05)",
+          "0 10px 40px rgba(0,0,0,0.3), " +
+          "inset 0 1px 0 rgba(255,255,255,0.06)",
         padding: compactMode ? "6px 8px" : "7px 10px",
       }}
     >

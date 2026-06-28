@@ -470,7 +470,7 @@ export default function AppShell() {
         {showNav && !hideUiForFullscreen && <NavBar />}
       </Suspense>
 
-      <main id="main-content" className={showNav && !hideUiForFullscreen ? "lg:pt-14" : ""} data-view={currentView}>
+      <main id="main-content" className={showNav && !hideUiForFullscreen ? "lg:pt-16" : ""} data-view={currentView}>
         {/* ── Active view rendering ──
             P2-#300/#310/#185 FIX: Only render the ACTIVE view, not all visited views.
             Previous pattern mounted ALL visited views simultaneously (display:none),

@@ -47,13 +47,13 @@ const MobileNav = React.memo(function MobileNav() {
         transition={{ delay: 0.1, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         className="rounded-[24px] overflow-hidden"
         style={{
-          background: "color-mix(in srgb, var(--mq-bg) 75%, transparent)",
-          backdropFilter: "blur(32px) saturate(200%)",
-          WebkitBackdropFilter: "blur(32px) saturate(200%)",
-          border: "1px solid var(--mq-glass-border)",
+          background: "color-mix(in srgb, var(--mq-bg) 65%, transparent)",
+          backdropFilter: "blur(40px) saturate(200%)",
+          WebkitBackdropFilter: "blur(40px) saturate(200%)",
+          border: "1px solid rgba(255,255,255,0.06)",
           boxShadow:
-            "var(--mq-shadow-float), " +
-            "inset 0 1px 0 rgba(255,255,255,0.05)",
+            "0 12px 40px rgba(0,0,0,0.35), " +
+            "inset 0 1px 0 rgba(255,255,255,0.06)",
         }}
       >
         <div className={`flex items-center justify-around ${compactMode ? "py-2" : "py-2.5"} px-2`}>
