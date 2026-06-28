@@ -864,6 +864,15 @@ export const useAppStore = create<AppState>()(
       },
 
       setView: (view) => {
+        // P3-fix: scroll to top BEFORE changing the view so the user
+        // never sees the new view at a scrolled-down position. Doing
+        // this synchronously (before set()) means the scroll reset
+        // happens in the same frame as the view switch.
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "auto" });
+          const main = document.getElementById("main-content");
+          if (main) main.scrollTop = 0;
+        }
         // When navigating to "main", close all overlays/panels without stopping music
         if (view === "main") {
           const state = get();
