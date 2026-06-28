@@ -93,7 +93,9 @@ export default function MainView() {
   // ── Local state ──
   const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
   const [curatedPlaylists, setCuratedPlaylists] = useState<CuratedPlaylist[]>([]);
+  const [recommendationCategories, setRecommendationCategories] = useState<{ id: string; title: string; icon: string; tracks: Track[] }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [recLoading, setRecLoading] = useState(false);
   const [waveLoading, setWaveLoading] = useState(false);
   const [trendingExpanded, setTrendingExpanded] = useState<boolean>(() => {
     try { return localStorage.getItem("mq-trending-expanded") === "1"; } catch { return false; }
@@ -157,6 +159,48 @@ export default function MainView() {
     fetchAll();
     return () => { cancelled = true; };
   }, []);
+
+  // ── Fetch recommendations (after initial load, non-blocking) ──
+  useEffect(() => {
+    let cancelled = false;
+    const fetchRecs = async () => {
+      setRecLoading(true);
+      try {
+        const disliked = useAppStore.getState().dislikedTrackIds || [];
+        const params = new URLSearchParams();
+        const likedScIds = useAppStore.getState().likedTracksData
+          .map((t: any) => t.scTrackId).filter((id: any): id is number => !!id).slice(0, 5).join(",");
+        if (likedScIds) params.set("likedScIds", likedScIds);
+        const historyScIds = useAppStore.getState().history.slice(0, 10)
+          .map((h: any) => h.track?.scTrackId).filter((id: any): id is number => !!id).join(",");
+        if (historyScIds) params.set("historyScIds", historyScIds);
+        if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
+        if (tasteProfile.topGenres.length > 0) params.set("genres", tasteProfile.topGenres.join(","));
+        const favArtistNames = (useAppStore.getState().favoriteArtists || []).map(a => a.username);
+        const allArtists = [...new Set([...favArtistNames, ...tasteProfile.topArtists])];
+        if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
+
+        const res = await fetch(`/api/music/recommendations?${params}`);
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          const categories = (data.categories || []).map((cat: any) => ({
+            id: cat.id || `cat_${Date.now()}_${Math.random()}`,
+            title: cat.title || "Рекомендации",
+            icon: cat.icon || "Sparkles",
+            tracks: (cat.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 10),
+          })).filter((cat: any) => cat.tracks.length > 0);
+          if (!cancelled) setRecommendationCategories(categories);
+        }
+      } catch {
+        // Silent — recommendations are optional
+      } finally {
+        if (!cancelled) setRecLoading(false);
+      }
+    };
+    // Defer to next tick so it doesn't block initial render
+    const timer = setTimeout(fetchRecs, 100);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [tasteProfile]);
 
   // ── Wave start ──
   const handleStartWave = useCallback(async () => {
@@ -232,12 +276,12 @@ export default function MainView() {
           initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          className="mb-6"
+          className="mb-5 sm:mb-6"
         >
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
             {greeting()}
           </h1>
-          <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="text-xs sm:text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
             Что слушаем сегодня?
           </p>
         </motion.div>
@@ -445,7 +489,7 @@ export default function MainView() {
       {/* ── Quick stats row ── */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <ScrollReveal direction="up" delay={0.05}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-6 sm:mb-8">
           <QuickStat icon={Heart} label="Избранное" value={likedTrackIds.length} onClick={() => setView("favorites")} accent="#ef4444" />
           <QuickStat icon={Clock} label="История" value={history.length} onClick={() => setView("history")} accent="var(--mq-accent)" />
           <QuickStat icon={ListMusic} label="Плейлисты" value={playlists.length} onClick={() => setView("playlists")} accent="#8b5cf6" />
@@ -704,6 +748,91 @@ export default function MainView() {
       </ScrollReveal>
 
       {/* ════════════════════════════════════════════════════════════════ */}
+      {/* ── Recommendations (categorized) ── */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {recommendationCategories.length > 0 && (
+        <ScrollReveal direction="up" delay={0.13}>
+          <div className="mb-8">
+            <SectionHeader title="Для вас" icon={Sparkles} />
+            <div className="space-y-6">
+              {recommendationCategories.map((cat, catIdx) => (
+                <div key={cat.id}>
+                  <motion.div
+                    initial={animationsEnabled ? { opacity: 0, x: -8 } : undefined}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.05 * catIdx, duration: 0.25 }}
+                    className="flex items-center gap-2 mb-3"
+                  >
+                    <div
+                      className="w-6 h-6 rounded-lg flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}
+                    >
+                      <Sparkles className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
+                    </div>
+                    <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>{cat.title}</h3>
+                    <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>{cat.tracks.length}</span>
+                  </motion.div>
+
+                  {/* Horizontal scroll row on mobile, grid on desktop */}
+                  {isMobile ? (
+                    <div className="flex gap-3 overflow-x-auto scrollbar-none -mx-4 px-4 pb-2" style={{ scrollSnapType: "x proximity" }}>
+                      {cat.tracks.map((track, i) => (
+                        <RecommendationCard
+                          key={track.id + "_" + i}
+                          track={track}
+                          isCurrent={currentTrack?.id === track.id}
+                          onClick={() => playTrack(track, cat.tracks)}
+                          onArtistClick={() => handleNavigateToArtist(track.artist)}
+                          compactMode={compactMode}
+                          animationsEnabled={animationsEnabled}
+                          index={i}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 lg:grid-cols-5 gap-3">
+                      {cat.tracks.slice(0, 5).map((track, i) => (
+                        <RecommendationCard
+                          key={track.id + "_" + i}
+                          track={track}
+                          isCurrent={currentTrack?.id === track.id}
+                          onClick={() => playTrack(track, cat.tracks)}
+                          onArtistClick={() => handleNavigateToArtist(track.artist)}
+                          compactMode={compactMode}
+                          animationsEnabled={animationsEnabled}
+                          index={i}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </ScrollReveal>
+      )}
+
+      {/* Loading skeleton for recommendations */}
+      {recLoading && recommendationCategories.length === 0 && (
+        <ScrollReveal direction="up" delay={0.13}>
+          <div className="mb-8">
+            <SectionHeader title="Для вас" icon={Sparkles} />
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 p-3 rounded-xl" style={{ backgroundColor: "var(--mq-card)" }}>
+                  <Skeleton className="w-12 h-12 rounded-lg flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </ScrollReveal>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════ */}
       {/* ── Favorite artists (if any) ── */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {favoriteArtists.length > 0 && (
@@ -842,3 +971,92 @@ function greeting(): string {
   if (h < 18) return "Добрый день";
   return "Добрый вечер";
 }
+
+// ─── Recommendation Card ──────────────────────────────────────────────────
+
+function RecommendationCard({
+  track,
+  isCurrent,
+  onClick,
+  onArtistClick,
+  compactMode,
+  animationsEnabled,
+  index,
+}: {
+  track: Track;
+  isCurrent: boolean;
+  onClick: () => void;
+  onArtistClick: () => void;
+  compactMode: boolean;
+  animationsEnabled: boolean;
+  index: number;
+}) {
+  return (
+    <motion.button
+      initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: Math.min(index * 0.04, 0.3), duration: 0.25 }}
+      whileHover={{ y: -3 }}
+      whileTap={{ scale: 0.97 }}
+      onClick={onClick}
+      className="text-left cursor-pointer group flex-shrink-0"
+      style={{
+        width: compactMode ? 130 : 140,
+      }}
+    >
+      <div
+        className="relative aspect-square rounded-2xl overflow-hidden mb-2"
+        style={{
+          boxShadow: isCurrent
+            ? "0 0 16px color-mix(in srgb, var(--mq-accent) 25%, transparent)"
+            : "0 4px 16px rgba(0,0,0,0.2)",
+        }}
+      >
+        {track.cover ? (
+          <img
+            src={track.cover}
+            alt=""
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+            loading="lazy"
+          />
+        ) : (
+          <div
+            className="w-full h-full flex items-center justify-center"
+            style={{ backgroundColor: "var(--mq-accent)", opacity: 0.6 }}
+          >
+            <Music className="w-7 h-7" style={{ color: "var(--mq-text)" }} />
+          </div>
+        )}
+        {/* Play overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+          <div
+            className="w-10 h-10 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100"
+            style={{ backgroundColor: "var(--mq-accent)" }}
+          >
+            <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
+          </div>
+        </div>
+        {/* Current track indicator */}
+        {isCurrent && (
+          <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
+            ИГРАЕТ
+          </div>
+        )}
+      </div>
+      <p
+        className="text-xs sm:text-sm font-semibold truncate"
+        style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}
+      >
+        {track.title}
+      </p>
+      <button
+        onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
+        className="text-[11px] truncate hover:underline block w-full text-left"
+        style={{ color: "var(--mq-text-muted)" }}
+      >
+        {track.artist}
+      </button>
+    </motion.button>
+  );
+}
+

@@ -50,11 +50,11 @@ function SettingRow({
   return (
     <Wrapper
       {...(onClick ? { whileTap: { scale: 0.99 }, whileHover: { backgroundColor: "rgba(255,255,255,0.03)" }, onClick } : {})}
-      className="w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors"
+      className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5 text-left transition-colors"
       style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
     >
       <div
-        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+        className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{
           backgroundColor: danger ? "rgba(239,68,68,0.1)" : "color-mix(in srgb, var(--mq-accent) 10%, transparent)",
         }}
@@ -63,7 +63,7 @@ function SettingRow({
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium" style={{ color: danger ? "#ef4444" : "var(--mq-text)" }}>{label}</p>
-        {subtitle && <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{subtitle}</p>}
+        {subtitle && <p className="text-[11px] sm:text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{subtitle}</p>}
       </div>
       {value && (
         <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
@@ -92,16 +92,16 @@ function SettingToggle({
   onCheckedChange: (v: boolean) => void;
 }) {
   return (
-    <div className="w-full flex items-center gap-3 px-4 py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+    <div className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
       <div
-        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+        className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{ backgroundColor: value ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.05)" }}
       >
         <Icon className="w-4 h-4" style={{ color: value ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>{label}</p>
-        {subtitle && <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{subtitle}</p>}
+        {subtitle && <p className="text-[11px] sm:text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{subtitle}</p>}
       </div>
       <Switch checked={value} onCheckedChange={onCheckedChange} />
     </div>
@@ -127,7 +127,7 @@ function Card({ children }: { children: React.ReactNode }) {
 
 function CardTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
-    <div className="px-4 pt-4 pb-2 flex items-center gap-2.5">
+    <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2 flex items-center gap-2.5">
       <div
         className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
         style={{
@@ -276,7 +276,7 @@ export default function SettingsView() {
 
   return (
     <div
-      className="p-4 lg:p-6 max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-24"
+      className="p-3 sm:p-4 lg:p-6 max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-24"
       data-active-tab={activeTab}
     >
       {/* Header */}
@@ -284,16 +284,19 @@ export default function SettingsView() {
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="mb-5"
+        className="mb-4 sm:mb-5"
       >
-        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
           Настройки
         </h1>
-        <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>Персонализируйте ваш mq</p>
+        <p className="text-xs sm:text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>Персонализируйте ваш mq</p>
       </motion.div>
 
-      {/* Tab bar */}
-      <div className="sticky z-30 mb-5" style={{ top: 56, paddingTop: 8, paddingBottom: 8 }}>
+      {/* Tab bar — sticky, horizontal scroll on mobile */}
+      <div
+        className="sticky z-30 mb-4 sm:mb-5"
+        style={{ top: 0, paddingTop: 8, paddingBottom: 8, backgroundColor: "var(--mq-bg)" }}
+      >
         <div
           className="flex gap-1 p-1 rounded-2xl overflow-x-auto scrollbar-none"
           style={{
@@ -302,6 +305,7 @@ export default function SettingsView() {
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
             boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+            WebkitOverflowScrolling: "touch",
           }}
         >
           {TABS.map(tab => {
@@ -333,7 +337,7 @@ export default function SettingsView() {
             {/* Profile card */}
             <Card>
               <CardTitle icon={User} title="Профиль" />
-              <div className="px-4 py-4 flex items-center gap-4" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="px-3 sm:px-4 py-3 sm:py-4 flex items-center gap-3 sm:gap-4" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                 <div className="relative flex-shrink-0">
                   <div className="absolute -inset-1 rounded-full opacity-60" style={{ background: "linear-gradient(135deg, var(--mq-accent), rgba(255,255,255,0.15))" }} />
                   {avatar ? (
@@ -383,7 +387,7 @@ export default function SettingsView() {
             {/* Mobile app */}
             <Card>
               <CardTitle icon={Smartphone} title="Мобильное приложение" />
-              <div className="px-4 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="px-3 sm:px-4 py-3 sm:py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #3ddc84, #00a86b)", boxShadow: "0 2px 12px rgba(61,220,132,0.25)" }}>
                     <Smartphone className="w-5 h-5" style={{ color: "#fff" }} />
@@ -416,8 +420,8 @@ export default function SettingsView() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             <Card>
               <CardTitle icon={Palette} title="Тема" />
-              <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                <div className="grid grid-cols-4 sm:grid-cols-4 gap-2">
                   {Object.entries(themes).slice(0, 12).map(([key, theme]: [string, any]) => {
                     const isActive = currentTheme === key;
                     return (
@@ -453,7 +457,7 @@ export default function SettingsView() {
 
             <Card>
               <CardTitle icon={Sparkles} title="Акцент" />
-              <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                 <div className="flex flex-wrap gap-2">
                   {accentPresets.map(color => (
                     <motion.button
@@ -485,7 +489,7 @@ export default function SettingsView() {
 
             <Card>
               <CardTitle icon={Type} title="Текст и размер" />
-              <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                 <div className="flex items-center gap-3">
                   <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>A</span>
                   <input
@@ -534,7 +538,7 @@ export default function SettingsView() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             <Card>
               <CardTitle icon={Volume2} title="Громкость" />
-              <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                 <div className="flex items-center gap-3">
                   <Volume2 className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
                   <input
@@ -586,7 +590,7 @@ export default function SettingsView() {
                 onCheckedChange={setCrossfadeEnabled}
               />
               {crossfadeEnabled && (
-                <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                   <div className="flex items-center gap-3">
                     <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>0.5s</span>
                     <input
@@ -691,7 +695,7 @@ export default function SettingsView() {
 
             <Card>
               <CardTitle icon={Download} title="Скачать приложение" />
-              <div className="px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <motion.a
                     whileHover={{ scale: 1.03 }}
