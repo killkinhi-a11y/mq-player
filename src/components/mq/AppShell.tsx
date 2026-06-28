@@ -492,8 +492,14 @@ export default function AppShell() {
           const active = VISITED_VIEW_COMPONENTS.find(v => v.id === currentView);
           if (!active || !visitedViews.has(active.id)) return null;
           const Component = active.Component;
+          // P2-#185: NO key on ViewErrorBoundary — key forces React to
+          // recreate the boundary (and unmount its child) on every view
+          // switch. That re-runs all of MessengerView's useEffects
+          // (SSE, polling, heartbeat, BroadcastChannel) → cascade → #185.
+          // Without key, the boundary persists across switches; only the
+          // inner Component changes via React's reconciliation.
           return (
-            <ViewErrorBoundary key={active.id}>
+            <ViewErrorBoundary>
               <ViewTransition trigger={currentView} animationsEnabled={animationsEnabled}>
                 <Component />
               </ViewTransition>

@@ -354,6 +354,11 @@ export default function MessengerView() {
   // ═══════════════════════════════════════════════════════════
 
   // ── Fetch friends list ──
+  // P2-#185: dedupe by IDs to avoid setting a new array reference on every
+  // poll when the data hasn't actually changed. Without this, setFriends()
+  // triggers re-render → useMemories recompute → useEffect on line 1148
+  // re-runs (even though IDs are the same) → cascade.
+  const lastFriendsSnapshotRef = useRef<string>("");
   const fetchFriends = useCallback(async () => {
     if (!userId) return;
     setIsLoadingFriends(true);
@@ -361,8 +366,15 @@ export default function MessengerView() {
       const res = await fetch(`/api/friends?userId=${userId}`);
       if (res.ok) {
         const data = await res.json();
-        setFriends(data.friends || []);
-        setPendingRequests(data.pendingRequests || []);
+        const newFriends: FriendUser[] = data.friends || [];
+        const newPending = data.pendingRequests || [];
+        // Build a snapshot key — if it matches the last one, skip setState
+        const snapshot = newFriends.map((f) => f.id).sort().join(",") + "|" + newPending.map((p: any) => p.id).sort().join(",");
+        if (snapshot !== lastFriendsSnapshotRef.current) {
+          lastFriendsSnapshotRef.current = snapshot;
+          setFriends(newFriends);
+          setPendingRequests(newPending);
+        }
       }
     } catch { /* silent */ } finally { setIsLoadingFriends(false); }
   }, [userId]);
@@ -1139,9 +1151,18 @@ export default function MessengerView() {
     return () => clearInterval(interval);
   }, [userId]);
 
-  // Fetch friend statuses on mount and when friends change
+  // Fetch friend statuses on mount and when friends change.
+  // P2-#185: dedupe by friend IDs — if the new friends array has the same
+  // IDs as the last fetch, skip the effect entirely. This prevents a
+  // cascade when fetchFriends() returns a fresh array reference with the
+  // same data (which would otherwise re-trigger this effect + setInterval).
+  const lastFriendsKeyRef = useRef<string>("");
   useEffect(() => {
     if (!userId || friends.length === 0) return;
+    const friendsKey = friends.map((f) => f.id).sort().join(",");
+    if (friendsKey === lastFriendsKeyRef.current) return; // no real change
+    lastFriendsKeyRef.current = friendsKey;
+
     const fetchStatuses = async () => {
       const statuses: Record<string, { online: boolean; lastSeen: string | null }> = {};
       await Promise.all(friends.map(async (f) => {

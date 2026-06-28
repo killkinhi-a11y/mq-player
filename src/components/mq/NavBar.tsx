@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import {
   Home, Search, MessageCircle, Settings, User,
-  Library,
+  Library, Command,
 } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
 
@@ -14,7 +14,6 @@ const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "me
   { id: "search", icon: Search, label: "Поиск" },
   { id: "library", icon: Library, label: "Библиотека" },
   { id: "messenger", icon: MessageCircle, label: "Чаты", badgeKey: "messenger" },
-  { id: "settings", icon: Settings, label: "Настройки", badgeKey: "settings" },
 ];
 
 const NavBar = React.memo(function NavBar() {
@@ -25,19 +24,18 @@ const NavBar = React.memo(function NavBar() {
   const compactMode = useAppStore((s) => s.compactMode);
   const unreadCounts = useAppStore((s) => s.unreadCounts);
   const supportUnreadCount = useAppStore((s) => s.supportUnreadCount);
+  const setNotifPanelOpen = useAppStore((s) => s.setNotifPanelOpen);
+
+  const messengerBadge = Object.values(unreadCounts).reduce((sum, c) => sum + (c || 0), 0);
+  const settingsBadge = supportUnreadCount;
 
   const getBadgeCount = (badgeKey?: string): number => {
-    if (!badgeKey) return 0;
-    if (badgeKey === "messenger") {
-      return Object.values(unreadCounts).reduce((sum, c) => sum + c, 0);
-    }
-    if (badgeKey === "settings") {
-      return supportUnreadCount;
-    }
+    if (badgeKey === "messenger") return messengerBadge;
+    if (badgeKey === "settings") return settingsBadge;
     return 0;
   };
 
-  // ⌘K / Ctrl+K shortcut to navigate to search view and focus its input
+  // ⌘K / Ctrl+K shortcut
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
@@ -62,37 +60,49 @@ const NavBar = React.memo(function NavBar() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
+  const isSettingsActive = currentView === "settings";
+  const isProfileActive = currentView === "profile";
+
   return (
     <header
-      className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center"
+      className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center justify-between"
       role="banner"
       style={{
         margin: "10px 20px 0",
-        borderRadius: "var(--mq-radius-full)",
-        background: "var(--mq-glass-bg)",
-        backdropFilter: "var(--mq-glass-blur)",
-        WebkitBackdropFilter: "var(--mq-glass-blur)",
-        border: "1px solid var(--mq-glass-border)",
-        boxShadow: "var(--mq-shadow-float)",
-        padding: compactMode ? "6px 12px" : "8px 16px",
-        gap: compactMode ? 8 : 12,
+        right: "auto",
+        width: "calc(100% - 40px)",
+        borderRadius: 20,
+        background: "color-mix(in srgb, var(--mq-bg) 65%, transparent)",
+        backdropFilter: "blur(28px) saturate(180%)",
+        WebkitBackdropFilter: "blur(28px) saturate(180%)",
+        border: "1px solid rgba(255,255,255,0.06)",
+        boxShadow:
+          "0 8px 32px rgba(0,0,0,0.25), " +
+          "inset 0 1px 0 rgba(255,255,255,0.05)",
+        padding: compactMode ? "6px 8px" : "7px 10px",
       }}
     >
-      {/* ── Logo ── */}
+      {/* ── Brand (left) ── */}
       <motion.div
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className="flex items-center gap-2 cursor-pointer shrink-0"
+        initial={{ opacity: 0, x: -10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.97 }}
         onClick={() => setView("main")}
+        className="flex items-center gap-2 cursor-pointer shrink-0 px-2"
       >
         <div
-          className="w-7 h-7 rounded-lg overflow-hidden"
-          style={{ boxShadow: "0 0 12px var(--mq-glow)" }}
+          className="w-7 h-7 rounded-lg overflow-hidden flex items-center justify-center"
+          style={{
+            background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))",
+            boxShadow: "0 0 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
+          }}
         >
           <img src="/favicon.ico" alt="mq" className="w-full h-full object-cover" />
         </div>
         <span
-          className="font-extralight text-lg tracking-wide"
+          className="font-light text-lg tracking-[0.15em] select-none"
           style={{
             color: "var(--mq-text)",
             fontFamily: "var(--font-outfit), system-ui, sans-serif",
@@ -102,13 +112,16 @@ const NavBar = React.memo(function NavBar() {
         </span>
       </motion.div>
 
-      {/* ── Navigation pills with labels (includes Search) ── */}
-      <nav
-        className="flex items-center gap-0.5 p-1 rounded-full ml-2"
+      {/* ── Nav pills (center) ── */}
+      <motion.nav
+        initial={{ opacity: 0, y: -6 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="flex items-center gap-1 p-1 rounded-full"
         role="navigation"
         aria-label="Основная навигация"
         style={{
-          background: "rgba(255,255,255,0.03)",
+          background: "rgba(255,255,255,0.04)",
           border: "1px solid rgba(255,255,255,0.04)",
         }}
       >
@@ -121,11 +134,10 @@ const NavBar = React.memo(function NavBar() {
               key={item.id}
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.04 * index, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-              whileHover={isActive ? {} : { scale: 1.05, y: -1 }}
-              whileTap={{ scale: 0.95 }}
+              transition={{ delay: 0.08 + 0.04 * index, duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+              whileHover={isActive ? {} : { scale: 1.04, y: -1 }}
+              whileTap={{ scale: 0.94 }}
               onClick={() => {
-                // Haptic feedback on mobile
                 if (typeof navigator !== "undefined" && "vibrate" in navigator) {
                   try { navigator.vibrate(8); } catch {}
                 }
@@ -153,11 +165,11 @@ const NavBar = React.memo(function NavBar() {
                   layoutId="navActivePill"
                   className="absolute inset-0 rounded-full"
                   style={{
-                    background: "var(--mq-glass-bg-active)",
-                    border: "1px solid var(--mq-glass-border-hover)",
+                    background: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--mq-accent) 25%, transparent)",
                     boxShadow:
-                      "0 0 12px color-mix(in srgb, var(--mq-accent) 18%, transparent), " +
-                      "inset 0 1px 0 rgba(255,255,255,0.05)",
+                      "0 0 16px color-mix(in srgb, var(--mq-accent) 22%, transparent), " +
+                      "inset 0 1px 0 rgba(255,255,255,0.06)",
                   }}
                   transition={{
                     type: "spring",
@@ -168,11 +180,11 @@ const NavBar = React.memo(function NavBar() {
                 />
               )}
 
-              {/* Hover halo (non-active items only) */}
+              {/* Hover halo (non-active) */}
               {!isActive && (
                 <motion.div
                   className="absolute inset-0 rounded-full pointer-events-none"
-                  style={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+                  style={{ backgroundColor: "rgba(255,255,255,0.05)" }}
                   initial={{ opacity: 0 }}
                   whileHover={{ opacity: 1 }}
                   transition={{ duration: 0.15 }}
@@ -184,71 +196,130 @@ const NavBar = React.memo(function NavBar() {
                 transition={{ type: "spring", stiffness: 400, damping: 25 }}
                 className="relative z-10 flex items-center gap-1.5"
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-4 h-4" strokeWidth={isActive ? 2.3 : 1.8} />
                 <span className="hidden sm:inline">{item.label}</span>
               </motion.div>
 
-              {/* Badge with count */}
-              {badgeCount > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                  className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full z-20 flex items-center justify-center text-[11px] font-bold px-1"
-                  style={{
-                    backgroundColor: "#ef4444",
-                    color: "white",
-                    boxShadow: "0 0 6px rgba(239,68,68,0.6)",
-                  }}
-                >
-                  {badgeCount}
-                </motion.span>
-              )}
+              {/* Badge */}
+              <AnimatePresence>
+                {badgeCount > 0 && (
+                  <motion.span
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                    className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full z-20 flex items-center justify-center text-[10px] font-bold px-1"
+                    style={{
+                      backgroundColor: "#ef4444",
+                      color: "white",
+                      boxShadow: "0 0 8px rgba(239,68,68,0.6)",
+                    }}
+                  >
+                    {badgeCount > 99 ? "99+" : badgeCount}
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </motion.button>
           );
         })}
-      </nav>
+      </motion.nav>
 
-      {/* ── Spacer ── */}
-      <div className="flex-1" />
-
-      {/* ── User (profile button) — logout moved to profile/settings ── */}
-      <motion.button
-        whileHover={{ scale: 1.03 }}
-        whileTap={{ scale: 0.97 }}
-        onClick={() => setView("profile")}
-        className="flex items-center gap-2 shrink-0 px-2 py-1 rounded-full mq-focus-premium"
-        style={{
-          background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.06)",
-        }}
-        aria-label="Профиль"
+      {/* ── Actions (right) ── */}
+      <motion.div
+        initial={{ opacity: 0, x: 10 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.1, duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        className="flex items-center gap-1.5 shrink-0"
       >
-        {avatar ? (
-          <img
-            src={avatar}
-            alt=""
-            className="w-6 h-6 rounded-full object-cover"
-            style={{
-              boxShadow: "0 0 0 2px var(--mq-surface-1), 0 0 0 3px var(--mq-accent)",
-            }}
-          />
-        ) : (
-          <div
-            className="w-6 h-6 rounded-full flex items-center justify-center"
-            style={{
-              backgroundColor: "var(--mq-accent)",
-            }}
-          >
-            <User className="w-3.5 h-3.5" style={{ color: "var(--mq-text)" }} />
-          </div>
-        )}
-        {!compactMode && (
-          <span className="text-sm max-w-[80px] truncate" style={{ color: "var(--mq-text)" }}>
-            {username || "User"}
-          </span>
-        )}
-      </motion.button>
+        {/* Settings icon-button */}
+        <motion.button
+          whileHover={{ scale: 1.06, y: -1 }}
+          whileTap={{ scale: 0.94 }}
+          onClick={() => {
+            if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+              try { navigator.vibrate(8); } catch {}
+            }
+            setView("settings");
+          }}
+          aria-label="Настройки"
+          className="relative w-9 h-9 rounded-full flex items-center justify-center cursor-pointer transition-colors"
+          style={{
+            background: isSettingsActive
+              ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)"
+              : "rgba(255,255,255,0.04)",
+            border: "1px solid " + (isSettingsActive
+              ? "color-mix(in srgb, var(--mq-accent) 25%, transparent)"
+              : "rgba(255,255,255,0.05)"),
+            color: isSettingsActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
+          }}
+        >
+          <Settings className="w-4 h-4" strokeWidth={isSettingsActive ? 2.3 : 1.8} />
+          {settingsBadge > 0 && (
+            <span
+              className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[10px] font-bold px-1"
+              style={{
+                backgroundColor: "#ef4444",
+                color: "white",
+                boxShadow: "0 0 6px rgba(239,68,68,0.6)",
+              }}
+            >
+              {settingsBadge > 99 ? "99+" : settingsBadge}
+            </span>
+          )}
+        </motion.button>
+
+        {/* Profile avatar-button */}
+        <motion.button
+          whileHover={{ scale: 1.06, y: -1 }}
+          whileTap={{ scale: 0.94 }}
+          onClick={() => {
+            if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+              try { navigator.vibrate(8); } catch {}
+            }
+            setView("profile");
+          }}
+          aria-label="Профиль"
+          className="relative flex items-center gap-2 pl-1 pr-3 py-1 rounded-full cursor-pointer transition-colors"
+          style={{
+            background: isProfileActive
+              ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)"
+              : "rgba(255,255,255,0.04)",
+            border: "1px solid " + (isProfileActive
+              ? "color-mix(in srgb, var(--mq-accent) 25%, transparent)"
+              : "rgba(255,255,255,0.05)"),
+          }}
+        >
+          {avatar ? (
+            <img
+              src={avatar}
+              alt=""
+              className="w-6 h-6 rounded-full object-cover"
+              style={{
+                boxShadow: isProfileActive
+                  ? "0 0 0 2px var(--mq-accent)"
+                  : "0 0 0 2px var(--mq-bg), 0 0 0 3px rgba(255,255,255,0.1)",
+              }}
+            />
+          ) : (
+            <div
+              className="w-6 h-6 rounded-full flex items-center justify-center"
+              style={{
+                background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))",
+              }}
+            >
+              <User className="w-3.5 h-3.5" style={{ color: "var(--mq-text)" }} />
+            </div>
+          )}
+          {!compactMode && (
+            <span
+              className="text-xs font-medium max-w-[80px] truncate"
+              style={{ color: isProfileActive ? "var(--mq-accent)" : "var(--mq-text)" }}
+            >
+              {username || "User"}
+            </span>
+          )}
+        </motion.button>
+      </motion.div>
     </header>
   );
 });
