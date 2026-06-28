@@ -251,7 +251,7 @@ export default function MainView() {
   }
 
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4" : "p-4 lg:p-6"} max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-28`}>
+    <div className={`${compactMode ? "p-3 lg:p-4" : "p-3.5 sm:p-4 lg:p-6"} max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-28`}>
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* HERO GREETING */}
@@ -263,8 +263,8 @@ export default function MainView() {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="mb-6"
         >
-          <p className="mq-text-eyebrow mb-1.5">{currentDate()}</p>
-          <h1 className="mq-text-display text-2xl sm:text-3xl lg:text-4xl" style={{ color: "var(--mq-text)" }}>
+          <p className="mq-text-eyebrow mb-1.5 text-[10px] sm:text-[11px]">{currentDate()}</p>
+          <h1 className="mq-text-display text-xl sm:text-2xl lg:text-3xl" style={{ color: "var(--mq-text)" }}>
             {greeting()}
           </h1>
         </motion.div>
@@ -374,7 +374,7 @@ export default function MainView() {
       {/* Recommendations loading skeleton */}
       {recLoading && recCategories.length === 0 && (
         <Section title="Для вас" icon={Sparkles}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i}>
                 <div className="aspect-square rounded-2xl mb-2 mq-shimmer" />
@@ -399,7 +399,7 @@ export default function MainView() {
             </button>
           }
         >
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5.5 sm:gap-4">
             {recentTracks.slice(0, 5).map((track, i) => (
               <TrackCard
                 key={track.id + "_" + i}
@@ -486,7 +486,7 @@ export default function MainView() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4"
+                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5.5 sm:gap-4"
               >
                 {trendingTracks.slice(0, 5).map((track, i) => (
                   <TrackCard
@@ -566,19 +566,19 @@ function Section({
 }) {
   return (
     <ScrollReveal direction="up" delay={0.05}>
-      <section className="mb-8">
+      <section className="mb-7 sm:mb-8">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center"
               style={{
                 backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
                 boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--mq-accent) 18%, transparent)",
               }}
             >
-              <Icon className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+              <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={{ color: "var(--mq-accent)" }} />
             </div>
-            <h2 className="mq-text-headline text-lg sm:text-xl" style={{ color: "var(--mq-text)" }}>
+            <h2 className="mq-text-headline text-base sm:text-lg lg:text-xl" style={{ color: "var(--mq-text)" }}>
               {title}
             </h2>
           </div>
@@ -612,20 +612,20 @@ function QuickStat({
       whileTap={{ scale: 0.97 }}
       whileHover={{ y: -2 }}
       onClick={onClick}
-      className="mq-premium-card rounded-2xl p-3 flex items-center gap-2.5 cursor-pointer mq-premium-hover"
+      className="mq-premium-card rounded-2xl p-3 sm:p-3.5 flex items-center gap-2.5 cursor-pointer mq-premium-hover"
     >
       <div
-        className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+        className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{
           backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`,
           boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${accent} 20%, transparent)`,
         }}
       >
-        <Icon className="w-4 h-4" style={{ color: accent }} />
+        <Icon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: accent }} />
       </div>
       <div className="min-w-0">
-        <p className="text-base font-bold leading-none" style={{ color: "var(--mq-text)" }}>{value}</p>
-        <p className="text-[11px] mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>{label}</p>
+        <p className="text-base sm:text-lg font-bold leading-none" style={{ color: "var(--mq-text)" }}>{value}</p>
+        <p className="text-[10px] sm:text-[11px] mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>{label}</p>
       </div>
     </motion.button>
   );
@@ -690,7 +690,7 @@ function TrackCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         {/* Play button */}
         <div
-          className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100 translate-y-2 group-hover:translate-y-0"
+          className="absolute bottom-2 right-2 w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100 translate-y-2 group-hover:translate-y-0"
           style={{
             backgroundColor: "var(--mq-accent)",
             boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
@@ -718,14 +718,14 @@ function TrackCard({
         )}
       </div>
       <p
-        className="text-sm font-semibold truncate"
+        className="text-[13px] sm:text-sm font-semibold truncate leading-tight mt-0.5"
         style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}
       >
         {track.title}
       </p>
       <button
         onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-        className="text-xs truncate hover:underline block w-full text-left"
+        className="text-[11px] sm:text-xs truncate hover:underline block w-full text-left mt-0.5"
         style={{ color: "var(--mq-text-muted)" }}
       >
         {track.artist}
@@ -820,8 +820,8 @@ function PlaylistCard({
         )}
       </div>
       <div className="p-3">
-        <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }} title={pl.name}>{pl.name}</p>
-        <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
+        <p className="text-[13px] sm:text-sm font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }} title={pl.name}>{pl.name}</p>
+        <p className="text-[11px] sm:text-xs mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
           {pl.tracks.length} {pluralRu(pl.tracks.length, "трек", "трека", "треков")}
         </p>
       </div>
@@ -856,7 +856,7 @@ function RecCategoryRow({
           {category.tracks.length}
         </span>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5.5 sm:gap-4">
         {category.tracks.slice(0, 5).map((track, i) => (
           <TrackCard
             key={track.id + "_" + i}
@@ -924,10 +924,10 @@ function TrendingRow({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>{track.title}</p>
+        <p className="text-[13px] sm:text-sm font-medium truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>{track.title}</p>
         <button
           onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="text-xs truncate hover:underline block w-full text-left"
+          className="text-[11px] sm:text-xs truncate hover:underline block w-full text-left"
           style={{ color: "var(--mq-text-muted)" }}
         >
           {track.artist}
@@ -1015,7 +1015,7 @@ function CuratedPlaylistCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         {pl.tracks.length > 0 && (
           <div
-            className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100 translate-y-2 group-hover:translate-y-0"
+            className="absolute bottom-2 right-2 w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100 translate-y-2 group-hover:translate-y-0"
             style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)" }}
           >
             <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
@@ -1023,8 +1023,8 @@ function CuratedPlaylistCard({
         )}
       </div>
       <div className="p-3">
-        <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{pl.name}</p>
-        <p className="text-[11px] mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>{pl.subtitle}</p>
+        <p className="text-[13px] sm:text-sm font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>{pl.name}</p>
+        <p className="text-[11px] sm:text-xs mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>{pl.subtitle}</p>
         <p className="text-[10px] mt-1.5 uppercase tracking-wider font-semibold" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
           {pl.tracks.length} {pluralRu(pl.tracks.length, "трек", "трека", "треков")}
         </p>
