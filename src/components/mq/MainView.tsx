@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, Music, Heart, Clock, ListMusic, MessageCircle,
   ChevronLeft, Shuffle, Plus, Flame, Sparkles, Waves, User,
-  Loader2,
+  Loader2, SkipForward, ThumbsDown,
 } from "lucide-react";
+import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { type Track } from "@/lib/musicApi";
 import { extractTasteProfile, displayGenre } from "@/lib/tasteProfile";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -96,10 +97,12 @@ export default function MainView() {
   const [recCategories, setRecCategories] = useState<RecCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [recLoading, setRecLoading] = useState(false);
-  const [waveLoading, setWaveLoading] = useState(false);
   const [trendingExpanded, setTrendingExpanded] = useState<boolean>(() => {
     try { return localStorage.getItem("mq-trending-expanded") === "1"; } catch { return false; }
   });
+
+  // ── Wave engine (logic separated from UI) ──
+  const wave = useWaveEngine();
 
   const isMobile = useIsMobile();
 
@@ -194,44 +197,8 @@ export default function MainView() {
     return () => { cancelled = true; clearTimeout(timer); };
   }, [tasteProfile]);
 
-  // ── Wave start ──
-  const handleStartWave = useCallback(async () => {
-    setWaveLoading(true);
-    try {
-      const disliked = useAppStore.getState().dislikedTrackIds || [];
-      const params = new URLSearchParams();
-      if (tasteProfile.topGenres.length > 0) params.set("genres", tasteProfile.topGenres.join(","));
-      const favArtists = (useAppStore.getState().favoriteArtists || []).map(a => a.username);
-      const allArtists = [...new Set([...favArtists, ...tasteProfile.topArtists])];
-      if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
-      if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
-      params.set("wave", "1");
-      const likedScIds = useAppStore.getState().likedTracksData
-        .map((t: any) => t.scTrackId).filter((id: any): id is number => !!id).slice(0, 5).join(",");
-      if (likedScIds) params.set("likedScIds", likedScIds);
-      const historyScIds = useAppStore.getState().history.slice(0, 10)
-        .map((h: any) => h.track?.scTrackId).filter((id: any): id is number => !!id).join(",");
-      if (historyScIds) params.set("historyScIds", historyScIds);
-
-      const res = await fetch(`/api/music/recommendations?${params}`);
-      if (!res.ok) throw new Error("wave failed");
-      const data = await res.json();
-      let tracks: Track[] = (data.tracks || []).filter((t: Track) => !disliked.includes(t.id));
-      if (tracks.length > 0) {
-        for (let i = tracks.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [tracks[i], tracks[j]] = [tracks[j], tracks[i]];
-        }
-        const state = useAppStore.getState();
-        if (!state.radioMode) state.toggleRadioMode();
-        playTrack(tracks[0], tracks);
-      }
-    } catch {
-      // Silent
-    } finally {
-      setWaveLoading(false);
-    }
-  }, [tasteProfile, playTrack]);
+  // ── Wave controls (from useWaveEngine hook) ──
+  // Visual WaveCard component handles all rendering; this hook provides logic.
 
   const handleNavigateToArtist = useCallback((artist: string) => {
     if (!artist) return;
@@ -278,11 +245,16 @@ export default function MainView() {
           isMobile={isMobile}
           currentTrack={currentTrack}
           isPlaying={isPlaying}
-          radioMode={radioMode}
+          radioMode={wave.radioMode}
           progress={progress}
           duration={duration}
-          waveLoading={waveLoading}
-          onStartWave={handleStartWave}
+          waveLoading={wave.waveLoading}
+          waveError={wave.waveError}
+          onStartWave={wave.startWave}
+          onStopWave={wave.stopWave}
+          onSkip={wave.skipTrack}
+          onDislike={wave.dislikeTrack}
+          onLike={wave.likeTrack}
           topGenres={tasteProfile.topGenres}
         />
       </ScrollReveal>
@@ -1045,7 +1017,12 @@ function WaveCard({
   progress,
   duration,
   waveLoading,
+  waveError,
   onStartWave,
+  onStopWave,
+  onSkip,
+  onDislike,
+  onLike,
   topGenres,
 }: {
   isMobile: boolean;
@@ -1055,7 +1032,12 @@ function WaveCard({
   progress: number;
   duration: number;
   waveLoading: boolean;
+  waveError: string | null;
   onStartWave: () => void;
+  onStopWave: () => void;
+  onSkip: () => void;
+  onDislike: () => void;
+  onLike: () => void;
   topGenres: string[];
 }) {
   return (
@@ -1138,10 +1120,22 @@ function WaveCard({
                 )}
               </div>
               <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
-                onClick={() => useAppStore.getState().toggleRadioMode()}
+                onClick={onStopWave}
                 className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.9)", boxShadow: "var(--mq-shadow-card)" }}>
                 <Pause className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" />
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
+                onClick={onSkip}
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }}>
+                <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" />
+              </motion.button>
+              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
+                onClick={onDislike}
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }}>
+                <ThumbsDown className="w-4 h-4 sm:w-5 sm:h-5" />
               </motion.button>
             </div>
           ) : (
@@ -1176,10 +1170,22 @@ function WaveCard({
                   ))}
                 </div>
                 <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
-                  onClick={() => useAppStore.getState().toggleRadioMode()}
+                  onClick={onStopWave}
                   className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "var(--mq-shadow-card-hover)" }}>
                   <Pause className="w-6 h-6" fill="currentColor" />
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
+                  onClick={onSkip}
+                  className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)" }}>
+                  <SkipForward className="w-5 h-5" fill="currentColor" />
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
+                  onClick={onDislike}
+                  className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.5)" }}>
+                  <ThumbsDown className="w-5 h-5" />
                 </motion.button>
               </div>
             </div>
