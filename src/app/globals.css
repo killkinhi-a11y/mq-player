@@ -244,34 +244,45 @@ input, textarea, select {
   }
 }
 
-/* ── Focus visibility ──
-   P2-focus: Use box-shadow ring instead of outline.
-   CSS outline does NOT follow border-radius in most browsers — it draws
-   a square box around rounded elements (buttons, pills, cards), which
-   looks broken. box-shadow follows border-radius perfectly.
-   We keep :focus (mouse/touch) suppressed to avoid noise on click. */
+/* ── Focus System — unified, premium ──
+   One system for all elements. No more 3 competing focus styles.
 
-/* Mouse/touch focus — suppress default browser outline (which is a square box) */
+   Principles:
+   1. Mouse/touch click → no visible focus ring (clean UX)
+   2. Keyboard tab → visible accent ring (accessibility)
+   3. Ring uses box-shadow (follows border-radius, unlike outline)
+   4. Single accent ring — no double-ring gap (cleaner, less noise)
+   5. Inputs get slightly stronger ring (they need more emphasis)
+*/
+
+/* Mouse/touch — suppress outline */
 *:focus {
   outline: none;
 }
 
-/* Keyboard focus (:focus-visible) — themed ring via box-shadow (follows border-radius) */
+/* Keyboard — single accent ring via box-shadow */
 *:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--mq-bg, #0e0e0e), 0 0 0 4px var(--mq-accent, #e03131);
-  /* The first shadow creates a gap (offset ring), the second is the accent ring.
-     Both follow border-radius because box-shadow does. */
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
   border-radius: inherit;
+  transition: box-shadow 0.15s ease;
 }
 
-/* Form elements — softer accent ring without the bg gap */
+/* Inputs — stronger ring (they need more emphasis) */
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 60%, transparent) !important;
   border-radius: inherit;
+}
+
+/* Remove focus ring from elements that have their own active state
+   (nav pills, tab buttons — their active bg IS the focus indicator) */
+button:focus-visible:not(:hover),
+[role="tab"]:focus-visible,
+[role="button"]:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 40%, transparent);
 }
 
 /* MQ Player Theme Variables */
@@ -1132,17 +1143,14 @@ html.blood-theme body::before {
   border-radius: 2px;
 }
 
-/* Focus visible ring — uses box-shadow so it follows border-radius (outline is always square) */
-/* Only for form inputs, not interactive buttons/cards */
+/* Focus ring — deprecated, use global *:focus-visible above */
 .mq-focus-ring:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
-  border-radius: 4px;
+  border-radius: inherit;
 }
 
-/* P1.1: Removed the `*:focus-visible { outline: none !important }` rules
-   that were killing keyboard focus on buttons, links, and cards.
-   The global `*:focus-visible` rule above now provides a themed ring. */
+/* P1.1: Focus system unified at top of file — no more competing rules. */
 
 /* Better skeleton loading */
 .mq-skeleton {
@@ -1906,10 +1914,10 @@ a:not([data-framer-motion-id]),
   );
 }
 
-/* ── Focus Ring Premium ── */
+/* ── Focus Ring Premium — deprecated, use global *:focus-visible ── */
 .mq-focus-premium:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--mq-surface-1), 0 0 0 4px var(--mq-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
   border-radius: inherit;
 }
 
@@ -1957,25 +1965,8 @@ a:not([data-framer-motion-id]),
 }
 
 /* ── Premium Focus Visible States ── */
-/* P1.1: Replaced the old focus-killing block with themed :focus-visible.
-   Buttons/links now get outline: 2px solid var(--mq-accent) via the
-   global rule at the top of this file. Form inputs get box-shadow ring. */
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: none !important;
-  --tw-ring-shadow: 0 0 #0000 !important;
-  --tw-ring-color: transparent !important;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 60%, transparent) !important;
-  border-radius: inherit;
-}
-button:focus-visible,
-a:focus-visible,
-[role="button"]:focus-visible {
-  --tw-ring-shadow: 0 0 #0000 !important;
-  --tw-ring-color: transparent !important;
-  /* outline is set by the global *:focus-visible rule above */
-}
+/* Unified at top of file — these rules kill Tailwind's default ring
+   which creates square focus indicators. */
 
 /* Kill any Tailwind ring outlines that create square focus indicators */
 *:focus-visible {
