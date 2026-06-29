@@ -1,26 +1,23 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1,
   Repeat, Repeat1, Shuffle, Music, Heart, ListMusic, ChevronUp,
-  Loader2, ThumbsDown, Clock, Mic2, Share2, AirVent, Gauge,
-  Radio, Disc3,
+  Loader2, ThumbsDown,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
-import type { Track } from "@/lib/musicApi";
 import { useIsMobile } from "@/hooks/use-mobile";
 import QueueView from "./QueueView";
 
 // ═════════════════════════════════════════════════════════════════════════
 // PLAYER BAR — desktop mini player
-// Premium features:
-//  - Hover-preview on progress bar with mini cover thumbnail + timestamp
-//  - "Now playing from" context badge (Wave / playlist name / queue)
+// Features:
 //  - Ambient cover glow + playing equalizer on cover
+//  - Progress bar with hover-preview fill + thumb + timestamp tooltip
 //  - Dislike → auto-skip
 //  - Quick access to Queue panel
 // ═════════════════════════════════════════════════════════════════════════
@@ -38,9 +35,6 @@ export default function PlayerBar() {
   const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
   const playbackState = useAppStore((s) => s.playbackState);
   const isFullTrackViewOpen = useAppStore((s) => s.isFullTrackViewOpen);
-  const radioMode = useAppStore((s) => s.radioMode);
-  const currentPlaylistId = useAppStore((s) => s.currentPlaylistId);
-  const playlists = useAppStore((s) => s.playlists);
 
   const togglePlay = useAppStore((s) => s.togglePlay);
   const nextTrack = useAppStore((s) => s.nextTrack);
@@ -52,7 +46,6 @@ export default function PlayerBar() {
   const toggleLike = useAppStore((s) => s.toggleLike);
   const toggleDislike = useAppStore((s) => s.toggleDislike);
   const setFullTrackViewOpen = useAppStore((s) => s.setFullTrackViewOpen);
-  const setView = useAppStore((s) => s.setView);
 
   const isMobile = useIsMobile();
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -60,7 +53,6 @@ export default function PlayerBar() {
   const [isHovering, setIsHovering] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
   const [hoveredTime, setHoveredTime] = useState<number | null>(null);
-  const [hoveredX, setHoveredX] = useState(0); // px position of thumb/tooltip
 
   // ── Seek ────────────────────────────────────────────────────────────────
   const seekTo = useCallback((clientX: number) => {
@@ -73,15 +65,11 @@ export default function PlayerBar() {
     setProgress(time);
   }, [duration, setProgress]);
 
-  const getHoverData = useCallback((clientX: number): { time: number; pct: number; x: number } => {
-    if (!progressBarRef.current || !duration) return { time: 0, pct: 0, x: 0 };
+  const getHoverTime = useCallback((clientX: number): number => {
+    if (!progressBarRef.current || !duration) return 0;
     const rect = progressBarRef.current.getBoundingClientRect();
     const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-    return {
-      time: (pct / 100) * duration,
-      pct,
-      x: clientX - rect.left,
-    };
+    return (pct / 100) * duration;
   }, [duration]);
 
   const handleProgressMouseDown = useCallback((e: React.MouseEvent) => {
@@ -92,19 +80,12 @@ export default function PlayerBar() {
 
   const handleProgressMouseMove = useCallback((e: React.MouseEvent) => {
     if (isDragging) return;
-    const data = getHoverData(e.clientX);
-    setHoveredTime(data.time);
-    setHoveredX(data.x);
-  }, [isDragging, getHoverData]);
+    setHoveredTime(getHoverTime(e.clientX));
+  }, [isDragging, getHoverTime]);
 
   useEffect(() => {
     if (!isDragging) return;
-    const onMove = (e: MouseEvent) => {
-      const data = getHoverData(e.clientX);
-      setHoveredTime(data.time);
-      setHoveredX(data.x);
-      seekTo(e.clientX);
-    };
+    const onMove = (e: MouseEvent) => seekTo(e.clientX);
     const onUp = () => setIsDragging(false);
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
@@ -112,7 +93,7 @@ export default function PlayerBar() {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
     };
-  }, [isDragging, seekTo, getHoverData]);
+  }, [isDragging, seekTo]);
 
   // ── Volume ──
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -156,16 +137,6 @@ export default function PlayerBar() {
   const hoveredPct = hoveredTime !== null && duration > 0 ? (hoveredTime / duration) * 100 : 0;
   const isLoading = playbackState === "loading" || playbackState === "buffering";
 
-  // ── "Now playing from" context badge ──
-  const contextLabel = useMemo(() => {
-    if (radioMode) return { label: "Волна", icon: Radio };
-    if (currentPlaylistId) {
-      const pl = playlists.find(p => p.id === currentPlaylistId);
-      if (pl) return { label: pl.name, icon: Disc3 };
-    }
-    return null;
-  }, [radioMode, currentPlaylistId, playlists]);
-
   if (!currentTrack || miniPlayerHidden || isFullTrackViewOpen) return null;
   if (isMobile) return null;
 
@@ -200,24 +171,6 @@ export default function PlayerBar() {
                 className="w-full h-full object-cover"
                 style={{ filter: "blur(40px) saturate(180%)", opacity: 0.06 }}
               />
-            </div>
-          )}
-
-          {/* "Now playing from" badge — floating at top center of bar */}
-          {contextLabel && (
-            <div
-              className="absolute left-1/2 -translate-x-1/2 -top-2.5 px-2 py-0.5 rounded-full flex items-center gap-1.5 pointer-events-none"
-              style={{
-                background: "color-mix(in srgb, var(--mq-accent) 18%, var(--mq-bg))",
-                border: "1px solid color-mix(in srgb, var(--mq-accent) 25%, transparent)",
-                backdropFilter: "blur(12px)",
-                WebkitBackdropFilter: "blur(12px)",
-              }}
-            >
-              <contextLabel.icon className="w-2.5 h-2.5" style={{ color: "var(--mq-accent)" }} />
-              <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>
-                {contextLabel.label}
-              </span>
             </div>
           )}
 
@@ -298,7 +251,7 @@ export default function PlayerBar() {
                 </motion.button>
               </div>
 
-              {/* Progress bar with hover preview thumbnail */}
+              {/* Progress bar with hover preview fill + timestamp tooltip */}
               <div className="flex items-center gap-2 w-full">
                 <span className="text-[10px] font-mono tabular-nums w-9 text-right" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(progress)}</span>
                 <div
@@ -328,57 +281,18 @@ export default function PlayerBar() {
                       }}
                     />
                   )}
-                  {/* Hover preview: mini cover + timestamp */}
-                  {isHovering && hoveredTime !== null && (
+                  {/* Hover timestamp tooltip */}
+                  {isHovering && hoveredTime !== null && !isDragging && (
                     <div
-                      className="absolute pointer-events-none flex flex-col items-center gap-1"
+                      className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded text-[9px] font-mono pointer-events-none whitespace-nowrap"
                       style={{
-                        left: `${hoveredX}px`,
-                        bottom: "100%",
-                        transform: "translateX(-50%)",
-                        marginBottom: "8px",
+                        left: `${hoveredPct}%`,
+                        backgroundColor: "var(--mq-card)",
+                        color: "var(--mq-text)",
+                        border: "1px solid var(--mq-border-thin)",
                       }}
                     >
-                      {/* Mini cover thumbnail */}
-                      <div
-                        className="w-14 h-14 rounded-lg overflow-hidden relative"
-                        style={{
-                          boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
-                          border: "1px solid rgba(255,255,255,0.1)",
-                        }}
-                      >
-                        {currentTrack.cover ? (
-                          <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" style={{ filter: "saturate(120%)" }} />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                            <Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.6)" }} />
-                          </div>
-                        )}
-                        {/* Timestamp pill at the bottom of thumbnail */}
-                        <div
-                          className="absolute bottom-0 inset-x-0 text-center py-0.5"
-                          style={{
-                            background: "linear-gradient(180deg, transparent, rgba(0,0,0,0.85))",
-                            color: "#fff",
-                            fontSize: 9,
-                            fontWeight: 600,
-                            fontVariantNumeric: "tabular-nums",
-                            fontFamily: "monospace",
-                          }}
-                        >
-                          {formatDuration(hoveredTime)}
-                        </div>
-                      </div>
-                      {/* Pointer triangle */}
-                      <div
-                        style={{
-                          width: 0,
-                          height: 0,
-                          borderLeft: "4px solid transparent",
-                          borderRight: "4px solid transparent",
-                          borderTop: "5px solid rgba(0,0,0,0.6)",
-                        }}
-                      />
+                      {formatDuration(hoveredTime)}
                     </div>
                   )}
                 </div>

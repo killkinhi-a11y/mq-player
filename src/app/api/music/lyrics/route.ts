@@ -6,11 +6,11 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
  *
  * GET /api/music/lyrics?artist=ARTIST&title=TITLE
  *
- * Returns: { lyrics: { time: number, text: string }[], plainText: string }
+ * Returns: { lyrics: { time: number, text: string }[], plainText: string, synced: boolean }
  */
 
 // ── In-memory cache (10 min TTL) ─────────────────────────────────────────────
-const cache = new Map<string, { data: { lyrics: { time: number; text: string }[]; plainText: string }; expiry: number }>();
+const cache = new Map<string, { data: { lyrics: { time: number; text: string }[]; plainText: string; synced: boolean }; expiry: number }>();
 const CACHE_TTL = 10 * 60 * 1000;
 
 function getFromCache(key: string) {
@@ -20,13 +20,11 @@ function getFromCache(key: string) {
   return null;
 }
 
-function setCache(key: string, data: { lyrics: { time: number; text: string }[]; plainText: string }) {
+function setCache(key: string, data: { lyrics: { time: number; text: string }[]; plainText: string; synced: boolean }) {
   cache.set(key, { data, expiry: Date.now() + CACHE_TTL });
 }
 
 // ── LRC format parser ────────────────────────────────────────────────────────
-// Parses lines like: [00:12.34] First line of lyrics
-// Regex handles both [mm:ss.xx] and [mm:ss.xxx] formats
 function parseLRC(lrcText: string): { time: number; text: string }[] {
   const lines: { time: number; text: string }[] = [];
   const regex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]\s*(.*)/g;
@@ -36,7 +34,6 @@ function parseLRC(lrcText: string): { time: number; text: string }[] {
     const minutes = parseInt(match[1], 10);
     const seconds = parseInt(match[2], 10);
     let msStr = match[3];
-    // Normalize to 3-digit ms: "34" → "340", "345" → "345"
     if (msStr.length === 2) msStr += "0";
     const ms = parseInt(msStr, 10);
     const time = minutes * 60 + seconds + ms / 1000;
@@ -44,69 +41,153 @@ function parseLRC(lrcText: string): { time: number; text: string }[] {
     lines.push({ time, text });
   }
 
-  // Sort by time in case the LRC file is out of order
   lines.sort((a, b) => a.time - b.time);
   return lines;
 }
 
-// ── lrclib.net response shape (partial) ──────────────────────────────────────
+// ── Clean title / artist for better matching ────────────────────────────────
+function clean(s: string): string {
+  return s
+    // Remove (Official Video/Audio/Lyrics/etc.)
+    .replace(/\(?\s*(official\s+(music\s+)?video|official\s+audio|official\s+lyrics?|official|lyrics?|audio|music\s+video|visualizer|hd|hq|4k|explicit|clean)\s*\)?/gi, "")
+    // Remove [Official...] / [...]
+    .replace(/\[(official|lyrics?|audio|video|visualizer|hd|hq)\]/gi, "")
+    // Remove feat./ft.
+    .replace(/\s*[\(\[]?\s*(feat|ft|featuring)\.?\s+[^)\]]+[\)\]]?/gi, "")
+    // Remove " - Topic" suffix (YouTube auto-generated artists)
+    .replace(/\s*-\s*topic\s*$/i, "")
+    // Remove "Official" prefix
+    .replace(/^official\s+/i, "")
+    // Collapse whitespace
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 interface LrcLibResult {
   syncedLyrics?: string | null;
   plainLyrics?: string | null;
   trackName?: string;
   artistName?: string;
+  duration?: number | null;
+}
+
+async function fetchLrclib(url: string): Promise<LrcLibResult | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "mq/1.0 (lyrics fetcher)" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (!text) return null;
+    // Could be a single object or array (for /api/search)
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        return parsed.length > 0 ? parsed[0] : null;
+      }
+      // Single object from /api/get might have syncedLyrics=null
+      if (parsed && typeof parsed === "object") return parsed as LrcLibResult;
+      return null;
+    } catch {
+      return null;
+    }
+  } catch {
+    return null;
+  }
 }
 
 async function handler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const artist = searchParams.get("artist");
-  const title = searchParams.get("title");
+  const artistRaw = searchParams.get("artist") || "";
+  const titleRaw = searchParams.get("title") || "";
 
-  if (!artist || !title) {
+  if (!artistRaw || !titleRaw) {
     return NextResponse.json(
       { error: "Missing artist or title parameter" },
       { status: 400 }
     );
   }
 
-  const cacheKey = `lyrics:${artist.trim().toLowerCase()}:${title.trim().toLowerCase()}`;
+  // Try multiple strategies in order:
+  // 1. Exact: /api/get with cleaned artist + title
+  // 2. Exact with raw: /api/get with raw artist + title
+  // 3. Search: /api/search?q=artist+title (raw)
+  // 4. Search: /api/search?q=artist+title (cleaned)
+  // 5. Search: /api/search?q=title only
+
+  const artistClean = clean(artistRaw);
+  const titleClean = clean(titleRaw);
+
+  const cacheKey = `lyrics:${artistClean.toLowerCase()}:${titleClean.toLowerCase()}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 
-  try {
-    // Search lrclib.net
-    const query = `${encodeURIComponent(artist.trim())} ${encodeURIComponent(title.trim())}`;
-    const res = await fetch(`https://lrclib.net/api/search?q=${query}`, {
-      headers: {
-        "User-Agent": "mq/1.0 (lyrics fetcher)",
-      },
-      signal: AbortSignal.timeout(8000),
-    });
+  const tried = new Set<string>();
+  const strategies: (() => Promise<LrcLibResult | null>)[] = [
+    // 1. Exact cleaned
+    async () => {
+      const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artistClean)}&track_name=${encodeURIComponent(titleClean)}`;
+      return fetchLrclib(url);
+    },
+    // 2. Exact raw
+    async () => {
+      const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artistRaw)}&track_name=${encodeURIComponent(titleRaw)}`;
+      return fetchLrclib(url);
+    },
+    // 3. Search raw
+    async () => {
+      const q = `${artistRaw} ${titleRaw}`;
+      const url = `https://lrclib.net/api/search?q=${encodeURIComponent(q)}`;
+      return fetchLrclib(url);
+    },
+    // 4. Search cleaned
+    async () => {
+      const q = `${artistClean} ${titleClean}`;
+      const url = `https://lrclib.net/api/search?q=${encodeURIComponent(q)}`;
+      return fetchLrclib(url);
+    },
+    // 5. Search by artist_name + track_name (specific search)
+    async () => {
+      const url = `https://lrclib.net/api/search?artist_name=${encodeURIComponent(artistClean)}&track_name=${encodeURIComponent(titleClean)}`;
+      return fetchLrclib(url);
+    },
+    // 6. Search title only (last resort)
+    async () => {
+      const url = `https://lrclib.net/api/search?track_name=${encodeURIComponent(titleClean)}`;
+      return fetchLrclib(url);
+    },
+  ];
 
-    if (!res.ok) {
-      return NextResponse.json({ lyrics: [], plainText: "" });
+  let best: LrcLibResult | null = null;
+  for (const strategy of strategies) {
+    const key = strategy.toString();
+    if (tried.has(key)) continue;
+    tried.add(key);
+    try {
+      const result = await strategy();
+      if (result && (result.syncedLyrics || result.plainLyrics)) {
+        best = result;
+        break;
+      }
+    } catch {
+      // try next strategy
     }
-
-    const results: LrcLibResult[] = await res.json();
-
-    if (!Array.isArray(results) || results.length === 0) {
-      return NextResponse.json({ lyrics: [], plainText: "" });
-    }
-
-    // Best match is the first result
-    const best = results[0];
-
-    // Parse synced lyrics if available
-    const lyrics = best.syncedLyrics ? parseLRC(best.syncedLyrics) : [];
-    const plainText = best.plainLyrics?.trim() || "";
-
-    const responseData = { lyrics, plainText };
-    setCache(cacheKey, responseData);
-    return NextResponse.json(responseData);
-  } catch {
-    // lrclib.net unreachable or parsing error
-    return NextResponse.json({ lyrics: [], plainText: "" });
   }
+
+  if (!best) {
+    const empty = { lyrics: [], plainText: "", synced: false };
+    setCache(cacheKey, empty);
+    return NextResponse.json(empty);
+  }
+
+  const lyrics = best.syncedLyrics ? parseLRC(best.syncedLyrics) : [];
+  const plainText = best.plainLyrics?.trim() || "";
+  const synced = lyrics.length > 0;
+
+  const responseData = { lyrics, plainText, synced };
+  setCache(cacheKey, responseData);
+  return NextResponse.json(responseData);
 }
 
 export const GET = withRateLimit(RATE_LIMITS.read, handler);

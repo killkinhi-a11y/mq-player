@@ -7,7 +7,7 @@ import {
   Play, Pause, SkipBack, SkipForward, ChevronDown, Heart,
   Shuffle, Repeat, Repeat1, Volume2, VolumeX, Volume1,
   Music, ListMusic, Share2, Loader2, Clock, Mic2,
-  ThumbsDown, AirVent, Gauge, MoreHorizontal, Timer, ChevronLeft,
+  ThumbsDown, AirVent, Gauge, Timer,
   History, Sparkles, X,
 } from "lucide-react";
 import { getAudioElement, getAnalyser } from "@/lib/audioEngine";
@@ -18,15 +18,6 @@ import { toast } from "@/hooks/use-toast";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
-// Features:
-//  - Synced lyrics with karaoke-style auto-scroll and current-line highlight
-//  - Real-time WebAudio visualizer (circular frequency bars) behind cover
-//  - Vinyl-rotation animation while playing
-//  - Keyboard shortcuts (Space / ←→ / ↑↓ / S / R / L / N / M / F)
-//  - Recently-played history panel
-//  - Double-tap to seek ±10s, swipe to change track (mobile)
-//  - Playback speed, sleep timer, spatial audio toggle
-//  - Hover-preview progress bar with timestamp tooltip
 // ═════════════════════════════════════════════════════════════════════════
 
 interface SyncedLyricLine {
@@ -38,7 +29,7 @@ interface SyncedLyricLine {
 function VisualizerCanvas({ isPlaying }: { isPlaying: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
-  const barsRef = useRef<Float32Array>(new Float32Array(64));
+  const barsRef = useRef<Float32Array>(new Float32Array(72));
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -62,7 +53,7 @@ function VisualizerCanvas({ isPlaying }: { isPlaying: boolean }) {
       const h = rect.height;
       const cx = w / 2;
       const cy = h / 2;
-      const baseRadius = Math.min(w, h) * 0.42;
+      const baseRadius = Math.min(w, h) * 0.46;
 
       ctx.clearRect(0, 0, w, h);
 
@@ -74,34 +65,30 @@ function VisualizerCanvas({ isPlaying }: { isPlaying: boolean }) {
         data = buffer;
       }
 
-      // Smooth bars
       const bars = barsRef.current;
       const N = bars.length;
       for (let i = 0; i < N; i++) {
-        // Sample logarithmically so we see more low-frequency detail
         const t = i / N;
         const idx = Math.floor(Math.pow(t, 1.6) * 512);
         let v = 0;
         if (data) {
           v = (data[idx] || 0) / 255;
         } else {
-          // Idle sine wave for visual life
-          v = 0.08 + 0.05 * Math.sin(Date.now() * 0.002 + i * 0.4);
+          // Idle sine wave — calmer
+          v = 0.05 + 0.04 * Math.sin(Date.now() * 0.0015 + i * 0.35);
         }
-        // Smooth toward target
-        bars[i] = bars[i] * 0.7 + v * 0.3;
+        bars[i] = bars[i] * 0.72 + v * 0.28;
       }
 
-      // Accent color from CSS variable
       const accent = getComputedStyle(document.documentElement)
         .getPropertyValue("--mq-accent")
         .trim() || "#6366f1";
 
-      // Draw 64 bars in a circle
+      // Draw 72 bars in a circle (more bars = smoother ring)
       for (let i = 0; i < N; i++) {
         const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
         const v = bars[i];
-        const len = 8 + v * baseRadius * 0.55;
+        const len = 6 + v * baseRadius * 0.65;
         const r1 = baseRadius;
         const r2 = baseRadius + len;
         const x1 = cx + Math.cos(angle) * r1;
@@ -110,10 +97,10 @@ function VisualizerCanvas({ isPlaying }: { isPlaying: boolean }) {
         const y2 = cy + Math.sin(angle) * r2;
 
         const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-        grad.addColorStop(0, accent + "cc");
-        grad.addColorStop(1, accent + "22");
+        grad.addColorStop(0, accent + "dd");
+        grad.addColorStop(1, accent + "11");
         ctx.strokeStyle = grad;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2.2;
         ctx.lineCap = "round";
         ctx.beginPath();
         ctx.moveTo(x1, y1);
@@ -136,12 +123,12 @@ function VisualizerCanvas({ isPlaying }: { isPlaying: boolean }) {
       ref={canvasRef}
       className="absolute pointer-events-none"
       style={{
-        inset: "-15%",
-        width: "130%",
-        height: "130%",
-        opacity: 0.55,
-        maskImage: "radial-gradient(circle, transparent 38%, #000 50%, #000 78%, transparent 92%)",
-        WebkitMaskImage: "radial-gradient(circle, transparent 38%, #000 50%, #000 78%, transparent 92%)",
+        inset: "-20%",
+        width: "140%",
+        height: "140%",
+        opacity: 0.6,
+        maskImage: "radial-gradient(circle, transparent 42%, #000 52%, #000 82%, transparent 95%)",
+        WebkitMaskImage: "radial-gradient(circle, transparent 42%, #000 52%, #000 82%, transparent 95%)",
       }}
     />
   );
@@ -160,7 +147,6 @@ function SyncedLyrics({
   const containerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  // Find the active line index
   const activeIdx = useMemo(() => {
     if (lines.length === 0) return -1;
     let idx = -1;
@@ -171,7 +157,6 @@ function SyncedLyrics({
     return idx;
   }, [lines, currentTime]);
 
-  // Auto-scroll to active line
   useEffect(() => {
     const container = containerRef.current;
     const lineEl = lineRefs.current[activeIdx];
@@ -232,6 +217,44 @@ function SyncedLyrics({
   );
 }
 
+// ── Heart particle burst on like ─────────────────────────────────────────
+function HeartBurst({ trigger }: { trigger: number }) {
+  const [particles, setParticles] = useState<{ id: number; x: number; y: number; r: number; delay: number }[]>([]);
+  useEffect(() => {
+    if (trigger === 0) return;
+    const count = 8;
+    const newParts = Array.from({ length: count }, (_, i) => ({
+      id: trigger * 100 + i,
+      x: (Math.random() - 0.5) * 80,
+      y: -30 - Math.random() * 60,
+      r: (Math.random() - 0.5) * 60,
+      delay: Math.random() * 0.1,
+    }));
+    setParticles(newParts);
+    const t = setTimeout(() => setParticles([]), 1000);
+    return () => clearTimeout(t);
+  }, [trigger]);
+
+  return (
+    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+      <AnimatePresence>
+        {particles.map(p => (
+          <motion.div
+            key={p.id}
+            initial={{ opacity: 0, x: 0, y: 0, scale: 0 }}
+            animate={{ opacity: [0, 1, 0], x: p.x, y: p.y, scale: [0, 1, 0.4], rotate: p.r }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, delay: p.delay, ease: "easeOut" }}
+            className="absolute"
+          >
+            <Heart className="w-4 h-4" style={{ color: "var(--mq-accent)", fill: "var(--mq-accent)" }} />
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ═════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═════════════════════════════════════════════════════════════════════════
@@ -283,11 +306,13 @@ export default function FullTrackView() {
   const [lyrics, setLyrics] = useState<SyncedLyricLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState<string>("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
+  const [lyricsError, setLyricsError] = useState<string | null>(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showSleepMenu, setShowSleepMenu] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
   const [lastTapSide, setLastTapSide] = useState<"left" | "right" | null>(null);
   const [seekFeedback, setSeekFeedback] = useState<{ side: "left" | "right"; amount: number } | null>(null);
+  const [heartBurstTrigger, setHeartBurstTrigger] = useState(0);
 
   // ── Seek ────────────────────────────────────────────────────────────────
   const seekTo = useCallback((clientX: number) => {
@@ -359,8 +384,13 @@ export default function FullTrackView() {
 
   // ── Actions ─────────────────────────────────────────────────────────────
   const handleLike = useCallback(() => {
-    if (currentTrack) toggleLike(currentTrack.id, currentTrack);
-  }, [currentTrack, toggleLike]);
+    if (currentTrack) {
+      toggleLike(currentTrack.id, currentTrack);
+      // Trigger heart burst only when liking (not unliking)
+      const isLikedNow = likedTrackIds.includes(currentTrack.id);
+      if (!isLikedNow) setHeartBurstTrigger(t => t + 1);
+    }
+  }, [currentTrack, toggleLike, likedTrackIds]);
 
   const handleDislike = useCallback(() => {
     if (currentTrack) {
@@ -445,7 +475,6 @@ export default function FullTrackView() {
   useEffect(() => {
     if (!isOpen) return;
     const onKey = (e: KeyboardEvent) => {
-      // Don't intercept if user is typing in an input
       const target = e.target as HTMLElement;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable)) return;
 
@@ -559,28 +588,33 @@ export default function FullTrackView() {
     return out;
   }, [history, currentTrack]);
 
-  // ── Lyrics fetching ─────────────────────────────────────────────────────
+  // ── Lyrics fetching (with retry strategies built into API) ──────────────
   useEffect(() => {
     if (!isOpen || !currentTrack) return;
-    // Only fetch when lyrics panel is opened OR if we've previously loaded them
-    if (activePanel !== "lyrics" && lyrics.length > 0) return;
-    if (activePanel !== "lyrics" && plainLyrics) return;
     if (activePanel !== "lyrics") return;
 
     setLyrics([]);
     setPlainLyrics("");
+    setLyricsError(null);
     setLyricsLoading(true);
+
     const controller = new AbortController();
     fetch(`/api/music/lyrics?artist=${encodeURIComponent(currentTrack.artist)}&title=${encodeURIComponent(currentTrack.title)}`, { signal: controller.signal })
-      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
       .then(data => {
         if (Array.isArray(data.lyrics) && data.lyrics.length > 0) {
           setLyrics(data.lyrics);
         } else if (data.plainText) {
           setPlainLyrics(data.plainText);
+        } else {
+          setLyricsError("Текст не найден");
         }
       })
-      .catch(() => {})
+      .catch(err => {
+        if (err.name !== "AbortError") {
+          setLyricsError("Ошибка загрузки текста");
+        }
+      })
       .finally(() => setLyricsLoading(false));
     return () => controller.abort();
   }, [activePanel, isOpen, currentTrack]);
@@ -589,6 +623,7 @@ export default function FullTrackView() {
   useEffect(() => {
     setLyrics([]);
     setPlainLyrics("");
+    setLyricsError(null);
   }, [currentTrack?.id]);
 
   // ── Sleep timer display formatting ──────────────────────────────────────
@@ -657,11 +692,11 @@ export default function FullTrackView() {
             {/* ── Main content ── */}
             <div className="flex-1 flex flex-col items-center justify-center px-6 pb-6 overflow-y-auto">
               <div className={`w-full max-w-5xl flex ${isMobile ? "flex-col items-center" : "flex-row items-center gap-12"}`}>
-                {/* ═══ COVER + VISUALIZER ═══ */}
+                {/* ═══ COVER + VISUALIZER (square, no rotation) ═══ */}
                 <motion.div
                   key={currentTrack.id}
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
+                  initial={{ scale: 0.92, opacity: 0, y: 10 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                   className="relative mb-6 sm:mb-0 flex-shrink-0"
                   style={{ width: isMobile ? "min(75vw, 320px)" : "min(35vw, 380px)", aspectRatio: "1 / 1" }}
@@ -672,40 +707,34 @@ export default function FullTrackView() {
                   {/* Circular visualizer behind cover */}
                   <VisualizerCanvas isPlaying={isPlaying} />
 
-                  {/* Vinyl rotating cover */}
-                  <motion.div
-                    className="w-full h-full"
-                    animate={isPlaying ? { rotate: 360 } : { rotate: 0 }}
-                    transition={{ duration: 30, ease: "linear", repeat: Infinity }}
-                    style={{ borderRadius: "9999px" }}
+                  {/* Static square cover with rounded corners */}
+                  <div
+                    className="w-full h-full rounded-3xl overflow-hidden relative"
+                    style={{
+                      boxShadow: "0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
+                    }}
                   >
-                    <div
-                      className="w-full h-full rounded-full overflow-hidden relative"
-                      style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.5), inset 0 0 0 6px rgba(0,0,0,0.3), inset 0 0 0 7px rgba(255,255,255,0.05)" }}
-                    >
-                      {currentTrack.cover ? (
-                        <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                          <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.5)" }} />
-                        </div>
-                      )}
-                      {/* Vinyl center hole */}
-                      <div
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none"
-                        style={{
-                          width: "18%",
-                          height: "18%",
-                          background: "radial-gradient(circle, var(--mq-bg) 30%, transparent 70%)",
-                          boxShadow: "0 0 0 2px rgba(255,255,255,0.08)",
-                        }}
+                    {currentTrack.cover ? (
+                      <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+                        <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.5)" }} />
+                      </div>
+                    )}
+                    {/* Subtle playing indicator — pulsing border */}
+                    {isPlaying && (
+                      <motion.div
+                        className="absolute inset-0 rounded-3xl pointer-events-none"
+                        style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
+                        animate={{ opacity: [0.4, 0.9, 0.4] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                       />
-                    </div>
-                  </motion.div>
+                    )}
+                  </div>
 
                   {/* Glow */}
                   <div
-                    className="absolute -inset-4 rounded-full pointer-events-none -z-10"
+                    className="absolute -inset-4 rounded-3xl pointer-events-none -z-10"
                     style={{ background: currentTrack.cover ? `url(${currentTrack.cover}) center/cover` : "var(--mq-accent)", filter: "blur(40px)", opacity: 0.3 }}
                   />
 
@@ -761,16 +790,19 @@ export default function FullTrackView() {
                       {playbackRate !== 1 && <span className="flex items-center gap-1"><Gauge className="w-3 h-3" />{playbackRate}x</span>}
                       {sleepTimerActive && <span>·</span>}
                       {sleepTimerActive && (
-                        <span className="flex items-center gap-1 text-[var(--mq-accent)]"><Timer className="w-3 h-3" />{sleepRemainingMin}м</span>
+                        <span className="flex items-center gap-1" style={{ color: "var(--mq-accent)" }}><Timer className="w-3 h-3" />{sleepRemainingMin}м</span>
                       )}
                     </div>
                   </div>
 
                   {/* Action buttons row */}
                   <div className={`flex items-center gap-2 mb-4 flex-wrap ${isMobile ? "justify-center" : "justify-start"}`}>
-                    <motion.button whileTap={{ scale: 0.9 }} onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Нравится (L)">
-                      <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
-                    </motion.button>
+                    <div className="relative">
+                      <motion.button whileTap={{ scale: 0.9 }} onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Нравится (L)">
+                        <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
+                      </motion.button>
+                      <HeartBurst trigger={heartBurstTrigger} />
+                    </div>
                     <motion.button whileTap={{ scale: 0.9 }} onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.06)" }} title="Не нравится">
                       <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
                     </motion.button>
@@ -885,7 +917,7 @@ export default function FullTrackView() {
                           </div>
                         ) : (
                           <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>
-                            Текст не найден для этого трека
+                            {lyricsError || "Текст не найден для этого трека"}
                           </p>
                         )}
                       </motion.div>
