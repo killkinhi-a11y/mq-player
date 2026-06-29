@@ -132,7 +132,7 @@ export default function AppShell() {
   const catEnabled = useAppStore((s) => s.catEnabled);
   const isPlaying = useAppStore((s) => s.isPlaying);
   const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
-  const demoLoading = useAppStore((s) => s.demoLoading);
+  // demoLoading removed — demo mode disabled
   const _hasHydrated = useAppStore((s) => s._hasHydrated);
 
   // ── Visited views tracking: must be BEFORE any conditional returns (Rules of Hooks) ──
@@ -446,52 +446,6 @@ export default function AppShell() {
     >
       <Suspense fallback={null}><CinematicAtmosphere /></Suspense>
       <Suspense fallback={null}><MaintenanceBanner /></Suspense>
-
-      {/* ── Demo loading overlay: skeleton shown while demo data loads ── */}
-      <AnimatePresence>
-        {demoLoading && (
-          <motion.div
-            key="demo-loader"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center"
-            style={{ backgroundColor: "var(--mq-bg, #0e0e0e)" }}
-          >
-            <div className="flex flex-col items-center gap-6 p-8">
-              {/* Logo pulse */}
-              <motion.div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                style={{ backgroundColor: "var(--mq-accent, #e03131)" }}
-                animate={{ scale: [1, 1.08, 1], opacity: [0.8, 1, 0.8] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <span className="text-2xl font-black text-white">mq</span>
-              </motion.div>
-              {/* Skeleton cards */}
-              <div className="w-full max-w-xs space-y-3">
-                {[0, 1, 2].map((i) => (
-                  <motion.div
-                    key={i}
-                    className="flex items-center gap-3 p-3 rounded-xl"
-                    style={{ backgroundColor: "var(--mq-card, #1a1a1a)" }}
-                    animate={{ opacity: [0.4, 0.7, 0.4] }}
-                    transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2, ease: "easeInOut" }}
-                  >
-                    <div className="w-10 h-10 rounded-lg" style={{ backgroundColor: "rgba(255,255,255,0.06)" }} />
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-3 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)", width: `${70 - i * 10}%` }} />
-                      <div className="h-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.04)", width: `${45 - i * 5}%` }} />
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-              <p className="text-sm" style={{ color: "var(--mq-text-muted, #888)" }}>Загрузка демо-контента...</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       <Suspense fallback={
         <nav className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center border-b"

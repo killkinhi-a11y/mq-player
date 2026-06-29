@@ -276,46 +276,7 @@ export default function AuthView() {
     }
   };
 
-  // ─── Demo login ───────────────────────────────────────
-  const [demoLoading, setDemoLoading] = useState(false);
-  const [demoError, setDemoError] = useState("");
-
-  const handleDemoLogin = async () => {
-    setDemoLoading(true);
-    setDemoError("");
-
-    try {
-      // Set auth state so the UI transitions from auth → main
-      setAuth("demo-user-id", "Демо", "demo@mq-player.internal");
-
-      // Mark that we're loading demo content (AppShell can show skeleton)
-      useAppStore.setState({ demoLoading: true });
-
-      // Load demo tracks for the demo user (do NOT auto-play)
-      const { DEMO_TRACKS } = await import("@/lib/demoTracks");
-
-      // Small delay to let the UI settle after auth transition
-      await new Promise((r) => setTimeout(r, 300));
-
-      const store = useAppStore.getState();
-      if (store.queue.length === 0) {
-        useAppStore.setState({
-          queue: DEMO_TRACKS,
-          currentTrack: DEMO_TRACKS[0],
-          isPlaying: false,
-          queueIndex: 0,
-          demoLoading: false,
-        });
-      } else {
-        useAppStore.setState({ demoLoading: false });
-      }
-    } catch (err) {
-      console.error("[Demo] Failed to load:", err);
-      setDemoError("Не удалось загрузить демо-данные. Проверьте подключение и попробуйте снова.");
-      setDemoLoading(false);
-      useAppStore.setState({ demoLoading: false });
-    }
-  };
+  // ─── Demo mode removed — users must register/login ───
 
   // ─── Render ───────────────────────────────────────────
   return (
@@ -515,22 +476,7 @@ export default function AuthView() {
               </motion.div>
 
               {/* Bottom links */}
-              {/* Demo error */}
-              {demoError && (
-                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="mb-4 p-3 rounded-lg text-sm text-center"
-                  style={{ backgroundColor: "rgba(224,49,49,0.15)", color: "#ff6b6b", border: "1px solid rgba(224,49,49,0.3)" }}>
-                  {demoError}
-                </motion.div>
-              )}
 
-              <motion.div className="mt-6 pt-4 flex items-center justify-between" style={{ borderTop: "1px solid var(--mq-border)" }}
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.3 }}>
-                <Button variant="ghost" onClick={handleDemoLogin} disabled={demoLoading} className="text-sm h-auto p-0 flex items-center gap-2"
-                  style={{ color: "var(--mq-text-muted)" }}>
-                  {demoLoading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Загрузка демо...</> : "Демо-режим"}
-                </Button>
-              </motion.div>
             </div>
           </motion.div>
         )}
