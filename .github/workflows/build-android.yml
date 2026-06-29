@@ -33,24 +33,21 @@ jobs:
           sdk-platform: '36'
           sdk-build-tools: '36.0.0'
 
-      - name: Install dependencies (includes @capacitor/cli from package.json)
+      - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Verify Capacitor config is valid
-        run: npx cap doctor || true
+      - name: Show Capacitor version
+        run: node_modules/.bin/cap --version
 
-      - name: Add Android platform (idempotent)
-        run: npx cap add android || true
-
-      - name: Sync Capacitor
-        run: npx cap sync android
+      - name: Sync Capacitor (uses committed android/ + out/index.html + capacitor.config.ts)
+        run: node_modules/.bin/cap sync android
 
       - name: Verify webDir contents
         run: |
           echo "out/ contents:"
           ls -la out/
           echo ""
-          echo "out/index.html head:"
+          echo "out/index.html head (first 200 chars):"
           head -c 200 out/index.html
 
       - name: Build debug APK
