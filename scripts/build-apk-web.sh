@@ -136,10 +136,18 @@ cat > /tmp/apk-shim.html << 'SHIMEOF'
 (function(){
   var splash = document.getElementById('mq-app-splash');
   function hideSplash() {
-    if (splash) { splash.classList.add('hidden'); setTimeout(function(){ splash.remove(); }, 500); }
+    if (!splash) return;
+    splash.classList.add('hidden');
+    setTimeout(function(){ if (splash && splash.parentNode) splash.remove(); }, 500);
   }
-  window.addEventListener('load', function(){ setTimeout(hideSplash, 800); });
-  setTimeout(hideSplash, 3000);
+  // Multiple hide triggers — whichever fires first wins
+  if (document.readyState === 'complete') { setTimeout(hideSplash, 500); }
+  else { 
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(hideSplash, 1000); });
+    window.addEventListener('load', function(){ setTimeout(hideSplash, 500); });
+  }
+  // Safety net: always hide after 4s no matter what
+  setTimeout(hideSplash, 4000);
 })();
 </script>
 <script>
