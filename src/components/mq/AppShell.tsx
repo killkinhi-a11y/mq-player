@@ -89,6 +89,7 @@ const CommandPalette = dynamic(() => import("@/components/mq/CommandPalette"), {
 // P2-#300/#310: Error boundary per view — catches React errors without crashing the whole app
 import { ViewErrorBoundary } from "@/components/mq/ViewErrorBoundary";
 import { ViewTransition } from "@/components/mq/ViewTransition";
+import { useAudioEngine } from "@/components/mq/useAudioEngine";
 
 // Views tracked by the visited-Set pattern — mounted once and kept alive
 // with display:none so state is preserved when switching back.
@@ -348,6 +349,36 @@ export default function AppShell() {
   // usePlaybackEngine were dead code (only useAudioEngine is active).
   // The previous useEffect called `syncWithPlaybackEngine()` which was
   // itself a no-op since 2025-Q2.
+
+  // P3-fix: useAudioEngine MUST be called here (was previously called inside
+  // PlayerBar, but the rewritten PlayerBar no longer calls it). Without this,
+  // the audio element is never created and tracks don't play.
+  const _currentTrack = useAppStore((s) => s.currentTrack);
+  const _isPlaying = useAppStore((s) => s.isPlaying);
+  const _volume = useAppStore((s) => s.volume);
+  const _playbackRate = useAppStore((s) => s.playbackRate);
+  const _setProgress = useAppStore((s) => s.setProgress);
+  const _setDuration = useAppStore((s) => s.setDuration);
+  const _setPlaybackMode = useAppStore((s) => s.setPlaybackMode);
+  const _togglePlay = useAppStore((s) => s.togglePlay);
+  const _nextTrack = useAppStore((s) => s.nextTrack);
+  const _prevTrack = useAppStore((s) => s.prevTrack);
+  const _miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
+  const _setMiniPlayerHidden = useAppStore((s) => s.setMiniPlayerHidden);
+  useAudioEngine({
+    currentTrack: _currentTrack,
+    isPlaying: _isPlaying,
+    volume: _volume,
+    playbackRate: _playbackRate,
+    setProgress: _setProgress,
+    setDuration: _setDuration,
+    setPlaybackMode: _setPlaybackMode,
+    togglePlay: _togglePlay,
+    nextTrack: _nextTrack,
+    prevTrack: _prevTrack,
+    miniPlayerHidden: _miniPlayerHidden,
+    setMiniPlayerHidden: _setMiniPlayerHidden,
+  });
 
   useGlobalNotifications();
   useListenSessionSync();
