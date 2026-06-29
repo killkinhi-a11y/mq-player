@@ -246,45 +246,37 @@ input, textarea, select {
 
 /* ── Focus System — unified, premium ──
    One system for all elements. No more 3 competing focus styles.
+   Absolutely NO outline anywhere — ever. Outline is always square. */
 
-   Principles:
-   1. Mouse/touch click → no visible focus ring (clean UX)
-   2. Keyboard tab → visible accent ring (accessibility)
-   3. Ring uses box-shadow (follows border-radius, unlike outline)
-   4. Single accent ring — no double-ring gap (cleaner, less noise)
-   5. Inputs get slightly stronger ring (they need more emphasis)
-*/
-
-/* Mouse/touch — suppress outline */
-*:focus {
-  outline: none;
+/* Kill ALL outlines globally — no exceptions */
+*, *::before, *::after {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Keyboard — single accent ring via box-shadow */
+/* Kill Tailwind ring shadows globally */
+*:focus, *:focus-visible {
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-color: transparent !important;
+}
+
+/* Keyboard focus — accent ring via box-shadow (follows border-radius) */
 *:focus-visible {
-  outline: none;
+  outline: none !important;
   border-radius: inherit;
-  transition: box-shadow 0.15s ease;
 }
 
-/* Only add ring if element doesn't have its own inline box-shadow */
+/* Non-input elements get accent ring */
 *:focus-visible:not(input):not(textarea):not(select) {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
 }
 
-/* Inputs — outline only, no global box-shadow (they manage their own) */
+/* Inputs manage their own focus style via inline styles */
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: none;
-}
-
-/* Remove focus ring from elements that have their own active state
-   (nav pills, tab buttons — their active bg IS the focus indicator) */
-button:focus-visible:not(:hover),
-[role="tab"]:focus-visible,
-[role="button"]:focus-visible {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 40%, transparent);
+  outline: none !important;
 }
 
 /* MQ Player Theme Variables */
