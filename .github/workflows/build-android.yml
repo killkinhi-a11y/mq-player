@@ -33,13 +33,10 @@ jobs:
           sdk-platform: '36'
           sdk-build-tools: '36.0.0'
 
-      - name: Install dependencies
+      - name: Install dependencies (includes @capacitor/cli from package.json)
         run: npm ci --no-audit --no-fund
 
-      - name: Install Capacitor CLI
-        run: npm install @capacitor/cli @capacitor/core @capacitor/android --no-audit --no-fund
-
-      - name: Verify capacitor.config.ts is valid
+      - name: Verify Capacitor config is valid
         run: npx cap doctor || true
 
       - name: Add Android platform (idempotent)
