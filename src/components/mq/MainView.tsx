@@ -360,7 +360,7 @@ export default function MainView() {
       {/* ════════════════════════════════════════════════════════════════ */}
       {recCategories.length > 0 && (
         <Section title="Для вас" icon={Sparkles}>
-          <div className="space-y-6">
+          <div className="space-y-7">
             {recCategories.map((cat) => (
               <RecCategoryRow
                 key={cat.id}
@@ -379,14 +379,17 @@ export default function MainView() {
       {/* Recommendations loading skeleton */}
       {recLoading && recCategories.length === 0 && (
         <Section title="Для вас" icon={Sparkles}>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i}>
-                <div className="aspect-square rounded-2xl mb-2 mq-shimmer" />
-                <div className="h-3 w-3/4 rounded mb-1.5 mq-shimmer" />
-                <div className="h-2.5 w-1/2 rounded mq-shimmer" />
-              </div>
-            ))}
+          <div className="space-y-3">
+            <div className="h-4 w-32 rounded mq-shimmer" />
+            <div className="flex gap-3 overflow-hidden">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="flex-shrink-0 w-[140px]">
+                  <div className="aspect-square rounded-2xl mb-2 mq-shimmer" />
+                  <div className="h-3 w-3/4 rounded mb-1.5 mq-shimmer" />
+                  <div className="h-2.5 w-1/2 rounded mq-shimmer" />
+                </div>
+              ))}
+            </div>
           </div>
         </Section>
       )}
@@ -842,18 +845,21 @@ function RecCategoryRow({
 }) {
   return (
     <div>
-      {/* Category title */}
+      {/* Category header */}
       <div className="flex items-center gap-2 mb-3">
         <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>{category.title}</h3>
         <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "var(--mq-border-thin)", color: "var(--mq-text-muted)" }}>
           {category.tracks.length}
         </span>
       </div>
-      {/* Mobile: horizontal scroll row. Desktop: grid */}
-      <div className="flex lg:grid lg:grid-cols-5 gap-3 overflow-x-auto lg:overflow-visible scrollbar-none pb-1 lg:pb-0 -mx-3 px-3 lg:mx-0 lg:px-0"
-        style={{ scrollSnapType: "x proximity", WebkitOverflowScrolling: "touch" }}>
-        {category.tracks.slice(0, 5).map((track, i) => (
-          <div key={track.id + "_" + i} className="flex-shrink-0 w-[130px] lg:w-auto">
+
+      {/* Mobile: horizontal scroll. Desktop: grid 5 cols */}
+      <div
+        className="flex lg:grid lg:grid-cols-5 gap-3 overflow-x-auto lg:overflow-visible scrollbar-none pb-1 lg:pb-0 -mx-3 px-3 lg:mx-0 lg:px-0"
+        style={{ scrollSnapType: "x proximity", WebkitOverflowScrolling: "touch" }}
+      >
+        {category.tracks.map((track, i) => (
+          <div key={track.id + "_" + i} className="flex-shrink-0 w-[140px] lg:w-auto">
             <RecCard
               track={track}
               index={i}
@@ -870,7 +876,7 @@ function RecCategoryRow({
   );
 }
 
-// ─── RecCard — compact recommendation card ────────────────────────────────
+// ─── RecCard ──────────────────────────────────────────────────────────────
 
 function RecCard({
   track, index, isCurrent, isPlaying, onPlay, onArtistClick, animationsEnabled,
@@ -879,54 +885,99 @@ function RecCard({
   onPlay: () => void; onArtistClick: () => void; animationsEnabled: boolean;
 }) {
   return (
-    <motion.button
-      initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
+    <motion.div
+      initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.04, 0.3), duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -3 }}
-      whileTap={{ scale: 0.97 }}
+      transition={{ delay: Math.min(index * 0.05, 0.4), duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -4 }}
       onClick={onPlay}
       className="text-left cursor-pointer group w-full"
     >
+      {/* Cover */}
       <div
-        className="relative aspect-square rounded-2xl overflow-hidden mb-1.5"
+        className="relative aspect-square rounded-2xl overflow-hidden mb-2"
         style={{
           boxShadow: isCurrent
-            ? "0 0 0 2px var(--mq-accent), 0 6px 20px color-mix(in srgb, var(--mq-accent) 25%, transparent)"
-            : "var(--mq-shadow-premium-sm)",
+            ? "0 0 0 2px var(--mq-accent), 0 8px 24px color-mix(in srgb, var(--mq-accent) 30%, transparent)"
+            : "var(--mq-shadow-premium-md)",
+          transition: "box-shadow 0.3s var(--mq-ease-premium)",
         }}
       >
         {track.cover ? (
-          <img src={track.cover} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
+          <img
+            src={track.cover}
+            alt=""
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+            loading="lazy"
+          />
         ) : (
-          <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-            <Music className="w-6 h-6" style={{ color: "rgba(255,255,255,0.5)" }} />
+          <div
+            className="w-full h-full flex items-center justify-center"
+            style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}
+          >
+            <Music className="w-7 h-7" style={{ color: "rgba(255,255,255,0.5)" }} />
           </div>
         )}
-        {/* Hover gradient + play */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+        {/* Gradient overlay on hover */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+        {/* Play button — slides up on hover */}
         <div
-          className="absolute bottom-1.5 right-1.5 w-8 h-8 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 translate-y-1 group-hover:translate-y-0"
-          style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 2px 8px color-mix(in srgb, var(--mq-accent) 40%, transparent)" }}
+          className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100 translate-y-2 group-hover:translate-y-0"
+          style={{
+            backgroundColor: "var(--mq-accent)",
+            boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
+          }}
         >
           {isCurrent && isPlaying ? (
-            <div className="w-3 h-3 flex items-end justify-center gap-[1px]">
-              {[0,1,2].map(i => <motion.span key={i} className="w-[1.5px] rounded-full" style={{ backgroundColor: "#fff", height: "100%" }} animate={{ scaleY: [0.3, 1, 0.3] }} transition={{ duration: 0.6, repeat: Infinity, delay: i * 0.1 }} />)}
+            <div className="w-4 h-4 flex items-end justify-center gap-[2px]">
+              {[0, 1, 2, 3].map(i => (
+                <motion.span
+                  key={i}
+                  className="w-[2px] rounded-full"
+                  style={{ backgroundColor: "#fff", height: "100%" }}
+                  animate={{ scaleY: [0.3, 1, 0.3] }}
+                  transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.12 }}
+                />
+              ))}
             </div>
           ) : (
-            <Play className="w-3.5 h-3.5 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
+            <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
           )}
         </div>
+
         {/* Playing badge */}
         {isCurrent && (
-          <div className="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded-full text-[8px] font-bold backdrop-blur-md" style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)" }}>
-            ●
+          <div
+            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-md flex items-center gap-1"
+            style={{
+              backgroundColor: "rgba(0,0,0,0.6)",
+              color: "var(--mq-accent)",
+              border: "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
+            ИГРАЕТ
           </div>
         )}
       </div>
-      <p className="text-[12px] sm:text-[13px] font-semibold truncate leading-tight" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>{track.title}</p>
-      <button onClick={(e) => { e.stopPropagation(); onArtistClick(); }} className="text-[10px] sm:text-[11px] truncate hover:underline block w-full text-left mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</button>
-    </motion.button>
+
+      {/* Text */}
+      <p
+        className="text-[13px] font-semibold truncate leading-tight"
+        style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}
+      >
+        {track.title}
+      </p>
+      <button
+        onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
+        className="text-[11px] truncate hover:underline block w-full text-left mt-0.5"
+        style={{ color: "var(--mq-text-muted)" }}
+      >
+        {track.artist}
+      </button>
+    </motion.div>
   );
 }
 

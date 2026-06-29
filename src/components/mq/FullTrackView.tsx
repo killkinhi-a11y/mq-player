@@ -253,8 +253,8 @@ export default function FullTrackView() {
                 {/* Right side — info + controls (desktop only side-by-side) */}
                 <div className={`flex-1 ${isMobile ? "w-full" : "min-w-0"} flex flex-col ${isMobile ? "items-center" : "items-start"}`}>
                   {/* Track info */}
-                  <div className={`w-full ${isMobile ? "text-center" : "text-left"} mb-6`}>
-                    <h1 className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1" style={{ color: "var(--mq-text)" }}>
+                  <div className={`w-full ${isMobile ? "text-center" : "text-left"} mb-4`}>
+                    <h1 className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1.5" style={{ color: "var(--mq-text)" }}>
                       {currentTrack.title}
                     </h1>
                     <button
@@ -264,6 +264,12 @@ export default function FullTrackView() {
                     >
                       {currentTrack.artist}
                     </button>
+                    {/* Duration + genre meta */}
+                    <div className={`flex items-center gap-3 mt-2 text-[11px] ${isMobile ? "justify-center" : ""}`} style={{ color: "var(--mq-text-muted)" }}>
+                      {duration > 0 && <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDuration(duration)}</span>}
+                      {currentTrack.genre && <span>·</span>}
+                      {currentTrack.genre && <span>{currentTrack.genre}</span>}
+                    </div>
                   </div>
 
                   {/* Like + actions row */}
