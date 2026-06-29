@@ -176,15 +176,34 @@ export default function MainView() {
         const allArtists = [...new Set([...favArtistNames, ...tasteProfile.topArtists])];
         if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
 
-        // Fetch recommendations + trending in parallel
-        const [recRes, trendingRes] = await Promise.all([
+        // Fetch recommendations + trending + Apple Music Top in parallel
+        // Detect user country via timezone
+        const userCountry = detectUserCountry();
+
+        const [recRes, trendingRes, appleRes] = await Promise.all([
           fetch(`/api/music/recommendations?${params}`),
           fetch(`/api/music/trending?limit=20`),
+          fetch(`/api/music/apple-top?country=${userCountry}`).catch(() => null),
         ]);
 
         const cats: RecCategory[] = [];
 
-        // Add trending as first category ("Популярное сейчас")
+        // Add Apple Music Top 100 as first category
+        if (appleRes && appleRes.ok) {
+          const appleData = await appleRes.json();
+          const appleTracks = (appleData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 10);
+          if (appleTracks.length > 0) {
+            const countryName = countryNameFromCode(appleData.country || userCountry);
+            cats.push({
+              id: "apple_top",
+              title: `Топ ${appleData.country || userCountry} — Apple Music`,
+              icon: "Flame",
+              tracks: appleTracks,
+            });
+          }
+        }
+
+        // Add trending as second category ("Популярное сейчас")
         if (trendingRes.ok) {
           const tData = await trendingRes.json();
           const trendingTracks = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 10);
@@ -1413,4 +1432,88 @@ function EqualizerIcon() {
       ))}
     </div>
   );
+}
+
+// ─── Country detection ────────────────────────────────────────────────────
+
+function detectUserCountry(): string {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    // Map common timezones to country codes
+    const tzMap: Record<string, string> = {
+      "Europe/Moscow": "RU",
+      "Europe/Kaliningrad": "RU",
+      "Europe/Samara": "RU",
+      "Europe/Yekaterinburg": "RU",
+      "Europe/Omsk": "RU",
+      "Europe/Novosibirsk": "RU",
+      "Europe/Krasnoyarsk": "RU",
+      "Europe/Irkutsk": "RU",
+      "Asia/Yakutsk": "RU",
+      "Asia/Vladivostok": "RU",
+      "Asia/Magadan": "RU",
+      "Asia/Kamchatka": "RU",
+      "Asia/Anadyr": "RU",
+      "Asia/Yekaterinburg": "RU",
+      "Europe/Kiev": "UA",
+      "Europe/Kyiv": "UA",
+      "Europe/Minsk": "BY",
+      "Asia/Almaty": "KZ",
+      "Asia/Tashkent": "UZ",
+      "Europe/London": "GB",
+      "Europe/Berlin": "DE",
+      "Europe/Paris": "FR",
+      "Europe/Madrid": "ES",
+      "Europe/Rome": "IT",
+      "Europe/Amsterdam": "NL",
+      "Europe/Stockholm": "SE",
+      "Europe/Oslo": "NO",
+      "Europe/Copenhagen": "DK",
+      "Europe/Warsaw": "PL",
+      "Europe/Prague": "CZ",
+      "Europe/Vienna": "AT",
+      "Europe/Zurich": "CH",
+      "Europe/Brussels": "BE",
+      "America/New_York": "US",
+      "America/Chicago": "US",
+      "America/Denver": "US",
+      "America/Los_Angeles": "US",
+      "America/Toronto": "CA",
+      "America/Vancouver": "CA",
+      "America/Mexico_City": "MX",
+            "America/Sao_Paulo": "BR",
+      "America/Argentina/Buenos_Aires": "AR",
+      "Asia/Tokyo": "JP",
+      "Asia/Seoul": "KR",
+      "Asia/Shanghai": "CN",
+      "Asia/Hong_Kong": "HK",
+      "Asia/Singapore": "SG",
+      "Asia/Kolkata": "IN",
+      "Asia/Bangkok": "TH",
+      "Asia/Dubai": "AE",
+      "Asia/Tel_Aviv": "IL",
+      "Australia/Sydney": "AU",
+      "Australia/Melbourne": "AU",
+      "Pacific/Auckland": "NZ",
+    };
+    return tzMap[tz] || "RU"; // Default to Russia
+  } catch {
+    return "RU";
+  }
+}
+
+function countryNameFromCode(code: string): string {
+  const names: Record<string, string> = {
+    RU: "России", UA: "Украины", BY: "Беларуси", KZ: "Казахстана",
+    US: "США", GB: "Британии", DE: "Германии", FR: "Франции",
+    ES: "Испании", IT: "Италии", NL: "Нидерландов", SE: "Швеции",
+    NO: "Норвегии", DK: "Дании", PL: "Польши", CZ: "Чехии",
+    AT: "Австрии", CH: "Швейцарии", BE: "Бельгии", CA: "Канады",
+    MX: "Мексики", BR: "Бразилии", AR: "Аргентины",
+    JP: "Японии", KR: "Кореи", CN: "Китая", HK: "Гонконга",
+    SG: "Сингапура", IN: "Индии", TH: "Таиланда", AE: "ОАЭ",
+    IL: "Израиля", AU: "Австралии", NZ: "Новой Зеландии",
+    UZ: "Узбекистана",
+  };
+  return names[code] || code;
 }
