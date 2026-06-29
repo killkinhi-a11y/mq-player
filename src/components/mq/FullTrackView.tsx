@@ -7,7 +7,7 @@ import {
   Play, Pause, SkipBack, SkipForward, ChevronDown, Heart,
   Shuffle, Repeat, Repeat1, Volume2, VolumeX,
   Music, ListMusic, Share2, Loader2, Clock, Mic2,
-  ThumbsDown, AirVent, Gauge, MoreHorizontal,
+  ThumbsDown, AirVent, Gauge, MoreHorizontal, Timer, ChevronLeft,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
@@ -36,6 +36,11 @@ export default function FullTrackView() {
   const radioMode = useAppStore((s) => s.radioMode);
   const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
   const setSpatialAudioEnabled = useAppStore((s) => s.setSpatialAudioEnabled);
+  const playbackRate = useAppStore((s) => s.playbackRate);
+  const setPlaybackRate = useAppStore((s) => s.setPlaybackRate);
+  const sleepTimerActive = useAppStore((s) => s.sleepTimerActive);
+  const startSleepTimer = useAppStore((s) => s.startSleepTimer);
+  const stopSleepTimer = useAppStore((s) => s.stopSleepTimer);
 
   const setOpen = useAppStore((s) => s.setFullTrackViewOpen);
   const togglePlay = useAppStore((s) => s.togglePlay);
@@ -60,6 +65,11 @@ export default function FullTrackView() {
   const [lyrics, setLyrics] = useState<string | null>(null);
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
+  const [showSleepMenu, setShowSleepMenu] = useState(false);
+  const [lastTapTime, setLastTapTime] = useState(0);
+  const [lastTapSide, setLastTapSide] = useState<"left" | "right" | null>(null);
+  const [seekFeedback, setSeekFeedback] = useState<{ side: "left" | "right"; amount: number } | null>(null);
 
   // ── Seek ──
   const seekTo = useCallback((clientX: number) => {
@@ -144,6 +154,64 @@ export default function FullTrackView() {
     }
   }, [currentTrack, setSelectedArtist, setOpen]);
 
+  // ── Double-tap to seek (YouTube-style) ──
+  const handleCoverAreaTap = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const clientX = "touches" in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX;
+    const target = e.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    const isLeft = clientX < rect.left + rect.width / 2;
+    const now = Date.now();
+
+    const tapSide = isLeft ? "left" : "right";
+    if (now - lastTapTime < 300 && lastTapSide === tapSide) {
+      // Double tap — seek ±10s
+      const seekAmount = isLeft ? -10 : 10;
+      const audio = getAudioElement();
+      if (audio && audio.src) {
+        audio.currentTime = Math.max(0, Math.min(duration, audio.currentTime + seekAmount));
+        setProgress(Math.max(0, Math.min(duration, progress + seekAmount)));
+      }
+      // Show feedback
+      setSeekFeedback({ side: isLeft ? "left" : "right", amount: seekAmount });
+      setTimeout(() => setSeekFeedback(null), 600);
+    }
+    setLastTapTime(now);
+    setLastTapSide(isLeft ? "left" : "right");
+  }, [lastTapTime, lastTapSide, duration, progress, setProgress]);
+
+  // ── Swipe to change track (mobile) ──
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const handleCoverTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }, []);
+  const handleCoverTouchEnd = useCallback((e: React.TouchEvent) => {
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      if (dx > 0) prevTrack();
+      else nextTrack();
+    }
+  }, [prevTrack, nextTrack]);
+
+  // ── Playback speed ──
+  const speedOptions = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  const handleSpeedChange = useCallback((speed: number) => {
+    setPlaybackRate(speed);
+    const audio = getAudioElement();
+    if (audio) audio.playbackRate = speed;
+    setShowSpeedMenu(false);
+  }, [setPlaybackRate]);
+
+  // ── Sleep timer ──
+  const sleepOptions = [5, 10, 15, 30, 45, 60];
+  const handleSleepSet = useCallback((minutes: number) => {
+    startSleepTimer(minutes);
+    setShowSleepMenu(false);
+    toast({ title: `Таймер сна: ${minutes} мин` });
+  }, [startSleepTimer, toast]);
+
   // ── Derived ──
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.id) : false;
   const isDisliked = currentTrack ? dislikedTrackIds.includes(currentTrack.id) : false;
@@ -227,6 +295,9 @@ export default function FullTrackView() {
                   transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                   className="relative mb-6 sm:mb-0 flex-shrink-0"
                   style={{ width: isMobile ? "min(75vw, 320px)" : "min(35vw, 380px)", aspectRatio: "1 / 1" }}
+                  onClick={handleCoverAreaTap}
+                  onTouchStart={(e) => { handleCoverTouchStart(e); }}
+                  onTouchEnd={handleCoverTouchEnd}
                 >
                   <div className="w-full h-full rounded-3xl overflow-hidden" style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}>
                     {currentTrack.cover ? (
@@ -240,6 +311,31 @@ export default function FullTrackView() {
                   {/* Glow */}
                   <div className="absolute -inset-4 rounded-3xl pointer-events-none -z-10"
                     style={{ background: currentTrack.cover ? `url(${currentTrack.cover}) center/cover` : "var(--mq-accent)", filter: "blur(40px)", opacity: 0.3 }} />
+                  {/* Double-tap seek feedback */}
+                  <AnimatePresence>
+                    {seekFeedback && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.8 }}
+                        className="absolute top-1/2 -translate-y-1/2 px-4 py-2 rounded-2xl pointer-events-none"
+                        style={{
+                          [seekFeedback.side]: "20%",
+                          backgroundColor: "rgba(0,0,0,0.7)",
+                          backdropFilter: "blur(10px)",
+                          color: "#fff",
+                          fontSize: 14,
+                          fontWeight: 600,
+                        } as React.CSSProperties}
+                      >
+                        {seekFeedback.amount > 0 ? `+${seekFeedback.amount}s` : `${seekFeedback.amount}s`}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  {/* Hint text for double-tap */}
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] pointer-events-none" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    ← двойной тап →
+                  </div>
                 </motion.div>
 
                 {/* Right side */}
@@ -272,7 +368,50 @@ export default function FullTrackView() {
                     <motion.button whileTap={{ scale: 0.9 }} onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: spatialAudioEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Пространственное аудио">
                       <AirVent className="w-4 h-4" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </motion.button>
+                    {/* Playback speed */}
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowSleepMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: playbackRate !== 1 ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Скорость">
+                      <span className="text-[10px] font-bold" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span>
+                    </motion.button>
+                    {/* Sleep timer */}
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowSleepMenu(!showSleepMenu); setShowSpeedMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: sleepTimerActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Таймер сна">
+                      <Timer className="w-4 h-4" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                    </motion.button>
                   </div>
+
+                  {/* Speed menu */}
+                  <AnimatePresence>
+                    {showSpeedMenu && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="w-full mb-4 overflow-hidden">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {speedOptions.map(speed => (
+                            <button key={speed} onClick={() => handleSpeedChange(speed)} className="px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: playbackRate === speed ? "var(--mq-accent)" : "var(--mq-card)", color: playbackRate === speed ? "#fff" : "var(--mq-text-muted)" }}>
+                              {speed}x
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Sleep timer menu */}
+                  <AnimatePresence>
+                    {showSleepMenu && (
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="w-full mb-4 overflow-hidden">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {sleepOptions.map(min => (
+                            <button key={min} onClick={() => handleSleepSet(min)} className="px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)" }}>
+                              {min} мин
+                            </button>
+                          ))}
+                          {sleepTimerActive && (
+                            <button onClick={() => { stopSleepTimer(); setShowSleepMenu(false); toast({ title: "Таймер отменён" }); }} className="px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444" }}>
+                              Отменить
+                            </button>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   {/* Queue panel */}
                   <AnimatePresence>
