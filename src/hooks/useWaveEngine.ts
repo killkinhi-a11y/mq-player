@@ -78,7 +78,38 @@ export function useWaveEngine() {
     const res = await fetch(`/api/music/recommendations?${params}`);
     if (!res.ok) throw new Error(`Wave fetch failed: ${res.status}`);
     const data = await res.json();
-    return (data.tracks || []).filter((t: Track) => !disliked.includes(t.id));
+    let tracks = (data.tracks || []).filter((t: Track) => !disliked.includes(t.id));
+
+    // If we got fewer than requested, also fetch from trending to fill
+    if (tracks.length < count) {
+      try {
+        const trendingRes = await fetch(`/api/music/trending?limit=${count - tracks.length}`);
+        if (trendingRes.ok) {
+          const tData = await trendingRes.json();
+          const extra = (tData.tracks || [])
+            .filter((t: Track) => !disliked.includes(t.id))
+            .filter((t: Track) => !tracks.some(existing => existing.id === t.id));
+          tracks = [...tracks, ...extra];
+        }
+      } catch {}
+
+      // Also try Apple Music Top for more variety
+      if (tracks.length < count) {
+        try {
+          const userCountry = "RU"; // Default
+          const appleRes = await fetch(`/api/music/apple-top?country=${userCountry}`);
+          if (appleRes.ok) {
+            const aData = await appleRes.json();
+            const extra = (aData.tracks || [])
+              .filter((t: Track) => !disliked.includes(t.id))
+              .filter((t: Track) => !tracks.some(existing => existing.id === t.id));
+            tracks = [...tracks, ...extra];
+          }
+        } catch {}
+      }
+    }
+
+    return tracks;
   }, []);
 
   // ── Shuffle array (Fisher-Yates) ──

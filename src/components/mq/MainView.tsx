@@ -97,9 +97,6 @@ export default function MainView() {
   const [recCategories, setRecCategories] = useState<RecCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [recLoading, setRecLoading] = useState(false);
-  const [trendingExpanded, setTrendingExpanded] = useState<boolean>(() => {
-    try { return localStorage.getItem("mq-trending-expanded") === "1"; } catch { return false; }
-  });
 
   // ── Wave engine (logic separated from UI) ──
   const wave = useWaveEngine();
@@ -197,7 +194,7 @@ export default function MainView() {
               const cName = countryNameFromCode(appleData.country || userCountry);
               cats.push({
                 id: "apple_top",
-                title: `Топ ${cName} — Apple Music`,
+                title: `Топ ${cName}`,
                 icon: "Flame",
                 tracks: appleTracks,
               });
@@ -253,6 +250,11 @@ export default function MainView() {
 
   // ── Wave controls (from useWaveEngine hook) ──
   // Visual WaveCard component handles all rendering; this hook provides logic.
+
+  // ── Play all trending ──
+  const handlePlayAllTrending = useCallback(() => {
+    if (trendingTracks.length > 0) playTrack(trendingTracks[0], trendingTracks);
+  }, [trendingTracks, playTrack]);
 
   const handleNavigateToArtist = useCallback((artist: string) => {
     if (!artist) return;
@@ -446,30 +448,23 @@ export default function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* TRENDING — collapsible */}
+      {/* TOP 100 — chart-style list (replaces old Popular) */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <Section
-        title="Популярное"
+        title="Топ 100"
         icon={Flame}
         action={
-          <button
-            onClick={() => {
-              const next = !trendingExpanded;
-              setTrendingExpanded(next);
-              try { localStorage.setItem("mq-trending-expanded", next ? "1" : "0"); } catch {}
-            }}
-            className="flex items-center gap-1 text-xs font-semibold"
-            style={{ color: "var(--mq-text-muted)" }}
-          >
-            {trendingExpanded ? "Свернуть" : `${trendingTracks.length} ${pluralRu(trendingTracks.length, "трек", "трека", "треков")}`}
-            <motion.div animate={{ rotate: trendingExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
-              <ChevronLeft className="w-3.5 h-3.5 -rotate-90" />
-            </motion.div>
-          </button>
+          trendingTracks.length > 0 ? (
+            <motion.button whileTap={{ scale: 0.95 }} onClick={handlePlayAllTrending}
+              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium"
+              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+              <Play className="w-3 h-3" fill="currentColor" />Все
+            </motion.button>
+          ) : undefined
         }
       >
         {loading ? (
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ backgroundColor: "var(--mq-card)" }}>
                 <div className="w-10 h-10 rounded-lg mq-shimmer" />
@@ -486,38 +481,19 @@ export default function MainView() {
             <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Не удалось загрузить</p>
           </div>
         ) : (
-          <div>
-            {trendingExpanded ? (
-              <div className="space-y-1">
-                {trendingTracks.slice(0, 50).map((track, i) => (
-                  <TrendingRow
-                    key={track.id}
-                    track={track}
-                    index={i + 1}
-                    isCurrent={currentTrack?.id === track.id}
-                    isPlaying={isPlaying && currentTrack?.id === track.id}
-                    onPlay={() => playTrack(track, trendingTracks)}
-                    onArtistClick={() => handleNavigateToArtist(track.artist)}
-                    animationsEnabled={animationsEnabled}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
-                {trendingTracks.slice(0, 5).map((track, i) => (
-                  <TrackCard
-                    key={track.id}
-                    track={track}
-                    index={i}
-                    isCurrent={currentTrack?.id === track.id}
-                    isPlaying={isPlaying && currentTrack?.id === track.id}
-                    onPlay={() => playTrack(track, trendingTracks)}
-                    onArtistClick={() => handleNavigateToArtist(track.artist)}
-                    animationsEnabled={animationsEnabled}
-                  />
-                ))}
-              </div>
-            )}
+          <div className="space-y-0.5">
+            {trendingTracks.slice(0, 100).map((track, i) => (
+              <TrendingRow
+                key={track.id}
+                track={track}
+                index={i + 1}
+                isCurrent={currentTrack?.id === track.id}
+                isPlaying={isPlaying && currentTrack?.id === track.id}
+                onPlay={() => playTrack(track, trendingTracks)}
+                onArtistClick={() => handleNavigateToArtist(track.artist)}
+                animationsEnabled={animationsEnabled}
+              />
+            ))}
           </div>
         )}
       </Section>
