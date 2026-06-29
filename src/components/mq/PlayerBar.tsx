@@ -426,7 +426,7 @@ export default function PlayerBar() {
 
             <motion.button
               whileTap={{ scale: 0.9 }}
-              onClick={() => setView("main")}
+              onClick={() => setFullTrackViewOpen(true)}
               className="w-9 h-9 rounded-full flex items-center justify-center"
               title="Очередь"
             >
