@@ -295,28 +295,6 @@ export default function SettingsView() {
                 onClick={handleSync} rightElement={isSyncing ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} /> : undefined} />
               <SettingRow icon={LogOut} label="Выйти" subtitle="Завершить сессию" onClick={handleLogout} danger />
             </Card>
-
-            <Card>
-              <CardTitle icon={Smartphone} title="Мобильное приложение" />
-              <div className="px-3 sm:px-4 py-3 sm:py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #3ddc84, #00a86b)", boxShadow: "0 2px 12px rgba(61,220,132,0.25)" }}>
-                    <Smartphone className="w-5 h-5" style={{ color: "#fff" }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>MQ Player для Android</p>
-                    <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>APK · 4.6 МБ · v1.3.0</p>
-                  </div>
-                </div>
-                <motion.a href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk" target="_blank" rel="noopener noreferrer" download
-                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl text-sm font-semibold"
-                  style={{ background: "linear-gradient(135deg, #3ddc84, #00d97e)", color: "#fff", boxShadow: "0 4px 16px rgba(61,220,132,0.3)" }}>
-                  <Download className="w-4 h-4" />
-                  Скачать APK
-                </motion.a>
-              </div>
-            </Card>
           </motion.div>
         )}
 

@@ -12,6 +12,7 @@ import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
 import type { Track } from "@/lib/musicApi";
 import { useIsMobile } from "@/hooks/use-mobile";
+import QueueView from "./QueueView";
 
 // ═════════════════════════════════════════════════════════════════════════
 // PLAYER BAR — mini player at bottom
@@ -45,6 +46,7 @@ export default function PlayerBar() {
   const progressBarRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
+  const [showQueue, setShowQueue] = useState(false);
 
   // ── Seek ──
   const seekTo = useCallback((clientX: number) => {
@@ -247,6 +249,7 @@ export default function PlayerBar() {
   // DESKTOP LAYOUT
   // ════════════════════════════════════════════════════════════════
   return (
+    <>
     <motion.div
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
@@ -426,7 +429,7 @@ export default function PlayerBar() {
 
             <motion.button
               whileTap={{ scale: 0.9 }}
-              onClick={() => setFullTrackViewOpen(true)}
+              onClick={() => setShowQueue(true)}
               className="w-9 h-9 rounded-full flex items-center justify-center"
               title="Очередь"
             >
@@ -436,5 +439,7 @@ export default function PlayerBar() {
         </div>
       </div>
     </motion.div>
+    <QueueView isOpen={showQueue} onClose={() => setShowQueue(false)} />
+    </>
   );
 }

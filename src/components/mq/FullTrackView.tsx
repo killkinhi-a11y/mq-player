@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, ChevronDown, Heart,
   Shuffle, Repeat, Repeat1, Volume2, VolumeX, MoreVertical,
-  Music, ListMusic, Share2, Loader2, Clock,
+  Music, ListMusic, Share2, Loader2, Clock, Mic2,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
@@ -50,6 +50,9 @@ export default function FullTrackView() {
   const [isDragging, setIsDragging] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
+  const [lyrics, setLyrics] = useState<string | null>(null);
+  const [lyricsLoading, setLyricsLoading] = useState(false);
 
   // ── Seek ──
   const seekTo = useCallback((clientX: number) => {
@@ -126,6 +129,20 @@ export default function FullTrackView() {
     if (queue.length === 0) return [];
     return queue.slice(queueIndex + 1, queueIndex + 6);
   }, [queue, queueIndex]);
+
+  // ── Fetch lyrics when track changes or lyrics tab opened ──
+  useEffect(() => {
+    if (!showLyrics || !currentTrack) return;
+    setLyrics(null);
+    setLyricsLoading(true);
+    const controller = new AbortController();
+    fetch(`/api/music/lyrics?artist=${encodeURIComponent(currentTrack.artist)}&title=${encodeURIComponent(currentTrack.title)}`, { signal: controller.signal })
+      .then(res => res.ok ? res.json() : Promise.reject())
+      .then(data => setLyrics(data.lyrics || data.text || null))
+      .catch(() => setLyrics(null))
+      .finally(() => setLyricsLoading(false));
+    return () => controller.abort();
+  }, [showLyrics, currentTrack]);
 
   return (
     <AnimatePresence>
@@ -263,6 +280,14 @@ export default function FullTrackView() {
                     >
                       <ListMusic className="w-5 h-5" style={{ color: showQueue ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => { setShowLyrics(!showLyrics); setShowQueue(false); }}
+                      className="w-11 h-11 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: showLyrics ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
+                    >
+                      <Mic2 className="w-5 h-5" style={{ color: showLyrics ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                    </motion.button>
                   </div>
 
                   {/* Queue (toggleable) */}
@@ -302,6 +327,37 @@ export default function FullTrackView() {
                             </button>
                           ))}
                         </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Lyrics panel (toggleable) */}
+                  <AnimatePresence>
+                    {showLyrics && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="w-full mb-6 overflow-hidden"
+                      >
+                        <p className="mq-text-eyebrow text-[10px] mb-2">Текст песни</p>
+                        {lyricsLoading ? (
+                          <div className="flex items-center gap-2 py-4">
+                            <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} />
+                            <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск текста...</span>
+                          </div>
+                        ) : lyrics ? (
+                          <div
+                            className="text-sm leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto p-3 rounded-xl"
+                            style={{ color: "var(--mq-text-muted)", backgroundColor: "rgba(255,255,255,0.03)" }}
+                          >
+                            {lyrics}
+                          </div>
+                        ) : (
+                          <p className="text-xs py-4" style={{ color: "var(--mq-text-muted)" }}>
+                            Текст не найден для этого трека
+                          </p>
+                        )}
                       </motion.div>
                     )}
                   </AnimatePresence>
