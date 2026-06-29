@@ -176,17 +176,50 @@ export default function MainView() {
         const allArtists = [...new Set([...favArtistNames, ...tasteProfile.topArtists])];
         if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
 
-        const res = await fetch(`/api/music/recommendations?${params}`);
-        if (!cancelled && res.ok) {
-          const data = await res.json();
-          const cats = (data.categories || []).map((cat: any) => ({
+        // Fetch recommendations + trending in parallel
+        const [recRes, trendingRes] = await Promise.all([
+          fetch(`/api/music/recommendations?${params}`),
+          fetch(`/api/music/trending?limit=20`),
+        ]);
+
+        const cats: RecCategory[] = [];
+
+        // Add trending as first category ("Популярное сейчас")
+        if (trendingRes.ok) {
+          const tData = await trendingRes.json();
+          const trendingTracks = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 10);
+          if (trendingTracks.length > 0) {
+            cats.push({
+              id: "trending_now",
+              title: "Популярное сейчас",
+              icon: "Flame",
+              tracks: trendingTracks,
+            });
+          }
+        }
+
+        // Add recommendation categories
+        if (recRes.ok) {
+          const data = await recRes.json();
+          const recCats = (data.categories || []).map((cat: any) => ({
             id: cat.id || `cat_${Date.now()}_${Math.random()}`,
             title: cat.title || "Рекомендации",
             icon: cat.icon || "Sparkles",
             tracks: (cat.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 10),
           })).filter((cat: any) => cat.tracks.length > 0);
-          if (!cancelled) setRecCategories(cats);
+          cats.push(...recCats);
         }
+
+        // If no categories at all, create a fallback from trending
+        if (cats.length === 0 && trendingRes.ok) {
+          const tData = await trendingRes.json();
+          const fallback = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 10);
+          if (fallback.length > 0) {
+            cats.push({ id: "fallback", title: "Для вас", icon: "Sparkles", tracks: fallback });
+          }
+        }
+
+        if (!cancelled) setRecCategories(cats);
       } catch {
         // Silent
       } finally {
@@ -429,37 +462,24 @@ export default function MainView() {
             <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Не удалось загрузить</p>
           </div>
         ) : (
-          <AnimatePresence initial={false}>
+          <div>
             {trendingExpanded ? (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                style={{ overflow: "hidden" }}
-              >
-                <div className="space-y-1">
-                  {trendingTracks.slice(0, 50).map((track, i) => (
-                    <TrendingRow
-                      key={track.id}
-                      track={track}
-                      index={i + 1}
-                      isCurrent={currentTrack?.id === track.id}
-                      isPlaying={isPlaying && currentTrack?.id === track.id}
-                      onPlay={() => playTrack(track, trendingTracks)}
-                      onArtistClick={() => handleNavigateToArtist(track.artist)}
-                      animationsEnabled={animationsEnabled}
-                    />
-                  ))}
-                </div>
-              </motion.div>
+              <div className="space-y-1">
+                {trendingTracks.slice(0, 50).map((track, i) => (
+                  <TrendingRow
+                    key={track.id}
+                    track={track}
+                    index={i + 1}
+                    isCurrent={currentTrack?.id === track.id}
+                    isPlaying={isPlaying && currentTrack?.id === track.id}
+                    onPlay={() => playTrack(track, trendingTracks)}
+                    onArtistClick={() => handleNavigateToArtist(track.artist)}
+                    animationsEnabled={animationsEnabled}
+                  />
+                ))}
+              </div>
             ) : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5.5 sm:gap-4"
-              >
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
                 {trendingTracks.slice(0, 5).map((track, i) => (
                   <TrackCard
                     key={track.id}
@@ -472,9 +492,9 @@ export default function MainView() {
                     animationsEnabled={animationsEnabled}
                   />
                 ))}
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
+          </div>
         )}
       </Section>
 

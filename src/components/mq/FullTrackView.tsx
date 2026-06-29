@@ -138,7 +138,17 @@ export default function FullTrackView() {
     const controller = new AbortController();
     fetch(`/api/music/lyrics?artist=${encodeURIComponent(currentTrack.artist)}&title=${encodeURIComponent(currentTrack.title)}`, { signal: controller.signal })
       .then(res => res.ok ? res.json() : Promise.reject())
-      .then(data => setLyrics(data.lyrics || data.text || null))
+      .then(data => {
+        // API returns { lyrics: [{time,text}[]], plainText: string }
+        // Use plainText for display, fall back to joined synced lyrics
+        if (data.plainText) {
+          setLyrics(data.plainText);
+        } else if (Array.isArray(data.lyrics) && data.lyrics.length > 0) {
+          setLyrics(data.lyrics.map((l: any) => l.text).filter(Boolean).join("\n"));
+        } else {
+          setLyrics(null);
+        }
+      })
       .catch(() => setLyrics(null))
       .finally(() => setLyricsLoading(false));
     return () => controller.abort();

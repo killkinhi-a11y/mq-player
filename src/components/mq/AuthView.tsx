@@ -276,7 +276,34 @@ export default function AuthView() {
     }
   };
 
-  // ─── Demo mode removed — users must register/login ───
+  // ─── Demo login ───────────────────────────────────────
+  const [demoLoading, setDemoLoading] = useState(false);
+
+  const handleDemoLogin = async () => {
+    setDemoLoading(true);
+    try {
+      setAuth("demo-user-id", "Демо", "demo@mq-player.internal");
+      useAppStore.setState({ demoLoading: true });
+      const { DEMO_TRACKS } = await import("@/lib/demoTracks");
+      await new Promise((r) => setTimeout(r, 300));
+      const store = useAppStore.getState();
+      if (store.queue.length === 0) {
+        useAppStore.setState({
+          queue: DEMO_TRACKS,
+          currentTrack: DEMO_TRACKS[0],
+          isPlaying: false,
+          queueIndex: 0,
+          demoLoading: false,
+        });
+      } else {
+        useAppStore.setState({ demoLoading: false });
+      }
+    } catch (err) {
+      console.error("[Demo] Failed to load:", err);
+      setDemoLoading(false);
+      useAppStore.setState({ demoLoading: false });
+    }
+  };
 
   // ─── Render ───────────────────────────────────────────
   return (
@@ -476,6 +503,13 @@ export default function AuthView() {
               </motion.div>
 
               {/* Bottom links */}
+              <motion.div className="mt-6 pt-4 flex items-center justify-between" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6, duration: 0.3 }}>
+                <Button variant="ghost" onClick={handleDemoLogin} disabled={demoLoading} className="text-sm h-auto p-0 flex items-center gap-2"
+                  style={{ color: "var(--mq-text-muted)" }}>
+                  {demoLoading ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Загрузка...</> : "Демо-режим"}
+                </Button>
+              </motion.div>
 
             </div>
           </motion.div>

@@ -132,8 +132,8 @@ export default function AppShell() {
   const catEnabled = useAppStore((s) => s.catEnabled);
   const isPlaying = useAppStore((s) => s.isPlaying);
   const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
-  // demoLoading removed — demo mode disabled
   const _hasHydrated = useAppStore((s) => s._hasHydrated);
+  const demoLoading = useAppStore((s) => s.demoLoading);
 
   // ── Visited views tracking: must be BEFORE any conditional returns (Rules of Hooks) ──
   const [visitedViews, setVisitedViews] = useState<Set<string>>(new Set(["main"]));
@@ -446,6 +446,33 @@ export default function AppShell() {
     >
       <Suspense fallback={null}><CinematicAtmosphere /></Suspense>
       <Suspense fallback={null}><MaintenanceBanner /></Suspense>
+
+      {/* Demo loading overlay */}
+      <AnimatePresence>
+        {demoLoading && (
+          <motion.div
+            key="demo-loader"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center"
+            style={{ backgroundColor: "var(--mq-bg, #0e0e0e)" }}
+          >
+            <div className="flex flex-col items-center gap-6 p-8">
+              <motion.div
+                className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                style={{ backgroundColor: "var(--mq-accent, #e03131)" }}
+                animate={{ scale: [1, 1.08, 1], opacity: [0.8, 1, 0.8] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <span className="text-2xl font-black text-white">mq</span>
+              </motion.div>
+              <p className="text-sm" style={{ color: "var(--mq-text-muted, #888)" }}>Загрузка...</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Suspense fallback={
         <nav className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center border-b"
