@@ -125,6 +125,9 @@ export default function PlayerBar() {
 
   if (!currentTrack || miniPlayerHidden || isFullTrackViewOpen) return null;
 
+  // Mobile: player is rendered inside MobileDock (unified with nav)
+  if (isMobile) return null;
+
   const VolumeIcon = volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
 
   // ════════════════════════════════════════════════════════════════

@@ -79,6 +79,7 @@ const FullTrackView = dynamic(() => import("@/components/mq/FullTrackView"), { s
 const KeyboardShortcutsHelp = dynamic(() => import("@/components/mq/KeyboardShortcutsHelp").then(m => ({ default: m.KeyboardShortcutsHelp })), { ssr: false });
 const NavBar = dynamic(() => import("@/components/mq/NavBar"), { ssr: false });
 const MobileNav = dynamic(() => import("@/components/mq/MobileNav"), { ssr: false });
+const MobileDock = dynamic(() => import("@/components/mq/MobileDock"), { ssr: false });
 const NotificationPanel = dynamic(() => import("@/components/mq/NotificationPanel"), { ssr: false });
 const SeasonalEffects = dynamic(() => import("@/components/mq/SeasonalEffects"), { ssr: false });
 const CinematicAtmosphere = dynamic(() => import("@/components/mq/CinematicAtmosphere"), { ssr: false });
@@ -575,7 +576,7 @@ export default function AppShell() {
         )}
       </main>
 
-      {/* PlayerBar is ALWAYS mounted — never unmount to preserve playback engine */}
+      {/* PlayerBar (desktop only — mobile uses MobileDock which combines player + nav) */}
       <Suspense fallback={null}><PlayerBar /></Suspense>
       <Suspense fallback={null}><FullTrackView /></Suspense>
       <Suspense fallback={null}><KeyboardShortcutsHelp /></Suspense>
@@ -583,6 +584,9 @@ export default function AppShell() {
       <Suspense fallback={null}>{catEnabled && <MqCat />}</Suspense>
       {/* Cobalt Turnstile — invisible widget for SNIP bypass JWT */}
       <CobaltTurnstile />
+      {/* Mobile: unified dock (player + nav in one glass container) */}
+      <Suspense fallback={null}>{showNav && !hideUiForFullscreen && <MobileDock />}</Suspense>
+      {/* Desktop: separate nav bar (PlayerBar already rendered above) */}
       <Suspense fallback={null}>{showNav && !hideUiForFullscreen && <MobileNav />}</Suspense>
       <Suspense fallback={null}>{isAuthenticated && <NotificationPanel isOpen={notifPanelOpen} onClose={() => setNotifPanelOpen(false)} />}</Suspense>
       <Suspense fallback={null}>{
