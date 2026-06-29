@@ -36,8 +36,24 @@ jobs:
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
 
-      - name: Show Capacitor version
-        run: node node_modules/@capacitor/cli/bin/capacitor.js --version
+      - name: Show environment diagnostics
+        run: |
+          echo "=== Node version ==="
+          node --version
+          echo "=== npm version ==="
+          npm --version
+          echo "=== Capacitor CLI binary ==="
+          ls -la node_modules/.bin/cap 2>&1 || echo "NOT FOUND"
+          echo "=== Capacitor CLI direct path ==="
+          ls -la node_modules/@capacitor/cli/bin/ 2>&1
+          echo "=== Capacitor version ==="
+          node node_modules/@capacitor/cli/bin/capacitor.js --version 2>&1 || echo "FAILED with exit $?"
+          echo "=== capacitor.config.ts exists ==="
+          ls -la capacitor.config.ts
+          echo "=== out/ contents ==="
+          ls -la out/ 2>&1
+          echo "=== out/index.html head ==="
+          head -c 300 out/index.html
 
       - name: Sync Capacitor (uses committed android/ + out/index.html + capacitor.config.ts)
         run: node node_modules/@capacitor/cli/bin/capacitor.js sync android
