@@ -428,9 +428,10 @@ export default function SearchView() {
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            className="pl-11 pr-11 min-h-[48px] text-[15px] rounded-2xl font-medium outline-none"
+            className="pl-11 pr-11 min-h-[48px] text-[15px] font-medium"
             style={{
               backgroundColor: "var(--mq-card)",
+              borderRadius: "16px",
               border: isFocused ? "1.5px solid var(--mq-accent)" : "1px solid var(--mq-border-thin)",
               color: "var(--mq-text)",
               boxShadow: isFocused
