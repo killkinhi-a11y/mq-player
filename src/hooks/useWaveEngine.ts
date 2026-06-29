@@ -107,8 +107,14 @@ export function useWaveEngine() {
 
       tracks = shuffle(tracks);
 
-      const state = useAppStore.getState();
-      if (!state.radioMode) state.toggleRadioMode();
+      // P3-fix: set radioMode DIRECTLY (not toggle) — toggleRadioMode
+      // requires currentTrack to be set, which it isn't on first launch.
+      // This was causing the "need to click 2 times" bug.
+      useAppStore.setState({
+        radioMode: true,
+        radioSeedTrack: tracks[0],
+        radioSkipCount: 0,
+      });
       playTrack(tracks[0], tracks);
     } catch (err) {
       setWaveError("Ошибка загрузки Волны");
@@ -119,8 +125,18 @@ export function useWaveEngine() {
 
   // ── Stop Wave ──
   const stopWave = useCallback(() => {
-    const state = useAppStore.getState();
-    if (state.radioMode) state.toggleRadioMode();
+    // P3-fix: set radioMode DIRECTLY to false (not toggle) — toggle could
+    // accidentally re-enable radio if state was inconsistent.
+    useAppStore.setState({
+      radioMode: false,
+      radioSeedTrack: null,
+      radioSkipCount: 0,
+    });
+  }, []);
+
+  // ── Pause/Resume (doesn't stop wave, just pauses playback) ──
+  const pauseWave = useCallback(() => {
+    useAppStore.getState().togglePlay();
   }, []);
 
   // ── Skip current track ──
@@ -228,7 +244,11 @@ export function useWaveEngine() {
       const timer = setTimeout(() => {
         const state = useAppStore.getState();
         if (state.radioMode && !state.currentTrack && state.queue.length === 0) {
-          state.toggleRadioMode();
+          useAppStore.setState({
+            radioMode: false,
+            radioSeedTrack: null,
+            radioSkipCount: 0,
+          });
         }
       }, 3000);
       return () => clearTimeout(timer);
@@ -241,6 +261,7 @@ export function useWaveEngine() {
     radioMode,
     startWave,
     stopWave,
+    pauseWave,
     skipTrack,
     dislikeTrack,
     likeTrack,

@@ -251,7 +251,7 @@ export default function MainView() {
           waveLoading={wave.waveLoading}
           waveError={wave.waveError}
           onStartWave={wave.startWave}
-          onStopWave={wave.stopWave}
+          onPauseWave={wave.pauseWave}
           onSkip={wave.skipTrack}
           onDislike={wave.dislikeTrack}
           onLike={wave.likeTrack}
@@ -1019,7 +1019,7 @@ function WaveCard({
   waveLoading,
   waveError,
   onStartWave,
-  onStopWave,
+  onPauseWave,
   onSkip,
   onDislike,
   onLike,
@@ -1034,7 +1034,7 @@ function WaveCard({
   waveLoading: boolean;
   waveError: string | null;
   onStartWave: () => void;
-  onStopWave: () => void;
+  onPauseWave: () => void;
   onSkip: () => void;
   onDislike: () => void;
   onLike: () => void;
@@ -1120,10 +1120,10 @@ function WaveCard({
                 )}
               </div>
               <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
-                onClick={onStopWave}
+                onClick={onPauseWave}
                 className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.9)", boxShadow: "var(--mq-shadow-card)" }}>
-                <Pause className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" />
+                {isPlaying ? <Pause className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" /> : <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5" fill="currentColor" />}
               </motion.button>
               <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
                 onClick={onSkip}
@@ -1170,10 +1170,10 @@ function WaveCard({
                   ))}
                 </div>
                 <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
-                  onClick={onStopWave}
+                  onClick={onPauseWave}
                   className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "var(--mq-shadow-card-hover)" }}>
-                  <Pause className="w-6 h-6" fill="currentColor" />
+                  {isPlaying ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6 ml-0.5" fill="currentColor" />}
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
                   onClick={onSkip}
