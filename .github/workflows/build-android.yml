@@ -9,6 +9,8 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,35 +42,10 @@ jobs:
       - name: Add Android platform
         run: npx cap add android || true
 
-      - name: Copy web assets
-        run: |
-          mkdir -p out
-          cat > out/index.html << 'HTMLEOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-            <title>MQ Player</title>
-            <style>
-              body { margin: 0; background: #0e0e0e; font-family: system-ui, sans-serif; }
-              .loader {
-                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                width: 60px; height: 60px; border: 3px solid rgba(255,255,255,0.1);
-                border-top: 3px solid #e03131; border-radius: 50%;
-                animation: spin 1s linear infinite;
-              }
-              @keyframes spin { 0% { transform: translate(-50%,-50%) rotate(0deg); } 100% { transform: translate(-50%,-50%) rotate(360deg); } }
-            </style>
-          </head>
-          <body><div class="loader"></div></body>
-          </html>
-          HTMLEOF
-
-      - name: Sync Capacitor
+      - name: Sync Capacitor (uses committed out/index.html + capacitor.config.ts)
         run: npx cap sync android
 
-      - name: Build debug APK (no signing required)
+      - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug -x lintVitalAnalyzeRelease
 
@@ -86,7 +63,8 @@ jobs:
           body: |
             ## MQ Player Android
 
-            Нативное Android-приложение на базе Capacitor.
+            Приложение загружает интерфейс с https://mq1.vercel.app.
+            Требуется интернет-соединение при запуске.
 
             ### Установка
             1. Скачайте `mq-player.apk` (~4 МБ)
