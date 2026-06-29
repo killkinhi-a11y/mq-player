@@ -4,13 +4,14 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Volume1,
+  Play, Pause, SkipBack, SkipForward,
   Repeat, Repeat1, Shuffle, Music, Heart, ListMusic, ChevronUp,
   Loader2, ThumbsDown,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
 import { useIsMobile } from "@/hooks/use-mobile";
+import VolumeSlider from "@/components/ui/volume-slider";
 import QueueView from "./QueueView";
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -96,13 +97,9 @@ export default function PlayerBar() {
   }, [isDragging, seekTo]);
 
   // ── Volume ──
-  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setVolume(Number(e.target.value));
+  const handleVolumeChange = useCallback((v: number) => {
+    setVolume(v);
   }, [setVolume]);
-
-  const handleVolumeMute = useCallback(() => {
-    setVolume(volume > 0 ? 0 : 70);
-  }, [volume, setVolume]);
 
   // ── Actions ──
   const handleLike = useCallback(() => {
@@ -139,8 +136,6 @@ export default function PlayerBar() {
 
   if (!currentTrack || miniPlayerHidden || isFullTrackViewOpen) return null;
   if (isMobile) return null;
-
-  const VolumeIcon = volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
 
   return (
     <>
@@ -315,11 +310,8 @@ export default function PlayerBar() {
               {/* Divider */}
               <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
 
-              {/* Volume */}
-              <motion.button whileTap={{ scale: 0.9 }} onClick={handleVolumeMute} className="w-8 h-8 rounded-full flex items-center justify-center" title="Звук">
-                <VolumeIcon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-              </motion.button>
-              <input type="range" min={0} max={100} value={volume} onChange={handleVolumeChange} className="w-16 h-1 rounded-full cursor-pointer" style={{ accentColor: "var(--mq-accent)" }} />
+              {/* Volume (premium slider) */}
+              <VolumeSlider volume={volume} onChange={handleVolumeChange} className="w-32" />
 
               {/* Divider */}
               <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />

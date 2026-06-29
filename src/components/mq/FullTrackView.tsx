@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward, ChevronDown, Heart,
   Shuffle, Repeat, Repeat1, Volume2, VolumeX, Volume1,
@@ -10,11 +10,12 @@ import {
   ThumbsDown, AirVent, Gauge, Timer,
   History, Sparkles, X,
 } from "lucide-react";
-import { getAudioElement, getAnalyser } from "@/lib/audioEngine";
+import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
 import type { Track } from "@/lib/musicApi";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/hooks/use-toast";
+import VolumeSlider from "@/components/ui/volume-slider";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
@@ -23,115 +24,6 @@ import { toast } from "@/hooks/use-toast";
 interface SyncedLyricLine {
   time: number;
   text: string;
-}
-
-// ── Visualizer canvas (circular frequency bars) ─────────────────────────
-function VisualizerCanvas({ isPlaying }: { isPlaying: boolean }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number>(0);
-  const barsRef = useRef<Float32Array>(new Float32Array(72));
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    const draw = () => {
-      const rect = canvas.getBoundingClientRect();
-      const w = rect.width;
-      const h = rect.height;
-      const cx = w / 2;
-      const cy = h / 2;
-      const baseRadius = Math.min(w, h) * 0.46;
-
-      ctx.clearRect(0, 0, w, h);
-
-      const analyser = getAnalyser();
-      let data: Uint8Array | null = null;
-      if (analyser && isPlaying) {
-        const buffer = new Uint8Array(analyser.frequencyBinCount);
-        analyser.getByteFrequencyData(buffer);
-        data = buffer;
-      }
-
-      const bars = barsRef.current;
-      const N = bars.length;
-      for (let i = 0; i < N; i++) {
-        const t = i / N;
-        const idx = Math.floor(Math.pow(t, 1.6) * 512);
-        let v = 0;
-        if (data) {
-          v = (data[idx] || 0) / 255;
-        } else {
-          // Idle sine wave — calmer
-          v = 0.05 + 0.04 * Math.sin(Date.now() * 0.0015 + i * 0.35);
-        }
-        bars[i] = bars[i] * 0.72 + v * 0.28;
-      }
-
-      const accent = getComputedStyle(document.documentElement)
-        .getPropertyValue("--mq-accent")
-        .trim() || "#6366f1";
-
-      // Draw 72 bars in a circle (more bars = smoother ring)
-      for (let i = 0; i < N; i++) {
-        const angle = (i / N) * Math.PI * 2 - Math.PI / 2;
-        const v = bars[i];
-        const len = 6 + v * baseRadius * 0.65;
-        const r1 = baseRadius;
-        const r2 = baseRadius + len;
-        const x1 = cx + Math.cos(angle) * r1;
-        const y1 = cy + Math.sin(angle) * r1;
-        const x2 = cx + Math.cos(angle) * r2;
-        const y2 = cy + Math.sin(angle) * r2;
-
-        const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-        grad.addColorStop(0, accent + "dd");
-        grad.addColorStop(1, accent + "11");
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 2.2;
-        ctx.lineCap = "round";
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x2, y2);
-        ctx.stroke();
-      }
-
-      rafRef.current = requestAnimationFrame(draw);
-    };
-    draw();
-
-    return () => {
-      window.removeEventListener("resize", resize);
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, [isPlaying]);
-
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute pointer-events-none"
-      style={{
-        inset: "-20%",
-        width: "140%",
-        height: "140%",
-        opacity: 0.6,
-        maskImage: "radial-gradient(circle, transparent 42%, #000 52%, #000 82%, transparent 95%)",
-        WebkitMaskImage: "radial-gradient(circle, transparent 42%, #000 52%, #000 82%, transparent 95%)",
-      }}
-    />
-  );
 }
 
 // ── Synced lyrics renderer ──────────────────────────────────────────────
@@ -299,6 +191,7 @@ export default function FullTrackView() {
 
   const isMobile = useIsMobile();
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const coverRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const [hoveredTime, setHoveredTime] = useState<number | null>(null);
@@ -309,10 +202,15 @@ export default function FullTrackView() {
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showSleepMenu, setShowSleepMenu] = useState(false);
+  const [showVolumePopup, setShowVolumePopup] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
   const [lastTapSide, setLastTapSide] = useState<"left" | "right" | null>(null);
   const [seekFeedback, setSeekFeedback] = useState<{ side: "left" | "right"; amount: number } | null>(null);
   const [heartBurstTrigger, setHeartBurstTrigger] = useState(0);
+  // Cover parallax tilt state (desktop)
+  const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
+  // Pull-down-to-close state (mobile)
+  const [pullDownY, setPullDownY] = useState(0);
 
   // ── Seek ────────────────────────────────────────────────────────────────
   const seekTo = useCallback((clientX: number) => {
@@ -373,9 +271,59 @@ export default function FullTrackView() {
     };
   }, [isDragging, seekTo]);
 
+  // ── Cover parallax tilt (desktop hover) ────────────────────────────────
+  const handleCoverMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!coverRef.current || isMobile) return;
+    const rect = coverRef.current.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = (e.clientX - cx) / (rect.width / 2);
+    const dy = (e.clientY - cy) / (rect.height / 2);
+    // Max tilt = 8deg
+    setTilt({ rx: -dy * 8, ry: dx * 8 });
+  }, [isMobile]);
+
+  const handleCoverMouseLeave = useCallback(() => {
+    setTilt({ rx: 0, ry: 0 });
+  }, []);
+
+  // ── Volume wheel (anywhere in FullTrackView) ──────────────────────────
+  const handleWheel = useCallback((e: WheelEvent) => {
+    // Don't hijack scroll inside scrollable panels (lyrics, queue, history)
+    const target = e.target as HTMLElement;
+    if (target && target.closest('[data-scrollable="true"]')) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -4 : 4;
+    setVolume(Math.max(0, Math.min(100, volume + delta)));
+  }, [volume, setVolume]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    window.addEventListener("wheel", handleWheel, { passive: false });
+    return () => window.removeEventListener("wheel", handleWheel);
+  }, [isOpen, handleWheel]);
+
+  // ── Pull-down to close (mobile) ───────────────────────────────────────
+  const handleDragEnd = useCallback((_: any, info: PanInfo) => {
+    // Swipe down → close
+    if (info.offset.y > 120 && Math.abs(info.offset.y) > Math.abs(info.offset.x) * 1.5) {
+      setOpen(false);
+    }
+    setPullDownY(0);
+  }, [setOpen]);
+
+  const handleDrag = useCallback((_: any, info: PanInfo) => {
+    // Only track downward drag
+    if (info.offset.y > 0) {
+      setPullDownY(Math.min(200, info.offset.y));
+    } else {
+      setPullDownY(0);
+    }
+  }, []);
+
   // ── Volume ──────────────────────────────────────────────────────────────
-  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setVolume(Number(e.target.value));
+  const handleVolumeChange = useCallback((v: number) => {
+    setVolume(v);
   }, [setVolume]);
 
   const toggleMute = useCallback(() => {
@@ -386,7 +334,6 @@ export default function FullTrackView() {
   const handleLike = useCallback(() => {
     if (currentTrack) {
       toggleLike(currentTrack.id, currentTrack);
-      // Trigger heart burst only when liking (not unliking)
       const isLikedNow = likedTrackIds.includes(currentTrack.id);
       if (!isLikedNow) setHeartBurstTrigger(t => t + 1);
     }
@@ -588,7 +535,7 @@ export default function FullTrackView() {
     return out;
   }, [history, currentTrack]);
 
-  // ── Lyrics fetching (with retry strategies built into API) ──────────────
+  // ── Lyrics fetching ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!isOpen || !currentTrack) return;
     if (activePanel !== "lyrics") return;
@@ -629,13 +576,31 @@ export default function FullTrackView() {
   // ── Sleep timer display formatting ──────────────────────────────────────
   const sleepRemainingMin = Math.ceil(sleepTimerRemaining / 60);
 
+  // Close volume popup when clicking outside
+  const volumePopupRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showVolumePopup) return;
+    const onDown = (e: MouseEvent) => {
+      if (volumePopupRef.current && !volumePopupRef.current.contains(e.target as Node)) {
+        setShowVolumePopup(false);
+      }
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [showVolumePopup]);
+
   return (
     <AnimatePresence>
       {isOpen && currentTrack && (
         <motion.div
           initial={{ y: "100%" }}
-          animate={{ y: 0 }}
+          animate={{ y: pullDownY }}
           exit={{ y: "100%" }}
+          drag={isMobile ? "y" : false}
+          dragConstraints={{ top: 0, bottom: 0 }}
+          dragElastic={{ top: 0, bottom: 0.6 }}
+          onDrag={handleDrag}
+          onDragEnd={handleDragEnd}
           transition={{ type: "spring", stiffness: 300, damping: 32 }}
           className="fixed inset-0 z-[100]"
           style={{
@@ -692,45 +657,55 @@ export default function FullTrackView() {
             {/* ── Main content ── */}
             <div className="flex-1 flex flex-col items-center justify-center px-6 pb-6 overflow-y-auto">
               <div className={`w-full max-w-5xl flex ${isMobile ? "flex-col items-center" : "flex-row items-center gap-12"}`}>
-                {/* ═══ COVER + VISUALIZER (square, no rotation) ═══ */}
+                {/* ═══ COVER (with parallax tilt on desktop) ═══ */}
                 <motion.div
                   key={currentTrack.id}
                   initial={{ scale: 0.92, opacity: 0, y: 10 }}
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                  ref={coverRef}
                   className="relative mb-6 sm:mb-0 flex-shrink-0"
-                  style={{ width: isMobile ? "min(75vw, 320px)" : "min(35vw, 380px)", aspectRatio: "1 / 1" }}
+                  style={{
+                    width: isMobile ? "min(75vw, 320px)" : "min(35vw, 380px)",
+                    aspectRatio: "1 / 1",
+                    perspective: "1000px",
+                  }}
+                  onMouseMove={handleCoverMouseMove}
+                  onMouseLeave={handleCoverMouseLeave}
                   onClick={handleCoverAreaTap}
                   onTouchStart={handleCoverTouchStart}
                   onTouchEnd={handleCoverTouchEnd}
                 >
-                  {/* Circular visualizer behind cover */}
-                  <VisualizerCanvas isPlaying={isPlaying} />
-
-                  {/* Static square cover with rounded corners */}
-                  <div
-                    className="w-full h-full rounded-3xl overflow-hidden relative"
-                    style={{
-                      boxShadow: "0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
-                    }}
+                  <motion.div
+                    className="w-full h-full"
+                    animate={{ rotateX: tilt.rx, rotateY: tilt.ry }}
+                    transition={{ type: "spring", stiffness: 200, damping: 20 }}
+                    style={{ transformStyle: "preserve-3d" }}
                   >
-                    {currentTrack.cover ? (
-                      <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                        <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.5)" }} />
-                      </div>
-                    )}
-                    {/* Subtle playing indicator — pulsing border */}
-                    {isPlaying && (
-                      <motion.div
-                        className="absolute inset-0 rounded-3xl pointer-events-none"
-                        style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
-                        animate={{ opacity: [0.4, 0.9, 0.4] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                      />
-                    )}
-                  </div>
+                    <div
+                      className="w-full h-full rounded-3xl overflow-hidden relative"
+                      style={{
+                        boxShadow: "0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
+                      }}
+                    >
+                      {currentTrack.cover ? (
+                        <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+                          <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.5)" }} />
+                        </div>
+                      )}
+                      {/* Subtle playing indicator — pulsing border */}
+                      {isPlaying && (
+                        <motion.div
+                          className="absolute inset-0 rounded-3xl pointer-events-none"
+                          style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
+                          animate={{ opacity: [0.4, 0.9, 0.4] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                        />
+                      )}
+                    </div>
+                  </motion.div>
 
                   {/* Glow */}
                   <div
@@ -798,17 +773,18 @@ export default function FullTrackView() {
                   {/* Action buttons row */}
                   <div className={`flex items-center gap-2 mb-4 flex-wrap ${isMobile ? "justify-center" : "justify-start"}`}>
                     <div className="relative">
-                      <motion.button whileTap={{ scale: 0.9 }} onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Нравится (L)">
+                      <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Нравится (L)">
                         <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
                       </motion.button>
                       <HeartBurst trigger={heartBurstTrigger} />
                     </div>
-                    <motion.button whileTap={{ scale: 0.9 }} onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.06)" }} title="Не нравится">
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.06)" }} title="Не нравится">
                       <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
                     </motion.button>
                     <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
                     <motion.button
                       whileTap={{ scale: 0.9 }}
+                      whileHover={{ scale: 1.1 }}
                       onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: activePanel === "queue" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
@@ -818,6 +794,7 @@ export default function FullTrackView() {
                     </motion.button>
                     <motion.button
                       whileTap={{ scale: 0.9 }}
+                      whileHover={{ scale: 1.1 }}
                       onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: activePanel === "lyrics" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
@@ -827,6 +804,7 @@ export default function FullTrackView() {
                     </motion.button>
                     <motion.button
                       whileTap={{ scale: 0.9 }}
+                      whileHover={{ scale: 1.1 }}
                       onClick={() => setActivePanel(p => p === "history" ? null : "history")}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: activePanel === "history" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
@@ -835,13 +813,13 @@ export default function FullTrackView() {
                       <History className="w-4 h-4" style={{ color: activePanel === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </motion.button>
                     <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
-                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: spatialAudioEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Пространственное аудио">
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: spatialAudioEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Пространственное аудио">
                       <AirVent className="w-4 h-4" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </motion.button>
-                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowSleepMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: playbackRate !== 1 ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Скорость">
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowSleepMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: playbackRate !== 1 ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Скорость">
                       <span className="text-[10px] font-bold" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span>
                     </motion.button>
-                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => { setShowSleepMenu(!showSleepMenu); setShowSpeedMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center relative" style={{ backgroundColor: sleepTimerActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Таймер сна">
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={() => { setShowSleepMenu(!showSleepMenu); setShowSpeedMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center relative" style={{ backgroundColor: sleepTimerActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Таймер сна">
                       <Timer className="w-4 h-4" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                       {sleepTimerActive && (
                         <span className="absolute -bottom-0.5 -right-0.5 text-[8px] font-mono px-1 rounded-full" style={{ background: "var(--mq-accent)", color: "#fff" }}>{sleepRemainingMin}м</span>
@@ -912,7 +890,7 @@ export default function FullTrackView() {
                         ) : lyrics.length > 0 ? (
                           <SyncedLyrics lines={lyrics} currentTime={progress} onSeek={seekToTime} />
                         ) : plainLyrics ? (
-                          <div className="text-sm leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto p-3 rounded-xl" style={{ color: "var(--mq-text-muted)", backgroundColor: "rgba(255,255,255,0.03)" }}>
+                          <div className="text-sm leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto p-3 rounded-xl" data-scrollable="true" style={{ color: "var(--mq-text-muted)", backgroundColor: "rgba(255,255,255,0.03)" }}>
                             {plainLyrics}
                           </div>
                         ) : (
@@ -940,7 +918,7 @@ export default function FullTrackView() {
                         {upcoming.length === 0 ? (
                           <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>Очередь пуста</p>
                         ) : (
-                          <div className="space-y-1 max-h-[240px] overflow-y-auto">
+                          <div className="space-y-1 max-h-[240px] overflow-y-auto" data-scrollable="true">
                             {upcoming.map((track, i) => (
                               <button
                                 key={track.id + "_" + i}
@@ -980,7 +958,7 @@ export default function FullTrackView() {
                         {recent.length === 0 ? (
                           <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>История пуста</p>
                         ) : (
-                          <div className="space-y-1 max-h-[240px] overflow-y-auto">
+                          <div className="space-y-1 max-h-[240px] overflow-y-auto" data-scrollable="true">
                             {recent.map((track, i) => (
                               <button
                                 key={track.id + "_h_" + i}
@@ -1043,41 +1021,97 @@ export default function FullTrackView() {
 
                   {/* ═══ MAIN CONTROLS ═══ */}
                   <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "" : "justify-start"}`}>
-                    <motion.button whileTap={{ scale: 0.9 }} onClick={toggleShuffle} className="w-10 h-10 rounded-full flex items-center justify-center" title="Перемешать (S)">
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.15 }} onClick={toggleShuffle} className="w-10 h-10 rounded-full flex items-center justify-center" title="Перемешать (S)">
                       <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </motion.button>
-                    <motion.button whileTap={{ scale: 0.9 }} onClick={prevTrack} className="w-12 h-12 rounded-full flex items-center justify-center" title="Предыдущий (P)">
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={prevTrack} className="w-12 h-12 rounded-full flex items-center justify-center" title="Предыдущий (P)">
                       <SkipBack className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                     </motion.button>
                     <motion.button
                       whileTap={{ scale: 0.9 }}
-                      whileHover={{ scale: 1.05 }}
+                      whileHover={{ scale: 1.06 }}
                       onClick={togglePlay}
-                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center"
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
                       style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 8px 32px color-mix(in srgb, var(--mq-accent) 40%, transparent)" }}
                       title="Play/Pause (Space)"
                     >
                       {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "#fff" }} />
                         : isPlaying ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="#fff" style={{ color: "#fff" }} />
                         : <Play className="w-7 h-7 sm:w-8 sm:h-8 ml-1" fill="#fff" style={{ color: "#fff" }} />}
+                      {/* Pulse ring when playing */}
+                      {isPlaying && (
+                        <motion.div
+                          className="absolute inset-0 rounded-full pointer-events-none"
+                          style={{ border: "2px solid var(--mq-accent)" }}
+                          animate={{ scale: [1, 1.4], opacity: [0.6, 0] }}
+                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+                        />
+                      )}
                     </motion.button>
-                    <motion.button whileTap={{ scale: 0.9 }} onClick={nextTrack} className="w-12 h-12 rounded-full flex items-center justify-center" title="Следующий (N)">
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={nextTrack} className="w-12 h-12 rounded-full flex items-center justify-center" title="Следующий (N)">
                       <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                     </motion.button>
-                    <motion.button whileTap={{ scale: 0.9 }} onClick={toggleRepeat} className="w-10 h-10 rounded-full flex items-center justify-center" title="Повтор (R)">
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.15 }} onClick={toggleRepeat} className="w-10 h-10 rounded-full flex items-center justify-center" title="Повтор (R)">
                       {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
                         : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
                     </motion.button>
                   </div>
 
-                  {/* ═══ VOLUME (desktop only) ═══ */}
+                  {/* ═══ VOLUME (desktop — vertical popup slider) ═══ */}
                   {!isMobile && (
-                    <div className="flex items-center gap-2 w-full max-w-xs">
-                      <motion.button whileTap={{ scale: 0.9 }} onClick={toggleMute} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" title="Mute (M)">
+                    <div className="flex items-center gap-2 w-full max-w-xs relative" ref={volumePopupRef}>
+                      <motion.button
+                        whileTap={{ scale: 0.9 }}
+                        whileHover={{ scale: 1.1 }}
+                        onClick={() => setShowVolumePopup(s => !s)}
+                        className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                        title="Звук (M)"
+                      >
                         <VolumeIcon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
                       </motion.button>
-                      <input type="range" min={0} max={100} value={volume} onChange={handleVolumeChange} className="flex-1 h-1.5 rounded-full cursor-pointer" style={{ accentColor: "var(--mq-accent)" }} />
-                      <span className="text-[10px] font-mono w-8 text-right" style={{ color: "var(--mq-text-muted)" }}>{volume}</span>
+
+                      {/* Volume bar (always visible) */}
+                      <div
+                        className="flex-1 h-1.5 rounded-full cursor-pointer relative"
+                        onClick={(e) => {
+                          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                          const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                          setVolume(pct);
+                        }}
+                      >
+                        <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }} />
+                        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${volume}%`, backgroundColor: "var(--mq-accent)" }} />
+                      </div>
+                      <span className="text-[10px] font-mono w-8 text-right" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}</span>
+
+                      {/* Vertical popup slider */}
+                      <AnimatePresence>
+                        {showVolumePopup && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                            className="absolute -top-3 left-0 rounded-2xl p-3 z-10"
+                            style={{
+                              backgroundColor: "color-mix(in srgb, var(--mq-card) 95%, transparent)",
+                              backdropFilter: "blur(20px)",
+                              border: "1px solid var(--mq-border-thin)",
+                              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                            }}
+                          >
+                            <div className="flex items-end gap-3 h-32">
+                              <VolumeSlider
+                                volume={volume}
+                                onChange={handleVolumeChange}
+                                orientation="vertical"
+                                showIcon={false}
+                                showValue={false}
+                              />
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   )}
 
@@ -1089,6 +1123,8 @@ export default function FullTrackView() {
                       <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>←/→</kbd>
                       <span>seek 5s</span>
                       <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>↑/↓</kbd>
+                      <span>vol</span>
+                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>scroll</kbd>
                       <span>vol</span>
                       <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>L</kbd>
                       <span>like</span>

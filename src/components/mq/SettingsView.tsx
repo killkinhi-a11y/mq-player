@@ -11,6 +11,7 @@ import {
   Smartphone, Monitor, Apple, Info, ChevronRight, X, Check, Loader2,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import VolumeSlider from "@/components/ui/volume-slider";
 import { toast } from "@/hooks/use-toast";
 
 // ─── Tab ──────────────────────────────────────────────────────────────────
@@ -366,11 +367,7 @@ export default function SettingsView() {
             <Card>
               <CardTitle icon={Volume2} title="Громкость" />
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
-                <div className="flex items-center gap-3">
-                  <Volume2 className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-                  <input type="range" min={0} max={100} value={volume} onChange={(e) => setVolume(Number(e.target.value))} className="flex-1" style={{ accentColor: "var(--mq-accent)" }} />
-                  <span className="text-xs font-mono w-10 text-right" style={{ color: "var(--mq-text-muted)" }}>{volume}%</span>
-                </div>
+                <VolumeSlider volume={volume} onChange={setVolume} showValue className="w-full" />
               </div>
             </Card>
 
