@@ -480,7 +480,7 @@ export default function FavoritesView() {
           style={{
             backgroundColor: "rgba(255,255,255,0.04)",
             border: searchQuery ? "1.5px solid var(--mq-accent)" : "1px solid var(--mq-border-thin)",
-            boxShadow: searchQuery ? "0 0 0 3px rgba(var(--mq-accent-rgb, 224,49,49), 0.1)" : "none",
+            boxShadow: searchQuery ? "0 0 0 3px color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "none",
           }}
         >
           <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: searchQuery ? "var(--mq-accent)" : "var(--mq-text-muted)", transition: "color 0.2s ease" }} />

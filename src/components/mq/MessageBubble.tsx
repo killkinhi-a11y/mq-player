@@ -638,7 +638,7 @@ export default function MessageBubble({
               backgroundColor: isMine ? "color-mix(in srgb, var(--mq-accent) 85%, rgba(255,255,255,0.18))" : "var(--mq-card)",
               border: isMine ? "none" : "1px solid var(--mq-border-thin)",
               boxShadow: isMine
-                ? "0 2px 16px rgba(var(--mq-accent-rgb, 255,45,109),0.25)"
+                ? "0 2px 16px color-mix(in srgb, var(--mq-accent) 250%, transparent)"
                 : "0 1px 6px rgba(0,0,0,0.12)",
               borderTopRightRadius: isMine ? "6px" : undefined,
               borderTopLeftRadius: isMine ? undefined : "6px",
@@ -786,7 +786,7 @@ export default function MessageBubble({
               : "var(--mq-card)",
             border: isMine ? "none" : "1px solid var(--mq-border-thin)",
             boxShadow: isMine
-              ? "0 2px 16px rgba(var(--mq-accent-rgb, 255,45,109),0.25)"
+              ? "0 2px 16px color-mix(in srgb, var(--mq-accent) 250%, transparent)"
               : "0 1px 6px rgba(0,0,0,0.12)",
             borderTopRightRadius: isMine ? "6px" : undefined,
             borderTopLeftRadius: isMine ? undefined : "6px",

@@ -527,7 +527,7 @@ function NowPlayingCard({
       style={{
         backgroundColor: "var(--mq-card)",
         border: "1px solid var(--mq-border)",
-        boxShadow: "0 0 0 1px rgba(var(--mq-accent-rgb, 255,255,255), 0.1)",
+        boxShadow: "0 0 0 1px color-mix(in srgb, var(--mq-accent) 10%, transparent)",
       }}
     >
       {/* Cover — larger for now playing */}

@@ -428,15 +428,16 @@ export default function SearchView() {
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            className="pl-11 pr-11 min-h-[48px] text-[15px] rounded-2xl font-medium"
+            className="pl-11 pr-11 min-h-[48px] text-[15px] rounded-2xl font-medium outline-none"
             style={{
               backgroundColor: "var(--mq-card)",
-              border: isFocused ? "1.5px solid var(--mq-border-accent-strong)" : "1px solid var(--mq-border-thin)",
+              border: isFocused ? "1.5px solid var(--mq-accent)" : "1px solid var(--mq-border-thin)",
               color: "var(--mq-text)",
               boxShadow: isFocused
-                ? "0 0 0 3px rgba(var(--mq-accent-rgb, 224,49,49), 0.12), 0 0 20px rgba(var(--mq-accent-rgb, 224,49,49), 0.06), 0 4px 16px rgba(0,0,0,0.12)"
+                ? "0 0 0 3px color-mix(in srgb, var(--mq-accent) 15%, transparent), 0 4px 16px rgba(0,0,0,0.12)"
                 : "0 2px 8px rgba(0,0,0,0.06)",
               transition: "border-color 0.25s ease, box-shadow 0.25s ease",
+              outline: "none",
             }}
           />
           {/* Loading indicator — pulsing dot */}
@@ -478,7 +479,7 @@ export default function SearchView() {
             backgroundColor: showFilters || selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
             color: showFilters || selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
             border: showFilters || selectedGenre ? "none" : "1px solid var(--mq-border-thin)",
-            boxShadow: showFilters || selectedGenre ? "0 2px 12px rgba(var(--mq-accent-rgb, 224,49,49), 0.25)" : "none",
+            boxShadow: showFilters || selectedGenre ? "0 2px 12px color-mix(in srgb, var(--mq-accent) 250%, transparent)" : "none",
           }}
         >
           <SlidersHorizontal className="w-4 h-4" />
@@ -533,7 +534,7 @@ export default function SearchView() {
                     backgroundColor: !selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
                     color: !selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
                     border: !selectedGenre ? "1.5px solid var(--mq-border-accent-strong)" : "1px solid var(--mq-border-thin)",
-                    boxShadow: !selectedGenre ? "0 4px 16px rgba(var(--mq-accent-rgb, 224,49,49), 0.2)" : "none",
+                    boxShadow: !selectedGenre ? "0 4px 16px color-mix(in srgb, var(--mq-accent) 20%, transparent)" : "none",
                   }}
                 >
                   <ListMusic className="w-3.5 h-3.5" />
@@ -553,7 +554,7 @@ export default function SearchView() {
                         backgroundColor: isSelected ? "var(--mq-accent)" : `color-mix(in srgb, var(--mq-accent) ${opacity * 100}%, transparent)`,
                         color: isSelected ? "var(--mq-text)" : "var(--mq-text-muted)",
                         border: isSelected ? "1.5px solid var(--mq-border-accent-strong)" : "1px solid var(--mq-border-thin)",
-                        boxShadow: isSelected ? "0 2px 8px rgba(var(--mq-accent-rgb, 224,49,49), 0.15)" : "none",
+                        boxShadow: isSelected ? "0 2px 8px color-mix(in srgb, var(--mq-accent) 150%, transparent)" : "none",
                       }}
                     >
                       <span style={{ color: isSelected ? "var(--mq-text)" : "var(--mq-accent)", opacity: isSelected ? 1 : 0.7 }}>

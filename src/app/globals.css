@@ -263,18 +263,20 @@ input, textarea, select {
 /* Keyboard — single accent ring via box-shadow */
 *:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
   border-radius: inherit;
   transition: box-shadow 0.15s ease;
 }
 
-/* Inputs — stronger ring (they need more emphasis) */
+/* Only add ring if element doesn't have its own inline box-shadow */
+*:focus-visible:not(input):not(textarea):not(select) {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
+}
+
+/* Inputs — outline only, no global box-shadow (they manage their own) */
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 60%, transparent) !important;
-  border-radius: inherit;
 }
 
 /* Remove focus ring from elements that have their own active state
@@ -1084,7 +1086,7 @@ html.blood-theme body::before {
 }
 .mq-input:focus-within {
   border-color: var(--mq-accent);
-  box-shadow: 0 0 0 3px rgba(var(--mq-accent-rgb, 224,49,49), 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mq-accent) 150%, transparent);
 }
 
 /* Smooth icon buttons */
@@ -1759,7 +1761,7 @@ a:not([data-framer-motion-id]),
 .mq-player-premium {
   background: linear-gradient(
     180deg,
-    rgba(var(--mq-accent-rgb), 0.03) 0%,
+    color-mix(in srgb, var(--mq-accent) 030%, transparent) 0%,
     var(--mq-player-bg) 30%
   );
   backdrop-filter: var(--mq-glass-blur-heavy);
