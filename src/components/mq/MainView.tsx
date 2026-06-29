@@ -183,24 +183,26 @@ export default function MainView() {
         const [recRes, trendingRes, appleRes] = await Promise.all([
           fetch(`/api/music/recommendations?${params}`),
           fetch(`/api/music/trending?limit=20`),
-          fetch(`/api/music/apple-top?country=${userCountry}`).catch(() => null),
+          fetch(`/api/music/apple-top?country=${userCountry}`),
         ]);
 
         const cats: RecCategory[] = [];
 
         // Add Apple Music Top 100 as first category
-        if (appleRes && appleRes.ok) {
-          const appleData = await appleRes.json();
-          const appleTracks = (appleData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 10);
-          if (appleTracks.length > 0) {
-            const countryName = countryNameFromCode(appleData.country || userCountry);
-            cats.push({
-              id: "apple_top",
-              title: `Топ ${appleData.country || userCountry} — Apple Music`,
-              icon: "Flame",
-              tracks: appleTracks,
-            });
-          }
+        if (appleRes.ok) {
+          try {
+            const appleData = await appleRes.json();
+            const appleTracks = (appleData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 10);
+            if (appleTracks.length > 0) {
+              const cName = countryNameFromCode(appleData.country || userCountry);
+              cats.push({
+                id: "apple_top",
+                title: `Топ ${cName} — Apple Music`,
+                icon: "Flame",
+                tracks: appleTracks,
+              });
+            }
+          } catch {}
         }
 
         // Add trending as second category ("Популярное сейчас")
