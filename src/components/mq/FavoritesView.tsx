@@ -322,7 +322,7 @@ export default function FavoritesView() {
                 : activeTab === "disliked"
                 ? "rgba(249,115,22,0.1)"
                 : "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
-              border: "1px solid rgba(255,255,255,0.06)",
+              border: "1px solid var(--mq-border-thin)",
             }}
           >
             {activeTab === "subscriptions" ? (
@@ -374,7 +374,7 @@ export default function FavoritesView() {
             className="flex gap-1 p-1 rounded-xl"
             style={{
               backgroundColor: "var(--mq-card)",
-              border: "1px solid rgba(255,255,255,0.06)",
+              border: "1px solid var(--mq-border-thin)",
             }}
           >
             {tabs.map((tab) => {
@@ -438,7 +438,7 @@ export default function FavoritesView() {
             style={{
               backgroundColor: !activeFilter ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.04)",
               color: !activeFilter ? "var(--mq-accent)" : "var(--mq-text-muted)",
-              border: !activeFilter ? "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)" : "1px solid rgba(255,255,255,0.06)",
+              border: !activeFilter ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-thin)",
             }}
           >
             <Filter className="w-3 h-3" />
@@ -456,7 +456,7 @@ export default function FavoritesView() {
                 style={{
                   backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.04)",
                   color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
-                  border: isActive ? "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)" : "1px solid rgba(255,255,255,0.06)",
+                  border: isActive ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-thin)",
                 }}
               >
                 {tag.type === "genre" ? <Tag className="w-3 h-3" /> : <Disc3 className="w-3 h-3" />}
@@ -479,7 +479,7 @@ export default function FavoritesView() {
           className="flex-1 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl transition-all duration-200"
           style={{
             backgroundColor: "rgba(255,255,255,0.04)",
-            border: searchQuery ? "1.5px solid var(--mq-accent)" : "1px solid rgba(255,255,255,0.06)",
+            border: searchQuery ? "1.5px solid var(--mq-accent)" : "1px solid var(--mq-border-thin)",
             boxShadow: searchQuery ? "0 0 0 3px rgba(var(--mq-accent-rgb, 224,49,49), 0.1)" : "none",
           }}
         >
@@ -533,7 +533,7 @@ export default function FavoritesView() {
                   className="absolute right-0 top-full mt-2 w-52 rounded-xl overflow-hidden z-50 shadow-xl"
                   style={{
                     backgroundColor: "var(--mq-card)",
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    border: "1px solid var(--mq-border-thin)",
                     boxShadow: "var(--mq-shadow-float)",
                   }}
                 >
@@ -624,7 +624,7 @@ export default function FavoritesView() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -5, scale: 0.95 }}
                     className="absolute right-0 top-full mt-1 w-48 rounded-xl overflow-hidden z-50"
-                    style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)", boxShadow: "var(--mq-shadow-float)" }}
+                    style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "var(--mq-shadow-float)" }}
                     onClick={e => e.stopPropagation()}
                   >
                     {playlists.map(pl => (
@@ -688,7 +688,7 @@ export default function FavoritesView() {
             style={{
               backgroundColor: "rgba(255,255,255,0.06)",
               color: "var(--mq-text-muted)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: "1px solid var(--mq-border-thin)",
             }}
           >
             <Shuffle className="w-3.5 h-3.5" />
@@ -718,7 +718,7 @@ export default function FavoritesView() {
           className="rounded-2xl overflow-hidden"
           style={{
             backgroundColor: "var(--mq-card)",
-            border: "1px solid rgba(255,255,255,0.06)",
+            border: "1px solid var(--mq-border-thin)",
             boxShadow: "var(--mq-shadow-xs)",
           }}
         >
@@ -864,7 +864,7 @@ export default function FavoritesView() {
           className="rounded-2xl overflow-hidden"
           style={{
             backgroundColor: "var(--mq-card)",
-            border: "1px solid rgba(255,255,255,0.06)",
+            border: "1px solid var(--mq-border-thin)",
             boxShadow: "var(--mq-shadow-xs)",
           }}
         >
@@ -934,7 +934,7 @@ export default function FavoritesView() {
             </div>
           ) : tracks.length === 0 && (isSearchActive || activeFilter) ? (
             <div className="mq-empty-state py-14 px-6 flex flex-col items-center">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid var(--mq-border-thin)" }}>
                 <Search className="w-6 h-6" style={{ color: "var(--mq-text-muted)", opacity: 0.35 }} />
               </div>
               <p className="text-sm font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
@@ -997,7 +997,7 @@ export default function FavoritesView() {
                           className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors"
                           style={{
                             backgroundColor: isSelected ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
-                            border: isSelected ? "none" : "1.5px solid rgba(255,255,255,0.15)",
+                            border: isSelected ? "none" : "1.5px solid var(--mq-border-medium)",
                             color: isSelected ? "var(--mq-text)" : "transparent",
                           }}
                         >
@@ -1160,7 +1160,7 @@ export default function FavoritesView() {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.3 }}
                   className="flex items-center justify-between px-4 py-2.5"
-                  style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
+                  style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
                 >
                   <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                     {tracks.length} {tracks.length === 1 ? "трек" : tracks.length < 5 ? "трека" : "треков"}

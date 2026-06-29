@@ -152,7 +152,7 @@ export default function PlayerBar() {
             background: "color-mix(in srgb, var(--mq-bg) 65%, transparent)",
             backdropFilter: "blur(40px) saturate(200%)",
             WebkitBackdropFilter: "blur(40px) saturate(200%)",
-            border: "1px solid rgba(255,255,255,0.06)",
+            border: "1px solid var(--mq-border-thin)",
             borderBottom: "none",
             boxShadow: "0 -4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)",
           }}
@@ -264,7 +264,7 @@ export default function PlayerBar() {
           backgroundColor: "color-mix(in srgb, var(--mq-player-bg) 75%, transparent)",
           backdropFilter: "blur(40px) saturate(200%)",
           WebkitBackdropFilter: "blur(40px) saturate(200%)",
-          border: "1px solid rgba(255,255,255,0.06)",
+          border: "1px solid var(--mq-border-thin)",
           boxShadow: "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)",
         }}
       >

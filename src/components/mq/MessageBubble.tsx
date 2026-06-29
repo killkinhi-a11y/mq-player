@@ -481,7 +481,7 @@ export default function MessageBubble({
             className="rounded-2xl px-4 py-2.5"
             style={{
               backgroundColor: isMine ? "color-mix(in srgb, var(--mq-accent) 85%, rgba(255,255,255,0.18))" : "var(--mq-card)",
-              border: isMine ? "none" : "1px solid rgba(255,255,255,0.08)",
+              border: isMine ? "none" : "1px solid var(--mq-border-thin)",
               borderTopRightRadius: isMine ? "6px" : undefined,
               borderTopLeftRadius: isMine ? undefined : "6px",
             }}
@@ -636,7 +636,7 @@ export default function MessageBubble({
             className="rounded-2xl px-4 py-3 relative"
             style={{
               backgroundColor: isMine ? "color-mix(in srgb, var(--mq-accent) 85%, rgba(255,255,255,0.18))" : "var(--mq-card)",
-              border: isMine ? "none" : "1px solid rgba(255,255,255,0.08)",
+              border: isMine ? "none" : "1px solid var(--mq-border-thin)",
               boxShadow: isMine
                 ? "0 2px 16px rgba(var(--mq-accent-rgb, 255,45,109),0.25)"
                 : "0 1px 6px rgba(0,0,0,0.12)",
@@ -784,7 +784,7 @@ export default function MessageBubble({
             backgroundColor: isMine
               ? "color-mix(in srgb, var(--mq-accent) 85%, rgba(255,255,255,0.18))"
               : "var(--mq-card)",
-            border: isMine ? "none" : "1px solid rgba(255,255,255,0.08)",
+            border: isMine ? "none" : "1px solid var(--mq-border-thin)",
             boxShadow: isMine
               ? "0 2px 16px rgba(var(--mq-accent-rgb, 255,45,109),0.25)"
               : "0 1px 6px rgba(0,0,0,0.12)",
@@ -845,8 +845,8 @@ export default function MessageBubble({
                         ? "color-mix(in srgb, var(--mq-accent) 20%, transparent)"
                         : "rgba(255,255,255,0.06)",
                       border: hasMine
-                        ? "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)"
-                        : "1px solid rgba(255,255,255,0.06)",
+                        ? "1px solid var(--mq-border-accent)"
+                        : "1px solid var(--mq-border-thin)",
                     }}
                   >
                     <span>{emoji}</span>

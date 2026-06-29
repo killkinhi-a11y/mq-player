@@ -33,7 +33,7 @@ function Card({ children }: { children: React.ReactNode }) {
       className="rounded-2xl overflow-hidden"
       style={{
         backgroundColor: "var(--mq-card)",
-        border: "1px solid rgba(255,255,255,0.05)",
+        border: "1px solid var(--mq-border-hairline)",
         boxShadow: "var(--mq-shadow-premium-md)",
       }}
     >
@@ -69,7 +69,7 @@ function SettingRow({
     <Wrapper
       {...(onClick ? { whileTap: { scale: 0.99 }, whileHover: { backgroundColor: "rgba(255,255,255,0.03)" }, onClick } : {})}
       className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5 text-left transition-colors"
-      style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}
+      style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
     >
       <div
         className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -97,7 +97,7 @@ function SettingToggle({
   value: boolean; onCheckedChange: (v: boolean) => void;
 }) {
   return (
-    <div className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+    <div className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
       <div
         className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{ backgroundColor: value ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.05)" }}
@@ -245,7 +245,7 @@ export default function SettingsView() {
       {/* Tab bar */}
       <div className="sticky z-30 mb-4 sm:mb-5" style={{ top: 0, paddingTop: 8, paddingBottom: 8, backgroundColor: "var(--mq-bg)" }}>
         <div className="flex gap-1 p-1 rounded-2xl overflow-x-auto scrollbar-none"
-          style={{ background: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 8px 24px rgba(0,0,0,0.2)", WebkitOverflowScrolling: "touch" }}>
+          style={{ background: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 8px 24px rgba(0,0,0,0.2)", WebkitOverflowScrolling: "touch" }}>
           {TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -267,7 +267,7 @@ export default function SettingsView() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             <Card>
               <CardTitle icon={User} title="Профиль" />
-              <div className="px-3 sm:px-4 py-3 sm:py-4 flex items-center gap-3 sm:gap-4" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="px-3 sm:px-4 py-3 sm:py-4 flex items-center gap-3 sm:gap-4" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="relative flex-shrink-0">
                   <div className="absolute -inset-1 rounded-full opacity-60" style={{ background: "linear-gradient(135deg, var(--mq-accent), rgba(255,255,255,0.15))" }} />
                   {avatar ? (
@@ -303,14 +303,14 @@ export default function SettingsView() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             <Card>
               <CardTitle icon={Palette} title="Тема" />
-              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="grid grid-cols-4 gap-2">
                   {Object.entries(themes).slice(0, 12).map(([key, theme]: [string, any]) => {
                     const isActive = currentTheme === key;
                     return (
                       <motion.button key={key} whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={() => setTheme(key)}
                         className="relative p-2 rounded-xl flex flex-col items-center gap-1.5"
-                        style={{ backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "rgba(255,255,255,0.03)", border: isActive ? "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)" : "1px solid rgba(255,255,255,0.04)" }}>
+                        style={{ backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "rgba(255,255,255,0.03)", border: isActive ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-hairline)" }}>
                         <div className="w-10 h-10 rounded-full" style={{ background: `linear-gradient(135deg, ${theme.accent || "#e03131"}, ${theme.bg || "#0e0e0e"})` }} />
                         <span className="text-[10px] font-medium truncate w-full text-center" style={{ color: "var(--mq-text-muted)" }}>{theme.name || key}</span>
                         {isActive && <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}><Check className="w-2.5 h-2.5" style={{ color: "#fff" }} /></div>}
@@ -323,7 +323,7 @@ export default function SettingsView() {
 
             <Card>
               <CardTitle icon={Sparkles} title="Акцент" />
-              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="flex flex-wrap gap-2">
                   {accentPresets.map(color => (
                     <motion.button key={color} whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={() => setCustomAccent(color)}
@@ -332,7 +332,7 @@ export default function SettingsView() {
                       {customAccent === color && <Check className="w-4 h-4" style={{ color: "#fff" }} />}
                     </motion.button>
                   ))}
-                  <label className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer" style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px dashed rgba(255,255,255,0.2)" }}>
+                  <label className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer" style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px dashed var(--mq-border-medium)" }}>
                     <input type="color" value={customAccent || "#e03131"} onChange={(e) => setCustomAccent(e.target.value)} className="opacity-0 absolute w-0 h-0" />
                     <Palette className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
                   </label>
@@ -342,7 +342,7 @@ export default function SettingsView() {
 
             <Card>
               <CardTitle icon={Type} title="Текст" />
-              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="flex items-center gap-3">
                   <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>A</span>
                   <input type="range" min={13} max={20} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="flex-1" style={{ accentColor: "var(--mq-accent)" }} />
@@ -365,7 +365,7 @@ export default function SettingsView() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             <Card>
               <CardTitle icon={Volume2} title="Громкость" />
-              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="flex items-center gap-3">
                   <Volume2 className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
                   <input type="range" min={0} max={100} value={volume} onChange={(e) => setVolume(Number(e.target.value))} className="flex-1" style={{ accentColor: "var(--mq-accent)" }} />
@@ -384,7 +384,7 @@ export default function SettingsView() {
               <CardTitle icon={RefreshCw} title="Переходы" />
               <SettingToggle icon={RefreshCw} label="Crossfade" subtitle="Плавный переход" value={crossfadeEnabled} onCheckedChange={setCrossfadeEnabled} />
               {crossfadeEnabled && (
-                <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                   <div className="flex items-center gap-3">
                     <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>0.5s</span>
                     <input type="range" min={0.5} max={8} step={0.5} value={crossfadeDuration} onChange={(e) => setCrossfadeDuration(Number(e.target.value))} className="flex-1" style={{ accentColor: "var(--mq-accent)" }} />
@@ -404,7 +404,7 @@ export default function SettingsView() {
               <CardTitle icon={Bell} title="Push-уведомления" />
               <SettingToggle icon={Bell} label="Уведомления" subtitle="Новые сообщения, обновления" value={pushEnabled} onCheckedChange={handlePushToggle} />
               {pushLoading && (
-                <div className="px-4 py-2 flex items-center gap-2" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                <div className="px-4 py-2 flex items-center gap-2" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                   <Loader2 className="w-3 h-3 animate-spin" style={{ color: "var(--mq-accent)" }} />
                   <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Обработка...</span>
                 </div>
@@ -435,23 +435,23 @@ export default function SettingsView() {
 
             <Card>
               <CardTitle icon={Download} title="Скачать приложение" />
-              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip" target="_blank" rel="noopener noreferrer"
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
                     <Monitor className="w-5 h-5" style={{ color: "#3b82f6" }} />
                     <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
                   </motion.a>
                   <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer"
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
                     <Apple className="w-5 h-5" style={{ color: "#a855f7" }} />
                     <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>macOS</span>
                   </motion.a>
                   <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer"
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
                     <Monitor className="w-5 h-5" style={{ color: "#eab308" }} />
                     <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
                   </motion.a>

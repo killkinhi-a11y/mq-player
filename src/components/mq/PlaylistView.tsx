@@ -465,7 +465,7 @@ export default function PlaylistView() {
             background: pl.cover
               ? `linear-gradient(180deg, transparent 0%, var(--mq-bg) 100%), url(${pl.cover}) center/cover`
               : gradientCover(pl.name),
-            border: "1px solid rgba(255,255,255,0.06)",
+            border: "1px solid var(--mq-border-thin)",
             boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
           }}
         >
@@ -661,7 +661,7 @@ export default function PlaylistView() {
             whileHover={{ scale: 1.03 }}
             onClick={() => setShowImport(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium"
-            style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid rgba(255,255,255,0.06)" }}
+            style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-thin)" }}
           >
             <Download className="w-3.5 h-3.5" />
             Импорт
@@ -682,7 +682,7 @@ export default function PlaylistView() {
               initial={{ y: -8 }}
               animate={{ y: 0 }}
               className="rounded-2xl p-5 space-y-3"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)", boxShadow: "var(--mq-shadow-card)" }}
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "var(--mq-shadow-card)" }}
             >
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Новый плейлист</h3>
@@ -696,7 +696,7 @@ export default function PlaylistView() {
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Название"
                 className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none"
-                style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)", color: "var(--mq-text)" }}
+                style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                 autoFocus
               />
@@ -706,7 +706,7 @@ export default function PlaylistView() {
                 onChange={(e) => setNewDesc(e.target.value)}
                 placeholder="Описание (необязательно)"
                 className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none"
-                style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)", color: "var(--mq-text)" }}
+                style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
                 onKeyDown={(e) => e.key === "Enter" && handleCreate()}
               />
               <div className="flex gap-2">
@@ -747,7 +747,7 @@ export default function PlaylistView() {
               initial={{ y: -8 }}
               animate={{ y: 0 }}
               className="rounded-2xl p-5 space-y-3"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)", boxShadow: "var(--mq-shadow-card)" }}
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "var(--mq-shadow-card)" }}
             >
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Импорт плейлиста</h3>
@@ -795,7 +795,7 @@ export default function PlaylistView() {
                       onChange={(e) => { setImportUrl(e.target.value); setImportError(""); setImportHint(""); }}
                       placeholder="https://music.yandex.ru/playlist/..."
                       className="flex-1 rounded-xl px-3.5 py-2.5 text-sm outline-none"
-                      style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)", color: "var(--mq-text)" }}
+                      style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
                       onKeyDown={(e) => e.key === "Enter" && triggerUrlImport()}
                       autoFocus
                     />
@@ -824,7 +824,7 @@ export default function PlaylistView() {
                     placeholder={"Queen — Bohemian Rhapsody\nMetallica — Nothing Else Matters\nNirvana — Smells Like Teen Spirit"}
                     rows={6}
                     className="w-full rounded-xl px-3.5 py-2.5 text-sm outline-none resize-none font-mono"
-                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)", color: "var(--mq-text)" }}
+                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
                     autoFocus
                   />
                   <button
@@ -863,7 +863,7 @@ export default function PlaylistView() {
               {importHint && !importing && (
                 <div
                   className="rounded-xl p-3"
-                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.06)" }}
+                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}
                 >
                   <p className="text-[11px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
                     {importHint}
@@ -1066,7 +1066,7 @@ function PlaylistTile({
       className="group relative rounded-2xl p-3 cursor-pointer"
       style={{
         backgroundColor: "var(--mq-card)",
-        border: "1px solid rgba(255,255,255,0.05)",
+        border: "1px solid var(--mq-border-hairline)",
         boxShadow: "var(--mq-shadow-premium-md)",
       }}
     >
@@ -1155,7 +1155,7 @@ function PlaylistTile({
               className="absolute top-11 right-2 z-20 min-w-[160px] rounded-xl overflow-hidden py-1"
               style={{
                 backgroundColor: "var(--mq-surface, #1a1a1a)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                border: "1px solid var(--mq-border-thin)",
                 boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
               }}
             >

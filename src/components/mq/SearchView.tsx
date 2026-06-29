@@ -342,7 +342,7 @@ export default function SearchView() {
       {uploadProgress && (
         <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
           className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[90vw] max-w-md">
-          <div className="rounded-2xl p-4 shadow-2xl" style={{ backgroundColor: "rgba(24,24,27,0.97)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.06)", color: "var(--mq-text)" }}>
+          <div className="rounded-2xl p-4 shadow-2xl" style={{ backgroundColor: "rgba(24,24,27,0.97)", backdropFilter: "blur(24px)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}>
             <div className="flex items-center gap-3 mb-2">
               {uploadProgress.status === "uploading" && <Loader2 className="w-5 h-5 flex-shrink-0 animate-spin" style={{ color: "var(--mq-accent)" }} />}
               {uploadProgress.status === "done" && <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: "#4ade80" }} />}
@@ -392,7 +392,7 @@ export default function SearchView() {
                 whileTap={{ scale: 0.97 }}
                 onClick={() => playTrack(track, quickPicks)}
                 className="flex items-center gap-2.5 p-2.5 rounded-2xl text-left cursor-pointer group transition-all duration-200"
-                style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.04)" }}
+                style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
               >
                 <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ boxShadow: "var(--mq-shadow-xs)" }}>
                   {track.cover ? (
@@ -431,7 +431,7 @@ export default function SearchView() {
             className="pl-11 pr-11 min-h-[48px] text-[15px] rounded-2xl font-medium"
             style={{
               backgroundColor: "var(--mq-card)",
-              border: isFocused ? "1.5px solid var(--mq-accent)" : "1px solid rgba(255,255,255,0.06)",
+              border: isFocused ? "1.5px solid var(--mq-border-accent-strong)" : "1px solid var(--mq-border-thin)",
               color: "var(--mq-text)",
               boxShadow: isFocused
                 ? "0 0 0 3px rgba(var(--mq-accent-rgb, 224,49,49), 0.12), 0 0 20px rgba(var(--mq-accent-rgb, 224,49,49), 0.06), 0 4px 16px rgba(0,0,0,0.12)"
@@ -477,7 +477,7 @@ export default function SearchView() {
           style={{
             backgroundColor: showFilters || selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
             color: showFilters || selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
-            border: showFilters || selectedGenre ? "none" : "1px solid rgba(255,255,255,0.06)",
+            border: showFilters || selectedGenre ? "none" : "1px solid var(--mq-border-thin)",
             boxShadow: showFilters || selectedGenre ? "0 2px 12px rgba(var(--mq-accent-rgb, 224,49,49), 0.25)" : "none",
           }}
         >
@@ -492,7 +492,7 @@ export default function SearchView() {
           style={{
             backgroundColor: "var(--mq-card)",
             color: isUploading ? "var(--mq-accent)" : "var(--mq-text-muted)",
-            border: "1px solid rgba(255,255,255,0.06)",
+            border: "1px solid var(--mq-border-thin)",
           }}
         >
           <Upload className={`w-4 h-4 ${isUploading ? "animate-pulse" : ""}`} />
@@ -532,7 +532,7 @@ export default function SearchView() {
                   style={{
                     backgroundColor: !selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
                     color: !selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
-                    border: !selectedGenre ? "1.5px solid var(--mq-accent)" : "1px solid rgba(255,255,255,0.06)",
+                    border: !selectedGenre ? "1.5px solid var(--mq-border-accent-strong)" : "1px solid var(--mq-border-thin)",
                     boxShadow: !selectedGenre ? "0 4px 16px rgba(var(--mq-accent-rgb, 224,49,49), 0.2)" : "none",
                   }}
                 >
@@ -552,7 +552,7 @@ export default function SearchView() {
                       style={{
                         backgroundColor: isSelected ? "var(--mq-accent)" : `color-mix(in srgb, var(--mq-accent) ${opacity * 100}%, transparent)`,
                         color: isSelected ? "var(--mq-text)" : "var(--mq-text-muted)",
-                        border: isSelected ? "1.5px solid var(--mq-accent)" : "1px solid rgba(255,255,255,0.06)",
+                        border: isSelected ? "1.5px solid var(--mq-border-accent-strong)" : "1px solid var(--mq-border-thin)",
                         boxShadow: isSelected ? "0 2px 8px rgba(var(--mq-accent-rgb, 224,49,49), 0.15)" : "none",
                       }}
                     >
@@ -617,7 +617,7 @@ export default function SearchView() {
                       style={{
                         backgroundColor: "var(--mq-card)",
                         color: "var(--mq-text-muted)",
-                        border: "1px solid rgba(255,255,255,0.06)",
+                        border: "1px solid var(--mq-border-thin)",
                       }}
                     >
                       <Clock className="w-3 h-3 opacity-40" />
@@ -770,7 +770,7 @@ export default function SearchView() {
                 style={{
                   backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text-muted)",
-                  border: "1px solid rgba(255,255,255,0.06)",
+                  border: "1px solid var(--mq-border-thin)",
                 }}
               >
                 {term}
@@ -868,7 +868,7 @@ export default function SearchView() {
                   style={{
                     backgroundColor: "var(--mq-card)",
                     color: "var(--mq-text-muted)",
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    border: "1px solid var(--mq-border-thin)",
                   }}
                 >
                   {term}
@@ -907,7 +907,7 @@ export default function SearchView() {
                 style={{
                   backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text-muted)",
-                  border: "1px solid rgba(255,255,255,0.06)",
+                  border: "1px solid var(--mq-border-thin)",
                 }}
               >
                 {term}

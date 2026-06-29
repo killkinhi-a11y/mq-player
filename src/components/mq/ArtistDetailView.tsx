@@ -158,10 +158,10 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
           <div className="relative flex-shrink-0">
             <div className="absolute -inset-1.5 rounded-full opacity-40" style={{ background: "linear-gradient(135deg, var(--mq-accent), transparent)" }} />
             {info.avatar ? (
-              <img src={info.avatar} alt={artist.name} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover relative z-10" style={{ border: "2px solid rgba(255,255,255,0.1)" }} />
+              <img src={info.avatar} alt={artist.name} className="w-20 h-20 sm:w-24 sm:h-24 rounded-full object-cover relative z-10" style={{ border: "2px solid var(--mq-border-medium)" }} />
             ) : (
               <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center relative z-10 font-bold"
-                style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 50%, #000))", color: "#fff", fontSize: 36, border: "2px solid rgba(255,255,255,0.1)" }}>
+                style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 50%, #000))", color: "#fff", fontSize: 36, border: "2px solid var(--mq-border-medium)" }}>
                 {artist.name.charAt(0).toUpperCase()}
               </div>
             )}
@@ -186,15 +186,15 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
               </button>
               <button onClick={handleShuffle} disabled={tracks.length === 0}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-medium transition-opacity"
-                style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "1px solid rgba(255,255,255,0.12)", opacity: tracks.length ? 1 : 0.4 }}>
+                style={{ background: "rgba(255,255,255,0.1)", color: "#fff", border: "1px solid var(--mq-border-medium)", opacity: tracks.length ? 1 : 0.4 }}>
                 <Shuffle className="w-3.5 h-3.5" />
               </button>
               <button onClick={handleFav}
                 className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: isFav ? "color-mix(in srgb, var(--mq-accent) 20%, transparent)" : "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                style={{ background: isFav ? "color-mix(in srgb, var(--mq-accent) 20%, transparent)" : "rgba(255,255,255,0.1)", border: "1px solid var(--mq-border-medium)" }}>
                 <Heart className="w-3.5 h-3.5" style={{ color: isFav ? "var(--mq-accent)" : "#fff" }} fill={isFav ? "currentColor" : "none"} />
               </button>
-              <button onClick={handleShare} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.12)" }}>
+              <button onClick={handleShare} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)", border: "1px solid var(--mq-border-medium)" }}>
                 <Share2 className="w-3.5 h-3.5" style={{ color: "#fff" }} />
               </button>
             </div>

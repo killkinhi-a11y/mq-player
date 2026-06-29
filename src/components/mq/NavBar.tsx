@@ -75,7 +75,7 @@ const NavBar = React.memo(function NavBar() {
         background: "color-mix(in srgb, var(--mq-bg) 55%, transparent)",
         backdropFilter: "blur(32px) saturate(200%)",
         WebkitBackdropFilter: "blur(32px) saturate(200%)",
-        border: "1px solid rgba(255,255,255,0.06)",
+        border: "1px solid var(--mq-border-thin)",
         boxShadow:
           "0 10px 40px rgba(0,0,0,0.3), " +
           "inset 0 1px 0 rgba(255,255,255,0.06)",
@@ -122,7 +122,7 @@ const NavBar = React.memo(function NavBar() {
         aria-label="Основная навигация"
         style={{
           background: "rgba(255,255,255,0.04)",
-          border: "1px solid rgba(255,255,255,0.04)",
+          border: "1px solid var(--mq-border-hairline)",
         }}
       >
         {navItems.map((item, index) => {

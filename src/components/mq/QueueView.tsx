@@ -1110,7 +1110,7 @@ function DragOverlayCard({ track }: { track: Track }) {
       className="flex items-center gap-2 p-2.5 rounded-xl select-none"
       style={{
         backgroundColor: "var(--mq-card)",
-        border: "1.5px solid var(--mq-accent)",
+        border: "1.5px solid var(--mq-border-accent-strong)",
         boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 16px color-mix(in srgb, var(--mq-accent) 20%, transparent)",
         maxWidth: "32rem",
         cursor: "grabbing",

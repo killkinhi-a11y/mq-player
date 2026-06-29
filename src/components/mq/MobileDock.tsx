@@ -117,7 +117,7 @@ export default function MobileDock() {
           background: "color-mix(in srgb, var(--mq-bg) 70%, transparent)",
           backdropFilter: "blur(40px) saturate(200%)",
           WebkitBackdropFilter: "blur(40px) saturate(200%)",
-          border: "1px solid rgba(255,255,255,0.06)",
+          border: "1px solid var(--mq-border-thin)",
           boxShadow: "0 12px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)",
         }}
       >

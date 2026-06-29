@@ -283,6 +283,12 @@ textarea:focus-visible {
   --mq-text: #f0f0f0;
   --mq-text-muted: #9a9a9a;
   --mq-border: rgba(255,255,255,0.05);
+  --mq-border-hairline: rgba(255,255,255,0.04);
+  --mq-border-thin: rgba(255,255,255,0.06);
+  --mq-border-medium: rgba(255,255,255,0.1);
+  --mq-border-accent: color-mix(in srgb, var(--mq-accent) 25%, transparent);
+  --mq-border-accent-strong: color-mix(in srgb, var(--mq-accent) 40%, transparent);
+  --mq-focus-ring: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 40%, transparent);
   --mq-input-bg: #1a1a1a;
   --mq-player-bg: #111111;
   --mq-nav-bg: #0e0e0eee;

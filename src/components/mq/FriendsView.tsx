@@ -610,7 +610,7 @@ export default function FriendsView() {
             <div className="text-center py-10">
               <div
                 className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3"
-                style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid var(--mq-border-thin)" }}
               >
                 <WifiOff className="w-7 h-7" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
               </div>
@@ -824,7 +824,7 @@ function FriendCard({
       transition={{ delay: index * 0.04 }}
       whileHover={{ y: -1, boxShadow: "var(--mq-shadow-card-hover)" }}
       className="flex items-center gap-3 p-3 rounded-2xl transition-all"
-      style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)" }}
     >
       <div className="relative flex-shrink-0">
         <AvatarImg src={friend.avatar} alt={friend.username} size="md" />

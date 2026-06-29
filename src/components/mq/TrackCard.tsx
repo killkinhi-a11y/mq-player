@@ -277,7 +277,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
                 backgroundColor: "rgba(0,0,0,0.45)",
                 backdropFilter: "blur(12px) saturate(180%)",
                 WebkitBackdropFilter: "blur(12px) saturate(180%)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                border: "1px solid var(--mq-border-medium)",
               }}
               whileHover={{ scale: 1.05 }}
               transition={{ type: "spring", stiffness: 400, damping: 25 }}

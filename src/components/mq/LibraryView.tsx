@@ -64,7 +64,7 @@ const LibraryView = React.memo(function LibraryView() {
       >
         <div
           className="flex gap-0 border-b"
-          style={{ borderColor: "rgba(255,255,255,0.08)" }}
+          style={{ borderColor: "var(--mq-border-thin)" }}
         >
           {tabs.map((tab) => {
             const Icon = tab.icon;

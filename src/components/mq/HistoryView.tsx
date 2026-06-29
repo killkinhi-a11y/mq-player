@@ -269,7 +269,7 @@ export default function HistoryView() {
           <div className="grid grid-cols-3 gap-2">
             <motion.div
               className="rounded-2xl p-3 flex flex-col items-center text-center"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
               initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.06, duration: 0.3 }}
@@ -290,7 +290,7 @@ export default function HistoryView() {
 
             <motion.div
               className="rounded-2xl p-3 flex flex-col items-center text-center"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
               initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.3 }}
@@ -311,7 +311,7 @@ export default function HistoryView() {
 
             <motion.div
               className="rounded-2xl p-3 flex flex-col items-center text-center"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
               initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.14, duration: 0.3 }}
@@ -342,7 +342,7 @@ export default function HistoryView() {
               {stats.topArtist && (
                 <div
                   className="rounded-xl px-3 py-2.5 flex items-center gap-2.5"
-                  style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+                  style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
                 >
                   <div
                     className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -360,7 +360,7 @@ export default function HistoryView() {
               {stats.topGenre && (
                 <div
                   className="rounded-xl px-3 py-2.5 flex items-center gap-2.5"
-                  style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+                  style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
                 >
                   <div
                     className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -435,7 +435,7 @@ export default function HistoryView() {
                     className="rounded-2xl overflow-hidden"
                     style={{
                       backgroundColor: "var(--mq-card)",
-                      border: "1px solid rgba(255,255,255,0.05)",
+                      border: "1px solid var(--mq-border-hairline)",
                       boxShadow: "var(--mq-shadow-xs)",
                     }}
                   >

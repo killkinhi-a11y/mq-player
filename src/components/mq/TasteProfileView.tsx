@@ -181,7 +181,7 @@ function GlassCard({
         background: "rgba(255,255,255,0.03)",
         backdropFilter: "blur(20px) saturate(150%)",
         WebkitBackdropFilter: "blur(20px) saturate(150%)",
-        border: "1px solid rgba(255,255,255,0.06)",
+        border: "1px solid var(--mq-border-thin)",
       }}
     >
       {children}
@@ -205,7 +205,7 @@ function SectionHeader({
         className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
         style={{
           background: "rgba(255,255,255,0.06)",
-          border: "1px solid rgba(255,255,255,0.08)",
+          border: "1px solid var(--mq-border-thin)",
         }}
       >
         <Icon
@@ -446,7 +446,7 @@ export default function TasteProfileView() {
           style={{
             color: "var(--mq-text-muted)",
             background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.06)",
+            border: "1px solid var(--mq-border-thin)",
           }}
         >
           <RotateCcw className="w-3 h-3" />
@@ -550,7 +550,7 @@ export default function TasteProfileView() {
               </div>
 
               {/* Add custom genre */}
-              <div className="flex items-center gap-2 mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="flex items-center gap-2 mt-4 pt-4" style={{ borderTop: "1px solid var(--mq-border-thin)" }}>
                 <input
                   type="text"
                   value={customGenreInput}
@@ -560,7 +560,7 @@ export default function TasteProfileView() {
                   className="flex-1 bg-transparent text-sm px-3 py-2 rounded-xl outline-none placeholder:text-white/20"
                   style={{
                     color: "var(--mq-text)",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    border: "1px solid var(--mq-border-thin)",
                   }}
                 />
                 <motion.button
@@ -626,7 +626,7 @@ export default function TasteProfileView() {
                       className="w-9 h-9 rounded-xl shrink-0 overflow-hidden"
                       style={{
                         background: "rgba(255,255,255,0.06)",
-                        border: "1px solid rgba(255,255,255,0.08)",
+                        border: "1px solid var(--mq-border-thin)",
                       }}
                     >
                       {artist.avatar ? (
@@ -830,7 +830,7 @@ export default function TasteProfileView() {
                   className="rounded-xl p-3 text-center"
                   style={{
                     background: "rgba(255,255,255,0.02)",
-                    border: "1px solid rgba(255,255,255,0.05)",
+                    border: "1px solid var(--mq-border-hairline)",
                   }}
                 >
                   <div
@@ -849,7 +849,7 @@ export default function TasteProfileView() {
                   className="rounded-xl p-3 text-center"
                   style={{
                     background: "rgba(255,255,255,0.02)",
-                    border: "1px solid rgba(255,255,255,0.05)",
+                    border: "1px solid var(--mq-border-hairline)",
                   }}
                 >
                   <div
@@ -870,7 +870,7 @@ export default function TasteProfileView() {
                   className="rounded-xl p-3 text-center"
                   style={{
                     background: "rgba(255,255,255,0.02)",
-                    border: "1px solid rgba(255,255,255,0.05)",
+                    border: "1px solid var(--mq-border-hairline)",
                   }}
                 >
                   <div
@@ -896,7 +896,7 @@ export default function TasteProfileView() {
                   className="rounded-xl p-3 text-center"
                   style={{
                     background: "rgba(255,255,255,0.02)",
-                    border: "1px solid rgba(255,255,255,0.05)",
+                    border: "1px solid var(--mq-border-hairline)",
                   }}
                 >
                   <div
@@ -913,7 +913,7 @@ export default function TasteProfileView() {
 
               {/* Top genres */}
               {summary.topGenres.length > 0 && (
-                <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--mq-border-thin)" }}>
                   <h3 className="text-xs font-medium mb-3" style={{ color: "var(--mq-text-muted)" }}>
                     Топ любимых жанров
                   </h3>
@@ -1037,7 +1037,7 @@ export default function TasteProfileView() {
                   className="rounded-xl p-3"
                   style={{
                     background: "rgba(255,255,255,0.02)",
-                    border: "1px solid rgba(255,255,255,0.05)",
+                    border: "1px solid var(--mq-border-hairline)",
                   }}
                 >
                   <div className="flex items-center gap-2 mb-1.5">
@@ -1056,7 +1056,7 @@ export default function TasteProfileView() {
                   className="rounded-xl p-3"
                   style={{
                     background: "rgba(255,255,255,0.02)",
-                    border: "1px solid rgba(255,255,255,0.05)",
+                    border: "1px solid var(--mq-border-hairline)",
                   }}
                 >
                   <div className="flex items-center gap-2 mb-1.5">
@@ -1074,7 +1074,7 @@ export default function TasteProfileView() {
               </div>
 
               {/* Preview tag list */}
-              <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--mq-border-thin)" }}>
                 <h3 className="text-xs font-medium mb-2" style={{ color: "var(--mq-text-muted)" }}>
                   Предпросмотр фильтров рекомендаций
                 </h3>

@@ -764,7 +764,7 @@ export default function MessengerView() {
         className="flex rounded-3xl overflow-hidden h-full"
         style={{
           backgroundColor: "var(--mq-card)",
-          border: "1px solid rgba(255,255,255,0.06)",
+          border: "1px solid var(--mq-border-thin)",
           boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
         }}
       >
@@ -772,9 +772,9 @@ export default function MessengerView() {
         {showListPanel && (
           <div
             className={`${isMobileView && mobileView === "chat" ? "hidden" : "flex"} flex-col w-full lg:w-[320px] flex-shrink-0 border-r`}
-            style={{ borderColor: "rgba(255,255,255,0.04)" }}
+            style={{ borderColor: "var(--mq-border-hairline)" }}
           >
-            <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+            <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>Чаты</h2>
                 {(friends.length + groupChats.length) > 0 && (
@@ -808,7 +808,7 @@ export default function MessengerView() {
               </div>
             </div>
 
-            <div className="p-3 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+            <div className="p-3 border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--mq-text-muted)" }} />
                 <input
@@ -817,7 +817,7 @@ export default function MessengerView() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Поиск чатов"
                   className="w-full pl-9 pr-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.04)", color: "var(--mq-text)" }}
+                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-hairline)", color: "var(--mq-text)" }}
                 />
               </div>
             </div>
@@ -972,7 +972,7 @@ export default function MessengerView() {
         {showChatPanel && (selectedFriend || selectedGroup) ? (
           <div className={`${isMobileView && mobileView === "list" ? "hidden" : "flex"} flex-col flex-1 min-w-0`}>
             {/* Header */}
-            <div className="p-4 flex items-center gap-3 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+            <div className="p-4 flex items-center gap-3 border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
               {isMobileView && (
                 <motion.button whileTap={{ scale: 0.9 }} onClick={handleMobileBack} className="p-1" style={{ color: "var(--mq-text-muted)" }}>
                   <ArrowLeft className="w-5 h-5" />
@@ -1022,7 +1022,7 @@ export default function MessengerView() {
                   animate={{ height: "auto", opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
                   className="px-4 py-2 border-b flex items-center gap-2 overflow-hidden"
-                  style={{ borderColor: "rgba(255,255,255,0.04)", backgroundColor: "color-mix(in srgb, var(--mq-accent) 6%, transparent)" }}
+                  style={{ borderColor: "var(--mq-border-hairline)", backgroundColor: "color-mix(in srgb, var(--mq-accent) 6%, transparent)" }}
                 >
                   <Pin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} fill="currentColor" />
                   <p className="text-xs truncate flex-1" style={{ color: "var(--mq-text-muted)" }}>
@@ -1141,7 +1141,7 @@ export default function MessengerView() {
                               className={`absolute z-10 flex gap-1 p-1.5 rounded-full ${isMine ? "right-0" : "left-0"} -top-10`}
                               style={{
                                 backgroundColor: "var(--mq-card)",
-                                border: "1px solid rgba(255,255,255,0.1)",
+                                border: "1px solid var(--mq-border-medium)",
                                 boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
                               }}
                             >
@@ -1180,7 +1180,7 @@ export default function MessengerView() {
             </div>
 
             {/* Input */}
-            <div className="p-3 border-t" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+            <div className="p-3 border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
               {isRecording ? (
                 <div className="flex items-center gap-2">
                   <div className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-full" style={{ backgroundColor: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
@@ -1224,7 +1224,7 @@ export default function MessengerView() {
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                     placeholder="Сообщение…"
                     className="flex-1 px-4 py-2.5 rounded-full text-sm outline-none"
-                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.04)", color: "var(--mq-text)" }}
+                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-hairline)", color: "var(--mq-text)" }}
                   />
                   <motion.button
                     whileTap={{ scale: 0.9 }}
@@ -1265,7 +1265,7 @@ export default function MessengerView() {
               left: Math.min(contextMenu.x, window.innerWidth - 180),
               top: Math.min(contextMenu.y, window.innerHeight - 200),
               backgroundColor: "var(--mq-surface, #1a1a1a)",
-              border: "1px solid rgba(255,255,255,0.08)",
+              border: "1px solid var(--mq-border-thin)",
               boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
             }}
           >
@@ -1302,10 +1302,10 @@ export default function MessengerView() {
               initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               className="w-full max-w-md rounded-2xl overflow-hidden"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+              <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
                 <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Новый чат</h3>
                 <button onClick={() => setShowNewChat(false)} style={{ color: "var(--mq-text-muted)" }}><X className="w-4 h-4" /></button>
               </div>
@@ -1316,7 +1316,7 @@ export default function MessengerView() {
                     type="text" value={newChatSearch} onChange={(e) => setNewChatSearch(e.target.value)}
                     placeholder="Поиск пользователей" autoFocus
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.04)", color: "var(--mq-text)" }}
+                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-hairline)", color: "var(--mq-text)" }}
                   />
                 </div>
                 <div className="max-h-80 overflow-y-auto">
@@ -1363,10 +1363,10 @@ export default function MessengerView() {
               initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               className="w-full max-w-md rounded-2xl overflow-hidden"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+              <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
                 <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Новая группа</h3>
                 <button onClick={() => setShowNewGroup(false)} style={{ color: "var(--mq-text-muted)" }}><X className="w-4 h-4" /></button>
               </div>
@@ -1375,7 +1375,7 @@ export default function MessengerView() {
                   type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)}
                   placeholder="Название группы" autoFocus
                   className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.04)", color: "var(--mq-text)" }}
+                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-hairline)", color: "var(--mq-text)" }}
                 />
                 <div className="relative">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--mq-text-muted)" }} />
@@ -1383,7 +1383,7 @@ export default function MessengerView() {
                     type="text" value={newChatSearch} onChange={(e) => setNewChatSearch(e.target.value)}
                     placeholder="Добавить участников"
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid rgba(255,255,255,0.04)", color: "var(--mq-text)" }}
+                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-hairline)", color: "var(--mq-text)" }}
                   />
                 </div>
                 {selectedMembers.length > 0 && (

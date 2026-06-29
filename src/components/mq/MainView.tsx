@@ -309,7 +309,7 @@ export default function MainView() {
           <button
             onClick={() => setView("playlists")}
             className="w-full rounded-2xl p-5 flex items-center gap-4 transition-all hover:bg-white/[0.02]"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px dashed rgba(255,255,255,0.08)" }}
+            style={{ backgroundColor: "var(--mq-card)", border: "1px dashed var(--mq-border-thin)" }}
           >
             <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}>
               <Plus className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
@@ -681,7 +681,7 @@ function TrackCard({
             style={{
               backgroundColor: "rgba(0,0,0,0.6)",
               color: "var(--mq-accent)",
-              border: "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+              border: "1px solid var(--mq-border-accent)",
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
@@ -746,7 +746,7 @@ function PlaylistCard({
       className="group relative text-left cursor-pointer rounded-2xl overflow-hidden w-full"
       style={{
         backgroundColor: "var(--mq-card)",
-        border: "1px solid rgba(255,255,255,0.05)",
+        border: "1px solid var(--mq-border-hairline)",
         boxShadow: "var(--mq-shadow-premium-md)",
       }}
     >
@@ -784,7 +784,7 @@ function PlaylistCard({
         {isCurrent && (
           <div
             className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-md flex items-center gap-1"
-            style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}
+            style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", border: "1px solid var(--mq-border-accent)" }}
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
             ИГРАЕТ
@@ -980,7 +980,7 @@ function CuratedPlaylistCard({
       whileTap={{ scale: 0.97 }}
       onClick={onPlay}
       className="text-left cursor-pointer group rounded-2xl overflow-hidden w-full"
-      style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)", boxShadow: "var(--mq-shadow-premium-md)" }}
+      style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)", boxShadow: "var(--mq-shadow-premium-md)" }}
     >
       <div className="relative aspect-square overflow-hidden">
         <PlaylistArtwork playlistId={pl.id} size={200} rounded="rounded-none" className="!w-full !h-full group-hover:scale-105 transition-transform duration-500" />
@@ -1122,7 +1122,7 @@ function WaveCard({
               <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
                 onClick={onPauseWave}
                 className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.9)", boxShadow: "var(--mq-shadow-card)" }}>
+                style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)", border: "1px solid var(--mq-border-medium)", color: "rgba(255,255,255,0.9)", boxShadow: "var(--mq-shadow-card)" }}>
                 {isPlaying ? <Pause className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" /> : <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5" fill="currentColor" />}
               </motion.button>
               <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
@@ -1204,7 +1204,7 @@ function WaveCard({
                   <div className="flex gap-1.5 mt-2 overflow-hidden">
                     {topGenres.slice(0, 3).map((genre) => (
                       <span key={genre} className="text-[11px] px-2.5 py-0.5 rounded-full whitespace-nowrap font-medium"
-                        style={{ backgroundColor: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                        style={{ backgroundColor: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.85)", border: "1px solid var(--mq-border-medium)" }}>
                         {displayGenre(genre)}
                       </span>
                     ))}
@@ -1235,7 +1235,7 @@ function WaveCard({
                   <div className="flex gap-1.5 mt-2 overflow-hidden">
                     {topGenres.slice(0, 3).map((genre) => (
                       <span key={genre} className="text-[11px] px-2.5 py-0.5 rounded-full whitespace-nowrap font-medium"
-                        style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.9)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                        style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.9)", border: "1px solid var(--mq-border-medium)" }}>
                         {displayGenre(genre)}
                       </span>
                     ))}

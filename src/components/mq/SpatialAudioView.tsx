@@ -444,7 +444,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
               >
                 <div
                   className="w-14 h-14 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                  style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--mq-border-thin)" }}
                 >
                   <SoundSpaceIcon color="rgba(255,255,255,0.2)" size={28} />
                 </div>
