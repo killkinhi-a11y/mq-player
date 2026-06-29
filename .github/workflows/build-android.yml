@@ -37,10 +37,10 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Show Capacitor version
-        run: node_modules/.bin/cap --version
+        run: node node_modules/@capacitor/cli/bin/capacitor.js --version
 
       - name: Sync Capacitor (uses committed android/ + out/index.html + capacitor.config.ts)
-        run: node_modules/.bin/cap sync android
+        run: node node_modules/@capacitor/cli/bin/capacitor.js sync android
 
       - name: Verify webDir contents
         run: |
