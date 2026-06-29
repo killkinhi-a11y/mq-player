@@ -47,6 +47,30 @@ export default function RootLayout({
         <meta httpEquiv="Expires" content="0" />
         <meta name="msapplication-TileColor" content="#0e0e0e" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        {/* Inline CSS — kills ALL square outlines globally.
+            Must be in <head> so it loads BEFORE any external CSS.
+            This is the ONLY way to guarantee no square focus rings. */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          *, *::before, *::after {
+            outline: none !important;
+            -webkit-tap-highlight-color: transparent !important;
+          }
+          *:focus, *:focus-visible {
+            --tw-ring-shadow: 0 0 #0000 !important;
+            --tw-ring-offset-shadow: 0 0 #0000 !important;
+            --tw-ring-color: transparent !important;
+            outline: none !important;
+          }
+          *:focus-visible {
+            outline: none !important;
+          }
+          input:focus, input:focus-visible,
+          textarea:focus, textarea:focus-visible,
+          select:focus, select:focus-visible {
+            outline: none !important;
+            box-shadow: none !important;
+          }
+        `}} />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){
