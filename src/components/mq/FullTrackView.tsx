@@ -185,239 +185,243 @@ export default function FullTrackView() {
 
             {/* ── Main content ── */}
             <div className="flex-1 flex flex-col items-center justify-center px-6 pb-6 overflow-y-auto">
-              {/* Cover */}
-              <motion.div
-                key={currentTrack.id}
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="relative mb-6 sm:mb-8"
-                style={{
-                  width: isMobile ? "min(75vw, 320px)" : "min(40vw, 400px)",
-                  aspectRatio: "1 / 1",
-                }}
-              >
-                <div
-                  className="w-full h-full rounded-3xl overflow-hidden"
-                  style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}
-                >
-                  {currentTrack.cover ? (
-                    <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                      <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.5)" }} />
-                    </div>
-                  )}
-                </div>
-                {/* Glow */}
-                <div
-                  className="absolute -inset-4 rounded-3xl pointer-events-none -z-10"
+              <div className={`w-full max-w-5xl flex ${isMobile ? "flex-col items-center" : "flex-row items-center gap-12"}`}>
+                {/* Cover — left on desktop, top on mobile */}
+                <motion.div
+                  key={currentTrack.id}
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  className="relative mb-6 sm:mb-0 flex-shrink-0"
                   style={{
-                    background: currentTrack.cover
-                      ? `url(${currentTrack.cover}) center/cover`
-                      : "var(--mq-accent)",
-                    filter: "blur(40px)",
-                    opacity: 0.3,
-                  }}
-                />
-              </motion.div>
-
-              {/* Track info */}
-              <div className="w-full max-w-md text-center mb-6">
-                <h1 className="mq-text-display text-xl sm:text-2xl lg:text-3xl mb-1" style={{ color: "var(--mq-text)" }}>
-                  {currentTrack.title}
-                </h1>
-                <button
-                  onClick={handleArtistClick}
-                  className="text-sm sm:text-base hover:underline"
-                  style={{ color: "var(--mq-text-muted)" }}
-                >
-                  {currentTrack.artist}
-                </button>
-              </div>
-
-              {/* Like + actions row */}
-              <div className="flex items-center gap-3 mb-6">
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={handleLike}
-                  className="w-11 h-11 rounded-full flex items-center justify-center"
-                  style={{
-                    backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)",
+                    width: isMobile ? "min(75vw, 320px)" : "min(35vw, 380px)",
+                    aspectRatio: "1 / 1",
                   }}
                 >
-                  <Heart
-                    className="w-5 h-5"
-                    style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
-                    fill={isLiked ? "currentColor" : "none"}
-                  />
-                </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setShowQueue(!showQueue)}
-                  className="w-11 h-11 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: showQueue ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
-                >
-                  <ListMusic className="w-5 h-5" style={{ color: showQueue ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                </motion.button>
-              </div>
-
-              {/* Queue (toggleable) */}
-              <AnimatePresence>
-                {showQueue && upcoming.length > 0 && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: "auto", opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    className="w-full max-w-md mb-6 overflow-hidden"
-                  >
-                    <p className="mq-text-eyebrow text-[10px] mb-2">Далее в очереди</p>
-                    <div className="space-y-1">
-                      {upcoming.map((track, i) => (
-                        <button
-                          key={track.id + "_" + i}
-                          onClick={() => {
-                            // Skip to this track
-                            for (let j = 0; j <= i; j++) nextTrack();
-                            setShowQueue(false);
-                          }}
-                          className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-white/[0.04] transition-colors"
-                        >
-                          <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                            {track.cover ? (
-                              <img src={track.cover} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                                <Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.5)" }} />
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
-                            <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
-                          </div>
-                          <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Progress bar */}
-              <div className="w-full max-w-md mb-6">
-                <div
-                  ref={progressBarRef}
-                  className="h-1.5 rounded-full cursor-pointer relative group mb-2"
-                  onMouseDown={handleProgressMouseDown}
-                  onTouchStart={handleProgressTouchStart}
-                  onMouseEnter={() => setIsHovering(true)}
-                  onMouseLeave={() => setIsHovering(false)}
-                >
-                  <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }} />
                   <div
-                    className="absolute inset-y-0 left-0 rounded-full"
+                    className="w-full h-full rounded-3xl overflow-hidden"
+                    style={{ boxShadow: "0 24px 64px rgba(0,0,0,0.5)" }}
+                  >
+                    {currentTrack.cover ? (
+                      <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+                        <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.5)" }} />
+                      </div>
+                    )}
+                  </div>
+                  {/* Glow */}
+                  <div
+                    className="absolute -inset-4 rounded-3xl pointer-events-none -z-10"
                     style={{
-                      width: `${progressPct}%`,
-                      backgroundColor: "var(--mq-accent)",
-                      transition: isDragging ? "none" : "width 0.1s linear",
+                      background: currentTrack.cover
+                        ? `url(${currentTrack.cover}) center/cover`
+                        : "var(--mq-accent)",
+                      filter: "blur(40px)",
+                      opacity: 0.3,
                     }}
                   />
-                  {isHovering && (
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none"
+                </motion.div>
+
+                {/* Right side — info + controls (desktop only side-by-side) */}
+                <div className={`flex-1 ${isMobile ? "w-full" : "min-w-0"} flex flex-col ${isMobile ? "items-center" : "items-start"}`}>
+                  {/* Track info */}
+                  <div className={`w-full ${isMobile ? "text-center" : "text-left"} mb-6`}>
+                    <h1 className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1" style={{ color: "var(--mq-text)" }}>
+                      {currentTrack.title}
+                    </h1>
+                    <button
+                      onClick={handleArtistClick}
+                      className={`text-sm sm:text-base lg:text-lg hover:underline ${isMobile ? "" : "text-left"}`}
+                      style={{ color: "var(--mq-text-muted)" }}
+                    >
+                      {currentTrack.artist}
+                    </button>
+                  </div>
+
+                  {/* Like + actions row */}
+                  <div className={`flex items-center gap-3 mb-6 ${isMobile ? "" : "justify-start"}`}>
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={handleLike}
+                      className="w-11 h-11 rounded-full flex items-center justify-center"
                       style={{
-                        left: `${progressPct}%`,
-                        backgroundColor: "var(--mq-accent)",
-                        boxShadow: "0 0 12px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
+                        backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)",
                       }}
-                    />
+                    >
+                      <Heart
+                        className="w-5 h-5"
+                        style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+                        fill={isLiked ? "currentColor" : "none"}
+                      />
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setShowQueue(!showQueue)}
+                      className="w-11 h-11 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: showQueue ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
+                    >
+                      <ListMusic className="w-5 h-5" style={{ color: showQueue ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                    </motion.button>
+                  </div>
+
+                  {/* Queue (toggleable) */}
+                  <AnimatePresence>
+                    {showQueue && upcoming.length > 0 && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="w-full mb-6 overflow-hidden"
+                      >
+                        <p className="mq-text-eyebrow text-[10px] mb-2">Далее в очереди</p>
+                        <div className="space-y-1">
+                          {upcoming.map((track, i) => (
+                            <button
+                              key={track.id + "_" + i}
+                              onClick={() => {
+                                for (let j = 0; j <= i; j++) nextTrack();
+                                setShowQueue(false);
+                              }}
+                              className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-white/[0.04] transition-colors"
+                            >
+                              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                                {track.cover ? (
+                                  <img src={track.cover} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+                                    <Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.5)" }} />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                                <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+                              </div>
+                              <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Progress bar */}
+                  <div className="w-full mb-6">
+                    <div
+                      ref={progressBarRef}
+                      className="h-1.5 rounded-full cursor-pointer relative group mb-2"
+                      onMouseDown={handleProgressMouseDown}
+                      onTouchStart={handleProgressTouchStart}
+                      onMouseEnter={() => setIsHovering(true)}
+                      onMouseLeave={() => setIsHovering(false)}
+                    >
+                      <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }} />
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-full"
+                        style={{
+                          width: `${progressPct}%`,
+                          backgroundColor: "var(--mq-accent)",
+                          transition: isDragging ? "none" : "width 0.1s linear",
+                        }}
+                      />
+                      {isHovering && (
+                        <div
+                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none"
+                          style={{
+                            left: `${progressPct}%`,
+                            backgroundColor: "var(--mq-accent)",
+                            boxShadow: "0 0 12px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
+                          }}
+                        />
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
+                        {formatDuration(progress)}
+                      </span>
+                      <span className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
+                        {formatDuration(duration)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Main controls */}
+                  <div className={`flex items-center gap-4 sm:gap-6 mb-6 ${isMobile ? "" : "justify-start"}`}>
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={toggleShuffle}
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                    >
+                      <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                    </motion.button>
+
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={prevTrack}
+                      className="w-12 h-12 rounded-full flex items-center justify-center"
+                    >
+                      <SkipBack className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+                    </motion.button>
+
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      whileHover={{ scale: 1.05 }}
+                      onClick={togglePlay}
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center"
+                      style={{
+                        backgroundColor: "var(--mq-accent)",
+                        boxShadow: "0 8px 32px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
+                      }}
+                    >
+                      {isLoading ? (
+                        <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "#fff" }} />
+                      ) : isPlaying ? (
+                        <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="#fff" style={{ color: "#fff" }} />
+                      ) : (
+                        <Play className="w-7 h-7 sm:w-8 sm:h-8 ml-1" fill="#fff" style={{ color: "#fff" }} />
+                      )}
+                    </motion.button>
+
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={nextTrack}
+                      className="w-12 h-12 rounded-full flex items-center justify-center"
+                    >
+                      <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+                    </motion.button>
+
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={toggleRepeat}
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                    >
+                      {repeat === "one" ? (
+                        <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+                      ) : (
+                        <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                      )}
+                    </motion.button>
+                  </div>
+
+                  {/* Volume (desktop only) */}
+                  {!isMobile && (
+                    <div className="flex items-center gap-2 w-full max-w-xs">
+                      <Volume2 className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        value={volume}
+                        onChange={handleVolumeChange}
+                        className="flex-1 h-1.5 rounded-full cursor-pointer"
+                        style={{ accentColor: "var(--mq-accent)" }}
+                      />
+                      <VolumeIcon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+                    </div>
                   )}
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
-                    {formatDuration(progress)}
-                  </span>
-                  <span className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
-                    {formatDuration(duration)}
-                  </span>
                 </div>
               </div>
-
-              {/* Main controls */}
-              <div className="flex items-center gap-4 sm:gap-6 mb-6">
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={toggleShuffle}
-                  className="w-10 h-10 rounded-full flex items-center justify-center"
-                >
-                  <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                </motion.button>
-
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={prevTrack}
-                  className="w-12 h-12 rounded-full flex items-center justify-center"
-                >
-                  <SkipBack className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                </motion.button>
-
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  whileHover={{ scale: 1.05 }}
-                  onClick={togglePlay}
-                  className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center"
-                  style={{
-                    backgroundColor: "var(--mq-accent)",
-                    boxShadow: "0 8px 32px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
-                  }}
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "#fff" }} />
-                  ) : isPlaying ? (
-                    <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="#fff" style={{ color: "#fff" }} />
-                  ) : (
-                    <Play className="w-7 h-7 sm:w-8 sm:h-8 ml-1" fill="#fff" style={{ color: "#fff" }} />
-                  )}
-                </motion.button>
-
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={nextTrack}
-                  className="w-12 h-12 rounded-full flex items-center justify-center"
-                >
-                  <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                </motion.button>
-
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={toggleRepeat}
-                  className="w-10 h-10 rounded-full flex items-center justify-center"
-                >
-                  {repeat === "one" ? (
-                    <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                  ) : (
-                    <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                  )}
-                </motion.button>
-              </div>
-
-              {/* Volume (desktop only) */}
-              {!isMobile && (
-                <div className="flex items-center gap-2 w-full max-w-md">
-                  <Volume2 className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={volume}
-                    onChange={handleVolumeChange}
-                    className="flex-1 h-1.5 rounded-full cursor-pointer"
-                    style={{ accentColor: "var(--mq-accent)" }}
-                  />
-                  <VolumeIcon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-                </div>
-              )}
             </div>
           </div>
         </motion.div>

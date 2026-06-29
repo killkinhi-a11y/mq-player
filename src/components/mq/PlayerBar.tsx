@@ -128,7 +128,7 @@ export default function PlayerBar() {
   const VolumeIcon = volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
 
   // ════════════════════════════════════════════════════════════════
-  // MOBILE LAYOUT
+  // MOBILE LAYOUT — integrated with MobileNav as a single glass stack
   // ════════════════════════════════════════════════════════════════
   if (isMobile) {
     return (
@@ -137,85 +137,84 @@ export default function PlayerBar() {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
         transition={{ type: "spring", stiffness: 350, damping: 30 }}
-        className="fixed z-[55] left-2 right-2"
-        style={{ bottom: "calc(64px + env(safe-area-inset-bottom, 0px))" }}
+        className="fixed z-[55] left-3 right-3"
+        style={{ bottom: "calc(68px + env(safe-area-inset-bottom, 0px))" }}
       >
+        {/* Player section — flush with MobileNav below */}
         <div
-          className="rounded-2xl overflow-hidden"
+          className="rounded-t-[24px] overflow-hidden"
           style={{
-            backgroundColor: "color-mix(in srgb, var(--mq-player-bg) 75%, transparent)",
+            background: "color-mix(in srgb, var(--mq-bg) 65%, transparent)",
             backdropFilter: "blur(40px) saturate(200%)",
             WebkitBackdropFilter: "blur(40px) saturate(200%)",
             border: "1px solid rgba(255,255,255,0.06)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)",
+            borderBottom: "none",
+            boxShadow: "0 -4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)",
           }}
         >
-          {/* Progress bar — top edge */}
+          {/* Progress bar — top edge, thin accent line */}
           <div
             ref={progressBarRef}
-            className="h-1 w-full cursor-pointer relative"
+            className="h-[3px] w-full cursor-pointer relative"
             onMouseDown={handleProgressMouseDown}
             onTouchStart={handleProgressTouchStart}
             onMouseEnter={() => setIsHovering(true)}
             onMouseLeave={() => setIsHovering(false)}
           >
             <div className="absolute inset-0" style={{ backgroundColor: "rgba(255,255,255,0.06)" }} />
-            <motion.div
+            <div
               className="absolute inset-y-0 left-0"
-              style={{ width: `${progressPct}%`, backgroundColor: "var(--mq-accent)" }}
-              transition={{ duration: isDragging ? 0 : 0.1 }}
+              style={{
+                width: `${progressPct}%`,
+                backgroundColor: "var(--mq-accent)",
+                transition: isDragging ? "none" : "width 0.1s linear",
+              }}
             />
-            {isHovering && (
-              <div
-                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full pointer-events-none"
-                style={{ left: `${progressPct}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 8px color-mix(in srgb, var(--mq-accent) 50%, transparent)" }}
-              />
-            )}
           </div>
 
-          {/* Content */}
-          <div className="flex items-center gap-3 p-2.5">
-            {/* Cover + info — click opens full player */}
+          {/* Content — compact, touch-friendly */}
+          <div className="flex items-center gap-2.5 px-3 py-2">
+            {/* Cover + info — tap opens full player */}
             <button
               onClick={openFullPlayer}
-              className="flex items-center gap-3 flex-1 min-w-0 text-left cursor-pointer"
+              className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer"
             >
-              <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0" style={{ boxShadow: "var(--mq-shadow-premium-sm)" }}>
+              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ boxShadow: "var(--mq-shadow-premium-sm)" }}>
                 {currentTrack.cover ? (
                   <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                    <Music className="w-5 h-5" style={{ color: "rgba(255,255,255,0.7)" }} />
+                    <Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.7)" }} />
                   </div>
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
-                <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
+                <p className="text-[13px] font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+                <p className="text-[11px] truncate leading-tight mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
               </div>
             </button>
 
             {/* Like */}
             <motion.button
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.85 }}
               onClick={handleLike}
-              className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
             >
               <Heart
-                className="w-4 h-4"
+                className="w-[18px] h-[18px]"
                 style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                 fill={isLiked ? "currentColor" : "none"}
               />
             </motion.button>
 
-            {/* Play/Pause */}
+            {/* Play/Pause — accent circle */}
             <motion.button
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.88 }}
               onClick={togglePlay}
               className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
               style={{
                 backgroundColor: "var(--mq-accent)",
-                boxShadow: "0 4px 12px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+                boxShadow: "0 2px 8px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
               }}
             >
               {isLoading ? (
@@ -229,11 +228,11 @@ export default function PlayerBar() {
 
             {/* Next */}
             <motion.button
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.85 }}
               onClick={nextTrack}
-              className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+              className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
             >
-              <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
+              <SkipForward className="w-[18px] h-[18px]" style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
             </motion.button>
           </div>
         </div>

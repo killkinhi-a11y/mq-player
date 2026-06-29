@@ -40,7 +40,7 @@ const MobileNav = React.memo(function MobileNav() {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      {/* Floating glass panel */}
+      {/* Floating glass panel — flush with PlayerBar above (no top rounding) */}
       <motion.div
         initial={{ y: 60, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -53,7 +53,7 @@ const MobileNav = React.memo(function MobileNav() {
           border: "1px solid rgba(255,255,255,0.06)",
           boxShadow:
             "0 12px 40px rgba(0,0,0,0.35), " +
-            "inset 0 1px 0 rgba(255,255,255,0.06)",
+            "inset 0 -1px 0 rgba(255,255,255,0.04)",
         }}
       >
         <div className={`flex items-center justify-around ${compactMode ? "py-2" : "py-2.5"} px-2`}>
