@@ -540,6 +540,8 @@ export default function FullTrackViewMobile() {
                 style={{
                   width: duration > 0 ? `${(progress / duration) * 100}%` : "0%",
                   backgroundColor: "var(--mq-accent)",
+                  willChange: "width",
+                  transform: "translateZ(0)",
                 }}
               />
               <div
@@ -549,6 +551,8 @@ export default function FullTrackViewMobile() {
                   left: duration > 0 ? `${(progress / duration) * 100}%` : "0%",
                   backgroundColor: "#fff",
                   boxShadow: "0 0 0 4px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+                  willChange: "left",
+                  transform: "translateZ(0)",
                 }}
               />
             </div>

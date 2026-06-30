@@ -210,6 +210,8 @@ export default function MobileDock() {
                   width: "0%",
                   backgroundColor: "var(--mq-accent)",
                   boxShadow: "0 0 6px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
+                  willChange: "width",
+                  transform: "translateZ(0)",
                 }}
               />
             </div>
