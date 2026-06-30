@@ -168,20 +168,23 @@ export default function FullTrackViewMobile() {
   const progressTimeRef = useRef<HTMLSpanElement>(null);
   const seekFeedbackRef = useRef<HTMLDivElement>(null);
 
-  // ── RAF-driven progress bar update ───────────────────────────────────
+  // ── SMOOTH progress (reads audio.currentTime directly = true 60fps) ──
+  // Also updates thumb position and time label
   useEffect(() => {
     if (!isOpen) return;
     let rafId = 0;
     const update = () => {
-      const p = useAppStore.getState().progress;
-      const d = useAppStore.getState().duration;
-      if (d > 0) {
-        const pct = (p / d) * 100;
+      const audio = getAudioElement();
+      if (audio && audio.src && audio.duration && isFinite(audio.duration) && audio.duration > 0) {
+        const pct = (audio.currentTime / audio.duration) * 100;
         if (progressFillRef.current) progressFillRef.current.style.width = `${pct}%`;
         if (progressThumbRef.current) progressThumbRef.current.style.left = `${pct}%`;
       }
       if (progressTimeRef.current) {
-        progressTimeRef.current.textContent = formatDuration(p);
+        const p = audio ? audio.currentTime : 0;
+        const m = Math.floor(p / 60);
+        const s = Math.floor(p % 60);
+        progressTimeRef.current.textContent = `${m}:${s.toString().padStart(2, "0")}`;
       }
       rafId = requestAnimationFrame(update);
     };
@@ -383,7 +386,7 @@ export default function FullTrackViewMobile() {
         background: currentTrack.cover
           ? `linear-gradient(180deg, color-mix(in srgb, var(--mq-accent) 18%, var(--mq-bg)) 0%, var(--mq-bg) 55%)`
           : "var(--mq-bg)",
-        animation: "mqMobileOpen 0.25s ease-out",
+        animation: "mqMobileOpen 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
         willChange: "transform",
       }}
     >
@@ -418,7 +421,7 @@ export default function FullTrackViewMobile() {
             src={currentTrack.cover}
             alt=""
             className="w-full h-full object-cover"
-            style={{ filter: "blur(60px) saturate(180%)", opacity: 0.22, transform: "scale(1.2)" }}
+            style={{ filter: "blur(30px) saturate(150%)", opacity: 0.15, transform: "scale(1.1)" }}
           />
           <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, transparent 0%, var(--mq-bg) 60%)" }} />
         </div>

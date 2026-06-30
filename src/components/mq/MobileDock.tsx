@@ -7,6 +7,7 @@ import {
   Home, Search, Library, MessageCircle, Settings,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
+import { useSmoothProgress } from "@/hooks/use-smooth-progress";
 import type { ViewType } from "@/store/useAppStore";
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -50,23 +51,11 @@ export default function MobileDock() {
   const setFullTrackViewOpen = useAppStore((s) => s.setFullTrackViewOpen);
   const setView = useAppStore((s) => s.setView);
 
-  // ── RAF progress (ref-based, no re-renders) ──
+  // ── SMOOTH progress (reads audio.currentTime directly = true 60fps) ──
   const progressBarRef = useRef<HTMLDivElement>(null);
   const progressFillRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let rafId = 0;
-    const update = () => {
-      const p = useAppStore.getState().progress;
-      const d = useAppStore.getState().duration;
-      if (d > 0 && progressFillRef.current) {
-        progressFillRef.current.style.width = `${(p / d) * 100}%`;
-      }
-      rafId = requestAnimationFrame(update);
-    };
-    rafId = requestAnimationFrame(update);
-    return () => cancelAnimationFrame(rafId);
-  }, []);
+  const showPlayer = currentTrack && !miniPlayerHidden && !isFullTrackViewOpen;
+  useSmoothProgress(progressFillRef, undefined, !!showPlayer);
 
   // ── Seek on progress bar ──
   const seekTo = useCallback((clientX: number) => {
@@ -104,7 +93,6 @@ export default function MobileDock() {
   }, [nextTrack]);
 
   // ── Derived ──
-  const showPlayer = currentTrack && !miniPlayerHidden && !isFullTrackViewOpen;
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.id) : false;
   const isLoading = playbackState === "loading" || playbackState === "buffering";
   const messengerBadge = Object.values(unreadCounts).reduce((sum, c) => sum + (c || 0), 0);

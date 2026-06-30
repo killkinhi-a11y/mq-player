@@ -16,6 +16,8 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
     // Allow WebView to navigate within the prod domain and common asset CDNs
     allowNavigation: ['mq1.vercel.app', 'vercel.app', '*.vercel.app'],
+    // Offline fallback — shown when remote URL fails to load
+    errorPath: 'offline.html',
   },
   android: {
     allowMixedContent: false,
