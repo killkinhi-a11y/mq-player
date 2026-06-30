@@ -13,6 +13,7 @@ import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
 import type { Track } from "@/lib/musicApi";
 import { toast } from "@/hooks/use-toast";
+import VolumeSlider from "@/components/ui/volume-slider";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — MOBILE
@@ -372,7 +373,7 @@ export default function FullTrackViewMobile() {
     display: "flex", alignItems: "center", justifyContent: "center",
     backgroundColor: "transparent",
     border: "none", cursor: "pointer", padding: 0,
-    transition: "transform 0.1s ease",
+    transition: "transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
   };
 
   return (
@@ -391,16 +392,22 @@ export default function FullTrackViewMobile() {
           from { transform: translateY(100%); }
           to { transform: translateY(0); }
         }
-        .mq-btn-active:active { transform: scale(0.92); }
-        .mq-panel { animation: mqPanelIn 0.2s ease-out; }
+        .mq-btn-active {
+          transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .mq-btn-active:active { transform: scale(0.9); }
+        .mq-panel { animation: mqPanelIn 0.28s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes mqPanelIn {
-          from { opacity: 0; transform: translateY(8px); }
+          from { opacity: 0; transform: translateY(12px); }
           to { opacity: 1; transform: translateY(0); }
         }
-        .mq-sheet { animation: mqSheetIn 0.25s cubic-bezier(0.16,1,0.3,1); }
+        .mq-sheet { animation: mqSheetIn 0.32s cubic-bezier(0.16, 1, 0.3, 1); }
         @keyframes mqSheetIn {
           from { transform: translateY(100%); }
           to { transform: translateY(0); }
+        }
+        .mq-cover-transition {
+          transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
         }
       `}</style>
 
@@ -456,7 +463,13 @@ export default function FullTrackViewMobile() {
                 style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}
               >
                 {currentTrack.cover ? (
-                  <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
+                  <img
+                    key={currentTrack.id}
+                    src={currentTrack.cover}
+                    alt=""
+                    className="w-full h-full object-cover mq-cover-transition"
+                    style={{ animation: "mqPanelIn 0.4s cubic-bezier(0.16, 1, 0.3, 1)" }}
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
                     <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.5)" }} />
@@ -493,14 +506,24 @@ export default function FullTrackViewMobile() {
                 {currentTrack.artist}
               </button>
             </div>
-            <button
-              onClick={handleLike}
-              className="mq-btn-active flex-shrink-0"
-              style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.05)" }}
-              aria-label="Нравится"
-            >
-              <Heart className="w-5 h-5" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={handleLike}
+                className="mq-btn-active"
+                style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.05)" }}
+                aria-label="Нравится"
+              >
+                <Heart className="w-5 h-5" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
+              </button>
+              <button
+                onClick={handleDislike}
+                className="mq-btn-active"
+                style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)" }}
+                aria-label="Не нравится"
+              >
+                <ThumbsDown className="w-5 h-5" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
+              </button>
+            </div>
           </div>
 
           {/* Progress bar (RAF-updated fill, no per-second React update) */}
@@ -570,7 +593,7 @@ export default function FullTrackViewMobile() {
                 backgroundColor: "#fff",
                 boxShadow: "0 8px 24px rgba(255,255,255,0.25)",
                 border: "none", cursor: "pointer", padding: 0,
-                transition: "transform 0.1s ease",
+                transition: "transform 0.15s cubic-bezier(0.4, 0, 0.2, 1)",
               }}
               aria-label="Play/Pause"
             >
@@ -772,16 +795,7 @@ export default function FullTrackViewMobile() {
 
               <div className="h-px mb-3" style={{ background: "var(--mq-border-thin)" }} />
 
-              {/* Actions */}
-              <button
-                onClick={handleDislike}
-                className="mq-btn-active w-full flex items-center gap-3 py-3"
-                style={{ background: "transparent", border: "none", cursor: "pointer" }}
-              >
-                <ThumbsDown className="w-5 h-5" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
-                <span className="text-sm" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text)" }}>{isDisliked ? "Не нравится (активно)" : "Не нравится"}</span>
-              </button>
-
+              {/* Actions (dislike is now next to like in main view, not here) */}
               <button
                 onClick={() => { setSpatialAudioEnabled(!spatialAudioEnabled); }}
                 className="mq-btn-active w-full flex items-center gap-3 py-3"
@@ -868,15 +882,9 @@ export default function FullTrackViewMobile() {
                   <span className="text-sm" style={{ color: "var(--mq-text)" }}>Громкость</span>
                   <span className="text-xs ml-auto" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}%</span>
                 </div>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={volume}
-                  onChange={(e) => setVolume(Number(e.target.value))}
-                  className="w-full h-1.5 rounded-full cursor-pointer ml-8"
-                  style={{ accentColor: "var(--mq-accent)", width: "calc(100% - 32px)" }}
-                />
+                <div className="pl-8">
+                  <VolumeSlider volume={volume} onChange={setVolume} showIcon={false} className="w-full" />
+                </div>
               </div>
 
               <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />

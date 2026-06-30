@@ -170,8 +170,8 @@ export default function MobileDock() {
       style={{ bottom: "calc(8px + env(safe-area-inset-bottom, 0px))" }}
     >
       <style>{`
-        .mq-dock-btn { transition: transform 0.1s ease, background-color 0.15s ease; }
-        .mq-dock-btn:active { transform: scale(0.92); }
+        .mq-dock-btn { transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s ease; }
+        .mq-dock-btn:active { transform: scale(0.9); }
         .mq-eq-bar { animation: mqEq 0.6s ease-in-out infinite; transform-origin: bottom; }
         @keyframes mqEq { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
         @keyframes mqDockIn { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }

@@ -5,15 +5,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Volume2, VolumeX, Volume1 } from "lucide-react";
 
 // ═════════════════════════════════════════════════════════════════════════
-// VolumeSlider — premium custom volume control
-// Features:
-//  - Custom gradient fill (no native input)
-//  - Smooth drag handle with glow
-//  - Hover tooltip showing numeric value
-//  - Wheel-scroll support
-//  - Double-click to reset to 70%
-//  - Vertical popup mode for compact spaces
-//  - Mute toggle integrated
+// VolumeSlider — premium custom volume control (SMOOTH)
+// - Smooth width/height transitions on fill
+// - Hover-reveal handle with smooth scale
+// - Wheel support
+// - Double-click to reset
+// - Tooltip with smooth fade
 // ═════════════════════════════════════════════════════════════════════════
 
 interface VolumeSliderProps {
@@ -46,7 +43,6 @@ export default function VolumeSlider({
     if (orientation === "horizontal") {
       pct = ((clientX - rect.left) / rect.width) * 100;
     } else {
-      // Vertical: top = 100, bottom = 0
       pct = 100 - ((clientY - rect.top) / rect.height) * 100;
     }
     onChange(clamp(pct));
@@ -64,7 +60,6 @@ export default function VolumeSlider({
     updateFromClient(e.touches[0].clientX, e.touches[0].clientY);
   }, [updateFromClient]);
 
-  // Global listeners while dragging
   useEffect(() => {
     if (!isDragging) return;
     const onMouseMove = (e: MouseEvent) => updateFromClient(e.clientX, e.clientY);
@@ -85,14 +80,12 @@ export default function VolumeSlider({
     };
   }, [isDragging, updateFromClient]);
 
-  // Wheel support
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.stopPropagation();
-    const delta = e.deltaY > 0 ? -5 : 5;
+    const delta = e.deltaY > 0 ? -3 : 3;
     onChange(clamp(volume + delta));
   }, [volume, onChange]);
 
-  // Double-click to reset
   const handleDoubleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onChange(volume === 0 ? 70 : 0);
@@ -105,10 +98,12 @@ export default function VolumeSlider({
 
   const Icon = volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
   const displayValue = Math.round(volume);
-
-  // Common styles
   const accentColor = "var(--mq-accent)";
   const trackBg = "rgba(255,255,255,0.08)";
+
+  // Smooth transition — only when NOT dragging (so dragging feels instant)
+  const fillTransition = isDragging ? "none" : "width 0.18s cubic-bezier(0.4, 0, 0.2, 1), height 0.18s cubic-bezier(0.4, 0, 0.2, 1)";
+  const handleTransition = isDragging ? "transform 0.05s ease-out" : "transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), left 0.18s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.18s cubic-bezier(0.4, 0, 0.2, 1)";
 
   if (orientation === "vertical") {
     return (
@@ -145,25 +140,25 @@ export default function VolumeSlider({
             style={{
               height: `${volume}%`,
               background: `linear-gradient(0deg, ${accentColor}, color-mix(in srgb, ${accentColor} 70%, #fff))`,
-              transition: isDragging ? "none" : "height 0.1s ease-out",
+              transition: fillTransition,
               boxShadow: `0 0 8px color-mix(in srgb, ${accentColor} 50%, transparent)`,
             }}
           />
           {/* Drag handle */}
-          {(isHovering || isDragging) && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none"
-              style={{
-                bottom: `calc(${volume}% - 7px)`,
-                width: "14px",
-                height: "14px",
-                backgroundColor: "#fff",
-                boxShadow: `0 2px 8px rgba(0,0,0,0.4), 0 0 0 2px ${accentColor}`,
-              }}
-            />
-          )}
+          <div
+            className="absolute left-1/2 rounded-full pointer-events-none"
+            style={{
+              bottom: `calc(${volume}% - 8px)`,
+              width: "16px",
+              height: "16px",
+              marginLeft: "-5px",
+              backgroundColor: "#fff",
+              boxShadow: `0 2px 8px rgba(0,0,0,0.4), 0 0 0 2px ${accentColor}`,
+              opacity: isHovering || isDragging ? 1 : 0,
+              transform: `scale(${isHovering || isDragging ? 1 : 0.5})`,
+              transition: handleTransition + ", opacity 0.18s ease",
+            }}
+          />
           {/* Tooltip */}
           <AnimatePresence>
             {(isHovering || isDragging) && (
@@ -171,6 +166,7 @@ export default function VolumeSlider({
                 initial={{ opacity: 0, x: -5 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -5 }}
+                transition={{ duration: 0.15 }}
                 className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-1.5 py-0.5 rounded text-[10px] font-mono pointer-events-none whitespace-nowrap"
                 style={{
                   backgroundColor: "var(--mq-card)",
@@ -224,25 +220,25 @@ export default function VolumeSlider({
           style={{
             width: `${volume}%`,
             background: `linear-gradient(90deg, ${accentColor}, color-mix(in srgb, ${accentColor} 70%, #fff))`,
-            transition: isDragging ? "none" : "width 0.1s ease-out",
+            transition: fillTransition,
             boxShadow: `0 0 8px color-mix(in srgb, ${accentColor} 50%, transparent)`,
           }}
         />
         {/* Drag handle */}
-        {(isHovering || isDragging) && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            className="absolute top-1/2 -translate-y-1/2 rounded-full pointer-events-none"
-            style={{
-              left: `calc(${volume}% - 7px)`,
-              width: "14px",
-              height: "14px",
-              backgroundColor: "#fff",
-              boxShadow: `0 2px 8px rgba(0,0,0,0.4), 0 0 0 2px ${accentColor}`,
-            }}
-          />
-        )}
+        <div
+          className="absolute top-1/2 rounded-full pointer-events-none"
+          style={{
+            left: `calc(${volume}% - 8px)`,
+            width: "16px",
+            height: "16px",
+            marginTop: "-5px",
+            backgroundColor: "#fff",
+            boxShadow: `0 2px 8px rgba(0,0,0,0.4), 0 0 0 2px ${accentColor}`,
+            opacity: isHovering || isDragging ? 1 : 0,
+            transform: `translateY(0) scale(${isHovering || isDragging ? 1 : 0.5})`,
+            transition: handleTransition + ", opacity 0.18s ease",
+          }}
+        />
         {/* Tooltip */}
         <AnimatePresence>
           {(isHovering || isDragging) && (
@@ -250,9 +246,11 @@ export default function VolumeSlider({
               initial={{ opacity: 0, y: 5 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 5 }}
-              className="absolute left-1/2 -translate-x-1/2 -top-7 px-1.5 py-0.5 rounded text-[10px] font-mono pointer-events-none whitespace-nowrap"
+              transition={{ duration: 0.15 }}
+              className="absolute -top-7 px-1.5 py-0.5 rounded text-[10px] font-mono pointer-events-none whitespace-nowrap"
               style={{
                 left: `${volume}%`,
+                transform: "translateX(-50%)",
                 backgroundColor: "var(--mq-card)",
                 color: "var(--mq-text)",
                 border: "1px solid var(--mq-border-thin)",
