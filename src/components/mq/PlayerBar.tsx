@@ -51,7 +51,6 @@ export default function PlayerBar() {
   const isMobile = useIsMobile();
   const progressBarRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
   const [hoveredTime, setHoveredTime] = useState<number | null>(null);
 
@@ -251,33 +250,30 @@ export default function PlayerBar() {
                   ref={progressBarRef}
                   className="flex-1 h-1.5 rounded-full cursor-pointer relative group"
                   onMouseDown={handleProgressMouseDown}
-                  onMouseEnter={() => setIsHovering(true)}
-                  onMouseLeave={() => { setIsHovering(false); setHoveredTime(null); }}
+                  onMouseLeave={() => setHoveredTime(null)}
                   onMouseMove={handleProgressMouseMove}
                 >
                   {/* Track */}
                   <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }} />
                   {/* Hover preview fill */}
-                  {isHovering && hoveredPct > progressPct && (
-                    <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "rgba(255,255,255,0.12)" }} />
+                  {hoveredPct > progressPct && (
+                    <div className="absolute inset-y-0 left-0 rounded-full opacity-0 group-hover:opacity-100" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "rgba(255,255,255,0.12)" }} />
                   )}
                   {/* Progress fill */}
                   <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", willChange: "transform", transition: isDragging ? "none" : "transform 0.1s linear" }} />
                   {/* Thumb */}
-                  {isHovering && (
-                    <div
-                      className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full pointer-events-none"
-                      style={{
-                        left: `${isDragging ? progressPct : hoveredPct}%`,
-                        backgroundColor: "var(--mq-accent)",
-                        boxShadow: "0 0 8px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
-                      }}
-                    />
-                  )}
+                  <div
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{
+                      left: `${isDragging ? progressPct : hoveredPct}%`,
+                      backgroundColor: "var(--mq-accent)",
+                      boxShadow: "0 0 8px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
+                    }}
+                  />
                   {/* Hover timestamp tooltip */}
-                  {isHovering && hoveredTime !== null && !isDragging && (
+                  {hoveredTime !== null && !isDragging && (
                     <div
-                      className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded text-[9px] font-mono pointer-events-none whitespace-nowrap"
+                      className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded text-[9px] font-mono pointer-events-none whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
                       style={{
                         left: `${Math.max(10, Math.min(90, hoveredPct))}%`,
                         backgroundColor: "var(--mq-card)",

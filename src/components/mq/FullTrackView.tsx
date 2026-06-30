@@ -193,7 +193,6 @@ export default function FullTrackView() {
   const progressBarRef = useRef<HTMLDivElement>(null);
   const coverRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
   const [hoveredTime, setHoveredTime] = useState<number | null>(null);
   const [activePanel, setActivePanel] = useState<"queue" | "lyrics" | "history" | null>(null);
   const [lyrics, setLyrics] = useState<SyncedLyricLine[]>([]);
@@ -207,8 +206,8 @@ export default function FullTrackView() {
   const [lastTapSide, setLastTapSide] = useState<"left" | "right" | null>(null);
   const [seekFeedback, setSeekFeedback] = useState<{ side: "left" | "right"; amount: number } | null>(null);
   const [heartBurstTrigger, setHeartBurstTrigger] = useState(0);
-  // Cover parallax tilt state (desktop)
-  const [tilt, setTilt] = useState({ rx: 0, ry: 0 });
+  // Cover parallax tilt — ref-based, NO re-render on mousemove
+  const tiltRef = useRef<HTMLDivElement>(null);
   // Pull-down-to-close state (mobile)
   const [pullDownY, setPullDownY] = useState(0);
 
@@ -277,20 +276,19 @@ export default function FullTrackView() {
     };
   }, [isDragging, seekTo]);
 
-  // ── Cover parallax tilt (desktop hover) ────────────────────────────────
+  // ── Cover parallax tilt (desktop hover) — ref-based, NO React re-render ──
   const handleCoverMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!coverRef.current || isMobile) return;
+    if (!coverRef.current || isMobile || !tiltRef.current) return;
     const rect = coverRef.current.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
     const dx = (e.clientX - cx) / (rect.width / 2);
     const dy = (e.clientY - cy) / (rect.height / 2);
-    // Max tilt = 8deg
-    setTilt({ rx: -dy * 8, ry: dx * 8 });
+    tiltRef.current.style.transform = `rotateX(${-dy * 8}deg) rotateY(${dx * 8}deg)`;
   }, [isMobile]);
 
   const handleCoverMouseLeave = useCallback(() => {
-    setTilt({ rx: 0, ry: 0 });
+    if (tiltRef.current) tiltRef.current.style.transform = "rotateX(0) rotateY(0)";
   }, []);
 
   // ── Volume wheel (anywhere in FullTrackView) ──────────────────────────
@@ -684,11 +682,10 @@ export default function FullTrackView() {
                   onTouchStart={handleCoverTouchStart}
                   onTouchEnd={handleCoverTouchEnd}
                 >
-                  <motion.div
+                  <div
+                    ref={tiltRef}
                     className="w-full h-full"
-                    animate={{ rotateX: tilt.rx, rotateY: tilt.ry }}
-                    transition={{ type: "spring", stiffness: 200, damping: 20 }}
-                    style={{ transformStyle: "preserve-3d" }}
+                    style={{ transformStyle: "preserve-3d", transition: "transform 0.2s ease-out" }}
                   >
                     <div
                       className="w-full h-full rounded-3xl overflow-hidden relative"
@@ -711,7 +708,7 @@ export default function FullTrackView() {
                         />
                       )}
                     </div>
-                  </motion.div>
+                  </div>
 
                   {/* Glow */}
                   <div
@@ -989,24 +986,21 @@ export default function FullTrackView() {
                       className="h-1.5 rounded-full cursor-pointer relative group mb-2"
                       onMouseDown={handleProgressMouseDown}
                       onTouchStart={handleProgressTouchStart}
-                      onMouseEnter={() => setIsHovering(true)}
-                      onMouseLeave={() => { setIsHovering(false); setHoveredTime(null); }}
+                      onMouseLeave={() => setHoveredTime(null)}
                       onMouseMove={handleProgressMouseMove}
                     >
                       <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }} />
-                      {isHovering && hoveredPct > progressPct && (
-                        <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "rgba(255,255,255,0.12)" }} />
+                      {hoveredPct > progressPct && (
+                        <div className="absolute inset-y-0 left-0 rounded-full opacity-0 group-hover:opacity-100" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "rgba(255,255,255,0.12)" }} />
                       )}
                       <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", willChange: "transform", transition: isDragging ? "none" : "transform 0.1s linear" }} />
-                      {isHovering && (
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ left: `${isDragging ? progressPct : hoveredPct}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 12px color-mix(in srgb, var(--mq-accent) 50%, transparent)" }}
+                      />
+                      {hoveredTime !== null && !isDragging && (
                         <div
-                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none"
-                          style={{ left: `${isDragging ? progressPct : hoveredPct}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 12px color-mix(in srgb, var(--mq-accent) 50%, transparent)" }}
-                        />
-                      )}
-                      {isHovering && hoveredTime !== null && !isDragging && (
-                        <div
-                          className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded text-[9px] font-mono pointer-events-none whitespace-nowrap"
+                          className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded text-[9px] font-mono pointer-events-none whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
                           style={{ left: `${Math.max(10, Math.min(90, hoveredPct))}%`, backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-thin)" }}
                         >
                           {formatDuration(hoveredTime)}
