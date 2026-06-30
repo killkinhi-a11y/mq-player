@@ -242,9 +242,15 @@ export default function FullTrackView() {
     seekTo(e.clientX);
   }, [seekTo]);
 
+  const hoverRafRef = useRef(0);
   const handleProgressMouseMove = useCallback((e: React.MouseEvent) => {
     if (isDragging) return;
-    setHoveredTime(getHoverTime(e.clientX));
+    const x = e.clientX;
+    if (hoverRafRef.current) return;
+    hoverRafRef.current = requestAnimationFrame(() => {
+      hoverRafRef.current = 0;
+      setHoveredTime(getHoverTime(x));
+    });
   }, [isDragging, getHoverTime]);
 
   const handleProgressTouchStart = useCallback((e: React.TouchEvent) => {
@@ -455,15 +461,15 @@ export default function FullTrackView() {
           break;
         case "ArrowUp":
           e.preventDefault();
-          setVolume(Math.min(100, volume + 5));
+          setVolume(Math.min(100, useAppStore.getState().volume + 5));
           break;
         case "ArrowDown":
           e.preventDefault();
-          setVolume(Math.max(0, volume - 5));
+          setVolume(Math.max(0, useAppStore.getState().volume - 5));
           break;
         case "KeyM":
           e.preventDefault();
-          toggleMute();
+          { const v = useAppStore.getState().volume; setVolume(v > 0 ? 0 : 70); }
           break;
         case "KeyL":
           e.preventDefault();
@@ -505,7 +511,7 @@ export default function FullTrackView() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, togglePlay, nextTrack, prevTrack, setProgress, setVolume, volume, toggleMute, handleLike, toggleShuffle, toggleRepeat, setOpen, duration]);
+  }, [isOpen, togglePlay, nextTrack, prevTrack, setProgress, setVolume, handleLike, toggleShuffle, toggleRepeat, setOpen, duration]);
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.id) : false;
@@ -999,9 +1005,9 @@ export default function FullTrackView() {
                     >
                       <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }} />
                       {isHovering && hoveredPct > progressPct && (
-                        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${hoveredPct}%`, backgroundColor: "rgba(255,255,255,0.12)" }} />
+                        <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "rgba(255,255,255,0.12)" }} />
                       )}
-                      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${progressPct}%`, backgroundColor: "var(--mq-accent)", transition: isDragging ? "none" : "width 0.1s linear" }} />
+                      <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", willChange: "transform", transition: isDragging ? "none" : "transform 0.1s linear" }} />
                       {isHovering && (
                         <div
                           className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none"
@@ -1084,7 +1090,7 @@ export default function FullTrackView() {
                         }}
                       >
                         <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }} />
-                        <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${volume}%`, backgroundColor: "var(--mq-accent)" }} />
+                        <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${volume / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)" }} />
                       </div>
                       <span className="text-[10px] font-mono w-8 text-right" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}</span>
 

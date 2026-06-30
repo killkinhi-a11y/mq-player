@@ -79,9 +79,15 @@ export default function PlayerBar() {
     seekTo(e.clientX);
   }, [seekTo]);
 
+  const hoverRafRef = useRef(0);
   const handleProgressMouseMove = useCallback((e: React.MouseEvent) => {
     if (isDragging) return;
-    setHoveredTime(getHoverTime(e.clientX));
+    const x = e.clientX;
+    if (hoverRafRef.current) return;
+    hoverRafRef.current = requestAnimationFrame(() => {
+      hoverRafRef.current = 0;
+      setHoveredTime(getHoverTime(x));
+    });
   }, [isDragging, getHoverTime]);
 
   useEffect(() => {
@@ -261,10 +267,10 @@ export default function PlayerBar() {
                   <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }} />
                   {/* Hover preview fill */}
                   {isHovering && hoveredPct > progressPct && (
-                    <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${hoveredPct}%`, backgroundColor: "rgba(255,255,255,0.12)" }} />
+                    <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "rgba(255,255,255,0.12)" }} />
                   )}
                   {/* Progress fill */}
-                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${progressPct}%`, backgroundColor: "var(--mq-accent)", transition: isDragging ? "none" : "width 0.1s linear" }} />
+                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", willChange: "transform", transition: isDragging ? "none" : "transform 0.1s linear" }} />
                   {/* Thumb */}
                   {isHovering && (
                     <div
