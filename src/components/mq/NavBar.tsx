@@ -46,6 +46,7 @@ const NavBar = React.memo(function NavBar() {
       }, 100);
     }
     if (e.key === "/" && !["INPUT", "TEXTAREA"].includes((e.target as HTMLElement)?.tagName)) {
+      if (useAppStore.getState().isFullTrackViewOpen) return;
       e.preventDefault();
       setView("search");
       setTimeout(() => {
@@ -151,7 +152,7 @@ const NavBar = React.memo(function NavBar() {
               }}
               aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
-              className="relative flex items-center gap-1.5 px-3 py-2 rounded-full mq-focus-premium cursor-pointer select-none"
+              className="group relative flex items-center gap-1.5 px-3 py-2 rounded-full mq-focus-premium cursor-pointer select-none"
               style={{
                 color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
                 transition: "color 0.2s ease",
@@ -180,14 +181,11 @@ const NavBar = React.memo(function NavBar() {
                 />
               )}
 
-              {/* Hover halo (non-active) */}
+              {/* Hover halo (non-active) — CSS group-hover since pointer-events:none */}
               {!isActive && (
-                <motion.div
-                  className="absolute inset-0 rounded-full pointer-events-none"
+                <div
+                  className="absolute inset-0 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150"
                   style={{ backgroundColor: "rgba(255,255,255,0.05)" }}
-                  initial={{ opacity: 0 }}
-                  whileHover={{ opacity: 1 }}
-                  transition={{ duration: 0.15 }}
                 />
               )}
 

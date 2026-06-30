@@ -198,13 +198,7 @@ export default function PlayerBar() {
                   <div className="absolute inset-0 bg-black/30 flex items-end p-1">
                     <div className="flex items-end gap-[1px] h-3 w-full justify-center">
                       {[0,1,2,3].map(i => (
-                        <motion.div
-                          key={i}
-                          className="w-[2px] rounded-full"
-                          style={{ backgroundColor: "#fff", height: "100%", originY: 1 }}
-                          animate={{ scaleY: [0.3, 1, 0.3] }}
-                          transition={{ duration: 0.5 + i * 0.1, repeat: Infinity, delay: i * 0.08 }}
-                        />
+                        <span key={i} className="mq-eq-bar w-[2px] rounded-full" style={{ backgroundColor: "#fff", height: "100%" }} />
                       ))}
                     </div>
                   </div>
@@ -287,7 +281,7 @@ export default function PlayerBar() {
                     <div
                       className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded text-[9px] font-mono pointer-events-none whitespace-nowrap"
                       style={{
-                        left: `${hoveredPct}%`,
+                        left: `${Math.max(10, Math.min(90, hoveredPct))}%`,
                         backgroundColor: "var(--mq-card)",
                         color: "var(--mq-text)",
                         border: "1px solid var(--mq-border-thin)",

@@ -522,7 +522,6 @@ function NowPlayingCard({
 }) {
   return (
     <motion.div
-      layout
       className="flex items-center gap-3 p-3 rounded-xl"
       style={{
         backgroundColor: "var(--mq-card)",
@@ -665,23 +664,11 @@ function HistoryTrackItem({
       onContextMenu={handleRightClick}
       onMouseDown={longPressHandlers.onMouseDown}
       onMouseUp={longPressHandlers.onMouseUp}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.backgroundColor =
-          "rgba(255,255,255,0.03)";
-        (e.currentTarget as HTMLElement).style.opacity = "1";
-      }}
-      onMouseLeave={(e) => {
-        longPressHandlers.onMouseLeave();
-        (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
-        (e.currentTarget as HTMLElement).style.opacity = "0.6";
-      }}
+      onMouseLeave={longPressHandlers.onMouseLeave}
       onTouchStart={longPressHandlers.onTouchStart}
       onTouchEnd={longPressHandlers.onTouchEnd}
       onTouchMove={longPressHandlers.onTouchMove}
-      className="group w-full flex items-center gap-2.5 p-2 rounded-xl transition-colors text-left select-none"
-      style={{
-        opacity: 0.6,
-      }}
+      className="group w-full flex items-center gap-2.5 p-2 rounded-xl transition-all text-left select-none opacity-60 hover:opacity-100 hover:bg-white/[0.03]"
     >
       {/* Cover thumbnail */}
       <div
@@ -799,7 +786,6 @@ function SortableUpNextTrackItem({
 
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -50, scaleY: 0 }}
@@ -994,7 +980,6 @@ function SortableQueueTrackItem({
 
   return (
     <motion.div
-      layout
       ref={setNodeRef}
       style={style}
       onClick={handleClick}

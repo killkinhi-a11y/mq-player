@@ -2473,3 +2473,39 @@ a:not([data-framer-motion-id]),
   75% { transform: scaleY(0.9); }
   100% { transform: scaleY(0.3); }
 }
+
+/* ═══ MQ UI Animation Keyframes — CSS instead of Framer Motion for performance ═══ */
+
+/* Equalizer bars (playing indicator) */
+@keyframes mq-eq { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+.mq-eq-bar { display: inline-block; transform-origin: bottom; animation: mq-eq 0.6s ease-in-out infinite; }
+.mq-eq-bar:nth-child(1) { animation-duration: 0.5s; animation-delay: 0s; }
+.mq-eq-bar:nth-child(2) { animation-duration: 0.6s; animation-delay: 0.08s; }
+.mq-eq-bar:nth-child(3) { animation-duration: 0.7s; animation-delay: 0.16s; }
+.mq-eq-bar:nth-child(4) { animation-duration: 0.55s; animation-delay: 0.24s; }
+.mq-eq-bar:nth-child(5) { animation-duration: 0.65s; animation-delay: 0.12s; }
+.mq-eq-paused { animation-play-state: paused; transform: scaleY(0.15); }
+
+/* Pulse border (FullTrackView cover) */
+@keyframes mq-pulse-border { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+.mq-pulse-border { animation: mq-pulse-border 2s ease-in-out infinite; }
+
+/* Pulse ring (play button) */
+@keyframes mq-pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.4); opacity: 0; } }
+.mq-pulse-ring { animation: mq-pulse-ring 1.5s ease-out infinite; }
+
+/* Spinner */
+@keyframes mq-spin { to { transform: rotate(360deg); } }
+.mq-spin { animation: mq-spin 0.8s linear infinite; }
+
+/* Wave glow */
+@keyframes mq-glow-desktop { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+@keyframes mq-glow-mobile { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.6; } }
+.mq-wave-glow { animation: mq-glow-desktop 4s ease-in-out infinite; }
+.mq-wave-glow-mobile { animation: mq-glow-mobile 5s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mq-eq-bar, .mq-pulse-border, .mq-pulse-ring, .mq-spin, .mq-wave-glow, .mq-wave-glow-mobile {
+    animation: none;
+  }
+}

@@ -217,16 +217,6 @@ export function useKeyboardShortcuts() {
         break;
       }
 
-      // ── / : also open help (some keyboards need Shift+/ for ?) ──
-      case "/": {
-        // Only open if not already open — don't toggle, to avoid
-        // surprising users who type / expecting it to do nothing.
-        if (!useAppStore.getState().shortcutsHelpOpen) {
-          useAppStore.getState().setShortcutsHelpOpen(true);
-        }
-        break;
-      }
-
       default:
         break;
     }

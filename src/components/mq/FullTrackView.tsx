@@ -705,13 +705,11 @@ export default function FullTrackView() {
                           <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.5)" }} />
                         </div>
                       )}
-                      {/* Subtle playing indicator — pulsing border */}
+                      {/* Subtle playing indicator — pulsing border (CSS) */}
                       {isPlaying && (
-                        <motion.div
-                          className="absolute inset-0 rounded-3xl pointer-events-none"
+                        <div
+                          className="absolute inset-0 rounded-3xl pointer-events-none mq-pulse-border"
                           style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
-                          animate={{ opacity: [0.4, 0.9, 0.4] }}
-                          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                         />
                       )}
                     </div>
@@ -1017,7 +1015,7 @@ export default function FullTrackView() {
                       {isHovering && hoveredTime !== null && !isDragging && (
                         <div
                           className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded text-[9px] font-mono pointer-events-none whitespace-nowrap"
-                          style={{ left: `${hoveredPct}%`, backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-thin)" }}
+                          style={{ left: `${Math.max(10, Math.min(90, hoveredPct))}%`, backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-thin)" }}
                         >
                           {formatDuration(hoveredTime)}
                         </div>
@@ -1048,13 +1046,11 @@ export default function FullTrackView() {
                       {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "#fff" }} />
                         : isPlaying ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="#fff" style={{ color: "#fff" }} />
                         : <Play className="w-7 h-7 sm:w-8 sm:h-8 ml-1" fill="#fff" style={{ color: "#fff" }} />}
-                      {/* Pulse ring when playing */}
+                      {/* Pulse ring when playing (CSS) */}
                       {isPlaying && (
-                        <motion.div
-                          className="absolute inset-0 rounded-full pointer-events-none"
+                        <div
+                          className="absolute inset-0 rounded-full pointer-events-none mq-pulse-ring"
                           style={{ border: "2px solid var(--mq-accent)" }}
-                          animate={{ scale: [1, 1.4], opacity: [0.6, 0] }}
-                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
                         />
                       )}
                     </motion.button>
