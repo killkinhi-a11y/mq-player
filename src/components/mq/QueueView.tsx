@@ -240,8 +240,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
               </div>
               <div className="flex items-center gap-2">
                 {hasContent && (
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
+                  <button
                     onClick={() => {
                       clearUpNext();
                       // Also clear remaining queue by resetting to just current track
@@ -255,10 +254,9 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                   >
                     <Trash2 className="w-3 h-3" />
                     Очистить
-                  </motion.button>
+                  </button>
                 )}
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
+                <button
                   onClick={onClose}
                   className="p-2 rounded-full transition-colors"
                   style={{
@@ -266,7 +264,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                   }}
                 >
                   <X className="w-5 h-5" />
-                </motion.button>
+                </button>
               </div>
             </div>
 
@@ -339,15 +337,14 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                     )}
                   </div>
                   {upNext.length > 0 && (
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
+                    <button
                       onClick={clearUpNext}
                       className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors hover:opacity-80"
                       style={{ color: "var(--mq-text-muted)" }}
                     >
                       <Trash2 className="w-3 h-3" />
                       Очистить
-                    </motion.button>
+                    </button>
                   )}
                 </div>
                 {upNext.length > 0 ? (
@@ -658,8 +655,7 @@ function HistoryTrackItem({
   }, [onClick, longPressWasActive]);
 
   return (
-    <motion.button
-      whileTap={{ scale: 0.98 }}
+    <button
       onClick={handleClick}
       onContextMenu={handleRightClick}
       onMouseDown={longPressHandlers.onMouseDown}
@@ -714,7 +710,7 @@ function HistoryTrackItem({
       >
         {formatDuration(track.duration)}
       </span>
-    </motion.button>
+    </button>
   );
 }
 
@@ -861,44 +857,41 @@ function SortableUpNextTrackItem({
       <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 sm:opacity-0 [@media(hover:none)]:opacity-100 transition-opacity">
         {/* Reorder up */}
         {!isFirst && onMoveUp ? (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={onMoveUp}
             className="p-1 rounded"
             style={{ color: "var(--mq-text-muted)" }}
             title="Переместить вверх"
           >
             <ChevronUp className="w-3.5 h-3.5" />
-          </motion.button>
+          </button>
         ) : (
           <div className="w-5" />
         )}
 
         {/* Reorder down */}
         {!isLast && onMoveDown ? (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={onMoveDown}
             className="p-1 rounded"
             style={{ color: "var(--mq-text-muted)" }}
             title="Переместить вниз"
           >
             <ChevronDown className="w-3.5 h-3.5" />
-          </motion.button>
+          </button>
         ) : (
           <div className="w-5" />
         )}
 
         {/* Remove */}
-        <motion.button
-          whileTap={{ scale: 0.95 }}
+        <button
           onClick={onRemove}
           className="p-1 rounded hover:text-red-400 transition-colors"
           style={{ color: "var(--mq-text-muted)" }}
           title="Убрать из очереди"
         >
           <X className="w-3.5 h-3.5" />
-        </motion.button>
+        </button>
       </div>
     </motion.div>
   );
@@ -1051,28 +1044,26 @@ function SortableQueueTrackItem({
       {/* Reorder controls (visible on hover / touch) + Play icon */}
       <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
         {!isFirst && onMoveUp ? (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
             className="p-1 rounded"
             style={{ color: "var(--mq-text-muted)" }}
             title="Переместить вверх"
           >
             <ChevronUp className="w-3.5 h-3.5" />
-          </motion.button>
+          </button>
         ) : (
           <div className="w-5 hidden group-hover:block" />
         )}
         {!isLast && onMoveDown ? (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
             className="p-1 rounded"
             style={{ color: "var(--mq-text-muted)" }}
             title="Переместить вниз"
           >
             <ChevronDown className="w-3.5 h-3.5" />
-          </motion.button>
+          </button>
         ) : (
           <div className="w-5 hidden group-hover:block" />
         )}

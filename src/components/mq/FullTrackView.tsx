@@ -638,30 +638,28 @@ export default function FullTrackView() {
           <div className="relative z-10 h-full flex flex-col">
             {/* ── Header ── */}
             <div className="flex items-center justify-between p-4 sm:p-6">
-              <motion.button
-                whileTap={{ scale: 0.9 }}
+              <button
                 onClick={() => setOpen(false)}
                 className="w-10 h-10 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
                 aria-label="Закрыть"
               >
                 <ChevronDown className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
-              </motion.button>
+              </button>
               <div className="text-center">
                 <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">{radioMode ? "Волна" : "Играет"}</p>
                 <p className="text-xs font-medium truncate max-w-[200px] sm:max-w-xs" style={{ color: "var(--mq-text-muted)" }}>
                   {currentTrack.album || currentTrack.artist}
                 </p>
               </div>
-              <motion.button
-                whileTap={{ scale: 0.9 }}
+              <button
                 onClick={handleShare}
                 className="w-10 h-10 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
                 aria-label="Поделиться"
               >
                 <Share2 className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
-              </motion.button>
+              </button>
             </div>
 
             {/* ── Main content ── */}
@@ -781,58 +779,52 @@ export default function FullTrackView() {
                   {/* Action buttons row */}
                   <div className={`flex items-center gap-2 mb-4 flex-wrap ${isMobile ? "justify-center" : "justify-start"}`}>
                     <div className="relative">
-                      <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Нравится (L)">
+                      <button onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Нравится (L)">
                         <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
-                      </motion.button>
+                      </button>
                       <HeartBurst trigger={heartBurstTrigger} />
                     </div>
-                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.06)" }} title="Не нравится">
+                    <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.06)" }} title="Не нравится">
                       <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
-                    </motion.button>
+                    </button>
                     <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
-                      whileHover={{ scale: 1.1 }}
+                    <button
                       onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: activePanel === "queue" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
                       title="Очередь (Q)"
                     >
                       <ListMusic className="w-4 h-4" style={{ color: activePanel === "queue" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                    </motion.button>
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
-                      whileHover={{ scale: 1.1 }}
+                    </button>
+                    <button
                       onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: activePanel === "lyrics" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
                       title="Текст песни (F)"
                     >
                       <Mic2 className="w-4 h-4" style={{ color: activePanel === "lyrics" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                    </motion.button>
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
-                      whileHover={{ scale: 1.1 }}
+                    </button>
+                    <button
                       onClick={() => setActivePanel(p => p === "history" ? null : "history")}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: activePanel === "history" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
                       title="История (H)"
                     >
                       <History className="w-4 h-4" style={{ color: activePanel === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                    </motion.button>
+                    </button>
                     <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
-                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: spatialAudioEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Пространственное аудио">
+                    <button onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: spatialAudioEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Пространственное аудио">
                       <AirVent className="w-4 h-4" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                    </motion.button>
-                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowSleepMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: playbackRate !== 1 ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Скорость">
+                    </button>
+                    <button onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowSleepMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: playbackRate !== 1 ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Скорость">
                       <span className="text-[10px] font-bold" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span>
-                    </motion.button>
-                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={() => { setShowSleepMenu(!showSleepMenu); setShowSpeedMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center relative" style={{ backgroundColor: sleepTimerActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Таймер сна">
+                    </button>
+                    <button onClick={() => { setShowSleepMenu(!showSleepMenu); setShowSpeedMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center relative" style={{ backgroundColor: sleepTimerActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Таймер сна">
                       <Timer className="w-4 h-4" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                       {sleepTimerActive && (
                         <span className="absolute -bottom-0.5 -right-0.5 text-[8px] font-mono px-1 rounded-full" style={{ background: "var(--mq-accent)", color: "#fff" }}>{sleepRemainingMin}м</span>
                       )}
-                    </motion.button>
+                    </button>
                   </div>
 
                   {/* Speed menu */}
@@ -1029,15 +1021,13 @@ export default function FullTrackView() {
 
                   {/* ═══ MAIN CONTROLS ═══ */}
                   <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "" : "justify-start"}`}>
-                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.15 }} onClick={toggleShuffle} className="w-10 h-10 rounded-full flex items-center justify-center" title="Перемешать (S)">
+                    <button onClick={toggleShuffle} className="w-10 h-10 rounded-full flex items-center justify-center" title="Перемешать (S)">
                       <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                    </motion.button>
-                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={prevTrack} className="w-12 h-12 rounded-full flex items-center justify-center" title="Предыдущий (P)">
+                    </button>
+                    <button onClick={prevTrack} className="w-12 h-12 rounded-full flex items-center justify-center" title="Предыдущий (P)">
                       <SkipBack className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                    </motion.button>
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
-                      whileHover={{ scale: 1.06 }}
+                    </button>
+                    <button
                       onClick={togglePlay}
                       className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
                       style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 8px 32px color-mix(in srgb, var(--mq-accent) 40%, transparent)" }}
@@ -1053,28 +1043,26 @@ export default function FullTrackView() {
                           style={{ border: "2px solid var(--mq-accent)" }}
                         />
                       )}
-                    </motion.button>
-                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={nextTrack} className="w-12 h-12 rounded-full flex items-center justify-center" title="Следующий (N)">
+                    </button>
+                    <button onClick={nextTrack} className="w-12 h-12 rounded-full flex items-center justify-center" title="Следующий (N)">
                       <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                    </motion.button>
-                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.15 }} onClick={toggleRepeat} className="w-10 h-10 rounded-full flex items-center justify-center" title="Повтор (R)">
+                    </button>
+                    <button onClick={toggleRepeat} className="w-10 h-10 rounded-full flex items-center justify-center" title="Повтор (R)">
                       {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
                         : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
-                    </motion.button>
+                    </button>
                   </div>
 
                   {/* ═══ VOLUME (desktop — vertical popup slider) ═══ */}
                   {!isMobile && (
                     <div className="flex items-center gap-2 w-full max-w-xs relative" ref={volumePopupRef}>
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        whileHover={{ scale: 1.1 }}
+                      <button
                         onClick={() => setShowVolumePopup(s => !s)}
                         className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                         title="Звук (M)"
                       >
                         <VolumeIcon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                      </motion.button>
+                      </button>
 
                       {/* Volume bar (always visible) */}
                       <div

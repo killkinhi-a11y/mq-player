@@ -215,17 +215,15 @@ export default function PlayerBar() {
             <div className="flex flex-col items-center gap-1.5 flex-1 max-w-md">
               {/* Control buttons */}
               <div className="flex items-center gap-3">
-                <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={toggleShuffle} className="w-7 h-7 rounded-full flex items-center justify-center" title="Перемешать">
+                <button onClick={toggleShuffle} className="w-7 h-7 rounded-full flex items-center justify-center" title="Перемешать">
                   <Shuffle className="w-3.5 h-3.5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                </motion.button>
+                </button>
 
-                <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={prevTrack} className="w-8 h-8 rounded-full flex items-center justify-center" title="Предыдущий">
+                <button onClick={prevTrack} className="w-8 h-8 rounded-full flex items-center justify-center" title="Предыдущий">
                   <SkipBack className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                </motion.button>
+                </button>
 
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  whileHover={{ scale: 1.06 }}
+                <button
                   onClick={togglePlay}
                   className="w-10 h-10 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
@@ -234,16 +232,16 @@ export default function PlayerBar() {
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#fff" }} />
                     : isPlaying ? <Pause className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
                     : <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />}
-                </motion.button>
+                </button>
 
-                <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={nextTrack} className="w-8 h-8 rounded-full flex items-center justify-center" title="Следующий">
+                <button onClick={nextTrack} className="w-8 h-8 rounded-full flex items-center justify-center" title="Следующий">
                   <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                </motion.button>
+                </button>
 
-                <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={toggleRepeat} className="w-7 h-7 rounded-full flex items-center justify-center" title="Повтор">
+                <button onClick={toggleRepeat} className="w-7 h-7 rounded-full flex items-center justify-center" title="Повтор">
                   {repeat === "one" ? <Repeat1 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                     : <Repeat className="w-3.5 h-3.5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
-                </motion.button>
+                </button>
               </div>
 
               {/* Progress bar with hover preview fill + timestamp tooltip */}
@@ -298,14 +296,14 @@ export default function PlayerBar() {
             {/* ═══ RIGHT: Like, Dislike, Volume, Queue ═══ */}
             <div className="flex items-center gap-1.5 justify-end" style={{ width: "calc(100% / 3 - 16px)" }}>
               {/* Like */}
-              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={handleLike} className="w-8 h-8 rounded-full flex items-center justify-center" title="Нравится">
+              <button onClick={handleLike} className="w-8 h-8 rounded-full flex items-center justify-center" title="Нравится">
                 <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
-              </motion.button>
+              </button>
 
               {/* Dislike */}
-              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={handleDislike} className="w-8 h-8 rounded-full flex items-center justify-center" title="Не нравится">
+              <button onClick={handleDislike} className="w-8 h-8 rounded-full flex items-center justify-center" title="Не нравится">
                 <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
-              </motion.button>
+              </button>
 
               {/* Divider */}
               <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
@@ -317,9 +315,9 @@ export default function PlayerBar() {
               <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
 
               {/* Queue */}
-              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={() => setShowQueue(true)} className="w-8 h-8 rounded-full flex items-center justify-center" title="Очередь">
+              <button onClick={() => setShowQueue(true)} className="w-8 h-8 rounded-full flex items-center justify-center" title="Очередь">
                 <ListMusic className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-              </motion.button>
+              </button>
             </div>
           </div>
         </div>

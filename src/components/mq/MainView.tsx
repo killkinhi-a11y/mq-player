@@ -1347,7 +1347,7 @@ function WaveCard({
                 className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ background: "rgba(255,255,255,0.9)", color: "var(--mq-bg)", boxShadow: "var(--mq-shadow-accent)" }}>
                 {waveLoading ? (
-                  <motion.div className="w-5 h-5 border-2 rounded-full" style={{ borderColor: "var(--mq-bg)", borderTopColor: "transparent" }} animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} />
+                  <div className="mq-spin w-5 h-5 border-2 rounded-full" style={{ borderColor: "var(--mq-bg)", borderTopColor: "transparent" }} />
                 ) : (
                   <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5" fill="currentColor" />
                 )}
@@ -1378,7 +1378,7 @@ function WaveCard({
                 className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "var(--mq-shadow-card-hover)" }}>
                 {waveLoading ? (
-                  <motion.div className="w-6 h-6 border-2 rounded-full" style={{ borderColor: "#1a1a2e", borderTopColor: "transparent" }} animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} />
+                  <div className="mq-spin w-6 h-6 border-2 rounded-full" style={{ borderColor: "#1a1a2e", borderTopColor: "transparent" }} />
                 ) : (
                   <Play className="w-6 h-6 ml-0.5" fill="currentColor" />
                 )}
@@ -1399,13 +1399,7 @@ function EqualizerIcon() {
   return (
     <div className="w-3.5 h-3.5 flex items-end justify-center gap-[2px]">
       {[0, 1, 2, 3].map(i => (
-        <motion.span
-          key={i}
-          className="w-[2px] rounded-full"
-          style={{ backgroundColor: "var(--mq-accent)", height: "100%" }}
-          animate={{ scaleY: [0.3, 1, 0.3] }}
-          transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.12, ease: "easeInOut" }}
-        />
+        <span key={i} className="mq-eq-bar w-[2px] rounded-full" style={{ backgroundColor: "var(--mq-accent)", height: "100%", animationDelay: `${i * 0.12}s` }} />
       ))}
     </div>
   );

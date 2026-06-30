@@ -673,9 +673,9 @@ export default function PlaylistView() {
       <AnimatePresence>
         {showCreate && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
             className="overflow-hidden mb-4"
           >
             <motion.div
@@ -738,9 +738,9 @@ export default function PlaylistView() {
       <AnimatePresence>
         {showImport && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
             className="overflow-hidden mb-4"
           >
             <motion.div
@@ -1246,18 +1246,7 @@ function EqualizerIcon({ small }: { small?: boolean }) {
   return (
     <div className={`${size} flex items-end justify-center gap-[2px]`}>
       {[0, 1, 2, 3].map(i => (
-        <motion.span
-          key={i}
-          className="w-[2px] rounded-full"
-          style={{ backgroundColor: "currentColor", height: "100%" }}
-          animate={{ scaleY: [0.3, 1, 0.3] }}
-          transition={{
-            duration: 0.8,
-            repeat: Infinity,
-            delay: i * 0.12,
-            ease: "easeInOut",
-          }}
-        />
+        <span key={i} className="mq-eq-bar w-[2px] rounded-full" style={{ backgroundColor: "currentColor", height: "100%", animationDelay: `${i * 0.12}s` }} />
       ))}
     </div>
   );
