@@ -305,7 +305,7 @@ export default function PlayerBar() {
               <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
 
               {/* Volume (premium slider) */}
-              <VolumeSlider volume={volume} onChange={handleVolumeChange} className="w-32" />
+              <VolumeSlider volume={volume} onChange={handleVolumeChange} className="w-24 lg:w-32" />
 
               {/* Divider */}
               <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
