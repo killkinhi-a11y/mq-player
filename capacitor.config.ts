@@ -5,19 +5,14 @@ const PROD_URL = 'https://mq1.vercel.app';
 const config: CapacitorConfig = {
   appId: 'com.mq.player',
   appName: 'MQ Player',
-  // Local webDir — used as offline fallback if server is unreachable
+  // Use local webDir as the app entry point.
+  // The local index.html checks connection and redirects to prod URL.
+  // If offline, it shows a custom offline screen with retry button.
+  // This gives us FULL control over the offline experience.
   webDir: 'out',
-  // Load the production app directly in the WebView.
-  // All chunks and API calls work natively from the CDN — no shims needed,
-  // no chunk-404 problems that previously prevented React from mounting past splash.
   server: {
-    url: `${PROD_URL}/play`,
-    cleartext: false,
     androidScheme: 'https',
-    // Allow WebView to navigate within the prod domain and common asset CDNs
-    allowNavigation: ['mq1.vercel.app', 'vercel.app', '*.vercel.app'],
-    // Offline fallback — shown when remote URL fails to load
-    errorPath: 'offline.html',
+    // No server.url — we use local index.html which handles redirection
   },
   android: {
     allowMixedContent: false,
