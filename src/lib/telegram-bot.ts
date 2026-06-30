@@ -508,9 +508,23 @@ export async function handleTelegramMessage(body: Record<string, any>) {
   const text = (message.text || "").trim();
   if (!chatId || !from) return;
 
-  // ---- /start ----
-  if (text === "/start") {
-    // Send welcome + register commands in parallel
+  // ---- /start (with optional deep link payload) ----
+  // /start → welcome message
+  // /start code → auto-trigger /code (user clicked "Открыть бота" from login page)
+  if (text === "/start" || text.startsWith("/start ")) {
+    const payload = text.replace("/start", "").trim();
+
+    // If payload is "code" — auto-trigger auth code flow
+    if (payload === "code") {
+      await Promise.all([
+        setMyCommands().catch(() => {}),
+        setChatMenuButton().catch(() => {}),
+      ]);
+      await handleAuthCode(chatId, from);
+      return;
+    }
+
+    // Default welcome
     await Promise.all([
       sendTelegramMessage(chatId,
         `🎵 <b>Добро пожаловать в mq!</b>\n\n` +

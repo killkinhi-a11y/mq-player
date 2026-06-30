@@ -426,10 +426,10 @@ export default function AuthView() {
                 </motion.div>
               )}
 
-              {/* Open bot button */}
+              {/* Open bot button — ?start=code triggers /code automatically */}
               {tgBotConfigured && tgBotName && (
                 <motion.a
-                  href={`https://t.me/${tgBotName}`}
+                  href={`https://t.me/${tgBotName}?start=code`}
                   target="_blank"
                   rel="noopener noreferrer"
                   initial={{ opacity: 0, y: 10 }}
