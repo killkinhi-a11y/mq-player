@@ -450,10 +450,12 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
 
   const handleSliderDown = useCallback((bandIndex: number, e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // Capture element reference synchronously — e.currentTarget is nulled by React after handler returns
+    const sliderEl = e.currentTarget;
+    sliderEl.setPointerCapture(e.pointerId);
 
     const updateValue = (clientY: number) => {
-      const rect = e.currentTarget.getBoundingClientRect();
+      const rect = sliderEl.getBoundingClientRect();
       const y = clientY - rect.top;
       const pct = 1 - (y / rect.height);
       const raw = denormalize(pct);

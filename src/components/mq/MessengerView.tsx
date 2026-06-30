@@ -193,6 +193,7 @@ export default function MessengerView() {
   const [showReactionsFor, setShowReactionsFor] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
+  const recordingDurationRef = useRef(0);
   const [swipeStartX, setSwipeStartX] = useState<number | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -589,7 +590,7 @@ export default function MessengerView() {
         const reader = new FileReader();
         reader.onload = async () => {
           const base64Url = reader.result as string;
-          const duration = recordingDuration;
+          const duration = recordingDurationRef.current;
           const content = JSON.stringify({ voiceUrl: base64Url, voiceDuration: duration });
           if (isGroupSnapshot) {
             setGroupMessages(prev => ({
@@ -627,14 +628,16 @@ export default function MessengerView() {
       recorder.start();
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
+      recordingDurationRef.current = 0;
       setRecordingDuration(0);
       recordingTimerRef.current = setInterval(() => {
-        setRecordingDuration(d => d + 1);
+        recordingDurationRef.current += 1;
+        setRecordingDuration(recordingDurationRef.current);
       }, 1000);
     } catch {
       toast({ title: "Микрофон недоступен" });
     }
-  }, [activeChatId, isGroupChat, userId, username, addMessage, toast, recordingDuration]);
+  }, [activeChatId, isGroupChat, userId, username, addMessage, toast]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
@@ -948,7 +951,7 @@ export default function MessengerView() {
                           <div className="flex items-center justify-between gap-2 mt-0.5">
                             <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
                               {lastMsg
-                                ? (lastMsg.senderId === userId ? "Вы: " : "") + simulateDecryptSync(lastMsg.content).slice(0, 40)
+                                ? (lastMsg.senderId === userId ? "Вы: " : "") + (lastMsg.messageType === "voice" ? "🎤 Голосовое сообщение" : simulateDecryptSync(lastMsg.content).slice(0, 40))
                                 : isOnline ? "в сети" : formatLastSeen(status?.lastSeen ?? null)
                               }
                             </p>
@@ -1026,7 +1029,7 @@ export default function MessengerView() {
                 >
                   <Pin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} fill="currentColor" />
                   <p className="text-xs truncate flex-1" style={{ color: "var(--mq-text-muted)" }}>
-                    {simulateDecryptSync(pinnedMessage.content).slice(0, 80)}
+                    {pinnedMessage.messageType === "voice" ? "🎤 Голосовое сообщение" : simulateDecryptSync(pinnedMessage.content).slice(0, 80)}
                   </p>
                   <button onClick={() => togglePinMessage(pinnedMessage.id)} style={{ color: "var(--mq-text-muted)" }}>
                     <X className="w-3.5 h-3.5" />

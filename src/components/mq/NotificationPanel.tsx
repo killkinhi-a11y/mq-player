@@ -192,7 +192,24 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                         backgroundColor: notif.read ? "transparent" : "rgba(255,255,255,0.03)",
                         borderBottom: "1px solid var(--mq-border)",
                       }}
-                      onClick={() => { if (!notif.read) markRead(notif.id); }}
+                      onClick={() => {
+                        if (!notif.read) markRead(notif.id);
+                        // Navigate based on notification type
+                        let data: any = {};
+                        try { data = JSON.parse(notif.data || "{}"); } catch {}
+                        const st = useAppStore.getState();
+                        switch (notif.type) {
+                          case "message":
+                          case "friend_accepted":
+                            if (data.senderId) st.setSelectedContact(data.senderId);
+                            st.setView("messenger");
+                            break;
+                          case "friend_request":
+                            st.setView("messenger");
+                            break;
+                        }
+                        onClose();
+                      }}
                     >
                       {/* Icon */}
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
