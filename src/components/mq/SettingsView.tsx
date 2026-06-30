@@ -19,12 +19,12 @@ import { toast } from "@/hooks/use-toast";
 
 type Tab = "account" | "appearance" | "playback" | "notifications" | "more";
 
-const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
-  { id: "account", label: "Аккаунт", icon: User },
-  { id: "appearance", label: "Оформление", icon: Palette },
-  { id: "playback", label: "Звук", icon: Headphones },
-  { id: "notifications", label: "Уведомления", icon: Bell },
-  { id: "more", label: "Ещё", icon: MoreHorizontal },
+const TABS: { id: Tab; label: string; labelShort: string; icon: React.ElementType }[] = [
+  { id: "account", label: "Аккаунт", labelShort: "Профиль", icon: User },
+  { id: "appearance", label: "Оформление", labelShort: "Тема", icon: Palette },
+  { id: "playback", label: "Звук", labelShort: "Звук", icon: Headphones },
+  { id: "notifications", label: "Уведомления", labelShort: "Уведом.", icon: Bell },
+  { id: "more", label: "Ещё", labelShort: "Ещё", icon: MoreHorizontal },
 ];
 
 // ─── Card ─────────────────────────────────────────────────────────────────
@@ -253,10 +253,11 @@ export default function SettingsView() {
             const isActive = activeTab === tab.id;
             return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition-all flex-shrink-0"
+                className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-sm font-semibold whitespace-nowrap transition-all flex-shrink-0"
                 style={{ background: isActive ? "var(--mq-accent)" : "transparent", color: isActive ? "#fff" : "var(--mq-text-muted)", boxShadow: isActive ? "0 4px 12px color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "none" }}>
                 <Icon className="w-3.5 h-3.5" />
-                {tab.label}
+                <span className="hidden sm:inline">{tab.label}</span>
+                <span className="sm:hidden">{tab.labelShort}</span>
               </button>
             );
           })}
