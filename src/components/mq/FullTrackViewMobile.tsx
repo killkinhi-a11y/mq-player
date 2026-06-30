@@ -34,9 +34,14 @@ function SyncedLyrics({ lines, onSeek }: { lines: SyncedLine[]; onSeek: (t: numb
   const lastIdx = useRef(-1);
 
   // Subscribe to store for active line — but only update DOM via refs (no re-render)
+  // Throttle: only check when second changes
   useEffect(() => {
+    let lastSec = -1;
     const unsub = useAppStore.subscribe((s) => {
       const p = s.progress;
+      const sec = Math.floor(p);
+      if (sec === lastSec) return;
+      lastSec = sec;
       let idx = -1;
       for (let i = 0; i < lines.length; i++) { if (lines[i].time <= p) idx = i; else break; }
       if (idx === lastIdx.current) return;

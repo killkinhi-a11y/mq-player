@@ -5,14 +5,14 @@ const PROD_URL = 'https://mq1.vercel.app';
 const config: CapacitorConfig = {
   appId: 'com.mq.player',
   appName: 'MQ Player',
-  // Use local webDir as the app entry point.
-  // The local index.html checks connection and redirects to prod URL.
-  // If offline, it shows a custom offline screen with retry button.
-  // This gives us FULL control over the offline experience.
   webDir: 'out',
+  // Load prod directly — WebView handles connection natively
+  // errorPath shows offline.html when network fails (reliable, no JS probe)
   server: {
+    url: `${PROD_URL}/play`,
+    cleartext: false,
     androidScheme: 'https',
-    // No server.url — we use local index.html which handles redirection
+    errorPath: 'offline.html',
   },
   android: {
     allowMixedContent: false,
