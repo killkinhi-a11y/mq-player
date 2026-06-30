@@ -4,11 +4,12 @@ import { useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 
 /**
- * useAndroidPermissions — requests Android runtime permissions on first launch.
+ * useAndroidPermissions — requests Android runtime permissions.
  *
  * On Android 13+ (API 33+), POST_NOTIFICATIONS must be requested at runtime.
- * This hook requests it once when the user is authenticated and a track
- * starts playing for the first time.
+ * This hook requests it once when the user is authenticated (not waiting
+ * for the first track to play — the notification must be allowed BEFORE
+ * audio starts for the media notification to appear).
  */
 export function useAndroidPermissions() {
   useEffect(() => {
@@ -23,7 +24,6 @@ export function useAndroidPermissions() {
       requested = true;
 
       try {
-        // Request notification permission (covers media notification on Android 13+)
         const localNotif = await import("@capacitor/local-notifications");
         await localNotif.LocalNotifications.requestPermissions();
       } catch (e) {
@@ -31,14 +31,22 @@ export function useAndroidPermissions() {
       }
     };
 
-    // Request when first track starts playing
+    // Request as soon as the user is authenticated
     const unsub = useAppStore.subscribe((state, prev) => {
+      if (state.isAuthenticated && !prev.isAuthenticated) {
+        requestPermissions();
+      }
+      // Safety net: also request when first track starts
       if (state.currentTrack && !prev.currentTrack) {
         requestPermissions();
       }
     });
 
+    // If already authenticated on mount (e.g., rehydrated), request immediately
+    if (useAppStore.getState().isAuthenticated) {
+      requestPermissions();
+    }
+
     return () => unsub();
   }, []);
 }
-

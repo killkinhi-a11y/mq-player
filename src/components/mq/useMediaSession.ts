@@ -39,7 +39,11 @@ export function useMediaSession({ currentTrack, isPlaying, progress, duration, p
 
     const setupNative = async () => {
       const native = await getNativeMediaSession();
-      if (!native) return;
+      if (!native) {
+        // Plugin not available — fall back to web MediaSession
+        setupWeb();
+        return;
+      }
 
       try {
         await native.setMetadata({

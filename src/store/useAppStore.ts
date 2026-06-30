@@ -860,7 +860,7 @@ export const useAppStore = create<AppState>()(
         // Keep _hasHydrated: true to prevent hydration loop
         set({ ...initialState, _authGeneration: Date.now(), _hasHydrated: true });
         // Also clear the JWT cookie on the server
-        fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+        fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
       },
 
       setView: (view) => {
@@ -2760,18 +2760,24 @@ export const useAppStore = create<AppState>()(
           // persisted `s` — otherwise demo-user reset above gets overridden by /api/auth/me
           const currentState = useAppStore.getState();
           if (currentState.isAuthenticated && currentState.userId && currentState.userId !== "demo-user-id") {
-            fetch('/api/auth/me')
+            // Retry once after delay to handle WebView cookie race on cold start
+            const fetchMe = (attempt: number) => fetch('/api/auth/me', { credentials: 'include' })
               .then(async (res) => {
                 if (!res.ok) {
-                  // Session expired or invalid — logout
-                  console.warn("[MQ Store] session expired on rehydrate — logging out");
-                  useAppStore.getState().logout();
-                  return;
+                  if (attempt < 1) {
+                    // Retry once after 800ms — covers WebView cookie race
+                    await new Promise(r => setTimeout(r, 800));
+                    return fetchMe(1);
+                  }
+                  // Don't force-logout on transient 401 — defer to next authed API call
+                  console.warn("[MQ Store] /api/auth/me returned", res.status, "— deferring logout");
+                  return null;
                 }
-                // Session valid — restore user info from server
-                // NOTE: We only refresh user data, NOT re-run setAuth (which would
-                // trigger the 1500ms onboarding redirect). Instead, sync silently.
-                const me = await res.json();
+                return res.json();
+              });
+            fetchMe(0)
+              .then((me) => {
+                if (!me) return;
                 useAppStore.setState({
                   userId: me.userId,
                   username: me.username,

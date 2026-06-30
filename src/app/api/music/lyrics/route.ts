@@ -40,9 +40,9 @@ function parseLRC(lrcText: string): { time: number; text: string }[] {
 
 function clean(s: string): string {
   return s
-    .replace(/\(?\s*(official\s+(music\s+)?video|official\s+audio|official\s+lyrics?|official|lyrics?|audio|music\s+video|visualizer|hd|hq|4k|explicit|clean)\s*\)?/gi, "")
-    .replace(/\[(official|lyrics?|audio|video|visualizer|hd|hq)\]/gi, "")
-    .replace(/\s*[\(\[]?\s*(feat|ft|featuring)\.?\s+[^)\]]+[\)\]]?/gi, "")
+    // Only strip keywords inside parentheses/brackets — not standalone words
+    .replace(/\s*[\(\[]\s*(official\s+(music\s+)?video|official\s+audio|official\s+lyrics?|lyrics?|audio|music\s+video|visualizer|hd|hq|4k|explicit|clean)\s*[\)\]]/gi, "")
+    .replace(/\s*[\(\[]\s*(feat|ft|featuring)\.?\s+[^)\]]+[\)\]]/gi, "")
     .replace(/\s*-\s*topic\s*$/i, "")
     .replace(/^official\s+/i, "")
     .replace(/\s+/g, " ")
@@ -97,14 +97,20 @@ async function handler(request: NextRequest) {
     fetchLrclib(`https://lrclib.net/api/search?q=${encodeURIComponent(`${artistRaw} ${titleRaw}`)}`),
   ]);
 
-  const best = r1 || r2;
+  // Prefer synced lyrics, then plain, then any result
+  const candidates = [r1, r2].filter(Boolean) as LrcLibResult[];
+  const best =
+    candidates.find(r => r.syncedLyrics)   // synced wins
+    || candidates.find(r => r.plainLyrics) // then plain
+    || candidates[0];                      // then whatever
 
   // If first 2 failed, try one more search with cleaned query
   if (!best) {
     const r3 = await fetchLrclib(`https://lrclib.net/api/search?q=${encodeURIComponent(`${artistClean} ${titleClean}`)}`);
     if (!r3) {
       const empty = { lyrics: [], plainText: "", synced: false };
-      setCache(cacheKey, empty);
+      // Short TTL for negative cache — lyrics may appear later
+      cache.set(cacheKey, { data: empty, expiry: Date.now() + 60000 });
       return NextResponse.json(empty);
     }
     const lyrics = r3.syncedLyrics ? parseLRC(r3.syncedLyrics) : [];

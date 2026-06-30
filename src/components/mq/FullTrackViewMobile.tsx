@@ -201,6 +201,7 @@ function FullTrackViewMobileInner() {
         return r.json();
       })
       .then(d => {
+        if (ctrl.signal.aborted) return;
         if (Array.isArray(d.lyrics) && d.lyrics.length) {
           setLyrics(d.lyrics);
         } else if (d.plainText) {
@@ -210,11 +211,13 @@ function FullTrackViewMobileInner() {
         }
       })
       .catch((err) => {
-        if (err.name !== "AbortError") {
+        if (err.name !== "AbortError" && !ctrl.signal.aborted) {
           setLyricsError("Ошибка загрузки текста");
         }
       })
-      .finally(() => setLyricsLoading(false));
+      .finally(() => {
+        if (!ctrl.signal.aborted) setLyricsLoading(false);
+      });
     return () => ctrl.abort();
   }, [panel, isOpen, currentTrack]);
 

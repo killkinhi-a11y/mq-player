@@ -1611,15 +1611,24 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             console.log("[Player] Track is preview-only (SNIP), trying Audius fallback...");
             try {
               const audiusUrl = await findAudiusAlternative(currentTrack.artist, currentTrack.title);
+              if (cancelled) return;
               if (audiusUrl) {
                 console.log("[Player] Audius alternative found — using full stream");
-                // Use Audius stream directly
                 audioEl.crossOrigin = "anonymous";
                 audioEl.src = audiusUrl;
                 audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
                 audioEl.load();
-                if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
+                resumeAudioContext();
+                if (canCrossfade) {
+                  crossfadeRef.current = true;
+                  if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
+                  crossfadeTo(audioEl);
+                } else {
+                  cancelCrossfade();
+                  if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
+                }
                 prevTrackIdForCrossfade.current = currentTrack.id;
+                setIsLoadingTrack(false);
                 return;
               }
             } catch (e) {
@@ -1690,7 +1699,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                 }
               });
 
-              const drmTimeout = setTimeout(() => {
+              // Only arm DRM timeout for encrypted streams — plain HLS can be slow on mobile
+              const drmTimeout = stream.isEncrypted ? setTimeout(() => {
                 if (audioEl.paused && !audioEl.currentTime && !cancelled) {
                   console.error("[Player] DRM playback timeout — license may be invalid");
                   setIsLoadingTrack(false);
@@ -1699,15 +1709,19 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   try { hls.destroy(); } catch {}
                   delete (audioEl as any)._hlsInstance;
                   PlayerErrorLogger.log(currentTrack?.title || "unknown", "DRM timeout (25s)", "skip");
-                  pendingTimeouts.push(setTimeout(() => nextTrackRef.current(), 2000));
+                  const failTrackId = currentTrack.id;
+                  const t = setTimeout(() => {
+                    if (useAppStore.getState().currentTrack?.id === failTrackId) nextTrackRef.current();
+                  }, 2000);
+                  pendingTimeouts.push(t);
                 }
-              }, 25000);
-              pendingTimeouts.push(drmTimeout);
+              }, 25000) : null;
+              if (drmTimeout) pendingTimeouts.push(drmTimeout);
 
               hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 if (!cancelled) {
                   clearTimeout(hlsManifestTimeout);
-                  const clearT = () => { clearTimeout(drmTimeout); };
+                  const clearT = () => { if (drmTimeout) clearTimeout(drmTimeout); };
                   audioEl.addEventListener("playing", clearT, { once: true });
 
                   // Re-apply volume after HLS manifest loads (audio element may reset volume)
@@ -1737,7 +1751,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               hls.on(Hls.Events.ERROR, async (_event, data) => {
                 if (data.type === Hls.ErrorTypes.KEY_SYSTEM_ERROR) {
                   console.error("[Player] DRM/Key system error:", data.details, data.fatal);
-                  clearTimeout(drmTimeout);
+                  if (drmTimeout) clearTimeout(drmTimeout);
                   if (await tryFallbackStream(audioEl, currentTrack, cancelled)) return;
                   if (!retryingRef.current && currentTrack.scTrackId) {
                     retryingRef.current = true;
@@ -1803,7 +1817,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                 }
                 if (data.fatal) {
                   console.error("[Player] HLS fatal error:", data.type, data.details);
-                  clearTimeout(drmTimeout);
+                  if (drmTimeout) clearTimeout(drmTimeout);
                   if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
                     console.warn("[Player] Attempting HLS network recovery...");
                     if (await tryFallbackStream(audioEl, currentTrack, cancelled)) return;

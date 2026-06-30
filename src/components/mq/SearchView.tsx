@@ -254,7 +254,6 @@ export default function SearchView() {
 
   const handleHistoryClick = useCallback((query: string) => {
     setSearchQuery(query);
-    setHasSearched(true);
     if (searchInputRef.current) searchInputRef.current.focus();
   }, [setSearchQuery]);
 
@@ -632,7 +631,7 @@ export default function SearchView() {
                           e.stopPropagation();
                           handleRemoveHistoryItem(query);
                         }}
-                        className="w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity ml-0.5"
+                        className="w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-60 group-hover:pointer-events-auto hover:!opacity-100 transition-opacity ml-0.5 pointer-events-none"
                         style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
                       >
                         <X className="w-2.5 h-2.5" />
