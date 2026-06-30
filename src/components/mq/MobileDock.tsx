@@ -52,7 +52,7 @@ function MobileDockInner() {
       if (audio && audio.src && audio.duration && isFinite(audio.duration) && audio.duration > 0) {
         const pct = audio.currentTime / audio.duration;
         if (progressFillRef.current) {
-          progressFillRef.current.style.width = `${(pct * 100).toFixed(2)}%`;
+          progressFillRef.current.style.transform = `scaleX(${pct})`;
         }
       }
       rafId = requestAnimationFrame(tick);
@@ -86,13 +86,15 @@ function MobileDockInner() {
           height: 2px;
           background: rgba(255,255,255,0.06);
           cursor: pointer;
-          touch-action: none;
         }
         .mq-dock-progress-fill {
           position: absolute;
           top: 0; left: 0; bottom: 0;
-          width: 0%;
+          width: 100%;
           background: var(--mq-accent);
+          transform: scaleX(0);
+          transform-origin: left center;
+          will-change: transform;
         }
       `}</style>
       <div style={{

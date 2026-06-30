@@ -859,8 +859,12 @@ export const useAppStore = create<AppState>()(
         // Increment generation to invalidate any in-flight async operations
         // Keep _hasHydrated: true to prevent hydration loop
         set({ ...initialState, _authGeneration: Date.now(), _hasHydrated: true });
-        // Also clear the JWT cookie on the server
-        fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+        // Use sendBeacon to survive page unload — fire-and-forget fetch may not complete
+        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+          navigator.sendBeacon('/api/auth/logout');
+        } else {
+          fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+        }
       },
 
       setView: (view) => {
@@ -2777,7 +2781,21 @@ export const useAppStore = create<AppState>()(
               });
             fetchMe(0)
               .then((me) => {
-                if (!me) return;
+                if (!me) {
+                  // Session truly expired after retries — force logout to prevent ghost session
+                  console.warn("[MQ Store] /api/auth/me 401 after retry — forcing logout");
+                  useAppStore.setState({
+                    isAuthenticated: false,
+                    userId: null,
+                    username: null,
+                    email: null,
+                    avatar: null,
+                    currentView: "auth",
+                    isPlaying: false,
+                    playbackState: "idle",
+                  });
+                  return;
+                }
                 useAppStore.setState({
                   userId: me.userId,
                   username: me.username,

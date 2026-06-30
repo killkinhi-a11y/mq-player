@@ -128,9 +128,10 @@ function FullTrackViewMobileInner() {
         const audio = getAudioElement();
         if (audio && audio.src && audio.duration && isFinite(audio.duration) && audio.duration > 0) {
           const pct = (audio.currentTime / audio.duration) * 100;
-          // Update input value (native input handles its own visual)
+          // Update input value + CSS variable for fill gradient
           if (seekInputRef.current && document.activeElement !== seekInputRef.current) {
             seekInputRef.current.value = String(pct);
+            seekInputRef.current.style.setProperty('--mq-seek-pct', `${pct}%`);
           }
           // Update time label only when second changes
           const sec = Math.floor(audio.currentTime);
@@ -149,8 +150,15 @@ function FullTrackViewMobileInner() {
   }, [isOpen]);
 
   // ── Seek: native input onChange ──
+  const dragTimerRef = useRef(0);
   const handleSeekChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const v = Number(e.target.value);
+    // Mark as dragging — debounce reset after 150ms of no change
+    isDraggingRef.current = true;
+    clearTimeout(dragTimerRef.current);
+    dragTimerRef.current = window.setTimeout(() => { isDraggingRef.current = false; }, 150);
+    // Update CSS variable for fill
+    e.target.style.setProperty('--mq-seek-pct', `${v}%`);
     const audio = getAudioElement();
     if (audio && audio.src && audio.duration) {
       audio.currentTime = (v / 100) * audio.duration;
@@ -266,13 +274,14 @@ function FullTrackViewMobileInner() {
           outline: none;
           cursor: pointer;
           -webkit-tap-highlight-color: transparent;
+          touch-action: none;
         }
         .mq-ft-seek-input::-webkit-slider-runnable-track {
           height: 4px;
           border-radius: 2px;
           background: linear-gradient(to right,
-            var(--mq-accent) 0%, var(--mq-accent) ${seekPct}%,
-            rgba(255,255,255,0.12) ${seekPct}%, rgba(255,255,255,0.12) 100%);
+            var(--mq-accent) 0%, var(--mq-accent) var(--mq-seek-pct, 0%),
+            rgba(255,255,255,0.12) var(--mq-seek-pct, 0%), rgba(255,255,255,0.12) 100%);
         }
         .mq-ft-seek-input::-webkit-slider-thumb {
           -webkit-appearance: none;

@@ -214,12 +214,7 @@ export async function findAudiusAlternative(artist: string, title: string): Prom
       }
     }
 
-    // If no exact match, use the first result (Audius search is usually accurate)
-    if (tracks[0]) {
-      const streamUrl = `${host}/v1/tracks/${tracks[0].id}/stream?app_name=MQPlayer`;
-      return streamUrl;
-    }
-
+    // No match found — return null, let caller fall back to SNIP preview
     return null;
   } catch {
     return null;

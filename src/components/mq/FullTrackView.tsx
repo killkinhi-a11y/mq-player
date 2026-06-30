@@ -549,6 +549,7 @@ export default function FullTrackView() {
     fetch(`/api/music/lyrics?artist=${encodeURIComponent(currentTrack.artist)}&title=${encodeURIComponent(currentTrack.title)}`, { signal: controller.signal })
       .then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
       .then(data => {
+        if (controller.signal.aborted) return;
         if (Array.isArray(data.lyrics) && data.lyrics.length > 0) {
           setLyrics(data.lyrics);
         } else if (data.plainText) {
@@ -558,11 +559,13 @@ export default function FullTrackView() {
         }
       })
       .catch(err => {
-        if (err.name !== "AbortError") {
+        if (err.name !== "AbortError" && !controller.signal.aborted) {
           setLyricsError("Ошибка загрузки текста");
         }
       })
-      .finally(() => setLyricsLoading(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLyricsLoading(false);
+      });
     return () => controller.abort();
   }, [activePanel, isOpen, currentTrack]);
 

@@ -360,8 +360,7 @@ export default function AppShell() {
   // P3-fix: useAudioEngine MUST be called here (was previously called inside
   // PlayerBar, but the rewritten PlayerBar no longer calls it). Without this,
   // the audio element is never created and tracks don't play.
-  const _currentTrack = useAppStore((s) => s.currentTrack);
-  const _isPlaying = useAppStore((s) => s.isPlaying);
+  // Reuse existing subscriptions from above to avoid duplicate store listeners
   const _volume = useAppStore((s) => s.volume);
   const _playbackRate = useAppStore((s) => s.playbackRate);
   const _setProgress = useAppStore((s) => s.setProgress);
@@ -370,11 +369,10 @@ export default function AppShell() {
   const _togglePlay = useAppStore((s) => s.togglePlay);
   const _nextTrack = useAppStore((s) => s.nextTrack);
   const _prevTrack = useAppStore((s) => s.prevTrack);
-  const _miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
   const _setMiniPlayerHidden = useAppStore((s) => s.setMiniPlayerHidden);
   useAudioEngine({
-    currentTrack: _currentTrack,
-    isPlaying: _isPlaying,
+    currentTrack,
+    isPlaying,
     volume: _volume,
     playbackRate: _playbackRate,
     setProgress: _setProgress,
@@ -383,7 +381,7 @@ export default function AppShell() {
     togglePlay: _togglePlay,
     nextTrack: _nextTrack,
     prevTrack: _prevTrack,
-    miniPlayerHidden: _miniPlayerHidden,
+    miniPlayerHidden,
     setMiniPlayerHidden: _setMiniPlayerHidden,
   });
 
@@ -391,8 +389,8 @@ export default function AppShell() {
   const _progress = useAppStore((s) => s.progress);
   const _duration = useAppStore((s) => s.duration);
   useMediaSession({
-    currentTrack: _currentTrack,
-    isPlaying: _isPlaying,
+    currentTrack,
+    isPlaying,
     progress: _progress,
     duration: _duration,
     playbackRate: _playbackRate,

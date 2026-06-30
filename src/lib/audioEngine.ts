@@ -226,19 +226,18 @@ export function crossfadeToGapless(newAudio: HTMLAudioElement): void {
 
   // Determine which element is now the "old" one (fading out)
   const fadingOutElement = wasActiveSlot === "A" ? oldAudioA : oldAudioB;
-  const currentActiveElement = getAudioElement();
 
   // Stop old audio after the quick crossfade completes
+  // Re-read active element inside timeout to handle rapid double-skip
   setTimeout(() => {
-    [_audioA, _audioB].forEach(el => {
-      if (el && el !== currentActiveElement) {
-        el.pause();
-        el.currentTime = 0;
-        // Destroy any HLS instance on the old element
-        const hls = (el as any)._hlsInstance;
-        if (hls) { try { hls.destroy(); } catch {} delete (el as any)._hlsInstance; }
-      }
-    });
+    const nowActive = getAudioElement();
+    if (fadingOutElement && fadingOutElement !== nowActive) {
+      fadingOutElement.pause();
+      fadingOutElement.currentTime = 0;
+      // Destroy any HLS instance on the old element
+      const hls = (fadingOutElement as any)._hlsInstance;
+      if (hls) { try { hls.destroy(); } catch {} delete (fadingOutElement as any)._hlsInstance; }
+    }
   }, 200);
 
   // Clear the preload marker since we've now consumed it
@@ -486,19 +485,18 @@ export function crossfadeTo(newAudio: HTMLAudioElement, fadeIn: boolean = true):
 
   // Determine which element is now the "old" one (fading out)
   const fadingOutElement = wasActiveSlot === "A" ? oldAudioA : oldAudioB;
-  const currentActiveElement = getAudioElement();
 
   // Stop old audio after crossfade completes
+  // Re-read active element inside timeout to handle rapid double-skip
   setTimeout(() => {
-    [_audioA, _audioB].forEach(el => {
-      if (el && el !== currentActiveElement) {
-        el.pause();
-        el.currentTime = 0;
-        // Destroy any HLS instance on the old element to stop buffering
-        const hls = (el as any)._hlsInstance;
-        if (hls) { try { hls.destroy(); } catch {} delete (el as any)._hlsInstance; }
-      }
-    });
+    const nowActive = getAudioElement();
+    if (fadingOutElement && fadingOutElement !== nowActive) {
+      fadingOutElement.pause();
+      fadingOutElement.currentTime = 0;
+      // Destroy any HLS instance on the old element to stop buffering
+      const hls = (fadingOutElement as any)._hlsInstance;
+      if (hls) { try { hls.destroy(); } catch {} delete (fadingOutElement as any)._hlsInstance; }
+    }
   }, (duration + 0.1) * 1000);
 }
 

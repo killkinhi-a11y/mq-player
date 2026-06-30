@@ -91,33 +91,29 @@ async function handler(request: NextRequest) {
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 
-  // Run first 2 strategies in PARALLEL for speed
-  const [r1, r2] = await Promise.all([
+  // Run ALL 3 strategies in PARALLEL for speed (was sequential, up to 8s)
+  const [r1, r2, r3] = await Promise.all([
     fetchLrclib(`https://lrclib.net/api/get?artist_name=${encodeURIComponent(artistClean)}&track_name=${encodeURIComponent(titleClean)}`),
     fetchLrclib(`https://lrclib.net/api/search?q=${encodeURIComponent(`${artistRaw} ${titleRaw}`)}`),
+    fetchLrclib(`https://lrclib.net/api/search?q=${encodeURIComponent(`${artistClean} ${titleClean}`)}`),
   ]);
 
-  // Prefer synced lyrics, then plain, then any result
-  const candidates = [r1, r2].filter(Boolean) as LrcLibResult[];
+  // Check for actual lyrics content, not just object existence
+  const hasLyrics = (r: LrcLibResult | null): r is LrcLibResult =>
+    !!r && (!!r.syncedLyrics || !!r.plainLyrics);
+
+  // Prefer synced lyrics, then plain, from any of the 3 results
+  const candidates = [r1, r2, r3].filter(Boolean) as LrcLibResult[];
   const best =
     candidates.find(r => r.syncedLyrics)   // synced wins
     || candidates.find(r => r.plainLyrics) // then plain
-    || candidates[0];                      // then whatever
+    || candidates.find(hasLyrics);         // then any with content
 
-  // If first 2 failed, try one more search with cleaned query
-  if (!best) {
-    const r3 = await fetchLrclib(`https://lrclib.net/api/search?q=${encodeURIComponent(`${artistClean} ${titleClean}`)}`);
-    if (!r3) {
-      const empty = { lyrics: [], plainText: "", synced: false };
-      // Short TTL for negative cache — lyrics may appear later
-      cache.set(cacheKey, { data: empty, expiry: Date.now() + 60000 });
-      return NextResponse.json(empty);
-    }
-    const lyrics = r3.syncedLyrics ? parseLRC(r3.syncedLyrics) : [];
-    const plainText = r3.plainLyrics?.trim() || "";
-    const responseData = { lyrics, plainText, synced: lyrics.length > 0 };
-    setCache(cacheKey, responseData);
-    return NextResponse.json(responseData);
+  if (!best || !hasLyrics(best)) {
+    const empty = { lyrics: [], plainText: "", synced: false };
+    // Short TTL for negative cache — lyrics may appear later
+    cache.set(cacheKey, { data: empty, expiry: Date.now() + 60000 });
+    return NextResponse.json(empty);
   }
 
   const lyrics = best.syncedLyrics ? parseLRC(best.syncedLyrics) : [];

@@ -1113,9 +1113,11 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         const track = useAppStore.getState().currentTrack;
         if (track) {
           const defaultGain = getDefaultGainForGenre(track.genre || "");
+          // Use store volume as base — audioEl.volume may already have gain applied
+          const userVol = Math.pow(useAppStore.getState().volume / 100, 2);
           replayGain.attach(audioEl);
           replayGain.setEnabled(true);
-          replayGain.setBaseVolume(audioEl.volume);
+          replayGain.setBaseVolume(userVol);
           replayGain.applyGain(defaultGain);
         }
       } else {
