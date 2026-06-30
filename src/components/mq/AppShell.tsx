@@ -7,9 +7,11 @@ import { themes, applyThemeToDOM } from "@/lib/themes";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { useListenSessionSync } from "@/hooks/useListenSessionSync";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useAndroidPermissions } from "@/hooks/use-android-permissions";
 import { useIsMobile } from "@/hooks/use-mobile";
 import dynamic from "next/dynamic";
 import CobaltTurnstile from "@/components/mq/CobaltTurnstile";
+import { OfflineBanner } from "@/components/mq/OfflineBanner";
 import "@/styles/ipod-2001.css";
 import "@/styles/japan.css";
 import "@/styles/swag.css";
@@ -399,6 +401,7 @@ export default function AppShell() {
   useGlobalNotifications();
   useListenSessionSync();
   useKeyboardShortcuts();
+  useAndroidPermissions();
 
   useEffect(() => {
     if (prevViewRef.current === "search" && currentView !== "search" && searchQuery) {
@@ -461,6 +464,7 @@ export default function AppShell() {
     >
       <Suspense fallback={null}><CinematicAtmosphere /></Suspense>
       <Suspense fallback={null}><MaintenanceBanner /></Suspense>
+      <OfflineBanner />
 
       {/* Demo loading overlay */}
       <AnimatePresence>
