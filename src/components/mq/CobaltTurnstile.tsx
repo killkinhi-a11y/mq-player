@@ -21,6 +21,7 @@ const COBALT_SESSION_URL = "/api/cobalt/session";
 // Load Turnstile script once
 let turnstileLoaded = false;
 let turnstileLoadPromise: Promise<void> | null = null;
+let turnstileLoadFailed = false;
 
 function loadTurnstileScript(): Promise<void> {
   if (turnstileLoaded) return Promise.resolve();
@@ -140,7 +141,12 @@ export default function CobaltTurnstile() {
           appearance: "interaction-only",
         });
       } catch (err) {
-        console.warn("[CobaltTurnstile] Init failed:", err);
+        // Silently fail — Turnstile is optional (for cobalt SNIP bypass)
+        // Don't spam console, just log once
+        if (!turnstileLoadFailed) {
+          turnstileLoadFailed = true;
+          console.debug("[CobaltTurnstile] Init failed — SNIP bypass unavailable, using preview");
+        }
       }
     }
 

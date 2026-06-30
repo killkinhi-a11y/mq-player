@@ -2657,7 +2657,8 @@ export const useAppStore = create<AppState>()(
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error) {
-            console.error("[MQ Store] rehydration error – clearing localStorage:", error);
+            // TDZ errors during HMR are common — silently clear and continue
+            console.debug("[MQ Store] rehydration error — clearing localStorage and continuing");
             try { localStorage.removeItem(STORAGE_KEY); } catch {}
             // CRITICAL: Even on rehydration error, mark hydration as complete.
             // Otherwise the UI stays stuck on the "mq" loading screen forever.

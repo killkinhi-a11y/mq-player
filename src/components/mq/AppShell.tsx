@@ -161,7 +161,7 @@ export default function AppShell() {
     const timer = setTimeout(() => {
       const s = useAppStore.getState();
       if (!s._hasHydrated) {
-        console.warn("[MQ] Hydration timeout — forcing _hasHydrated = true");
+        console.debug("[MQ] Hydration timeout — forcing _hasHydrated = true");
         useAppStore.setState({ _hasHydrated: true });
       }
     }, 5000);

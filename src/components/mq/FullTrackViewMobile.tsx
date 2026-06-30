@@ -349,8 +349,8 @@ function FullTrackViewMobileInner() {
       <div className="relative z-10 h-full flex flex-col">
         {/* ── Header ── */}
         <div className="flex items-center justify-between px-4" style={{ paddingTop: "max(12px, env(safe-area-inset-top))", paddingBottom: 8, flexShrink: 0 }}>
-          <button onClick={() => setOpen(false)} className="mq-ft-btn" style={iconBtn}><ChevronDown className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
-          <button onClick={() => setShowMore(true)} className="mq-ft-btn" style={iconBtn}><MoreHorizontal className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
+          <button onClick={() => setOpen(false)} aria-label="Закрыть" className="mq-ft-btn" style={iconBtn}><ChevronDown className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
+          <button onClick={() => setShowMore(true)} aria-label="Ещё" className="mq-ft-btn" style={iconBtn}><MoreHorizontal className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
         </div>
 
         {/* ── Cover (centered, takes available space) ── */}
@@ -384,10 +384,10 @@ function FullTrackViewMobileInner() {
             <button onClick={handleArtist} className="text-sm hover:underline mt-0.5 block truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</button>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={handleLike} className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.05)" }}>
+            <button onClick={handleLike} aria-label="Нравится" className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.05)" }}>
               <Heart className="w-5 h-5" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
             </button>
-            <button onClick={handleDislike} className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)" }}>
+            <button onClick={handleDislike} aria-label="Не нравится" className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)" }}>
               <ThumbsDown className="w-5 h-5" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
             </button>
           </div>
@@ -416,13 +416,13 @@ function FullTrackViewMobileInner() {
 
         {/* ── Main controls ── */}
         <div className="flex items-center justify-between px-5 mb-4" style={{ flexShrink: 0 }}>
-          <button onClick={toggleShuffle} className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40 }}><Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} /></button>
-          <button onClick={prevTrack} className="mq-ft-btn" style={{ ...iconBtn, width: 48, height: 48 }}><SkipBack className="w-7 h-7" style={{ color: "var(--mq-text)" }} fill="currentColor" /></button>
-          <button onClick={togglePlay} className="mq-ft-btn" style={{ width: 68, height: 68, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#fff", border: "none", cursor: "pointer", padding: 0, boxShadow: "0 6px 20px rgba(255,255,255,0.15)" }}>
+          <button onClick={toggleShuffle} aria-label="Перемешать" className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40 }}><Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} /></button>
+          <button onClick={prevTrack} aria-label="Предыдущий" className="mq-ft-btn" style={{ ...iconBtn, width: 48, height: 48 }}><SkipBack className="w-7 h-7" style={{ color: "var(--mq-text)" }} fill="currentColor" /></button>
+          <button onClick={togglePlay} aria-label="Play/Pause" className="mq-ft-btn" style={{ width: 68, height: 68, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#fff", border: "none", cursor: "pointer", padding: 0, boxShadow: "0 6px 20px rgba(255,255,255,0.15)" }}>
             {isLoading ? <Loader2 className="w-7 h-7 animate-spin" style={{ color: "#000" }} /> : isPlaying ? <Pause className="w-7 h-7" fill="#000" style={{ color: "#000" }} /> : <Play className="w-7 h-7 ml-1" fill="#000" style={{ color: "#000" }} />}
           </button>
-          <button onClick={nextTrack} className="mq-ft-btn" style={{ ...iconBtn, width: 48, height: 48 }}><SkipForward className="w-7 h-7" style={{ color: "var(--mq-text)" }} fill="currentColor" /></button>
-          <button onClick={toggleRepeat} className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40 }}>
+          <button onClick={nextTrack} aria-label="Следующий" className="mq-ft-btn" style={{ ...iconBtn, width: 48, height: 48 }}><SkipForward className="w-7 h-7" style={{ color: "var(--mq-text)" }} fill="currentColor" /></button>
+          <button onClick={toggleRepeat} aria-label="Повтор" className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40 }}>
             {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} /> : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
           </button>
         </div>
@@ -452,7 +452,7 @@ function FullTrackViewMobileInner() {
           <div className="absolute inset-0 z-20 flex flex-col" style={{ background: "var(--mq-bg)", paddingTop: "max(16px, env(safe-area-inset-top))", animation: "mqFtSlideUp 0.2s ease-out" }}>
             <div className="flex items-center justify-between px-4 py-3" style={{ flexShrink: 0 }}>
               <p className="text-base font-semibold" style={{ color: "var(--mq-text)" }}>{panel === "lyrics" ? "Текст песни" : panel === "queue" ? "Очередь" : "Недавно играло"}</p>
-              <button onClick={() => setPanel(null)} className="mq-ft-btn" style={iconBtn}><X className="w-5 h-5" style={{ color: "var(--mq-text)" }} /></button>
+              <button onClick={() => setPanel(null)} aria-label="Закрыть" className="mq-ft-btn" style={iconBtn}><X className="w-5 h-5" style={{ color: "var(--mq-text)" }} /></button>
             </div>
             <div className="flex-1 overflow-y-auto px-4 pb-4">
               {panel === "lyrics" && (lyricsLoading ? <div className="flex items-center gap-2 py-6 justify-center"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} /><span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск...</span></div>
