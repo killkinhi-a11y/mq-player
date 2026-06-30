@@ -52,7 +52,7 @@ export function ViewTransition({
   }
 
   return (
-    <div ref={ref} style={{ willChange: "opacity, transform" }}>
+    <div ref={ref}>
       {children}
     </div>
   );
