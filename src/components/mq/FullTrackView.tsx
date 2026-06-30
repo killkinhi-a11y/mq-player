@@ -1047,48 +1047,10 @@ export default function FullTrackView() {
                     </button>
                   </div>
 
-                  {/* ═══ VOLUME (desktop — vertical popup slider) ═══ */}
+                  {/* ═══ VOLUME (desktop — single horizontal slider with icon) ═══ */}
                   {!isMobile && (
-                    <div className="flex items-center gap-2 w-full max-w-xs relative" ref={volumePopupRef}>
-                      <button
-                        onClick={() => setShowVolumePopup(s => !s)}
-                        className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                        title="Звук (M)"
-                      >
-                        <VolumeIcon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                      </button>
-
-                      {/* Volume bar — VolumeSlider with native drag support */}
-                      <VolumeSlider volume={volume} onChange={setVolume} showIcon={false} showValue={true} className="flex-1" />
-
-                      {/* Vertical popup slider */}
-                      <AnimatePresence>
-                        {showVolumePopup && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                            transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                            className="absolute -top-3 left-0 rounded-2xl p-3 z-10"
-                            style={{
-                              backgroundColor: "color-mix(in srgb, var(--mq-card) 95%, transparent)",
-                              backdropFilter: "blur(20px)",
-                              border: "1px solid var(--mq-border-thin)",
-                              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-                            }}
-                          >
-                            <div className="flex items-end gap-3 h-32">
-                              <VolumeSlider
-                                volume={volume}
-                                onChange={handleVolumeChange}
-                                orientation="vertical"
-                                showIcon={false}
-                                showValue={false}
-                              />
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                    <div className="flex items-center gap-2 w-full max-w-xs">
+                      <VolumeSlider volume={volume} onChange={setVolume} showIcon={true} showValue={true} className="flex-1" />
                     </div>
                   )}
 
