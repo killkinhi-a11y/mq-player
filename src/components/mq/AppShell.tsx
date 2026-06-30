@@ -7,6 +7,7 @@ import { themes, applyThemeToDOM } from "@/lib/themes";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { useListenSessionSync } from "@/hooks/useListenSessionSync";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useIsMobile } from "@/hooks/use-mobile";
 import dynamic from "next/dynamic";
 import CobaltTurnstile from "@/components/mq/CobaltTurnstile";
 import "@/styles/ipod-2001.css";
@@ -76,6 +77,7 @@ function ViewSkeleton() {
 const MqCat = dynamic(() => import("@/components/mq/MqCat"), { ssr: false });
 const PlayerBar = dynamic(() => import("@/components/mq/PlayerBar"), { ssr: false });
 const FullTrackView = dynamic(() => import("@/components/mq/FullTrackView"), { ssr: false });
+const FullTrackViewMobile = dynamic(() => import("@/components/mq/FullTrackViewMobile"), { ssr: false });
 const KeyboardShortcutsHelp = dynamic(() => import("@/components/mq/KeyboardShortcutsHelp").then(m => ({ default: m.KeyboardShortcutsHelp })), { ssr: false });
 const NavBar = dynamic(() => import("@/components/mq/NavBar"), { ssr: false });
 const MobileNav = dynamic(() => import("@/components/mq/MobileNav"), { ssr: false });
@@ -134,6 +136,7 @@ export default function AppShell() {
   const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
   const _hasHydrated = useAppStore((s) => s._hasHydrated);
   const demoLoading = useAppStore((s) => s.demoLoading);
+  const isMobile = useIsMobile();
 
   // ── Visited views tracking: must be BEFORE any conditional returns (Rules of Hooks) ──
   const [visitedViews, setVisitedViews] = useState<Set<string>>(new Set(["main"]));
@@ -559,7 +562,7 @@ export default function AppShell() {
 
       {/* PlayerBar (desktop only — mobile uses MobileDock which combines player + nav) */}
       <Suspense fallback={null}><PlayerBar /></Suspense>
-      <Suspense fallback={null}><FullTrackView /></Suspense>
+      <Suspense fallback={null}>{isMobile ? <FullTrackViewMobile /> : <FullTrackView />}</Suspense>
       <Suspense fallback={null}><KeyboardShortcutsHelp /></Suspense>
       <Suspense fallback={null}>{showNav && <CommandPalette />}</Suspense>
       <Suspense fallback={null}>{catEnabled && <MqCat />}</Suspense>

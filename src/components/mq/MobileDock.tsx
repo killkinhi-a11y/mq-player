@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import {
   Play, Pause, SkipForward, Heart, Music, Loader2,
   Home, Search, Library, MessageCircle, Settings, ChevronUp,
@@ -12,11 +11,11 @@ import type { ViewType } from "@/store/useAppStore";
 
 // ═════════════════════════════════════════════════════════════════════════
 // MobileDock — unified bottom bar: Player + Navigation in ONE glass container
-// Premium gestures:
-//   - Swipe UP on player section → open FullTrackView
-//   - Swipe LEFT on cover → next track
-//   - Long-press cover → open FullTrackView
-//   - Tap cover → open FullTrackView
+// Optimized for mobile performance:
+//   - No framer-motion drag (uses tap-to-open instead of swipe-up)
+//   - CSS-only animations (no motion.div wrappers on every button)
+//   - RAF-driven progress bar (no per-second React re-render)
+//   - Minimal re-renders
 // ═════════════════════════════════════════════════════════════════════════
 
 const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
@@ -31,7 +30,6 @@ export default function MobileDock() {
   // ── Store ──
   const currentTrack = useAppStore((s) => s.currentTrack);
   const isPlaying = useAppStore((s) => s.isPlaying);
-  const progress = useAppStore((s) => s.progress);
   const duration = useAppStore((s) => s.duration);
   const likedTrackIds = useAppStore((s) => s.likedTrackIds);
   const playbackState = useAppStore((s) => s.playbackState);
@@ -51,18 +49,36 @@ export default function MobileDock() {
 
   // ── Progress bar seek ──
   const progressBarRef = useRef<HTMLDivElement>(null);
+  const progressFillRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragY, setDragY] = useState(0); // vertical drag offset for swipe-up
+
+  // RAF-driven progress bar update (no React state per second)
+  useEffect(() => {
+    let rafId = 0;
+    const update = () => {
+      const p = useAppStore.getState().progress;
+      const d = useAppStore.getState().duration;
+      if (d > 0 && progressFillRef.current) {
+        const pct = (p / d) * 100;
+        progressFillRef.current.style.width = `${pct}%`;
+      }
+      rafId = requestAnimationFrame(update);
+    };
+    rafId = requestAnimationFrame(update);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
 
   const seekTo = useCallback((clientX: number) => {
-    if (!progressBarRef.current || !duration) return;
+    if (!progressBarRef.current) return;
+    const d = useAppStore.getState().duration;
+    if (!d) return;
     const rect = progressBarRef.current.getBoundingClientRect();
     const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-    const time = (pct / 100) * duration;
+    const time = (pct / 100) * d;
     const audio = getAudioElement();
     if (audio && audio.src) audio.currentTime = time;
     setProgress(time);
-  }, [duration, setProgress]);
+  }, [setProgress]);
 
   const handleSeekStart = useCallback((e: React.TouchEvent) => {
     e.stopPropagation();
@@ -82,28 +98,7 @@ export default function MobileDock() {
     };
   }, [isDragging, seekTo]);
 
-  // ── Swipe-up to open full player ──
-  const handlePlayerDragEnd = useCallback((_: any, info: PanInfo) => {
-    // Swipe up: negative Y, magnitude > 80
-    if (info.offset.y < -80 && Math.abs(info.offset.y) > Math.abs(info.offset.x)) {
-      setFullTrackViewOpen(true);
-      if ("vibrate" in navigator) {
-        try { navigator.vibrate(15); } catch {}
-      }
-    }
-    setDragY(0);
-  }, [setFullTrackViewOpen]);
-
-  const handlePlayerDrag = useCallback((_: any, info: PanInfo) => {
-    // Only track upward drag
-    if (info.offset.y < 0) {
-      setDragY(Math.max(-100, info.offset.y));
-    } else {
-      setDragY(0);
-    }
-  }, []);
-
-  // ── Swipe horizontally on cover to skip ──
+  // ── Swipe-left to skip track (on cover) ──
   const coverTouchStart = useRef<{ x: number; y: number; t: number }>({ x: 0, y: 0, t: 0 });
   const handleCoverTouchStart = useCallback((e: React.TouchEvent) => {
     coverTouchStart.current = {
@@ -116,7 +111,6 @@ export default function MobileDock() {
     const dx = e.changedTouches[0].clientX - coverTouchStart.current.x;
     const dy = e.changedTouches[0].clientY - coverTouchStart.current.y;
     const dt = Date.now() - coverTouchStart.current.t;
-    // Quick horizontal swipe → skip track
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2 && dt < 500) {
       if (dx < 0) {
         nextTrack();
@@ -128,7 +122,6 @@ export default function MobileDock() {
   // ── Derived ──
   const showPlayer = currentTrack && !miniPlayerHidden && !isFullTrackViewOpen;
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.id) : false;
-  const progressPct = duration > 0 ? (progress / duration) * 100 : 0;
   const isLoading = playbackState === "loading" || playbackState === "buffering";
   const messengerBadge = Object.values(unreadCounts).reduce((sum, c) => sum + (c || 0), 0);
   const settingsBadge = supportUnreadCount;
@@ -158,17 +151,33 @@ export default function MobileDock() {
     nextTrack();
   }, [nextTrack]);
 
+  const handleNavClick = useCallback((item: typeof navItems[number], isActive: boolean) => {
+    if ("vibrate" in navigator) {
+      try { navigator.vibrate(isActive ? 5 : 12); } catch {}
+    }
+    setView(item.id);
+    if (item.id === "search") {
+      setTimeout(() => {
+        const searchInput = document.querySelector<HTMLInputElement>("[data-search-input]");
+        searchInput?.focus();
+      }, 100);
+    }
+  }, [setView]);
+
   return (
     <div
       className="fixed lg:hidden left-2 right-2 z-[60]"
-      style={{
-        bottom: "calc(8px + env(safe-area-inset-bottom, 0px))",
-      }}
+      style={{ bottom: "calc(8px + env(safe-area-inset-bottom, 0px))" }}
     >
-      <motion.div
-        initial={{ y: 60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      <style>{`
+        .mq-dock-btn { transition: transform 0.1s ease, background-color 0.15s ease; }
+        .mq-dock-btn:active { transform: scale(0.92); }
+        .mq-eq-bar { animation: mqEq 0.6s ease-in-out infinite; transform-origin: bottom; }
+        @keyframes mqEq { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+        @keyframes mqDockIn { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes mqPlayerIn { from { max-height: 0; opacity: 0; } to { max-height: 100px; opacity: 1; } }
+      `}</style>
+      <div
         className="rounded-[24px] overflow-hidden"
         style={{
           background: "color-mix(in srgb, var(--mq-bg) 70%, transparent)",
@@ -176,202 +185,152 @@ export default function MobileDock() {
           WebkitBackdropFilter: "blur(40px) saturate(200%)",
           border: "1px solid var(--mq-border-thin)",
           boxShadow: "0 12px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)",
-          transform: dragY ? `translateY(${dragY * 0.5}px)` : undefined,
-          transition: dragY === 0 ? "transform 0.25s cubic-bezier(0.16,1,0.3,1)" : "none",
+          animation: "mqDockIn 0.4s cubic-bezier(0.16,1,0.3,1)",
         }}
       >
-        {/* ── PLAYER SECTION (only when track is active) ── */}
-        <AnimatePresence>
-          {showPlayer && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              style={{ overflow: "hidden" }}
+        {/* ── PLAYER SECTION ── */}
+        {showPlayer && (
+          <div
+            style={{
+              animation: "mqPlayerIn 0.25s ease-out",
+              overflow: "hidden",
+            }}
+          >
+            {/* Progress bar — thin line at very top */}
+            <div
+              ref={progressBarRef}
+              className="h-[3px] w-full relative cursor-pointer"
+              onTouchStart={handleSeekStart}
             >
-              <motion.div
-                drag="y"
-                dragConstraints={{ top: 0, bottom: 0 }}
-                dragElastic={{ top: 0.4, bottom: 0 }}
-                onDrag={handlePlayerDrag}
-                onDragEnd={handlePlayerDragEnd}
-                style={{ cursor: "grab", touchAction: "pan-y" }}
+              <div className="absolute inset-0" style={{ backgroundColor: "rgba(255,255,255,0.06)" }} />
+              <div
+                ref={progressFillRef}
+                className="absolute inset-y-0 left-0"
+                style={{
+                  width: "0%",
+                  backgroundColor: "var(--mq-accent)",
+                  boxShadow: "0 0 6px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
+                }}
+              />
+            </div>
+
+            {/* Player content */}
+            <div className="flex items-center gap-2.5 px-3 py-2 relative">
+              {/* Cover + info — tap opens full player */}
+              <button
+                onClick={openFullPlayer}
+                onTouchStart={handleCoverTouchStart}
+                onTouchEnd={handleCoverTouchEnd}
+                className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer"
+                style={{ background: "transparent", border: "none", padding: 0 }}
               >
-                {/* Progress bar — thin line at very top */}
                 <div
-                  ref={progressBarRef}
-                  className="h-[3px] w-full relative cursor-pointer"
-                  onTouchStart={handleSeekStart}
+                  className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0"
+                  style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }}
                 >
-                  <div className="absolute inset-0" style={{ backgroundColor: "rgba(255,255,255,0.06)" }} />
-                  <div
-                    className="absolute inset-y-0 left-0"
-                    style={{
-                      width: `${progressPct}%`,
-                      backgroundColor: "var(--mq-accent)",
-                      transition: isDragging ? "none" : "width 0.1s linear",
-                      boxShadow: "0 0 6px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
-                    }}
-                  />
-                </div>
-
-                {/* Player content */}
-                <div className="flex items-center gap-2.5 px-3 py-2 relative">
-                  {/* Drag handle indicator (top center) */}
-                  <div className="absolute top-0.5 left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-full pointer-events-none" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />
-
-                  {/* Cover + info — tap opens full player */}
-                  <button
-                    onClick={openFullPlayer}
-                    onTouchStart={handleCoverTouchStart}
-                    onTouchEnd={handleCoverTouchEnd}
-                    className="flex items-center gap-2.5 flex-1 min-w-0 text-left cursor-pointer"
-                  >
-                    <div
-                      className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 relative"
-                      style={{ boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }}
-                    >
-                      {currentTrack!.cover ? (
-                        <img src={currentTrack!.cover} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                          <Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.7)" }} />
-                        </div>
-                      )}
-                      {/* Playing indicator overlay */}
-                      {isPlaying && currentTrack!.cover && (
-                        <div className="absolute inset-0 bg-black/30 flex items-end p-0.5">
-                          <div className="flex items-end gap-[1px] h-2.5 w-full justify-center">
-                            {[0,1,2,3].map(i => (
-                              <motion.div
-                                key={i}
-                                className="w-[2px] rounded-full"
-                                style={{ backgroundColor: "#fff", height: "100%", originY: 1 }}
-                                animate={{ scaleY: [0.3, 1, 0.3] }}
-                                transition={{ duration: 0.5 + i * 0.1, repeat: Infinity, delay: i * 0.08 }}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                  {currentTrack!.cover ? (
+                    <img src={currentTrack!.cover} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+                      <Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.7)" }} />
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>
-                        {currentTrack!.title}
-                      </p>
-                      <p className="text-[11px] truncate leading-tight mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
-                        {currentTrack!.artist}
-                      </p>
-                    </div>
-                    {/* Tiny chevron-up hint that swipe up opens full player */}
-                    <ChevronUp className="w-3.5 h-3.5 flex-shrink-0 opacity-40" style={{ color: "var(--mq-text-muted)" }} />
-                  </button>
-
-                  {/* Like */}
-                  <motion.button
-                    whileTap={{ scale: 0.85 }}
-                    onClick={handleLike}
-                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                    aria-label="Нравится"
-                  >
-                    <Heart
-                      className="w-[18px] h-[18px]"
-                      style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
-                      fill={isLiked ? "currentColor" : "none"}
-                    />
-                  </motion.button>
-
-                  {/* Play/Pause */}
-                  <motion.button
-                    whileTap={{ scale: 0.88 }}
-                    onClick={handlePlayPause}
-                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{
-                      backgroundColor: "var(--mq-accent)",
-                      boxShadow: "0 2px 8px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
-                    }}
-                    aria-label="Play/Pause"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#fff" }} />
-                    ) : isPlaying ? (
-                      <Pause className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
-                    ) : (
-                      <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
-                    )}
-                  </motion.button>
-
-                  {/* Next */}
-                  <motion.button
-                    whileTap={{ scale: 0.85 }}
-                    onClick={handleNext}
-                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-                    aria-label="Следующий"
-                  >
-                    <SkipForward className="w-[18px] h-[18px]" style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
-                  </motion.button>
+                  )}
                 </div>
-              </motion.div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>
+                    {currentTrack!.title}
+                  </p>
+                  <p className="text-[11px] truncate leading-tight mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+                    {currentTrack!.artist}
+                  </p>
+                </div>
+                <ChevronUp className="w-3.5 h-3.5 flex-shrink-0 opacity-40" style={{ color: "var(--mq-text-muted)" }} />
+              </button>
 
-              {/* Divider between player and nav */}
-              <div className="h-px mx-3" style={{ backgroundColor: "rgba(255,255,255,0.04)" }} />
-            </motion.div>
-          )}
-        </AnimatePresence>
+              {/* Like */}
+              <button
+                onClick={handleLike}
+                className="mq-dock-btn w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                aria-label="Нравится"
+              >
+                <Heart
+                  className="w-[18px] h-[18px]"
+                  style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+                  fill={isLiked ? "currentColor" : "none"}
+                />
+              </button>
+
+              {/* Play/Pause */}
+              <button
+                onClick={handlePlayPause}
+                className="mq-dock-btn w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{
+                  backgroundColor: "var(--mq-accent)",
+                  boxShadow: "0 2px 8px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+                  border: "none",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+                aria-label="Play/Pause"
+              >
+                {isLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#fff" }} />
+                ) : isPlaying ? (
+                  <Pause className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
+                ) : (
+                  <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
+                )}
+              </button>
+
+              {/* Next */}
+              <button
+                onClick={handleNext}
+                className="mq-dock-btn w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}
+                aria-label="Следующий"
+              >
+                <SkipForward className="w-[18px] h-[18px]" style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
+              </button>
+            </div>
+
+            {/* Divider */}
+            <div className="h-px mx-3" style={{ backgroundColor: "rgba(255,255,255,0.04)" }} />
+          </div>
+        )}
 
         {/* ── NAVIGATION SECTION ── */}
         <div className={`flex items-center justify-around ${compactMode ? "py-2" : "py-2.5"} px-2`}>
-          {navItems.map((item, index) => {
+          {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id;
             const badgeCount = getBadge(item.badgeKey);
             return (
-              <motion.button
+              <button
                 key={item.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 + 0.05 * index, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                whileTap={{ scale: 0.88 }}
-                whileHover={{ scale: isActive ? 1 : 1.05 }}
-                onClick={() => {
-                  if ("vibrate" in navigator) {
-                    try { navigator.vibrate(isActive ? 5 : 12); } catch {}
-                  }
-                  setView(item.id);
-                  if (item.id === "search") {
-                    setTimeout(() => {
-                      const searchInput = document.querySelector<HTMLInputElement>("[data-search-input]");
-                      searchInput?.focus();
-                    }, 100);
-                  }
-                }}
+                onClick={() => handleNavClick(item, isActive)}
                 aria-label={item.label}
                 aria-current={isActive ? "page" : undefined}
                 tabIndex={0}
-                className="flex flex-col items-center gap-0.5 px-2 py-1.5 min-w-[44px] min-h-[44px] cursor-pointer relative"
+                className="mq-dock-btn flex flex-col items-center gap-0.5 px-2 py-1.5 min-w-[44px] min-h-[44px] cursor-pointer relative"
                 style={{
                   color: isActive ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text-muted) 75%, transparent)",
                   background: "transparent",
+                  border: "none",
+                  padding: 0,
                 }}
               >
                 {isActive && (
-                  <motion.div
-                    layoutId="mobileNavPill"
+                  <div
                     className="absolute inset-0 rounded-xl"
                     style={{
                       background: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
                       border: "1px solid color-mix(in srgb, var(--mq-accent) 22%, transparent)",
                       boxShadow: "0 0 14px color-mix(in srgb, var(--mq-accent) 20%, transparent), inset 0 1px 0 rgba(255,255,255,0.05)",
                     }}
-                    transition={{ type: "spring", stiffness: 500, damping: 32, mass: 0.7 }}
                   />
                 )}
-                <motion.div
-                  animate={isActive ? { scale: 1.1, y: -1 } : { scale: 1, y: 0 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 22 }}
-                  className="relative z-10 flex flex-col items-center gap-0.5"
-                >
+                <div className="relative z-10 flex flex-col items-center gap-0.5">
                   <div className="relative">
                     <Icon
                       className="w-[18px] h-[18px]"
@@ -381,24 +340,18 @@ export default function MobileDock() {
                         filter: "drop-shadow(0 0 5px color-mix(in srgb, var(--mq-accent) 40%, transparent))",
                       } : undefined}
                     />
-                    <AnimatePresence>
-                      {badgeCount > 0 && (
-                        <motion.span
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          exit={{ scale: 0 }}
-                          transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                          className="absolute -top-1.5 -right-2 min-w-[12px] h-[12px] rounded-full flex items-center justify-center text-[11px] font-bold px-px"
-                          style={{
-                            background: "var(--mq-accent)",
-                            color: "var(--mq-text-on-accent, #fff)",
-                            boxShadow: "0 0 8px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
-                          }}
-                        >
-                          {badgeCount > 99 ? "99" : badgeCount}
-                        </motion.span>
-                      )}
-                    </AnimatePresence>
+                    {badgeCount > 0 && (
+                      <span
+                        className="absolute -top-1.5 -right-2 min-w-[12px] h-[12px] rounded-full flex items-center justify-center text-[11px] font-bold px-px"
+                        style={{
+                          background: "var(--mq-accent)",
+                          color: "var(--mq-text-on-accent, #fff)",
+                          boxShadow: "0 0 8px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
+                        }}
+                      >
+                        {badgeCount > 99 ? "99" : badgeCount}
+                      </span>
+                    )}
                   </div>
                   <span
                     className="text-[10px] font-medium leading-tight max-w-[56px] truncate"
@@ -406,12 +359,12 @@ export default function MobileDock() {
                   >
                     {item.label}
                   </span>
-                </motion.div>
-              </motion.button>
+                </div>
+              </button>
             );
           })}
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
