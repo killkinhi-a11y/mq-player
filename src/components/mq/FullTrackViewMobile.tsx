@@ -234,7 +234,7 @@ function FullTrackViewMobileInner() {
   useEffect(() => { setLyrics([]); setPlainLyrics(""); setLyricsError(null); }, [currentTrack?.id]);
 
   const handleLike = useCallback(() => { if (currentTrack) toggleLike(currentTrack.id, currentTrack); }, [currentTrack, toggleLike]);
-  const handleDislike = useCallback(() => { if (currentTrack) { toggleDislike(currentTrack.id, currentTrack); nextTrack(); } }, [currentTrack, toggleDislike, nextTrack]);
+  const handleDislike = useCallback(() => { if (currentTrack) { toggleDislike(currentTrack.id, currentTrack); /* toggleDislike already calls nextTrack() internally */ } }, [currentTrack, toggleDislike]);
   const handleShare = useCallback(async () => {
     if (!currentTrack) return;
     const url = `${window.location.origin}/track/${currentTrack.scTrackId || currentTrack.id}`;
@@ -460,7 +460,7 @@ function FullTrackViewMobileInner() {
                 : plainLyrics ? <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--mq-text-muted)" }}>{plainLyrics}</div>
                 : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>{lyricsError || "Текст не найден"}</p>)}
               {panel === "queue" && (upcoming.length ? upcoming.map((t, i) => (
-                <button key={t.id + i} onClick={() => { for (let j = 0; j <= i; j++) nextTrack(); setPanel(null); }} className="mq-ft-btn w-full flex items-center gap-3 p-2 rounded-xl text-left" style={{ border: "none", cursor: "pointer", background: "transparent" }}>
+                <button key={t.id + i} onClick={() => { playTrack?.(t, queue); setPanel(null); }} className="mq-ft-btn w-full flex items-center gap-3 p-2 rounded-xl text-left" style={{ border: "none", cursor: "pointer", background: "transparent" }}>
                   <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
                   <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{t.title}</p><p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{t.artist}</p></div>
                   <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(t.duration)}</span>

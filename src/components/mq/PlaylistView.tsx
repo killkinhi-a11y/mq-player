@@ -489,7 +489,7 @@ export default function PlaylistView() {
               </div>
               {/* Cover upload */}
               <button
-                className="absolute inset-0 rounded-2xl bg-black/60 opacity-0 group-hover/cover:opacity-100 transition-opacity flex items-center justify-center"
+                className="absolute inset-0 rounded-2xl bg-black/60 sm:opacity-0 sm:group-hover/cover:opacity-100 transition-opacity flex items-center justify-center"
                 onClick={() => coverInputRef.current?.click()}
               >
                 {coverUploadingId === pl.id ? (

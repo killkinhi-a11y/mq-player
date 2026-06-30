@@ -401,6 +401,15 @@ export default function AppShell() {
   useKeyboardShortcuts();
   useAndroidPermissions();
 
+  // ── Sleep timer countdown (global — works even when SleepTimerView not mounted) ──
+  const _sleepTimerActive = useAppStore((s) => s.sleepTimerActive);
+  const _updateSleepTimer = useAppStore((s) => s.updateSleepTimer);
+  useEffect(() => {
+    if (!_sleepTimerActive) return;
+    const i = setInterval(() => _updateSleepTimer(), 1000);
+    return () => clearInterval(i);
+  }, [_sleepTimerActive, _updateSleepTimer]);
+
   useEffect(() => {
     if (prevViewRef.current === "search" && currentView !== "search" && searchQuery) {
       setSearchQuery("");
