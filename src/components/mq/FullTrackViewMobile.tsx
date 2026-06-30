@@ -123,13 +123,12 @@ function FullTrackViewMobileInner() {
         const audio = getAudioElement();
         if (audio && audio.src && audio.duration && isFinite(audio.duration) && audio.duration > 0) {
           const pct = audio.currentTime / audio.duration;
-          // GPU-accelerated: transform: scaleX (no layout reflow)
+          const pctStr = `${(pct * 100).toFixed(2)}%`;
           if (progressFillRef.current) {
-            progressFillRef.current.style.transform = `scaleX(${pct})`;
+            progressFillRef.current.style.width = pctStr;
           }
           if (progressThumbRef.current) {
-            // transform: translateX is also GPU-composited
-            progressThumbRef.current.style.transform = `translateX(${pct * 100}%) translateX(-50%)`;
+            progressThumbRef.current.style.left = pctStr;
           }
           // Update time label only when second changes (not every frame)
           const sec = Math.floor(audio.currentTime);
@@ -158,8 +157,9 @@ function FullTrackViewMobileInner() {
     audio.currentTime = pct * audio.duration;
     setProgress(audio.currentTime);
     // Update visuals immediately
-    if (progressFillRef.current) progressFillRef.current.style.transform = `scaleX(${pct})`;
-    if (progressThumbRef.current) progressThumbRef.current.style.transform = `translateX(${pct * 100}%) translateX(-50%)`;
+    const pctStr = `${(pct * 100).toFixed(2)}%`;
+    if (progressFillRef.current) progressFillRef.current.style.width = pctStr;
+    if (progressThumbRef.current) progressThumbRef.current.style.left = pctStr;
   }, [setProgress]);
 
   const handleProgressTouchStart = useCallback((e: React.TouchEvent) => {
@@ -265,24 +265,20 @@ function FullTrackViewMobileInner() {
         .mq-ft-progress-fill {
           position: absolute;
           top: 0; left: 0; bottom: 0;
-          width: 100%;
+          width: 0%;
           background: var(--mq-accent);
           border-radius: 2px;
-          transform: scaleX(0);
-          transform-origin: left center;
-          will-change: transform;
         }
         .mq-ft-progress-thumb {
           position: absolute;
           top: 50%;
-          left: 0;
+          left: 0%;
           width: 14px;
           height: 14px;
           border-radius: 50%;
           background: #fff;
           box-shadow: 0 0 0 4px color-mix(in srgb, var(--mq-accent) 25%, transparent);
-          transform: translateX(0) translateX(-50%) translateY(-50%);
-          will-change: transform;
+          transform: translate(-50%, -50%);
           pointer-events: none;
         }
         .mq-ft-vol {

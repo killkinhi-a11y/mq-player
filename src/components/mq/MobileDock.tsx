@@ -55,7 +55,7 @@ function MobileDockInner() {
         if (audio && audio.src && audio.duration && isFinite(audio.duration) && audio.duration > 0) {
           const pct = audio.currentTime / audio.duration;
           if (progressFillRef.current) {
-            progressFillRef.current.style.transform = `scaleX(${pct})`;
+            progressFillRef.current.style.width = `${(pct * 100).toFixed(2)}%`;
           }
         }
       }
@@ -74,7 +74,7 @@ function MobileDockInner() {
     const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     audio.currentTime = pct * audio.duration;
     setProgress(audio.currentTime);
-    if (progressFillRef.current) progressFillRef.current.style.transform = `scaleX(${pct})`;
+    if (progressFillRef.current) progressFillRef.current.style.width = `${(pct * 100).toFixed(2)}%`;
   }, [setProgress]);
 
   const handleSeekStart = useCallback((e: React.TouchEvent) => {
@@ -120,11 +120,8 @@ function MobileDockInner() {
         .mq-dock-progress-fill {
           position: absolute;
           top: 0; left: 0; bottom: 0;
-          width: 100%;
+          width: 0%;
           background: var(--mq-accent);
-          transform: scaleX(0);
-          transform-origin: left center;
-          will-change: transform;
         }
       `}</style>
       <div style={{
