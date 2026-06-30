@@ -109,6 +109,7 @@ function FullTrackViewMobileInner() {
   const [lyrics, setLyrics] = useState<SyncedLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
+  const [lyricsError, setLyricsError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
 
   // ── Refs for progress ──
@@ -192,16 +193,32 @@ function FullTrackViewMobileInner() {
 
   useEffect(() => {
     if (!isOpen || !currentTrack || panel !== "lyrics") return;
-    setLyrics([]); setPlainLyrics(""); setLyricsLoading(true);
+    setLyrics([]); setPlainLyrics(""); setLyricsLoading(true); setLyricsError(null);
     const ctrl = new AbortController();
     fetch(`/api/music/lyrics?artist=${encodeURIComponent(currentTrack.artist)}&title=${encodeURIComponent(currentTrack.title)}`, { signal: ctrl.signal })
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then(d => { if (Array.isArray(d.lyrics) && d.lyrics.length) setLyrics(d.lyrics); else if (d.plainText) setPlainLyrics(d.plainText); })
-      .catch(() => {}).finally(() => setLyricsLoading(false));
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then(d => {
+        if (Array.isArray(d.lyrics) && d.lyrics.length) {
+          setLyrics(d.lyrics);
+        } else if (d.plainText) {
+          setPlainLyrics(d.plainText);
+        } else {
+          setLyricsError("Текст не найден");
+        }
+      })
+      .catch((err) => {
+        if (err.name !== "AbortError") {
+          setLyricsError("Ошибка загрузки текста");
+        }
+      })
+      .finally(() => setLyricsLoading(false));
     return () => ctrl.abort();
   }, [panel, isOpen, currentTrack]);
 
-  useEffect(() => { setLyrics([]); setPlainLyrics(""); }, [currentTrack?.id]);
+  useEffect(() => { setLyrics([]); setPlainLyrics(""); setLyricsError(null); }, [currentTrack?.id]);
 
   const handleLike = useCallback(() => { if (currentTrack) toggleLike(currentTrack.id, currentTrack); }, [currentTrack, toggleLike]);
   const handleDislike = useCallback(() => { if (currentTrack) { toggleDislike(currentTrack.id, currentTrack); nextTrack(); } }, [currentTrack, toggleDislike, nextTrack]);
@@ -321,12 +338,14 @@ function FullTrackViewMobileInner() {
           <button onClick={() => setShowMore(true)} className="mq-ft-btn" style={iconBtn}><MoreHorizontal className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
         </div>
 
-        {/* ── Cover (fixed size, no blur, no parallax) ── */}
-        <div className="flex items-center justify-center px-6" style={{ flexShrink: 0, paddingTop: 8, paddingBottom: 16 }}>
+        {/* ── Cover (centered, takes available space) ── */}
+        <div className="flex-1 flex items-center justify-center px-6 min-h-0" style={{ paddingTop: 8, paddingBottom: 12 }}>
           <div
             className="rounded-2xl overflow-hidden"
             style={{
-              width: "min(78vw, 320px)",
+              width: "min(75vw, 300px)",
+              maxWidth: "300px",
+              maxHeight: "300px",
               aspectRatio: "1 / 1",
               boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
             }}
@@ -423,7 +442,7 @@ function FullTrackViewMobileInner() {
               {panel === "lyrics" && (lyricsLoading ? <div className="flex items-center gap-2 py-6 justify-center"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} /><span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск...</span></div>
                 : lyrics.length ? <SyncedLyrics lines={lyrics} onSeek={seekToTime} />
                 : plainLyrics ? <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--mq-text-muted)" }}>{plainLyrics}</div>
-                : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>Текст не найден</p>)}
+                : <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>{lyricsError || "Текст не найден"}</p>)}
               {panel === "queue" && (upcoming.length ? upcoming.map((t, i) => (
                 <button key={t.id + i} onClick={() => { for (let j = 0; j <= i; j++) nextTrack(); setPanel(null); }} className="mq-ft-btn w-full flex items-center gap-3 p-2 rounded-xl text-left" style={{ border: "none", cursor: "pointer", background: "transparent" }}>
                   <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">{t.cover ? <img src={t.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>

@@ -10,7 +10,7 @@ import {
   preloadTrack, isGaplessEnabled, setAudioPlaybackRate,
 } from "@/lib/audioEngine";
 import { replayGain, getDefaultGainForGenre } from "@/lib/replayGain";
-import { getAudiusStream, isAudiusTrack } from "@/lib/audius";
+import { getAudiusStream, isAudiusTrack, findAudiusAlternative } from "@/lib/audius";
 import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
 import Hls from "hls.js";
@@ -1605,6 +1605,27 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
           const stream = await resolveSoundCloudStream(currentTrack.scTrackId);
           if (cancelled) return;
+
+          // ── Preview-only track? Try Audius as fallback for full stream ──
+          if (stream && stream.isPreview && currentTrack.title && currentTrack.artist) {
+            console.log("[Player] Track is preview-only (SNIP), trying Audius fallback...");
+            try {
+              const audiusUrl = await findAudiusAlternative(currentTrack.artist, currentTrack.title);
+              if (audiusUrl) {
+                console.log("[Player] Audius alternative found — using full stream");
+                // Use Audius stream directly
+                audioEl.crossOrigin = "anonymous";
+                audioEl.src = audiusUrl;
+                audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
+                audioEl.load();
+                if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
+                prevTrackIdForCrossfade.current = currentTrack.id;
+                return;
+              }
+            } catch (e) {
+              console.warn("[Player] Audius fallback failed:", e);
+            }
+          }
 
           if (stream && stream.url) {
             fallbackStreamsRef.current = stream.fallbackStreams || null;

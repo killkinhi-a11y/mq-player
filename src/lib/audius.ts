@@ -158,3 +158,71 @@ export async function getAudiusTrending(limit = 20, genre?: string): Promise<Tra
 export function isAudiusTrack(trackId: string): boolean {
   return trackId.startsWith("audius_");
 }
+
+/**
+ * Find an Audius alternative for a SoundCloud track that only has a preview.
+ * Searches Audius by artist + title and returns the stream URL if found.
+ * Returns null if no match found.
+ */
+export async function findAudiusAlternative(artist: string, title: string): Promise<string | null> {
+  const host = await getAudiusHost();
+  if (!host) return null;
+
+  // Clean title for better matching
+  const cleanTitle = title
+    .replace(/\(.*?\)/g, "")
+    .replace(/\[.*?\]/g, "")
+    .replace(/feat\.?\s+.*$/i, "")
+    .replace(/ft\.?\s+.*$/i, "")
+    .trim();
+
+  const query = `${artist} ${cleanTitle}`;
+
+  try {
+    const searchUrl = `${host}/v1/tracks/search?query=${encodeURIComponent(query)}&limit=5&app_name=MQPlayer`;
+    const res = await fetch(searchUrl, {
+      signal: AbortSignal.timeout(5000),
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const tracks: any[] = data.data || [];
+    if (tracks.length === 0) return null;
+
+    // Find best match — compare title and artist loosely
+    const lowerTitle = cleanTitle.toLowerCase();
+    const lowerArtist = artist.toLowerCase();
+
+    for (const t of tracks) {
+      const tTitle = (t.title || "").toLowerCase();
+      const tArtist = (t.user?.name || t.user?.handle || "").toLowerCase();
+
+      // Check if title and artist match loosely
+      const titleMatch =
+        tTitle.includes(lowerTitle) ||
+        lowerTitle.includes(tTitle) ||
+        tTitle.split(" ").some((w: string) => w.length > 3 && lowerTitle.includes(w));
+      const artistMatch =
+        tArtist.includes(lowerArtist) ||
+        lowerArtist.includes(tArtist) ||
+        tArtist.split(" ").some((w: string) => w.length > 3 && lowerArtist.includes(w));
+
+      if (titleMatch && artistMatch) {
+        // Found a match — return the stream URL
+        const streamUrl = `${host}/v1/tracks/${t.id}/stream?app_name=MQPlayer`;
+        return streamUrl;
+      }
+    }
+
+    // If no exact match, use the first result (Audius search is usually accurate)
+    if (tracks[0]) {
+      const streamUrl = `${host}/v1/tracks/${tracks[0].id}/stream?app_name=MQPlayer`;
+      return streamUrl;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
