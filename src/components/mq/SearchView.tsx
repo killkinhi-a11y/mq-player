@@ -254,6 +254,7 @@ export default function SearchView() {
 
   const handleHistoryClick = useCallback((query: string) => {
     setSearchQuery(query);
+    setHasSearched(true);
     if (searchInputRef.current) searchInputRef.current.focus();
   }, [setSearchQuery]);
 

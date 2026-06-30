@@ -51,7 +51,7 @@ export const SESSION_COOKIE_OPTIONS = {
   name: "session",
   httpOnly: true,
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax" as const,
+  sameSite: "none" as const,
   maxAge: 60 * 60 * 24 * 7, // 7 days
   path: "/",
 };

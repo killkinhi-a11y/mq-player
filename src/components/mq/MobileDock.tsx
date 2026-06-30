@@ -38,25 +38,21 @@ function MobileDockInner() {
   const setFullTrackViewOpen = useAppStore((s) => s.setFullTrackViewOpen);
   const setView = useAppStore((s) => s.setView);
 
-  // Refs for GPU-accelerated progress
+  // Refs for progress
   const progressFillRef = useRef<HTMLDivElement>(null);
-  const progressTrackRef = useRef<HTMLDivElement>(null);
-  const isDraggingRef = useRef(false);
 
   const showPlayer = currentTrack && !miniPlayerHidden && !isFullTrackViewOpen;
 
-  // RAF: update progress via transform (no layout reflow, 60fps)
+  // RAF: update progress fill width (simple, reliable)
   useEffect(() => {
     if (!showPlayer) return;
     let rafId = 0;
     const tick = () => {
-      if (!isDraggingRef.current) {
-        const audio = getAudioElement();
-        if (audio && audio.src && audio.duration && isFinite(audio.duration) && audio.duration > 0) {
-          const pct = audio.currentTime / audio.duration;
-          if (progressFillRef.current) {
-            progressFillRef.current.style.width = `${(pct * 100).toFixed(2)}%`;
-          }
+      const audio = getAudioElement();
+      if (audio && audio.src && audio.duration && isFinite(audio.duration) && audio.duration > 0) {
+        const pct = audio.currentTime / audio.duration;
+        if (progressFillRef.current) {
+          progressFillRef.current.style.width = `${(pct * 100).toFixed(2)}%`;
         }
       }
       rafId = requestAnimationFrame(tick);
@@ -64,31 +60,6 @@ function MobileDockInner() {
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
   }, [showPlayer]);
-
-  // Seek: tap/drag on progress track
-  const seekFromX = useCallback((clientX: number) => {
-    if (!progressTrackRef.current) return;
-    const audio = getAudioElement();
-    if (!audio || !audio.duration) return;
-    const rect = progressTrackRef.current.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    audio.currentTime = pct * audio.duration;
-    setProgress(audio.currentTime);
-    if (progressFillRef.current) progressFillRef.current.style.width = `${(pct * 100).toFixed(2)}%`;
-  }, [setProgress]);
-
-  const handleSeekStart = useCallback((e: React.TouchEvent) => {
-    isDraggingRef.current = true;
-    seekFromX(e.touches[0].clientX);
-  }, [seekFromX]);
-
-  const handleSeekMove = useCallback((e: React.TouchEvent) => {
-    if (isDraggingRef.current) seekFromX(e.touches[0].clientX);
-  }, [seekFromX]);
-
-  const handleSeekEnd = useCallback(() => {
-    isDraggingRef.current = false;
-  }, []);
 
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.id) : false;
   const isLoading = playbackState === "loading" || playbackState === "buffering";
@@ -131,15 +102,9 @@ function MobileDockInner() {
         borderTop: "1px solid var(--mq-border-hairline)",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}>
-        {/* Progress line (2px, GPU-accelerated) */}
+        {/* Progress line (visual only — tap cover to open full player for seek) */}
         {showPlayer && (
-          <div
-            ref={progressTrackRef}
-            className="mq-dock-progress-track"
-            onTouchStart={handleSeekStart}
-            onTouchMove={handleSeekMove}
-            onTouchEnd={handleSeekEnd}
-          >
+          <div className="mq-dock-progress-track">
             <div ref={progressFillRef} className="mq-dock-progress-fill" />
           </div>
         )}

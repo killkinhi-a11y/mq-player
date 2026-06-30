@@ -111,13 +111,12 @@ function FullTrackViewMobileInner() {
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [showMore, setShowMore] = useState(false);
 
-  // ── Refs for GPU-accelerated progress (transform: scaleX, NOT width) ──
-  const progressFillRef = useRef<HTMLDivElement>(null);
-  const progressThumbRef = useRef<HTMLDivElement>(null);
+  // ── Refs for progress ──
+  const seekInputRef = useRef<HTMLInputElement>(null);
   const timeCurrentRef = useRef<HTMLSpanElement>(null);
   const isDraggingRef = useRef(false);
 
-  // ── RAF: update progress via transform (no layout reflow) ──
+  // ── RAF: update progress input value + time label ──
   useEffect(() => {
     if (!isOpen) return;
     let rafId = 0;
@@ -127,15 +126,12 @@ function FullTrackViewMobileInner() {
       if (!isDraggingRef.current) {
         const audio = getAudioElement();
         if (audio && audio.src && audio.duration && isFinite(audio.duration) && audio.duration > 0) {
-          const pct = audio.currentTime / audio.duration;
-          const pctStr = `${(pct * 100).toFixed(2)}%`;
-          if (progressFillRef.current) {
-            progressFillRef.current.style.width = pctStr;
+          const pct = (audio.currentTime / audio.duration) * 100;
+          // Update input value (native input handles its own visual)
+          if (seekInputRef.current && document.activeElement !== seekInputRef.current) {
+            seekInputRef.current.value = String(pct);
           }
-          if (progressThumbRef.current) {
-            progressThumbRef.current.style.left = pctStr;
-          }
-          // Update time label only when second changes (not every frame)
+          // Update time label only when second changes
           const sec = Math.floor(audio.currentTime);
           if (sec !== lastSecond && timeCurrentRef.current) {
             lastSecond = sec;
@@ -151,35 +147,15 @@ function FullTrackViewMobileInner() {
     return () => cancelAnimationFrame(rafId);
   }, [isOpen]);
 
-  // ── Seek: drag on progress bar ──
-  const progressBarRef = useRef<HTMLDivElement>(null);
-  const seekFromX = useCallback((clientX: number) => {
-    if (!progressBarRef.current) return;
+  // ── Seek: native input onChange ──
+  const handleSeekChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const v = Number(e.target.value);
     const audio = getAudioElement();
-    if (!audio || !audio.duration) return;
-    const rect = progressBarRef.current.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    audio.currentTime = pct * audio.duration;
-    setProgress(audio.currentTime);
-    // Update visuals immediately
-    const pctStr = `${(pct * 100).toFixed(2)}%`;
-    if (progressFillRef.current) progressFillRef.current.style.width = pctStr;
-    if (progressThumbRef.current) progressThumbRef.current.style.left = pctStr;
+    if (audio && audio.src && audio.duration) {
+      audio.currentTime = (v / 100) * audio.duration;
+      setProgress(audio.currentTime);
+    }
   }, [setProgress]);
-
-  const handleProgressTouchStart = useCallback((e: React.TouchEvent) => {
-    isDraggingRef.current = true;
-    seekFromX(e.touches[0].clientX);
-  }, [seekFromX]);
-
-  const handleProgressTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDraggingRef.current) return;
-    seekFromX(e.touches[0].clientX);
-  }, [seekFromX]);
-
-  const handleProgressTouchEnd = useCallback(() => {
-    isDraggingRef.current = false;
-  }, []);
 
   const seekToTime = useCallback((time: number) => {
     const audio = getAudioElement();
@@ -203,6 +179,8 @@ function FullTrackViewMobileInner() {
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.id) : false;
   const isDisliked = currentTrack ? dislikedTrackIds.includes(currentTrack.id) : false;
   const isLoading = playbackState === "loading" || playbackState === "buffering";
+  // Initial seekPct — RAF will update the input value continuously
+  const seekPct = duration > 0 ? (useAppStore.getState().progress / duration) * 100 : 0;
 
   const upcoming = queue.length ? queue.slice(queueIndex + 1, queueIndex + 6) : [];
   const recent = (() => {
@@ -259,32 +237,52 @@ function FullTrackViewMobileInner() {
           -webkit-user-select: none;
         }
         .mq-ft-btn:active { transform: scale(0.88); }
-        .mq-ft-progress-track {
-          position: relative;
-          height: 4px;
-          background: rgba(255,255,255,0.12);
-          border-radius: 2px;
+        .mq-ft-seek-input {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 100%;
+          height: 24px;
+          background: transparent;
+          outline: none;
           cursor: pointer;
-          touch-action: none;
+          -webkit-tap-highlight-color: transparent;
         }
-        .mq-ft-progress-fill {
-          position: absolute;
-          top: 0; left: 0; bottom: 0;
-          width: 0%;
-          background: var(--mq-accent);
+        .mq-ft-seek-input::-webkit-slider-runnable-track {
+          height: 4px;
           border-radius: 2px;
+          background: linear-gradient(to right,
+            var(--mq-accent) 0%, var(--mq-accent) ${seekPct}%,
+            rgba(255,255,255,0.12) ${seekPct}%, rgba(255,255,255,0.12) 100%);
         }
-        .mq-ft-progress-thumb {
-          position: absolute;
-          top: 50%;
-          left: 0%;
+        .mq-ft-seek-input::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
           width: 14px;
           height: 14px;
           border-radius: 50%;
           background: #fff;
+          margin-top: -5px;
+          cursor: pointer;
           box-shadow: 0 0 0 4px color-mix(in srgb, var(--mq-accent) 25%, transparent);
-          transform: translate(-50%, -50%);
-          pointer-events: none;
+        }
+        .mq-ft-seek-input::-moz-range-track {
+          height: 4px;
+          border-radius: 2px;
+          background: rgba(255,255,255,0.12);
+        }
+        .mq-ft-seek-input::-moz-range-progress {
+          height: 4px;
+          border-radius: 2px;
+          background: var(--mq-accent);
+        }
+        .mq-ft-seek-input::-moz-range-thumb {
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #fff;
+          border: none;
+          cursor: pointer;
+          box-shadow: 0 0 0 4px color-mix(in srgb, var(--mq-accent) 25%, transparent);
         }
         .mq-ft-vol {
           -webkit-appearance: none;
@@ -361,20 +359,21 @@ function FullTrackViewMobileInner() {
           </div>
         </div>
 
-        {/* ── Progress bar (GPU-accelerated via transform: scaleX) ── */}
+        {/* ── Progress bar — native input for reliable drag ── */}
         <div className="px-5 mb-3" style={{ flexShrink: 0 }}>
-          <div
-            ref={progressBarRef}
-            className="mq-ft-progress-track"
-            onTouchStart={handleProgressTouchStart}
-            onTouchMove={handleProgressTouchMove}
-            onTouchEnd={handleProgressTouchEnd}
-            onMouseDown={(e) => { isDraggingRef.current = true; seekFromX(e.clientX); }}
-          >
-            <div ref={progressFillRef} className="mq-ft-progress-fill" />
-            <div ref={progressThumbRef} className="mq-ft-progress-thumb" />
-          </div>
-          <div className="flex items-center justify-between mt-2">
+          <input
+            ref={seekInputRef}
+            type="range"
+            min={0}
+            max={100}
+            step={0.1}
+            value={seekPct}
+            onChange={handleSeekChange}
+            onPointerDown={() => { isDraggingRef.current = true; }}
+            onPointerUp={() => { isDraggingRef.current = false; }}
+            className="mq-ft-seek-input"
+          />
+          <div className="flex items-center justify-between mt-1">
             <span ref={timeCurrentRef} className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>0:00</span>
             <span className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(duration)}</span>
           </div>
