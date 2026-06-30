@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import VolumeSlider from "@/components/ui/volume-slider";
+import RangeSlider from "@/components/ui/range-slider";
 import { toast } from "@/hooks/use-toast";
 
 // ─── Tab ──────────────────────────────────────────────────────────────────
@@ -344,11 +345,7 @@ export default function SettingsView() {
             <Card>
               <CardTitle icon={Type} title="Текст" />
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>A</span>
-                  <input type="range" min={13} max={20} value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="flex-1" style={{ accentColor: "var(--mq-accent)" }} />
-                  <span className="text-base font-bold" style={{ color: "var(--mq-text-muted)" }}>A</span>
-                </div>
+                <RangeSlider value={fontSize} min={13} max={20} onChange={setFontSize} minLabel="A" maxLabel="A" />
               </div>
               <SettingToggle icon={Minimize2} label="Компактный режим" subtitle="Меньше отступов" value={compactMode} onCheckedChange={setCompactMode} />
             </Card>
@@ -383,10 +380,17 @@ export default function SettingsView() {
               {crossfadeEnabled && (
                 <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                   <div className="flex items-center gap-3">
-                    <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>0.5s</span>
-                    <input type="range" min={0.5} max={8} step={0.5} value={crossfadeDuration} onChange={(e) => setCrossfadeDuration(Number(e.target.value))} className="flex-1" style={{ accentColor: "var(--mq-accent)" }} />
-                    <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>8s</span>
-                    <span className="text-xs font-mono w-10 text-right" style={{ color: "var(--mq-accent)" }}>{crossfadeDuration}s</span>
+                    <RangeSlider
+                      value={crossfadeDuration}
+                      min={0.5}
+                      max={8}
+                      step={0.5}
+                      onChange={setCrossfadeDuration}
+                      minLabel="0.5s"
+                      maxLabel="8s"
+                      showValue
+                      valueSuffix="s"
+                    />
                   </div>
                 </div>
               )}
