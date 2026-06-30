@@ -502,7 +502,7 @@ export default function AIAssistant() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex gap-1.5 mt-2 overflow-x-auto pb-1"
+            className="flex gap-1.5 mt-2 overflow-x-auto pb-1 scrollbar-none"
             style={{ scrollbarWidth: "none" }}
           >
             {QUICK_SUGGESTIONS.slice(0, 6).map((sug, i) => {

@@ -581,7 +581,7 @@ export default function StoriesView() {
               {/* Gradient picker */}
               <div className="p-4">
                 <p className="text-xs mb-2" style={{ color: "var(--mq-text-muted)" }}>Фон</p>
-                <div className="flex gap-2 overflow-x-auto pb-2">
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
                   {storyGradients.map((gradient, i) => (
                     <motion.button
                       key={i}

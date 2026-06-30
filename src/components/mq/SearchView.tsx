@@ -516,7 +516,7 @@ export default function SearchView() {
               <div className="absolute right-0 top-0 bottom-0 w-6 z-10 pointer-events-none" style={{ background: "linear-gradient(to left, var(--mq-bg), transparent)" }} />
               <div
                 ref={genreScrollRef}
-                className="flex gap-2.5 overflow-x-auto pb-2 px-2"
+                className="flex gap-2.5 overflow-x-auto pb-2 px-2 scrollbar-none"
                 style={{
                   scrollbarWidth: "none",
                   msOverflowStyle: "none",
@@ -594,7 +594,7 @@ export default function SearchView() {
             <div className="relative -mx-1 px-1">
               <div
                 ref={historyScrollRef}
-                className="flex gap-2 overflow-x-auto pb-1"
+                className="flex gap-2 overflow-x-auto pb-1 scrollbar-none"
                 style={{
                   scrollbarWidth: "none",
                   msOverflowStyle: "none",

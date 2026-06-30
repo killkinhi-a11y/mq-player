@@ -748,12 +748,12 @@ export default function FullTrackView() {
                 <div className={`flex-1 ${isMobile ? "w-full" : "min-w-0"} flex flex-col ${isMobile ? "items-center" : "items-start"}`}>
                   {/* Track info */}
                   <div className={`w-full ${isMobile ? "text-center" : "text-left"} mb-4`}>
-                    <h1 className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1.5" style={{ color: "var(--mq-text)" }}>
+                    <h1 className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1.5 truncate w-full" style={{ color: "var(--mq-text)" }}>
                       {currentTrack.title}
                     </h1>
                     <button
                       onClick={handleArtistClick}
-                      className={`text-sm sm:text-base lg:text-lg hover:underline ${isMobile ? "" : "text-left"}`}
+                      className={`text-sm sm:text-base lg:text-lg hover:underline truncate w-full ${isMobile ? "" : "text-left"}`}
                       style={{ color: "var(--mq-text-muted)" }}
                     >
                       {currentTrack.artist}

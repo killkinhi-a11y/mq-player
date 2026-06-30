@@ -613,7 +613,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                 </div>
               ) : similarTracks.length > 0 ? (
                 <div
-                  className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
+                  className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none"
                   style={{
                     scrollbarWidth: "none",
                     msOverflowStyle: "none",

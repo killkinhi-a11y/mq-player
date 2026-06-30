@@ -205,6 +205,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
               maxHeight: "80vh",
               maxWidth: "32rem",
               margin: "0 auto",
+              paddingBottom: "env(safe-area-inset-bottom, 0px)",
               boxShadow: "0 -8px 40px rgba(0,0,0,0.4), 0 -2px 12px rgba(0,0,0,0.2)",
             }}
             onClick={(e) => e.stopPropagation()}
