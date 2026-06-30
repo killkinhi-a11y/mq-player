@@ -290,28 +290,28 @@ export default function PlayerBar() {
             </div>
 
             {/* ═══ RIGHT: Like, Dislike, Volume, Queue ═══ */}
-            <div className="flex items-center gap-1.5 justify-end" style={{ width: "calc(100% / 3 - 16px)" }}>
+            <div className="flex items-center gap-1 justify-end min-w-0" style={{ width: "calc(100% / 3 - 16px)" }}>
               {/* Like */}
-              <button onClick={handleLike} className="w-8 h-8 rounded-full flex items-center justify-center" title="Нравится">
+              <button onClick={handleLike} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" title="Нравится">
                 <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
               </button>
 
               {/* Dislike */}
-              <button onClick={handleDislike} className="w-8 h-8 rounded-full flex items-center justify-center" title="Не нравится">
+              <button onClick={handleDislike} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" title="Не нравится">
                 <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
               </button>
 
               {/* Divider */}
-              <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
+              <div className="w-px h-5 mx-0.5 flex-shrink-0" style={{ backgroundColor: "var(--mq-border-thin)" }} />
 
               {/* Volume (premium slider) */}
-              <VolumeSlider volume={volume} onChange={handleVolumeChange} className="w-24 lg:w-32" />
+              <VolumeSlider volume={volume} onChange={handleVolumeChange} className="w-20 lg:w-28 min-w-0" />
 
               {/* Divider */}
-              <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
+              <div className="w-px h-5 mx-0.5 flex-shrink-0" style={{ backgroundColor: "var(--mq-border-thin)" }} />
 
               {/* Queue */}
-              <button onClick={() => setShowQueue(true)} className="w-8 h-8 rounded-full flex items-center justify-center" title="Очередь">
+              <button onClick={() => setShowQueue(true)} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" title="Очередь">
                 <ListMusic className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
               </button>
             </div>
