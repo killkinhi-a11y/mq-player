@@ -2509,3 +2509,100 @@ a:not([data-framer-motion-id]),
     animation: none;
   }
 }
+
+/* ═══ Volume Slider — global styles (no per-instance <style> blocks) ═══ */
+.mq-hslider-input {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+.mq-hslider-input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right,
+    var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol, 0%),
+    rgba(255,255,255,0.1) var(--mq-vol, 0%), rgba(255,255,255,0.1) 100%);
+}
+.mq-hslider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  margin-top: -5px;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.mq-hslider-input:active::-webkit-slider-thumb {
+  transform: scale(1.25);
+}
+.mq-hslider-input::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.1);
+}
+.mq-hslider-input::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--mq-accent);
+}
+.mq-hslider-input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+/* Vertical slider */
+.mq-vslider-input {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+.mq-vslider-input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right,
+    var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol, 0%),
+    rgba(255,255,255,0.1) var(--mq-vol, 0%), rgba(255,255,255,0.1) 100%);
+}
+.mq-vslider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  margin-top: -5px;
+  cursor: pointer;
+}
+.mq-vslider-input::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.1);
+}
+.mq-vslider-input::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--mq-accent);
+}
+.mq-vslider-input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}

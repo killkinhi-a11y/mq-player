@@ -23,7 +23,11 @@ function VolumeSliderBase({ volume, onChange, orientation = "horizontal", showIc
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const v = Number(e.target.value);
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(() => onChangeRef.current(v));
+    rafRef.current = requestAnimationFrame(() => {
+      onChangeRef.current(v);
+      // Update CSS var for fill gradient
+      e.target.style.setProperty("--mq-vol", `${v}%`);
+    });
   }, []);
 
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
@@ -33,14 +37,13 @@ function VolumeSliderBase({ volume, onChange, orientation = "horizontal", showIc
   }, []);
 
   const Icon = volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
-  const accent = "var(--mq-accent)";
   const volPct = `${volume}%`;
 
   if (orientation === "vertical") {
     return (
       <div className={`flex flex-col items-center gap-2 ${className}`}>
         {showIcon && (
-          <button onClick={handleIconClick} style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }} title="Mute">
+          <button onClick={handleIconClick} aria-label="Mute" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, flexShrink: 0 }}>
             <Icon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
           </button>
         )}
@@ -50,27 +53,15 @@ function VolumeSliderBase({ volume, onChange, orientation = "horizontal", showIc
             type="range" min={0} max={100} value={volume} onChange={handleChange}
             className="mq-vslider-input"
             style={{
-              "--mq-vol": volPct, "--mq-accent-color": accent,
-              WebkitAppearance: "none", appearance: "none",
+              "--mq-vol": volPct,
               position: "absolute", top: "50%", left: "50%",
-              width: "100px", height: "8px",
-              background: "transparent", outline: "none", cursor: "pointer",
+              width: "100px", height: "20px",
               transform: "rotate(-90deg)", transformOrigin: "center",
-              marginTop: "-4px", marginLeft: "-50px",
+              marginTop: "-10px", marginLeft: "-50px",
             } as React.CSSProperties}
           />
         </div>
         {showValue && <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}</span>}
-        <style>{`
-          .mq-vslider-input::-webkit-slider-runnable-track {
-            height: 8px; border-radius: 4px;
-            background: linear-gradient(to right, var(--mq-accent-color) 0%, var(--mq-accent-color) var(--mq-vol), rgba(255,255,255,0.08) var(--mq-vol), rgba(255,255,255,0.08) 100%);
-          }
-          .mq-vslider-input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 0 2px var(--mq-accent-color); margin-top: -4px; cursor: pointer; }
-          .mq-vslider-input::-moz-range-track { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); }
-          .mq-vslider-input::-moz-range-progress { height: 8px; border-radius: 4px; background: var(--mq-accent-color); }
-          .mq-vslider-input::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 2px solid var(--mq-accent-color); cursor: pointer; }
-        `}</style>
       </div>
     );
   }
@@ -78,7 +69,7 @@ function VolumeSliderBase({ volume, onChange, orientation = "horizontal", showIc
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       {showIcon && (
-        <button onClick={handleIconClick} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }} title="Mute">
+        <button onClick={handleIconClick} aria-label="Mute" className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-90" style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
           <Icon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
         </button>
       )}
@@ -86,24 +77,9 @@ function VolumeSliderBase({ volume, onChange, orientation = "horizontal", showIc
         ref={inputRef}
         type="range" min={0} max={100} value={volume} onChange={handleChange}
         className="mq-hslider-input flex-1"
-        style={{
-          "--mq-vol": volPct, "--mq-accent-color": accent,
-          WebkitAppearance: "none", appearance: "none",
-          height: "8px", background: "transparent", outline: "none", cursor: "pointer",
-        } as React.CSSProperties}
+        style={{ "--mq-vol": volPct } as React.CSSProperties}
       />
-      {showValue && <span className="text-[10px] font-mono w-8 text-right" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}</span>}
-      <style>{`
-        .mq-hslider-input::-webkit-slider-runnable-track {
-          height: 8px; border-radius: 4px;
-          background: linear-gradient(to right, var(--mq-accent-color) 0%, var(--mq-accent-color) var(--mq-vol), rgba(255,255,255,0.08) var(--mq-vol), rgba(255,255,255,0.08) 100%);
-        }
-        .mq-hslider-input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 0 2px var(--mq-accent-color); margin-top: -4px; cursor: pointer; transition: transform 0.15s ease; }
-        .mq-hslider-input:active::-webkit-slider-thumb { transform: scale(1.3); }
-        .mq-hslider-input::-moz-range-track { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.08); }
-        .mq-hslider-input::-moz-range-progress { height: 8px; border-radius: 4px; background: var(--mq-accent-color); }
-        .mq-hslider-input::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 2px solid var(--mq-accent-color); cursor: pointer; }
-      `}</style>
+      {showValue && <span className="text-[10px] font-mono w-7 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}</span>}
     </div>
   );
 }
