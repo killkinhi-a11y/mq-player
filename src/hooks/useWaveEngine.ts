@@ -208,28 +208,12 @@ export function useWaveEngine() {
   }, [currentTrack, recordSkip, nextTrack, fetchWaveTracks, shuffle]);
 
   // ── Dislike current track (skip + mark as disliked) ──
-  const dislikeTrack = useCallback(async () => {
+  const dislikeTrack = useCallback(() => {
     if (!currentTrack) return;
-
-    // Mark as disliked
-    toggleLike(currentTrack.id, currentTrack); // toggleLike handles dislike if already liked
-    // Actually we need to call dislike — let me check store
-    // The store has toggleDislike, but it's not exported in the selector
-    // Use direct state access
-    const state = useAppStore.getState();
-    if (state.dislikedTrackIds.includes(currentTrack.id)) {
-      // Already disliked — just skip
-    } else {
-      // Add to disliked
-      useAppStore.setState({
-        dislikedTrackIds: [...state.dislikedTrackIds, currentTrack.id],
-        dislikedTracksData: [...state.dislikedTracksData, currentTrack],
-      });
-    }
-
-    // Skip to next
-    skipTrack();
-  }, [currentTrack, skipTrack]);
+    // toggleDislike handles: adds to disliked list + auto-skips if current track
+    const toggleDislike = useAppStore.getState().toggleDislike;
+    toggleDislike(currentTrack.id, currentTrack);
+  }, [currentTrack]);
 
   // ── Like current track ──
   const likeTrack = useCallback(() => {

@@ -347,9 +347,9 @@ export default function FullTrackView() {
   const handleDislike = useCallback(() => {
     if (currentTrack) {
       toggleDislike(currentTrack.id, currentTrack);
-      nextTrack();
+      // toggleDislike already calls nextTrack() internally if it's the current track
     }
-  }, [currentTrack, toggleDislike, nextTrack]);
+  }, [currentTrack, toggleDislike]);
 
   const handleShare = useCallback(async () => {
     if (!currentTrack) return;
@@ -919,7 +919,7 @@ export default function FullTrackView() {
                             {upcoming.map((track, i) => (
                               <button
                                 key={track.id + "_" + i}
-                                onClick={() => { for (let j = 0; j <= i; j++) nextTrack(); setActivePanel(null); }}
+                                onClick={() => { playTrack?.(track, queue); setActivePanel(null); }}
                                 className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-white/[0.04] transition-colors"
                               >
                                 <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
@@ -1058,19 +1058,8 @@ export default function FullTrackView() {
                         <VolumeIcon className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
                       </button>
 
-                      {/* Volume bar (always visible) */}
-                      <div
-                        className="flex-1 h-1.5 rounded-full cursor-pointer relative"
-                        onClick={(e) => {
-                          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-                          const pct = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
-                          setVolume(pct);
-                        }}
-                      >
-                        <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }} />
-                        <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${volume / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)" }} />
-                      </div>
-                      <span className="text-[10px] font-mono w-8 text-right" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}</span>
+                      {/* Volume bar — VolumeSlider with native drag support */}
+                      <VolumeSlider volume={volume} onChange={setVolume} showIcon={false} showValue={true} className="flex-1" />
 
                       {/* Vertical popup slider */}
                       <AnimatePresence>

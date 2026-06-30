@@ -114,9 +114,9 @@ export default function PlayerBar() {
   const handleDislike = useCallback(() => {
     if (currentTrack) {
       toggleDislike(currentTrack.id, currentTrack);
-      nextTrack();
+      // toggleDislike already calls nextTrack() internally
     }
-  }, [currentTrack, toggleDislike, nextTrack]);
+  }, [currentTrack, toggleDislike]);
 
   const handleShare = useCallback(async () => {
     if (!currentTrack) return;
