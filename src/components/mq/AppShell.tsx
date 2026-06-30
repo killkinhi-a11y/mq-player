@@ -93,6 +93,7 @@ const CommandPalette = dynamic(() => import("@/components/mq/CommandPalette"), {
 import { ViewErrorBoundary } from "@/components/mq/ViewErrorBoundary";
 import { ViewTransition } from "@/components/mq/ViewTransition";
 import { useAudioEngine } from "@/components/mq/useAudioEngine";
+import { useMediaSession } from "@/components/mq/useMediaSession";
 
 // Views tracked by the visited-Set pattern — mounted once and kept alive
 // with display:none so state is preserved when switching back.
@@ -382,6 +383,17 @@ export default function AppShell() {
     prevTrack: _prevTrack,
     miniPlayerHidden: _miniPlayerHidden,
     setMiniPlayerHidden: _setMiniPlayerHidden,
+  });
+
+  // MediaSession API — required for lock screen / notification / Android Auto controls
+  const _progress = useAppStore((s) => s.progress);
+  const _duration = useAppStore((s) => s.duration);
+  useMediaSession({
+    currentTrack: _currentTrack,
+    isPlaying: _isPlaying,
+    progress: _progress,
+    duration: _duration,
+    playbackRate: _playbackRate,
   });
 
   useGlobalNotifications();

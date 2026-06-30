@@ -5,9 +5,9 @@ import { useAppStore } from "@/store/useAppStore";
 import {
   Play, Pause, SkipBack, SkipForward, ChevronDown, Heart,
   Shuffle, Repeat, Repeat1, Volume2,
-  Music, ListMusic, Share2, Loader2, Clock, Mic2,
+  Music, ListMusic, Share2, Loader2, Mic2,
   ThumbsDown, AirVent, Gauge, Timer,
-  History, X,
+  History, X, MoreHorizontal, Plus,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
@@ -16,9 +16,8 @@ import { toast } from "@/hooks/use-toast";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — MOBILE
-// Ultra-lightweight: minimal animations, RAF-driven progress bar,
-// no Framer Motion drag, no parallax, no heart burst.
-// Designed for 60fps on mid-range Android devices.
+// Compact, modern, Spotify-like layout.
+// Ultra-lightweight: RAF-driven progress, CSS-only animations, no motion.
 // ═════════════════════════════════════════════════════════════════════════
 
 interface SyncedLyricLine {
@@ -26,7 +25,7 @@ interface SyncedLyricLine {
   text: string;
 }
 
-// ── Synced lyrics (pure DOM, no per-frame React update) ────────────────
+// ── Synced lyrics (DOM-driven, no per-frame React update) ──────────────
 function SyncedLyrics({
   lines,
   currentTime,
@@ -40,7 +39,6 @@ function SyncedLyrics({
   const lineRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const lastActiveIdx = useRef(-1);
 
-  // Update active line directly via DOM (no setState)
   useEffect(() => {
     let idx = -1;
     for (let i = 0; i < lines.length; i++) {
@@ -50,7 +48,6 @@ function SyncedLyrics({
     if (idx === lastActiveIdx.current) return;
     lastActiveIdx.current = idx;
 
-    // Update styles via classList — much faster than React re-render
     lineRefs.current.forEach((el, i) => {
       if (!el) return;
       const isActive = i === idx;
@@ -60,13 +57,11 @@ function SyncedLyrics({
         : isPast
         ? "color-mix(in srgb, var(--mq-text-muted) 50%, transparent)"
         : "var(--mq-text-muted)";
-      el.style.fontWeight = isActive ? "600" : "400";
-      el.style.fontSize = isActive ? "1.05rem" : "0.95rem";
+      el.style.fontWeight = isActive ? "700" : "400";
+      el.style.fontSize = isActive ? "1.1rem" : "0.95rem";
       el.style.opacity = isActive ? "1" : isPast ? "0.55" : "0.7";
-      el.style.background = isActive ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)" : "transparent";
     });
 
-    // Auto-scroll to active line
     const container = containerRef.current;
     const lineEl = lineRefs.current[idx];
     if (container && lineEl) {
@@ -94,7 +89,7 @@ function SyncedLyrics({
   return (
     <div
       ref={containerRef}
-      className="text-base leading-relaxed max-h-[40vh] overflow-y-auto px-2 py-2 space-y-1"
+      className="text-base leading-relaxed max-h-[50vh] overflow-y-auto px-2 py-2 space-y-1"
       style={{
         scrollbarWidth: "thin",
         maskImage: "linear-gradient(180deg, transparent 0%, #000 12%, #000 88%, transparent 100%)",
@@ -106,8 +101,8 @@ function SyncedLyrics({
           key={i}
           ref={(el) => { lineRefs.current[i] = el; }}
           onClick={() => onSeek(line.time)}
-          className="block w-full text-left px-2 py-1.5 rounded-lg transition-colors cursor-pointer"
-          style={{ color: "var(--mq-text-muted)", fontWeight: 400, fontSize: "0.95rem" }}
+          className="block w-full text-left px-2 py-1.5 rounded-lg cursor-pointer"
+          style={{ color: "var(--mq-text-muted)", fontWeight: 400, fontSize: "0.95rem", transition: "color 0.2s, opacity 0.2s" }}
         >
           {line.text || "♪"}
         </button>
@@ -163,26 +158,26 @@ export default function FullTrackViewMobile() {
   const [lyrics, setLyrics] = useState<SyncedLyricLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState<string>("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
-  const [showSpeedMenu, setShowSpeedMenu] = useState(false);
-  const [showSleepMenu, setShowSleepMenu] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
 
-  // Refs for direct DOM manipulation (avoid re-renders)
+  // Refs for direct DOM manipulation
   const progressBarRef = useRef<HTMLDivElement>(null);
   const progressFillRef = useRef<HTMLDivElement>(null);
+  const progressThumbRef = useRef<HTMLDivElement>(null);
   const progressTimeRef = useRef<HTMLSpanElement>(null);
   const seekFeedbackRef = useRef<HTMLDivElement>(null);
 
-  // ── RAF-driven progress bar update (no React state) ───────────────────
+  // ── RAF-driven progress bar update ───────────────────────────────────
   useEffect(() => {
     if (!isOpen) return;
     let rafId = 0;
     const update = () => {
-      // Read progress from store via getState (no subscription)
       const p = useAppStore.getState().progress;
       const d = useAppStore.getState().duration;
-      if (d > 0 && progressFillRef.current) {
+      if (d > 0) {
         const pct = (p / d) * 100;
-        progressFillRef.current.style.width = `${pct}%`;
+        if (progressFillRef.current) progressFillRef.current.style.width = `${pct}%`;
+        if (progressThumbRef.current) progressThumbRef.current.style.left = `${pct}%`;
       }
       if (progressTimeRef.current) {
         progressTimeRef.current.textContent = formatDuration(p);
@@ -193,7 +188,7 @@ export default function FullTrackViewMobile() {
     return () => cancelAnimationFrame(rafId);
   }, [isOpen]);
 
-  // ── Seek handlers ──────────────────────────────────────────────────────
+  // ── Seek ──────────────────────────────────────────────────────────────
   const seekTo = useCallback((clientX: number) => {
     if (!progressBarRef.current) return;
     const d = useAppStore.getState().duration;
@@ -217,7 +212,7 @@ export default function FullTrackViewMobile() {
     seekTo(e.touches[0].clientX);
   }, [seekTo]);
 
-  // ── Swipe-to-close on cover only (not whole screen) ────────────────────
+  // ── Cover gestures: swipe down to close, swipe left/right to skip ────
   const coverTouchStart = useRef<{ x: number; y: number; t: number }>({ x: 0, y: 0, t: 0 });
   const handleCoverTouchStart = useCallback((e: React.TouchEvent) => {
     coverTouchStart.current = {
@@ -231,19 +226,17 @@ export default function FullTrackViewMobile() {
     const dy = e.changedTouches[0].clientY - coverTouchStart.current.y;
     const dt = Date.now() - coverTouchStart.current.t;
 
-    // Swipe down → close
     if (dy > 80 && dy > Math.abs(dx) * 1.5 && dt < 600) {
       setOpen(false);
       return;
     }
-    // Swipe left/right → change track
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 2 && dt < 500) {
       if (dx < 0) nextTrack();
       else prevTrack();
     }
   }, [setOpen, nextTrack, prevTrack]);
 
-  // ── Double-tap to seek ±10s ────────────────────────────────────────────
+  // ── Double-tap to seek ±10s ───────────────────────────────────────────
   const lastTapRef = useRef<{ time: number; side: "left" | "right" }>({ time: 0, side: "left" });
   const handleCoverTap = useCallback((e: React.TouchEvent) => {
     const clientX = e.touches[0].clientX;
@@ -254,7 +247,6 @@ export default function FullTrackViewMobile() {
     const side = isLeft ? "left" : "right";
 
     if (now - lastTapRef.current.time < 300 && lastTapRef.current.side === side) {
-      // Double tap — seek ±10s
       const seekAmount = isLeft ? -10 : 10;
       const audio = getAudioElement();
       const d = useAppStore.getState().duration;
@@ -263,7 +255,6 @@ export default function FullTrackViewMobile() {
         audio.currentTime = Math.max(0, Math.min(d, audio.currentTime + seekAmount));
         setProgress(Math.max(0, Math.min(d, p + seekAmount)));
       }
-      // Show feedback (CSS only, no state)
       if (seekFeedbackRef.current) {
         seekFeedbackRef.current.style[side] = "20%";
         seekFeedbackRef.current.textContent = seekAmount > 0 ? `+${seekAmount}s` : `${seekAmount}s`;
@@ -312,18 +303,18 @@ export default function FullTrackViewMobile() {
     setPlaybackRate(speed);
     const audio = getAudioElement();
     if (audio) audio.playbackRate = speed;
-    setShowSpeedMenu(false);
+    setShowMoreMenu(false);
   }, [setPlaybackRate]);
 
   // ── Sleep timer ─────────────────────────────────────────────────────────
   const sleepOptions = [5, 10, 15, 30, 45, 60];
   const handleSleepSet = useCallback((minutes: number) => {
     startSleepTimer(minutes);
-    setShowSleepMenu(false);
+    setShowMoreMenu(false);
     toast({ title: `Таймер сна: ${minutes} мин` });
   }, [startSleepTimer, toast]);
 
-  // ── Derived (minimal — only what's needed for render) ──────────────────
+  // ── Derived ────────────────────────────────────────────────────────────
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.id) : false;
   const isDisliked = currentTrack ? dislikedTrackIds.includes(currentTrack.id) : false;
   const isLoading = playbackState === "loading" || playbackState === "buffering";
@@ -374,20 +365,14 @@ export default function FullTrackViewMobile() {
 
   if (!isOpen || !currentTrack) return null;
 
-  // Common button style — pure CSS, no motion wrapper
-  const btnBase: React.CSSProperties = {
-    width: 40,
-    height: 40,
+  // ── Inline button styles ───────────────────────────────────────────────
+  const iconBtn: React.CSSProperties = {
+    width: 36, height: 36,
     borderRadius: "9999px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
-    border: "none",
-    cursor: "pointer",
-    transition: "transform 0.1s ease, background-color 0.15s ease",
-    flexShrink: 0,
-    padding: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    backgroundColor: "transparent",
+    border: "none", cursor: "pointer", padding: 0,
+    transition: "transform 0.1s ease",
   };
 
   return (
@@ -395,7 +380,7 @@ export default function FullTrackViewMobile() {
       className="fixed inset-0 z-[100]"
       style={{
         background: currentTrack.cover
-          ? `linear-gradient(180deg, color-mix(in srgb, var(--mq-accent) 15%, var(--mq-bg)) 0%, var(--mq-bg) 50%)`
+          ? `linear-gradient(180deg, color-mix(in srgb, var(--mq-accent) 18%, var(--mq-bg)) 0%, var(--mq-bg) 55%)`
           : "var(--mq-bg)",
         animation: "mqMobileOpen 0.25s ease-out",
         willChange: "transform",
@@ -412,6 +397,11 @@ export default function FullTrackViewMobile() {
           from { opacity: 0; transform: translateY(8px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        .mq-sheet { animation: mqSheetIn 0.25s cubic-bezier(0.16,1,0.3,1); }
+        @keyframes mqSheetIn {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
       `}</style>
 
       {/* Blurred cover background */}
@@ -421,339 +411,105 @@ export default function FullTrackViewMobile() {
             src={currentTrack.cover}
             alt=""
             className="w-full h-full object-cover"
-            style={{ filter: "blur(60px) saturate(180%)", opacity: 0.2, transform: "scale(1.2)" }}
+            style={{ filter: "blur(60px) saturate(180%)", opacity: 0.22, transform: "scale(1.2)" }}
           />
           <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, transparent 0%, var(--mq-bg) 60%)" }} />
         </div>
       )}
 
       <div className="relative z-10 h-full flex flex-col">
-        {/* ── Header ── */}
-        <div className="flex items-center justify-between p-4 pt-[max(16px,env(safe-area-inset-top))]">
+        {/* ── Compact header (no labels — just icons) ── */}
+        <div
+          className="flex items-center justify-between px-4"
+          style={{ paddingTop: "max(12px, env(safe-area-inset-top))", paddingBottom: 8 }}
+        >
           <button
             onClick={() => setOpen(false)}
-            style={btnBase}
+            style={iconBtn}
             className="mq-btn-active"
             aria-label="Закрыть"
           >
-            <ChevronDown className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+            <ChevronDown className="w-6 h-6" style={{ color: "var(--mq-text)" }} />
           </button>
-          <div className="text-center min-w-0 flex-1 mx-3">
-            <p className="text-[10px] uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
-              {radioMode ? "Волна" : "Играет"}
-            </p>
-            <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text-muted)" }}>
-              {currentTrack.album || currentTrack.artist}
-            </p>
-          </div>
           <button
-            onClick={handleShare}
-            style={btnBase}
+            onClick={() => setShowMoreMenu(true)}
+            style={iconBtn}
             className="mq-btn-active"
-            aria-label="Поделиться"
+            aria-label="Ещё"
           >
-            <Share2 className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
+            <MoreHorizontal className="w-6 h-6" style={{ color: "var(--mq-text)" }} />
           </button>
         </div>
 
-        {/* ── Scrollable content ── */}
-        <div className="flex-1 flex flex-col items-center justify-start px-5 pb-6 overflow-y-auto">
+        {/* ── Main content ── */}
+        <div className="flex-1 flex flex-col px-5 pb-4">
           {/* Cover */}
-          <div
-            className="relative flex-shrink-0 mb-5"
-            style={{ width: "min(78vw, 340px)", aspectRatio: "1 / 1" }}
-            onTouchStart={(e) => { handleCoverTouchStart(e); handleCoverTap(e); }}
-            onTouchEnd={handleCoverTouchEnd}
-          >
+          <div className="flex-1 flex items-center justify-center min-h-0 py-3">
             <div
-              className="w-full h-full rounded-3xl overflow-hidden relative"
-              style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}
+              className="relative flex-shrink-0"
+              style={{ width: "min(82vw, 360px)", aspectRatio: "1 / 1" }}
+              onTouchStart={(e) => { handleCoverTouchStart(e); handleCoverTap(e); }}
+              onTouchEnd={handleCoverTouchEnd}
             >
-              {currentTrack.cover ? (
-                <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                  <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.5)" }} />
-                </div>
-              )}
-            </div>
-            {/* Seek feedback */}
-            <div
-              ref={seekFeedbackRef}
-              className="absolute top-1/2 -translate-y-1/2 px-4 py-2 rounded-2xl pointer-events-none"
-              style={{
-                backgroundColor: "rgba(0,0,0,0.7)",
-                color: "#fff",
-                fontSize: 14,
-                fontWeight: 600,
-                opacity: 0,
-                transition: "opacity 0.2s ease",
-              }}
-            />
-            {/* Double-tap hint */}
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] pointer-events-none" style={{ color: "rgba(255,255,255,0.3)" }}>
-              ← двойной тап → · смахни вниз чтобы закрыть
+              <div
+                className="w-full h-full rounded-2xl overflow-hidden relative"
+                style={{ boxShadow: "0 20px 50px rgba(0,0,0,0.5)" }}
+              >
+                {currentTrack.cover ? (
+                  <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+                    <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.5)" }} />
+                  </div>
+                )}
+              </div>
+              {/* Seek feedback */}
+              <div
+                ref={seekFeedbackRef}
+                className="absolute top-1/2 -translate-y-1/2 px-4 py-2 rounded-2xl pointer-events-none"
+                style={{
+                  backgroundColor: "rgba(0,0,0,0.75)",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  opacity: 0,
+                  transition: "opacity 0.2s ease",
+                }}
+              />
             </div>
           </div>
 
-          {/* Track info */}
-          <div className="w-full text-center mb-4">
-            <h1 className="text-2xl font-bold mb-1 truncate" style={{ color: "var(--mq-text)" }}>
-              {currentTrack.title}
-            </h1>
-            <button
-              onClick={handleArtistClick}
-              className="text-base hover:underline"
-              style={{ color: "var(--mq-text-muted)" }}
-            >
-              {currentTrack.artist}
-            </button>
-            <div className="flex items-center justify-center gap-2 mt-1.5 text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
-              {duration > 0 && (
-                <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDuration(duration)}</span>
-              )}
-              {currentTrack.genre && <span>·</span>}
-              {currentTrack.genre && <span className="truncate max-w-[120px]">{currentTrack.genre}</span>}
-              {playbackRate !== 1 && <span>·</span>}
-              {playbackRate !== 1 && <span className="flex items-center gap-1"><Gauge className="w-3 h-3" />{playbackRate}x</span>}
-              {sleepTimerActive && <span>·</span>}
-              {sleepTimerActive && (
-                <span className="flex items-center gap-1" style={{ color: "var(--mq-accent)" }}><Timer className="w-3 h-3" />{sleepRemainingMin}м</span>
-              )}
+          {/* Track info + like button */}
+          <div className="flex items-start justify-between gap-3 mt-2 mb-3">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-bold truncate" style={{ color: "var(--mq-text)" }}>
+                {currentTrack.title}
+              </h1>
+              <button
+                onClick={handleArtistClick}
+                className="text-sm hover:underline mt-0.5 block truncate"
+                style={{ color: "var(--mq-text-muted)" }}
+              >
+                {currentTrack.artist}
+              </button>
             </div>
-          </div>
-
-          {/* Action buttons row */}
-          <div className="flex items-center gap-2 mb-3 flex-wrap justify-center">
             <button
               onClick={handleLike}
-              style={{ ...btnBase, backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
-              className="mq-btn-active"
+              className="mq-btn-active flex-shrink-0"
+              style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.05)" }}
               aria-label="Нравится"
             >
-              <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
-            </button>
-            <button
-              onClick={handleDislike}
-              style={{ ...btnBase, backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.06)" }}
-              className="mq-btn-active"
-              aria-label="Не нравится"
-            >
-              <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
-            </button>
-            <div style={{ width: 1, height: 20, backgroundColor: "var(--mq-border-thin)", margin: "0 4px" }} />
-            <button
-              onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
-              style={{ ...btnBase, backgroundColor: activePanel === "queue" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
-              className="mq-btn-active"
-              aria-label="Очередь"
-            >
-              <ListMusic className="w-4 h-4" style={{ color: activePanel === "queue" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-            </button>
-            <button
-              onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
-              style={{ ...btnBase, backgroundColor: activePanel === "lyrics" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
-              className="mq-btn-active"
-              aria-label="Текст песни"
-            >
-              <Mic2 className="w-4 h-4" style={{ color: activePanel === "lyrics" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-            </button>
-            <button
-              onClick={() => setActivePanel(p => p === "history" ? null : "history")}
-              style={{ ...btnBase, backgroundColor: activePanel === "history" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
-              className="mq-btn-active"
-              aria-label="История"
-            >
-              <History className="w-4 h-4" style={{ color: activePanel === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-            </button>
-            <div style={{ width: 1, height: 20, backgroundColor: "var(--mq-border-thin)", margin: "0 4px" }} />
-            <button
-              onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)}
-              style={{ ...btnBase, backgroundColor: spatialAudioEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
-              className="mq-btn-active"
-              aria-label="Пространственное аудио"
-            >
-              <AirVent className="w-4 h-4" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-            </button>
-            <button
-              onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowSleepMenu(false); }}
-              style={{ ...btnBase, backgroundColor: playbackRate !== 1 ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
-              className="mq-btn-active"
-              aria-label="Скорость"
-            >
-              <span className="text-[10px] font-bold" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span>
-            </button>
-            <button
-              onClick={() => { setShowSleepMenu(!showSleepMenu); setShowSpeedMenu(false); }}
-              style={{ ...btnBase, backgroundColor: sleepTimerActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
-              className="mq-btn-active relative"
-              aria-label="Таймер сна"
-            >
-              <Timer className="w-4 h-4" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-              {sleepTimerActive && (
-                <span className="absolute -bottom-0.5 -right-0.5 text-[8px] font-mono px-1 rounded-full" style={{ background: "var(--mq-accent)", color: "#fff" }}>{sleepRemainingMin}м</span>
-              )}
+              <Heart className="w-5 h-5" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
             </button>
           </div>
 
-          {/* Speed menu */}
-          {showSpeedMenu && (
-            <div className="mq-panel w-full mb-3 flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Скорость:</span>
-              {speedOptions.map(speed => (
-                <button
-                  key={speed}
-                  onClick={() => handleSpeedChange(speed)}
-                  className="mq-btn-active px-3 py-1.5 rounded-full text-xs font-semibold"
-                  style={{
-                    backgroundColor: playbackRate === speed ? "var(--mq-accent)" : "var(--mq-card)",
-                    color: playbackRate === speed ? "#fff" : "var(--mq-text-muted)",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  {speed}x
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Sleep timer menu */}
-          {showSleepMenu && (
-            <div className="mq-panel w-full mb-3 flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Сон через:</span>
-              {sleepOptions.map(min => (
-                <button
-                  key={min}
-                  onClick={() => handleSleepSet(min)}
-                  className="mq-btn-active px-3 py-1.5 rounded-full text-xs font-semibold"
-                  style={{
-                    backgroundColor: "var(--mq-card)",
-                    color: "var(--mq-text-muted)",
-                    border: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  {min} мин
-                </button>
-              ))}
-              {sleepTimerActive && (
-                <button
-                  onClick={() => { stopSleepTimer(); setShowSleepMenu(false); toast({ title: "Таймер отменён" }); }}
-                  className="mq-btn-active px-3 py-1.5 rounded-full text-xs font-semibold"
-                  style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444", border: "none", cursor: "pointer" }}
-                >
-                  Отменить
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Panel: Lyrics */}
-          {activePanel === "lyrics" && (
-            <div className="mq-panel w-full mb-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>Текст песни</p>
-                <button onClick={() => setActivePanel(null)} style={{ ...btnBase, width: 24, height: 24 }}>
-                  <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                </button>
-              </div>
-              {lyricsLoading ? (
-                <div className="flex items-center gap-2 py-6 justify-center">
-                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} />
-                  <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск...</span>
-                </div>
-              ) : lyrics.length > 0 ? (
-                <SyncedLyrics lines={lyrics} currentTime={progress} onSeek={seekToTime} />
-              ) : plainLyrics ? (
-                <div className="text-sm leading-relaxed whitespace-pre-wrap max-h-[40vh] overflow-y-auto p-3 rounded-xl" style={{ color: "var(--mq-text-muted)", backgroundColor: "rgba(255,255,255,0.03)" }}>
-                  {plainLyrics}
-                </div>
-              ) : (
-                <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>Текст не найден</p>
-              )}
-            </div>
-          )}
-
-          {/* Panel: Queue */}
-          {activePanel === "queue" && (
-            <div className="mq-panel w-full mb-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>Далее в очереди</p>
-                <button onClick={() => setActivePanel(null)} style={{ ...btnBase, width: 24, height: 24 }}>
-                  <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                </button>
-              </div>
-              {upcoming.length === 0 ? (
-                <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>Очередь пуста</p>
-              ) : (
-                <div className="space-y-1 max-h-[40vh] overflow-y-auto">
-                  {upcoming.map((track, i) => (
-                    <button
-                      key={track.id + "_" + i}
-                      onClick={() => { for (let j = 0; j <= i; j++) nextTrack(); setActivePanel(null); }}
-                      className="mq-btn-active w-full flex items-center gap-3 p-2 rounded-xl text-left"
-                      style={{ border: "none", cursor: "pointer", background: "transparent" }}
-                    >
-                      <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                        {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
-                          : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.5)" }} /></div>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
-                        <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
-                      </div>
-                      <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Panel: History */}
-          {activePanel === "history" && (
-            <div className="mq-panel w-full mb-3">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>Недавно играло</p>
-                <button onClick={() => setActivePanel(null)} style={{ ...btnBase, width: 24, height: 24 }}>
-                  <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                </button>
-              </div>
-              {recent.length === 0 ? (
-                <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>История пуста</p>
-              ) : (
-                <div className="space-y-1 max-h-[40vh] overflow-y-auto">
-                  {recent.map((track, i) => (
-                    <button
-                      key={track.id + "_h_" + i}
-                      onClick={() => { playTrack?.(track, [track]); setActivePanel(null); }}
-                      className="mq-btn-active w-full flex items-center gap-3 p-2 rounded-xl text-left"
-                      style={{ border: "none", cursor: "pointer", background: "transparent" }}
-                    >
-                      <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                        {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
-                          : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.5)" }} /></div>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
-                        <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
-                      </div>
-                      <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Progress bar (RAF-updated fill, no per-second React update) */}
-          <div className="w-full mb-4">
+          <div className="mb-3">
             <div
               ref={progressBarRef}
-              className="h-1.5 rounded-full cursor-pointer relative mb-2"
+              className="h-1 rounded-full cursor-pointer relative mb-2"
               onTouchStart={handleProgressTouch}
-              style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
+              style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
             >
               <div
                 ref={progressFillRef}
@@ -761,6 +517,15 @@ export default function FullTrackViewMobile() {
                 style={{
                   width: duration > 0 ? `${(progress / duration) * 100}%` : "0%",
                   backgroundColor: "var(--mq-accent)",
+                }}
+              />
+              <div
+                ref={progressThumbRef}
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full pointer-events-none"
+                style={{
+                  left: duration > 0 ? `${(progress / duration) * 100}%` : "0%",
+                  backgroundColor: "#fff",
+                  boxShadow: "0 0 0 4px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
                 }}
               />
             </div>
@@ -774,57 +539,59 @@ export default function FullTrackViewMobile() {
             </div>
           </div>
 
-          {/* Main controls */}
-          <div className="flex items-center justify-center gap-5 mb-6">
+          {/* Main controls row — big, comfortable */}
+          <div className="flex items-center justify-between mb-4 px-2">
+            {/* Shuffle */}
             <button
               onClick={toggleShuffle}
               className="mq-btn-active"
-              style={{ width: 36, height: 36, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", cursor: "pointer" }}
+              style={{ ...iconBtn, width: 40, height: 40 }}
               aria-label="Перемешать"
             >
               <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
             </button>
+            {/* Prev */}
             <button
               onClick={prevTrack}
               className="mq-btn-active"
-              style={{ width: 48, height: 48, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", cursor: "pointer" }}
+              style={{ ...iconBtn, width: 48, height: 48 }}
               aria-label="Предыдущий"
             >
               <SkipBack className="w-7 h-7" style={{ color: "var(--mq-text)" }} fill="currentColor" />
             </button>
+            {/* Play/Pause — big primary button */}
             <button
               onClick={togglePlay}
               className="mq-btn-active"
               style={{
-                width: 72,
-                height: 72,
+                width: 72, height: 72,
                 borderRadius: "9999px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: "var(--mq-accent)",
-                boxShadow: "0 8px 24px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
-                border: "none",
-                cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                backgroundColor: "#fff",
+                boxShadow: "0 8px 24px rgba(255,255,255,0.25)",
+                border: "none", cursor: "pointer", padding: 0,
+                transition: "transform 0.1s ease",
               }}
               aria-label="Play/Pause"
             >
-              {isLoading ? <Loader2 className="w-7 h-7 animate-spin" style={{ color: "#fff" }} />
-                : isPlaying ? <Pause className="w-7 h-7" fill="#fff" style={{ color: "#fff" }} />
-                : <Play className="w-7 h-7 ml-1" fill="#fff" style={{ color: "#fff" }} />}
+              {isLoading ? <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#000" }} />
+                : isPlaying ? <Pause className="w-8 h-8" fill="#000" style={{ color: "#000" }} />
+                : <Play className="w-8 h-8 ml-1" fill="#000" style={{ color: "#000" }} />}
             </button>
+            {/* Next */}
             <button
               onClick={nextTrack}
               className="mq-btn-active"
-              style={{ width: 48, height: 48, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", cursor: "pointer" }}
+              style={{ ...iconBtn, width: 48, height: 48 }}
               aria-label="Следующий"
             >
               <SkipForward className="w-7 h-7" style={{ color: "var(--mq-text)" }} fill="currentColor" />
             </button>
+            {/* Repeat */}
             <button
               onClick={toggleRepeat}
               className="mq-btn-active"
-              style={{ width: 36, height: 36, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", cursor: "pointer" }}
+              style={{ ...iconBtn, width: 40, height: 40 }}
               aria-label="Повтор"
             >
               {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
@@ -832,29 +599,299 @@ export default function FullTrackViewMobile() {
             </button>
           </div>
 
-          {/* Volume slider (simple native input for performance) */}
-          <div className="flex items-center gap-2 w-full max-w-xs">
+          {/* Bottom row — secondary actions */}
+          <div className="flex items-center justify-around pb-1">
             <button
-              onClick={() => setVolume(volume > 0 ? 0 : 70)}
-              className="mq-btn-active"
-              style={{ width: 32, height: 32, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "none", cursor: "pointer" }}
-              aria-label="Mute"
+              onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
+              className="mq-btn-active flex flex-col items-center gap-1"
+              style={{ ...iconBtn, width: "auto", height: "auto", flexDirection: "column", background: "transparent" }}
+              aria-label="Текст песни"
             >
-              {volume === 0 ? <Volume2 className="w-4 h-4" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} /> :
-               volume < 50 ? <Volume2 className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /> :
-               <Volume2 className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />}
+              <Mic2 className="w-5 h-5" style={{ color: activePanel === "lyrics" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+              <span className="text-[10px]" style={{ color: activePanel === "lyrics" ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>Текст</span>
             </button>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={volume}
-              onChange={(e) => setVolume(Number(e.target.value))}
-              className="flex-1 h-1.5 rounded-full cursor-pointer"
-              style={{ accentColor: "var(--mq-accent)" }}
-            />
+            <button
+              onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
+              className="mq-btn-active flex flex-col items-center gap-1"
+              style={{ ...iconBtn, width: "auto", height: "auto", flexDirection: "column", background: "transparent" }}
+              aria-label="Очередь"
+            >
+              <ListMusic className="w-5 h-5" style={{ color: activePanel === "queue" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+              <span className="text-[10px]" style={{ color: activePanel === "queue" ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>Очередь</span>
+            </button>
+            <button
+              onClick={() => setActivePanel(p => p === "history" ? null : "history")}
+              className="mq-btn-active flex flex-col items-center gap-1"
+              style={{ ...iconBtn, width: "auto", height: "auto", flexDirection: "column", background: "transparent" }}
+              aria-label="История"
+            >
+              <History className="w-5 h-5" style={{ color: activePanel === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+              <span className="text-[10px]" style={{ color: activePanel === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>История</span>
+            </button>
+            <button
+              onClick={handleShare}
+              className="mq-btn-active flex flex-col items-center gap-1"
+              style={{ ...iconBtn, width: "auto", height: "auto", flexDirection: "column", background: "transparent" }}
+              aria-label="Поделиться"
+            >
+              <Share2 className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+              <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>Поделиться</span>
+            </button>
           </div>
         </div>
+
+        {/* ═══ PANELS (overlay slides up from bottom) ═══ */}
+        {activePanel && (
+          <div
+            className="mq-panel absolute inset-0 z-20 flex flex-col"
+            style={{
+              background: "color-mix(in srgb, var(--mq-bg) 95%, transparent)",
+              backdropFilter: "blur(30px)",
+              WebkitBackdropFilter: "blur(30px)",
+              paddingTop: "max(16px, env(safe-area-inset-top))",
+            }}
+          >
+            <div className="flex items-center justify-between px-4 py-3">
+              <p className="text-base font-semibold" style={{ color: "var(--mq-text)" }}>
+                {activePanel === "lyrics" ? "Текст песни" : activePanel === "queue" ? "Очередь" : "Недавно играло"}
+              </p>
+              <button
+                onClick={() => setActivePanel(null)}
+                style={iconBtn}
+                className="mq-btn-active"
+                aria-label="Закрыть"
+              >
+                <X className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-4 pb-4">
+              {activePanel === "lyrics" && (
+                lyricsLoading ? (
+                  <div className="flex items-center gap-2 py-6 justify-center">
+                    <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} />
+                    <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск...</span>
+                  </div>
+                ) : lyrics.length > 0 ? (
+                  <SyncedLyrics lines={lyrics} currentTime={progress} onSeek={seekToTime} />
+                ) : plainLyrics ? (
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "var(--mq-text-muted)" }}>
+                    {plainLyrics}
+                  </div>
+                ) : (
+                  <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>Текст не найден</p>
+                )
+              )}
+
+              {activePanel === "queue" && (
+                upcoming.length === 0 ? (
+                  <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>Очередь пуста</p>
+                ) : (
+                  <div className="space-y-1">
+                    {upcoming.map((track, i) => (
+                      <button
+                        key={track.id + "_" + i}
+                        onClick={() => { for (let j = 0; j <= i; j++) nextTrack(); setActivePanel(null); }}
+                        className="mq-btn-active w-full flex items-center gap-3 p-2 rounded-xl text-left"
+                        style={{ border: "none", cursor: "pointer", background: "transparent" }}
+                      >
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                          {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.5)" }} /></div>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                          <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+                        </div>
+                        <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {activePanel === "history" && (
+                recent.length === 0 ? (
+                  <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>История пуста</p>
+                ) : (
+                  <div className="space-y-1">
+                    {recent.map((track, i) => (
+                      <button
+                        key={track.id + "_h_" + i}
+                        onClick={() => { playTrack?.(track, [track]); setActivePanel(null); }}
+                        className="mq-btn-active w-full flex items-center gap-3 p-2 rounded-xl text-left"
+                        style={{ border: "none", cursor: "pointer", background: "transparent" }}
+                      >
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                          {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
+                            : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.5)" }} /></div>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                          <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+                        </div>
+                        <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ═══ MORE MENU (slides up from bottom as a sheet) ═══ */}
+        {showMoreMenu && (
+          <>
+            <div
+              className="absolute inset-0 z-30"
+              style={{ background: "rgba(0,0,0,0.5)", animation: "mqPanelIn 0.2s ease-out" }}
+              onClick={() => setShowMoreMenu(false)}
+            />
+            <div
+              className="mq-sheet absolute left-0 right-0 bottom-0 z-40 rounded-t-3xl p-5 pb-[max(20px,env(safe-area-inset-bottom))]"
+              style={{
+                background: "color-mix(in srgb, var(--mq-card) 95%, transparent)",
+                backdropFilter: "blur(30px)",
+                WebkitBackdropFilter: "blur(30px)",
+                border: "1px solid var(--mq-border-thin)",
+                boxShadow: "0 -10px 40px rgba(0,0,0,0.5)",
+              }}
+            >
+              <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: "rgba(255,255,255,0.15)" }} />
+
+              {/* Track info at top of sheet */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                  {currentTrack.cover ? <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+                  <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
+                </div>
+              </div>
+
+              <div className="h-px mb-3" style={{ background: "var(--mq-border-thin)" }} />
+
+              {/* Actions */}
+              <button
+                onClick={handleDislike}
+                className="mq-btn-active w-full flex items-center gap-3 py-3"
+                style={{ background: "transparent", border: "none", cursor: "pointer" }}
+              >
+                <ThumbsDown className="w-5 h-5" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
+                <span className="text-sm" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text)" }}>{isDisliked ? "Не нравится (активно)" : "Не нравится"}</span>
+              </button>
+
+              <button
+                onClick={() => { setSpatialAudioEnabled(!spatialAudioEnabled); }}
+                className="mq-btn-active w-full flex items-center gap-3 py-3"
+                style={{ background: "transparent", border: "none", cursor: "pointer" }}
+              >
+                <AirVent className="w-5 h-5" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                <span className="text-sm flex-1 text-left" style={{ color: "var(--mq-text)" }}>Пространственное аудио</span>
+                <div
+                  className="w-10 h-6 rounded-full relative transition-colors"
+                  style={{ background: spatialAudioEnabled ? "var(--mq-accent)" : "rgba(255,255,255,0.15)" }}
+                >
+                  <div
+                    className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+                    style={{ transform: spatialAudioEnabled ? "translateX(20px)" : "translateX(2px)" }}
+                  />
+                </div>
+              </button>
+
+              {/* Speed */}
+              <div className="py-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <Gauge className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+                  <span className="text-sm" style={{ color: "var(--mq-text)" }}>Скорость</span>
+                  <span className="text-xs ml-auto" style={{ color: "var(--mq-text-muted)" }}>{playbackRate}x</span>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap pl-8">
+                  {speedOptions.map(speed => (
+                    <button
+                      key={speed}
+                      onClick={() => handleSpeedChange(speed)}
+                      className="mq-btn-active px-3 py-1.5 rounded-full text-xs font-semibold"
+                      style={{
+                        backgroundColor: playbackRate === speed ? "var(--mq-accent)" : "var(--mq-input-bg)",
+                        color: playbackRate === speed ? "#fff" : "var(--mq-text-muted)",
+                        border: "none", cursor: "pointer",
+                      }}
+                    >
+                      {speed}x
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sleep timer */}
+              <div className="py-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <Timer className="w-5 h-5" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                  <span className="text-sm" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
+                  {sleepTimerActive && (
+                    <span className="text-xs ml-auto" style={{ color: "var(--mq-accent)" }}>{sleepRemainingMin} мин</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 flex-wrap pl-8">
+                  {sleepOptions.map(min => (
+                    <button
+                      key={min}
+                      onClick={() => handleSleepSet(min)}
+                      className="mq-btn-active px-3 py-1.5 rounded-full text-xs font-semibold"
+                      style={{
+                        backgroundColor: "var(--mq-input-bg)",
+                        color: "var(--mq-text-muted)",
+                        border: "none", cursor: "pointer",
+                      }}
+                    >
+                      {min} мин
+                    </button>
+                  ))}
+                  {sleepTimerActive && (
+                    <button
+                      onClick={() => { stopSleepTimer(); setShowMoreMenu(false); toast({ title: "Таймер отменён" }); }}
+                      className="mq-btn-active px-3 py-1.5 rounded-full text-xs font-semibold"
+                      style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444", border: "none", cursor: "pointer" }}
+                    >
+                      Отменить
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Volume */}
+              <div className="py-3">
+                <div className="flex items-center gap-3 mb-2">
+                  <Volume2 className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+                  <span className="text-sm" style={{ color: "var(--mq-text)" }}>Громкость</span>
+                  <span className="text-xs ml-auto" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={volume}
+                  onChange={(e) => setVolume(Number(e.target.value))}
+                  className="w-full h-1.5 rounded-full cursor-pointer ml-8"
+                  style={{ accentColor: "var(--mq-accent)", width: "calc(100% - 32px)" }}
+                />
+              </div>
+
+              <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
+
+              <button
+                onClick={() => { handleShare(); setShowMoreMenu(false); }}
+                className="mq-btn-active w-full flex items-center gap-3 py-3"
+                style={{ background: "transparent", border: "none", cursor: "pointer" }}
+              >
+                <Share2 className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
+                <span className="text-sm" style={{ color: "var(--mq-text)" }}>Поделиться</span>
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
