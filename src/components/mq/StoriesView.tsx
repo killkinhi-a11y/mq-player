@@ -7,7 +7,7 @@ import { type Track } from "@/lib/musicApi";
 import {
   Camera, Plus, X, ChevronLeft, ChevronRight, Play, Pause,
   Heart, MessageCircle, Clock, Eye, Sparkles, Image as ImageIcon,
-  Music2, Trash2, Send
+  Music2, Trash2, Send, User
 } from "lucide-react";
 
 interface Story {
@@ -68,6 +68,7 @@ function mapApiStories(rawStories: any[]): Story[] {
       avatar: s.user?.avatar || '',
       content: contentType === 'track' ? contentStr : contentStr,
       contentType,
+      bgColor: s.bgColor || null,
       createdAt: s.createdAt,
       expiresAt: s.expiresAt,
       viewed: false,
@@ -187,7 +188,7 @@ export default function StoriesView() {
       const res = await fetch('/api/stories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'text', content: newStoryText.trim() }),
+        body: JSON.stringify({ type: 'text', content: newStoryText.trim(), bgColor: storyGradients[selectedGradient] }),
       });
       if (res.ok) {
         setShowCreateModal(false);
@@ -285,11 +286,10 @@ export default function StoriesView() {
                 }}
               >
                 <div className="w-full h-full rounded-full overflow-hidden" style={{ border: "3px solid var(--mq-bg)" }}>
-                  <img
-                    src={firstStory.avatar}
-                    alt={firstStory.username}
-                    className="w-full h-full object-cover"
-                  />
+                  {firstStory.avatar
+                    ? <img src={firstStory.avatar} alt={firstStory.username} className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center" style={{ background: "var(--mq-accent)" }}><User className="w-8 h-8 text-white" /></div>
+                  }
                 </div>
               </div>
               <span
@@ -442,12 +442,10 @@ export default function StoriesView() {
               {/* Header */}
               <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-3 p-4"
                 style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)" }}>
-                <img
-                  src={viewingStory.avatar}
-                  alt={viewingStory.username}
-                  className="w-9 h-9 rounded-full object-cover"
-                  style={{ border: "2px solid white" }}
-                />
+                {viewingStory.avatar
+                  ? <img src={viewingStory.avatar} alt={viewingStory.username} className="w-9 h-9 rounded-full object-cover" style={{ border: "2px solid white" }} />
+                  : <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "var(--mq-accent)", border: "2px solid white" }}><User className="w-5 h-5 text-white" /></div>
+                }
                 <div className="flex-1">
                   <p className="text-sm font-medium text-white">{viewingStory.username}</p>
                   <p className="text-[11px] text-white/60">
@@ -469,7 +467,7 @@ export default function StoriesView() {
 
               {/* Story body */}
               <div className="w-full h-full flex items-center justify-center"
-                style={viewingStory.contentType === "text" ? { background: storyGradients[(viewingIndex ?? 0) % storyGradients.length] } : {}}>
+                style={viewingStory.contentType === "text" ? { background: (viewingStory as any).bgColor || storyGradients[(viewingIndex ?? 0) % storyGradients.length] } : {}}>
                 {viewingStory.contentType === "text" && (
                   <div className="p-8 text-center">
                     <p className="text-xl font-medium text-white leading-relaxed">
@@ -517,11 +515,29 @@ export default function StoriesView() {
               <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between p-4"
                 style={{ background: "linear-gradient(to top, rgba(0,0,0,0.6), transparent)" }}>
                 <div className="flex items-center gap-4">
-                  <motion.button whileTap={{ scale: 1.2 }} className="flex items-center gap-1 cursor-pointer">
-                    <Heart className="w-6 h-6 text-white" />
+                  <button
+                    className="flex items-center gap-1 cursor-pointer transition-transform active:scale-110"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        const res = await fetch('/api/stories/like', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ storyId: viewingStory.id }),
+                        });
+                        if (res.ok) {
+                          const data = await res.json();
+                          setStories(prev => prev.map(s => s.id === viewingStory.id
+                            ? { ...s, likes: data.liked ? s.likes + 1 : Math.max(0, s.likes - 1) }
+                            : s));
+                        }
+                      } catch {}
+                    }}
+                  >
+                    <Heart className="w-6 h-6 text-white" fill={viewingStory.likes > 0 ? "currentColor" : "none"} />
                     <span className="text-xs text-white">{viewingStory.likes}</span>
-                  </motion.button>
-                  <MessageCircle className="w-6 h-6 text-white cursor-pointer" />
+                  </button>
+                  <MessageCircle className="w-6 h-6 text-white/50" />
                 </div>
                 <Clock className="w-4 h-4 text-white/50" />
               </div>

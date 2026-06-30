@@ -79,8 +79,10 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
         updated[index].op = "eq";
       } else if (fieldDef?.type === "number") {
         updated[index].value = 0;
+        updated[index].op = "eq";
       } else {
         updated[index].value = "";
+        updated[index].op = "eq";
       }
     }
     setRules(updated);

@@ -364,6 +364,7 @@ const ProfileView = React.memo(function ProfileView() {
         ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
 
         const resized = canvas.toDataURL("image/jpeg", 0.8);
+        const previousAvatar = useAppStore.getState().avatar;
         useAppStore.setState({ avatar: resized });
         const uid = useAppStore.getState().userId;
         if (uid) {
@@ -373,8 +374,17 @@ const ProfileView = React.memo(function ProfileView() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ avatar: resized }),
           })
-            .then((r) => r.json())
-            .catch(() => { setAvatarError("Ошибка загрузки аватара"); })
+            .then(async (r) => {
+              const data = await r.json();
+              if (!r.ok) {
+                setAvatarError(data.error || "Ошибка загрузки аватара");
+                useAppStore.setState({ avatar: previousAvatar });
+              }
+            })
+            .catch(() => {
+              setAvatarError("Ошибка загрузки аватара");
+              useAppStore.setState({ avatar: previousAvatar });
+            })
             .finally(() => setIsSavingAvatar(false));
         }
       };

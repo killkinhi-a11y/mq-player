@@ -79,7 +79,10 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
       const ok = initSpatialAudio();
       if (ok) {
         enableSpatialAudio(true);
-        const mood = spatialMood || (currentTrack ? detectMoodFromTrack(currentTrack.title, currentTrack.genre) : "chill");
+        // When auto-detect is on, always re-detect mood for current track on re-enable
+        const mood = spatialAutoDetect && currentTrack
+          ? detectMoodFromTrack(currentTrack.title, currentTrack.genre)
+          : (spatialMood || (currentTrack ? detectMoodFromTrack(currentTrack.title, currentTrack.genre) : "chill"));
         setMoodPreset(mood);
         setSpatialMood(mood);
         setSpatialAudioEnabled(true);
@@ -88,7 +91,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
       enableSpatialAudio(false);
       setSpatialAudioEnabled(false);
     }
-  }, [spatialMood, currentTrack, setSpatialAudioEnabled, setSpatialMood]);
+  }, [spatialMood, spatialAutoDetect, currentTrack, setSpatialAudioEnabled, setSpatialMood]);
 
   // ── Auto-detect mood when track changes ──
   useEffect(() => {
