@@ -6,7 +6,7 @@ import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
 import type { Track } from "@/lib/musicApi";
 import { toast } from "@/hooks/use-toast";
-import { Play, Pause, SkipBack, SkipForward, ChevronDown, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2 } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, ChevronDown, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2, Timer, Gauge, AirVent } from "lucide-react";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — MOBILE
@@ -104,6 +104,14 @@ function FullTrackViewMobileInner() {
   const toggleDislike = useAppStore((s) => s.toggleDislike);
   const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
   const playTrack = useAppStore((s) => s.playTrack);
+  const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
+  const setSpatialAudioEnabled = useAppStore((s) => s.setSpatialAudioEnabled);
+  const playbackRate = useAppStore((s) => s.playbackRate);
+  const setPlaybackRate = useAppStore((s) => s.setPlaybackRate);
+  const sleepTimerActive = useAppStore((s) => s.sleepTimerActive);
+  const sleepTimerRemaining = useAppStore((s) => s.sleepTimerRemaining);
+  const startSleepTimer = useAppStore((s) => s.startSleepTimer);
+  const stopSleepTimer = useAppStore((s) => s.stopSleepTimer);
 
   const [panel, setPanel] = useState<"queue" | "lyrics" | "history" | null>(null);
   const [lyrics, setLyrics] = useState<SyncedLine[]>([]);
@@ -242,6 +250,20 @@ function FullTrackViewMobileInner() {
     else if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => toast({ title: "Ссылка скопирована" }));
   }, [currentTrack, toast]);
   const handleArtist = useCallback(() => { if (currentTrack?.artist) { setSelectedArtist({ name: currentTrack.artist }); setOpen(false); } }, [currentTrack, setSelectedArtist, setOpen]);
+
+  // Speed/sleep/spatial handlers for More sheet
+  const speedOptions = [0.5, 0.75, 1, 1.25, 1.5, 2];
+  const handleSpeedChange = useCallback((speed: number) => {
+    setPlaybackRate(speed);
+    const audio = getAudioElement();
+    if (audio) audio.playbackRate = speed;
+  }, [setPlaybackRate]);
+  const sleepOptions = [5, 10, 15, 30, 45, 60];
+  const handleSleepSet = useCallback((minutes: number) => {
+    startSleepTimer(minutes);
+    toast({ title: `Таймер сна: ${minutes} мин` });
+  }, [startSleepTimer, toast]);
+  const sleepRemainingMin = Math.ceil(sleepTimerRemaining / 60);
 
   if (!isOpen || !currentTrack) return null;
 
@@ -475,22 +497,68 @@ function FullTrackViewMobileInner() {
           </div>
         )}
 
-        {/* ── More sheet ── */}
+        {/* ── More sheet (volume, speed, sleep timer, spatial, share) ── */}
         {showMore && (
           <>
             <div className="absolute inset-0 z-30" style={{ background: "rgba(0,0,0,0.6)" }} onClick={() => setShowMore(false)} />
-            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 40, borderRadius: "20px 20px 0 0", padding: "20px", paddingBottom: "max(20px, env(safe-area-inset-bottom))", background: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "0 -8px 32px rgba(0,0,0,0.5)", animation: "mqFtSlideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1)" }}>
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 40, borderRadius: "20px 20px 0 0", padding: "20px", paddingBottom: "max(20px, env(safe-area-inset-bottom))", background: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "0 -8px 32px rgba(0,0,0,0.5)", animation: "mqFtSlideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1)", maxHeight: "80vh", overflowY: "auto" }}>
               <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: "rgba(255,255,255,0.15)" }} />
+              {/* Track info header */}
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">{currentTrack.cover ? <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
                 <div className="min-w-0 flex-1"><p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p><p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p></div>
               </div>
               <div className="h-px mb-3" style={{ background: "var(--mq-border-thin)" }} />
+
+              {/* Volume */}
               <div className="py-3">
-                <div className="flex items-center gap-3 mb-2"><Volume2 className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Громкость</span></div>
-                <input type="range" min={0} max={100} value={volume} onChange={(e) => { const v = Number(e.target.value); setVolume(v); e.target.style.setProperty('--mq-vol-pct', `${v}%`); }} className="mq-ft-vol" style={{ marginLeft: "32px", width: "calc(100% - 32px)", ['--mq-vol-pct' as string]: `${volume}%` }} />
+                <div className="flex items-center gap-3 mb-2"><Volume2 className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Громкость</span><span className="text-xs ml-auto font-mono" style={{ color: "var(--mq-text-muted)" }}>{Math.round(volume)}%</span></div>
+                <input type="range" min={0} max={100} value={volume} onChange={(e) => { const v = Number(e.target.value); setVolume(v); e.target.style.setProperty('--mq-vol-pct', `${v}%`); }} className="mq-ft-vol" style={{ width: "100%", ['--mq-vol-pct' as string]: `${volume}%` }} />
               </div>
               <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
+
+              {/* Playback speed */}
+              <div className="py-3">
+                <div className="flex items-center gap-3 mb-2"><Gauge className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Скорость</span><span className="text-xs ml-auto font-mono" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span></div>
+                <div className="flex items-center gap-2 flex-wrap pl-8">
+                  {speedOptions.map(speed => (
+                    <button key={speed} onClick={() => handleSpeedChange(speed)} className="mq-ft-btn px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: playbackRate === speed ? "var(--mq-accent)" : "var(--mq-input-bg)", color: playbackRate === speed ? "#fff" : "var(--mq-text-muted)", border: "none", cursor: "pointer" }}>
+                      {speed}x
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
+
+              {/* Sleep timer */}
+              <div className="py-3">
+                <div className="flex items-center gap-3 mb-2"><Timer className="w-5 h-5" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Таймер сна</span>{sleepTimerActive && <span className="text-xs ml-auto font-mono" style={{ color: "var(--mq-accent)" }}>{sleepRemainingMin}м</span>}</div>
+                <div className="flex items-center gap-2 flex-wrap pl-8">
+                  {sleepOptions.map(min => (
+                    <button key={min} onClick={() => handleSleepSet(min)} className="mq-ft-btn px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "var(--mq-input-bg)", color: "var(--mq-text-muted)", border: "none", cursor: "pointer" }}>
+                      {min} мин
+                    </button>
+                  ))}
+                  {sleepTimerActive && (
+                    <button onClick={() => { stopSleepTimer(); toast({ title: "Таймер отменён" }); }} className="mq-ft-btn px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#ef4444", border: "none", cursor: "pointer" }}>
+                      Отменить
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
+
+              {/* Spatial audio toggle */}
+              <button onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="mq-ft-btn w-full flex items-center gap-3 py-3" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
+                <AirVent className="w-5 h-5" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                <span className="text-sm flex-1 text-left" style={{ color: "var(--mq-text)" }}>Пространственное аудио</span>
+                <div className="w-10 h-6 rounded-full relative flex-shrink-0" style={{ background: spatialAudioEnabled ? "var(--mq-accent)" : "rgba(255,255,255,0.15)" }}>
+                  <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: spatialAudioEnabled ? "translateX(20px)" : "translateX(2px)" }} />
+                </div>
+              </button>
+              <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
+
+              {/* Share */}
               <button onClick={() => { handleShare(); setShowMore(false); }} className="mq-ft-btn w-full flex items-center gap-3 py-3" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
                 <Share2 className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Поделиться</span>
               </button>
