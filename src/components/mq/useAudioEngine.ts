@@ -73,9 +73,12 @@ export const PlayerErrorLogger = {
   }
 };
 
-// Run auto-fix every 15 seconds
+// Run auto-fix every 30 seconds — guard against HMR duplicate intervals
+let _autoFixInterval: ReturnType<typeof setInterval> | null = null;
 if (typeof window !== "undefined") {
-  setInterval(() => PlayerErrorLogger.autoFix(), 15000);
+  if (!_autoFixInterval) {
+    _autoFixInterval = setInterval(() => PlayerErrorLogger.autoFix(), 30000);
+  }
 }
 
 // ── Waveform peak generator ──

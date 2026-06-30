@@ -149,16 +149,18 @@ function FullTrackViewMobileInner() {
     return () => cancelAnimationFrame(rafId);
   }, [isOpen]);
 
-  // ── Seek: native input onChange ──
-  const dragTimerRef = useRef(0);
+  // ── Seek: visual-only during drag, commit on release ──
   const handleSeekChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const v = Number(e.target.value);
-    // Mark as dragging — debounce reset after 150ms of no change
     isDraggingRef.current = true;
-    clearTimeout(dragTimerRef.current);
-    dragTimerRef.current = window.setTimeout(() => { isDraggingRef.current = false; }, 150);
-    // Update CSS variable for fill
+    // Only update CSS variable for visual feedback — don't touch audio/store during drag
     e.target.style.setProperty('--mq-seek-pct', `${v}%`);
+  }, []);
+
+  const commitSeek = useCallback((e: React.PointerEvent<HTMLInputElement>) => {
+    const v = Number(e.currentTarget.value);
+    isDraggingRef.current = false;
+    e.currentTarget.style.setProperty('--mq-seek-pct', `${v}%`);
     const audio = getAudioElement();
     if (audio && audio.src && audio.duration) {
       audio.currentTime = (v / 100) * audio.duration;
@@ -401,7 +403,8 @@ function FullTrackViewMobileInner() {
             value={seekPct}
             onChange={handleSeekChange}
             onPointerDown={() => { isDraggingRef.current = true; }}
-            onPointerUp={() => { isDraggingRef.current = false; }}
+            onPointerUp={commitSeek}
+            onPointerCancel={() => { isDraggingRef.current = false; }}
             className="mq-ft-seek-input"
           />
           <div className="flex items-center justify-between mt-1">

@@ -33,6 +33,17 @@ async function getNativeMediaSession() {
 export function useMediaSession({ currentTrack, isPlaying, progress, duration, playbackRate }: UseMediaSessionParams) {
   const lastPositionUpdate = useRef(0);
 
+  // Helper: convert relative cover URL to absolute (required by native MediaSession plugin)
+  const absoluteCoverUrl = (cover?: string): string | null => {
+    if (!cover) return null;
+    if (cover.startsWith("http://") || cover.startsWith("https://")) return cover;
+    if (cover.startsWith("/")) {
+      const origin = typeof window !== "undefined" ? window.location.origin : "https://mq1.vercel.app";
+      return `${origin}${cover}`;
+    }
+    return cover;
+  };
+
   // Effect 1: Set metadata + action handlers when track changes
   useEffect(() => {
     if (!currentTrack) return;
@@ -50,7 +61,7 @@ export function useMediaSession({ currentTrack, isPlaying, progress, duration, p
           title: currentTrack.title || "Unknown",
           artist: currentTrack.artist || "Unknown",
           album: currentTrack.album || "mq",
-          artwork: currentTrack.cover ? [{ src: currentTrack.cover, sizes: "512x512", type: "image/jpeg" }] : [],
+          artwork: (() => { const u = absoluteCoverUrl(currentTrack.cover); return u ? [{ src: u, sizes: "512x512" }] : []; })(),
         });
 
         await native.setActionHandler({ action: "play" }, () => {
@@ -116,7 +127,7 @@ export function useMediaSession({ currentTrack, isPlaying, progress, duration, p
           title: currentTrack.title || "Unknown",
           artist: currentTrack.artist || "Unknown",
           album: currentTrack.album || "mq",
-          artwork: currentTrack.cover ? [{ src: currentTrack.cover, sizes: "512x512", type: "image/jpeg" }] : [],
+          artwork: (() => { const u = absoluteCoverUrl(currentTrack.cover); return u ? [{ src: u, sizes: "512x512" }] : []; })(),
         });
 
         navigator.mediaSession.setActionHandler("play", () => {

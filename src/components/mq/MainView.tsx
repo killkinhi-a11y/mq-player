@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -69,7 +69,7 @@ function pluralRu(n: number, one: string, few: string, many: string): string {
 // MAIN VIEW
 // ═════════════════════════════════════════════════════════════════════════
 
-export default function MainView() {
+function MainView() {
   // ── Store ──
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const playTrack = useAppStore((s) => s.playTrack);
@@ -87,7 +87,6 @@ export default function MainView() {
   const selectedArtist = useAppStore((s) => s.selectedArtist);
   const favoriteArtists = useAppStore((s) => s.favoriteArtists);
   const radioMode = useAppStore((s) => s.radioMode);
-  const progress = useAppStore((s) => s.progress);
   const duration = useAppStore((s) => s.duration);
   const contacts = useAppStore((s) => s.contacts);
 
@@ -302,7 +301,7 @@ export default function MainView() {
           currentTrack={currentTrack}
           isPlaying={isPlaying}
           radioMode={wave.radioMode}
-          progress={progress}
+          progress={useAppStore.getState().progress}
           duration={duration}
           waveLoading={wave.waveLoading}
           waveError={wave.waveError}
@@ -430,7 +429,7 @@ export default function MainView() {
             </button>
           }
         >
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5.5 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
             {recentTracks.slice(0, 5).map((track, i) => (
               <TrackCard
                 key={track.id + "_" + i}
@@ -1495,3 +1494,5 @@ function countryNameFromCode(code: string): string {
   };
   return names[code] || code;
 }
+
+export default memo(MainView);

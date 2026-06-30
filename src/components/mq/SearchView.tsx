@@ -157,12 +157,11 @@ export default function SearchView() {
     setSearchHistory(getSearchHistory());
   }, []);
 
-  // Auto-focus search input when navigating to search view
+  // Auto-focus search input when navigating to search view (desktop only — mobile keyboard is intrusive)
   useEffect(() => {
-    if (currentView === "search") {
-      // Small delay to ensure the container has display:block (it uses display:none when hidden)
+    if (currentView === "search" && window.innerWidth >= 768) {
       const timer = setTimeout(() => {
-        if (searchInputRef.current) searchInputRef.current.focus();
+        if (searchInputRef.current) searchInputRef.current.focus({ preventScroll: true });
       }, 50);
       return () => clearTimeout(timer);
     }
@@ -631,7 +630,7 @@ export default function SearchView() {
                           e.stopPropagation();
                           handleRemoveHistoryItem(query);
                         }}
-                        className="w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-60 group-hover:pointer-events-auto hover:!opacity-100 transition-opacity ml-0.5 pointer-events-none"
+                        className="w-4 h-4 rounded-full flex items-center justify-center transition-opacity ml-0.5 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:pointer-events-auto hover:!opacity-100"
                         style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
                       >
                         <X className="w-2.5 h-2.5" />

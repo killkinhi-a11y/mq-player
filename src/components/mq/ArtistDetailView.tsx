@@ -253,7 +253,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                       <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{track.album || track.artist}</p>
                     </div>
                     {/* Like */}
-                    <button onClick={e => { e.stopPropagation(); toggleLike(track.id, track); }} className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" style={{ opacity: liked ? 1 : undefined }}>
+                    <button onClick={e => { e.stopPropagation(); toggleLike(track.id, track); }} className="p-1.5 rounded-full sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" style={{ opacity: liked ? 1 : undefined }}>
                       <Heart className="w-3.5 h-3.5" style={{ color: liked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={liked ? "currentColor" : "none"} />
                     </button>
                     {/* Duration */}

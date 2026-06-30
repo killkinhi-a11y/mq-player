@@ -66,6 +66,17 @@ export function useKeyboardShortcuts() {
 
     const key = e.key;
 
+    // When FullTrackView is open, it handles its own keyboard shortcuts.
+    // Skip global handler to avoid double-triggering (Space, arrows, etc.)
+    if (store.isFullTrackViewOpen) {
+      const handledByFullView = [
+        " ", "ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown",
+        "n", "N", "p", "P", "m", "M", "l", "L",
+        "f", "F", "Escape",
+      ];
+      if (handledByFullView.includes(key)) return;
+    }
+
     switch (key) {
       // ── Space: toggle play / pause ──
       case " ": {

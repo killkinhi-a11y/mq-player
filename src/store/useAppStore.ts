@@ -2523,7 +2523,6 @@ export const useAppStore = create<AppState>()(
           selectedContactId, selectedGenre, typingUsers,
           selectedPlaylistId, selectedGroupId, selectedArtist,
           spatialAudioEnabled, spatialMood, spatialAutoDetect,
-          crossfadeEnabled, crossfadeDuration,
           radioMode, radioSeedTrack, radioSkipCount,
           smartShuffle, sessionStartTime,
           listenSession, abRepeat,
@@ -2549,6 +2548,10 @@ export const useAppStore = create<AppState>()(
           shuffle: persistent.shuffle,
           repeat: persistent.repeat,
           playbackRate: persistent.playbackRate,
+          // Audio settings — persist user preferences
+          crossfadeEnabled: persistent.crossfadeEnabled,
+          crossfadeDuration: persistent.crossfadeDuration,
+          replayGainEnabled: persistent.replayGainEnabled,
           // Auth flag — persisted so rehydration can detect demo users
           isAuthenticated: persistent.isAuthenticated,
           // Persist userId so onRehydrateStorage can detect demo-user-id and clear it
