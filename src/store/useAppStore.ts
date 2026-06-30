@@ -2829,8 +2829,11 @@ export const useAppStore = create<AppState>()(
           }
 
           // Periodic feedback sync: every 60 seconds if there are pending items
+          // Guard against HMR/StrictMode duplicate intervals
           if (typeof window !== "undefined") {
-            setInterval(() => {
+            const w = window as Window & { _mqFeedbackSyncInterval?: ReturnType<typeof setInterval> };
+            if (w._mqFeedbackSyncInterval) clearInterval(w._mqFeedbackSyncInterval);
+            w._mqFeedbackSyncInterval = setInterval(() => {
               const currentState = useAppStore.getState();
               if (currentState.feedbackBatch.pendingCount > 0) {
                 currentState.syncFeedbackToServer();

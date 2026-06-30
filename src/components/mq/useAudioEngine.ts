@@ -1297,6 +1297,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     };
 
     const addListeners = (el: HTMLAudioElement) => {
+      // Guard against StrictMode double-mount duplicate listeners
+      if ((el as any)._mqListenersAttached) return;
+      (el as any)._mqListenersAttached = true;
       el.addEventListener("timeupdate", onTimeUpdate);
       el.addEventListener("loadedmetadata", onLoaded);
       el.addEventListener("canplay", onCanPlay);

@@ -323,11 +323,12 @@ function FullTrackViewMobileInner() {
           background: transparent;
           outline: none;
           cursor: pointer;
+          touch-action: none;
         }
         .mq-ft-vol::-webkit-slider-runnable-track {
           height: 4px;
           border-radius: 2px;
-          background: linear-gradient(to right, var(--mq-accent) 0%, var(--mq-accent) ${volume}%, rgba(255,255,255,0.1) ${volume}%, rgba(255,255,255,0.1) 100%);
+          background: linear-gradient(to right, var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol-pct, 0%), rgba(255,255,255,0.1) var(--mq-vol-pct, 0%), rgba(255,255,255,0.1) 100%);
         }
         .mq-ft-vol::-webkit-slider-thumb {
           -webkit-appearance: none;
@@ -400,7 +401,7 @@ function FullTrackViewMobileInner() {
             min={0}
             max={100}
             step={0.1}
-            value={seekPct}
+            defaultValue={0}
             onChange={handleSeekChange}
             onPointerDown={() => { isDraggingRef.current = true; }}
             onPointerUp={commitSeek}
@@ -487,7 +488,7 @@ function FullTrackViewMobileInner() {
               <div className="h-px mb-3" style={{ background: "var(--mq-border-thin)" }} />
               <div className="py-3">
                 <div className="flex items-center gap-3 mb-2"><Volume2 className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} /><span className="text-sm" style={{ color: "var(--mq-text)" }}>Громкость</span></div>
-                <input type="range" min={0} max={100} value={volume} onChange={(e) => setVolume(Number(e.target.value))} className="mq-ft-vol" style={{ marginLeft: "32px", width: "calc(100% - 32px)" }} />
+                <input type="range" min={0} max={100} value={volume} onChange={(e) => { const v = Number(e.target.value); setVolume(v); e.target.style.setProperty('--mq-vol-pct', `${v}%`); }} className="mq-ft-vol" style={{ marginLeft: "32px", width: "calc(100% - 32px)", ['--mq-vol-pct' as string]: `${volume}%` }} />
               </div>
               <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
               <button onClick={() => { handleShare(); setShowMore(false); }} className="mq-ft-btn w-full flex items-center gap-3 py-3" style={{ background: "transparent", border: "none", cursor: "pointer" }}>

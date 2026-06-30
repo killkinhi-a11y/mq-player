@@ -18,7 +18,7 @@ const config: CapacitorConfig = {
     allowMixedContent: false,
     backgroundColor: '#0e0e0e',
     webContentsDebuggingEnabled: false,
-    minWebViewVersion: 60,
+    minWebViewVersion: 80,
   },
   plugins: {
     SplashScreen: {

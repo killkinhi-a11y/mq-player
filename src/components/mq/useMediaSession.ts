@@ -47,9 +47,11 @@ export function useMediaSession({ currentTrack, isPlaying, progress, duration, p
   // Effect 1: Set metadata + action handlers when track changes
   useEffect(() => {
     if (!currentTrack) return;
+    let cancelled = false;
 
     const setupNative = async () => {
       const native = await getNativeMediaSession();
+      if (cancelled) return;
       if (!native) {
         // Plugin not available — fall back to web MediaSession
         setupWeb();
@@ -187,6 +189,8 @@ export function useMediaSession({ currentTrack, isPlaying, progress, duration, p
     } else {
       setupWeb();
     }
+
+    return () => { cancelled = true; };
   }, [currentTrack]);
 
   // Effect 2: Update playback state

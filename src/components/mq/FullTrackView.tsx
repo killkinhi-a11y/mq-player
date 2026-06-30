@@ -289,13 +289,14 @@ export default function FullTrackView() {
 
   // ── Volume wheel (anywhere in FullTrackView) ──────────────────────────
   const handleWheel = useCallback((e: WheelEvent) => {
-    // Don't hijack scroll inside scrollable panels (lyrics, queue, history)
     const target = e.target as HTMLElement;
     if (target && target.closest('[data-scrollable="true"]')) return;
     e.preventDefault();
     const delta = e.deltaY > 0 ? -4 : 4;
-    setVolume(Math.max(0, Math.min(100, volume + delta)));
-  }, [volume, setVolume]);
+    // Read from store directly — avoids stale closure + listener re-subscription
+    const v = useAppStore.getState().volume;
+    useAppStore.getState().setVolume(Math.max(0, Math.min(100, v + delta)));
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -658,7 +659,7 @@ export default function FullTrackView() {
             </div>
 
             {/* ── Main content ── */}
-            <div className="flex-1 flex flex-col items-center justify-center px-6 pb-6 overflow-y-auto">
+            <div className="flex-1 flex flex-col items-center justify-center px-6 pb-6 overflow-y-auto" data-scrollable="true">
               <div className={`w-full max-w-5xl flex ${isMobile ? "flex-col items-center" : "flex-row items-center gap-12"}`}>
                 {/* ═══ COVER (with parallax tilt on desktop) ═══ */}
                 <motion.div
