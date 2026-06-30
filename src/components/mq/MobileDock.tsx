@@ -124,10 +124,10 @@ function MobileDockInner() {
                 <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)", lineHeight: "1.2", marginTop: "1px" }}>{currentTrack!.artist}</p>
               </div>
             </button>
-            <button onClick={onLike} className="mq-mini w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+            <button onClick={onLike} aria-label="Нравится" className="mq-mini w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
               <Heart className="w-[18px] h-[18px]" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
             </button>
-            <button onClick={onPlay} className="mq-mini w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+            <button onClick={onPlay} aria-label="Play/Pause" className="mq-mini w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
               style={{ background: "var(--mq-accent)", border: "none", cursor: "pointer", padding: 0 }}>
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#fff" }} />
                 : isPlaying ? <Pause className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />

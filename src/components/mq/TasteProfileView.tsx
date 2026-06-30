@@ -475,9 +475,9 @@ export default function TasteProfileView() {
         <AnimatePresence>
           {expandedSections.genres && (
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 600, opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
               className="overflow-hidden"
             >
@@ -603,9 +603,9 @@ export default function TasteProfileView() {
         <AnimatePresence>
           {expandedSections.artists && (
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 600, opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
               className="overflow-hidden"
             >
@@ -720,9 +720,9 @@ export default function TasteProfileView() {
         <AnimatePresence>
           {expandedSections.moods && (
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 800, opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
               className="overflow-hidden"
             >
@@ -818,9 +818,9 @@ export default function TasteProfileView() {
         <AnimatePresence>
           {expandedSections.summary && (
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 500, opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
               className="overflow-hidden"
             >
@@ -986,9 +986,9 @@ export default function TasteProfileView() {
         <AnimatePresence>
           {expandedSections.info && (
             <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 500, opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
               className="overflow-hidden"
             >

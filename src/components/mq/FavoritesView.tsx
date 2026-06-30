@@ -824,7 +824,7 @@ export default function FavoritesView() {
                       whileHover={{ scale: 1.12 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={(e) => { e.stopPropagation(); handleArtistClick(artist); }}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer opacity-0 group-hover:opacity-70 transition-opacity"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer sm:opacity-0 sm:group-hover:opacity-70 transition-opacity"
                       style={{ color: "var(--mq-accent)" }}
                       title="Открыть артиста"
                     >
@@ -836,7 +836,7 @@ export default function FavoritesView() {
                       whileHover={{ scale: 1.12, backgroundColor: "rgba(239,68,68,0.12)" }}
                       whileTap={{ scale: 0.95 }}
                       onClick={(e) => { e.stopPropagation(); removeFavoriteArtist(artist.id); }}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer opacity-0 group-hover:opacity-70 transition-all"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer sm:opacity-0 sm:group-hover:opacity-70 transition-all"
                       style={{ color: "#ef4444" }}
                       title="Отписаться"
                     >

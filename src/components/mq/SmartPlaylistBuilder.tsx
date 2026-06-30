@@ -172,7 +172,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[150] flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
       onClick={onClose}
       role="dialog"
@@ -265,9 +265,9 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
                 return (
                   <motion.div
                     key={index}
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
                     className="flex items-center gap-2 mb-2"
                   >
                     <select

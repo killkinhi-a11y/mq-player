@@ -194,7 +194,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                 style={{ background: isFav ? "color-mix(in srgb, var(--mq-accent) 20%, transparent)" : "rgba(255,255,255,0.1)", border: "1px solid var(--mq-border-medium)" }}>
                 <Heart className="w-3.5 h-3.5" style={{ color: isFav ? "var(--mq-accent)" : "#fff" }} fill={isFav ? "currentColor" : "none"} />
               </button>
-              <button onClick={handleShare} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)", border: "1px solid var(--mq-border-medium)" }}>
+              <button onClick={handleShare} aria-label="Поделиться" className="w-8 h-8 rounded-full flex items-center justify-center" style={{ background: "rgba(255,255,255,0.1)", border: "1px solid var(--mq-border-medium)" }}>
                 <Share2 className="w-3.5 h-3.5" style={{ color: "#fff" }} />
               </button>
             </div>

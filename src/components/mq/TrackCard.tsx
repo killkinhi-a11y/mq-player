@@ -163,7 +163,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
       >
         {/* Ambient glow layer — accent color on hover */}
         <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
+          className="absolute inset-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
           style={{
             borderRadius: cardRadius,
             boxShadow: `0 0 ${isMobile ? 16 : 20}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 8 : 15}%, transparent)`,
@@ -269,7 +269,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
                 flex items-center justify-center
                 rounded-full
                 ${compactMode ? "w-7 h-7" : "w-8 h-8"}
-                opacity-0 group-hover:opacity-100
+                sm:opacity-0 sm:group-hover:opacity-100
                 transition-opacity duration-200 ease-out
                 ${isActive && isPlaying ? "!opacity-100" : ""}
               `}
@@ -424,7 +424,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               hidden sm:flex items-center justify-center
               rounded-full
               transition-colors duration-150
-              opacity-0 group-hover:opacity-100
+              sm:opacity-0 sm:group-hover:opacity-100
               hover:bg-white/10
             `}
             style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }}
@@ -441,7 +441,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               ${compactMode ? "w-7 h-7" : "w-8 h-8"}
               flex items-center justify-center
               rounded-full
-              opacity-0 group-hover:opacity-100
+              sm:opacity-0 sm:group-hover:opacity-100
               hover:bg-white/10
               transition-colors duration-150
             `}

@@ -827,7 +827,7 @@ export default function FullTrackView() {
                   {/* Speed menu */}
                   <AnimatePresence>
                     {showSpeedMenu && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="w-full mb-3 overflow-hidden">
+                      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="w-full mb-3 overflow-hidden">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Скорость:</span>
                           {speedOptions.map(speed => (
@@ -843,7 +843,7 @@ export default function FullTrackView() {
                   {/* Sleep timer menu */}
                   <AnimatePresence>
                     {showSleepMenu && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="w-full mb-3 overflow-hidden">
+                      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="w-full mb-3 overflow-hidden">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Сон через:</span>
                           {sleepOptions.map(min => (
@@ -866,16 +866,16 @@ export default function FullTrackView() {
                     {activePanel === "lyrics" && (
                       <motion.div
                         key="lyrics-panel"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
                         className="w-full mb-4 overflow-hidden"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest flex items-center gap-1.5">
                             <Sparkles className="w-3 h-3" style={{ color: "var(--mq-accent)" }} /> Текст песни
                           </p>
-                          <button onClick={() => setActivePanel(null)} className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
                             <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
@@ -901,14 +901,14 @@ export default function FullTrackView() {
                     {activePanel === "queue" && (
                       <motion.div
                         key="queue-panel"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
                         className="w-full mb-4 overflow-hidden"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Далее в очереди</p>
-                          <button onClick={() => setActivePanel(null)} className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
                             <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
@@ -941,14 +941,14 @@ export default function FullTrackView() {
                     {activePanel === "history" && (
                       <motion.div
                         key="history-panel"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
                         className="w-full mb-4 overflow-hidden"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Недавно играло</p>
-                          <button onClick={() => setActivePanel(null)} className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
                             <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
