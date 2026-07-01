@@ -560,7 +560,17 @@ function MainView() {
       {/* ════════════════════════════════════════════════════════════════ */}
       {listeningFriends.length > 0 && (
         <Section title="Друзья слушают" icon={User}>
-          <div className="flex gap-3 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 pb-1">
+          <div
+            className="flex gap-3 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 pb-1"
+            onWheel={(e) => {
+              // Convert vertical wheel → horizontal scroll (PC mice)
+              if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+                e.preventDefault();
+                e.currentTarget.scrollLeft += e.deltaY;
+              }
+            }}
+            style={{ scrollBehavior: "smooth" }}
+          >
             {listeningFriends.map((f) => (
               <div
                 key={f.userId}
@@ -1293,12 +1303,30 @@ function RecsTabs({
   value: string;
   onChange: (id: string) => void;
 }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Convert vertical wheel scroll → horizontal scroll (PC mice don't have
+  // horizontal wheel by default, so without this the tab bar is stuck)
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      e.preventDefault();
+      el.scrollLeft += e.deltaY;
+    }
+  }, []);
+
   const tabs = [
     { id: "all", title: "Все", count: allCount, icon: Sparkles },
     ...categories.map((c) => ({ id: c.id, title: c.title, count: c.tracks.length, icon: iconForRec(c.id) })),
   ];
   return (
-    <div className="flex gap-1 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 mb-4">
+    <div
+      ref={scrollRef}
+      onWheel={handleWheel}
+      className="flex gap-1 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 mb-4"
+      style={{ scrollBehavior: "smooth" }}
+    >
       {tabs.map((t) => {
         const active = value === t.id;
         const Icon = t.icon;
