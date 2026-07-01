@@ -1,18 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
-import { genresList, type Track } from "@/lib/musicApi";
+import { genresList, type Track, formatDuration } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import ScrollReveal from "./ScrollReveal";
+import ContextMenu from "./ContextMenu";
+import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
+import { useLongPress } from "@/hooks/useLongPress";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Search, X, SlidersHorizontal, Play, Upload, Clock, Trash2, CheckCircle2,
   AlertCircle, Loader2, Headphones, TrendingUp, ChevronRight, Music, Sparkles,
   RefreshCw, Flame, Zap, Mic, Disc, Heart, Piano, Radio, RotateCcw, ListMusic,
-  Hash, ArrowRight
+  Hash, ArrowRight, MoreHorizontal
 } from "lucide-react";
 
 const SEARCH_HISTORY_KEY = "mq-search-history";
@@ -784,23 +787,24 @@ export default function SearchView() {
       {/* ── Track results with staggered animation ── */}
       {!activeLoading && activeTracks.length > 0 && (
         <div>
-          <div className="space-y-0.5">
+          {/* Section header */}
+          <div className="flex items-center justify-between mb-3 px-1">
+            <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+              Треки · {activeTracks.length}
+            </h3>
+          </div>
+
+          {/* Track list — clean visual rows */}
+          <div className="space-y-1">
             <AnimatePresence mode="popLayout">
               {activeTracks.map((track, i) => (
-                <motion.div
-                  key={track.id}
-                  initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
-                  transition={{ delay: Math.min(i * 0.03, 0.5), duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-                >
-                  <TrackCard
-                    track={track}
-                    index={i}
-                    queue={activeTracks}
-                    onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
-                  />
-                </motion.div>
+                <SearchTrackRow
+                  key={track.id + "_" + i}
+                  track={track}
+                  index={i}
+                  queue={activeTracks}
+                  onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
+                />
               ))}
             </AnimatePresence>
           </div>
@@ -922,3 +926,149 @@ export default function SearchView() {
     </div>
   );
 }
+
+// ═════════════════════════════════════════════════════════════════════════
+// SEARCH TRACK ROW — clean visual row optimized for mobile
+// Lightweight: no framer-motion per-row (uses CSS transitions), no context
+// menu overhead (uses simple onClick + long-press), no next/image (plain img).
+// ═════════════════════════════════════════════════════════════════════════
+
+const SearchTrackRow = memo(function SearchTrackRow({
+  track,
+  index,
+  queue,
+  onArtistClick,
+}: {
+  track: Track;
+  index: number;
+  queue: Track[];
+  onArtistClick?: (artistName: string, coverUrl?: string) => void;
+}) {
+  const currentTrackId = useAppStore((s) => s.currentTrack?.id);
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const playTrack = useAppStore((s) => s.playTrack);
+  const togglePlay = useAppStore((s) => s.togglePlay);
+  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
+  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+  const toggleLike = useAppStore((s) => s.toggleLike);
+
+  const isActive = currentTrackId === track.id;
+  const isCurrentlyPlaying = isActive && isPlaying;
+  const isLiked = likedTrackIds.includes(track.id);
+  const [hovering, setHovering] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
+
+  // Long-press for context menu (mobile)
+  const handleLongPress = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    const clientX = "touches" in e ? e.touches[0]?.clientX ?? 0 : (e as React.MouseEvent).clientX;
+    const clientY = "touches" in e ? e.touches[0]?.clientY ?? 0 : (e as React.MouseEvent).clientY;
+    setContextMenu({ x: clientX, y: clientY, show: true });
+  }, []);
+  const { wasLongPress: longPressWasActive, ...longPressHandlers } = useLongPress(handleLongPress, { delay: 500, threshold: 10 });
+
+  const handleClick = useCallback(() => {
+    if (longPressWasActive()) return;
+    if (isActive) togglePlay();
+    else playTrack(track, queue);
+  }, [longPressWasActive, isActive, togglePlay, playTrack, track, queue]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, show: true });
+  }, []);
+
+  const handleMoreClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setContextMenu({ x: rect.left, y: rect.bottom + 4, show: true });
+  }, []);
+
+  const closeContextMenu = useCallback(() => setContextMenu((p) => ({ ...p, show: false })), []);
+
+  return (
+    <>
+      <div
+        {...longPressHandlers}
+        onClick={handleClick}
+        onContextMenu={handleContextMenu}
+        onMouseEnter={() => setHovering(true)}
+        onMouseLeave={() => { setHovering(false); longPressHandlers.onMouseLeave?.(); }}
+        className="group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors"
+        style={{
+          backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "transparent",
+        }}
+      >
+        {/* Index / play indicator */}
+        <div className="w-6 flex-shrink-0 text-center">
+          {isCurrentlyPlaying ? (
+            <NowPlayingEqualizer />
+          ) : hovering ? (
+            <Play className="w-3.5 h-3.5 mx-auto" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+          ) : (
+            <span className="text-xs font-semibold" style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+              {index + 1}
+            </span>
+          )}
+        </div>
+
+        {/* Cover */}
+        <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-card)" }}>
+          {track.cover ? (
+            <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+            </div>
+          )}
+        </div>
+
+        {/* Title + artist */}
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] sm:text-sm font-medium truncate" style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text)" }}>
+            {track.title}
+          </p>
+          <button
+            onClick={(e) => { e.stopPropagation(); onArtistClick?.(track.artist, track.cover); }}
+            className="text-[11px] sm:text-xs truncate hover:underline block w-full text-left"
+            style={{ color: "var(--mq-text-muted)" }}
+          >
+            {track.artist}
+          </button>
+        </div>
+
+        {/* Duration (desktop only) */}
+        {track.duration > 0 && (
+          <span className="hidden sm:block text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+            {formatDuration(track.duration)}
+          </span>
+        )}
+
+        {/* Like button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleLike(track.id, track); }}
+          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+          style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+          aria-label={isLiked ? "Убрать из избранного" : "В избранное"}
+        >
+          <Heart className="w-4 h-4" fill={isLiked ? "currentColor" : "none"} />
+        </button>
+
+        {/* More button (3-dot) */}
+        <button
+          onClick={handleMoreClick}
+          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+          style={{ color: "var(--mq-text-muted)" }}
+          aria-label="Меню"
+        >
+          <MoreHorizontal className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Context menu */}
+      {contextMenu.show && (
+        <ContextMenu track={track} x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu} />
+      )}
+    </>
+  );
+});

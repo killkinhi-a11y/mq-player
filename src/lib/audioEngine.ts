@@ -39,10 +39,25 @@ let _gaplessEnabled = true;
 // already has the next track loaded and ready for instant swap.
 let _gaplessPreloadedTrackId: string | null = null;
 
+function isMobile(): boolean {
+  if (typeof window === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|Mobile|CriOS/i.test(navigator.userAgent) || window.innerWidth < 768;
+}
+
 function createAudioElement(): HTMLAudioElement {
   const audio = new Audio();
+  // crossOrigin = "anonymous" is needed for Web Audio API analyser to work
+  // (otherwise analyser returns silence on CORS-restricted streams).
+  // But it can cause some streams to fail entirely on mobile if the server
+  // doesn't send proper CORS headers. We keep it because SoundCloud proxy
+  // sends the right headers.
   audio.crossOrigin = "anonymous";
-  audio.preload = "auto";
+  // Mobile: "metadata" instead of "auto" to save memory/battery.
+  // Desktop: "auto" for gapless preload.
+  audio.preload = isMobile() ? "metadata" : "auto";
+  // Disable pip on mobile (causes flicker) — cast to any because TS doesn't
+  // have this property on HTMLAudioElement yet
+  (audio as any).disablePictureInPicture = true;
   return audio;
 }
 
@@ -93,6 +108,8 @@ export function setCrossfadeEnabled(enabled: boolean): void {
 }
 
 export function isCrossfadeEnabled(): boolean {
+  // Mobile: disable crossfade to save memory (2 audio elements = 2x RAM)
+  if (isMobile()) return false;
   return _crossfadeEnabled;
 }
 
@@ -126,6 +143,8 @@ export function setGaplessEnabled(enabled: boolean): void {
 }
 
 export function isGaplessEnabled(): boolean {
+  // Mobile: disable gapless preload to save bandwidth + memory
+  if (isMobile()) return false;
   return _gaplessEnabled;
 }
 

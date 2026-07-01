@@ -2606,3 +2606,32 @@ a:not([data-framer-motion-id]),
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(0,0,0,0.4);
 }
+
+/* ═══ Mobile performance optimizations ═══ */
+/* Disable backdrop-blur on mobile — extremely GPU-expensive, causes jank */
+@media (max-width: 768px) {
+  * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  /* Reduce shadow complexity on mobile */
+  .mq-premium-card,
+  .mq-hero-card {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+  }
+  /* Disable will-change abuse (only keep on actively animated elements) */
+  [style*="will-change"]:not(.mq-visualizer):not(.mq-eq-bar) {
+    will-change: auto !important;
+  }
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

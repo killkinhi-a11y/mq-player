@@ -232,16 +232,61 @@ export default function AppShell() {
     }
   }, [isAuthenticated, currentView, setView]);
 
-  // ── Browser back/forward button support ──
+  // ── Browser back button support (mobile hardware back) ──
+  // Layered close behavior (highest priority first):
+  //   1. Full track view open → close it
+  //   2. Notification panel open → close it
+  //   3. Context menu / sheet open → close it
+  //   4. Non-main view → go to main
+  //   5. Main view → default browser behavior (exit app on mobile)
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
+      const state = useAppStore.getState();
+
+      // Layer 1: close full track view
+      if (state.isFullTrackViewOpen) {
+        useAppStore.setState({ isFullTrackViewOpen: false });
+        // Push state back so next back also works
+        window.history.pushState({ view: state.currentView }, "", window.location.pathname);
+        return;
+      }
+
+      // Layer 2: close notification panel
+      if (state.notifPanelOpen) {
+        useAppStore.setState({ notifPanelOpen: false });
+        window.history.pushState({ view: state.currentView }, "", window.location.pathname);
+        return;
+      }
+
+      // Layer 3: close command palette if open
+      if ((window as any).__mqCommandPaletteOpen) {
+        (window as any).__mqCommandPaletteOpen = false;
+        window.dispatchEvent(new CustomEvent("mq-close-command-palette"));
+        window.history.pushState({ view: state.currentView }, "", window.location.pathname);
+        return;
+      }
+
+      // Layer 4: navigate to view from history state
       const view = e.state?.view as ViewType | undefined;
-      if (view) {
+      if (view && view !== state.currentView) {
         useAppStore.setState({ currentView: view });
-      } else {
+      } else if (!view && state.currentView !== "main") {
         useAppStore.setState({ currentView: "main" });
       }
+      // Layer 5: on main view, default behavior (exit app)
     };
+
+    // Push history entries when UI layers open, so back button can pop them
+    const handleStateChange = () => {
+      const state = useAppStore.getState();
+      if (state.isFullTrackViewOpen || state.notifPanelOpen) {
+        // Don't push duplicate entries
+        if (!window.history.state?._mqOverlay) {
+          window.history.pushState({ _mqOverlay: true, view: state.currentView }, "", window.location.pathname);
+        }
+      }
+    };
+
     window.addEventListener("popstate", handlePopState);
     if (!window.history.state?.view) {
       window.history.replaceState({ view: currentView }, "", currentView === "main" ? "/play" : `/play?v=${currentView}`);
