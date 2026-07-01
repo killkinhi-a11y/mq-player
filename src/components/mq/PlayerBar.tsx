@@ -6,12 +6,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward,
   Repeat, Repeat1, Shuffle, Music, Heart, ListMusic, ChevronUp,
-  Loader2, ThumbsDown,
+  Loader2, ThumbsDown, Volume2, VolumeX, Volume1,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
 import { useIsMobile } from "@/hooks/use-mobile";
-import VolumeSlider from "@/components/ui/volume-slider";
 import QueueView from "./QueueView";
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -102,8 +101,52 @@ export default function PlayerBar() {
   }, [isDragging, seekTo]);
 
   // ── Volume ──
-  const handleVolumeChange = useCallback((v: number) => {
-    setVolume(v);
+  const volTrackRef = useRef<HTMLDivElement>(null);
+  const volFillRef = useRef<HTMLDivElement>(null);
+  const volThumbRef = useRef<HTMLDivElement>(null);
+  const [isVolDragging, setIsVolDragging] = useState(false);
+  const volRafRef = useRef(0);
+  const volRef = useRef(volume);
+  useEffect(() => { volRef.current = volume; }, [volume]);
+
+  // Sync fill/thumb from store volume when not dragging
+  useEffect(() => {
+    if (isVolDragging) return;
+    if (volFillRef.current) volFillRef.current.style.width = `${volume}%`;
+    if (volThumbRef.current) volThumbRef.current.style.left = `${volume}%`;
+  }, [volume, isVolDragging]);
+
+  const seekVolume = useCallback((clientX: number) => {
+    if (!volTrackRef.current) return;
+    const rect = volTrackRef.current.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    if (volFillRef.current) volFillRef.current.style.width = `${pct}%`;
+    if (volThumbRef.current) volThumbRef.current.style.left = `${pct}%`;
+    volRef.current = pct;
+    if (volRafRef.current) cancelAnimationFrame(volRafRef.current);
+    volRafRef.current = requestAnimationFrame(() => setVolume(pct));
+  }, [setVolume]);
+
+  const handleVolDown = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsVolDragging(true);
+    seekVolume(e.clientX);
+  }, [seekVolume]);
+
+  useEffect(() => {
+    if (!isVolDragging) return;
+    const onMove = (e: MouseEvent) => seekVolume(e.clientX);
+    const onUp = () => { setIsVolDragging(false); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [isVolDragging, seekVolume]);
+
+  const handleVolMute = useCallback(() => {
+    setVolume(volRef.current > 0 ? 0 : 70);
   }, [setVolume]);
 
   // ── Actions ──
@@ -138,6 +181,7 @@ export default function PlayerBar() {
   const progressPct = duration > 0 ? (progress / duration) * 100 : 0;
   const hoveredPct = hoveredTime !== null && duration > 0 ? (hoveredTime / duration) * 100 : 0;
   const isLoading = playbackState === "loading" || playbackState === "buffering";
+  const VolIcon = volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
 
   if (!currentTrack || miniPlayerHidden || isFullTrackViewOpen) return null;
   if (isMobile) return null;
@@ -304,8 +348,29 @@ export default function PlayerBar() {
               {/* Divider */}
               <div className="w-px h-5 mx-0.5 flex-shrink-0" style={{ backgroundColor: "var(--mq-border-thin)" }} />
 
-              {/* Volume (premium slider) */}
-              <VolumeSlider volume={volume} onChange={handleVolumeChange} showIcon={false} showValue={false} className="w-12 lg:w-20 min-w-0" />
+              {/* Volume — compact custom slider */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button onClick={handleVolMute} aria-label="Mute" className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
+                  <VolIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
+                </button>
+                <div
+                  ref={volTrackRef}
+                  onMouseDown={handleVolDown}
+                  className="relative cursor-pointer rounded-full group/vol"
+                  style={{ width: 56, height: 4, backgroundColor: "rgba(255,255,255,0.1)" }}
+                >
+                  <div
+                    ref={volFillRef}
+                    className="absolute inset-y-0 left-0 rounded-full"
+                    style={{ width: `${volume}%`, backgroundColor: "var(--mq-accent)" }}
+                  />
+                  <div
+                    ref={volThumbRef}
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full opacity-0 group-hover/vol:opacity-100 pointer-events-none"
+                    style={{ left: `${volume}%`, backgroundColor: "#fff", boxShadow: "0 0 0 1.5px var(--mq-accent)", transition: "opacity 0.15s" }}
+                  />
+                </div>
+              </div>
 
               {/* Divider */}
               <div className="w-px h-5 mx-0.5 flex-shrink-0" style={{ backgroundColor: "var(--mq-border-thin)" }} />
