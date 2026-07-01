@@ -3,12 +3,6 @@ import { searchSCTracks } from "@/lib/soundcloud";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import type { Track } from "@/lib/musicApi";
 
-// Force dynamic — this route must always be a serverless function, never
-// statically rendered. Without this, Vercel may not register the route
-// when the build does not see it referenced from any page's data fetches.
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-
 /**
  * GET /api/music/spotify-top?country=RU
  *

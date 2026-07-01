@@ -3,11 +3,6 @@ import { searchSCTracks } from "@/lib/soundcloud";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import type { Track } from "@/lib/musicApi";
 
-// Force dynamic — without this Vercel does not register this route
-// (it's only called from client-side fetch, never from getStaticProps).
-export const dynamic = "force-dynamic";
-export const runtime = "nodejs";
-
 /**
  * GET /api/music/apple-top?country=RU
  *
