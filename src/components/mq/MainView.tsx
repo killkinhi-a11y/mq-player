@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, Music, Heart, Clock, ListMusic, MessageCircle,
   Plus, Sparkles, Waves, User, Flame,
-  SkipForward, ThumbsDown, TrendingUp, Compass,
+  SkipForward, ThumbsDown, TrendingUp, Compass, RotateCcw,
+  MoreHorizontal, Share2, ListPlus, Mic2,
 } from "lucide-react";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { type Track } from "@/lib/musicApi";
@@ -15,6 +16,8 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import ScrollReveal from "./ScrollReveal";
 import ArtistDetailView from "./ArtistDetailView";
 import PlaylistArtwork from "./PlaylistArtwork";
+import ContextMenu from "./ContextMenu";
+import { useLongPress } from "@/hooks/useLongPress";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -98,12 +101,12 @@ function MainView() {
     if (typeof window === "undefined") return "all";
     try { return window.localStorage.getItem("mq:recTab") || "all"; } catch { return "all"; }
   });
-  // How many list rows are visible (Show-more pagination, +10 per click)
+  // How many list rows are visible (Infinite scroll — auto-extends by +10)
   const [recVisibleCount, setRecVisibleCount] = useState<number>(10);
-  // True for ~250ms after tab change so we can show a skeleton
-  const [recTabSwitching, setRecTabSwitching] = useState<boolean>(false);
   // Bumped by the Empty-State "Retry" button to force a recommendations refetch
   const [retryTick, setRetryTick] = useState<number>(0);
+  // Specific error type for better empty-state messaging ("offline" / "api" / "empty" / null)
+  const [recError, setRecError] = useState<"offline" | "api" | "empty" | null>(null);
 
   // ── Wave engine (logic separated from UI) ──
   const wave = useWaveEngine();
@@ -152,6 +155,7 @@ function MainView() {
     let cancelled = false;
     const fetchRecs = async () => {
       setRecLoading(true);
+      setRecError(null);
       try {
         const disliked = useAppStore.getState().dislikedTrackIds || [];
         const params = new URLSearchParams();
@@ -248,9 +252,17 @@ function MainView() {
           }
         }
 
-        if (!cancelled) setRecCategories(cats);
-      } catch {
-        // Silent
+        if (!cancelled) {
+          setRecCategories(cats);
+          setRecError(cats.length === 0 ? "empty" : null);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          // Distinguish offline vs API error for better messaging
+          const isOffline = err instanceof TypeError && (err.message.includes("Failed to fetch") || err.message.includes("NetworkError"));
+          setRecError(isOffline ? "offline" : "api");
+          setRecCategories([]);
+        }
       } finally {
         if (!cancelled) setRecLoading(false);
       }
@@ -296,14 +308,9 @@ function MainView() {
     try { window.localStorage.setItem("mq:recTab", activeRecTab); } catch {}
   }, [activeRecTab]);
 
-  // ── Reset visibleCount + show skeleton on tab change ──
-  // The skeleton briefly overlays the list (250ms) so the user sees a clear
-  // "switching" state rather than stale data snapping to new data.
+  // ── Reset visibleCount on tab change (animated transition handles the visual)
   useEffect(() => {
     setRecVisibleCount(10);
-    setRecTabSwitching(true);
-    const t = setTimeout(() => setRecTabSwitching(false), 250);
-    return () => clearTimeout(t);
   }, [activeRecTab]);
 
   // ── Visible tracks based on active tab ──
@@ -376,8 +383,65 @@ function MainView() {
     );
   }
 
+  // ── Pull-to-refresh (mobile only) ──
+  // Touch-based: user pulls down at scrollTop=0 → triggers handleRetryRecs.
+  // Desktop scrolling doesn't engage (uses touch events only).
+  const pullStartY = useRef<number | null>(null);
+  const [pullDistance, setPullDistance] = useState(0);
+  const PULL_THRESHOLD = 70; // px — must pull this far to trigger
+
+  const onTouchStart = useCallback((e: React.TouchEvent) => {
+    if (typeof window !== "undefined" && window.scrollY <= 0) {
+      pullStartY.current = e.touches[0].clientY;
+    } else {
+      pullStartY.current = null;
+    }
+  }, []);
+
+  const onTouchMove = useCallback((e: React.TouchEvent) => {
+    if (pullStartY.current === null) return;
+    const delta = e.touches[0].clientY - pullStartY.current;
+    if (delta > 0) {
+      // Dampen: 0.5x resistance after threshold
+      setPullDistance(Math.min(delta * 0.5, 100));
+    }
+  }, []);
+
+  const onTouchEnd = useCallback(() => {
+    if (pullDistance >= PULL_THRESHOLD) {
+      handleRetryRecs();
+    }
+    setPullDistance(0);
+    pullStartY.current = null;
+  }, [pullDistance, handleRetryRecs]);
+
   return (
-    <div className={`${compactMode ? "p-3 lg:p-4" : "p-3.5 sm:p-4 lg:p-6"} max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-28`}>
+    <div
+      className={`${compactMode ? "p-3 lg:p-4" : "p-3.5 sm:p-4 lg:p-6"} max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-28`}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+      {/* Pull-to-refresh indicator (mobile only) */}
+      {pullDistance > 0 && (
+        <div
+          className="flex items-center justify-center overflow-hidden transition-all lg:hidden"
+          style={{ height: pullDistance, opacity: Math.min(pullDistance / PULL_THRESHOLD, 1) }}
+        >
+          <div
+            className="w-7 h-7 rounded-full border-2 flex items-center justify-center"
+            style={{
+              borderColor: "var(--mq-border-thin)",
+              borderTopColor: "var(--mq-accent)",
+              transform: `rotate(${pullDistance * 3}deg)`,
+            }}
+          >
+            {pullDistance >= PULL_THRESHOLD ? (
+              <RotateCcw className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* HERO GREETING */}
@@ -509,39 +573,35 @@ function MainView() {
             onChange={setActiveRecTab}
           />
 
-          {/* Compact numbered list (or skeleton when switching tabs) */}
-          {recTabSwitching ? (
-            <RecsListSkeleton />
-          ) : recList.length === 0 ? (
-            <RecsEmptyState onRetry={handleRetryRecs} />
+          {/* Animated list — fade/slide on tab change, infinite scroll */}
+          {recList.length === 0 ? (
+            <RecsEmptyState onRetry={handleRetryRecs} errorType={recError} />
           ) : (
-            <>
-              <RecsList
-                tracks={recList.map((v) => v.track)}
-                reasons={recList.map((v) => reasonForRec(v.categoryId))}
-                currentTrack={currentTrack}
-                isPlaying={isPlaying}
-                onPlay={handlePlayRec}
-                onArtistClick={handleNavigateToArtist}
-                animationsEnabled={animationsEnabled}
-              />
-              {/* Show-more button */}
-              {recListTotal > recList.length && (
-                <div className="flex justify-center mt-4">
-                  <button
-                    onClick={() => setRecVisibleCount((n) => n + 10)}
-                    className="px-4 py-2 rounded-full text-xs font-semibold transition-colors"
-                    style={{
-                      backgroundColor: "var(--mq-card)",
-                      color: "var(--mq-text-muted)",
-                      border: "1px solid var(--mq-border-hairline)",
-                    }}
-                  >
-                    Показать ещё {Math.min(10, recListTotal - recList.length)}
-                  </button>
-                </div>
-              )}
-            </>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeRecTab}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <RecsList
+                  tracks={recList.map((v) => v.track)}
+                  reasons={recList.map((v) => reasonForRec(v.categoryId))}
+                  currentTrack={currentTrack}
+                  isPlaying={isPlaying}
+                  onPlay={handlePlayRec}
+                  onArtistClick={handleNavigateToArtist}
+                  animationsEnabled={animationsEnabled}
+                />
+                {/* Infinite scroll sentinel — auto-loads next 10 when visible */}
+                {recListTotal > recList.length && (
+                  <InfiniteScrollSentinel
+                    onVisible={() => setRecVisibleCount((n) => n + 10)}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
           )}
         </Section>
       )}
@@ -556,7 +616,7 @@ function MainView() {
       {/* Recommendations empty state (initial load finished, no categories) */}
       {!recLoading && recCategories.length === 0 && (
         <Section title="Для вас" icon={Sparkles}>
-          <RecsEmptyState onRetry={handleRetryRecs} />
+          <RecsEmptyState onRetry={handleRetryRecs} errorType={recError} />
         </Section>
       )}
 
@@ -1240,117 +1300,179 @@ function RecRow({
   animationsEnabled: boolean;
 }) {
   const [hovering, setHovering] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; show: boolean }>({
+    x: 0, y: 0, show: false,
+  });
+
+  // Long-press handler (mobile) → opens context menu at touch position
+  const handleLongPress = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    const clientX = "touches" in e ? e.touches[0]?.clientX ?? 0 : (e as React.MouseEvent).clientX;
+    const clientY = "touches" in e ? e.touches[0]?.clientY ?? 0 : (e as React.MouseEvent).clientY;
+    setContextMenu({ x: clientX, y: clientY, show: true });
+  }, []);
+  const { wasLongPress: longPressWasActive, ...longPressHandlers } = useLongPress(handleLongPress, {
+    delay: 500,
+    threshold: 10,
+  });
+
+  // Right-click handler (desktop) → opens context menu
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, show: true });
+  }, []);
+
+  const closeContextMenu = useCallback(() => setContextMenu((prev) => ({ ...prev, show: false })), []);
+
+  // Suppress click right after long-press
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (longPressWasActive()) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    onPlay();
+  }, [longPressWasActive, onPlay]);
+
   return (
-    <motion.div
-      initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(rank * 0.03, 0.3), duration: 0.25 }}
-      onHoverStart={() => setHovering(true)}
-      onHoverEnd={() => setHovering(false)}
-      onClick={onPlay}
-      whileTap={{ scale: 0.99 }}
-      className="group flex items-center gap-3 p-2 sm:p-2.5 rounded-xl cursor-pointer transition-colors"
-      style={{
-        backgroundColor: isCurrent
-          ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)"
-          : "transparent",
-      }}
-    >
-      {/* Rank / play indicator */}
-      <div className="w-6 flex-shrink-0 text-center">
-        {isCurrent && isPlaying ? (
-          <EqualizerIcon />
-        ) : hovering ? (
-          <Play
-            className="w-3.5 h-3.5 mx-auto"
-            style={{ color: "var(--mq-text)" }}
-            fill="currentColor"
-          />
-        ) : (
-          <span
-            className="text-xs font-semibold"
-            style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
-          >
-            {rank}
-          </span>
-        )}
-      </div>
-
-      {/* Cover */}
-      <div
-        className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0"
-        style={{ backgroundColor: "var(--mq-card)" }}
+    <>
+      <motion.div
+        initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: Math.min(rank * 0.03, 0.3), duration: 0.25 }}
+        onHoverStart={() => setHovering(true)}
+        onHoverEnd={() => setHovering(false)}
+        onClick={handleClick}
+        onContextMenu={handleContextMenu}
+        {...longPressHandlers}
+        whileTap={{ scale: 0.99 }}
+        className="group flex items-center gap-3 p-2 sm:p-2.5 rounded-xl cursor-pointer transition-colors"
+        style={{
+          backgroundColor: isCurrent
+            ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)"
+            : "transparent",
+        }}
       >
-        {track.cover ? (
-          <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-          </div>
-        )}
-      </div>
-
-      {/* Title + artist + reason */}
-      <div className="flex-1 min-w-0">
-        <p
-          className="text-[13px] sm:text-sm font-medium truncate"
-          style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}
-        >
-          {track.title}
-        </p>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-            className="text-[11px] sm:text-xs truncate hover:underline"
-            style={{ color: "var(--mq-text-muted)" }}
-          >
-            {track.artist}
-          </button>
-          {reason && (
-            <>
-              <span
-                className="text-[10px]"
-                style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}
-              >
-                •
-              </span>
-              <span
-                className="text-[10px] truncate"
-                style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}
-              >
-                {reason}
-              </span>
-            </>
+        {/* Rank / play indicator */}
+        <div className="w-6 flex-shrink-0 text-center">
+          {isCurrent && isPlaying ? (
+            <EqualizerIcon />
+          ) : hovering ? (
+            <Play
+              className="w-3.5 h-3.5 mx-auto"
+              style={{ color: "var(--mq-text)" }}
+              fill="currentColor"
+            />
+          ) : (
+            <span
+              className="text-xs font-semibold"
+              style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+            >
+              {rank}
+            </span>
           )}
         </div>
-      </div>
 
-      {/* Play / pause button */}
-      <div className="flex-shrink-0">
-        {isCurrent && isPlaying ? (
-          <button
-            onClick={(e) => { e.stopPropagation(); onPlay(); }}
-            className="w-9 h-9 rounded-full flex items-center justify-center"
-            style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
-            aria-label="Пауза"
+        {/* Cover */}
+        <div
+          className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0"
+          style={{ backgroundColor: "var(--mq-card)" }}
+        >
+          {track.cover ? (
+            <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+            </div>
+          )}
+        </div>
+
+        {/* Title + artist + reason */}
+        <div className="flex-1 min-w-0">
+          <p
+            className="text-[13px] sm:text-sm font-medium truncate"
+            style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}
           >
-            <Pause className="w-4 h-4" fill="currentColor" />
-          </button>
-        ) : (
-          <button
-            onClick={(e) => { e.stopPropagation(); onPlay(); }}
-            className="w-9 h-9 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{
-              backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
-              color: "var(--mq-accent)",
-            }}
-            aria-label="Слушать"
-          >
-            <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+            {track.title}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
+              className="text-[11px] sm:text-xs truncate hover:underline"
+              style={{ color: "var(--mq-text-muted)" }}
+            >
+              {track.artist}
+            </button>
+            {reason && (
+              <>
+                <span
+                  className="text-[10px]"
+                  style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}
+                >
+                  •
+                </span>
+                <span
+                  className="text-[10px] truncate"
+                  style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}
+                >
+                  {reason}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* More button (3-dot) — opens context menu on click (mobile-friendly) */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            setContextMenu({ x: rect.left, y: rect.bottom + 4, show: true });
+          }}
+          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ color: "var(--mq-text-muted)" }}
+          aria-label="Меню"
+        >
+          <MoreHorizontal className="w-4 h-4" />
+        </button>
+
+        {/* Play / pause button */}
+        <div className="flex-shrink-0">
+          {isCurrent && isPlaying ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onPlay(); }}
+              className="w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+              aria-label="Пауза"
+            >
+              <Pause className="w-4 h-4" fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); onPlay(); }}
+              className="w-9 h-9 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
+                color: "var(--mq-accent)",
+              }}
+              aria-label="Слушать"
+            >
+              <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
           </button>
         )}
       </div>
     </motion.div>
+
+      {/* Context menu (right-click / long-press / 3-dot button) */}
+      {contextMenu.show && (
+        <ContextMenu
+          track={track}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={closeContextMenu}
+        />
+      )}
+    </>
   );
 }
 
@@ -1398,6 +1520,30 @@ function RecsSkeleton() {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
+// INFINITE SCROLL SENTINEL — invisible element that triggers onVisible
+// when it enters the viewport, used for auto-loading more list rows.
+// ═════════════════════════════════════════════════════════════════════════
+
+function InfiniteScrollSentinel({ onVisible }: { onVisible: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) onVisible();
+      },
+      { rootMargin: "200px 0px" } // start loading 200px before reaching sentinel
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [onVisible]);
+  return <div ref={ref} className="h-4 flex items-center justify-center py-2">
+    <div className="w-4 h-4 rounded-full border-2 mq-shimmer" style={{ borderColor: "var(--mq-border-thin)", borderTopColor: "var(--mq-accent)" }} />
+  </div>;
+}
+
+// ═════════════════════════════════════════════════════════════════════════
 // RECS LIST SKELETON — compact list-only skeleton for tab switching
 // ═════════════════════════════════════════════════════════════════════════
 
@@ -1422,7 +1568,22 @@ function RecsListSkeleton() {
 // RECS EMPTY STATE — when recommendations failed or returned nothing
 // ═════════════════════════════════════════════════════════════════════════
 
-function RecsEmptyState({ onRetry }: { onRetry: () => void }) {
+function RecsEmptyState({ onRetry, errorType }: { onRetry: () => void; errorType?: "offline" | "api" | "empty" | null }) {
+  const messages = {
+    offline: {
+      title: "Нет интернета",
+      desc: "Проверьте подключение к сети и попробуйте снова",
+    },
+    api: {
+      title: "Сервис недоступен",
+      desc: "Не удалось связаться с сервером рекомендаций. Попробуйте через минуту",
+    },
+    empty: {
+      title: "Пока нет рекомендаций",
+      desc: "Послушайте несколько треков и поставьте лайки — мы подберём похожее",
+    },
+  };
+  const msg = messages[errorType || "empty"] || messages.empty;
   return (
     <div
       className="text-center py-10 rounded-2xl"
@@ -1436,13 +1597,13 @@ function RecsEmptyState({ onRetry }: { onRetry: () => void }) {
         className="text-sm font-medium mb-1"
         style={{ color: "var(--mq-text)" }}
       >
-        Не удалось загрузить
+        {msg.title}
       </p>
       <p
         className="text-xs mb-4 px-4"
         style={{ color: "var(--mq-text-muted)" }}
       >
-        Проверьте подключение к интернету и попробуйте снова
+        {msg.desc}
       </p>
       <button
         onClick={onRetry}
