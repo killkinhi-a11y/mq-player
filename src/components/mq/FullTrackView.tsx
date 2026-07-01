@@ -550,28 +550,27 @@ export default function FullTrackView() {
     setLyricsError(null);
     setLyricsLoading(true);
 
-    const controller = new AbortController();
-    fetch(`/api/music/lyrics?artist=${encodeURIComponent(currentTrack.artist)}&title=${encodeURIComponent(currentTrack.title)}`, { signal: controller.signal })
-      .then(res => res.ok ? res.json() : Promise.reject(new Error(`HTTP ${res.status}`)))
-      .then(data => {
-        if (controller.signal.aborted) return;
-        if (Array.isArray(data.lyrics) && data.lyrics.length > 0) {
-          setLyrics(data.lyrics);
-        } else if (data.plainText) {
-          setPlainLyrics(data.plainText);
-        } else {
-          setLyricsError("Текст не найден");
-        }
-      })
-      .catch(err => {
-        if (err.name !== "AbortError" && !controller.signal.aborted) {
-          setLyricsError("Ошибка загрузки текста");
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLyricsLoading(false);
-      });
-    return () => controller.abort();
+    let cancelled = false;
+    // Client-side fetch directly from lrclib.net (CORS-enabled) — bypasses
+    // Vercel serverless which is IP-blocked by lrclib.net's WAF.
+    import("@/lib/lyrics-client").then(({ fetchLyrics }) => {
+      if (cancelled) return;
+      return fetchLyrics(currentTrack.artist, currentTrack.title);
+    }).then(result => {
+      if (cancelled || !result) return;
+      if (result.lyrics.length > 0) {
+        setLyrics(result.lyrics);
+      } else if (result.plainText) {
+        setPlainLyrics(result.plainText);
+      } else {
+        setLyricsError("Текст не найден");
+      }
+    }).catch(() => {
+      if (!cancelled) setLyricsError("Ошибка загрузки текста");
+    }).finally(() => {
+      if (!cancelled) setLyricsLoading(false);
+    });
+    return () => { cancelled = true; };
   }, [activePanel, isOpen, currentTrack]);
 
   // Reset lyrics when track changes

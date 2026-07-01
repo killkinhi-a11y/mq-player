@@ -212,31 +212,27 @@ function FullTrackViewMobileInner() {
   useEffect(() => {
     if (!isOpen || !currentTrack || panel !== "lyrics") return;
     setLyrics([]); setPlainLyrics(""); setLyricsLoading(true); setLyricsError(null);
-    const ctrl = new AbortController();
-    fetch(`/api/music/lyrics?artist=${encodeURIComponent(currentTrack.artist)}&title=${encodeURIComponent(currentTrack.title)}`, { signal: ctrl.signal })
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-      })
-      .then(d => {
-        if (ctrl.signal.aborted) return;
-        if (Array.isArray(d.lyrics) && d.lyrics.length) {
-          setLyrics(d.lyrics);
-        } else if (d.plainText) {
-          setPlainLyrics(d.plainText);
-        } else {
-          setLyricsError("Текст не найден");
-        }
-      })
-      .catch((err) => {
-        if (err.name !== "AbortError" && !ctrl.signal.aborted) {
-          setLyricsError("Ошибка загрузки текста");
-        }
-      })
-      .finally(() => {
-        if (!ctrl.signal.aborted) setLyricsLoading(false);
+    let cancelled = false;
+    // Client-side fetch directly from lrclib.net (CORS-enabled) — bypasses
+    // Vercel serverless which is IP-blocked by lrclib.net's WAF.
+    import("@/lib/lyrics-client").then(({ fetchLyrics }) => {
+      if (cancelled) return;
+      return fetchLyrics(currentTrack.artist, currentTrack.title);
+    }).then(d => {
+      if (cancelled || !d) return;
+      if (d.lyrics.length > 0) {
+        setLyrics(d.lyrics);
+      } else if (d.plainText) {
+        setPlainLyrics(d.plainText);
+      } else {
+        setLyricsError("Текст не найден");
+      }
+    }).catch(() => {
+      if (!cancelled) setLyricsError("Ошибка загрузки текста");
+    }).finally(() => {
+      if (!cancelled) setLyricsLoading(false);
       });
-    return () => ctrl.abort();
+    return () => { cancelled = true; };
   }, [panel, isOpen, currentTrack]);
 
   useEffect(() => { setLyrics([]); setPlainLyrics(""); setLyricsError(null); }, [currentTrack?.id]);

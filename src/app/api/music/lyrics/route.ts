@@ -77,6 +77,27 @@ async function fetchLrclib(url: string): Promise<LrcLibResult | null> {
   } catch { return null; }
 }
 
+// ─── Fallback: lyrics.ovh (free, no API key, plain text only) ─────────────
+// Used when lrclib.net is unreachable (blocks Vercel IPs or times out).
+// Returns plain text lyrics, no sync timestamps.
+
+async function fetchLyricsOvh(artist: string, title: string): Promise<string | null> {
+  try {
+    const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`;
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(6000),
+      headers: { "User-Agent": "MQPlayer/1.0" },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const lyrics = data?.lyrics;
+    if (typeof lyrics === "string" && lyrics.trim().length > 10) {
+      return lyrics.trim();
+    }
+    return null;
+  } catch { return null; }
+}
+
 async function handler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const artistRaw = searchParams.get("artist") || "";
@@ -112,6 +133,15 @@ async function handler(request: NextRequest) {
     || candidates.find(hasLyrics);         // then any with content
 
   if (!best || !hasLyrics(best)) {
+    // ── Fallback: try lyrics.ovh if lrclib returned nothing ──
+    // lrclib.net may block Vercel IPs or not have this track.
+    const ovhLyrics = await fetchLyricsOvh(artistClean, titleClean);
+    if (ovhLyrics) {
+      const responseData = { lyrics: [], plainText: ovhLyrics, synced: false };
+      setCache(cacheKey, responseData);
+      return NextResponse.json(responseData);
+    }
+
     const empty = { lyrics: [], plainText: "", synced: false };
     // Short TTL for negative cache — lyrics may appear later
     cache.set(cacheKey, { data: empty, expiry: Date.now() + 60000 });
