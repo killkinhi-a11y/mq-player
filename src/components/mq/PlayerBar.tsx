@@ -15,6 +15,7 @@ import type { Track } from "@/lib/musicApi";
 import Image from "next/image";
 import { getAudioElement, getInactiveAudio } from "@/lib/audioEngine";
 import QueueView from "./QueueView";
+import VolumeSlider from "@/components/ui/volume-slider";
 import { useAudioEngine } from "./useAudioEngine";
 import { useMediaSession } from "./useMediaSession";
 import { useProgressDrag } from "./useProgressDrag";
@@ -1144,143 +1145,8 @@ const PlayerBar = React.memo(function PlayerBar() {
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.3, delay: 0.06 }}
                 >
-                  {/* Volume (desktop) */}
-                  <div className="flex items-center gap-1 mr-0.5">
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
-                      onClick={handleMuteToggleWithTooltip}
-                      className="w-8 h-8 flex items-center justify-center rounded-full transition-colors duration-200 mq-focus-premium"
-                      style={{ color: "var(--mq-text-muted)" }}
-                      aria-label={volume === 0 ? "Включить звук" : "Без звука"}
-                    >
-                      <VolumeIcon className="w-4 h-4" />
-                    </motion.button>
-                    <div
-                      ref={engine.volumeRef}
-                      onMouseDown={handleVolumeMouseDown}
-                      onTouchStart={handleVolumeTouchStart}
-                      onWheel={handleVolumeWheel}
-                      onKeyDown={(e) => {
-                        const step = e.shiftKey ? 10 : 5;
-                        if (e.key === "ArrowRight" || e.key === "ArrowUp") {
-                          e.preventDefault();
-                          setVolume(Math.min(100, volume + step));
-                        }
-                        if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
-                          e.preventDefault();
-                          setVolume(Math.max(0, volume - step));
-                        }
-                      }}
-                      className="rounded-full cursor-pointer relative group/vol"
-                      role="slider"
-                      aria-label="Громкость"
-                      aria-valuenow={volume}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      tabIndex={0}
-                      style={{
-                        width: 96,
-                        height: 4,
-                        backgroundColor: "var(--mq-border-default, rgba(255,255,255,0.1))",
-                        borderRadius: 2,
-                        transition: "height 0.15s ease",
-                      }}
-                      onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLDivElement).style.height = "6px";
-                      }}
-                      onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLDivElement).style.height = "4px";
-                      }}
-                    >
-                      {/* Volume accent glow when >70% */}
-                      {volume > 70 && (
-                        <div
-                          className="absolute top-1/2 pointer-events-none"
-                          style={{
-                            width: `${volume}%`,
-                            height: 14,
-                            transform: "translateY(-50%)",
-                            background: "radial-gradient(ellipse at center, color-mix(in srgb, var(--mq-accent) 35%, transparent) 0%, transparent 70%)",
-                            filter: "blur(6px)",
-                            opacity: 0.5,
-                            borderRadius: 8,
-                          }}
-                        />
-                      )}
-                      {/* Volume fill — accent gradient */}
-                      <div
-                        ref={volumeTrackRef}
-                        className="h-full rounded-full"
-                        style={{
-                          width: `${volume}%`,
-                          background: `linear-gradient(90deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 70%, white))`,
-                          borderRadius: 2,
-                        }}
-                      />
-                      {/* Drag thumb */}
-                      <div
-                        ref={volumeThumbRef}
-                        className="absolute top-1/2 rounded-full"
-                        style={{
-                          width: 12,
-                          height: 12,
-                          left: `${volume}%`,
-                          transform: "translate(-50%, -50%)",
-                          backgroundColor: "var(--mq-text-on-accent, #fff)",
-                          boxShadow: "0 0 0 2px var(--mq-accent), var(--mq-shadow-sm)",
-                          pointerEvents: "none",
-                          opacity: isVolumeDragging ? 1 : 0,
-                          transition: isVolumeDragging ? "none" : "opacity 0.15s ease",
-                        }}
-                      />
-                      {/* Hover thumb */}
-                      <div
-                        className="absolute top-1/2 rounded-full opacity-0 group-hover/vol:opacity-100"
-                        style={{
-                          width: 10,
-                          height: 10,
-                          left: `${volume}%`,
-                          transform: "translate(-50%, -50%)",
-                          backgroundColor: "var(--mq-text-on-accent, #fff)",
-                          boxShadow: "var(--mq-shadow-sm)",
-                          pointerEvents: "none",
-                          transition: "opacity 0.15s ease",
-                        }}
-                      />
-                    </div>
-                    {/* Volume floating tooltip during drag */}
-                    {isVolumeDragging && volumeTooltipPct !== null && (
-                      <div
-                        style={{
-                          position: "fixed",
-                          left: (() => {
-                            const rect = engine.volumeRef.current?.getBoundingClientRect();
-                            if (!rect) return 0;
-                            const thumbPx = (volumeTooltipPct / 100) * rect.width;
-                            return rect.left + Math.max(14, Math.min(rect.width - 14, thumbPx));
-                          })(),
-                          bottom: (() => {
-                            const rect = engine.volumeRef.current?.getBoundingClientRect();
-                            return rect ? window.innerHeight - rect.top + 12 : undefined;
-                          })(),
-                          transform: "translateX(-50%)",
-                          padding: "3px 8px",
-                          borderRadius: 6,
-                          backgroundColor: "var(--mq-accent)",
-                          color: "var(--mq-text-on-accent, #fff)",
-                          fontSize: 11,
-                          fontWeight: 600,
-                          fontFamily: "var(--font-geist-mono), monospace",
-                          whiteSpace: "nowrap",
-                          boxShadow: "var(--mq-shadow-card)",
-                          pointerEvents: "none",
-                          zIndex: 100,
-                        }}
-                      >
-                        {volumeTooltipPct}%
-                      </div>
-                    )}
-                  </div>
+                  {/* Volume — compact icon + slider */}
+                  <VolumeSlider volume={volume} onChange={setVolume} className="w-20 lg:w-28" />
 
                   {/* Like — spring pulse overshoot */}
                   <motion.button
