@@ -1,3 +1,13 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json"
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "src/app/api/music/spotify-charts/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    },
+    "src/app/api/music/apple-charts/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
 }
