@@ -93,17 +93,24 @@ export function useWaveEngine() {
         }
       } catch {}
 
-      // Also try Apple Music Top for more variety
+      // Also try Apple Music Top + Spotify charts for more variety
       if (tracks.length < count) {
         try {
           const userCountry = "RU"; // Default
-          const appleRes = await fetch(`/api/music/apple-top?country=${userCountry}`);
-          if (appleRes.ok) {
-            const aData = await appleRes.json();
-            const extra = (aData.tracks || [])
-              .filter((t: Track) => !disliked.includes(t.id))
-              .filter((t: Track) => !tracks.some(existing => existing.id === t.id));
-            tracks = [...tracks, ...extra];
+          const [appleRes, spotifyRes] = await Promise.all([
+            fetch(`/api/music/apple-charts?country=${userCountry}`).catch(() => null),
+            fetch(`/api/music/spotify-charts?country=${userCountry}`).catch(() => null),
+          ]);
+          for (const res of [appleRes, spotifyRes]) {
+            if (res && res.ok) {
+              const aData = await res.json();
+              const extra = (aData.tracks || [])
+                .filter((t: Track) => !disliked.includes(t.id))
+                .filter((t: Track) => !tracks.some(existing => existing.id === t.id))
+                // Prefer playable tracks
+                .filter((t: Track) => t.scIsFull || t.scStreamPolicy === "ALLOW");
+              tracks = [...tracks, ...extra];
+            }
           }
         } catch {}
       }
