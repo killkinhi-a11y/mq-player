@@ -14,6 +14,7 @@ import { getAudiusStream, isAudiusTrack, findAudiusAlternative } from "@/lib/aud
 import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
 import { updateMyListeningStatus } from "@/hooks/useFriendsListening";
+import { enableSpatialAudio, initSpatialAudio, setMoodPreset, detectMoodFromTrack } from "@/lib/spatialAudio";
 import Hls from "hls.js";
 import type { HlsConfig } from "hls.js";
 import type { Track } from "@/lib/musicApi";
@@ -2115,6 +2116,33 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     const secondary = getInactiveAudio();
     if (secondary) secondary.volume = vol;
   }, [volume, currentTrack?.id]);
+
+  // ── Spatial audio effect ──
+  // Toggles the spatial audio chain (5-band stereo widening) on/off.
+  // Also applies mood preset when the current track changes (auto-detect mode).
+  const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
+  const spatialMood = useAppStore((s) => s.spatialMood);
+  const spatialAutoDetect = useAppStore((s) => s.spatialAutoDetect);
+
+  useEffect(() => {
+    if (spatialAudioEnabled) {
+      // Initialize + enable spatial audio chain
+      initSpatialAudio();
+      enableSpatialAudio(true);
+    } else {
+      enableSpatialAudio(false);
+    }
+  }, [spatialAudioEnabled]);
+
+  useEffect(() => {
+    // Auto-detect mood from track when spatial audio is on
+    if (spatialAudioEnabled && spatialAutoDetect && currentTrack) {
+      const mood = detectMoodFromTrack(currentTrack.title, currentTrack.genre);
+      setMoodPreset(mood);
+    } else if (spatialAudioEnabled && spatialMood) {
+      setMoodPreset(spatialMood);
+    }
+  }, [currentTrack?.id, spatialAudioEnabled, spatialMood, spatialAutoDetect]);
 
   return {
     isLoadingTrack,

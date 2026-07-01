@@ -1431,9 +1431,10 @@ export const useAppStore = create<AppState>()(
         set((s) => {
           // Basic validation
           if (!message?.id || !message.senderId) return s;
+          const currentMsgs = Array.isArray(s.messages) ? s.messages : [];
           // Dedup: skip messages with same ID
-          if (s.messages.some((m) => m.id === message.id)) return s;
-          const updated = [...s.messages, message];
+          if (currentMsgs.some((m) => m.id === message.id)) return s;
+          const updated = [...currentMsgs, message];
           // Keep max 1000 messages in memory to prevent performance issues
           if (updated.length > 1000) return { messages: updated.slice(-1000) };
           return { messages: updated };
@@ -1469,7 +1470,7 @@ export const useAppStore = create<AppState>()(
 
       deleteMessagesForContact: (contactId) =>
         set((s) => ({
-          messages: s.messages.filter(
+          messages: (Array.isArray(s.messages) ? s.messages : []).filter(
             (m) => m.senderId !== contactId && m.receiverId !== contactId
           ),
         })),
@@ -2774,23 +2775,30 @@ export const useAppStore = create<AppState>()(
             // Retry once after delay to handle WebView cookie race on cold start
             const fetchMe = (attempt: number) => fetch('/api/auth/me', { credentials: 'include' })
               .then(async (res) => {
-                if (!res.ok) {
+                if (res.status === 401) {
+                  // Actual auth failure — session expired or invalid
                   if (attempt < 1) {
                     // Retry once after 800ms — covers WebView cookie race
                     await new Promise(r => setTimeout(r, 800));
                     return fetchMe(1);
                   }
-                  // Don't force-logout on transient 401 — defer to next authed API call
-                  console.warn("[MQ Store] /api/auth/me returned", res.status, "— deferring logout");
+                  // 401 after retry — session truly expired
+                  console.warn("[MQ Store] /api/auth/me 401 after retry — session expired");
+                  return { _expired: true } as any;
+                }
+                if (!res.ok) {
+                  // Server error (500, 502, etc.) — NOT an auth failure.
+                  // Don't logout — keep local state, will retry on next interaction.
+                  console.warn("[MQ Store] /api/auth/me returned", res.status, "— server error, deferring");
                   return null;
                 }
                 return res.json();
               });
             fetchMe(0)
               .then((me) => {
-                if (!me) {
-                  // Session truly expired after retries — force logout to prevent ghost session
-                  console.warn("[MQ Store] /api/auth/me 401 after retry — forcing logout");
+                if (me && (me as any)._expired) {
+                  // Session truly expired — force logout
+                  console.warn("[MQ Store] forcing logout — session expired");
                   useAppStore.setState({
                     isAuthenticated: false,
                     userId: null,
@@ -2801,6 +2809,11 @@ export const useAppStore = create<AppState>()(
                     isPlaying: false,
                     playbackState: "idle",
                   });
+                  return;
+                }
+                if (!me) {
+                  // Server error or network issue — keep local state, don't logout
+                  console.warn("[MQ Store] /api/auth/me unavailable — keeping local session");
                   return;
                 }
                 useAppStore.setState({

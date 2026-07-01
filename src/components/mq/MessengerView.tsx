@@ -295,7 +295,8 @@ export default function MessengerView() {
     let destroyed = false;
     const processIncoming = (m: any) => {
       const state = useAppStore.getState();
-      const existing = state.messages.find((em: any) => em.id === m.id);
+      const msgs = Array.isArray(state.messages) ? state.messages : [];
+      const existing = msgs.find((em: any) => em.id === m.id);
       if (existing) return;
       state.addMessage({
         id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
@@ -557,14 +558,14 @@ export default function MessengerView() {
         });
         const data = await res.json();
         useAppStore.setState((s) => ({
-          messages: s.messages.map((m: any) => m.id === tempId ? { ...m, id: data.id || tempId } : m),
+          messages: (Array.isArray(s.messages) ? s.messages : []).map((m: any) => m.id === tempId ? { ...m, id: data.id || tempId } : m),
         }));
         try { bcRef.current?.postMessage({ type: "new_message", payload: { ...msg, id: data.id || tempId, senderUsername: username } }); } catch {}
       }
     } catch {
       toast({ title: "Не удалось отправить" });
       if (!isGroupChat) {
-        useAppStore.setState((s) => ({ messages: s.messages.filter((m: any) => m.id !== tempId) }));
+        useAppStore.setState((s) => ({ messages: (Array.isArray(s.messages) ? s.messages : []).filter((m: any) => m.id !== tempId) }));
       }
     } finally {
       setIsSending(false);
