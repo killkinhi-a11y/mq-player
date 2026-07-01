@@ -1442,17 +1442,20 @@ export const useAppStore = create<AppState>()(
       setSelectedContact: (contactId) => set({ selectedContactId: contactId, unreadCounts: { ...get().unreadCounts, [contactId as string]: 0 } }),
 
       loadMessages: (incoming) => set((s) => {
-        const existingIds = new Set(s.messages.map(m => m.id));
+        // Defensive: ensure messages is always an array (prevents crash
+        // when s.messages is undefined/null from a corrupted persist)
+        const currentMsgs = Array.isArray(s.messages) ? s.messages : [];
+        const existingIds = new Set(currentMsgs.map(m => m.id));
         const existingSignatures = new Set(
-          s.messages.map(m => `${m.content}|${m.senderId}|${m.receiverId}`)
+          currentMsgs.map(m => `${m.content}|${m.senderId}|${m.receiverId}`)
         );
-        const newMsgs = incoming.filter(m => {
+        const newMsgs = (Array.isArray(incoming) ? incoming : []).filter(m => {
           if (existingIds.has(m.id)) return false;
           const sig = `${m.content}|${m.senderId}|${m.receiverId}`;
           if (existingSignatures.has(sig)) return false;
           return true;
         });
-        return { messages: [...s.messages, ...newMsgs] };
+        return { messages: [...currentMsgs, ...newMsgs] };
       }),
 
       clearUnread: (contactId) =>

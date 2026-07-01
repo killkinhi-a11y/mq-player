@@ -8,7 +8,7 @@ import {
   Shuffle, Repeat, Repeat1, Volume2, VolumeX, Volume1,
   Music, ListMusic, Share2, Loader2, Clock, Mic2,
   ThumbsDown, AirVent, Gauge, Timer,
-  History, Sparkles, X,
+  History, Sparkles, X, ListPlus, Plus,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
@@ -188,6 +188,9 @@ export default function FullTrackView() {
   const toggleDislike = useAppStore((s) => s.toggleDislike);
   const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
   const playTrack = useAppStore((s) => s.playTrack);
+  const playlists = useAppStore((s) => s.playlists);
+  const addToPlaylist = useAppStore((s) => s.addToPlaylist);
+  const createPlaylist = useAppStore((s) => s.createPlaylist);
 
   const isMobile = useIsMobile();
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -201,6 +204,7 @@ export default function FullTrackView() {
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showSleepMenu, setShowSleepMenu] = useState(false);
+  const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
   const [showVolumePopup, setShowVolumePopup] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
   const [lastTapSide, setLastTapSide] = useState<"left" | "right" | null>(null);
@@ -783,6 +787,14 @@ export default function FullTrackView() {
                     <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.06)" }} title="Не нравится">
                       <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
                     </button>
+                    <button
+                      onClick={() => setShowPlaylistPicker(v => !v)}
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: showPlaylistPicker ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
+                      title="Добавить в плейлист"
+                    >
+                      <ListPlus className="w-4 h-4" style={{ color: showPlaylistPicker ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                    </button>
                     <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
                     <button
                       onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
@@ -822,6 +834,78 @@ export default function FullTrackView() {
                       )}
                     </button>
                   </div>
+
+                  {/* Playlist picker — add current track to a playlist */}
+                  <AnimatePresence>
+                    {showPlaylistPicker && currentTrack && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        className="w-full mb-3 rounded-2xl overflow-hidden"
+                        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
+                      >
+                        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--mq-border-thin)" }}>
+                          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                            Добавить в плейлист
+                          </span>
+                          <button
+                            onClick={() => {
+                              if (!currentTrack) return;
+                              createPlaylist(currentTrack.artist);
+                              const state = useAppStore.getState();
+                              const newPl = [...state.playlists].reverse().find(p => p.name === currentTrack.artist);
+                              if (newPl) addToPlaylist(newPl.id, currentTrack);
+                              setShowPlaylistPicker(false);
+                            }}
+                            className="flex items-center gap-1 text-xs font-semibold"
+                            style={{ color: "var(--mq-accent)" }}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Новый
+                          </button>
+                        </div>
+                        <div className="max-h-48 overflow-y-auto">
+                          {playlists.length === 0 ? (
+                            <div className="px-4 py-6 text-center">
+                              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                                У вас пока нет плейлистов
+                              </p>
+                            </div>
+                          ) : (
+                            playlists.map(pl => (
+                              <button
+                                key={pl.id}
+                                onClick={() => {
+                                  if (currentTrack) addToPlaylist(pl.id, currentTrack);
+                                  setShowPlaylistPicker(false);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+                              >
+                                <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
+                                  {pl.cover ? (
+                                    <img src={pl.cover} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <ListMusic className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>
+                                    {pl.name}
+                                  </p>
+                                  <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                                    {pl.tracks.length} треков
+                                  </p>
+                                </div>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   {/* Speed menu */}
                   <AnimatePresence>

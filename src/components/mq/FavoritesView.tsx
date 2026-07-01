@@ -8,9 +8,11 @@ import {
   Search, Shuffle, ArrowDownUp, ListFilter, ChevronDown,
   Timer, Disc3, Sparkles, CheckCircle2, ThumbsDown,
   CheckSquare, Square, ListPlus, Tag, Filter, SlidersHorizontal,
-  CalendarDays,
+  CalendarDays, MoreHorizontal,
 } from "lucide-react";
 import type { Track } from "@/lib/musicApi";
+import ContextMenu from "./ContextMenu";
+import { useTrackContextMenu } from "@/hooks/useTrackContextMenu";
 
 type TabType = "liked" | "disliked" | "subscriptions";
 type SortOption = "default" | "title" | "artist" | "duration" | "dateAdded";
@@ -39,6 +41,9 @@ export default function FavoritesView() {
   const [sortBy, setSortBy] = useState<SortOption>("default");
   const [showSortMenu, setShowSortMenu] = useState(false);
   const sortMenuRef = useRef<HTMLDivElement>(null);
+
+  // Context menu (right-click / long-press / 3-dot button)
+  const { contextMenu, closeContextMenu, handleContextMenu, handleMoreClick } = useTrackContextMenu();
 
   // Batch selection state
   const [batchMode, setBatchMode] = useState(false);
@@ -979,6 +984,7 @@ export default function FavoritesView() {
                       }}
                       whileHover={{ backgroundColor: isSelected ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : isCurrentTrack ? "rgba(255,255,255,0.06)" : "rgba(255,255,255,0.02)" }}
                       onClick={batchMode ? () => toggleBatchSelection(track.id) : undefined}
+                      onContextMenu={(e) => handleContextMenu(track, e)}
                     >
                       {/* Active track left accent */}
                       {isCurrentTrack && !batchMode && (
@@ -1095,6 +1101,20 @@ export default function FavoritesView() {
                         </span>
                       )}
 
+                      {/* More button (3-dot) — opens context menu */}
+                      {!batchMode && (
+                        <motion.button
+                          whileHover={{ scale: 1.12 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={(e) => handleMoreClick(track, e)}
+                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-all sm:opacity-0 sm:group-hover:opacity-100"
+                          style={{ color: "var(--mq-text-muted)", backgroundColor: "transparent" }}
+                          title="Меню"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </motion.button>
+                      )}
+
                       {/* Remove button (hidden in batch mode) */}
                       {!batchMode && (
                         <motion.button
@@ -1188,6 +1208,16 @@ export default function FavoritesView() {
             Эти треки исключены из рекомендаций и радиостанций
           </p>
         </motion.div>
+      )}
+
+      {/* Context menu */}
+      {contextMenu.show && contextMenu.track && (
+        <ContextMenu
+          track={contextMenu.track}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={closeContextMenu}
+        />
       )}
     </div>
   );

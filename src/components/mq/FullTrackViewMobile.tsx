@@ -6,7 +6,7 @@ import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
 import type { Track } from "@/lib/musicApi";
 import { toast } from "@/hooks/use-toast";
-import { Play, Pause, SkipBack, SkipForward, ChevronDown, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2, Timer, Gauge, AirVent } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, ChevronDown, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2, Timer, Gauge, AirVent, ListPlus } from "lucide-react";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — MOBILE
@@ -104,6 +104,8 @@ function FullTrackViewMobileInner() {
   const toggleDislike = useAppStore((s) => s.toggleDislike);
   const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
   const playTrack = useAppStore((s) => s.playTrack);
+  const playlists = useAppStore((s) => s.playlists);
+  const addToPlaylist = useAppStore((s) => s.addToPlaylist);
   const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
   const setSpatialAudioEnabled = useAppStore((s) => s.setSpatialAudioEnabled);
   const playbackRate = useAppStore((s) => s.playbackRate);
@@ -119,6 +121,7 @@ function FullTrackViewMobileInner() {
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const [showMore, setShowMore] = useState(false);
+  const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
 
   // ── Refs for progress ──
   const seekInputRef = useRef<HTMLInputElement>(null);
@@ -408,8 +411,67 @@ function FullTrackViewMobileInner() {
             <button onClick={handleDislike} aria-label="Не нравится" className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)" }}>
               <ThumbsDown className="w-5 h-5" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
             </button>
+            <button
+              onClick={() => setShowPlaylistPicker(v => !v)}
+              aria-label="Добавить в плейлист"
+              className="mq-ft-btn"
+              style={{ ...iconBtn, width: 40, height: 40, backgroundColor: showPlaylistPicker ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.05)" }}
+            >
+              <ListPlus className="w-5 h-5" style={{ color: showPlaylistPicker ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+            </button>
           </div>
         </div>
+
+        {/* Playlist picker sheet */}
+        {showPlaylistPicker && currentTrack && (
+          <div className="px-5 mb-3">
+            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}>
+              <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--mq-border-thin)" }}>
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                  Добавить в плейлист
+                </span>
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {playlists.length === 0 ? (
+                  <div className="px-4 py-5 text-center">
+                    <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                      Нет плейлистов
+                    </p>
+                  </div>
+                ) : (
+                  playlists.map(pl => (
+                    <button
+                      key={pl.id}
+                      onClick={() => {
+                        addToPlaylist(pl.id, currentTrack);
+                        setShowPlaylistPicker(false);
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+                    >
+                      <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
+                        {pl.cover ? (
+                          <img src={pl.cover} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ListMusic className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>
+                          {pl.name}
+                        </p>
+                        <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                          {pl.tracks.length} треков
+                        </p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Progress bar — native input for reliable drag ── */}
         <div className="px-5 mb-3" style={{ flexShrink: 0 }}>

@@ -9,8 +9,10 @@ import ScrollReveal from "./ScrollReveal";
 import {
   Trash2, Clock, Music, Play, Pause, Headphones, CalendarDays,
   TrendingUp, Repeat, Search, X, ListMusic, BarChart3, Flame,
-  ChevronRight, Zap, Disc3,
+  ChevronRight, Zap, Disc3, MoreHorizontal,
 } from "lucide-react";
+import ContextMenu from "./ContextMenu";
+import { useTrackContextMenu } from "@/hooks/useTrackContextMenu";
 
 export default function HistoryView() {
   const history = useAppStore((s) => s.history);
@@ -24,6 +26,9 @@ export default function HistoryView() {
   const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
 
   const [hoveredTrackId, setHoveredTrackId] = useState<string | null>(null);
+
+  // Context menu
+  const { contextMenu, closeContextMenu, handleContextMenu, handleMoreClick } = useTrackContextMenu();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -454,6 +459,7 @@ export default function HistoryView() {
                             onMouseEnter={() => setHoveredTrackId(track.id)}
                             onMouseLeave={() => setHoveredTrackId(null)}
                             onClick={() => handleTrackClick(track)}
+                            onContextMenu={(e) => handleContextMenu(track, e)}
                             className={`group flex items-center gap-3 px-3 py-2.5 cursor-pointer relative overflow-hidden`}
                             style={{
                               backgroundColor: isActive
@@ -589,6 +595,16 @@ export default function HistoryView() {
                               )}
                             </div>
 
+                            {/* More button (3-dot) — opens context menu */}
+                            <button
+                              onClick={(e) => handleMoreClick(track, e)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              style={{ color: "var(--mq-text-muted)" }}
+                              title="Меню"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+
                             {/* Subtle divider */}
                             {i < group.items.length - 1 && (
                               <div className="absolute bottom-0 left-14 right-3" style={{ height: 1, backgroundColor: "rgba(255,255,255,0.04)" }} />
@@ -698,6 +714,16 @@ export default function HistoryView() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Context menu */}
+      {contextMenu.show && contextMenu.track && (
+        <ContextMenu
+          track={contextMenu.track}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={closeContextMenu}
+        />
+      )}
     </div>
   );
 }
