@@ -60,8 +60,10 @@ interface LrcLibResult {
 async function fetchLrclib(url: string): Promise<LrcLibResult | null> {
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": "mq/1.0 (lyrics fetcher)" },
-      signal: AbortSignal.timeout(4000),
+      // NOTE: lrclib.net blocks User-Agents with parentheses (WAF rule).
+      // "mq/1.0 (lyrics fetcher)" → timeout; "MQPlayer/1.0" → works.
+      headers: { "User-Agent": "MQPlayer/1.0" },
+      signal: AbortSignal.timeout(6000),
     });
     if (!res.ok) return null;
     const text = await res.text();
