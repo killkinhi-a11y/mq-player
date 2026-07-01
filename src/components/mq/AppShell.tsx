@@ -294,6 +294,56 @@ export default function AppShell() {
     return () => window.removeEventListener("popstate", handlePopState);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Capacitor native back button (APK) ──
+  // In native APK, the hardware back button doesn't fire 'popstate' — it exits
+  // the app by default. We intercept it via @capacitor/app to close overlays
+  // and navigate back, matching the web popstate behavior.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const cap = (window as any).Capacitor;
+    if (!cap?.isNativePlatform?.()) return;
+
+    let listener: any;
+    (async () => {
+      try {
+        const { App } = await import("@capacitor/app");
+        listener = await App.addListener("backButton", () => {
+          const state = useAppStore.getState();
+
+          // Layer 1: close full track view
+          if (state.isFullTrackViewOpen) {
+            state.setFullTrackViewOpen(false);
+            return;
+          }
+          // Layer 2: close notification panel
+          if (state.notifPanelOpen) {
+            useAppStore.setState({ notifPanelOpen: false });
+            return;
+          }
+          // Layer 3: close command palette
+          if ((window as any).__mqCommandPaletteOpen) {
+            (window as any).__mqCommandPaletteOpen = false;
+            window.dispatchEvent(new CustomEvent("mq-close-command-palette"));
+            return;
+          }
+          // Layer 4: navigate to main if not on main
+          if (state.currentView !== "main") {
+            state.setView("main");
+            return;
+          }
+          // Layer 5: on main view — exit app
+          App.exitApp();
+        });
+      } catch (e) {
+        console.warn("[AppShell] Capacitor App plugin not available:", e);
+      }
+    })();
+
+    return () => {
+      listener?.remove?.();
+    };
+  }, []);
+
   useEffect(() => {
     if (currentStyle) return;
     const theme = themes[currentTheme];

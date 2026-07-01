@@ -2635,3 +2635,64 @@ a:not([data-framer-motion-id]),
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   MOBILE PERFORMANCE OPTIMIZATIONS — target stable 60fps
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* 1. content-visibility: auto — skips rendering offscreen list items.
+   Massive perf win for long lists (Favorites, History, Queue). */
+@media (max-width: 768px) {
+  .mq-track-list > * {
+    content-visibility: auto;
+    contain-intrinsic-size: 64px;
+  }
+
+  /* 2. Disable backdrop-filter on mobile (expensive on GPU) */
+  [style*="backdrop-filter"],
+  [style*="-webkit-backdrop-filter"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background-color: var(--mq-bg, #0e0e0e) !important;
+  }
+
+  /* 3. Reduce shadow complexity on mobile (GPU-heavy) */
+  .mq-premium-card,
+  .mq-hero-card,
+  [style*="box-shadow"] {
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3) !important;
+  }
+
+  /* 4. Disable hover-only transitions on touch devices */
+  @media (hover: none) {
+    .group:hover * {
+      transform: none !important;
+    }
+  }
+}
+
+/* 5. Reduce motion for users who prefer it (already exists, keep) */
+
+/* 6. GPU acceleration only for actively animated elements */
+.mq-visualizer,
+.mq-eq-bar,
+canvas {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* 7. Prevent layout thrashing from scroll handlers */
+body {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 8. Optimize touch targets */
+@media (max-width: 768px) {
+  button,
+  [role="button"],
+  a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

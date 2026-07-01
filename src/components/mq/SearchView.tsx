@@ -794,19 +794,17 @@ export default function SearchView() {
             </h3>
           </div>
 
-          {/* Track list — clean visual rows */}
+          {/* Track list — clean visual rows (no AnimatePresence for perf) */}
           <div className="space-y-1">
-            <AnimatePresence mode="popLayout">
-              {activeTracks.map((track, i) => (
-                <SearchTrackRow
-                  key={track.id + "_" + i}
-                  track={track}
-                  index={i}
-                  queue={activeTracks}
-                  onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
-                />
-              ))}
-            </AnimatePresence>
+            {activeTracks.map((track, i) => (
+              <SearchTrackRow
+                key={track.id + "_" + i}
+                track={track}
+                index={i}
+                queue={activeTracks}
+                onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -948,14 +946,12 @@ const SearchTrackRow = memo(function SearchTrackRow({
   const isPlaying = useAppStore((s) => s.isPlaying);
   const playTrack = useAppStore((s) => s.playTrack);
   const togglePlay = useAppStore((s) => s.togglePlay);
-  const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const likedTrackIds = useAppStore((s) => s.likedTrackIds);
   const toggleLike = useAppStore((s) => s.toggleLike);
 
   const isActive = currentTrackId === track.id;
   const isCurrentlyPlaying = isActive && isPlaying;
   const isLiked = likedTrackIds.includes(track.id);
-  const [hovering, setHovering] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
 
   // Long-press for context menu (mobile)
@@ -992,28 +988,13 @@ const SearchTrackRow = memo(function SearchTrackRow({
         {...longPressHandlers}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        onMouseEnter={() => setHovering(true)}
-        onMouseLeave={() => { setHovering(false); longPressHandlers.onMouseLeave?.(); }}
-        className="group flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors"
+        className="group flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors"
         style={{
           backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "transparent",
         }}
       >
-        {/* Index / play indicator */}
-        <div className="w-6 flex-shrink-0 text-center">
-          {isCurrentlyPlaying ? (
-            <NowPlayingEqualizer />
-          ) : hovering ? (
-            <Play className="w-3.5 h-3.5 mx-auto" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-          ) : (
-            <span className="text-xs font-semibold" style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-              {index + 1}
-            </span>
-          )}
-        </div>
-
         {/* Cover */}
-        <div className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-card)" }}>
+        <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 relative" style={{ backgroundColor: "var(--mq-card)" }}>
           {track.cover ? (
             <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
           ) : (
@@ -1021,33 +1002,57 @@ const SearchTrackRow = memo(function SearchTrackRow({
               <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
             </div>
           )}
+          {/* Play/pause overlay on hover/active */}
+          {(isActive || false) && (
+            <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+              {isCurrentlyPlaying ? (
+                <NowPlayingEqualizer />
+              ) : (
+                <Play className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Title + artist */}
+        {/* Title + artist + meta */}
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] sm:text-sm font-medium truncate" style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text)" }}>
-            {track.title}
-          </p>
-          <button
-            onClick={(e) => { e.stopPropagation(); onArtistClick?.(track.artist, track.cover); }}
-            className="text-[11px] sm:text-xs truncate hover:underline block w-full text-left"
-            style={{ color: "var(--mq-text-muted)" }}
-          >
-            {track.artist}
-          </button>
+          <div className="flex items-center gap-1.5">
+            {isCurrentlyPlaying && <NowPlayingEqualizer />}
+            <p className="text-sm font-medium truncate" style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text)" }}>
+              {track.title}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <button
+              onClick={(e) => { e.stopPropagation(); onArtistClick?.(track.artist, track.cover); }}
+              className="text-xs truncate hover:underline"
+              style={{ color: "var(--mq-text-muted)" }}
+            >
+              {track.artist}
+            </button>
+            {track.duration > 0 && (
+              <>
+                <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
+                <span className="text-[11px] tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                  {formatDuration(track.duration)}
+                </span>
+              </>
+            )}
+            {track.genre && (
+              <>
+                <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
+                <span className="text-[10px] px-1.5 py-0 rounded-md" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                  {track.genre}
+                </span>
+              </>
+            )}
+          </div>
         </div>
-
-        {/* Duration (desktop only) */}
-        {track.duration > 0 && (
-          <span className="hidden sm:block text-[11px] tabular-nums flex-shrink-0" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
-            {formatDuration(track.duration)}
-          </span>
-        )}
 
         {/* Like button */}
         <button
           onClick={(e) => { e.stopPropagation(); toggleLike(track.id, track); }}
-          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
           style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
           aria-label={isLiked ? "Убрать из избранного" : "В избранное"}
         >
@@ -1057,7 +1062,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
         {/* More button (3-dot) */}
         <button
           onClick={handleMoreClick}
-          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
           style={{ color: "var(--mq-text-muted)" }}
           aria-label="Меню"
         >

@@ -11,7 +11,7 @@ interface UseMediaSessionParams {
   playbackRate: number;
 }
 
-// Detect if running inside Capacitor (native app)
+// Detect if running inside Capacitor (native app / APK)
 function isCapacitor(): boolean {
   if (typeof window === "undefined") return false;
   return !!(window as any).Capacitor?.isNativePlatform?.();
@@ -30,189 +30,137 @@ async function getNativeMediaSession() {
   }
 }
 
+// Convert relative cover URL to absolute (required by native MediaSession + Android lockscreen)
+function absoluteCoverUrl(cover?: string): string | null {
+  if (!cover) return null;
+  if (cover.startsWith("http://") || cover.startsWith("https://")) return cover;
+  if (cover.startsWith("/")) {
+    // In Capacitor WebView, window.location.origin is https://localhost or the server URL
+    const origin = typeof window !== "undefined" ? window.location.origin : "https://mq1.vercel.app";
+    return `${origin}${cover}`;
+  }
+  // data: URLs or other protocols — pass through
+  return cover;
+}
+
 export function useMediaSession({ currentTrack, isPlaying, progress, duration, playbackRate }: UseMediaSessionParams) {
   const lastPositionUpdate = useRef(0);
+  const nativeAvailableRef = useRef<boolean | null>(null); // null = not checked yet
 
-  // Helper: convert relative cover URL to absolute (required by native MediaSession plugin)
-  const absoluteCoverUrl = (cover?: string): string | null => {
-    if (!cover) return null;
-    if (cover.startsWith("http://") || cover.startsWith("https://")) return cover;
-    if (cover.startsWith("/")) {
-      const origin = typeof window !== "undefined" ? window.location.origin : "https://mq1.vercel.app";
-      return `${origin}${cover}`;
-    }
-    return cover;
+  // ── Helper: set up action handlers (shared between native + web) ──
+  const setupActions = (isNative: boolean) => {
+    const setAction = (action: string, handler: () => void) => {
+      if (isNative) {
+        nativeMediaSession?.setActionHandler({ action }, handler).catch(() => {});
+      } else {
+        try {
+          navigator.mediaSession.setActionHandler(action as any, handler as any);
+        } catch {}
+      }
+    };
+
+    setAction("play", () => {
+      resumeAudioContext();
+      const st = useAppStore.getState();
+      if (!st.isPlaying) st.togglePlay();
+    });
+    setAction("pause", () => {
+      const st = useAppStore.getState();
+      if (st.isPlaying) st.togglePlay();
+    });
+    setAction("previoustrack", () => {
+      const st = useAppStore.getState();
+      if (st.progress > 3) {
+        const audio = getAudioElement();
+        if (audio && audio.src) audio.currentTime = 0;
+        st.setProgress(0);
+      } else {
+        st.prevTrack();
+      }
+    });
+    setAction("nexttrack", () => {
+      const st = useAppStore.getState();
+      if (st.currentTrack?.id) st.recordSkip(st.currentTrack.id, st.progress || 0);
+      st.nextTrack();
+    });
+    setAction("stop", () => {
+      const st = useAppStore.getState();
+      if (st.isPlaying) st.togglePlay();
+    });
   };
 
-  // Effect 1: Set metadata + action handlers when track changes
+  // ── Effect 1: Set metadata + action handlers when track changes ──
   useEffect(() => {
     if (!currentTrack) return;
     let cancelled = false;
 
-    const setupNative = async () => {
-      const native = await getNativeMediaSession();
-      if (cancelled) return;
-      if (!native) {
-        // Plugin not available — fall back to web MediaSession
-        setupWeb();
-        return;
+    const setup = async () => {
+      const artworkUrl = absoluteCoverUrl(currentTrack.cover);
+      const artwork = artworkUrl ? [{ src: artworkUrl, sizes: "512x512", type: "image/jpeg" }] : [];
+
+      const metadata = {
+        title: currentTrack.title || "Unknown",
+        artist: currentTrack.artist || "Unknown",
+        album: currentTrack.album || "MQ Player",
+        artwork,
+      };
+
+      // Try native plugin first (APK / Capacitor)
+      if (isCapacitor()) {
+        const native = await getNativeMediaSession();
+        if (cancelled) return;
+
+        if (native) {
+          nativeAvailableRef.current = true;
+          try {
+            await native.setMetadata(metadata);
+            setupActions(true);
+
+            // Also set web MediaSession as fallback (some Android WebViews support it)
+            if ("mediaSession" in navigator) {
+              try {
+                navigator.mediaSession.metadata = new MediaMetadata(metadata);
+              } catch {}
+            }
+            return;
+          } catch (e) {
+            console.warn("[MediaSession] native plugin failed, falling back to web:", e);
+          }
+        } else {
+          console.warn("[MediaSession] native plugin not available, using web fallback");
+        }
       }
 
-      try {
-        await native.setMetadata({
-          title: currentTrack.title || "Unknown",
-          artist: currentTrack.artist || "Unknown",
-          album: currentTrack.album || "mq",
-          artwork: (() => { const u = absoluteCoverUrl(currentTrack.cover); return u ? [{ src: u, sizes: "512x512" }] : []; })(),
-        });
-
-        await native.setActionHandler({ action: "play" }, () => {
-          resumeAudioContext();
-          const st = useAppStore.getState();
-          if (!st.isPlaying) st.togglePlay();
-        });
-        await native.setActionHandler({ action: "pause" }, () => {
-          const st = useAppStore.getState();
-          if (st.isPlaying) st.togglePlay();
-        });
-        await native.setActionHandler({ action: "previoustrack" }, () => {
-          const st = useAppStore.getState();
-          if (st.progress > 3) {
-            const audio = getAudioElement();
-            if (audio && audio.src) audio.currentTime = 0;
-            st.setProgress(0);
-          } else {
-            st.prevTrack();
-          }
-        });
-        await native.setActionHandler({ action: "nexttrack" }, () => {
-          const st = useAppStore.getState();
-          if (st.currentTrack?.id) st.recordSkip(st.currentTrack.id, st.progress || 0);
-          st.nextTrack();
-        });
-        await native.setActionHandler({ action: "seekto" }, (details: any) => {
-          const audio = getAudioElement();
-          if (audio && details.seekTime !== undefined) {
-            audio.currentTime = details.seekTime;
-            useAppStore.getState().setProgress(audio.currentTime);
-          }
-        });
-        await native.setActionHandler({ action: "seekbackward" }, (details: any) => {
-          const audio = getAudioElement();
-          if (audio) {
-            audio.currentTime = Math.max(0, audio.currentTime - (details.seekOffset || 10));
-            useAppStore.getState().setProgress(audio.currentTime);
-          }
-        });
-        await native.setActionHandler({ action: "seekforward" }, (details: any) => {
-          const audio = getAudioElement();
-          if (audio) {
-            audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + (details.seekOffset || 10));
-            useAppStore.getState().setProgress(audio.currentTime);
-          }
-        });
-        await native.setActionHandler({ action: "stop" }, () => {
-          const st = useAppStore.getState();
-          if (st.isPlaying) st.togglePlay();
-        });
-      } catch (e) {
-        // Plugin not available, fall back to web MediaSession
-      }
-    };
-
-    // Web MediaSession (browser / PWA)
-    const setupWeb = () => {
+      // Web MediaSession (browser / PWA / fallback)
+      nativeAvailableRef.current = false;
       if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
 
       try {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: currentTrack.title || "Unknown",
-          artist: currentTrack.artist || "Unknown",
-          album: currentTrack.album || "mq",
-          artwork: (() => { const u = absoluteCoverUrl(currentTrack.cover); return u ? [{ src: u, sizes: "512x512" }] : []; })(),
-        });
-
-        navigator.mediaSession.setActionHandler("play", () => {
-          resumeAudioContext();
-          const st = useAppStore.getState();
-          if (!st.isPlaying) st.togglePlay();
-        });
-        navigator.mediaSession.setActionHandler("pause", () => {
-          const st = useAppStore.getState();
-          if (st.isPlaying) st.togglePlay();
-        });
-        navigator.mediaSession.setActionHandler("previoustrack", () => {
-          const st = useAppStore.getState();
-          if (st.progress > 3) {
-            const audio = getAudioElement();
-            if (audio && audio.src) audio.currentTime = 0;
-            st.setProgress(0);
-          } else {
-            st.prevTrack();
-          }
-        });
-        navigator.mediaSession.setActionHandler("nexttrack", () => {
-          const st = useAppStore.getState();
-          if (st.currentTrack?.id) st.recordSkip(st.currentTrack.id, st.progress || 0);
-          st.nextTrack();
-        });
-        navigator.mediaSession.setActionHandler("seekto", (details) => {
-          const audio = getAudioElement();
-          if (audio && details.seekTime !== undefined) {
-            audio.currentTime = details.seekTime;
-            useAppStore.getState().setProgress(audio.currentTime);
-          }
-        });
-        navigator.mediaSession.setActionHandler("seekbackward", (details) => {
-          const audio = getAudioElement();
-          if (audio) {
-            audio.currentTime = Math.max(0, audio.currentTime - (details.seekOffset || 10));
-            useAppStore.getState().setProgress(audio.currentTime);
-          }
-        });
-        navigator.mediaSession.setActionHandler("seekforward", (details) => {
-          const audio = getAudioElement();
-          if (audio) {
-            audio.currentTime = Math.min(audio.duration || 0, audio.currentTime + (details.seekOffset || 10));
-            useAppStore.getState().setProgress(audio.currentTime);
-          }
-        });
-        navigator.mediaSession.setActionHandler("stop", () => {
-          const st = useAppStore.getState();
-          if (st.isPlaying) st.togglePlay();
-        });
-      } catch {}
+        navigator.mediaSession.metadata = new MediaMetadata(metadata);
+        setupActions(false);
+      } catch (e) {
+        console.warn("[MediaSession] web setup failed:", e);
+      }
     };
 
-    if (isCapacitor()) {
-      setupNative();
-    } else {
-      setupWeb();
-    }
-
+    setup();
     return () => { cancelled = true; };
   }, [currentTrack]);
 
-  // Effect 2: Update playback state
+  // ── Effect 2: Update playback state ──
   useEffect(() => {
-    if (isCapacitor()) {
+    if (nativeAvailableRef.current === true && isCapacitor()) {
       getNativeMediaSession().then(native => {
-        if (!native) {
-          // Fall back to web
-          if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
-            navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
-          }
-          return;
-        }
-        native.setPlaybackState({ playbackState: isPlaying ? "playing" : "paused" }).catch(() => {});
+        native?.setPlaybackState({ playbackState: isPlaying ? "playing" : "paused" }).catch(() => {});
       });
-    } else {
-      if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
+    }
+    // Always update web MediaSession too (works in most WebViews)
+    if (typeof navigator !== "undefined" && "mediaSession" in navigator) {
       navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
     }
   }, [isPlaying]);
 
-  // Effect 3: Update position state (throttled to ~1Hz)
+  // ── Effect 3: Update position state (throttled to ~1Hz) ──
   useEffect(() => {
     const now = Date.now();
     if (now - lastPositionUpdate.current < 1000) return;
@@ -222,25 +170,17 @@ export function useMediaSession({ currentTrack, isPlaying, progress, duration, p
     const dur = Math.max(0, duration || 0);
     const rate = playbackRate || 1;
 
-    if (isCapacitor()) {
+    if (nativeAvailableRef.current === true && isCapacitor()) {
       getNativeMediaSession().then(native => {
-        if (!native) {
-          if (typeof navigator !== "undefined" && "mediaSession" in navigator && "setPositionState" in navigator.mediaSession) {
-            try {
-              navigator.mediaSession.setPositionState({ duration: dur, playbackRate: rate, position: pos });
-            } catch {}
-          }
-          return;
-        }
-        native.setPositionState({ duration: dur, playbackRate: rate, position: pos }).catch(() => {});
+        native?.setPositionState({ duration: dur, playbackRate: rate, position: pos }).catch(() => {});
       });
-    } else {
-      if (typeof navigator === "undefined" || !("mediaSession" in navigator)) return;
-      if ("setPositionState" in navigator.mediaSession) {
-        try {
-          navigator.mediaSession.setPositionState({ duration: dur, playbackRate: rate, position: pos });
-        } catch {}
-      }
+    }
+
+    // Web MediaSession position state
+    if (typeof navigator !== "undefined" && "mediaSession" in navigator && "setPositionState" in navigator.mediaSession) {
+      try {
+        navigator.mediaSession.setPositionState({ duration: dur, playbackRate: rate, position: pos });
+      } catch {}
     }
   }, [progress, duration, playbackRate]);
 }
