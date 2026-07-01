@@ -156,19 +156,36 @@ function MainView() {
         const allArtists = [...new Set([...favArtistNames, ...tasteProfile.topArtists])];
         if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
 
-        // Fetch recommendations + trending + Apple Music Top in parallel
+        // Fetch recommendations + trending + Apple Music Top + Spotify Top in parallel
         // Detect user country via timezone
         const userCountry = detectUserCountry();
 
-        const [recRes, trendingRes, appleRes] = await Promise.all([
+        const [recRes, trendingRes, appleRes, spotifyRes] = await Promise.all([
           fetch(`/api/music/recommendations?${params}`),
           fetch(`/api/music/trending?limit=50`),
           fetch(`/api/music/apple-top?country=${userCountry}`),
+          fetch(`/api/music/spotify-top?country=${userCountry}`),
         ]);
 
         const cats: RecCategory[] = [];
 
-        // Add Apple Music Top 100 as first category
+        // Add Spotify Top as first category ("Топ Spotify")
+        if (spotifyRes.ok) {
+          try {
+            const spotifyData = await spotifyRes.json();
+            const spotifyTracks = (spotifyData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
+            if (spotifyTracks.length > 0) {
+              cats.push({
+                id: "spotify_top",
+                title: "Топ Spotify",
+                icon: "Flame",
+                tracks: spotifyTracks,
+              });
+            }
+          } catch {}
+        }
+
+        // Add Apple Music Top 100 as second category
         if (appleRes.ok) {
           try {
             const appleData = await appleRes.json();
@@ -185,7 +202,7 @@ function MainView() {
           } catch {}
         }
 
-        // Add trending as second category ("Популярное сейчас")
+        // Add trending as third category ("Популярное сейчас")
         if (trendingRes.ok) {
           const tData = await trendingRes.json();
           const trendingTracks = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
@@ -800,6 +817,7 @@ function PlaylistCard({
 
 function reasonForRec(categoryId: string): string {
   switch (categoryId) {
+    case "spotify_top": return "Топ-чарт Spotify";
     case "apple_top": return "Топ-чарт страны";
     case "trending_now": return "Популярно сейчас";
     case "fallback": return "Подобрано для вас";
