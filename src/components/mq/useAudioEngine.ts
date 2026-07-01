@@ -13,6 +13,7 @@ import { replayGain, getDefaultGainForGenre } from "@/lib/replayGain";
 import { getAudiusStream, isAudiusTrack, findAudiusAlternative } from "@/lib/audius";
 import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
+import { updateMyListeningStatus } from "@/hooks/useFriendsListening";
 import Hls from "hls.js";
 import type { HlsConfig } from "hls.js";
 import type { Track } from "@/lib/musicApi";
@@ -664,6 +665,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   const gaplessPreloadStartedRef = useRef(false);
   const gaplessPreloadedTrackRef = useRef<Track | null>(null);
 
+  // Social listening status — last time we POSTed to /api/social/update-status
+  const lastSocialUpdateRef = useRef<number | null>(null);
+
   const retryCountRef = useRef(0);
   const maxRetries = 3;
   const retryingRef = useRef(false);
@@ -855,6 +859,19 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             position: a.currentTime,
           });
         } catch {}
+      }
+
+      // ── Social: update listening status every ~10s (throttled) ──
+      // Lets friends see what you're playing via /api/social/now-listening.
+      if (a) {
+        const now = Date.now();
+        if (!lastSocialUpdateRef.current || now - lastSocialUpdateRef.current > 10000) {
+          lastSocialUpdateRef.current = now;
+          const ct = useAppStore.getState().currentTrack;
+          if (ct) {
+            updateMyListeningStatus(ct, !a.paused, a.currentTime, a.duration || ct.duration || 0);
+          }
+        }
       }
     };
 

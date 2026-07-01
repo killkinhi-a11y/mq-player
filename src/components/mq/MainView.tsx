@@ -10,6 +10,8 @@ import {
   MoreHorizontal, Share2, ListPlus, Mic2,
 } from "lucide-react";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
+import { useFriendsListening } from "@/hooks/useFriendsListening";
+import { useRecUpdates } from "@/hooks/useRecUpdates";
 import { type Track } from "@/lib/musicApi";
 import { extractTasteProfile, displayGenre } from "@/lib/tasteProfile";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -272,6 +274,12 @@ function MainView() {
   }, [tasteProfile, retryTick]);
 
   const handleRetryRecs = useCallback(() => setRetryTick((n) => n + 1), []);
+
+  // ── Friends listening now (polling every 15s) ──
+  const { friends: listeningFriends } = useFriendsListening();
+
+  // ── Real-time rec updates (polling hash every 30s, triggers refetch on change) ──
+  useRecUpdates(handleRetryRecs);
 
   // ── Aggregated recommendations (deduped across categories) ──
   const allRecTracks = useMemo(() => {
@@ -546,6 +554,89 @@ function MainView() {
           </button>
         )}
       </Section>
+
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* FRIENDS LISTENING NOW — social widget (polling-based) */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {listeningFriends.length > 0 && (
+        <Section title="Друзья слушают" icon={User}>
+          <div className="flex gap-3 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 pb-1">
+            {listeningFriends.map((f) => (
+              <div
+                key={f.userId}
+                className="flex-shrink-0 w-[200px] rounded-2xl p-3 cursor-pointer hover:scale-[1.02] transition-transform"
+                style={{
+                  backgroundColor: "var(--mq-card)",
+                  border: "1px solid var(--mq-border-hairline)",
+                }}
+                onClick={() => {
+                  if (f.scTrackId) {
+                    // Try to play the same track
+                    const track: Track = {
+                      id: `sc_${f.scTrackId}`,
+                      title: f.trackTitle,
+                      artist: f.trackArtist,
+                      album: "",
+                      cover: f.trackCover,
+                      duration: f.duration,
+                      genre: "",
+                      audioUrl: "",
+                      previewUrl: "",
+                      source: "soundcloud",
+                      scTrackId: f.scTrackId,
+                    };
+                    playTrack(track, [track]);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-card)" }}>
+                    {f.avatar ? (
+                      <img src={f.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <User className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+                      {f.username}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      {f.isPlaying && (
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
+                      )}
+                      <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                        {f.isPlaying ? "сейчас" : "на паузе"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
+                    {f.trackCover ? (
+                      <img src={f.trackCover} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>
+                      {f.trackTitle}
+                    </p>
+                    <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                      {f.trackArtist}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* RECOMMENDATIONS — Hero + Tabs + List (rewritten from scratch) */}
