@@ -71,6 +71,7 @@ function MainView() {
   // ── Store ──
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const playTrack = useAppStore((s) => s.playTrack);
+  const togglePlay = useAppStore((s) => s.togglePlay);
   const likedTrackIds = useAppStore((s) => s.likedTrackIds);
   const likedTracksData = useAppStore((s) => s.likedTracksData);
   const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
@@ -282,11 +283,19 @@ function MainView() {
   const recList = visibleRecTracks.slice(1, 50); // up to 49 tracks in list (50 total with hero)
 
   // ── Play rec track in context of all visible tracks ──
+  // If the clicked track is already current, toggle play/pause instead
+  // of restarting it from 0:00. This matches Spotify-like UX where tapping
+  // a playing track's card pauses it.
   const handlePlayRec = useCallback((track: Track) => {
+    const cur = useAppStore.getState().currentTrack;
+    if (cur?.id === track.id) {
+      togglePlay();
+      return;
+    }
     const ctx = visibleRecTracks.map((v) => v.track);
     if (ctx.length === 0) return;
     playTrack(track, ctx);
-  }, [visibleRecTracks, playTrack]);
+  }, [visibleRecTracks, playTrack, togglePlay]);
 
   // ── Wave controls (from useWaveEngine hook) ──
   // Visual WaveCard component handles all rendering; this hook provides logic.
@@ -391,7 +400,9 @@ function MainView() {
                 }}
                 onPlay={(e) => {
                   e.stopPropagation();
-                  if (pl.tracks.length > 0) playTrack(pl.tracks[0], [...pl.tracks], pl.id);
+                  if (pl.tracks.length === 0) return;
+                  if (currentTrack?.id === pl.tracks[0].id) { togglePlay(); return; }
+                  playTrack(pl.tracks[0], [...pl.tracks], pl.id);
                 }}
                 animationsEnabled={animationsEnabled}
               />
@@ -479,7 +490,10 @@ function MainView() {
                 index={i}
                 isCurrent={currentTrack?.id === track.id}
                 isPlaying={isPlaying && currentTrack?.id === track.id}
-                onPlay={() => playTrack(track, recentTracks)}
+                onPlay={() => {
+                  if (currentTrack?.id === track.id) { togglePlay(); return; }
+                  playTrack(track, recentTracks);
+                }}
                 onArtistClick={() => handleNavigateToArtist(track.artist)}
                 animationsEnabled={animationsEnabled}
               />
@@ -519,7 +533,9 @@ function MainView() {
                 playlist={pl}
                 index={i}
                 onPlay={() => {
-                  if (pl.tracks.length > 0) playTrack(pl.tracks[0], pl.tracks);
+                  if (pl.tracks.length === 0) return;
+                  if (currentTrack?.id === pl.tracks[0].id) { togglePlay(); return; }
+                  playTrack(pl.tracks[0], pl.tracks);
                 }}
                 animationsEnabled={animationsEnabled}
               />
