@@ -560,16 +560,8 @@ function MainView() {
       {/* ════════════════════════════════════════════════════════════════ */}
       {listeningFriends.length > 0 && (
         <Section title="Друзья слушают" icon={User}>
-          <div
+          <HScroll
             className="flex gap-3 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 pb-1"
-            onWheel={(e) => {
-              // Convert vertical wheel → horizontal scroll (PC mice)
-              if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-                e.preventDefault();
-                e.currentTarget.scrollLeft += e.deltaY;
-              }
-            }}
-            style={{ scrollBehavior: "smooth" }}
           >
             {listeningFriends.map((f) => (
               <div
@@ -644,7 +636,7 @@ function MainView() {
                 </div>
               </div>
             ))}
-          </div>
+          </HScroll>
         </Section>
       )}
 
@@ -1303,29 +1295,13 @@ function RecsTabs({
   value: string;
   onChange: (id: string) => void;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Convert vertical wheel scroll → horizontal scroll (PC mice don't have
-  // horizontal wheel by default, so without this the tab bar is stuck)
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      e.preventDefault();
-      el.scrollLeft += e.deltaY;
-    }
-  }, []);
-
   const tabs = [
     { id: "all", title: "Все", count: allCount, icon: Sparkles },
     ...categories.map((c) => ({ id: c.id, title: c.title, count: c.tracks.length, icon: iconForRec(c.id) })),
   ];
   return (
-    <div
-      ref={scrollRef}
-      onWheel={handleWheel}
+    <HScroll
       className="flex gap-1 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 mb-4"
-      style={{ scrollBehavior: "smooth" }}
     >
       {tabs.map((t) => {
         const active = value === t.id;
@@ -1350,7 +1326,7 @@ function RecsTabs({
           </button>
         );
       })}
-    </div>
+    </HScroll>
   );
 }
 
@@ -1634,6 +1610,34 @@ function RecsSkeleton() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// HSCROLL — horizontal scroll container that converts vertical wheel →
+// horizontal scroll on PC mice. Uses native addEventListener with
+// { passive: false } because React's onWheel is passive and can't
+// preventDefault() the vertical page scroll.
+// ═════════════════════════════════════════════════════════════════════════
+
+function HScroll({ children, className = "", style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+  return (
+    <div ref={ref} className={className} style={{ scrollBehavior: "smooth", ...style }}>
+      {children}
     </div>
   );
 }
