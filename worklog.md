@@ -548,3 +548,33 @@ Cumulative final stats:
 - 5 new shared libs (843L), 3 new components (605L)
 - 50 auth-protected API routes (40 original + 10 new M5)
 - Production: https://mq1.vercel.app — READY
+
+---
+Task ID: recs-rewrite-from-scratch
+Agent: main
+Task: Rewrite the "Для вас" (recommended tracks) view on the main page from scratch
+
+Work Log:
+- Read full MainView.tsx (1492 lines) to understand current recommendations structure (RecCategoryRow + RecCard, 5-col grid on desktop / horizontal scroll on mobile, multiple stacked category rows)
+- Designed new layout: Hero featured track + Tab navigation + compact numbered list
+- Added `activeRecTab` state to MainView (default "all")
+- Added memoized `allRecTracks` (deduped aggregation across all categories)
+- Added memoized `visibleRecTracks` (filtered by activeRecTab)
+- Derived `recHero` (first visible track) and `recList` (next 8 tracks)
+- Added `handlePlayRec` callback that plays track in context of all visible tracks
+- Added useEffect to reset activeRecTab if its category disappears after refetch
+- Added module-level `reasonForRec(categoryId)` helper returning Russian reasoning text ("Топ-чарт страны", "Популярно сейчас", "Похоже на ваше", "Подобрано для вас")
+- Replaced recommendations JSX block with new structure: RecsHero + RecsTabs + RecsList
+- Deleted old RecCategoryRow and RecCard components (~155 lines)
+- Added 5 new components: RecsHero (large featured card with blurred bg + reasoning chip + play/like actions), RecsTabs (horizontal tab switcher with counts), RecsList (empty state + list wrapper), RecRow (compact numbered row with rank/cover/title/artist/reason/play button), RecsSkeleton (3-section loading placeholder)
+- Fixed toggleLike call signature (track.id, track) instead of (track)
+- Verified: tsc passes, next build succeeds (Compiled successfully in 11.8s), dev server boots without errors
+
+Stage Summary:
+- File: src/components/mq/MainView.tsx (1492 → 1844 lines, +352 net from richer hero/tabs/skeleton)
+- Old design: monotonous stacked rows of identical card grids — flat hierarchy, every category looked the same
+- New design: clear visual hierarchy with hero (1 featured track w/ blurred bg + reasoning) → tabs (switch context) → list (8 compact rows w/ rank + reasoning chips). Adds 4 distinct UX layers (hero, tabs, list, reasoning) without touching the data layer.
+- All existing data fetching (Apple Music Top, Trending, Recommendations API) preserved unchanged
+- New: aggregated "Все" tab that dedupes across all categories
+- New: reasoning chips explain WHY each track is recommended
+- All Russian copy localized (Рекомендация для вас, Топ-чарт страны, Популярно сейчас, Похоже на ваше, etc.)
