@@ -163,8 +163,8 @@ function MainView() {
         const [recRes, trendingRes, appleRes, spotifyRes] = await Promise.all([
           fetch(`/api/music/recommendations?${params}`),
           fetch(`/api/music/trending?limit=50`),
-          fetch(`/api/music/apple-top?country=${userCountry}`),
-          fetch(`/api/music/spotify-top?country=${userCountry}`),
+          fetch(`/api/music/apple-charts?country=${userCountry}`),
+          fetch(`/api/music/spotify-charts?country=${userCountry}`),
         ]);
 
         const cats: RecCategory[] = [];
