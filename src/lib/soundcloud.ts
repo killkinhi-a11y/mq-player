@@ -455,75 +455,83 @@ export async function searchSCTracks(
   query: string,
   limit = 20
 ): Promise<SCTrack[]> {
-  try {
-    const clientId = await getSoundCloudClientId();
-    if (!clientId) return [];
+  // Try up to 2 times: first with current (possibly stale) client_id,
+  // then once more after re-extracting a fresh one on 401.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const clientId = await getSoundCloudClientId();
+      if (!clientId) return [];
 
-    const url = `https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(
-      query
-    )}&client_id=${clientId}&limit=${limit}&facet=genre`;
-    const res = await fetch(url, {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-      },
-      signal: AbortSignal.timeout(12000),
-    });
+      const url = `https://api-v2.soundcloud.com/search/tracks?q=${encodeURIComponent(
+        query
+      )}&client_id=${clientId}&limit=${limit}&facet=genre`;
+      const res = await fetch(url, {
+        headers: {
+          Accept: "application/json",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+        },
+        signal: AbortSignal.timeout(12000),
+      });
 
-    if (res.status === 401) {
-      invalidateClientId();
+      if (res.status === 401) {
+        // Mark current id as invalid and retry once — getSoundCloudClientId
+        // will re-extract from soundcloud.com on the next call.
+        invalidateClientId();
+        if (attempt === 0) continue; // retry
+        return [];
+      }
+      if (!res.ok) return [];
+
+      const data = await res.json();
+      const tracks = data.collection || [];
+      if (tracks.length === 0) return [];
+
+      return tracks
+        .filter((t: Record<string, unknown>) => {
+          const policy = (t.policy as string) || "";
+          // Filter out completely blocked tracks — they have no playable media
+          if (policy === "BLOCK") return false;
+          // Filter out non-music content (DJ sets, podcasts, audiobooks, bibles, etc.)
+          const title = (t.title as string) || "";
+          const genre = (t.genre as string) || "";
+          const durationMs = (t.full_duration as number) || (t.duration as number) || 0;
+          const durationSec = Math.round(durationMs / 1000);
+          if (isNonMusicContent(title, genre, durationSec)) return false;
+          return true;
+        })
+        .map((t: Record<string, unknown>) => {
+        const user = t.user as Record<string, unknown> | undefined;
+        const artwork = t.artwork_url as string | undefined;
+        const rawCover = artwork
+          ? artwork.replace("-large.", "-t500x500.")
+          : (user?.avatar_url as string | undefined)?.replace("-large.", "-t500x500.") || "";
+        // Route cover images through our proxy to bypass client-side blocks
+        const cover = rawCover
+          ? `/api/music/soundcloud/image-proxy?url=${encodeURIComponent(rawCover)}`
+          : "";
+        const fullDuration =
+          (t.full_duration as number) || (t.duration as number) || 30000;
+        const policy = (t.policy as string) || "ALLOW";
+
+        return {
+          id: `sc_${t.id}`,
+          title: (t.title as string) || "Unknown Track",
+          artist: user?.username || "Unknown Artist",
+          album: "",
+          duration: Math.round(fullDuration / 1000),
+          cover: cover || "",
+          genre: sanitizeGenre((t.genre as string) || "") || "",
+          audioUrl: "",
+          previewUrl: "",
+          source: "soundcloud" as const,
+          scTrackId: t.id as number,
+          scStreamPolicy: policy,
+          scIsFull: policy === "ALLOW", // Only ALLOW = truly full playable track
+        };
+      });
+    } catch {
       return [];
     }
-    if (!res.ok) return [];
-
-    const data = await res.json();
-    const tracks = data.collection || [];
-    if (tracks.length === 0) return [];
-
-    return tracks
-      .filter((t: Record<string, unknown>) => {
-        const policy = (t.policy as string) || "";
-        // Filter out completely blocked tracks — they have no playable media
-        if (policy === "BLOCK") return false;
-        // Filter out non-music content (DJ sets, podcasts, audiobooks, bibles, etc.)
-        const title = (t.title as string) || "";
-        const genre = (t.genre as string) || "";
-        const durationMs = (t.full_duration as number) || (t.duration as number) || 0;
-        const durationSec = Math.round(durationMs / 1000);
-        if (isNonMusicContent(title, genre, durationSec)) return false;
-        return true;
-      })
-      .map((t: Record<string, unknown>) => {
-      const user = t.user as Record<string, unknown> | undefined;
-      const artwork = t.artwork_url as string | undefined;
-      const rawCover = artwork
-        ? artwork.replace("-large.", "-t500x500.")
-        : (user?.avatar_url as string | undefined)?.replace("-large.", "-t500x500.") || "";
-      // Route cover images through our proxy to bypass client-side blocks
-      const cover = rawCover
-        ? `/api/music/soundcloud/image-proxy?url=${encodeURIComponent(rawCover)}`
-        : "";
-      const fullDuration =
-        (t.full_duration as number) || (t.duration as number) || 30000;
-      const policy = (t.policy as string) || "ALLOW";
-
-      return {
-        id: `sc_${t.id}`,
-        title: (t.title as string) || "Unknown Track",
-        artist: user?.username || "Unknown Artist",
-        album: "",
-        duration: Math.round(fullDuration / 1000),
-        cover: cover || "",
-        genre: sanitizeGenre((t.genre as string) || "") || "",
-        audioUrl: "",
-        previewUrl: "",
-        source: "soundcloud" as const,
-        scTrackId: t.id as number,
-        scStreamPolicy: policy,
-        scIsFull: policy === "ALLOW", // Only ALLOW = truly full playable track
-      };
-    });
-  } catch {
-    return [];
   }
+  return [];
 }

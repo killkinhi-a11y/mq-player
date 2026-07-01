@@ -55,7 +55,9 @@ async function fetchAppleChart(country: string): Promise<ChartEntry[]> {
 async function findPlayableTrack(entry: ChartEntry): Promise<Track | null> {
   try {
     const query = `${entry.artist} ${entry.title}`.trim();
-    const results = await searchSCTracks(query, 8);
+    // Search up to 15 candidates — chart hits often have many SNIP/MONETIZE
+    // duplicates on SoundCloud before finding a fully-playable ALLOW track.
+    const results = await searchSCTracks(query, 15);
     if (!results || results.length === 0) return null;
 
     // Prefer ALLOW-policy tracks (fully playable)

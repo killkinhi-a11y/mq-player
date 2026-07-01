@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, memo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion } from "framer-motion";
 import {
   Play, Pause, Music, Heart, Clock, ListMusic, MessageCircle,
-  Plus, Sparkles, Waves, User,
-  SkipForward, ThumbsDown,
+  Plus, Sparkles, Waves, User, Flame,
+  SkipForward, ThumbsDown, TrendingUp, Compass,
 } from "lucide-react";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { type Track } from "@/lib/musicApi";
@@ -93,7 +93,17 @@ function MainView() {
   const [curatedPlaylists, setCuratedPlaylists] = useState<CuratedPlaylist[]>([]);
   const [recCategories, setRecCategories] = useState<RecCategory[]>([]);
   const [recLoading, setRecLoading] = useState(false);
-  const [activeRecTab, setActiveRecTab] = useState<string>("all");
+  // Persist active tab in localStorage so it survives page reloads
+  const [activeRecTab, setActiveRecTab] = useState<string>(() => {
+    if (typeof window === "undefined") return "all";
+    try { return window.localStorage.getItem("mq:recTab") || "all"; } catch { return "all"; }
+  });
+  // How many list rows are visible (Show-more pagination, +10 per click)
+  const [recVisibleCount, setRecVisibleCount] = useState<number>(10);
+  // True for ~250ms after tab change so we can show a skeleton
+  const [recTabSwitching, setRecTabSwitching] = useState<boolean>(false);
+  // Bumped by the Empty-State "Retry" button to force a recommendations refetch
+  const [retryTick, setRetryTick] = useState<number>(0);
 
   // ── Wave engine (logic separated from UI) ──
   const wave = useWaveEngine();
@@ -247,7 +257,9 @@ function MainView() {
     };
     const timer = setTimeout(fetchRecs, 200);
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [tasteProfile]);
+  }, [tasteProfile, retryTick]);
+
+  const handleRetryRecs = useCallback(() => setRetryTick((n) => n + 1), []);
 
   // ── Aggregated recommendations (deduped across categories) ──
   const allRecTracks = useMemo(() => {
@@ -263,12 +275,36 @@ function MainView() {
     return result;
   }, [recCategories]);
 
-  // ── Reset activeRecTab if its category disappears after refetch ──
+  // ── Reset activeRecTab only if its category disappears AND the previous
+  // category list had it (i.e. this is a real disappearance, not a refetch
+  // during loading). Without the prevHas check, the effect would reset
+  // the tab to "all" on every refetch even when the category still exists,
+  // because recCategories briefly becomes [] between setRecCategories([])
+  // and the new fetch completing.
+  const prevCatsRef = useRef<string[] | null>(null);
   useEffect(() => {
-    if (activeRecTab !== "all" && !recCategories.some((c) => c.id === activeRecTab)) {
+    const prev = prevCatsRef.current;
+    const cur = recCategories.map((c) => c.id);
+    if (activeRecTab !== "all" && prev && !cur.includes(activeRecTab) && prev.includes(activeRecTab)) {
       setActiveRecTab("all");
     }
+    prevCatsRef.current = cur;
   }, [recCategories, activeRecTab]);
+
+  // ── Persist activeRecTab to localStorage ──
+  useEffect(() => {
+    try { window.localStorage.setItem("mq:recTab", activeRecTab); } catch {}
+  }, [activeRecTab]);
+
+  // ── Reset visibleCount + show skeleton on tab change ──
+  // The skeleton briefly overlays the list (250ms) so the user sees a clear
+  // "switching" state rather than stale data snapping to new data.
+  useEffect(() => {
+    setRecVisibleCount(10);
+    setRecTabSwitching(true);
+    const t = setTimeout(() => setRecTabSwitching(false), 250);
+    return () => clearTimeout(t);
+  }, [activeRecTab]);
 
   // ── Visible tracks based on active tab ──
   const visibleRecTracks = useMemo(() => {
@@ -278,9 +314,31 @@ function MainView() {
     return cat.tracks.map((t) => ({ track: t, categoryId: cat.id }));
   }, [activeRecTab, allRecTracks, recCategories]);
 
-  // ── Hero = first track of visible list; rest go into the list ──
-  const recHero = visibleRecTracks[0];
-  const recList = visibleRecTracks.slice(1, 50); // up to 49 tracks in list (50 total with hero)
+  // ── Hero = currently-playing track if it's in this tab, else first track.
+  // Matches Spotify's "now playing panel" behavior: when the user is playing
+  // a track from this tab, the Hero pins it so they always see what's on.
+  const recHero = useMemo(() => {
+    if (!visibleRecTracks.length) return null;
+    if (currentTrack) {
+      const idx = visibleRecTracks.findIndex((v) => v.track.id === currentTrack.id);
+      if (idx >= 0) return visibleRecTracks[idx];
+    }
+    return visibleRecTracks[0];
+  }, [visibleRecTracks, currentTrack]);
+
+  // ── List = everything EXCEPT the hero, sliced to recVisibleCount ──
+  // Dedupe: any track whose id matches the hero is excluded from the list.
+  const recList = useMemo(() => {
+    if (!recHero) return visibleRecTracks.slice(0, recVisibleCount);
+    return visibleRecTracks
+      .filter((v) => v.track.id !== recHero.track.id)
+      .slice(0, recVisibleCount);
+  }, [visibleRecTracks, recHero, recVisibleCount]);
+
+  const recListTotal = useMemo(() => {
+    if (!recHero) return visibleRecTracks.length;
+    return visibleRecTracks.filter((v) => v.track.id !== recHero.track.id).length;
+  }, [visibleRecTracks, recHero]);
 
   // ── Play rec track in context of all visible tracks ──
   // If the clicked track is already current, toggle play/pause instead
@@ -430,16 +488,18 @@ function MainView() {
       {/* ════════════════════════════════════════════════════════════════ */}
       {recCategories.length > 0 && recHero && (
         <Section title="Для вас" icon={Sparkles}>
-          {/* Hero featured track */}
-          <RecsHero
-            track={recHero.track}
-            reason={reasonForRec(recHero.categoryId)}
-            isCurrent={currentTrack?.id === recHero.track.id}
-            isPlaying={isPlaying && currentTrack?.id === recHero.track.id}
-            onPlay={() => handlePlayRec(recHero.track)}
-            onArtistClick={() => handleNavigateToArtist(recHero.track.artist)}
-            animationsEnabled={animationsEnabled}
-          />
+          {/* Hero featured track — sticky at top while scrolling the list */}
+          <div className="sticky top-0 z-10 -mx-3 px-3 lg:mx-0 lg:px-0 pb-3 mb-1" style={{ backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}>
+            <RecsHero
+              track={recHero.track}
+              reason={reasonForRec(recHero.categoryId)}
+              isCurrent={currentTrack?.id === recHero.track.id}
+              isPlaying={isPlaying && currentTrack?.id === recHero.track.id}
+              onPlay={() => handlePlayRec(recHero.track)}
+              onArtistClick={() => handleNavigateToArtist(recHero.track.artist)}
+              animationsEnabled={animationsEnabled}
+            />
+          </div>
 
           {/* Tab navigation */}
           <RecsTabs
@@ -449,23 +509,54 @@ function MainView() {
             onChange={setActiveRecTab}
           />
 
-          {/* Compact numbered list */}
-          <RecsList
-            tracks={recList.map((v) => v.track)}
-            reasons={recList.map((v) => reasonForRec(v.categoryId))}
-            currentTrack={currentTrack}
-            isPlaying={isPlaying}
-            onPlay={handlePlayRec}
-            onArtistClick={handleNavigateToArtist}
-            animationsEnabled={animationsEnabled}
-          />
+          {/* Compact numbered list (or skeleton when switching tabs) */}
+          {recTabSwitching ? (
+            <RecsListSkeleton />
+          ) : recList.length === 0 ? (
+            <RecsEmptyState onRetry={handleRetryRecs} />
+          ) : (
+            <>
+              <RecsList
+                tracks={recList.map((v) => v.track)}
+                reasons={recList.map((v) => reasonForRec(v.categoryId))}
+                currentTrack={currentTrack}
+                isPlaying={isPlaying}
+                onPlay={handlePlayRec}
+                onArtistClick={handleNavigateToArtist}
+                animationsEnabled={animationsEnabled}
+              />
+              {/* Show-more button */}
+              {recListTotal > recList.length && (
+                <div className="flex justify-center mt-4">
+                  <button
+                    onClick={() => setRecVisibleCount((n) => n + 10)}
+                    className="px-4 py-2 rounded-full text-xs font-semibold transition-colors"
+                    style={{
+                      backgroundColor: "var(--mq-card)",
+                      color: "var(--mq-text-muted)",
+                      border: "1px solid var(--mq-border-hairline)",
+                    }}
+                  >
+                    Показать ещё {Math.min(10, recListTotal - recList.length)}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </Section>
       )}
 
-      {/* Recommendations loading skeleton */}
+      {/* Recommendations loading skeleton (initial load only) */}
       {recLoading && recCategories.length === 0 && (
         <Section title="Для вас" icon={Sparkles}>
           <RecsSkeleton />
+        </Section>
+      )}
+
+      {/* Recommendations empty state (initial load finished, no categories) */}
+      {!recLoading && recCategories.length === 0 && (
+        <Section title="Для вас" icon={Sparkles}>
+          <RecsEmptyState onRetry={handleRetryRecs} />
         </Section>
       )}
 
@@ -841,6 +932,19 @@ function reasonForRec(categoryId: string): string {
   }
 }
 
+// Icon per category id — used in RecsTabs tab chips
+function iconForRec(categoryId: string): React.ElementType {
+  switch (categoryId) {
+    case "spotify_top": return Music;
+    case "apple_top": return Flame;
+    case "trending_now": return TrendingUp;
+    case "for_you":
+    case "fallback": return Sparkles;
+    case "discover": return Compass;
+    default: return Sparkles;
+  }
+}
+
 // ═════════════════════════════════════════════════════════════════════════
 // RECS HERO — featured track of the day
 // ═════════════════════════════════════════════════════════════════════════
@@ -907,10 +1011,10 @@ function RecsHero({
       />
 
       {/* Content */}
-      <div className="relative z-10 p-4 sm:p-5 flex items-center gap-4 sm:gap-5">
-        {/* Cover */}
+      <div className="relative z-10 p-3 sm:p-5 flex items-center gap-3 sm:gap-5">
+        {/* Cover — 80px on mobile, 112px on desktop */}
         <div
-          className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden flex-shrink-0"
+          className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-2xl overflow-hidden flex-shrink-0"
           style={{ boxShadow: "var(--mq-shadow-elevated)" }}
         >
           {track.cover ? (
@@ -970,7 +1074,7 @@ function RecsHero({
           </button>
           {reason && (
             <div
-              className="inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full"
+              className="hidden sm:inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full"
               style={{
                 backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
                 border: "1px solid color-mix(in srgb, var(--mq-accent) 24%, transparent)",
@@ -1039,18 +1143,19 @@ function RecsTabs({
   onChange: (id: string) => void;
 }) {
   const tabs = [
-    { id: "all", title: "Все", count: allCount },
-    ...categories.map((c) => ({ id: c.id, title: c.title, count: c.tracks.length })),
+    { id: "all", title: "Все", count: allCount, icon: Sparkles },
+    ...categories.map((c) => ({ id: c.id, title: c.title, count: c.tracks.length, icon: iconForRec(c.id) })),
   ];
   return (
     <div className="flex gap-1 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 mb-4">
       {tabs.map((t) => {
         const active = value === t.id;
+        const Icon = t.icon;
         return (
           <button
             key={t.id}
             onClick={() => onChange(t.id)}
-            className="flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
             style={{
               backgroundColor: active
                 ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)"
@@ -1058,9 +1163,10 @@ function RecsTabs({
               color: active ? "var(--mq-accent)" : "var(--mq-text-muted)",
             }}
           >
+            <Icon className="w-3.5 h-3.5" style={{ opacity: active ? 1 : 0.7 }} />
             {t.title}
             {t.count > 0 && (
-              <span className="ml-1.5 text-[10px] opacity-70">{t.count}</span>
+              <span className="ml-0.5 text-[10px] opacity-70">{t.count}</span>
             )}
           </button>
         );
@@ -1287,6 +1393,68 @@ function RecsSkeleton() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// RECS LIST SKELETON — compact list-only skeleton for tab switching
+// ═════════════════════════════════════════════════════════════════════════
+
+function RecsListSkeleton() {
+  return (
+    <div className="space-y-1">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-3 p-2 sm:p-2.5">
+          <div className="w-6 h-3 rounded mq-shimmer flex-shrink-0" />
+          <div className="w-11 h-11 rounded-lg mq-shimmer flex-shrink-0" />
+          <div className="flex-1 space-y-1.5">
+            <div className="h-3 w-2/3 rounded mq-shimmer" />
+            <div className="h-2.5 w-1/3 rounded mq-shimmer" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// RECS EMPTY STATE — when recommendations failed or returned nothing
+// ═════════════════════════════════════════════════════════════════════════
+
+function RecsEmptyState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div
+      className="text-center py-10 rounded-2xl"
+      style={{ backgroundColor: "var(--mq-card)" }}
+    >
+      <Sparkles
+        className="w-9 h-9 mx-auto mb-3"
+        style={{ color: "var(--mq-text-muted)", opacity: 0.3 }}
+      />
+      <p
+        className="text-sm font-medium mb-1"
+        style={{ color: "var(--mq-text)" }}
+      >
+        Не удалось загрузить
+      </p>
+      <p
+        className="text-xs mb-4 px-4"
+        style={{ color: "var(--mq-text-muted)" }}
+      >
+        Проверьте подключение к интернету и попробуйте снова
+      </p>
+      <button
+        onClick={onRetry}
+        className="px-4 py-2 rounded-full text-xs font-semibold transition-colors"
+        style={{
+          backgroundColor: "var(--mq-accent)",
+          color: "#fff",
+          boxShadow: "var(--mq-shadow-accent)",
+        }}
+      >
+        Повторить
+      </button>
     </div>
   );
 }
