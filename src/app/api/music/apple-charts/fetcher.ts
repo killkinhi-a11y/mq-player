@@ -42,16 +42,29 @@ async function fetchAppleChart(country: string): Promise<ChartEntry[]> {
   return out;
 }
 
+// ─── SoundCloud search → playable Track ──────────────────────────────────
+//
+// Searches SoundCloud for up to 8 candidates per chart entry and picks
+// the FIRST one whose stream policy is "ALLOW" (truly full playable).
+// This is critical because most chart hits on SoundCloud are marked
+// "MONETIZE" or "SNIP" (preview-only). Without this filter the player
+// would show top tracks but be unable to play most of them.
+//
+// Falls back to the first result if no ALLOW candidate is found.
+
 async function findPlayableTrack(entry: ChartEntry): Promise<Track | null> {
   try {
     const query = `${entry.artist} ${entry.title}`.trim();
-    const results = await searchSCTracks(query, 1);
+    const results = await searchSCTracks(query, 8);
     if (!results || results.length === 0) return null;
-    const t = results[0];
+
+    // Prefer ALLOW-policy tracks (fully playable)
+    let t = results.find((r) => r.scIsFull) || results[0];
+
     return {
       id: t.id || (t.scTrackId ? `sc_${t.scTrackId}` : `apple_${Date.now()}_${Math.random()}`),
-      title: t.title || "",
-      artist: t.artist || "",
+      title: t.title || entry.title,
+      artist: t.artist || entry.artist,
       album: t.album || "",
       cover: t.cover || entry.cover || "",
       duration: t.duration || 0,
