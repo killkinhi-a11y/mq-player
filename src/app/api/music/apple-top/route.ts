@@ -49,7 +49,7 @@ async function handler(request: NextRequest) {
     const tracks: Track[] = [];
     const batchSize = 5;
 
-    for (let i = 0; i < Math.min(songs.length, 30); i += batchSize) {
+    for (let i = 0; i < Math.min(songs.length, 50); i += batchSize) {
       const batch = songs.slice(i, i + batchSize);
       const results = await Promise.allSettled(
         batch.map(async (song) => {
@@ -87,7 +87,7 @@ async function handler(request: NextRequest) {
         }
       }
 
-      if (tracks.length >= 20) break;
+      if (tracks.length >= 50) break;
     }
 
     cache.set(cacheKey, { data: tracks, expiry: Date.now() + CACHE_TTL });

@@ -1,22 +1,20 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Play, Pause, Music, Heart, Clock, ListMusic, MessageCircle,
-  ChevronLeft, Shuffle, Plus, Flame, Sparkles, Waves, User,
-  Loader2, SkipForward, ThumbsDown,
+  Plus, Sparkles, Waves, User,
+  SkipForward, ThumbsDown,
 } from "lucide-react";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { type Track } from "@/lib/musicApi";
 import { extractTasteProfile, displayGenre } from "@/lib/tasteProfile";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Skeleton } from "@/components/ui/skeleton";
 import ScrollReveal from "./ScrollReveal";
 import ArtistDetailView from "./ArtistDetailView";
 import PlaylistArtwork from "./PlaylistArtwork";
-import { toast } from "@/hooks/use-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -91,10 +89,8 @@ function MainView() {
   const contacts = useAppStore((s) => s.contacts);
 
   // ── Local state ──
-  const [trendingTracks, setTrendingTracks] = useState<Track[]>([]);
   const [curatedPlaylists, setCuratedPlaylists] = useState<CuratedPlaylist[]>([]);
   const [recCategories, setRecCategories] = useState<RecCategory[]>([]);
-  const [loading, setLoading] = useState(true);
   const [recLoading, setRecLoading] = useState(false);
   const [activeRecTab, setActiveRecTab] = useState<string>("all");
 
@@ -117,36 +113,23 @@ function MainView() {
     return history.slice(0, 10).map((h: any) => h.track).filter(Boolean);
   }, [history]);
 
-  // ── Fetch trending + curated ──
+  // ── Fetch curated playlists ──
   useEffect(() => {
     let cancelled = false;
     const fetchAll = async () => {
-      setLoading(true);
       try {
-        const disliked = useAppStore.getState().dislikedTrackIds || [];
-        const excludeSet = new Set(disliked);
-        const trendingParams = new URLSearchParams();
-        if (disliked.length > 0) trendingParams.set("dislikedIds", disliked.join(","));
         const curatedParams = new URLSearchParams();
+        const disliked = useAppStore.getState().dislikedTrackIds || [];
         if (disliked.length > 0) curatedParams.set("dislikedIds", disliked.join(","));
 
-        const [trendingRes, curatedRes] = await Promise.all([
-          fetch(`/api/music/trending?${trendingParams}`),
-          fetch(`/api/playlists/curated?${curatedParams}`),
-        ]);
+        const curatedRes = await fetch(`/api/playlists/curated?${curatedParams}`);
 
-        if (!cancelled && trendingRes.ok) {
-          const data = await trendingRes.json();
-          setTrendingTracks((data.tracks || []).filter((t: Track) => !excludeSet.has(t.id)));
-        }
         if (!cancelled && curatedRes.ok) {
           const data = await curatedRes.json();
           setCuratedPlaylists(data.playlists || []);
         }
       } catch {
-        if (!cancelled) { setTrendingTracks([]); setCuratedPlaylists([]); }
-      } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) { setCuratedPlaylists([]); }
       }
     };
     fetchAll();
@@ -179,7 +162,7 @@ function MainView() {
 
         const [recRes, trendingRes, appleRes] = await Promise.all([
           fetch(`/api/music/recommendations?${params}`),
-          fetch(`/api/music/trending?limit=20`),
+          fetch(`/api/music/trending?limit=50`),
           fetch(`/api/music/apple-top?country=${userCountry}`),
         ]);
 
@@ -189,7 +172,7 @@ function MainView() {
         if (appleRes.ok) {
           try {
             const appleData = await appleRes.json();
-            const appleTracks = (appleData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 10);
+            const appleTracks = (appleData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
             if (appleTracks.length > 0) {
               const cName = countryNameFromCode(appleData.country || userCountry);
               cats.push({
@@ -205,7 +188,7 @@ function MainView() {
         // Add trending as second category ("Популярное сейчас")
         if (trendingRes.ok) {
           const tData = await trendingRes.json();
-          const trendingTracks = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 10);
+          const trendingTracks = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
           if (trendingTracks.length > 0) {
             cats.push({
               id: "trending_now",
@@ -223,7 +206,7 @@ function MainView() {
             id: cat.id || `cat_${Date.now()}_${Math.random()}`,
             title: cat.title || "Рекомендации",
             icon: cat.icon || "Sparkles",
-            tracks: (cat.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 10),
+            tracks: (cat.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50),
           })).filter((cat: any) => cat.tracks.length > 0);
           cats.push(...recCats);
         }
@@ -231,7 +214,7 @@ function MainView() {
         // If no categories at all, create a fallback from trending
         if (cats.length === 0 && trendingRes.ok) {
           const tData = await trendingRes.json();
-          const fallback = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 10);
+          const fallback = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
           if (fallback.length > 0) {
             cats.push({ id: "fallback", title: "Для вас", icon: "Sparkles", tracks: fallback });
           }
@@ -279,7 +262,7 @@ function MainView() {
 
   // ── Hero = first track of visible list; rest go into the list ──
   const recHero = visibleRecTracks[0];
-  const recList = visibleRecTracks.slice(1, 9); // up to 8 tracks in list
+  const recList = visibleRecTracks.slice(1, 50); // up to 49 tracks in list (50 total with hero)
 
   // ── Play rec track in context of all visible tracks ──
   const handlePlayRec = useCallback((track: Track) => {
@@ -291,11 +274,7 @@ function MainView() {
   // ── Wave controls (from useWaveEngine hook) ──
   // Visual WaveCard component handles all rendering; this hook provides logic.
 
-  // ── Play all trending ──
-  const handlePlayAllTrending = useCallback(() => {
-    if (trendingTracks.length > 0) playTrack(trendingTracks[0], trendingTracks);
-  }, [trendingTracks, playTrack]);
-
+  // ── Artist navigation ──
   const handleNavigateToArtist = useCallback((artist: string) => {
     if (!artist) return;
     setSelectedArtist({ name: artist });
@@ -491,57 +470,6 @@ function MainView() {
           </div>
         </Section>
       )}
-
-      {/* ════════════════════════════════════════════════════════════════ */}
-      {/* TOP 100 — chart-style list (replaces old Popular) */}
-      {/* ════════════════════════════════════════════════════════════════ */}
-      <Section
-        title="Топ 100"
-        icon={Flame}
-        action={
-          trendingTracks.length > 0 ? (
-            <motion.button whileTap={{ scale: 0.95 }} onClick={handlePlayAllTrending}
-              className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium"
-              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
-              <Play className="w-3 h-3" fill="currentColor" />Все
-            </motion.button>
-          ) : undefined
-        }
-      >
-        {loading ? (
-          <div className="space-y-1">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ backgroundColor: "var(--mq-card)" }}>
-                <div className="w-10 h-10 rounded-lg mq-shimmer" />
-                <div className="flex-1 space-y-1.5">
-                  <div className="h-3 w-2/3 rounded mq-shimmer" />
-                  <div className="h-2.5 w-1/3 rounded mq-shimmer" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : trendingTracks.length === 0 ? (
-          <div className="text-center py-8 rounded-2xl" style={{ backgroundColor: "var(--mq-card)" }}>
-            <Music className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-            <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Не удалось загрузить</p>
-          </div>
-        ) : (
-          <div className="space-y-0.5">
-            {trendingTracks.slice(0, 100).map((track, i) => (
-              <TrendingRow
-                key={track.id}
-                track={track}
-                index={i + 1}
-                isCurrent={currentTrack?.id === track.id}
-                isPlaying={isPlaying && currentTrack?.id === track.id}
-                onPlay={() => playTrack(track, trendingTracks)}
-                onArtistClick={() => handleNavigateToArtist(track.artist)}
-                animationsEnabled={animationsEnabled}
-              />
-            ))}
-          </div>
-        )}
-      </Section>
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* FAVORITE ARTISTS */}
@@ -1326,69 +1254,6 @@ function RecsSkeleton() {
         ))}
       </div>
     </div>
-  );
-}
-
-// ═════════════════════════════════════════════════════════════════════════
-// TRENDING ROW (expanded list)
-// ═════════════════════════════════════════════════════════════════════════
-
-function TrendingRow({
-  track,
-  index,
-  isCurrent,
-  isPlaying,
-  onPlay,
-  onArtistClick,
-  animationsEnabled,
-}: {
-  track: Track;
-  index: number;
-  isCurrent: boolean;
-  isPlaying: boolean;
-  onPlay: () => void;
-  onArtistClick: () => void;
-  animationsEnabled: boolean;
-}) {
-  const [hovering, setHovering] = useState(false);
-  return (
-    <motion.div
-      onHoverStart={() => setHovering(true)}
-      onHoverEnd={() => setHovering(false)}
-      onClick={onPlay}
-      whileTap={{ scale: 0.99 }}
-      className="group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors"
-      style={{ backgroundColor: isCurrent ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "transparent" }}
-    >
-      <div className="w-7 flex-shrink-0 text-center">
-        {isCurrent && isPlaying ? (
-          <EqualizerIcon />
-        ) : hovering ? (
-          <Play className="w-3.5 h-3.5 mx-auto" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-        ) : (
-          <span className="text-xs font-medium" style={{ color: "var(--mq-text-muted)" }}>{index}</span>
-        )}
-      </div>
-      <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-card)" }}>
-        {track.cover ? (
-          <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-          </div>
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[13px] sm:text-sm font-medium truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>{track.title}</p>
-        <button
-          onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="text-[11px] sm:text-xs truncate hover:underline block w-full text-left"
-          style={{ color: "var(--mq-text-muted)" }}
-        >
-          {track.artist}
-        </button>
-      </div>
-    </motion.div>
   );
 }
 
