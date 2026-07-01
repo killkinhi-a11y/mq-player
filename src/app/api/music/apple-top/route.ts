@@ -6,7 +6,7 @@ import type { Track } from "@/lib/musicApi";
 // Force dynamic — without this Vercel does not register this route
 // (it's only called from client-side fetch, never from getStaticProps).
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const runtime = "nodejs";
 
 /**
  * GET /api/music/apple-top?country=RU

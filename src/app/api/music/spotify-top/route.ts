@@ -7,7 +7,7 @@ import type { Track } from "@/lib/musicApi";
 // statically rendered. Without this, Vercel may not register the route
 // when the build does not see it referenced from any page's data fetches.
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const runtime = "nodejs";
 
 /**
  * GET /api/music/spotify-top?country=RU
