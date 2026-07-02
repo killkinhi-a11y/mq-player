@@ -2772,27 +2772,36 @@ export const useAppStore = create<AppState>()(
           // persisted `s` — otherwise demo-user reset above gets overridden by /api/auth/me
           const currentState = useAppStore.getState();
           if (currentState.isAuthenticated && currentState.userId && currentState.userId !== "demo-user-id") {
-            // Retry once after delay to handle WebView cookie race on cold start
+            // Retry up to 3 times with increasing delays to handle:
+            // - WebView cookie race on cold start
+            // - Vercel serverless cold start (function not warmed up)
+            // - Transient network issues
             const fetchMe = (attempt: number) => fetch('/api/auth/me', { credentials: 'include' })
               .then(async (res) => {
                 if (res.status === 401) {
                   // Actual auth failure — session expired or invalid
-                  if (attempt < 1) {
-                    // Retry once after 800ms — covers WebView cookie race
-                    await new Promise(r => setTimeout(r, 800));
-                    return fetchMe(1);
+                  if (attempt < 3) {
+                    // Retry with increasing delay: 500ms, 1s, 2s
+                    const delay = 500 * Math.pow(2, attempt);
+                    await new Promise(r => setTimeout(r, delay));
+                    return fetchMe(attempt + 1);
                   }
-                  // 401 after retry — session truly expired
-                  console.warn("[MQ Store] /api/auth/me 401 after retry — session expired");
+                  // 401 after 3 retries — session truly expired
+                  console.warn("[MQ Store] /api/auth/me 401 after 3 retries — session expired");
                   return { _expired: true } as any;
                 }
                 if (!res.ok) {
                   // Server error (500, 502, etc.) — NOT an auth failure.
                   // Don't logout — keep local state, will retry on next interaction.
-                  console.warn("[MQ Store] /api/auth/me returned", res.status, "— server error, deferring");
+                  console.warn("[MQ Store] /api/auth/me returned", res.status, "— server error, keeping session");
                   return null;
                 }
                 return res.json();
+              })
+              .catch((err) => {
+                // Network error — don't logout, keep local session
+                console.warn("[MQ Store] /api/auth/me network error:", err.message);
+                return null;
               });
             fetchMe(0)
               .then((me) => {
@@ -2812,8 +2821,13 @@ export const useAppStore = create<AppState>()(
                   return;
                 }
                 if (!me) {
-                  // Server error or network issue — keep local state, don't logout
+                  // Server error or network issue — keep local session, ensure
+                  // user stays on main view (not kicked to auth)
                   console.warn("[MQ Store] /api/auth/me unavailable — keeping local session");
+                  const cs = useAppStore.getState();
+                  if (cs.isAuthenticated && cs.currentView === "auth") {
+                    useAppStore.setState({ currentView: "main" });
+                  }
                   return;
                 }
                 useAppStore.setState({
