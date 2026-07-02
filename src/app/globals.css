@@ -2784,3 +2784,108 @@ a:focus-visible {
     background: rgba(255,255,255,0.2);
   }
 }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   ENHANCED VISUAL FEEDBACK — desktop + mobile
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* 13. Scale-in animation for modals/sheets */
+@keyframes mq-scale-in {
+  from { opacity: 0; transform: scale(0.92) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.mq-scale-in {
+  animation: mq-scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 14. Slide-up animation for bottom sheets */
+@keyframes mq-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.mq-slide-up {
+  animation: mq-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 15. Fade-in for overlays */
+@keyframes mq-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.mq-fade-in {
+  animation: mq-fade-in 0.15s ease-out;
+}
+
+/* 16. Bounce on like */
+@keyframes mq-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+.mq-bounce {
+  animation: mq-bounce 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 17. Glow pulse for active elements */
+@keyframes mq-glow-pulse {
+  0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--mq-accent) 30%, transparent); }
+  50% { box-shadow: 0 0 12px color-mix(in srgb, var(--mq-accent) 50%, transparent); }
+}
+.mq-glow-pulse {
+  animation: mq-glow-pulse 2s ease-in-out infinite;
+}
+
+/* 18. Smooth color transitions on interactive elements */
+button,
+[role="button"],
+a,
+.mq-premium-card,
+.mq-hero-card {
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+/* 19. Touch feedback — larger press area on mobile */
+@media (hover: none) {
+  button:active:not(:disabled),
+  [role="button"]:active:not(:disabled) {
+    transform: scale(0.94);
+    opacity: 0.85;
+    transition: all 0.06s ease;
+  }
+  /* No hover effects on touch */
+  .group:hover * {
+    transform: none !important;
+    opacity: 0 !important;
+  }
+  /* But keep opacity-100 for always-visible elements */
+  .group:hover .opacity-100,
+  .group .opacity-100 {
+    opacity: 1 !important;
+  }
+}
+
+/* 20. Progress bar enhanced — thicker on hover */
+.mq-progress-track {
+  transition: height 0.15s ease;
+  height: 6px;
+}
+.mq-progress-track:hover {
+  height: 8px;
+}
+
+/* 21. Card entrance stagger */
+@keyframes mq-card-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.mq-card-enter {
+  animation: mq-card-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 22. Equalizer bars animation */
+@keyframes mq-eq-bar-anim {
+  0%, 100% { height: 30%; }
+  50% { height: 100%; }
+}
+.mq-eq-bar {
+  animation: mq-eq-bar-anim 0.8s ease-in-out infinite;
+}

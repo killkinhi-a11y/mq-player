@@ -29,6 +29,9 @@ const config: CapacitorConfig = {
       splashFullScreen: true,
       splashImmersive: false,
     },
+    MediaSession: {
+      foregroundService: 'always',
+    },
   },
 };
 

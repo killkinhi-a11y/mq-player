@@ -293,9 +293,23 @@ export default function PlayerBar() {
                 <div
                   ref={progressBarRef}
                   className="flex-1 h-1.5 rounded-full cursor-pointer relative group"
+                  style={{ touchAction: "none" }}
                   onMouseDown={handleProgressMouseDown}
                   onMouseLeave={() => setHoveredTime(null)}
                   onMouseMove={handleProgressMouseMove}
+                  onTouchStart={(e) => {
+                    e.stopPropagation();
+                    setIsDragging(true);
+                    if (e.touches[0]) seekTo(e.touches[0].clientX);
+                  }}
+                  onTouchMove={(e) => {
+                    e.stopPropagation();
+                    if (e.touches[0]) seekTo(e.touches[0].clientX);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.stopPropagation();
+                    setIsDragging(false);
+                  }}
                 >
                   {/* Track */}
                   <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }} />
@@ -304,14 +318,15 @@ export default function PlayerBar() {
                     <div className="absolute inset-y-0 left-0 rounded-full opacity-0 group-hover:opacity-100" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "rgba(255,255,255,0.12)" }} />
                   )}
                   {/* Progress fill */}
-                  <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", willChange: "transform", transition: isDragging ? "none" : "transform 0.1s linear" }} />
-                  {/* Thumb */}
+                  <div className="absolute inset-y-0 left-0 rounded-full mq-progress-glow" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", willChange: "transform", transition: isDragging ? "none" : "transform 0.1s linear" }} />
+                  {/* Thumb — visible on hover (desktop) and always on mobile (touch) */}
                   <div
-                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full pointer-events-none transition-opacity"
                     style={{
                       left: `${isDragging ? progressPct : hoveredPct}%`,
                       backgroundColor: "var(--mq-accent)",
                       boxShadow: "0 0 8px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
+                      opacity: isMobile ? 1 : undefined,
                     }}
                   />
                   {/* Hover timestamp tooltip */}
