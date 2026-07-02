@@ -14,7 +14,8 @@ import { sanitizeGenre } from "@/lib/tasteProfile";
 /*  Client ID pool — rotated on 401 errors                            */
 /* ------------------------------------------------------------------ */
 const CLIENT_IDS = [
-  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // 2025-06
+  "O7atZypwLvuWSY9hWnnQ3vrLTHH7wqMe", // 2025-07 — freshly extracted
+  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // 2025-06 — backup (may be stale)
   "JYcDeZwsm7iCUaCkf1rFjCmVh5RcY3gE", // backup
   "0fW2nOTiRqfcZvfInHCFInQD6v3a87SE", // backup
   "iZfJlNrHFpRTrlyUIv5VaCkqNKU8wHmD", // backup
@@ -295,7 +296,8 @@ export async function searchSCArtists(
  */
 export async function resolveSCStreamUrl(scTrackId: number): Promise<string | null> {
   const CLIENT_IDS_STREAM = [
-    "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // Fresh: extracted from SC website (2025-06)
+    "O7atZypwLvuWSY9hWnnQ3vrLTHH7wqMe", // 2025-07 — freshly extracted
+    "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // backup
   ];
 
   for (const clientId of CLIENT_IDS_STREAM) {
