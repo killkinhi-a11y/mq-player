@@ -28,7 +28,8 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "edge";
 
 const CLIENT_IDS = [
-  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // Fresh: extracted from SC website (2025-06)
+  "O7atZypwLvuWSY9hWnnQ3vrLTHH7wqMe", // 2025-07 — freshly extracted
+  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // backup (may be stale)
   // NOTE: Previous IDs all returned 401 as of 2025-06:
   // 1Gbi6DBGBMULQH8MuhNvI1HzL9AiX2Pa, qYUIEFbSZdXPABQbuHA2Tv8C9ndesHim, S3TPtG5i3yzBs1BPd50h1N5TW2kNTo5k
 ];
