@@ -35,8 +35,14 @@ function absoluteCoverUrl(cover?: string): string | null {
   if (!cover) return null;
   if (cover.startsWith("http://") || cover.startsWith("https://")) return cover;
   if (cover.startsWith("/")) {
-    // In Capacitor WebView, window.location.origin is https://localhost or the server URL
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://mq1.vercel.app";
+    // In Capacitor WebView, window.location.origin may be https://localhost
+    // or empty — use the production URL as fallback so covers load in
+    // the native media notification.
+    let origin = typeof window !== "undefined" ? window.location.origin : "";
+    // If origin is localhost or empty (Capacitor), use production URL
+    if (!origin || origin.includes("localhost") || origin.includes("127.0.0.1")) {
+      origin = "https://mq1.vercel.app";
+    }
     return `${origin}${cover}`;
   }
   // data: URLs or other protocols — pass through

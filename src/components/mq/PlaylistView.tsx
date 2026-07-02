@@ -1172,39 +1172,27 @@ function PlaylistTile({
         {/* More menu trigger */}
         <button
           onClick={onToggleMenu}
-          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
           style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}
         >
           <MoreVertical className="w-3.5 h-3.5 text-white" />
         </button>
 
-        {/* Context menu */}
+        {/* Context menu — uses fixed positioning + portal to avoid overflow clipping */}
         <AnimatePresence>
           {menuOpen && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: -4 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.15 }}
-              onClick={(e) => e.stopPropagation()}
-              className="absolute top-11 right-2 z-20 min-w-[160px] rounded-xl overflow-hidden py-1"
-              style={{
-                backgroundColor: "var(--mq-surface, #1a1a1a)",
-                border: "1px solid var(--mq-border-thin)",
-                boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-              }}
-            >
-              <MenuItem icon={Pin} label={pinned ? "Открепить" : "Закрепить"} onClick={onTogglePin} />
-              <MenuItem icon={Edit3} label="Переименовать" onClick={onRenameStart} />
-              {pl.cover && (
-                <MenuItem icon={X} label="Сменить обложку" onClick={() => fileInputRef.current?.click()} />
-              )}
-              <MenuItem icon={Share2} label="Поделиться" onClick={() => {
+            <PlaylistContextMenu
+              playlist={pl}
+              pinned={pinned}
+              onClose={() => onToggleMenu({ stopPropagation: () => {} } as React.MouseEvent)}
+              onTogglePin={onTogglePin}
+              onRenameStart={onRenameStart}
+              onCoverUpload={() => fileInputRef.current?.click()}
+              onShare={() => {
                 navigator.clipboard?.writeText(`${window.location.origin}/play?pl=${pl.id}`).catch(() => {});
-              }} />
-              <div className="h-px my-1" style={{ backgroundColor: "rgba(255,255,255,0.06)" }} />
-              <MenuItem icon={Trash2} label="Удалить" onClick={onDelete} danger />
-            </motion.div>
+              }}
+              onDelete={onDelete}
+            />
           )}
         </AnimatePresence>
 
@@ -1293,4 +1281,115 @@ function pluralRu(n: number, one: string, few: string, many: string): string {
   if (mod10 === 1 && mod100 !== 11) return one;
   if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
   return many;
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// PLAYLIST CONTEXT MENU — portal-based, fixed positioning, not clipped
+// ═════════════════════════════════════════════════════════════════════════
+
+import { createPortal } from "react-dom";
+
+function PlaylistContextMenu({
+  playlist: pl, pinned, onClose, onTogglePin, onRenameStart, onCoverUpload, onShare, onDelete,
+}: {
+  playlist: UserPlaylist;
+  pinned: boolean;
+  onClose: () => void;
+  onTogglePin: () => void;
+  onRenameStart: () => void;
+  onCoverUpload: () => void;
+  onShare: () => void;
+  onDelete: () => void;
+}) {
+  const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Position menu near top-right of viewport, adjusted to fit screen
+  useEffect(() => {
+    const menuW = 200;
+    const menuH = 240;
+    const x = Math.min(window.innerWidth - menuW - 16, window.innerWidth - menuW - 16);
+    const y = Math.max(80, Math.min(window.innerHeight - menuH - 16, 100));
+    setPos({ x, y });
+  }, []);
+
+  // Close on outside click + Escape
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    // Delay to avoid immediate close from the trigger click
+    const t = setTimeout(() => {
+      document.addEventListener("mousedown", onDown);
+      document.addEventListener("keydown", onKey);
+    }, 0);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  const handle = (fn: () => void) => () => {
+    fn();
+    onClose();
+  };
+
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-[200]"
+        onClick={onClose}
+        style={{ backgroundColor: "rgba(0,0,0,0.3)" }}
+      />
+      {/* Menu */}
+      <div
+        ref={menuRef}
+        className="fixed z-[201] min-w-[200px] rounded-2xl overflow-hidden py-1.5"
+        style={{
+          left: pos.x,
+          top: pos.y,
+          backgroundColor: "var(--mq-surface, #1a1a1a)",
+          border: "1px solid var(--mq-border-thin)",
+          boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
+        }}
+      >
+        <PlaylistMenuItem icon={Pin} label={pinned ? "Открепить" : "Закрепить"} onClick={handle(onTogglePin)} />
+        <PlaylistMenuItem icon={Edit3} label="Переименовать" onClick={handle(onRenameStart)} />
+        <PlaylistMenuItem icon={Camera} label="Сменить обложку" onClick={handle(onCoverUpload)} />
+        <PlaylistMenuItem icon={Share2} label="Поделиться" onClick={handle(onShare)} />
+        <div className="h-px my-1 mx-2" style={{ backgroundColor: "rgba(255,255,255,0.06)" }} />
+        <PlaylistMenuItem icon={Trash2} label="Удалить" onClick={handle(onDelete)} danger />
+      </div>
+    </>,
+    document.body
+  );
+}
+
+function PlaylistMenuItem({
+  icon: Icon, label, onClick, danger,
+}: {
+  icon: React.ElementType;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+      style={{ color: danger ? "#ef4444" : "var(--mq-text)" }}
+    >
+      <Icon className="w-4 h-4 flex-shrink-0" style={{ opacity: 0.8 }} />
+      <span className="text-sm font-medium">{label}</span>
+    </button>
+  );
 }

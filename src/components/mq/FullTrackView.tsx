@@ -16,6 +16,7 @@ import type { Track } from "@/lib/musicApi";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/hooks/use-toast";
 import VolumeSlider from "@/components/ui/volume-slider";
+import { fetchLyrics } from "@/lib/lyrics-client";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
@@ -555,25 +556,25 @@ export default function FullTrackView() {
     setLyricsLoading(true);
 
     let cancelled = false;
-    // Client-side fetch directly from lrclib.net (CORS-enabled) — bypasses
+    // Direct client-side fetch from lrclib.net (CORS-enabled) — bypasses
     // Vercel serverless which is IP-blocked by lrclib.net's WAF.
-    import("@/lib/lyrics-client").then(({ fetchLyrics }) => {
-      if (cancelled) return;
-      return fetchLyrics(currentTrack.artist, currentTrack.title);
-    }).then(result => {
-      if (cancelled || !result) return;
-      if (result.lyrics.length > 0) {
-        setLyrics(result.lyrics);
-      } else if (result.plainText) {
-        setPlainLyrics(result.plainText);
-      } else {
-        setLyricsError("Текст не найден");
-      }
-    }).catch(() => {
-      if (!cancelled) setLyricsError("Ошибка загрузки текста");
-    }).finally(() => {
-      if (!cancelled) setLyricsLoading(false);
-    });
+    fetchLyrics(currentTrack.artist, currentTrack.title)
+      .then(result => {
+        if (cancelled || !result) return;
+        if (result.lyrics.length > 0) {
+          setLyrics(result.lyrics);
+        } else if (result.plainText) {
+          setPlainLyrics(result.plainText);
+        } else {
+          setLyricsError("Текст не найден");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLyricsError("Ошибка загрузки текста");
+      })
+      .finally(() => {
+        if (!cancelled) setLyricsLoading(false);
+      });
     return () => { cancelled = true; };
   }, [activePanel, isOpen, currentTrack]);
 
