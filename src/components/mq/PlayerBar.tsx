@@ -12,6 +12,7 @@ import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
 import { useIsMobile } from "@/hooks/use-mobile";
 import QueueView from "./QueueView";
+import { ProgressBar } from "./ProgressBar";
 
 // ═════════════════════════════════════════════════════════════════════════
 // PLAYER BAR — desktop mini player
@@ -287,65 +288,22 @@ export default function PlayerBar() {
                 </button>
               </div>
 
-              {/* Progress bar with hover preview fill + timestamp tooltip */}
-              <div className="flex items-center gap-2 w-full">
-                <span className="text-[10px] font-mono tabular-nums w-9 text-right" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(progress)}</span>
-                <div
-                  ref={progressBarRef}
-                  className="flex-1 h-1.5 rounded-full cursor-pointer relative group"
-                  style={{ touchAction: "none" }}
-                  onMouseDown={handleProgressMouseDown}
-                  onMouseLeave={() => setHoveredTime(null)}
-                  onMouseMove={handleProgressMouseMove}
-                  onTouchStart={(e) => {
-                    e.stopPropagation();
-                    setIsDragging(true);
-                    if (e.touches[0]) seekTo(e.touches[0].clientX);
-                  }}
-                  onTouchMove={(e) => {
-                    e.stopPropagation();
-                    if (e.touches[0]) seekTo(e.touches[0].clientX);
-                  }}
-                  onTouchEnd={(e) => {
-                    e.stopPropagation();
-                    setIsDragging(false);
-                  }}
-                >
-                  {/* Track */}
-                  <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }} />
-                  {/* Hover preview fill */}
-                  {hoveredPct > progressPct && (
-                    <div className="absolute inset-y-0 left-0 rounded-full opacity-0 group-hover:opacity-100" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "rgba(255,255,255,0.12)" }} />
-                  )}
-                  {/* Progress fill */}
-                  <div className="absolute inset-y-0 left-0 rounded-full mq-progress-glow" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", willChange: "transform", transition: isDragging ? "none" : "transform 0.1s linear" }} />
-                  {/* Thumb — visible on hover (desktop) and always on mobile (touch) */}
-                  <div
-                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full pointer-events-none transition-opacity"
-                    style={{
-                      left: `${isDragging ? progressPct : hoveredPct}%`,
-                      backgroundColor: "var(--mq-accent)",
-                      boxShadow: "0 0 8px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
-                      opacity: isMobile ? 1 : undefined,
-                    }}
-                  />
-                  {/* Hover timestamp tooltip */}
-                  {hoveredTime !== null && !isDragging && (
-                    <div
-                      className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded text-[9px] font-mono pointer-events-none whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{
-                        left: `${Math.max(10, Math.min(90, hoveredPct))}%`,
-                        backgroundColor: "var(--mq-card)",
-                        color: "var(--mq-text)",
-                        border: "1px solid var(--mq-border-thin)",
-                      }}
-                    >
-                      {formatDuration(hoveredTime)}
-                    </div>
-                  )}
-                </div>
-                <span className="text-[10px] font-mono tabular-nums w-9" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(duration)}</span>
-              </div>
+              {/* Progress bar — premium redesign */}
+              <ProgressBar
+                progress={progress}
+                duration={duration}
+                isPlaying={isPlaying}
+                isDragging={isDragging}
+                onSeek={(time) => {
+                  const audio = getAudioElement();
+                  if (audio && audio.src) audio.currentTime = time;
+                  setProgress(time);
+                }}
+                onDragStart={() => setIsDragging(true)}
+                onDragEnd={() => setIsDragging(false)}
+                formatTime={formatDuration}
+                variant="playerbar"
+              />
             </div>
 
             {/* ═══ RIGHT: Like, Dislike, Volume, Queue ═══ */}

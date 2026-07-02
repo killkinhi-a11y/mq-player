@@ -1,43 +1,30 @@
 "use client";
 
+// MQ Player — Messenger (Telegram-style rewrite)
+// Safety-first: every state array is Array.isArray-guarded, every async op
+// is wrapped in try/catch, and a recoverable error state replaces any white
+// screen.
+
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MessageCircle, Search, Send, ArrowLeft, X, Plus,
-  Loader2, UserPlus, Mic, Pin, Trash2, MoreVertical,
-  Smile, Users,
+  MessageCircle, Search, Send, ArrowLeft, X, Plus, Loader2, UserPlus, Mic,
+  Pin, Trash2, Smile, Users, Lock, Check, CheckCheck, Copy, Reply,
 } from "lucide-react";
 import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
 import { useToast } from "@/hooks/use-toast";
+import type { Message as ChatMessage } from "@/lib/musicApi";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
-interface FriendUser {
-  id: string;
-  username: string;
-  avatar?: string;
-  addedAt: string;
-}
-
-interface OnlineStatus {
-  online: boolean;
-  lastSeen: string | null;
-}
-
+interface FriendUser { id: string; username: string; avatar?: string; addedAt: string; }
+interface OnlineStatus { online: boolean; lastSeen: string | null; }
+interface GroupMember { id: string; username: string; avatar?: string; }
 interface GroupChat {
-  id: string;
-  name: string;
-  avatar?: string;
-  members: { id: string; username: string; avatar?: string }[];
-  createdAt: string;
+  id: string; name: string; avatar?: string; members: GroupMember[]; createdAt: string;
 }
-
-interface ContextMenu {
-  id: string;
-  x: number;
-  y: number;
-}
+interface ContextMenuState { id: string; x: number; y: number; }
 
 const QUICK_EMOJIS = ["❤️", "🔥", "😂", "👍", "😮", "😢"];
 
@@ -46,102 +33,156 @@ const QUICK_EMOJIS = ["❤️", "🔥", "😂", "👍", "😮", "😢"];
 function formatTime(iso: string): string {
   try {
     const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
     return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-  } catch {
-    return "";
-  }
+  } catch { return ""; }
 }
 
 function formatLastSeen(iso: string | null): string {
   if (!iso) return "был(а) недавно";
   try {
     const d = new Date(iso);
-    const diffMs = Date.now() - d.getTime();
-    const diffMin = Math.floor(diffMs / 60000);
+    if (isNaN(d.getTime())) return "был(а) недавно";
+    const diffMin = Math.floor((Date.now() - d.getTime()) / 60000);
     if (diffMin < 1) return "только что";
     if (diffMin < 60) return `был(а) ${diffMin} мин назад`;
     const diffH = Math.floor(diffMin / 60);
     if (diffH < 24) return `был(а) ${diffH} ч назад`;
     return `был(а) ${d.toLocaleDateString("ru-RU")}`;
-  } catch {
-    return "был(а) недавно";
-  }
+  } catch { return "был(а) недавно"; }
 }
 
 function formatDuration(sec: number): string {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
+  const s = Math.max(0, Math.floor(sec || 0));
+  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
+}
+
+function getDateLabel(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    const msgDay = new Date(d); msgDay.setHours(0, 0, 0, 0);
+    if (msgDay.getTime() === today.getTime()) return "Сегодня";
+    if (msgDay.getTime() === yesterday.getTime()) return "Вчера";
+    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+  } catch { return ""; }
+}
+
+function sameDay(a: string, b: string): boolean {
+  try {
+    const da = new Date(a), db = new Date(b);
+    return da.getFullYear() === db.getFullYear() &&
+      da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+  } catch { return false; }
+}
+
+const AVATAR_COLORS = [
+  "linear-gradient(135deg, #e03131, #b91c1c)",
+  "linear-gradient(135deg, #db2777, #9d174d)",
+  "linear-gradient(135deg, #9333ea, #6b21a8)",
+  "linear-gradient(135deg, #0d9488, #134e4a)",
+  "linear-gradient(135deg, #65a30d, #365314)",
+  "linear-gradient(135deg, #d97706, #78350f)",
+  "linear-gradient(135deg, #0891b2, #155e75)",
+];
+
+function colorForId(id: string): string {
+  let hash = 0;
+  const s = id || "x";
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) | 0;
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function getInitials(name: string): string {
+  return name ? name.replace("@", "").charAt(0).toUpperCase() : "?";
+}
+
+function parseVoice(content: string): { voiceUrl: string; voiceDuration: number } | null {
+  if (!content || typeof content !== "string") return null;
+  try {
+    const p = JSON.parse(content);
+    if (p && typeof p.voiceUrl === "string") {
+      return { voiceUrl: p.voiceUrl, voiceDuration: Number(p.voiceDuration) || 0 };
+    }
+  } catch {}
+  return null;
+}
+
+function decrypt(content: string): string {
+  try { return simulateDecryptSync(content || ""); } catch { return content || ""; }
 }
 
 // ─── Voice Message Bubble ─────────────────────────────────────────────────
 
-function VoiceMessageBubble({ voiceUrl, duration, isMine }: { voiceUrl: string; duration: number; isMine: boolean }) {
+function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
+  voiceUrl: string; duration: number; isMine: boolean;
+}) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [dur, setDur] = useState(duration || 0);
 
   useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio(voiceUrl);
-      audioRef.current.onloadedmetadata = () => setDur(audioRef.current?.duration || duration || 0);
-      audioRef.current.ontimeupdate = () => setCurrentTime(audioRef.current?.currentTime || 0);
-      audioRef.current.onended = () => { setPlaying(false); setCurrentTime(0); };
-    }
-    return () => { audioRef.current?.pause(); audioRef.current = null; };
+    let cancelled = false;
+    try {
+      const audio = new Audio(voiceUrl);
+      audio.onloadedmetadata = () => { if (!cancelled) setDur(audio.duration || duration || 0); };
+      audio.ontimeupdate = () => { if (!cancelled) setCurrentTime(audio.currentTime || 0); };
+      audio.onended = () => { if (!cancelled) { setPlaying(false); setCurrentTime(0); } };
+      audioRef.current = audio;
+    } catch {}
+    return () => {
+      cancelled = true;
+      try { audioRef.current?.pause(); } catch {}
+      audioRef.current = null;
+    };
   }, [voiceUrl, duration]);
 
-  const toggle = () => {
-    if (!audioRef.current) return;
-    if (playing) { audioRef.current.pause(); setPlaying(false); }
-    else { audioRef.current.play().catch(() => {}); setPlaying(true); }
-  };
+  const toggle = useCallback(() => {
+    try {
+      const a = audioRef.current;
+      if (!a) return;
+      if (playing) { a.pause(); setPlaying(false); }
+      else { a.play().catch(() => {}); setPlaying(true); }
+    } catch {}
+  }, [playing]);
 
   const progress = dur > 0 ? (currentTime / dur) * 100 : 0;
+  // Deterministic waveform (no Math.random to avoid re-renders).
   const bars = useMemo(() => {
     const arr: number[] = [];
-    for (let i = 0; i < 24; i++) arr.push(0.3 + Math.random() * 0.7);
+    for (let i = 0; i < 28; i++) arr.push(0.25 + ((i * 7) % 10) / 12);
     return arr;
   }, []);
 
   return (
-    <div className="flex items-center gap-2 min-w-[180px]">
-      <motion.button
-        whileTap={{ scale: 0.9 }}
-        onClick={toggle}
+    <div className="flex items-center gap-2 min-w-[180px] py-0.5">
+      <motion.button whileTap={{ scale: 0.9 }} onClick={toggle}
         className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{
-          backgroundColor: isMine ? "rgba(255,255,255,0.2)" : "var(--mq-accent)",
-          color: isMine ? "#fff" : "#fff",
-        }}
-      >
-        {playing ? (
-          <span className="text-xs">❚❚</span>
-        ) : (
-          <span className="text-xs ml-0.5">▶</span>
-        )}
+        style={{ backgroundColor: isMine ? "rgba(255,255,255,0.22)" : "var(--mq-accent)", color: "#fff" }}
+        aria-label={playing ? "Пауза" : "Воспроизвести"}>
+        {playing ? <span className="text-[10px] leading-none">❚❚</span>
+          : <span className="text-xs leading-none ml-0.5">▶</span>}
       </motion.button>
       <div className="flex-1">
         <div className="flex items-end gap-[2px] h-7">
           {bars.map((h, i) => {
-            const barProgress = (i / bars.length) * 100;
-            const isActive = barProgress < progress;
+            const isActive = (i / bars.length) * 100 < progress;
             return (
-              <div
-                key={i}
-                className="w-[2px] rounded-full transition-colors"
+              <div key={i} className="w-[2px] rounded-full transition-colors"
                 style={{
                   height: `${h * 100}%`,
                   backgroundColor: isMine
-                    ? (isActive ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.4)")
+                    ? (isActive ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)")
                     : (isActive ? "var(--mq-accent)" : "var(--mq-text-muted)"),
-                }}
-              />
+                }} />
             );
           })}
         </div>
-        <div className="text-[10px] mt-1" style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)" }}>
+        <div className="text-[10px] mt-1"
+          style={{ color: isMine ? "rgba(255,255,255,0.75)" : "var(--mq-text-muted)" }}>
           {formatDuration(playing ? currentTime : dur)}
         </div>
       </div>
@@ -149,7 +190,41 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: { voiceUrl: string; 
   );
 }
 
-// ─── Main Component ────────────────────────────────────────────────────────
+// ─── Avatar ───────────────────────────────────────────────────────────────
+
+function Avatar({ src, name, id, size = 44, isGroup = false }: {
+  src?: string; name: string; id: string; size?: number; isGroup?: boolean;
+}) {
+  if (src) {
+    return <img src={src} alt={name} className="rounded-full object-cover flex-shrink-0"
+      style={{ width: size, height: size }} />;
+  }
+  return (
+    <div className="rounded-full flex items-center justify-center font-bold flex-shrink-0"
+      style={{
+        width: size, height: size,
+        background: isGroup ? "linear-gradient(135deg, #8b5cf6, #6366f1)" : colorForId(id),
+        color: "#fff", fontSize: size * 0.4,
+      }}>
+      {isGroup ? <Users style={{ width: size * 0.45, height: size * 0.45 }} /> : getInitials(name)}
+    </div>
+  );
+}
+
+// ─── Date Separator ───────────────────────────────────────────────────────
+
+function DateSeparator({ label }: { label: string }) {
+  return (
+    <div className="flex justify-center my-3">
+      <span className="text-[11px] px-3 py-1 rounded-full font-medium"
+        style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "var(--mq-text-muted)" }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────
 
 export default function MessengerView() {
   const userId = useAppStore((s) => s.userId);
@@ -159,13 +234,12 @@ export default function MessengerView() {
   const selectedContactId = useAppStore((s) => s.selectedContactId);
   const setSelectedContact = useAppStore((s) => s.setSelectedContact);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
-  const unreadCounts = useAppStore((s) => s.unreadCounts);
+  const unreadCounts = useAppStore((s) => s.unreadCounts) as Record<string, number>;
   const compactMode = useAppStore((s) => s.compactMode);
   const { toast } = useToast();
 
   // ── Local state ──
   const [friends, setFriends] = useState<FriendUser[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [onlineStatuses, setOnlineStatuses] = useState<Record<string, OnlineStatus>>({});
   const [inputText, setInputText] = useState("");
   const [isMobileView, setIsMobileView] = useState(false);
@@ -179,36 +253,49 @@ export default function MessengerView() {
   const [searchQuery, setSearchQuery] = useState("");
   const [groupChats, setGroupChats] = useState<GroupChat[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [groupMessages, setGroupMessages] = useState<Record<string, any[]>>({});
+  const [groupMessages, setGroupMessages] = useState<Record<string, ChatMessage[]>>({});
   const [groupName, setGroupName] = useState("");
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
-  const [messageReactions, setMessageReactions] = useState<Record<string, string[]>>({});
+  const [pinnedChats, setPinnedChats] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("mq-pinned-chats");
+      const parsed = stored ? JSON.parse(stored) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  });
   const [pinnedMessages, setPinnedMessages] = useState<Record<string, string>>(() => {
     try {
       const stored = localStorage.getItem("mq-pinned-messages");
-      return stored ? JSON.parse(stored) : {};
+      const parsed = stored ? JSON.parse(stored) : {};
+      return parsed && typeof parsed === "object" ? parsed : {};
     } catch { return {}; }
   });
-  const [contextMenu, setContextMenu] = useState<ContextMenu | null>(null);
-  const [showReactionsFor, setShowReactionsFor] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
-  const recordingDurationRef = useRef(0);
-  const [swipeStartX, setSwipeStartX] = useState<number | null>(null);
+  const [showQuickEmojis, setShowQuickEmojis] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // ── Refs ──
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const sseRef = useRef<EventSource | null>(null);
   const bcRef = useRef<BroadcastChannel | null>(null);
   const lastSeenTimeRef = useRef<string>(new Date(0).toISOString());
-  const lastFriendsSnapshotRef = useRef<string>("");
+  const recordingDurationRef = useRef(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordingChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pullStartYRef = useRef<number | null>(null);
 
+  // ── Derived (always-defensive) ──
   const activeChatId = selectedGroupId || selectedContactId;
   const isGroupChat = !!selectedGroupId;
+  const safeFriends = Array.isArray(friends) ? friends : [];
+  const safeGroupChats = Array.isArray(groupChats) ? groupChats : [];
+  const safeMessages = Array.isArray(messages) ? (messages as ChatMessage[]) : [];
 
   // ── Detect mobile ──
   useEffect(() => {
@@ -219,29 +306,21 @@ export default function MessengerView() {
   }, []);
 
   // ── Mobile view sync ──
-  useEffect(() => {
-    if (activeChatId) setMobileView("chat");
-    else setMobileView("list");
-  }, [activeChatId]);
+  useEffect(() => { setMobileView(activeChatId ? "chat" : "list"); }, [activeChatId]);
 
-  // ── Fetch friends (deduped) ──
+  // ── Fetch friends ──
   const fetchFriends = useCallback(async () => {
     if (!userId) return;
     setIsLoadingFriends(true);
     try {
       const res = await fetch(`/api/friends?userId=${userId}`);
-      if (res.ok) {
-        const data = await res.json();
-        const newFriends: FriendUser[] = data.friends || [];
-        const newPending = data.pendingRequests || [];
-        const snapshot = newFriends.map((f) => f.id).sort().join(",") + "|" + newPending.map((p: any) => p.id).sort().join(",");
-        if (snapshot !== lastFriendsSnapshotRef.current) {
-          lastFriendsSnapshotRef.current = snapshot;
-          setFriends(newFriends);
-          setPendingRequests(newPending);
-        }
-      }
-    } catch {} finally {
+      if (!res.ok) throw new Error("bad");
+      const data = await res.json();
+      setFriends(Array.isArray(data.friends) ? data.friends : []);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    } finally {
       setIsLoadingFriends(false);
     }
   }, [userId]);
@@ -249,95 +328,118 @@ export default function MessengerView() {
   useEffect(() => { fetchFriends(); }, [fetchFriends]);
 
   // ── Fetch group chats ──
-  useEffect(() => {
+  const fetchGroupChats = useCallback(async () => {
     if (!userId) return;
-    const load = async () => {
-      try {
-        const res = await fetch(`/api/group-chats?userId=${userId}`);
-        if (res.ok) {
-          const data = await res.json();
-          setGroupChats(data.groupChats || data || []);
-        }
-      } catch {}
-    };
-    load();
+    try {
+      const res = await fetch(`/api/group-chats?userId=${userId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = Array.isArray(data.groupChats) ? data.groupChats : Array.isArray(data) ? data : [];
+      const normalized: GroupChat[] = list.map((g: any) => ({
+        id: g.id, name: g.name || "Group", avatar: g.avatar,
+        members: Array.isArray(g.members) ? g.members : [],
+        createdAt: g.createdAt || new Date().toISOString(),
+      }));
+      setGroupChats(normalized);
+    } catch {}
   }, [userId]);
 
-  // ── Fetch online statuses (deduped) ──
-  const lastFriendsKeyRef = useRef<string>("");
-  useEffect(() => {
-    if (!userId || friends.length === 0) return;
-    const friendsKey = friends.map((f) => f.id).sort().join(",");
-    if (friendsKey === lastFriendsKeyRef.current) return;
-    lastFriendsKeyRef.current = friendsKey;
+  useEffect(() => { fetchGroupChats(); }, [fetchGroupChats]);
 
+  // ── Fetch online statuses (poll every 30s) ──
+  useEffect(() => {
+    if (!userId || safeFriends.length === 0) return;
+    let cancelled = false;
     const fetchStatuses = async () => {
       const statuses: Record<string, OnlineStatus> = {};
-      await Promise.all(friends.map(async (f) => {
+      await Promise.all(safeFriends.map(async (f) => {
         try {
           const res = await fetch(`/api/user/${f.id}/status`);
           if (res.ok) {
             const data = await res.json();
-            statuses[f.id] = { online: data.online ?? false, lastSeen: data.lastSeen ?? null };
+            statuses[f.id] = { online: !!data.online, lastSeen: data.lastSeen ?? null };
+          } else {
+            statuses[f.id] = { online: false, lastSeen: null };
           }
         } catch { statuses[f.id] = { online: false, lastSeen: null }; }
       }));
-      setOnlineStatuses(statuses);
+      if (!cancelled) setOnlineStatuses(statuses);
     };
     fetchStatuses();
     const interval = setInterval(fetchStatuses, 30000);
-    return () => clearInterval(interval);
-  }, [userId, friends]);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [userId, safeFriends]);
 
-  // ── SSE ──
+  // ── SSE for real-time DMs ──
   useEffect(() => {
     if (!userId) return;
     let destroyed = false;
+
     const processIncoming = (m: any) => {
-      const state = useAppStore.getState();
-      const msgs = Array.isArray(state.messages) ? state.messages : [];
-      const existing = msgs.find((em: any) => em.id === m.id);
-      if (existing) return;
-      state.addMessage({
-        id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
-        encrypted: m.encrypted ?? true, createdAt: m.createdAt,
-        senderName: m.senderUsername ? `@${m.senderUsername}` : undefined,
-        messageType: m.messageType, voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
-      });
-      if (m.senderId !== userId) {
-        try {
-          if (typeof Notification !== "undefined" && Notification.permission === "granted" && document.visibilityState === "hidden") {
-            const preview = simulateDecryptSync(m.content).slice(0, 60);
-            new Notification(`Сообщение от ${m.senderUsername || "Someone"}`, { body: preview, icon: "/icon-192.png" });
-          }
-        } catch {}
-      }
-      if (m.createdAt) lastSeenTimeRef.current = m.createdAt;
+      if (!m || !m.id || !m.senderId) return;
+      try {
+        const state = useAppStore.getState();
+        const msgs = Array.isArray(state.messages) ? state.messages : [];
+        if (msgs.some((em: any) => em.id === m.id)) return;
+        state.addMessage({
+          id: m.id, content: m.content || "", senderId: m.senderId,
+          receiverId: m.receiverId || userId, encrypted: m.encrypted ?? true,
+          createdAt: m.createdAt || new Date().toISOString(),
+          senderName: m.senderUsername ? `@${m.senderUsername}` : undefined,
+          messageType: m.messageType, voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
+        });
+        if (m.senderId !== userId && typeof Notification !== "undefined" &&
+            Notification.permission === "granted" && document.visibilityState === "hidden") {
+          try {
+            new Notification(`Сообщение от ${m.senderUsername || "Someone"}`, {
+              body: decrypt(m.content).slice(0, 60),
+            });
+          } catch {}
+        }
+        if (m.createdAt) lastSeenTimeRef.current = m.createdAt;
+      } catch {}
     };
+
     const connect = () => {
       if (destroyed) return;
-      const since = encodeURIComponent(lastSeenTimeRef.current);
-      const es = new EventSource(`/api/messages/sse?userId=${userId}&since=${since}`);
-      sseRef.current = es;
-      es.addEventListener("connected", (event: any) => {
-        try { const data = JSON.parse(event.data); if (data?.serverTime) lastSeenTimeRef.current = data.serverTime; } catch {}
-      });
-      es.addEventListener("new_message", (event: any) => {
-        try { const data = JSON.parse(event.data); if (data?.message) processIncoming(data.message); } catch {}
-      });
-      es.addEventListener("typing", (event: any) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === "typing" && data.userId) {
-            useAppStore.getState().setTypingUser(data.userId);
-            setTimeout(() => useAppStore.getState().clearTypingUser(data.userId), 4000);
-          }
-        } catch {}
-      });
-      es.onerror = () => { es.close(); sseRef.current = null; if (!destroyed) setTimeout(connect, 2000); };
+      try {
+        const since = encodeURIComponent(lastSeenTimeRef.current);
+        const es = new EventSource(`/api/messages/sse?userId=${userId}&since=${since}`);
+        sseRef.current = es;
+        es.addEventListener("connected", (event: any) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data?.serverTime) lastSeenTimeRef.current = data.serverTime;
+          } catch {}
+        });
+        es.addEventListener("new_message", (event: any) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data?.message) processIncoming(data.message);
+          } catch {}
+        });
+        es.addEventListener("typing", (event: any) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data?.userId) {
+              useAppStore.getState().setTypingUser(data.userId);
+              setTimeout(() => useAppStore.getState().clearTypingUser(data.userId), 4000);
+            }
+          } catch {}
+        });
+        es.onerror = () => {
+          try { es.close(); } catch {}
+          sseRef.current = null;
+          if (!destroyed) setTimeout(connect, 2000);
+        };
+      } catch {}
     };
     connect();
-    return () => { destroyed = true; sseRef.current?.close(); sseRef.current = null; };
+    return () => {
+      destroyed = true;
+      try { sseRef.current?.close(); } catch {}
+      sseRef.current = null;
+    };
   }, [userId]);
 
   // ── BroadcastChannel for cross-tab notifications ──
@@ -346,105 +448,107 @@ export default function MessengerView() {
     try {
       bcRef.current = new BroadcastChannel("mq-notifications");
       bcRef.current.onmessage = (event) => {
-        const { type, payload } = event.data;
-        if (type === "new_message" && payload?.senderId && payload?.id) {
-          const state = useAppStore.getState();
-          const msgs = Array.isArray(state.messages) ? state.messages : [];
-          const existing = msgs.find((em: any) => em.id === payload.id);
-          if (!existing) {
-            state.addMessage({
-              id: payload.id, content: payload.content, senderId: payload.senderId,
-              receiverId: payload.receiverId, encrypted: payload.encrypted ?? true,
-              createdAt: payload.createdAt, senderName: payload.senderUsername ? `@${payload.senderUsername}` : undefined,
-              messageType: payload.messageType, voiceUrl: payload.voiceUrl, voiceDuration: payload.voiceDuration,
-            });
+        try {
+          const { type, payload } = event.data || {};
+          if (type === "new_message" && payload?.id && payload?.senderId) {
+            const state = useAppStore.getState();
+            const msgs = Array.isArray(state.messages) ? state.messages : [];
+            if (!msgs.some((em: any) => em.id === payload.id)) {
+              state.addMessage({
+                id: payload.id, content: payload.content || "", senderId: payload.senderId,
+                receiverId: payload.receiverId || userId, encrypted: payload.encrypted ?? true,
+                createdAt: payload.createdAt || new Date().toISOString(),
+                senderName: payload.senderUsername ? `@${payload.senderUsername}` : undefined,
+                messageType: payload.messageType, voiceUrl: payload.voiceUrl,
+                voiceDuration: payload.voiceDuration,
+              });
+            }
+          } else if (type === "friend_request") {
+            fetchFriends();
           }
-        } else if (type === "friend_request") {
-          fetchFriends();
-        }
+        } catch {}
       };
     } catch {}
-    return () => { try { bcRef.current?.close(); } catch {} };
+    return () => { try { bcRef.current?.close(); } catch {} bcRef.current = null; };
   }, [userId, fetchFriends]);
-
-  // ── Cross-tab: broadcast outgoing messages ──
-  useEffect(() => {
-    if (!userId) return;
-    const unsub = useAppStore.subscribe((state, prev) => {
-      const curMsgs = Array.isArray(state.messages) ? state.messages : [];
-      const prevMsgs = Array.isArray(prev.messages) ? prev.messages : [];
-      if (curMsgs.length > prevMsgs.length) {
-        const newMsg = curMsgs[curMsgs.length - 1];
-        if (newMsg && newMsg.senderId === userId) {
-          try { bcRef.current?.postMessage({ type: "self_message_sent" }); } catch {}
-        }
-      }
-    });
-    return unsub;
-  }, [userId]);
 
   // ── Document title with unread count ──
   useEffect(() => {
     if (!userId) return;
-    const totalUnread = Object.values(unreadCounts).reduce((sum, c) => sum + (c || 0), 0);
-    const baseTitle = "mq";
-    document.title = totalUnread > 0 ? `(${totalUnread}) ${baseTitle}` : baseTitle;
+    try {
+      const total = Object.values(unreadCounts || {}).reduce((sum, c) => sum + (c || 0), 0);
+      document.title = total > 0 ? `(${total}) mq` : "mq";
+    } catch {}
   }, [unreadCounts, userId]);
 
-  // ── Load DM messages ──
+  // ── Load DM messages when contact selected ──
   useEffect(() => {
     if (!userId || !selectedContactId) return;
+    let cancelled = false;
     const load = async () => {
       try {
         const res = await fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.messages?.length > 0) {
-            const serverMsgs = data.messages.map((m: any) => ({
-              id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
-              encrypted: m.encrypted, createdAt: m.createdAt,
-              senderName: `@${m.sender?.username || "user"}`, messageType: m.messageType,
-              voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
-            }));
-            setTimeout(() => useAppStore.getState().loadMessages(serverMsgs), 0);
-          }
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const serverMsgs: ChatMessage[] = (Array.isArray(data.messages) ? data.messages : []).map(
+          (m: any) => ({
+            id: m.id, content: m.content || "", senderId: m.senderId, receiverId: m.receiverId,
+            encrypted: !!m.encrypted, createdAt: m.createdAt || new Date().toISOString(),
+            senderName: m.sender?.username ? `@${m.sender.username}` : undefined,
+            messageType: m.messageType, voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
+          })
+        );
+        if (!cancelled && serverMsgs.length > 0) {
+          // Defer to avoid setState-during-render warnings.
+          setTimeout(() => useAppStore.getState().loadMessages(serverMsgs), 0);
         }
       } catch {}
     };
     load();
+    return () => { cancelled = true; };
   }, [userId, selectedContactId]);
 
-  // ── Load group messages + poll ──
+  // ── Load group messages + poll every 8s ──
   useEffect(() => {
     if (!userId || !selectedGroupId) return;
+    let cancelled = false;
     const load = async () => {
       try {
         const res = await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`);
-        if (res.ok) {
-          const data = await res.json();
-          setGroupMessages((p) => ({
-            ...p,
-            [selectedGroupId]: (data.messages || []).map((m: any) => ({
-              id: m.id, content: m.content, senderId: m.senderId || m.sender?.id,
-              createdAt: m.createdAt, senderName: m.sender?.username || "User",
-              messageType: m.messageType, voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
-            })),
-          }));
-        }
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const msgs: ChatMessage[] = (Array.isArray(data.messages) ? data.messages : []).map(
+          (m: any) => ({
+            id: m.id, content: m.content || "",
+            senderId: m.senderId || m.sender?.id || "", receiverId: selectedGroupId,
+            encrypted: false, createdAt: m.createdAt || new Date().toISOString(),
+            senderName: m.sender?.username || "User", messageType: m.messageType,
+            voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
+          })
+        );
+        if (!cancelled) setGroupMessages((prev) => ({ ...prev, [selectedGroupId]: msgs }));
       } catch {}
     };
     load();
     const interval = setInterval(load, 8000);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [userId, selectedGroupId]);
 
-  // ── Auto-scroll ──
+  // ── Auto-scroll on new message ──
   useEffect(() => {
-    if (!scrollRef.current) return;
-    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [messages, selectedContactId, groupMessages, selectedGroupId]);
+    const el = scrollRef.current;
+    if (!el) return;
+    try { el.scrollTop = el.scrollHeight; } catch {}
+  }, [safeMessages, selectedContactId, groupMessages, selectedGroupId]);
 
-  // ── Close context menu on outside click ──
+  // ── Auto-resize textarea ──
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    try { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 120) + "px"; } catch {}
+  }, [inputText]);
+
+  // ── Close context menu on outside click / Escape ──
   useEffect(() => {
     if (!contextMenu) return;
     const close = () => setContextMenu(null);
@@ -462,37 +566,101 @@ export default function MessengerView() {
 
   // ── Selected contact / group ──
   const selectedFriend = useMemo(
-    () => friends.find((f) => f.id === selectedContactId) || null,
-    [friends, selectedContactId]
+    () => safeFriends.find((f) => f.id === selectedContactId) || null,
+    [safeFriends, selectedContactId]
   );
   const selectedGroup = useMemo(
-    () => groupChats.find((g) => g.id === selectedGroupId) || null,
-    [groupChats, selectedGroupId]
+    () => safeGroupChats.find((g) => g.id === selectedGroupId) || null,
+    [safeGroupChats, selectedGroupId]
   );
 
-  // ── Conversation messages ──
-  const conversationMessages = useMemo(() => {
-    if (isGroupChat) return groupMessages[selectedGroupId || ""] || [];
+  // ── Conversation messages (sorted) ──
+  const conversationMessages = useMemo<ChatMessage[]>(() => {
+    if (isGroupChat) {
+      const list = groupMessages[selectedGroupId || ""];
+      return Array.isArray(list) ? list : [];
+    }
     if (!userId || !selectedContactId) return [];
-    const safeMessages = Array.isArray(messages) ? messages : [];
     return safeMessages
-      .filter((m: any) =>
+      .filter((m) =>
         (m.senderId === userId && m.receiverId === selectedContactId) ||
-        (m.senderId === selectedContactId && m.receiverId === userId)
-      )
-      .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [messages, groupMessages, userId, selectedContactId, selectedGroupId, isGroupChat]);
+        (m.senderId === selectedContactId && m.receiverId === userId))
+      .sort((a, b) => {
+        try { return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(); }
+        catch { return 0; }
+      });
+  }, [safeMessages, groupMessages, userId, selectedContactId, selectedGroupId, isGroupChat]);
 
-  // ── Pinned message ──
+  // ── Last message preview per DM contact ──
+  const lastMessageByContact = useMemo<Record<string, ChatMessage>>(() => {
+    const map: Record<string, ChatMessage> = {};
+    for (const m of safeMessages) {
+      const otherId = m.senderId === userId ? m.receiverId : m.senderId;
+      if (!otherId) continue;
+      const existing = map[otherId];
+      if (!existing || new Date(m.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
+        map[otherId] = m;
+      }
+    }
+    return map;
+  }, [safeMessages, userId]);
+
+  // ── Sorted chat list (pinned first, then by last activity) ──
+  const sortedChats = useMemo<Array<{
+    type: "dm" | "group"; id: string; name: string; avatar?: string;
+    lastTime: number; lastMsg?: ChatMessage; memberCount: number;
+  }>>(() => {
+    const items: Array<{
+      type: "dm" | "group"; id: string; name: string; avatar?: string;
+      lastTime: number; lastMsg?: ChatMessage; memberCount: number;
+    }> = [];
+    for (const f of safeFriends) {
+      const last = lastMessageByContact[f.id];
+      items.push({
+        type: "dm", id: f.id, name: f.username, avatar: f.avatar,
+        lastTime: last ? new Date(last.createdAt).getTime() : 0,
+        lastMsg: last, memberCount: 0,
+      });
+    }
+    for (const g of safeGroupChats) {
+      const list = groupMessages[g.id];
+      const last = Array.isArray(list) && list.length > 0 ? list[list.length - 1] : undefined;
+      items.push({
+        type: "group", id: g.id, name: g.name, avatar: g.avatar,
+        lastTime: last ? new Date(last.createdAt).getTime() : 0,
+        lastMsg: last, memberCount: Array.isArray(g.members) ? g.members.length : 0,
+      });
+    }
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = q ? items.filter((it) => it.name.toLowerCase().includes(q)) : items;
+    return filtered.sort((a, b) => {
+      const aP = pinnedChats.includes(a.id) ? 1 : 0;
+      const bP = pinnedChats.includes(b.id) ? 1 : 0;
+      if (aP !== bP) return bP - aP;
+      return b.lastTime - a.lastTime;
+    });
+  }, [safeFriends, safeGroupChats, groupMessages, lastMessageByContact, searchQuery, pinnedChats]);
+
+  // ── Toggle pin chat ──
+  const togglePinChat = useCallback((chatId: string) => {
+    setPinnedChats((prev) => {
+      const arr = Array.isArray(prev) ? prev : [];
+      const next = arr.includes(chatId) ? arr.filter((x) => x !== chatId) : [...arr, chatId];
+      try { localStorage.setItem("mq-pinned-chats", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
+  // ── Toggle pin message (per-chat, localStorage) ──
   const pinnedMsgId = activeChatId ? pinnedMessages[activeChatId] : undefined;
   const pinnedMessage = useMemo(() => {
     if (!pinnedMsgId) return null;
-    return conversationMessages.find((m: any) => m.id === pinnedMsgId) || null;
+    return conversationMessages.find((m) => m.id === pinnedMsgId) || null;
   }, [pinnedMsgId, conversationMessages]);
 
   const togglePinMessage = useCallback((msgId: string) => {
     if (!activeChatId) return;
-    setPinnedMessages(prev => {
+    setPinnedMessages((prev) => {
       const next = { ...prev };
       if (next[activeChatId] === msgId) delete next[activeChatId];
       else next[activeChatId] = msgId;
@@ -502,74 +670,109 @@ export default function MessengerView() {
     setContextMenu(null);
   }, [activeChatId]);
 
-  // ── Reactions ──
-  const toggleReaction = useCallback((msgId: string, emoji: string) => {
-    setMessageReactions(prev => {
-      const current = prev[msgId] || [];
-      const exists = current.includes(emoji);
-      return { ...prev, [msgId]: exists ? current.filter((e) => e !== emoji) : [...current, emoji] };
-    });
-    setShowReactionsFor(null);
-  }, []);
+  // ── Delete message (local only) ──
+  const handleDeleteMessage = useCallback((msgId: string) => {
+    try {
+      if (isGroupChat && selectedGroupId) {
+        setGroupMessages((prev) => {
+          const list = prev[selectedGroupId] || [];
+          return { ...prev, [selectedGroupId]: list.filter((m) => m.id !== msgId) };
+        });
+      } else {
+        useAppStore.setState((s) => ({
+          messages: (Array.isArray(s.messages) ? s.messages : []).filter(
+            (m: ChatMessage) => m.id !== msgId),
+        }));
+      }
+      toast({ title: "Сообщение удалено" });
+    } catch { toast({ title: "Не удалось удалить" }); }
+    setContextMenu(null);
+  }, [isGroupChat, selectedGroupId, toast]);
 
-  // ── Filtered friends ──
-  const filteredFriends = useMemo(() => {
-    if (!searchQuery.trim()) return friends;
-    const q = searchQuery.toLowerCase();
-    return friends.filter((f) => f.username.toLowerCase().includes(q));
-  }, [friends, searchQuery]);
+  // ── Copy message ──
+  const handleCopyMessage = useCallback((msgId: string) => {
+    try {
+      const msg = conversationMessages.find((m) => m.id === msgId);
+      if (!msg) return;
+      const voice = parseVoice(msg.content);
+      const text = voice ? "🎤 Голосовое сообщение" : decrypt(msg.content);
+      if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+      toast({ title: "Скопировано" });
+    } catch {}
+    setContextMenu(null);
+  }, [conversationMessages, toast]);
+
+  // ── Reply (quote into input) ──
+  const handleReplyMessage = useCallback((msgId: string) => {
+    try {
+      const msg = conversationMessages.find((m) => m.id === msgId);
+      if (!msg) return;
+      const voice = parseVoice(msg.content);
+      const text = voice ? "🎤 Голосовое сообщение" : decrypt(msg.content).slice(0, 60);
+      setInputText((p) => (p ? p + "\n" : "") + `> ${text}\n`);
+      setTimeout(() => inputRef.current?.focus(), 0);
+    } catch {}
+    setContextMenu(null);
+  }, [conversationMessages]);
 
   // ── Send message (DM or group) ──
   const handleSend = useCallback(async () => {
-    const text = inputText.trim();
+    const text = (inputText || "").trim();
     if (!text || !userId || !activeChatId || isSending) return;
     setIsSending(true);
-    const tempId = `temp_${Date.now()}`;
-    const msg: any = {
-      id: tempId,
-      content: text,
-      senderId: userId,
-      receiverId: isGroupChat ? userId : activeChatId,
-      encrypted: !isGroupChat,
-      createdAt: new Date().toISOString(),
-      senderName: username ? `@${username}` : undefined,
-      messageType: "text",
-    };
-
-    if (isGroupChat) {
-      setGroupMessages(prev => ({
-        ...prev,
-        [activeChatId]: [...(prev[activeChatId] || []), msg],
-      }));
-    } else {
-      addMessage(msg);
-    }
     setInputText("");
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const now = new Date().toISOString();
+    const msg: ChatMessage = {
+      id: tempId, content: text, senderId: userId,
+      receiverId: isGroupChat ? userId : activeChatId,
+      encrypted: !isGroupChat, createdAt: now,
+      senderName: username ? `@${username}` : undefined, messageType: "text",
+    };
 
     try {
       if (isGroupChat) {
+        setGroupMessages((prev) => ({
+          ...prev, [activeChatId]: [...(prev[activeChatId] || []), msg],
+        }));
         await fetch(`/api/group-chats/${activeChatId}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ senderId: userId, content: text, messageType: "text" }),
         });
       } else {
+        addMessage(msg);
         const encrypted = await simulateEncrypt(text);
         const res = await fetch("/api/messages", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ receiverId: activeChatId, content: encrypted, encrypted: true, messageType: "text" }),
         });
-        const data = await res.json();
-        useAppStore.setState((s) => ({
-          messages: (Array.isArray(s.messages) ? s.messages : []).map((m: any) => m.id === tempId ? { ...m, id: data.id || tempId } : m),
-        }));
-        try { bcRef.current?.postMessage({ type: "new_message", payload: { ...msg, id: data.id || tempId, senderUsername: username } }); } catch {}
+        if (res.ok) {
+          const data = await res.json();
+          const newId = data?.id || tempId;
+          useAppStore.setState((s) => ({
+            messages: (Array.isArray(s.messages) ? s.messages : []).map((m: ChatMessage) =>
+              m.id === tempId ? { ...m, id: newId } : m),
+          }));
+          try {
+            bcRef.current?.postMessage({
+              type: "new_message",
+              payload: { ...msg, id: newId, senderUsername: username },
+            });
+          } catch {}
+        }
       }
     } catch {
       toast({ title: "Не удалось отправить" });
       if (!isGroupChat) {
-        useAppStore.setState((s) => ({ messages: (Array.isArray(s.messages) ? s.messages : []).filter((m: any) => m.id !== tempId) }));
+        useAppStore.setState((s) => ({
+          messages: (Array.isArray(s.messages) ? s.messages : []).filter(
+            (m: ChatMessage) => m.id !== tempId),
+        }));
+      } else if (activeChatId) {
+        setGroupMessages((prev) => ({
+          ...prev,
+          [activeChatId]: (prev[activeChatId] || []).filter((m) => m.id !== tempId),
+        }));
       }
     } finally {
       setIsSending(false);
@@ -579,56 +782,60 @@ export default function MessengerView() {
   // ── Voice recording ──
   const startRecording = useCallback(async () => {
     if (!activeChatId || !userId) return;
-    const chatIdSnapshot: string = activeChatId;
-    const isGroupSnapshot = isGroupChat;
-    const userSnapshot: string = userId;
-    const usernameSnapshot = username;
+    const chatIdSnap = activeChatId;
+    const isGroupSnap = isGroupChat;
+    const userSnap = userId;
+    const usernameSnap = username;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm",
-      });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus" : "audio/webm";
+      const recorder = new MediaRecorder(stream, { mimeType });
       recordingChunksRef.current = [];
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) recordingChunksRef.current.push(e.data); };
-      recorder.onstop = async () => {
-        const blob = new Blob(recordingChunksRef.current, { type: "audio/webm" });
-        const reader = new FileReader();
-        reader.onload = async () => {
-          const base64Url = reader.result as string;
-          const duration = recordingDurationRef.current;
-          const content = JSON.stringify({ voiceUrl: base64Url, voiceDuration: duration });
-          if (isGroupSnapshot) {
-            setGroupMessages(prev => ({
-              ...prev,
-              [chatIdSnapshot]: [...(prev[chatIdSnapshot] || []), {
-                id: `temp_voice_${Date.now()}`,
-                content, senderId: userSnapshot, createdAt: new Date().toISOString(),
-                senderName: usernameSnapshot ? `@${usernameSnapshot}` : undefined, messageType: "voice",
-              }],
-            }));
-            await fetch(`/api/group-chats/${chatIdSnapshot}/messages`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ senderId: userSnapshot, content, messageType: "voice" }),
-            }).catch(() => {});
-          } else {
-            const tempId = `temp_voice_${Date.now()}`;
-            addMessage({
-              id: tempId, content, senderId: userSnapshot, receiverId: chatIdSnapshot,
-              encrypted: false, createdAt: new Date().toISOString(),
-              senderName: usernameSnapshot ? `@${usernameSnapshot}` : undefined, messageType: "voice",
-            });
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordingChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        try {
+          const blob = new Blob(recordingChunksRef.current, { type: "audio/webm" });
+          const reader = new FileReader();
+          reader.onload = async () => {
             try {
-              await fetch("/api/messages", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ receiverId: chatIdSnapshot, content, encrypted: false, messageType: "voice" }),
-              });
+              const base64Url = String(reader.result || "");
+              const duration = recordingDurationRef.current;
+              const content = JSON.stringify({ voiceUrl: base64Url, voiceDuration: duration });
+              const now = new Date().toISOString();
+              if (isGroupSnap) {
+                setGroupMessages((prev) => ({
+                  ...prev,
+                  [chatIdSnap]: [...(prev[chatIdSnap] || []), {
+                    id: `voice_${Date.now()}`, content, senderId: userSnap,
+                    receiverId: chatIdSnap, encrypted: false, createdAt: now,
+                    senderName: usernameSnap ? `@${usernameSnap}` : undefined,
+                    messageType: "voice",
+                  }],
+                }));
+                await fetch(`/api/group-chats/${chatIdSnap}/messages`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ senderId: userSnap, content, messageType: "voice" }),
+                }).catch(() => {});
+              } else {
+                addMessage({
+                  id: `voice_${Date.now()}`, content, senderId: userSnap,
+                  receiverId: chatIdSnap, encrypted: false, createdAt: now,
+                  senderName: usernameSnap ? `@${usernameSnap}` : undefined,
+                  messageType: "voice",
+                });
+                await fetch("/api/messages", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ receiverId: chatIdSnap, content, encrypted: false, messageType: "voice" }),
+                }).catch(() => {});
+              }
             } catch {}
-          }
-        };
-        reader.readAsDataURL(blob);
-        stream.getTracks().forEach(t => t.stop());
+          };
+          reader.readAsDataURL(blob);
+          stream.getTracks().forEach((t) => t.stop());
+        } catch {}
       };
       recorder.start();
       mediaRecorderRef.current = recorder;
@@ -645,14 +852,35 @@ export default function MessengerView() {
   }, [activeChatId, isGroupChat, userId, username, addMessage, toast]);
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-      mediaRecorderRef.current.stop();
-    }
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+    } catch {}
     setIsRecording(false);
-    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
   }, []);
 
-  // ── Search users ──
+  const cancelRecording = useCallback(() => {
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.stop();
+      }
+    } catch {}
+    mediaRecorderRef.current = null;
+    recordingChunksRef.current = [];
+    setIsRecording(false);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  }, []);
+
+  // ── Search users (debounced) ──
   useEffect(() => {
     if (!showNewChat && !showNewGroup) return;
     const q = newChatSearch.trim();
@@ -661,7 +889,10 @@ export default function MessengerView() {
       try {
         const excludeParam = userId ? `&excludeId=${userId}` : "";
         const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}${excludeParam}`);
-        if (res.ok) setNewChatUsers((await res.json()).users || []);
+        if (res.ok) {
+          const data = await res.json();
+          setNewChatUsers(Array.isArray(data.users) ? data.users : []);
+        }
       } catch {}
     }, 300);
     return () => clearTimeout(timer);
@@ -669,49 +900,55 @@ export default function MessengerView() {
 
   // ── Start new chat ──
   const handleStartChat = useCallback((user: any) => {
+    if (!user?.id) return;
     fetch("/api/friends", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, friendId: user.id }),
-    }).then(() => {
-      fetchFriends();
-      setSelectedContact(user.id);
-      setShowNewChat(false);
-      setNewChatSearch("");
-      setNewChatUsers([]);
-    }).catch(() => toast({ title: "Не удалось добавить" }));
-  }, [userId, fetchFriends, setSelectedContact, toast]);
+    })
+      .then(() => {
+        fetchFriends();
+        fetchGroupChats();
+        setSelectedContact(user.id);
+        setSelectedGroupId(null);
+        setShowNewChat(false);
+        setNewChatSearch("");
+        setNewChatUsers([]);
+      })
+      .catch(() => toast({ title: "Не удалось добавить" }));
+  }, [userId, fetchFriends, fetchGroupChats, setSelectedContact, toast]);
 
   // ── Create group ──
   const handleCreateGroup = useCallback(async () => {
     if (!groupName.trim() || selectedMembers.length === 0 || !userId) return;
     try {
       const res = await fetch("/api/group-chats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: groupName.trim(),
-          creatorId: userId,
+          name: groupName.trim(), creatorId: userId,
           memberIds: [...selectedMembers, userId],
         }),
       });
       if (res.ok) {
         const data = await res.json();
-        setGroupChats(p => [...p, data.groupChat || data]);
-        setSelectedGroupId(data.groupChat?.id || data.id);
+        const newGroup: GroupChat = data.groupChat || data;
+        setGroupChats((p) => (Array.isArray(p) ? [...p, newGroup] : [newGroup]));
+        setSelectedGroupId(newGroup?.id || null);
+        setSelectedContact(null);
         setShowNewGroup(false);
         setGroupName("");
         setSelectedMembers([]);
         setNewChatSearch("");
+        setNewChatUsers([]);
         toast({ title: "Группа создана" });
+      } else {
+        toast({ title: "Не удалось создать группу" });
       }
-    } catch {
-      toast({ title: "Не удалось создать группу" });
-    }
-  }, [groupName, selectedMembers, userId, toast]);
+    } catch { toast({ title: "Не удалось создать группу" }); }
+  }, [groupName, selectedMembers, userId, setSelectedContact, toast]);
 
-  // ── Typing ──
-  const typingTs = useAppStore((s) => selectedContactId ? s.typingUsers[selectedContactId] : undefined);
+  // ── Typing indicator ──
+  const typingTs = useAppStore((s) =>
+    selectedContactId ? s.typingUsers[selectedContactId] : undefined);
   const [showTyping, setShowTyping] = useState(false);
   useEffect(() => {
     if (!typingTs) { setShowTyping(false); return; }
@@ -725,252 +962,251 @@ export default function MessengerView() {
 
   const handleInputChange = useCallback((value: string) => {
     setInputText(value);
-    if (!selectedContactId) return;
+    if (!selectedContactId || isGroupChat) return;
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
-      fetch("/api/messages/typing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ receiverId: selectedContactId }),
-      }).catch(() => {});
+      try {
+        fetch("/api/messages/typing", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ receiverId: selectedContactId }),
+        }).catch(() => {});
+      } catch {}
     }, 300);
-  }, [selectedContactId]);
+  }, [selectedContactId, isGroupChat]);
 
-  // ── Swipe to go back (mobile) ──
-  const handleSwipeStart = useCallback((e: React.TouchEvent) => {
-    setSwipeStartX(e.touches[0].clientX);
-  }, []);
-  const handleSwipeEnd = useCallback((e: React.TouchEvent) => {
-    if (swipeStartX === null) return;
-    const diff = swipeStartX - e.changedTouches[0].clientX;
-    if (diff < -80 && swipeStartX < 50 && mobileView === "chat") {
-      setSelectedContact(null);
-      setSelectedGroupId(null);
-      setMobileView("list");
-    }
-    setSwipeStartX(null);
-  }, [swipeStartX, mobileView, setSelectedContact]);
-
+  // ── Mobile back ──
   const handleMobileBack = useCallback(() => {
     setSelectedContact(null);
     setSelectedGroupId(null);
     setMobileView("list");
   }, [setSelectedContact]);
 
-  // ── Render ──
+  // ── Pull-to-refresh on mobile list ──
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (mobileView !== "list") return;
+    const el = e.currentTarget as HTMLElement;
+    pullStartYRef.current = el.scrollTop <= 0 ? e.touches[0].clientY : null;
+  }, [mobileView]);
+
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (pullStartYRef.current === null) return;
+    const dy = e.changedTouches[0].clientY - pullStartYRef.current;
+    pullStartYRef.current = null;
+    if (dy > 80 && !isRefreshing) {
+      setIsRefreshing(true);
+      Promise.all([fetchFriends(), fetchGroupChats()]).finally(() => {
+        setTimeout(() => setIsRefreshing(false), 600);
+      });
+    }
+  }, [isRefreshing, fetchFriends, fetchGroupChats]);
+
+  // ── Render flags ──
   const showListPanel = mobileView === "list" || !isMobileView;
   const showChatPanel = mobileView === "chat" || !isMobileView;
 
+  // ── Recoverable error state (no white screen ever) ──
+  if (loadError && safeFriends.length === 0 && safeGroupChats.length === 0) {
+    return (
+      <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-narrow)] mx-auto`}
+        style={{ height: "calc(100dvh - 90px - 56px)" }}>
+        <div className="flex flex-col items-center justify-center h-full rounded-3xl"
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)" }}>
+          <MessageCircle className="w-10 h-10 mb-3"
+            style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
+          <p className="text-sm font-medium mb-2" style={{ color: "var(--mq-text)" }}>
+            Не удалось загрузить чаты
+          </p>
+          <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
+            Проверьте подключение и попробуйте снова
+          </p>
+          <motion.button whileTap={{ scale: 0.95 }}
+            onClick={() => { setLoadError(false); fetchFriends(); fetchGroupChats(); }}
+            className="px-4 py-2 rounded-xl text-xs font-semibold"
+            style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
+            Повторить
+          </motion.button>
+        </div>
+      </div>
+    );
+  }
+
+  const cardStyle = {
+    backgroundColor: "var(--mq-card)" as const,
+    border: "1px solid var(--mq-border-thin)" as const,
+    boxShadow: "var(--mq-shadow-float)" as const,
+  };
+  const inputStyle = {
+    backgroundColor: "var(--mq-input-bg)" as const,
+    border: "1px solid var(--mq-border-hairline)" as const,
+    color: "var(--mq-text)" as const,
+  };
+  const hairlineBorder = { borderColor: "var(--mq-border-hairline)" as const };
+
   return (
-    <div
-      className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-narrow)] mx-auto`}
-      style={{ height: "calc(100dvh - 90px - 56px)" }}
-      onTouchStart={handleSwipeStart}
-      onTouchEnd={handleSwipeEnd}
-    >
-      <div
-        className="flex rounded-3xl overflow-hidden h-full"
-        style={{
-          backgroundColor: "var(--mq-card)",
-          border: "1px solid var(--mq-border-thin)",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.25)",
-        }}
-      >
+    <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-narrow)] mx-auto`}
+      style={{ height: "calc(100dvh - 90px - 56px)" }}>
+      <div className="flex rounded-3xl overflow-hidden h-full" style={cardStyle}>
         {/* ── Contacts list ── */}
         {showListPanel && (
-          <div
-            className={`${isMobileView && mobileView === "chat" ? "hidden" : "flex"} flex-col w-full lg:w-[320px] flex-shrink-0 border-r`}
-            style={{ borderColor: "var(--mq-border-hairline)" }}
-          >
-            <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
+          <div className={`${isMobileView && mobileView === "chat" ? "hidden" : "flex"} flex-col w-full lg:w-[340px] flex-shrink-0 border-r`}
+            style={hairlineBorder}>
+            {/* Header */}
+            <div className="p-4 flex items-center justify-between border-b" style={hairlineBorder}>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>Чаты</h2>
-                {(friends.length + groupChats.length) > 0 && (
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
-                    {friends.length + groupChats.length}
+                {safeFriends.length + safeGroupChats.length > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                    {safeFriends.length + safeGroupChats.length}
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-1.5">
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  whileHover={{ scale: 1.05 }}
+                <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.05 }}
                   onClick={() => setShowNewGroup(true)}
                   className="w-8 h-8 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}
-                  aria-label="Новая группа"
-                  title="Новая группа"
-                >
+                  aria-label="Новая группа" title="Новая группа">
                   <Users className="w-4 h-4" />
                 </motion.button>
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  whileHover={{ scale: 1.05 }}
+                <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.05 }}
                   onClick={() => setShowNewChat(true)}
                   className="w-8 h-8 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
-                  aria-label="Новый чат"
-                >
+                  aria-label="Новый чат">
                   <Plus className="w-4 h-4" />
                 </motion.button>
               </div>
             </div>
 
-            <div className="p-3 border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
+            {/* Search */}
+            <div className="p-3 border-b" style={hairlineBorder}>
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--mq-text-muted)" }} />
-                <input
-                  type="text"
-                  value={searchQuery}
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"
+                  style={{ color: "var(--mq-text-muted)" }} />
+                <input type="text" value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Поиск чатов"
                   className="w-full pl-9 pr-3 py-2 rounded-xl text-sm outline-none"
-                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-hairline)", color: "var(--mq-text)" }}
-                />
+                  style={inputStyle} />
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
-              {isLoadingFriends && friends.length === 0 ? (
+            {/* List */}
+            <div className="flex-1 overflow-y-auto"
+              onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+              {isRefreshing && (
+                <div className="flex items-center justify-center py-2">
+                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
+                </div>
+              )}
+              {isLoadingFriends && safeFriends.length === 0 && safeGroupChats.length === 0 ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
                 </div>
-              ) : friends.length === 0 && groupChats.length === 0 ? (
+              ) : sortedChats.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-                  <MessageCircle className="w-10 h-10 mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
-                  <p className="text-sm font-medium mb-1" style={{ color: "var(--mq-text)" }}>Нет чатов</p>
-                  <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>Найдите друзей, чтобы начать общение</p>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    whileHover={{ scale: 1.02 }}
-                    onClick={() => setShowNewChat(true)}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
-                    style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
-                  >
-                    <UserPlus className="w-3.5 h-3.5" />
-                    Найти друзей
-                  </motion.button>
+                  <MessageCircle className="w-10 h-10 mb-3"
+                    style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
+                  <p className="text-sm font-medium mb-1" style={{ color: "var(--mq-text)" }}>
+                    {searchQuery.trim() ? "Ничего не найдено" : "Нет чатов"}
+                  </p>
+                  <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
+                    {searchQuery.trim() ? "Попробуйте другой запрос" : "Найдите друзей, чтобы начать общение"}
+                  </p>
+                  {!searchQuery.trim() && (
+                    <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.02 }}
+                      onClick={() => setShowNewChat(true)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
+                      style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
+                      <UserPlus className="w-3.5 h-3.5" />
+                      Найти друзей
+                    </motion.button>
+                  )}
                 </div>
               ) : (
-                <>
-                  {/* Group chats */}
-                  {groupChats.map((group, i) => {
-                    const isActive = selectedGroupId === group.id;
-                    const lastMsg = groupMessages[group.id]?.[groupMessages[group.id].length - 1];
-                    return (
-                      <motion.button
-                        key={group.id}
-                        initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: Math.min(i * 0.03, 0.3), duration: 0.25 }}
-                        whileHover={{ backgroundColor: "rgba(255,255,255,0.03)" }}
-                        whileTap={{ scale: 0.99 }}
-                        onClick={() => { setSelectedGroupId(group.id); setSelectedContact(null); }}
-                        className="w-full flex items-center gap-3 p-3 text-left transition-colors cursor-pointer"
-                        style={{
-                          backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)" : "transparent",
-                          borderLeft: isActive ? "3px solid var(--mq-accent)" : "3px solid transparent",
-                        }}
-                      >
-                        <div
-                          className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{
-                            background: group.avatar ? "transparent" : "linear-gradient(135deg, #8b5cf6, #6366f1)",
-                            color: "#fff",
-                          }}
-                        >
-                          {group.avatar ? (
-                            <img src={group.avatar} alt="" className="w-full h-full rounded-full object-cover" />
-                          ) : (
-                            <Users className="w-5 h-5" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{group.name}</p>
-                            {lastMsg && (
-                              <span className="text-[10px] flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>{formatTime(lastMsg.createdAt)}</span>
+                sortedChats.map((item, i) => {
+                  const isActive = item.type === "group"
+                    ? selectedGroupId === item.id : selectedContactId === item.id;
+                  const isPinned = pinnedChats.includes(item.id);
+                  const isOnline = item.type === "dm" && onlineStatuses[item.id]?.online;
+                  const unread = item.type === "dm" ? unreadCounts[item.id] || 0 : 0;
+                  const last = item.lastMsg;
+                  let lastText: string;
+                  if (last) {
+                    if (last.messageType === "voice") {
+                      lastText = "🎤 Голосовое сообщение";
+                    } else {
+                      const prefix = last.senderId === userId && item.type === "group" ? "Вы: " : "";
+                      lastText = prefix + decrypt(last.content).slice(0, 40);
+                    }
+                  } else if (item.type === "group") {
+                    lastText = `${item.memberCount} участников`;
+                  } else if (isOnline) {
+                    lastText = "в сети";
+                  } else {
+                    lastText = formatLastSeen(onlineStatuses[item.id]?.lastSeen ?? null);
+                  }
+                  return (
+                    <motion.button key={`${item.type}_${item.id}`}
+                      initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: Math.min(i * 0.025, 0.3), duration: 0.2 }}
+                      whileTap={{ scale: 0.99 }}
+                      onClick={() => {
+                        if (item.type === "group") {
+                          setSelectedGroupId(item.id); setSelectedContact(null);
+                        } else {
+                          setSelectedContact(item.id); setSelectedGroupId(null);
+                        }
+                      }}
+                      onContextMenu={(e) => { e.preventDefault(); togglePinChat(item.id); }}
+                      className="w-full flex items-center gap-3 p-3 text-left transition-colors"
+                      style={{
+                        backgroundColor: isActive
+                          ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)" : "transparent",
+                        borderLeft: isActive ? "3px solid var(--mq-accent)" : "3px solid transparent",
+                      }}>
+                      <div className="relative flex-shrink-0">
+                        <Avatar src={item.avatar} name={item.name} id={item.id} size={44}
+                          isGroup={item.type === "group"} />
+                        {isOnline && (
+                          <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
+                            style={{ backgroundColor: "#4ade80", borderColor: "var(--mq-card)" }} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold truncate flex items-center gap-1"
+                            style={{ color: "var(--mq-text)" }}>
+                            {isPinned && (
+                              <Pin className="w-3 h-3 flex-shrink-0"
+                                style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
                             )}
-                          </div>
-                          <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
-                            {(group.members?.length || 0)} участников
+                            {item.name}
                           </p>
-                        </div>
-                      </motion.button>
-                    );
-                  })}
-
-                  {/* Direct chats */}
-                  {filteredFriends.map((friend, i) => {
-                    const isActive = selectedContactId === friend.id;
-                    const status = onlineStatuses[friend.id];
-                    const isOnline = status?.online ?? false;
-                    const unread = unreadCounts[friend.id] || 0;
-                    const lastMsg = messages
-                      .filter((m: any) =>
-                        (m.senderId === userId && m.receiverId === friend.id) ||
-                        (m.senderId === friend.id && m.receiverId === userId)
-                      )
-                      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
-
-                    return (
-                      <motion.button
-                        key={friend.id}
-                        initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: Math.min((i + groupChats.length) * 0.03, 0.4), duration: 0.25 }}
-                        whileHover={{ backgroundColor: "rgba(255,255,255,0.03)" }}
-                        whileTap={{ scale: 0.99 }}
-                        onClick={() => { setSelectedContact(friend.id); setSelectedGroupId(null); }}
-                        className="w-full flex items-center gap-3 p-3 text-left transition-colors cursor-pointer"
-                        style={{
-                          backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)" : "transparent",
-                          borderLeft: isActive ? "3px solid var(--mq-accent)" : "3px solid transparent",
-                        }}
-                      >
-                        <div className="relative flex-shrink-0">
-                          {friend.avatar ? (
-                            <img src={friend.avatar} alt="" className="w-11 h-11 rounded-full object-cover" />
-                          ) : (
-                            <div
-                              className="w-11 h-11 rounded-full flex items-center justify-center font-bold"
-                              style={{
-                                background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))",
-                                color: "#fff",
-                              }}
-                            >
-                              {friend.username.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          {isOnline && (
-                            <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2" style={{ backgroundColor: "#4ade80", borderColor: "var(--mq-card)" }} />
+                          {last && (
+                            <span className="text-[10px] flex-shrink-0"
+                              style={{ color: isPinned ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                              {formatTime(last.createdAt)}
+                            </span>
                           )}
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{friend.username}</p>
-                            {lastMsg && (
-                              <span className="text-[10px] flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>{formatTime(lastMsg.createdAt)}</span>
-                            )}
-                          </div>
-                          <div className="flex items-center justify-between gap-2 mt-0.5">
-                            <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
-                              {lastMsg
-                                ? (lastMsg.senderId === userId ? "Вы: " : "") + (lastMsg.messageType === "voice" ? "🎤 Голосовое сообщение" : simulateDecryptSync(lastMsg.content).slice(0, 40))
-                                : isOnline ? "в сети" : formatLastSeen(status?.lastSeen ?? null)
-                              }
-                            </p>
-                            {unread > 0 && (
-                              <span className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold px-1 flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
-                                {unread > 99 ? "99+" : unread}
-                              </span>
-                            )}
-                          </div>
+                        <div className="flex items-center justify-between gap-2 mt-0.5">
+                          <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+                            {lastText}
+                          </p>
+                          {unread > 0 && (
+                            <span className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold px-1 flex-shrink-0"
+                              style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
+                              {unread > 99 ? "99+" : unread}
+                            </span>
+                          )}
                         </div>
-                      </motion.button>
-                    );
-                  })}
-                </>
+                      </div>
+                    </motion.button>
+                  );
+                })
               )}
             </div>
           </div>
@@ -980,28 +1216,23 @@ export default function MessengerView() {
         {showChatPanel && (selectedFriend || selectedGroup) ? (
           <div className={`${isMobileView && mobileView === "list" ? "hidden" : "flex"} flex-col flex-1 min-w-0`}>
             {/* Header */}
-            <div className="p-4 flex items-center gap-3 border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
+            <div className="p-3 sm:p-4 flex items-center gap-3 border-b" style={hairlineBorder}>
               {isMobileView && (
-                <motion.button whileTap={{ scale: 0.9 }} onClick={handleMobileBack} className="p-1" style={{ color: "var(--mq-text-muted)" }}>
+                <motion.button whileTap={{ scale: 0.9 }} onClick={handleMobileBack}
+                  className="p-1" style={{ color: "var(--mq-text-muted)" }} aria-label="Назад">
                   <ArrowLeft className="w-5 h-5" />
                 </motion.button>
               )}
               <div className="relative flex-shrink-0">
-                {isGroupChat && selectedGroup ? (
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, #8b5cf6, #6366f1)", color: "#fff" }}>
-                    <Users className="w-5 h-5" />
-                  </div>
-                ) : selectedFriend && (
-                  selectedFriend.avatar ? (
-                    <img src={selectedFriend.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))", color: "#fff" }}>
-                      {selectedFriend.username.charAt(0).toUpperCase()}
-                    </div>
-                  )
+                {isGroupChat ? (
+                  <Avatar name={selectedGroup?.name || "Group"} id={selectedGroupId || ""} size={40} isGroup />
+                ) : (
+                  <Avatar src={selectedFriend?.avatar} name={selectedFriend?.username || "User"}
+                    id={selectedFriend?.id || ""} size={40} />
                 )}
                 {!isGroupChat && selectedFriend && onlineStatuses[selectedFriend.id]?.online && (
-                  <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2" style={{ backgroundColor: "#4ade80", borderColor: "var(--mq-card)" }} />
+                  <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
+                    style={{ backgroundColor: "#4ade80", borderColor: "var(--mq-card)" }} />
                 )}
               </div>
               <div className="flex-1 min-w-0">
@@ -1012,7 +1243,7 @@ export default function MessengerView() {
                   {showTyping && !isGroupChat ? (
                     <span style={{ color: "var(--mq-accent)" }}>печатает…</span>
                   ) : isGroupChat ? (
-                    `${selectedGroup?.members?.length || 0} участников`
+                    `${selectedGroup && Array.isArray(selectedGroup.members) ? selectedGroup.members.length : 0} участников`
                   ) : onlineStatuses[selectedFriend?.id || ""]?.online ? (
                     "в сети"
                   ) : (
@@ -1020,23 +1251,38 @@ export default function MessengerView() {
                   )}
                 </p>
               </div>
+              {isGroupChat && selectedGroup && Array.isArray(selectedGroup.members) &&
+                selectedGroup.members.length > 0 && (
+                <div className="hidden sm:flex -space-x-2">
+                  {selectedGroup.members.slice(0, 4).map((m, idx) => (
+                    <div key={m.id || `m${idx}`} className="rounded-full border-2"
+                      style={{ borderColor: "var(--mq-card)" }}>
+                      <Avatar src={m.avatar} name={m.username} id={m.id || `m${idx}`} size={24} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Pinned message bar */}
             <AnimatePresence>
               {pinnedMessage && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: "auto", opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
+                <motion.div initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
                   className="px-4 py-2 border-b flex items-center gap-2 overflow-hidden"
-                  style={{ borderColor: "var(--mq-border-hairline)", backgroundColor: "color-mix(in srgb, var(--mq-accent) 6%, transparent)" }}
-                >
-                  <Pin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} fill="currentColor" />
+                  style={{
+                    borderColor: "var(--mq-border-hairline)",
+                    backgroundColor: "color-mix(in srgb, var(--mq-accent) 6%, transparent)",
+                  }}>
+                  <Pin className="w-3.5 h-3.5 flex-shrink-0"
+                    style={{ color: "var(--mq-accent)" }} fill="currentColor" />
                   <p className="text-xs truncate flex-1" style={{ color: "var(--mq-text-muted)" }}>
-                    {pinnedMessage.messageType === "voice" ? "🎤 Голосовое сообщение" : simulateDecryptSync(pinnedMessage.content).slice(0, 80)}
+                    {pinnedMessage.messageType === "voice"
+                      ? "🎤 Голосовое сообщение"
+                      : decrypt(pinnedMessage.content).slice(0, 80)}
                   </p>
-                  <button onClick={() => togglePinMessage(pinnedMessage.id)} style={{ color: "var(--mq-text-muted)" }}>
+                  <button onClick={() => togglePinMessage(pinnedMessage.id)}
+                    style={{ color: "var(--mq-text-muted)" }} aria-label="Открепить">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </motion.div>
@@ -1044,142 +1290,102 @@ export default function MessengerView() {
             </AnimatePresence>
 
             {/* Messages */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-2">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
               {conversationMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
-                  <MessageCircle className="w-10 h-10 mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
+                  <MessageCircle className="w-10 h-10 mb-3"
+                    style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
                   <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                    {isGroupChat ? "Нет сообщений в группе" : `Начните диалог с ${selectedFriend?.username}`}
+                    {isGroupChat ? "Нет сообщений в группе"
+                      : `Начните диалог с ${selectedFriend?.username}`}
                   </p>
                 </div>
               ) : (
-                conversationMessages.map((msg: any, i) => {
+                conversationMessages.map((msg, i) => {
                   const isMine = msg.senderId === userId;
-                  const prevMsg = conversationMessages[i - 1];
-                  const showAvatar = !isMine && (!prevMsg || prevMsg.senderId !== msg.senderId);
-                  let voiceData: { voiceUrl: string; voiceDuration: number } | null = null;
-                  try {
-                    const parsed = JSON.parse(msg.content);
-                    if (parsed.voiceUrl) voiceData = parsed;
-                  } catch {}
-                  const decrypted = voiceData ? "" : simulateDecryptSync(msg.content);
-                  const reactions = messageReactions[msg.id] || [];
-
+                  const prev = conversationMessages[i - 1];
+                  const showDateSep = !prev || !sameDay(prev.createdAt, msg.createdAt);
+                  const prevSameSender = prev && prev.senderId === msg.senderId && !showDateSep;
+                  const voiceData = parseVoice(msg.content);
+                  const text = voiceData ? "" : decrypt(msg.content);
+                  const isTemp = String(msg.id).startsWith("temp_");
                   return (
-                    <motion.div
-                      key={msg.id}
-                      initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2 }}
-                      data-msg-id={msg.id}
-                      className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}
-                    >
-                      {!isMine && (
-                        <div className="w-7 flex-shrink-0">
-                          {showAvatar && (
-                            isGroupChat ? (
-                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: "linear-gradient(135deg, #8b5cf6, #6366f1)", color: "#fff" }}>
-                                {(msg.senderName || "U").replace("@", "").charAt(0).toUpperCase()}
-                              </div>
-                            ) : selectedFriend?.avatar ? (
-                              <img src={selectedFriend.avatar} alt="" className="w-7 h-7 rounded-full object-cover" />
-                            ) : (
-                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))", color: "#fff" }}>
-                                {(selectedFriend?.username || "U").charAt(0).toUpperCase()}
-                              </div>
-                            )
-                          )}
-                        </div>
-                      )}
-
-                      <div className="relative group max-w-[75%]">
-                        {isGroupChat && !isMine && showAvatar && (
-                          <p className="text-[10px] mb-1 ml-1" style={{ color: "var(--mq-accent)" }}>
-                            {msg.senderName?.replace("@", "")}
-                          </p>
-                        )}
-                        <div
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            setContextMenu({ id: msg.id, x: e.clientX, y: e.clientY });
-                          }}
-                          onDoubleClick={() => setShowReactionsFor(showReactionsFor === msg.id ? null : msg.id)}
-                          className={`px-3.5 py-2 rounded-2xl ${isMine ? "rounded-br-md" : "rounded-bl-md"} cursor-pointer`}
-                          style={{
-                            backgroundColor: isMine ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 8%, var(--mq-card))",
-                            color: isMine ? "#fff" : "var(--mq-text)",
-                          }}
-                        >
-                          {voiceData ? (
-                            <VoiceMessageBubble voiceUrl={voiceData.voiceUrl} duration={voiceData.voiceDuration || 0} isMine={isMine} />
-                          ) : (
-                            <p className="text-sm whitespace-pre-wrap break-words">{decrypted}</p>
-                          )}
-                          <p className="text-[10px] mt-1 text-right" style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)" }}>
-                            {formatTime(msg.createdAt)}
-                          </p>
-                        </div>
-
-                        {/* Reactions */}
-                        {reactions.length > 0 && (
-                          <div className={`flex gap-1 mt-1 ${isMine ? "justify-end" : "justify-start"}`}>
-                            {reactions.map((emoji, ri) => (
-                              <motion.button
-                                key={ri}
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                whileTap={{ scale: 1.2 }}
-                                onClick={() => toggleReaction(msg.id, emoji)}
-                                className="px-1.5 py-0.5 rounded-full text-xs"
-                                style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}
-                              >
-                                {emoji}
-                              </motion.button>
-                            ))}
+                    <div key={msg.id}>
+                      {showDateSep && <DateSeparator label={getDateLabel(msg.createdAt)} />}
+                      <motion.div
+                        initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
+                        animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+                        className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"} ${prevSameSender ? "mt-0.5" : "mt-2"}`}>
+                        {!isMine && (
+                          <div className="w-7 flex-shrink-0">
+                            {!prevSameSender && (
+                              isGroupChat ? (
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
+                                  style={{ background: colorForId(msg.senderId), color: "#fff" }}>
+                                  {getInitials(msg.senderName || msg.senderId)}
+                                </div>
+                              ) : (
+                                <Avatar src={selectedFriend?.avatar}
+                                  name={selectedFriend?.username || "U"}
+                                  id={selectedFriend?.id || ""} size={28} />
+                              )
+                            )}
                           </div>
                         )}
-
-                        {/* Reaction picker */}
-                        <AnimatePresence>
-                          {showReactionsFor === msg.id && (
-                            <motion.div
-                              initial={{ opacity: 0, scale: 0.9, y: -5 }}
-                              animate={{ opacity: 1, scale: 1, y: 0 }}
-                              exit={{ opacity: 0, scale: 0.9 }}
-                              className={`absolute z-10 flex gap-1 p-1.5 rounded-full ${isMine ? "right-0" : "left-0"} -top-10`}
-                              style={{
-                                backgroundColor: "var(--mq-card)",
-                                border: "1px solid var(--mq-border-medium)",
-                                boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-                              }}
-                            >
-                              {QUICK_EMOJIS.map(emoji => (
-                                <motion.button
-                                  key={emoji}
-                                  whileHover={{ scale: 1.3, y: -2 }}
-                                  whileTap={{ scale: 1.1 }}
-                                  onClick={() => toggleReaction(msg.id, emoji)}
-                                  className="text-base p-0.5"
-                                >
-                                  {emoji}
-                                </motion.button>
-                              ))}
-                            </motion.div>
+                        <div className="relative group max-w-[75%]">
+                          {isGroupChat && !isMine && !prevSameSender && (
+                            <p className="text-[10px] mb-1 ml-1 font-medium"
+                              style={{ color: colorForId(msg.senderId) }}>
+                              {msg.senderName?.replace("@", "") || "User"}
+                            </p>
                           )}
-                        </AnimatePresence>
-                      </div>
-                    </motion.div>
+                          <div
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              setContextMenu({ id: msg.id, x: e.clientX, y: e.clientY });
+                            }}
+                            className={`px-3.5 py-2 cursor-pointer ${isMine ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-bl-md"}`}
+                            style={{
+                              backgroundColor: isMine ? "var(--mq-accent)"
+                                : "color-mix(in srgb, var(--mq-text) 8%, var(--mq-card))",
+                              color: isMine ? "#fff" : "var(--mq-text)",
+                            }}>
+                            {voiceData ? (
+                              <VoiceMessageBubble voiceUrl={voiceData.voiceUrl}
+                                duration={voiceData.voiceDuration || 0} isMine={isMine} />
+                            ) : (
+                              <p className="text-sm whitespace-pre-wrap break-words">{text}</p>
+                            )}
+                            <div className="flex items-center justify-end gap-1 mt-0.5">
+                              <span className="text-[10px]"
+                                style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)" }}>
+                                {formatTime(msg.createdAt)}
+                              </span>
+                              {isMine && (isTemp ? (
+                                <Check className="w-3 h-3" style={{ color: "rgba(255,255,255,0.7)" }} />
+                              ) : (
+                                <CheckCheck className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.85)" }} />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </div>
                   );
                 })
               )}
               {showTyping && !isGroupChat && (
-                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="flex items-end gap-2 justify-start">
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  className="flex items-end gap-2 justify-start mt-2">
                   <div className="w-7 flex-shrink-0" />
-                  <div className="px-4 py-3 rounded-2xl rounded-bl-md" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, var(--mq-card))" }}>
+                  <div className="px-4 py-3 rounded-2xl rounded-bl-md"
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, var(--mq-card))" }}>
                     <div className="flex gap-1">
                       {[0, 1, 2].map((i) => (
-                        <motion.span key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-text-muted)" }}
-                          animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }} />
+                        <motion.span key={i} className="w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: "var(--mq-text-muted)" }}
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }} />
                       ))}
                     </div>
                   </div>
@@ -1188,74 +1394,110 @@ export default function MessengerView() {
             </div>
 
             {/* Input */}
-            <div className="p-3 border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
+            <div className="p-3 border-t" style={hairlineBorder}>
               {isRecording ? (
                 <div className="flex items-center gap-2">
-                  <div className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-full" style={{ backgroundColor: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
-                    <motion.span animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1, repeat: Infinity }} className="w-2 h-2 rounded-full" style={{ backgroundColor: "#ef4444" }} />
-                    <span className="text-sm" style={{ color: "#ef4444" }}>Запись… {formatDuration(recordingDuration)}</span>
+                  <div className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-full"
+                    style={{ backgroundColor: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                    <motion.span animate={{ opacity: [1, 0.3, 1] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                      className="w-2 h-2 rounded-full" style={{ backgroundColor: "#ef4444" }} />
+                    <span className="text-sm" style={{ color: "#ef4444" }}>
+                      Запись… {formatDuration(recordingDuration)}
+                    </span>
                   </div>
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={stopRecording}
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={stopRecording}
                     className="w-10 h-10 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
-                  >
+                    aria-label="Отправить голосовое">
                     <Send className="w-4 h-4" />
                   </motion.button>
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    onClick={() => { if (mediaRecorderRef.current) mediaRecorderRef.current.state === "recording" && mediaRecorderRef.current.stop(); setIsRecording(false); if (recordingTimerRef.current) clearInterval(recordingTimerRef.current); }}
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={cancelRecording}
                     className="w-10 h-10 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
-                  >
+                    aria-label="Отменить запись">
                     <X className="w-4 h-4" />
                   </motion.button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2">
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    whileHover={{ scale: 1.05 }}
-                    onClick={startRecording}
-                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}
-                    aria-label="Записать голосовое"
-                  >
-                    <Mic className="w-4 h-4" />
-                  </motion.button>
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => handleInputChange(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                    placeholder="Сообщение…"
-                    className="flex-1 px-4 py-2.5 rounded-full text-sm outline-none"
-                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-hairline)", color: "var(--mq-text)" }}
-                  />
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
-                    whileHover={{ scale: 1.05 }}
-                    onClick={handleSend}
-                    disabled={!inputText.trim() || isSending}
-                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{
-                      backgroundColor: inputText.trim() && !isSending ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
-                      color: inputText.trim() && !isSending ? "#fff" : "var(--mq-text-muted)",
-                    }}
-                  >
-                    {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                  </motion.button>
+                <div className="flex flex-col gap-2">
+                  {showQuickEmojis && (
+                    <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+                      className="flex gap-1">
+                      {QUICK_EMOJIS.map((emoji) => (
+                        <motion.button key={emoji} whileHover={{ scale: 1.2 }} whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            setInputText((p) => p + emoji);
+                            setShowQuickEmojis(false);
+                            inputRef.current?.focus();
+                          }}
+                          className="text-xl p-1.5 rounded-lg"
+                          style={{ backgroundColor: "rgba(255,255,255,0.04)" }}>
+                          {emoji}
+                        </motion.button>
+                      ))}
+                    </motion.div>
+                  )}
+                  <div className="flex items-end gap-2">
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.05 }}
+                      onClick={() => setShowQuickEmojis((v) => !v)}
+                      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{
+                        backgroundColor: showQuickEmojis
+                          ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
+                          : "rgba(255,255,255,0.06)",
+                        color: showQuickEmojis ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                      }} aria-label="Эмодзи">
+                      <Smile className="w-4 h-4" />
+                    </motion.button>
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.05 }}
+                      onClick={startRecording}
+                      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}
+                      aria-label="Записать голосовое">
+                      <Mic className="w-4 h-4" />
+                    </motion.button>
+                    <textarea ref={inputRef} value={inputText}
+                      onChange={(e) => handleInputChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSend();
+                        }
+                      }}
+                      placeholder="Сообщение…" rows={1}
+                      className="flex-1 px-4 py-2.5 rounded-2xl text-sm outline-none resize-none max-h-[120px]"
+                      style={inputStyle} />
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.05 }}
+                      onClick={handleSend} disabled={!inputText.trim() || isSending}
+                      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{
+                        backgroundColor: inputText.trim() && !isSending
+                          ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                        color: inputText.trim() && !isSending ? "#fff" : "var(--mq-text-muted)",
+                      }} aria-label="Отправить">
+                      {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </motion.button>
+                  </div>
+                  <div className="flex items-center justify-center gap-1 text-[10px]"
+                    style={{ color: "var(--mq-text-muted)" }}>
+                    <Lock className="w-2.5 h-2.5" />
+                    <span>Сообщения защищены TLS-шифрованием</span>
+                  </div>
                 </div>
               )}
             </div>
           </div>
         ) : showChatPanel ? (
           <div className={`${isMobileView && mobileView === "list" ? "hidden" : "flex"} flex-1 flex-col items-center justify-center text-center p-8`}>
-            <MessageCircle className="w-12 h-12 mb-4" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-            <p className="text-base font-semibold mb-1" style={{ color: "var(--mq-text)" }}>Выберите чат</p>
-            <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Выберите собеседника слева, чтобы начать диалог</p>
+            <MessageCircle className="w-12 h-12 mb-4"
+              style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+            <p className="text-base font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
+              Выберите чат
+            </p>
+            <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+              Выберите собеседника слева, чтобы начать диалог
+            </p>
           </div>
         ) : null}
       </div>
@@ -1263,35 +1505,39 @@ export default function MessengerView() {
       {/* ── Context menu ── */}
       <AnimatePresence>
         {contextMenu && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
+          <motion.div initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
             onClick={(e) => e.stopPropagation()}
             className="fixed z-50 min-w-[160px] rounded-xl overflow-hidden py-1"
             style={{
-              left: Math.min(contextMenu.x, window.innerWidth - 180),
-              top: Math.min(contextMenu.y, window.innerHeight - 200),
-              backgroundColor: "var(--mq-surface, #1a1a1a)",
-              border: "1px solid var(--mq-border-thin)",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
-            }}
-          >
-            <button
-              onClick={() => { setShowReactionsFor(contextMenu.id); setContextMenu(null); }}
+              left: Math.min(contextMenu.x,
+                (typeof window !== "undefined" ? window.innerWidth : 9999) - 180),
+              top: Math.min(contextMenu.y,
+                (typeof window !== "undefined" ? window.innerHeight : 9999) - 220),
+              ...cardStyle,
+            }}>
+            <button onClick={() => handleReplyMessage(contextMenu.id)}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white/5"
-              style={{ color: "var(--mq-text)" }}
-            >
-              <Smile className="w-3.5 h-3.5" />
-              Реакция
+              style={{ color: "var(--mq-text)" }}>
+              <Reply className="w-3.5 h-3.5" /> Ответить
             </button>
-            <button
-              onClick={() => togglePinMessage(contextMenu.id)}
+            <button onClick={() => handleCopyMessage(contextMenu.id)}
               className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white/5"
-              style={{ color: "var(--mq-text)" }}
-            >
-              <Pin className="w-3.5 h-3.5" style={{ color: pinnedMsgId === contextMenu.id ? "var(--mq-accent)" : "currentColor" }} fill={pinnedMsgId === contextMenu.id ? "currentColor" : "none"} />
+              style={{ color: "var(--mq-text)" }}>
+              <Copy className="w-3.5 h-3.5" /> Копировать
+            </button>
+            <button onClick={() => togglePinMessage(contextMenu.id)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white/5"
+              style={{ color: "var(--mq-text)" }}>
+              <Pin className="w-3.5 h-3.5"
+                style={{ color: pinnedMsgId === contextMenu.id ? "var(--mq-accent)" : "currentColor" }}
+                fill={pinnedMsgId === contextMenu.id ? "currentColor" : "none"} />
               {pinnedMsgId === contextMenu.id ? "Открепить" : "Закрепить"}
+            </button>
+            <button onClick={() => handleDeleteMessage(contextMenu.id)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white/5"
+              style={{ color: "#ef4444" }}>
+              <Trash2 className="w-3.5 h-3.5" /> Удалить
             </button>
           </motion.div>
         )}
@@ -1300,53 +1546,56 @@ export default function MessengerView() {
       {/* ── New chat dialog ── */}
       <AnimatePresence>
         {showNewChat && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
-            onClick={() => setShowNewChat(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+            onClick={() => setShowNewChat(false)}>
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               className="w-full max-w-md rounded-2xl overflow-hidden"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
+              style={cardStyle} onClick={(e) => e.stopPropagation()}>
+              <div className="p-4 flex items-center justify-between border-b" style={hairlineBorder}>
                 <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Новый чат</h3>
-                <button onClick={() => setShowNewChat(false)} style={{ color: "var(--mq-text-muted)" }}><X className="w-4 h-4" /></button>
+                <button onClick={() => setShowNewChat(false)}
+                  style={{ color: "var(--mq-text-muted)" }} aria-label="Закрыть">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
               <div className="p-4">
                 <div className="relative mb-3">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--mq-text-muted)" }} />
-                  <input
-                    type="text" value={newChatSearch} onChange={(e) => setNewChatSearch(e.target.value)}
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: "var(--mq-text-muted)" }} />
+                  <input type="text" value={newChatSearch}
+                    onChange={(e) => setNewChatSearch(e.target.value)}
                     placeholder="Поиск пользователей" autoFocus
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-hairline)", color: "var(--mq-text)" }}
-                  />
+                    style={inputStyle} />
                 </div>
                 <div className="max-h-80 overflow-y-auto">
-                  {newChatSearch.trim() && newChatUsers.length === 0 ? (
-                    <p className="text-center text-sm py-8" style={{ color: "var(--mq-text-muted)" }}>Никого не найдено</p>
+                  {!newChatSearch.trim() ? (
+                    <p className="text-center text-sm py-8" style={{ color: "var(--mq-text-muted)" }}>
+                      Начните искать по имени пользователя
+                    </p>
+                  ) : newChatUsers.length === 0 ? (
+                    <p className="text-center text-sm py-8" style={{ color: "var(--mq-text-muted)" }}>
+                      Никого не найдено
+                    </p>
                   ) : (
                     newChatUsers.map((user) => (
-                      <motion.button
-                        key={user.id} whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }} whileTap={{ scale: 0.98 }}
+                      <motion.button key={user.id}
+                        whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+                        whileTap={{ scale: 0.98 }}
                         onClick={() => handleStartChat(user)}
-                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left"
-                      >
-                        {user.avatar ? (
-                          <img src={user.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))", color: "#fff" }}>
-                            {user.username.charAt(0).toUpperCase()}
-                          </div>
-                        )}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left">
+                        <Avatar src={user.avatar} name={user.username} id={user.id} size={40} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{user.username}</p>
-                          <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Нажмите, чтобы начать чат</p>
+                          <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+                            {user.username}
+                          </p>
+                          <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                            Нажмите, чтобы начать чат
+                          </p>
                         </div>
                       </motion.button>
                     ))
@@ -1361,48 +1610,53 @@ export default function MessengerView() {
       {/* ── New group dialog ── */}
       <AnimatePresence>
         {showNewGroup && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
             style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
-            onClick={() => setShowNewGroup(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
+            onClick={() => setShowNewGroup(false)}>
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
               transition={{ type: "spring", stiffness: 400, damping: 30 }}
               className="w-full max-w-md rounded-2xl overflow-hidden"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "0 20px 60px rgba(0,0,0,0.5)" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="p-4 flex items-center justify-between border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
+              style={cardStyle} onClick={(e) => e.stopPropagation()}>
+              <div className="p-4 flex items-center justify-between border-b" style={hairlineBorder}>
                 <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Новая группа</h3>
-                <button onClick={() => setShowNewGroup(false)} style={{ color: "var(--mq-text-muted)" }}><X className="w-4 h-4" /></button>
+                <button onClick={() => setShowNewGroup(false)}
+                  style={{ color: "var(--mq-text-muted)" }} aria-label="Закрыть">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
               <div className="p-4 space-y-3">
-                <input
-                  type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)}
+                <input type="text" value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
                   placeholder="Название группы" autoFocus
                   className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
-                  style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-hairline)", color: "var(--mq-text)" }}
-                />
+                  style={inputStyle} />
                 <div className="relative">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--mq-text-muted)" }} />
-                  <input
-                    type="text" value={newChatSearch} onChange={(e) => setNewChatSearch(e.target.value)}
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: "var(--mq-text-muted)" }} />
+                  <input type="text" value={newChatSearch}
+                    onChange={(e) => setNewChatSearch(e.target.value)}
                     placeholder="Добавить участников"
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
-                    style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-hairline)", color: "var(--mq-text)" }}
-                  />
+                    style={inputStyle} />
                 </div>
                 {selectedMembers.length > 0 && (
                   <div className="flex flex-wrap gap-1.5">
-                    {selectedMembers.map(id => {
-                      const u = newChatUsers.find(u => u.id === id);
+                    {selectedMembers.map((id) => {
+                      const u = newChatUsers.find((u) => u.id === id);
                       if (!u) return null;
                       return (
-                        <span key={id} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}>
+                        <span key={id} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs"
+                          style={{
+                            backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+                            color: "var(--mq-accent)",
+                          }}>
                           {u.username}
-                          <button onClick={() => setSelectedMembers(p => p.filter(x => x !== id))}><X className="w-3 h-3" /></button>
+                          <button onClick={() => setSelectedMembers((p) => p.filter((x) => x !== id))}
+                            aria-label="Убрать">
+                            <X className="w-3 h-3" />
+                          </button>
                         </span>
                       );
                     })}
@@ -1412,21 +1666,20 @@ export default function MessengerView() {
                   {newChatUsers.map((user) => {
                     const selected = selectedMembers.includes(user.id);
                     return (
-                      <motion.button
-                        key={user.id} whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }} whileTap={{ scale: 0.98 }}
-                        onClick={() => setSelectedMembers(p => selected ? p.filter(x => x !== user.id) : [...p, user.id])}
-                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left"
-                      >
-                        {user.avatar ? (
-                          <img src={user.avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
-                        ) : (
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center font-bold" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))", color: "#fff" }}>
-                            {user.username.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <p className="flex-1 text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{user.username}</p>
+                      <motion.button key={user.id}
+                        whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setSelectedMembers((p) =>
+                          selected ? p.filter((x) => x !== user.id) : [...p, user.id])}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left">
+                        <Avatar src={user.avatar} name={user.username} id={user.id} size={36} />
+                        <p className="flex-1 text-sm font-semibold truncate"
+                          style={{ color: "var(--mq-text)" }}>
+                          {user.username}
+                        </p>
                         {selected && (
-                          <div className="w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}>
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: "var(--mq-accent)" }}>
                             <span className="text-[10px]" style={{ color: "#fff" }}>✓</span>
                           </div>
                         )}
@@ -1434,15 +1687,15 @@ export default function MessengerView() {
                     );
                   })}
                 </div>
-                <button
-                  onClick={handleCreateGroup}
+                <button onClick={handleCreateGroup}
                   disabled={!groupName.trim() || selectedMembers.length === 0}
-                  className="w-full py-2.5 rounded-xl text-sm font-semibold"
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
                   style={{
-                    backgroundColor: groupName.trim() && selectedMembers.length > 0 ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
-                    color: groupName.trim() && selectedMembers.length > 0 ? "#fff" : "var(--mq-text-muted)",
-                  }}
-                >
+                    backgroundColor: groupName.trim() && selectedMembers.length > 0
+                      ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                    color: groupName.trim() && selectedMembers.length > 0
+                      ? "#fff" : "var(--mq-text-muted)",
+                  }}>
                   Создать группу
                 </button>
               </div>

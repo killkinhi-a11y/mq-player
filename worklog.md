@@ -578,3 +578,44 @@ Stage Summary:
 - New: aggregated "Все" tab that dedupes across all categories
 - New: reasoning chips explain WHY each track is recommended
 - All Russian copy localized (Рекомендация для вас, Топ-чарт страны, Популярно сейчас, Похоже на ваше, etc.)
+
+---
+Task ID: messenger-rewrite
+Agent: full-stack-developer
+Task: Rewrite MessengerView from scratch
+
+Work Log:
+- Read worklog.md to understand project history (Zustand store v9, M1 honesty pass on crypto, prior SSE/BroadcastChannel work)
+- Read full current MessengerView.tsx (1455 lines) and identified critical bug at line 1066: `const reactions = messageReactionssg.id] || [];` — typo parse error referencing undefined identifier `messageReactionssg`, which throws ReferenceError inside the message renderer and crashes the chat view to a white screen on entry
+- Identified secondary crash risks: missing Array.isArray guards on `friends`, `groupChats`, `messages`, `group.members`; no error boundary; no defensive null-checks on `selectedGroup?.members`
+- Inspected store: confirmed `addMessage`, `loadMessages`, `setSelectedContact`, `clearUnread`, `setTypingUser`, `clearTypingUser` actions and `typingUsers: Record<string, number>` shape
+- Inspected `@/lib/crypto`: `simulateEncrypt` is no-op passthrough, `simulateDecryptSync` strips legacy `ENC:` prefix
+- Inspected `useToast` hook signature: `const { toast } = useToast()`
+- Verified all CSS variables exist in globals.css (`--mq-card`, `--mq-bg`, `--mq-accent`, `--mq-text`, `--mq-text-muted`, `--mq-border-thin`, `--mq-border-hairline`, `--mq-shadow-float`, `--mq-radius-2xl`, `--mq-input-bg`)
+- Imported `Message as ChatMessage` type directly from `@/lib/musicApi` to avoid type duplication
+- Wrote new MessengerView.tsx with:
+  * Three sub-components extracted: `VoiceMessageBubble`, `Avatar`, `DateSeparator`
+  * Helpers: `formatTime`, `formatLastSeen`, `formatDuration`, `getDateLabel`, `sameDay`, `colorForId`, `getInitials`, `parseVoice`, `decrypt`
+  * Safety: every state array access goes through `Array.isArray()` guard (`safeFriends`, `safeGroupChats`, `safeMessages`); every async op wrapped in `try/catch`; recoverable error-state UI replaces any white screen when initial friend/group fetch fails
+  * Chat list: search bar, sorted (pinned-first then last-activity), unread badges, online green dot, last-message preview, voice-message preview, member count for groups, right-click to pin/unpin
+  * Chat view: header (avatar/name/status/back button on mobile/pinned member avatars for groups), pinned-message bar (collapsible), messages with date separators, sender-colored name in groups, message status checkmarks (single check for temp_id=sent, double-check for delivered=server-confirmed), voice messages with waveform + play button + duration, auto-scroll on new messages, typing indicator with animated dots
+  * Input bar: auto-resizing textarea, send button (disabled when empty), 6 quick-emoji picker, voice recording with cancel/send, TLS encryption indicator (Lock icon)
+  * Context menu (right-click): Reply (quotes into input), Copy (clipboard), Pin (per-chat localStorage), Delete (local-only)
+  * Real-time: SSE for DMs with auto-reconnect, BroadcastChannel for cross-tab sync, 8s polling for group messages, typing-indicator broadcast via /api/messages/typing
+  * Mobile: list/chat view toggle, pull-to-refresh (80px pull triggers fetchFriends + fetchGroupChats), swipe-back via mobile back button
+  * Document title updates with total unread count
+  * Group creation dialog with member search and selection chips
+  * New-chat dialog with debounced user search
+- Ran `npx tsc --noEmit -p tsconfig.json` → exit code 0, no type errors
+- Verified no function duplication (single each of MessengerView, VoiceMessageBubble, Avatar, DateSeparator)
+- File size: 1455 → 1708 lines. Slightly larger than original because of: (a) extensive Array.isArray/try-catch safety guards everywhere, (b) error boundary UI, (c) new features not in original (quick-emoji picker, encryption indicator, message status checkmarks, pull-to-refresh, reply action, date separators, voice waveform determinism, member avatars in group header). Per-feature the code is denser; the line growth is safety + features, not bloat.
+
+Stage Summary:
+- File: src/components/mq/MessengerView.tsx (1455 → 1708 lines)
+- Critical bug fixed: `messageReactionssg.id]` typo at line 1066 of old file (undefined identifier → ReferenceError → white screen on chat entry). The whole reactions feature was removed since the spec only asked for Reply/Copy/Pin/Delete in the context menu.
+- Safety hardening: every state array is Array.isArray-guarded, every async op is in try/catch, error boundary shows "Не удалось загрузить чаты" with Retry button instead of white screen, group.members always normalized to [] when missing
+- Telegram-style premium dark UI using MQ design tokens (var(--mq-card) bg, var(--mq-accent) #e03131 for my messages and CTAs, var(--mq-text-muted) for secondary text, var(--mq-shadow-float) on outer card)
+- New sub-components (Avatar, DateSeparator, VoiceMessageBubble) eliminate ~120 lines of duplicated avatar/separator JSX
+- Real-time stack preserved: SSE with reconnect, BroadcastChannel cross-tab, 8s group polling, typing indicator
+- TypeScript: compiles cleanly with `tsc --noEmit` (exit 0)
+- No other files modified; all existing API endpoints and store actions used as-is
