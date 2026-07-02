@@ -893,7 +893,7 @@ export default function MessengerView() {
                             )}
                           </div>
                           <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
-                            {group.members.length} участников
+                            {(group.members?.length || 0)} участников
                           </p>
                         </div>
                       </motion.button>
@@ -1012,7 +1012,7 @@ export default function MessengerView() {
                   {showTyping && !isGroupChat ? (
                     <span style={{ color: "var(--mq-accent)" }}>печатает…</span>
                   ) : isGroupChat ? (
-                    `${selectedGroup?.members.length || 0} участников`
+                    `${selectedGroup?.members?.length || 0} участников`
                   ) : onlineStatuses[selectedFriend?.id || ""]?.online ? (
                     "в сети"
                   ) : (

@@ -27,6 +27,15 @@ export interface LyricsResult {
 
 const LRCLIB_BASE = "https://lrclib.net/api";
 
+function cleanArtist(s: string): string {
+  // Take only the first artist (before comma, " & ", " feat ", " ft ")
+  let result = s
+    .split(/[,，]|\s+[&＆]\s+|\s+(?:feat|ft|featuring)\.?\s+/i)[0]
+    .trim();
+  // Also apply general clean rules
+  return clean(result);
+}
+
 function clean(s: string): string {
   return s
     .replace(/\s*[\(\[]\s*(official\s+(music\s+)?video|official\s+audio|official\s+lyrics?|lyrics?|audio|music\s+video|visualizer|hd|hq|4k|explicit|clean)\s*[\)\]]/gi, "")
@@ -120,14 +129,14 @@ async function fetchLyricsOvh(artist: string, title: string): Promise<string | n
 }
 
 export async function fetchLyrics(artist: string, title: string): Promise<LyricsResult> {
-  const artistClean = clean(artist);
+  const artistClean = cleanArtist(artist);
   const titleClean = clean(title);
 
   // Strategy 1-3: Try lrclib.net directly (CORS-enabled, client-side)
   const [r1, r2, r3] = await Promise.all([
     fetchLrclib(`${LRCLIB_BASE}/get?artist_name=${encodeURIComponent(artistClean)}&track_name=${encodeURIComponent(titleClean)}`),
-    fetchLrclib(`${LRCLIB_BASE}/search?q=${encodeURIComponent(`${artist} ${title}`)}`),
     fetchLrclib(`${LRCLIB_BASE}/search?q=${encodeURIComponent(`${artistClean} ${titleClean}`)}`),
+    fetchLrclib(`${LRCLIB_BASE}/search?q=${encodeURIComponent(`${titleClean}`)}`),
   ]);
 
   const candidates = [r1, r2, r3].filter(Boolean) as LrcLibResult[];
@@ -143,15 +152,15 @@ export async function fetchLyrics(artist: string, title: string): Promise<Lyrics
     }
   }
 
-  // Fallback 1: try server-side endpoint (may work if lrclib blocks client IP)
-  const serverResult = await fetchServerFallback(artist, title);
-  if (serverResult) return serverResult;
-
-  // Fallback 2: try lyrics.ovh (client-side, CORS-enabled, plain text only)
+  // Fallback 1: try lyrics.ovh (client-side, CORS-enabled, plain text only)
   const ovhLyrics = await fetchLyricsOvh(artistClean, titleClean);
   if (ovhLyrics) {
     return { lyrics: [], plainText: ovhLyrics, synced: false, source: "lrclib" };
   }
+
+  // Fallback 2: try server-side endpoint (may work if lrclib blocks client IP)
+  const serverResult = await fetchServerFallback(artist, title);
+  if (serverResult) return serverResult;
 
   return { lyrics: [], plainText: "", synced: false, source: "none" };
 }
