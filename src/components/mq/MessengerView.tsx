@@ -1007,7 +1007,7 @@ export default function MessengerView() {
   // ── Recoverable error state (no white screen ever) ──
   if (loadError && safeFriends.length === 0 && safeGroupChats.length === 0) {
     return (
-      <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-narrow)] mx-auto`}
+      <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container)] mx-auto`}
         style={{ height: "calc(100dvh - 90px - 56px)" }}>
         <div className="flex flex-col items-center justify-center h-full rounded-3xl"
           style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)" }}>
@@ -1043,12 +1043,12 @@ export default function MessengerView() {
   const hairlineBorder = { borderColor: "var(--mq-border-hairline)" as const };
 
   return (
-    <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container-narrow)] mx-auto`}
+    <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container)] mx-auto`}
       style={{ height: "calc(100dvh - 90px - 56px)" }}>
       <div className="flex rounded-3xl overflow-hidden h-full" style={cardStyle}>
         {/* ── Contacts list ── */}
         {showListPanel && (
-          <div className={`${isMobileView && mobileView === "chat" ? "hidden" : "flex"} flex-col w-full lg:w-[340px] flex-shrink-0 border-r`}
+          <div className={`${isMobileView && mobileView === "chat" ? "hidden" : "flex"} flex-col w-full lg:w-[380px] flex-shrink-0 border-r`}
             style={hairlineBorder}>
             {/* Header */}
             <div className="p-4 flex items-center justify-between border-b" style={hairlineBorder}>
@@ -1332,7 +1332,7 @@ export default function MessengerView() {
                             )}
                           </div>
                         )}
-                        <div className="relative group max-w-[75%]">
+                        <div className="relative group max-w-[85%]">
                           {isGroupChat && !isMine && !prevSameSender && (
                             <p className="text-[10px] mb-1 ml-1 font-medium"
                               style={{ color: colorForId(msg.senderId) }}>
