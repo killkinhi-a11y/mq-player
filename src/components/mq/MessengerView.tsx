@@ -370,8 +370,10 @@ export default function MessengerView() {
   useEffect(() => {
     if (!userId) return;
     const unsub = useAppStore.subscribe((state, prev) => {
-      if (state.messages.length > prev.messages.length) {
-        const newMsg = state.messages[state.messages.length - 1];
+      const curMsgs = Array.isArray(state.messages) ? state.messages : [];
+      const prevMsgs = Array.isArray(prev.messages) ? prev.messages : [];
+      if (curMsgs.length > prevMsgs.length) {
+        const newMsg = curMsgs[curMsgs.length - 1];
         if (newMsg && newMsg.senderId === userId) {
           try { bcRef.current?.postMessage({ type: "self_message_sent" }); } catch {}
         }
@@ -471,7 +473,8 @@ export default function MessengerView() {
   const conversationMessages = useMemo(() => {
     if (isGroupChat) return groupMessages[selectedGroupId || ""] || [];
     if (!userId || !selectedContactId) return [];
-    return messages
+    const safeMessages = Array.isArray(messages) ? messages : [];
+    return safeMessages
       .filter((m: any) =>
         (m.senderId === userId && m.receiverId === selectedContactId) ||
         (m.senderId === selectedContactId && m.receiverId === userId)

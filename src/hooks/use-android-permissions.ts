@@ -10,6 +10,8 @@ import { useAppStore } from "@/store/useAppStore";
  * This hook requests it once when the user is authenticated (not waiting
  * for the first track to play — the notification must be allowed BEFORE
  * audio starts for the media notification to appear).
+ *
+ * Also initializes the MediaSession plugin so it's ready before first track.
  */
 export function useAndroidPermissions() {
   useEffect(() => {
@@ -24,10 +26,22 @@ export function useAndroidPermissions() {
       requested = true;
 
       try {
+        // 1. Request local notifications permission (covers POST_NOTIFICATIONS)
         const localNotif = await import("@capacitor/local-notifications");
         await localNotif.LocalNotifications.requestPermissions();
       } catch (e) {
         // Plugin not available or permission already granted
+      }
+
+      try {
+        // 2. Initialize MediaSession plugin early — must be ready before
+        // first track plays, otherwise Android won't show media notification
+        const mediaSession = await import("@capgo/capacitor-media-session");
+        const MediaSession = mediaSession.MediaSession;
+        // Set initial placeholder state so Android knows we're a media app
+        await MediaSession.setPlaybackState({ playbackState: "paused" });
+      } catch (e) {
+        // Plugin not available
       }
     };
 
@@ -50,3 +64,4 @@ export function useAndroidPermissions() {
     return () => unsub();
   }, []);
 }
+

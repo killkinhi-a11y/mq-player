@@ -98,6 +98,23 @@ async function fetchServerFallback(artist: string, title: string): Promise<Lyric
   }
 }
 
+// ─── Fallback 2: lyrics.ovh (free, CORS-enabled, plain text only) ─────────
+async function fetchLyricsOvh(artist: string, title: string): Promise<string | null> {
+  try {
+    const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const lyrics = data?.lyrics;
+    if (typeof lyrics === "string" && lyrics.trim().length > 10) {
+      return lyrics.trim();
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchLyrics(artist: string, title: string): Promise<LyricsResult> {
   const artistClean = clean(artist);
   const titleClean = clean(title);
@@ -122,9 +139,15 @@ export async function fetchLyrics(artist: string, title: string): Promise<Lyrics
     }
   }
 
-  // Fallback: try server-side endpoint (may work if lrclib blocks client IP)
+  // Fallback 1: try server-side endpoint (may work if lrclib blocks client IP)
   const serverResult = await fetchServerFallback(artist, title);
   if (serverResult) return serverResult;
+
+  // Fallback 2: try lyrics.ovh (client-side, CORS-enabled, plain text only)
+  const ovhLyrics = await fetchLyricsOvh(artistClean, titleClean);
+  if (ovhLyrics) {
+    return { lyrics: [], plainText: ovhLyrics, synced: false, source: "lrclib" };
+  }
 
   return { lyrics: [], plainText: "", synced: false, source: "none" };
 }
