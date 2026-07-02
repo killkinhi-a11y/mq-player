@@ -2647,3 +2647,140 @@ canvas {
   will-change: transform;
   transform: translateZ(0);
 }
+
+/* ═════════════════════════════════════════════════════════════════════════
+   ANIMATIONS & MICRO-INTERACTIONS — enhanced UX for mobile + desktop
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* 1. Ripple effect on buttons (material-style) */
+@keyframes mq-ripple {
+  to { transform: scale(4); opacity: 0; }
+}
+.mq-ripple {
+  position: relative;
+  overflow: hidden;
+}
+.mq-ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.4s ease-out, opacity 0.4s ease-out;
+}
+.mq-ripple:active::after {
+  transform: translate(-50%, -50%) scale(4);
+  opacity: 0.3;
+  animation: mq-ripple 0.5s ease-out;
+}
+
+/* 2. Smooth card hover lift (desktop) */
+@media (hover: hover) {
+  .mq-premium-card,
+  .mq-hero-card,
+  [class*="rounded-2xl"][class*="cursor-pointer"] {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  }
+}
+
+/* 3. Button press feedback (mobile + desktop) */
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled) {
+  transform: scale(0.96);
+  transition: transform 0.08s ease;
+}
+
+/* 4. Smooth view transitions */
+@keyframes mq-view-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.mq-view-enter {
+  animation: mq-view-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 5. Pulse animation for live indicators */
+@keyframes mq-pulse-live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
+.mq-pulse-live {
+  animation: mq-pulse-live 1.5s ease-in-out infinite;
+}
+
+/* 6. Shimmer loading effect */
+@keyframes mq-shimmer-sweep {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.mq-shimmer {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.03) 0%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.03) 100%);
+  background-size: 200% 100%;
+  animation: mq-shimmer-sweep 1.5s ease-in-out infinite;
+}
+
+/* 7. Progress bar glow */
+.mq-progress-glow {
+  box-shadow: 0 0 8px color-mix(in srgb, var(--mq-accent) 40%, transparent);
+}
+
+/* 8. Smooth focus ring (accessibility) */
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--mq-accent, #e03131);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 9. List item slide-in animation */
+@keyframes mq-slide-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.mq-slide-in {
+  animation: mq-slide-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 10. Heart burst animation */
+@keyframes mq-heart-burst {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.35); }
+  60% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.mq-heart-burst {
+  animation: mq-heart-burst 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 11. Smooth scroll for all scrollable containers */
+* {
+  scroll-behavior: smooth;
+}
+
+/* 12. Custom scrollbar (desktop) */
+@media (hover: hover) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.2);
+  }
+}

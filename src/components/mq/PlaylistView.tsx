@@ -1090,6 +1090,12 @@ function PlaylistTile({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const totalDur = formatTotalDuration(pl.tracks);
 
+  const handleTileContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onToggleMenu(e);
+  }, [onToggleMenu]);
+
   return (
     <motion.div
       initial={animationsEnabled ? { opacity: 0, y: 16 } : undefined}
@@ -1098,6 +1104,7 @@ function PlaylistTile({
       whileHover={{ y: -3 }}
       whileTap={{ scale: 0.98 }}
       onClick={onOpen}
+      onContextMenu={handleTileContextMenu}
       className="group relative rounded-2xl p-3 cursor-pointer"
       style={{
         backgroundColor: "var(--mq-card)",
