@@ -633,7 +633,7 @@ export default function AppShell() {
           // Without key, the boundary persists across switches; only the
           // inner Component changes via React's reconciliation.
           return (
-            <ViewErrorBoundary>
+            <ViewErrorBoundary key={currentView}>
               <ViewTransition trigger={currentView} animationsEnabled={animationsEnabled}>
                 <Component />
               </ViewTransition>
