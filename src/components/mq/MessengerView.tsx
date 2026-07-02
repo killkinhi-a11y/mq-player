@@ -349,7 +349,8 @@ export default function MessengerView() {
         const { type, payload } = event.data;
         if (type === "new_message" && payload?.senderId && payload?.id) {
           const state = useAppStore.getState();
-          const existing = state.messages.find((em: any) => em.id === payload.id);
+          const msgs = Array.isArray(state.messages) ? state.messages : [];
+          const existing = msgs.find((em: any) => em.id === payload.id);
           if (!existing) {
             state.addMessage({
               id: payload.id, content: payload.content, senderId: payload.senderId,

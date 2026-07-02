@@ -2523,7 +2523,6 @@ export const useAppStore = create<AppState>()(
           miniPlayerHidden,
           playbackState, isBuffering, isDragging,
           // These are also excluded (already not in the whitelist below)
-          currentTrack, queue, queueIndex, upNext, playbackMode,
           selectedContactId, selectedGenre, typingUsers,
           selectedPlaylistId, selectedGroupId, selectedArtist,
           spatialAudioEnabled, spatialMood, spatialAutoDetect,
@@ -2552,6 +2551,13 @@ export const useAppStore = create<AppState>()(
           shuffle: persistent.shuffle,
           repeat: persistent.repeat,
           playbackRate: persistent.playbackRate,
+          // Playback state — persist so player bar shows last track after reload
+          // (isPlaying is NOT persisted — user must press play to resume)
+          currentTrack: persistent.currentTrack ? slimTrack(persistent.currentTrack) : null,
+          queue: (Array.isArray(persistent.queue) ? persistent.queue : []).slice(0, 50).map(slimTrack),
+          queueIndex: persistent.queueIndex ?? 0,
+          upNext: (Array.isArray(persistent.upNext) ? persistent.upNext : []).slice(0, 10).map(slimTrack),
+          currentPlaylistId: persistent.currentPlaylistId ?? null,
           // Audio settings — persist user preferences
           crossfadeEnabled: persistent.crossfadeEnabled,
           crossfadeDuration: persistent.crossfadeDuration,

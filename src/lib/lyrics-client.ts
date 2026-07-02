@@ -31,6 +31,10 @@ function clean(s: string): string {
   return s
     .replace(/\s*[\(\[]\s*(official\s+(music\s+)?video|official\s+audio|official\s+lyrics?|lyrics?|audio|music\s+video|visualizer|hd|hq|4k|explicit|clean)\s*[\)\]]/gi, "")
     .replace(/\s*[\(\[]\s*(feat|ft|featuring)\.?\s+[^)\]]+[\)\]]/gi, "")
+    // Remove remix/mix/edit info in parentheses
+    .replace(/\s*[\(\[]\s*(remix|mix|edit|remaster\w*|deluxe|bonus|extended|radio\s+edit|club\s+mix|dirty|clean\s+version)\w*\s*[\)\]]/gi, "")
+    // Remove " - Remix" / " - Radio Edit" suffixes
+    .replace(/\s*-\s*(remix|mix|edit|remaster\w*|radio\s+edit|club\s+mix|instrumental|acoustic|live|cover|bootleg)\b.*$/i, "")
     .replace(/\s*-\s*topic\s*$/i, "")
     .replace(/^official\s+/i, "")
     .replace(/\s+/g, " ")

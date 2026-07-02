@@ -7,10 +7,11 @@ import { type Track, formatDuration } from "@/lib/musicApi";
 import {
   Plus, Trash2, Play, ListMusic, ChevronLeft,
   Edit3, X, Check, Clock, Heart, Download, Loader2, AlertCircle,
-  Camera, Shuffle, Pin, MoreVertical, Music, Share2,
+  Camera, Shuffle, Pin, MoreVertical, Music, Share2, MoreHorizontal,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "./EmptyState";
+import ContextMenu from "./ContextMenu";
 
 // ─── helpers ──────────────────────────────────────────────────────────────
 
@@ -942,17 +943,35 @@ interface TrackRowProps {
 
 function TrackRow({ track, index, isCurrent, isPlaying, isLiked, onPlay, onLike, onRemove, onArtistClick }: TrackRowProps) {
   const [hovering, setHovering] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, show: true });
+  }, []);
+
+  const handleMoreClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setContextMenu({ x: rect.left, y: rect.bottom + 4, show: true });
+  }, []);
+
+  const closeContextMenu = useCallback(() => setContextMenu((p) => ({ ...p, show: false })), []);
+
   return (
-    <motion.div
-      onHoverStart={() => setHovering(true)}
-      onHoverEnd={() => setHovering(false)}
-      onClick={onPlay}
-      className="group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors"
-      style={{
-        backgroundColor: isCurrent ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "transparent",
-      }}
-      whileTap={{ scale: 0.99 }}
-    >
+    <>
+      <motion.div
+        onHoverStart={() => setHovering(true)}
+        onHoverEnd={() => setHovering(false)}
+        onClick={onPlay}
+        onContextMenu={handleContextMenu}
+        className="group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors"
+        style={{
+          backgroundColor: isCurrent ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "transparent",
+        }}
+        whileTap={{ scale: 0.99 }}
+      >
       {/* Index / play icon */}
       <div className="w-7 flex-shrink-0 text-center">
         {isCurrent && isPlaying ? (
@@ -1017,7 +1036,23 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, onPlay, onLike,
       >
         <Trash2 className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
       </button>
+
+      {/* More button (3-dot) — opens context menu */}
+      <button
+        onClick={handleMoreClick}
+        className="p-1.5 rounded-full sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+        style={{ color: "var(--mq-text-muted)" }}
+        aria-label="Меню"
+      >
+        <MoreHorizontal className="w-4 h-4" />
+      </button>
     </motion.div>
+
+      {/* Context menu */}
+      {contextMenu.show && (
+        <ContextMenu track={track} x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu} />
+      )}
+    </>
   );
 }
 
