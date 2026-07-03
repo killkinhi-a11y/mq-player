@@ -936,15 +936,21 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       const skipToNextWithError = (message: string) => {
         setPlayError(true);
         setIsLoadingTrack(false);
+        // Release play lock on error
+        useAppStore.setState({ _playLock: false });
+        // Mark track as broken — will be skipped by nextTrack
+        const errTrackId = st.currentTrack?.id;
+        if (errTrackId) {
+          useAppStore.getState().markTrackBroken(errTrackId);
+        }
         retryingRef.current = false;
         prevTrackIdForCrossfade.current = null;
-        const errTrackId = st.currentTrack?.id;
         try {
           toast({
-            title: "Ошибка воспроизведения",
+            title: "Трек недоступен",
             description: message,
           });
-        } catch {}
+        } catch (e) { console.warn("[Player] toast failed:", e); }
         setTimeout(() => {
           if (useAppStore.getState().currentTrack?.id === errTrackId) {
             nextTrackRef.current();
@@ -1070,16 +1076,14 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     };
 
     const onCanPlay = (e: Event) => {
-      // CRITICAL: Only handle events from the active audio element.
-      // The inactive element (gapless preload) also fires canplay,
-      // and without this check it would incorrectly call play() on
-      // the active element, causing AbortError and repeated pausing.
       const target = e.target as HTMLAudioElement | null;
       if (target && target !== getActive()) return;
 
       setIsLoadingTrack(false);
       setPlayError(false);
       retryCountRef.current = 0;
+      // Release play lock — track successfully loaded
+      useAppStore.setState({ _playLock: false });
       if (loadingTimeoutId) { clearTimeout(loadingTimeoutId); loadingTimeoutId = null; }
       if (stallTimeoutId) { clearTimeout(stallTimeoutId); stallTimeoutId = null; }
       if (PlayerErrorLogger.logs.length > 0) {

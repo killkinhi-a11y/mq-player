@@ -173,6 +173,10 @@ interface AppState {
   dislikedTrackIds: string[];
   likedTracksData: Track[];
   dislikedTracksData: Track[];
+  /** Tracks that failed to play (404, CORS, network). Skipped by nextTrack. */
+  brokenTrackIds: Set<string>;
+  /** Prevents race condition when playTrack is called while previous load is in progress. */
+  _playLock: boolean;
 
   // Similar tracks panel
   similarTracks: Track[];
@@ -313,6 +317,8 @@ interface AppState {
   toggleDislike: (trackId: string, trackData?: Track) => void;
   isTrackLiked: (trackId: string) => boolean;
   isTrackDisliked: (trackId: string) => boolean;
+  markTrackBroken: (trackId: string) => void;
+  clearBrokenTracks: () => void;
 
   // Similar tracks actions
   setSimilarTracks: (tracks: Track[]) => void;
@@ -556,6 +562,8 @@ const initialState = {
   dislikedTrackIds: [] as string[],
   dislikedTracksData: [] as Track[],
   likedTracksData: [] as Track[],
+  brokenTrackIds: new Set<string>(),
+  _playLock: false,
 
   similarTracks: [] as Track[],
   similarTracksLoading: false,
@@ -985,11 +993,15 @@ export const useAppStore = create<AppState>()(
 
       playTrack: (track, queue, playlistId) => {
         const state = get();
+
+        // Play lock — prevents race condition when playTrack is called
+        // while previous track is still loading. Without this, rapid taps
+        // cause currentTrack to flip back and forth.
+        if (state._playLock && state.currentTrack?.id === track.id) return;
+
         const newQueue = queue || state.queue;
         const index = newQueue.findIndex((t) => t.id === track.id);
 
-        // Immediate optimistic store update — useAudioEngine's loadTrack effect
-        // will detect the currentTrack change and handle actual audio loading
         set({
           currentTrack: track,
           currentPlaylistId: playlistId ?? (queue ? state.currentPlaylistId : null),
@@ -1000,16 +1012,11 @@ export const useAppStore = create<AppState>()(
           duration: track.duration,
           playbackState: "loading",
           isBuffering: true,
-          // ALWAYS show player bar when playTrack is called — fixes double-click bug
-          // where miniPlayerHidden stayed true if user had hidden the mini player
-          // and then tapped the same track again (isNewTrack was false)
+          _playLock: true,
           miniPlayerHidden: false,
-          // Clear upNext when a new queue is explicitly set
           ...(queue ? { upNext: [] as Track[] } : {}),
-          // Start session timer on first play
           ...(state.sessionStartTime === null ? { sessionStartTime: Date.now() } : {}),
         });
-        // Auto-add to history
         get().addToHistory(track);
       },
 
@@ -1050,23 +1057,28 @@ export const useAppStore = create<AppState>()(
       setDuration: (duration) => set({ duration }),
 
       nextTrack: () => {
-        const { queue, queueIndex, shuffle, repeat, upNext, currentTrack, smartShuffle, radioMode } = get();
+        const { queue, queueIndex, shuffle, repeat, upNext, currentTrack, smartShuffle, radioMode, brokenTrackIds } = get();
 
         // ── UpNext priority: play from upNext first (FIFO) ──
         if (upNext.length > 0) {
-          const [next, ...remaining] = upNext;
-          const newQueue = [next, ...remaining, ...queue];
-          set({
-            currentTrack: next,
-            queue: newQueue,
-            queueIndex: 0,
-            upNext: [],
-            progress: 0,
-            duration: next.duration,
-            isPlaying: true,
-          });
-          get().addToHistory(next);
-          return;
+          // Find first non-broken track in upNext
+          const nextIdx = upNext.findIndex(t => !brokenTrackIds.has(t.id));
+          if (nextIdx >= 0) {
+            const next = upNext[nextIdx];
+            const remaining = upNext.filter((_, i) => i !== nextIdx);
+            const newQueue = [next, ...remaining, ...queue];
+            set({
+              currentTrack: next,
+              queue: newQueue,
+              queueIndex: 0,
+              upNext: [],
+              progress: 0,
+              duration: next.duration,
+              isPlaying: true,
+            });
+            get().addToHistory(next);
+            return;
+          }
         }
 
         let nextIdx: number;
@@ -1356,6 +1368,15 @@ export const useAppStore = create<AppState>()(
             }
           }
         }
+
+        // Skip broken tracks — find next non-broken track
+        let attempts = 0;
+        while (brokenTrackIds.has(queue[nextIdx]?.id) && attempts < queue.length) {
+          nextIdx = (nextIdx + 1) % queue.length;
+          if (nextIdx === queueIndex) break; // full loop, stop
+          attempts++;
+        }
+
         const track = queue[nextIdx];
         if (track) {
           set({
@@ -1559,6 +1580,15 @@ export const useAppStore = create<AppState>()(
       isTrackLiked: (trackId) => get().likedTrackIds.includes(trackId),
 
       isTrackDisliked: (trackId) => get().dislikedTrackIds.includes(trackId),
+
+      markTrackBroken: (trackId) =>
+        set((s) => {
+          const newSet = new Set(s.brokenTrackIds);
+          newSet.add(trackId);
+          return { brokenTrackIds: newSet };
+        }),
+
+      clearBrokenTracks: () => set({ brokenTrackIds: new Set<string>() }),
 
       setSimilarTracks: (tracks) => set({ similarTracks: tracks }),
       setSimilarTracksLoading: (loading) => set({ similarTracksLoading: loading }),

@@ -26,6 +26,7 @@ export interface LyricsResult {
 }
 
 const LRCLIB_BASE = "https://lrclib.net/api";
+import { getCached, setCached } from "@/lib/lyricsCache";
 
 function cleanArtist(s: string): string {
   // Take only the first artist (before comma, " & ", " feat ", " ft ")
@@ -132,35 +133,63 @@ export async function fetchLyrics(artist: string, title: string): Promise<Lyrics
   const artistClean = cleanArtist(artist);
   const titleClean = clean(title);
 
-  // Strategy 1-3: Try lrclib.net directly (CORS-enabled, client-side)
-  const [r1, r2, r3] = await Promise.all([
+  // Check cache first — instant return on cache hit (0ms vs 200-500ms)
+  const key = `${artistClean.toLowerCase()}|${titleClean.toLowerCase()}`;
+  const cached = getCached(key);
+  if (cached) return cached;
+
+  // Strategy 1+2: Parallel — exact match + title-only search
+  const [r1, r2] = await Promise.all([
     fetchLrclib(`${LRCLIB_BASE}/get?artist_name=${encodeURIComponent(artistClean)}&track_name=${encodeURIComponent(titleClean)}`),
-    fetchLrclib(`${LRCLIB_BASE}/search?q=${encodeURIComponent(`${artistClean} ${titleClean}`)}`),
-    fetchLrclib(`${LRCLIB_BASE}/search?q=${encodeURIComponent(`${titleClean}`)}`),
+    fetchLrclib(`${LRCLIB_BASE}/search?q=${encodeURIComponent(titleClean)}`),
   ]);
 
-  const candidates = [r1, r2, r3].filter(Boolean) as LrcLibResult[];
-  const best =
-    candidates.find((r) => r.syncedLyrics) ||
-    candidates.find((r) => r.plainLyrics);
+  let candidates = [r1, r2].filter(Boolean) as LrcLibResult[];
+  let best = candidates.find((r) => r.syncedLyrics) || candidates.find((r) => r.plainLyrics);
+
+  // Strategy 3: If no result, try cleaned artist + cleaned title search
+  if (!best) {
+    const r3 = await fetchLrclib(`${LRCLIB_BASE}/search?q=${encodeURIComponent(`${artistClean} ${titleClean}`)}`);
+    if (r3) {
+      best = r3;
+    }
+  }
+
+  // Strategy 4: If still no result, try title-only with just first word
+  if (!best && titleClean.includes(" ")) {
+    const shortTitle = titleClean.split(" ").slice(0, 3).join(" ");
+    const r4 = await fetchLrclib(`${LRCLIB_BASE}/search?q=${encodeURIComponent(shortTitle)}`);
+    if (r4) {
+      best = r4;
+    }
+  }
 
   if (best) {
     const lyrics = best.syncedLyrics ? parseLRC(best.syncedLyrics) : [];
     const plainText = best.plainLyrics?.trim() || "";
     if (lyrics.length > 0 || plainText) {
-      return { lyrics, plainText, synced: lyrics.length > 0, source: "lrclib" };
+      const result: LyricsResult = { lyrics, plainText, synced: lyrics.length > 0, source: "lrclib" };
+      setCached(key, result);
+      return result;
     }
   }
 
-  // Fallback 1: try lyrics.ovh (client-side, CORS-enabled, plain text only)
+  // Fallback 1: lyrics.ovh
   const ovhLyrics = await fetchLyricsOvh(artistClean, titleClean);
   if (ovhLyrics) {
-    return { lyrics: [], plainText: ovhLyrics, synced: false, source: "lrclib" };
+    const result: LyricsResult = { lyrics: [], plainText: ovhLyrics, synced: false, source: "lrclib" };
+    setCached(key, result);
+    return result;
   }
 
-  // Fallback 2: try server-side endpoint (may work if lrclib blocks client IP)
+  // Fallback 2: server endpoint
   const serverResult = await fetchServerFallback(artist, title);
-  if (serverResult) return serverResult;
+  if (serverResult) {
+    setCached(key, serverResult);
+    return serverResult;
+  }
 
-  return { lyrics: [], plainText: "", synced: false, source: "none" };
+  const noResult: LyricsResult = { lyrics: [], plainText: "", synced: false, source: "none" };
+  setCached(key, noResult);
+  return noResult;
 }

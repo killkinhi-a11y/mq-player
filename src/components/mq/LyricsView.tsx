@@ -54,8 +54,10 @@ function SyncedLyrics({ lines, currentTime, onSeek }: {
   const containerRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const isUserInteracting = useRef(false);
+  const interactionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Find active line index — binary search for O(log n) instead of O(n)
+  // Find active line index — binary search for O(log n)
   const activeIdx = useMemo(() => {
     if (lines.length === 0) return -1;
     let lo = 0, hi = lines.length - 1, result = -1;
@@ -67,28 +69,45 @@ function SyncedLyrics({ lines, currentTime, onSeek }: {
     return result;
   }, [lines, currentTime]);
 
-  // Auto-scroll: keep active line near the top (like Apple Music / Spotify)
+  // Auto-scroll: ALWAYS keep active line visible (unless user is interacting)
   useEffect(() => {
     const container = containerRef.current;
     const lineEl = lineRefs.current[activeIdx];
     if (!container || !lineEl || activeIdx < 0) return;
 
-    const cTop = container.scrollTop;
+    // Don't scroll if user is interacting (tapping/scrolling)
+    if (isUserInteracting.current) return;
+
     const lTop = lineEl.offsetTop;
+    // Position active line at ~20% from top of container
+    const targetScroll = lTop - container.clientHeight * 0.2;
 
-    // Active line should stay near the top — at ~20% from container top.
-    // This matches Apple Music / Spotify behavior where the active line
-    // is always near the top with upcoming lines visible below.
-    const targetScroll = lTop - container.clientHeight * 0.15;
-
-    // Only scroll if the active line has drifted more than 2 lines below target
-    if (Math.abs(cTop - targetScroll) > lineEl.offsetHeight * 2) {
-      container.scrollTo({
-        top: Math.max(0, targetScroll),
-        behavior: "smooth",
-      });
-    }
+    container.scrollTo({
+      top: Math.max(0, targetScroll),
+      behavior: "smooth",
+    });
   }, [activeIdx]);
+
+  // User interaction handlers — pause auto-scroll for 2s after interaction
+  const handleInteractionStart = useCallback(() => {
+    isUserInteracting.current = true;
+    if (interactionTimer.current) clearTimeout(interactionTimer.current);
+  }, []);
+
+  const handleInteractionEnd = useCallback(() => {
+    if (interactionTimer.current) clearTimeout(interactionTimer.current);
+    // Resume auto-scroll after 2 seconds of no interaction
+    interactionTimer.current = setTimeout(() => {
+      isUserInteracting.current = false;
+    }, 2000);
+  }, []);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (interactionTimer.current) clearTimeout(interactionTimer.current);
+    };
+  }, []);
 
   if (lines.length === 0) return null;
 
@@ -98,10 +117,13 @@ function SyncedLyrics({ lines, currentTime, onSeek }: {
       className="text-base leading-relaxed max-h-[320px] overflow-y-auto px-2 py-4 space-y-0.5 scroll-smooth"
       style={{
         scrollbarWidth: "none",
-        // Fade mask for cinematic depth — top and bottom lines fade
         maskImage: "linear-gradient(180deg, transparent 0%, #000 15%, #000 85%, transparent 100%)",
         WebkitMaskImage: "linear-gradient(180deg, transparent 0%, #000 15%, #000 85%, transparent 100%)",
       }}
+      onTouchStart={handleInteractionStart}
+      onTouchEnd={handleInteractionEnd}
+      onMouseDown={handleInteractionStart}
+      onMouseUp={handleInteractionEnd}
     >
       {lines.map((line, i) => {
         const isActive = i === activeIdx;
