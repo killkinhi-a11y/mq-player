@@ -956,12 +956,9 @@ export default function FullTrackView() {
                         exit={{ opacity: 0, y: -8 }}
                         className="w-full mb-4 overflow-hidden"
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest flex items-center gap-1.5">
-                            <Sparkles className="w-3 h-3" style={{ color: "var(--mq-accent)" }} /> Текст песни
-                          </p>
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
-                            <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
+                        <div className="flex items-center justify-end mb-2">
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+                            <X className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
                         {lyricsLoading ? (
