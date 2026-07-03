@@ -67,23 +67,26 @@ function SyncedLyrics({ lines, currentTime, onSeek }: {
     return result;
   }, [lines, currentTime]);
 
-  // Auto-scroll: center the active line smoothly
+  // Auto-scroll: keep active line in upper-middle area (not centered)
   useEffect(() => {
     const container = containerRef.current;
     const lineEl = lineRefs.current[activeIdx];
-    if (!container || !lineEl) return;
+    if (!container || !lineEl || activeIdx < 0) return;
 
     const cTop = container.scrollTop;
     const cBot = cTop + container.clientHeight;
     const lTop = lineEl.offsetTop;
     const lBot = lTop + lineEl.offsetHeight;
 
-    // Only scroll if active line is outside the "comfort zone" (middle 60%)
-    const comfortTop = cTop + container.clientHeight * 0.2;
-    const comfortBot = cBot - container.clientHeight * 0.2;
+    // Comfort zone: active line should be in top 40% of viewport
+    // (not centered — centering pushes content too far down)
+    const comfortTop = cTop + container.clientHeight * 0.15;
+    const comfortBot = cTop + container.clientHeight * 0.5;
+
     if (lTop < comfortTop || lBot > comfortBot) {
       container.scrollTo({
-        top: lTop - container.clientHeight / 2 + lineEl.offsetHeight / 2,
+        // Position active line at ~30% from top of container
+        top: lTop - container.clientHeight * 0.3,
         behavior: "smooth",
       });
     }
