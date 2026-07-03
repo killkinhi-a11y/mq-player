@@ -106,12 +106,15 @@ function SyncedLyrics({ lines, currentTime, onSeek }: {
       {lines.map((line, i) => {
         const isActive = i === activeIdx;
         const isPast = i < activeIdx;
-        const isNear = Math.abs(i - activeIdx) <= 2;
         const isHovered = hoveredIdx === i;
 
+        // If no active line yet (activeIdx = -1, e.g. track just started),
+        // highlight the first line as a fallback
+        const isEffectivelyActive = isActive || (activeIdx === -1 && i === 0);
+
         // Distance-based opacity — closer to active = more visible
-        const distance = Math.abs(i - activeIdx);
-        const opacity = isActive ? 1 : isPast ? Math.max(0.2, 0.5 - distance * 0.08) : Math.max(0.15, 0.5 - distance * 0.06);
+        const distance = Math.abs(i - (activeIdx >= 0 ? activeIdx : 0));
+        const opacity = isEffectivelyActive ? 1 : isPast ? Math.max(0.25, 0.5 - distance * 0.08) : Math.max(0.2, 0.55 - distance * 0.06);
 
         return (
           <motion.button
@@ -122,26 +125,26 @@ function SyncedLyrics({ lines, currentTime, onSeek }: {
             onHoverEnd={() => setHoveredIdx(null)}
             className="block w-full text-left px-3 py-2 rounded-xl cursor-pointer transition-colors"
             animate={{
-              scale: isActive ? 1.0 : 0.97,
-              opacity: isHovered ? Math.max(opacity, 0.8) : opacity,
+              scale: isEffectivelyActive ? 1.0 : 0.97,
+              opacity: isHovered ? Math.max(opacity, 0.85) : opacity,
             }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
             style={{
-              color: isActive ? "var(--mq-text)" : isPast ? "var(--mq-text-muted)" : "var(--mq-text-muted)",
-              fontWeight: isActive ? 700 : 400,
-              fontSize: isActive ? "1.1rem" : "0.95rem",
-              background: isActive
-                ? "linear-gradient(90deg, color-mix(in srgb, var(--mq-accent) 12%, transparent), color-mix(in srgb, var(--mq-accent) 4%, transparent))"
+              color: isEffectivelyActive ? "var(--mq-text)" : "var(--mq-text-muted)",
+              fontWeight: isEffectivelyActive ? 700 : 400,
+              fontSize: isEffectivelyActive ? "1.1rem" : "0.95rem",
+              background: isEffectivelyActive
+                ? "linear-gradient(90deg, color-mix(in srgb, var(--mq-accent) 15%, transparent), color-mix(in srgb, var(--mq-accent) 5%, transparent))"
                 : "transparent",
-              boxShadow: isActive
-                ? "0 0 20px color-mix(in srgb, var(--mq-accent) 15%, transparent)"
+              boxShadow: isEffectivelyActive
+                ? "0 0 24px color-mix(in srgb, var(--mq-accent) 20%, transparent)"
                 : "none",
-              borderLeft: isActive ? "2px solid var(--mq-accent)" : "2px solid transparent",
+              borderLeft: isEffectivelyActive ? "3px solid var(--mq-accent)" : "3px solid transparent",
             }}
           >
             {/* Active line gets a glow text shadow */}
             <span style={{
-              textShadow: isActive ? "0 0 12px color-mix(in srgb, var(--mq-accent) 40%, transparent)" : "none",
+              textShadow: isEffectivelyActive ? "0 0 12px color-mix(in srgb, var(--mq-accent) 40%, transparent)" : "none",
               transition: "text-shadow 0.3s ease",
             }}>
               {line.text || "♪"}
@@ -149,7 +152,7 @@ function SyncedLyrics({ lines, currentTime, onSeek }: {
 
             {/* Hover timestamp indicator */}
             <AnimatePresence>
-              {isHovered && !isActive && (
+              {isHovered && !isEffectivelyActive && (
                 <motion.span
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
