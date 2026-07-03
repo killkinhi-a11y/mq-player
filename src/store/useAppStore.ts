@@ -856,6 +856,14 @@ export const useAppStore = create<AppState>()(
         // Clear any pending sync timer
         const timerRef = (get() as any)._syncTimer;
         if (timerRef) clearTimeout(timerRef);
+        // Clear feedback sync interval to prevent memory leak
+        if (typeof window !== "undefined") {
+          const w = window as Window & { _mqFeedbackSyncInterval?: ReturnType<typeof setInterval> };
+          if (w._mqFeedbackSyncInterval) {
+            clearInterval(w._mqFeedbackSyncInterval);
+            w._mqFeedbackSyncInterval = undefined;
+          }
+        }
         // Increment generation to invalidate any in-flight async operations
         // Keep _hasHydrated: true to prevent hydration loop
         set({ ...initialState, _authGeneration: Date.now(), _hasHydrated: true });
@@ -1291,18 +1299,17 @@ export const useAppStore = create<AppState>()(
                     if (!data || !data.tracks || data.tracks.length === 0) return;
                     const newTracks = data.tracks.slice(0, 15);
                     const state = get();
-                    const existingIds = new Set(state.queue.map(t => t.id));
+                    const safeQueue = Array.isArray(state.queue) ? state.queue : [];
+                    const existingIds = new Set(safeQueue.map(t => t.id));
 
                     // ── Cross-batch artist dedup ──
-                    // Count artists in current queue + recent history to prevent
-                    // the same artist from appearing too frequently across batches
                     const recentArtists = new Map<string, number>();
-                    for (const t of state.queue) {
+                    for (const t of safeQueue) {
                       const a = (t.artist || "").toLowerCase().trim();
                       if (a) recentArtists.set(a, (recentArtists.get(a) || 0) + 1);
                     }
                     // Weight recent history artists (last 20 tracks)
-                    for (const h of state.history.slice(0, 20)) {
+                    for (const h of (Array.isArray(state.history) ? state.history : []).slice(0, 20)) {
                       const a = (h.track.artist || "").toLowerCase().trim();
                       if (a) recentArtists.set(a, (recentArtists.get(a) || 0) + 1);
                     }
@@ -1464,8 +1471,9 @@ export const useAppStore = create<AppState>()(
 
       addContact: (contact) =>
         set((s) => {
-          if (s.contacts.some((c) => c.id === contact.id)) return s;
-          return { contacts: [...s.contacts, contact] };
+          const contacts = Array.isArray(s.contacts) ? s.contacts : [];
+          if (contacts.some((c) => c.id === contact.id)) return s;
+          return { contacts: [...contacts, contact] };
         }),
 
       deleteMessagesForContact: (contactId) =>
@@ -1570,19 +1578,19 @@ export const useAppStore = create<AppState>()(
           tracks: [],
           createdAt: Date.now(),
         };
-        set((s) => ({ playlists: [...s.playlists, newPlaylist] }));
+        set((s) => ({ playlists: [...(Array.isArray(s.playlists) ? s.playlists : []), newPlaylist] }));
       },
 
       deletePlaylist: (playlistId) => {
         set((s) => ({
-          playlists: s.playlists.filter((p) => p.id !== playlistId),
+          playlists: (Array.isArray(s.playlists) ? s.playlists : []).filter((p) => p.id !== playlistId),
           selectedPlaylistId: s.selectedPlaylistId === playlistId ? null : s.selectedPlaylistId,
         }));
       },
 
       renamePlaylist: (playlistId, name) => {
         set((s) => ({
-          playlists: s.playlists.map((p) =>
+          playlists: (Array.isArray(s.playlists) ? s.playlists : []).map((p) =>
             p.id === playlistId ? { ...p, name } : p
           ),
         }));
@@ -1590,7 +1598,7 @@ export const useAppStore = create<AppState>()(
 
       addToPlaylist: (playlistId, track) => {
         set((s) => ({
-          playlists: s.playlists.map((p) => {
+          playlists: (Array.isArray(s.playlists) ? s.playlists : []).map((p) => {
             if (p.id !== playlistId) return p;
             if (p.tracks.some((t) => t.id === track.id)) return p;
             const updatedTracks = [...p.tracks, track];
@@ -1605,7 +1613,7 @@ export const useAppStore = create<AppState>()(
 
       removeFromPlaylist: (playlistId, trackId) => {
         set((s) => ({
-          playlists: s.playlists.map((p) => {
+          playlists: (Array.isArray(s.playlists) ? s.playlists : []).map((p) => {
             if (p.id !== playlistId) return p;
             return {
               ...p,
@@ -1790,8 +1798,9 @@ export const useAppStore = create<AppState>()(
       setFavoriteArtists: (artists) => set({ favoriteArtists: artists }),
       addFavoriteArtist: (artist) => {
         set((s) => {
-          if (s.favoriteArtists.some(a => a.id === artist.id)) return s;
-          return { favoriteArtists: [...s.favoriteArtists, artist] };
+          const favs = Array.isArray(s.favoriteArtists) ? s.favoriteArtists : [];
+          if (favs.some(a => a.id === artist.id)) return s;
+          return { favoriteArtists: [...favs, artist] };
         });
         get().saveFavoriteArtistsToServer();
       },
@@ -1807,7 +1816,7 @@ export const useAppStore = create<AppState>()(
       },
       removeFavoriteArtist: (artistId) => {
         set((s) => ({
-          favoriteArtists: s.favoriteArtists.filter(a => a.id !== artistId),
+          favoriteArtists: (Array.isArray(s.favoriteArtists) ? s.favoriteArtists : []).filter(a => a.id !== artistId),
         }));
         get().saveFavoriteArtistsToServer();
       },
@@ -1887,18 +1896,16 @@ export const useAppStore = create<AppState>()(
       // ── History actions ──
       addToHistory: (track) => {
         set((s) => {
-          // Check if track already in history — increment playCount
-          const existing = s.history.find((h) => h.track.id === track.id);
+          const hist = Array.isArray(s.history) ? s.history : [];
+          const existing = hist.find((h) => h.track.id === track.id);
           if (existing) {
-            // Move to front with incremented playCount
-            const filtered = s.history.filter((h) => h.track.id !== track.id);
+            const filtered = hist.filter((h) => h.track.id !== track.id);
             return {
               history: [{ track, playedAt: Date.now(), playCount: (existing.playCount || 0) + 1 }, ...filtered].slice(0, 200),
             };
           }
-          // New entry
           return {
-            history: [{ track, playedAt: Date.now(), playCount: 1 }, ...s.history].slice(0, 200),
+            history: [{ track, playedAt: Date.now(), playCount: 1 }, ...hist].slice(0, 200),
           };
         });
         // Debounced sync to server
@@ -1997,8 +2004,8 @@ export const useAppStore = create<AppState>()(
 
           // Accumulate for server sync
           const batch = { ...s.feedbackBatch };
-          const historyEntry = s.history.find(h => h.track.id === trackId);
-          const likedEntry = s.likedTracksData.find(t => t.id === trackId);
+          const historyEntry = (Array.isArray(s.history) ? s.history : []).find(h => h.track.id === trackId);
+          const likedEntry = (Array.isArray(s.likedTracksData) ? s.likedTracksData : []).find(t => t.id === trackId);
           const trackData = historyEntry?.track || likedEntry;
           const skipGenre = (trackData?.genre || "").toLowerCase().trim();
           const skipArtist = (trackData?.artist || "").toLowerCase().trim();
@@ -2034,8 +2041,8 @@ export const useAppStore = create<AppState>()(
 
           // Accumulate for server sync
           const batch = { ...s.feedbackBatch };
-          const historyEntry = s.history.find(h => h.track.id === trackId);
-          const likedEntry = s.likedTracksData.find(t => t.id === trackId);
+          const historyEntry = (Array.isArray(s.history) ? s.history : []).find(h => h.track.id === trackId);
+          const likedEntry = (Array.isArray(s.likedTracksData) ? s.likedTracksData : []).find(t => t.id === trackId);
           const trackData = historyEntry?.track || likedEntry;
           const completeGenre = (trackData?.genre || "").toLowerCase().trim();
           const completeArtist = (trackData?.artist || "").toLowerCase().trim();

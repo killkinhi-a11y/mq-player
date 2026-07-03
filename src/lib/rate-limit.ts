@@ -58,12 +58,9 @@ async function getUpstashClient() {
     return null;
   }
   try {
-    // Dynamic require — bypasses bundler's static analysis.
-    // The indirection through `eval` prevents Turbopack/webpack from
-    // trying to resolve the module at build time.
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    const dynamicRequire = new Function("m", "return require(m)") as (m: string) => unknown;
-    const mod = dynamicRequire("@upstash/redis") as
+    // Dynamic import — safe alternative to new Function("return require(m)")
+    // @ts-ignore — optional dependency, may not be installed
+    const mod = await import(/* webpackIgnore: true */ "@upstash/redis").catch(() => null) as
       | { Redis?: new (opts: { url: string; token: string }) => {
               incr: (k: string) => Promise<number>;
               expire: (k: string, ttl: number) => Promise<void>;

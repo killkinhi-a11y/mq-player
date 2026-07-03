@@ -111,6 +111,13 @@ function ProgressBarBase({
     };
   }, [internalDragging, clientXToTime, onSeek, onDragEnd]);
 
+  // ── Cleanup RAF on unmount ──
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
   // ── Touch handlers ──
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     e.stopPropagation();
