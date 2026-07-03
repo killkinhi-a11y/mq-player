@@ -67,26 +67,24 @@ function SyncedLyrics({ lines, currentTime, onSeek }: {
     return result;
   }, [lines, currentTime]);
 
-  // Auto-scroll: keep active line in upper-middle area (not centered)
+  // Auto-scroll: keep active line near the top (like Apple Music / Spotify)
   useEffect(() => {
     const container = containerRef.current;
     const lineEl = lineRefs.current[activeIdx];
     if (!container || !lineEl || activeIdx < 0) return;
 
     const cTop = container.scrollTop;
-    const cBot = cTop + container.clientHeight;
     const lTop = lineEl.offsetTop;
-    const lBot = lTop + lineEl.offsetHeight;
 
-    // Comfort zone: active line should be in top 40% of viewport
-    // (not centered — centering pushes content too far down)
-    const comfortTop = cTop + container.clientHeight * 0.15;
-    const comfortBot = cTop + container.clientHeight * 0.5;
+    // Active line should stay near the top — at ~20% from container top.
+    // This matches Apple Music / Spotify behavior where the active line
+    // is always near the top with upcoming lines visible below.
+    const targetScroll = lTop - container.clientHeight * 0.15;
 
-    if (lTop < comfortTop || lBot > comfortBot) {
+    // Only scroll if the active line has drifted more than 2 lines below target
+    if (Math.abs(cTop - targetScroll) > lineEl.offsetHeight * 2) {
       container.scrollTo({
-        // Position active line at ~30% from top of container
-        top: lTop - container.clientHeight * 0.3,
+        top: Math.max(0, targetScroll),
         behavior: "smooth",
       });
     }
