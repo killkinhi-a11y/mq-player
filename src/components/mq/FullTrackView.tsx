@@ -17,6 +17,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "@/hooks/use-toast";
 import VolumeSlider from "@/components/ui/volume-slider";
 import { fetchLyrics } from "@/lib/lyrics-client";
+import { LyricsView, type LyricLine } from "./LyricsView";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
@@ -199,7 +200,7 @@ export default function FullTrackView() {
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredTime, setHoveredTime] = useState<number | null>(null);
   const [activePanel, setActivePanel] = useState<"queue" | "lyrics" | "history" | null>(null);
-  const [lyrics, setLyrics] = useState<SyncedLyricLine[]>([]);
+  const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState<string>("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
   const [lyricsError, setLyricsError] = useState<string | null>(null);
@@ -968,16 +969,16 @@ export default function FullTrackView() {
                             <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} />
                             <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск текста...</span>
                           </div>
-                        ) : lyrics.length > 0 ? (
-                          <SyncedLyrics lines={lyrics} currentTime={progress} onSeek={seekToTime} />
-                        ) : plainLyrics ? (
-                          <div className="text-sm leading-relaxed whitespace-pre-wrap max-h-60 overflow-y-auto p-3 rounded-xl" data-scrollable="true" style={{ color: "var(--mq-text-muted)", backgroundColor: "rgba(255,255,255,0.03)" }}>
-                            {plainLyrics}
-                          </div>
                         ) : (
-                          <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>
-                            {lyricsError || "Текст не найден для этого трека"}
-                          </p>
+                          <LyricsView
+                            lines={lyrics}
+                            plainText={plainLyrics}
+                            currentTime={progress}
+                            isLoading={false}
+                            error={lyricsError}
+                            onSeek={seekToTime}
+                            cover={currentTrack?.cover}
+                          />
                         )}
                       </motion.div>
                     )}
