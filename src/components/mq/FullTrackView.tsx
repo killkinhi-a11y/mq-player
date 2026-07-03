@@ -547,6 +547,15 @@ export default function FullTrackView() {
   }, [history, currentTrack]);
 
   // ── Lyrics fetching ─────────────────────────────────────────────────────
+  const [lyricsRetryKey, setLyricsRetryKey] = useState(0);
+
+  // Listen for retry event from LyricsView
+  useEffect(() => {
+    const onRetry = () => setLyricsRetryKey((k) => k + 1);
+    window.addEventListener("mq-lyrics-retry", onRetry);
+    return () => window.removeEventListener("mq-lyrics-retry", onRetry);
+  }, []);
+
   useEffect(() => {
     if (!isOpen || !currentTrack) return;
     if (activePanel !== "lyrics") return;
@@ -570,14 +579,17 @@ export default function FullTrackView() {
           setLyricsError("Текст не найден");
         }
       })
-      .catch(() => {
-        if (!cancelled) setLyricsError("Ошибка загрузки текста");
+      .catch((e) => {
+        if (!cancelled) {
+          console.warn("[FullTrackView] lyrics fetch failed:", e);
+          setLyricsError("Ошибка загрузки текста");
+        }
       })
       .finally(() => {
         if (!cancelled) setLyricsLoading(false);
       });
     return () => { cancelled = true; };
-  }, [activePanel, isOpen, currentTrack]);
+  }, [activePanel, isOpen, currentTrack, lyricsRetryKey]);
 
   // Reset lyrics when track changes
   useEffect(() => {

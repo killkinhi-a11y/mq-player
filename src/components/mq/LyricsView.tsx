@@ -207,6 +207,19 @@ function LyricsSkeleton() {
 function LyricsViewBase({ lines, plainText, currentTime, isLoading, error, onSeek }: LyricsViewProps) {
   const hasSynced = lines.length > 0;
   const hasPlain = plainText.length > 0;
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Retry handler — triggers parent to re-fetch by changing key
+  const handleRetry = useCallback(() => {
+    setRetryCount((c) => c + 1);
+  }, []);
+
+  // Expose retry via window event — parent listens
+  useEffect(() => {
+    if (retryCount > 0) {
+      window.dispatchEvent(new CustomEvent("mq-lyrics-retry"));
+    }
+  }, [retryCount]);
 
   return (
     <div className="w-full">
@@ -237,7 +250,7 @@ function LyricsViewBase({ lines, plainText, currentTime, isLoading, error, onSee
       ) : hasPlain ? (
         <PlainLyrics text={plainText} />
       ) : (
-        <div className="flex flex-col items-center justify-center py-8 gap-2">
+        <div className="flex flex-col items-center justify-center py-8 gap-3">
           <div
             className="w-10 h-10 rounded-full flex items-center justify-center"
             style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, transparent)" }}
@@ -245,8 +258,19 @@ function LyricsViewBase({ lines, plainText, currentTime, isLoading, error, onSee
             <span style={{ color: "var(--mq-accent)", fontSize: 18 }}>♪</span>
           </div>
           <p className="text-xs text-center" style={{ color: "var(--mq-text-muted)" }}>
-            {error || "Текст не найден для этого трека"}
+            {error || "Текст не найден"}
           </p>
+          <button
+            onClick={handleRetry}
+            className="px-3 py-1.5 rounded-full text-[10px] font-semibold transition-colors"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+              color: "var(--mq-accent)",
+              border: "1px solid color-mix(in srgb, var(--mq-accent) 20%, transparent)",
+            }}
+          >
+            ↻ Попробовать снова
+          </button>
         </div>
       )}
     </div>
