@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { themes } from "@/lib/themes";
+import { APP_URL } from "@/lib/config";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Palette, Headphones, Bell, MoreHorizontal,
@@ -426,7 +427,7 @@ export default function SettingsView() {
             <Card>
               <CardTitle icon={Info} title="О приложении" />
               <SettingRow icon={Info} label="Версия" value="v1.3.0" />
-              <SettingRow icon={Cloud} label="Сервер" value="mq1.vercel.app" />
+              <SettingRow icon={Cloud} label="Сервер" value={APP_URL.replace("https://", "")} />
             </Card>
 
             <Card>

@@ -9,17 +9,12 @@
  */
 
 import { sanitizeGenre } from "@/lib/tasteProfile";
+import { SOUNDCLOUD_CLIENT_IDS } from "@/lib/config";
 
 /* ------------------------------------------------------------------ */
 /*  Client ID pool — rotated on 401 errors                            */
 /* ------------------------------------------------------------------ */
-const CLIENT_IDS = [
-  "O7atZypwLvuWSY9hWnnQ3vrLTHH7wqMe", // 2025-07 — freshly extracted
-  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // 2025-06 — backup (may be stale)
-  "JYcDeZwsm7iCUaCkf1rFjCmVh5RcY3gE", // backup
-  "0fW2nOTiRqfcZvfInHCFInQD6v3a87SE", // backup
-  "iZfJlNrHFpRTrlyUIv5VaCkqNKU8wHmD", // backup
-];
+const CLIENT_IDS = SOUNDCLOUD_CLIENT_IDS;
 
 let activeIndex = 0;
 let validatedId: string | null = null;

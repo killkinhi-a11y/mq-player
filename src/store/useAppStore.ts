@@ -36,7 +36,7 @@ if (typeof window !== "undefined") {
     }
   } catch {
     console.warn("[MQ Store] corrupt localStorage – clearing");
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { console.warn("[store]", e); }
   }
 }
 
@@ -793,13 +793,13 @@ function createQuotaManagedStorage(): StateStorage {
         // If quota exceeded, clear and retry with minimal state
         try {
           localStorage.removeItem(name);
-        } catch {}
+        } catch (e) { console.warn("[store]", e); }
       }
     },
     removeItem: (name: string) => {
       try {
         localStorage.removeItem(name);
-      } catch {}
+      } catch (e) { console.warn("[store]", e); }
     },
   };
 }
@@ -1830,7 +1830,7 @@ export const useAppStore = create<AppState>()(
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ artists: favoriteArtists }),
           });
-        } catch {}
+        } catch (e) { console.warn("[store]", e); }
       },
       loadFavoriteArtistsFromServer: async () => {
         const { userId } = get();
@@ -1845,7 +1845,7 @@ export const useAppStore = create<AppState>()(
           if (typeof data.onboardingComplete === 'boolean') {
             set({ onboardingComplete: data.onboardingComplete });
           }
-        } catch {}
+        } catch (e) { console.warn("[store]", e); }
       },
 
       // ── Liquid Glass Mobile ──
@@ -1871,7 +1871,7 @@ export const useAppStore = create<AppState>()(
           } else {
             localStorage.removeItem("mq-style");
  }
-        } catch {}
+        } catch (e) { console.warn("[store]", e); }
       },
 
       // ── Style Variant (Light/Dark) ──
@@ -1890,7 +1890,7 @@ export const useAppStore = create<AppState>()(
           } else {
             localStorage.removeItem("mq-style-variant");
           }
-        } catch {}
+        } catch (e) { console.warn("[store]", e); }
       },
 
       // ── History actions ──
@@ -2146,7 +2146,7 @@ export const useAppStore = create<AppState>()(
                   }
                 }
               }
-            } catch {}
+            } catch (e) { console.warn("[store]", e); }
           }
 
           set({ releaseRadarTracks: allTracks.slice(0, 20), releaseRadarLoading: false });
@@ -2676,7 +2676,7 @@ export const useAppStore = create<AppState>()(
           if (error) {
             // TDZ errors during HMR are common — silently clear and continue
             console.debug("[MQ Store] rehydration error — clearing localStorage and continuing");
-            try { localStorage.removeItem(STORAGE_KEY); } catch {}
+            try { localStorage.removeItem(STORAGE_KEY); } catch (e) { console.warn("[store]", e); }
             // CRITICAL: Even on rehydration error, mark hydration as complete.
             // Otherwise the UI stays stuck on the "mq" loading screen forever.
             useAppStore.setState({ _hasHydrated: true });

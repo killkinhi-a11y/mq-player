@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { resumeAudioContext, getAudioElement } from "@/lib/audioEngine";
+import { APP_URL, isCapacitor } from "@/lib/config";
 import type { Track } from "@/lib/musicApi";
 
 interface UseMediaSessionParams {
@@ -12,10 +13,7 @@ interface UseMediaSessionParams {
 }
 
 // Detect if running inside Capacitor (native app / APK)
-function isCapacitor(): boolean {
-  if (typeof window === "undefined") return false;
-  return !!(window as any).Capacitor?.isNativePlatform?.();
-}
+// Re-exported from config.ts for backwards compatibility
 
 // Dynamically import the native plugin (only loaded in Capacitor context)
 let nativeMediaSession: any = null;
@@ -25,7 +23,8 @@ async function getNativeMediaSession() {
     const mod = await import("@capgo/capacitor-media-session");
     nativeMediaSession = mod.MediaSession;
     return nativeMediaSession;
-  } catch {
+  } catch (e) {
+    console.warn("[MediaSession] native plugin not available:", e);
     return null;
   }
 }
@@ -36,12 +35,12 @@ function absoluteCoverUrl(cover?: string): string | null {
   if (cover.startsWith("http://") || cover.startsWith("https://")) return cover;
   if (cover.startsWith("/")) {
     // In Capacitor WebView, window.location.origin may be https://localhost
-    // or empty — use the production URL as fallback so covers load in
+    // or empty — use APP_URL from config as fallback so covers load in
     // the native media notification.
     let origin = typeof window !== "undefined" ? window.location.origin : "";
-    // If origin is localhost or empty (Capacitor), use production URL
+    // If origin is localhost or empty (Capacitor), use centralized config
     if (!origin || origin.includes("localhost") || origin.includes("127.0.0.1")) {
-      origin = "https://mq1.vercel.app";
+      origin = APP_URL;
     }
     return `${origin}${cover}`;
   }

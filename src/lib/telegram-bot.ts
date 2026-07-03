@@ -16,6 +16,7 @@
  */
 
 import { database, isTurso, getTursoClient } from "@/lib/database";
+import { APP_URL } from "@/lib/config";
 import {
   sendTelegramMessage,
   sendTelegramAudio,
@@ -52,7 +53,7 @@ function getAllowedOrigins(): string[] {
   if (fromEnv.length > 0) return fromEnv;
   // Built-in fallback — keep this list tight.
   return [
-    "https://mq1.vercel.app",
+    APP_URL,
     "https://mq-player.vercel.app",
     "http://localhost:3000",
   ];
@@ -71,7 +72,7 @@ export function setSiteOrigin(origin: string): void {
 }
 
 function getSiteOrigin(): string {
-  return _siteOrigin || getAllowedOrigins()[0] || "https://mq1.vercel.app";
+  return _siteOrigin || getAllowedOrigins()[0] || APP_URL;
 }
 
 /* ------------------------------------------------------------------ */
