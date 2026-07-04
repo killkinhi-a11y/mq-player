@@ -743,3 +743,73 @@ Stage Summary:
   от трека' button. Both are recommendation-quality-of-life features
   that bring the bar closer to Spotify/Yandex Music standard.
 - Production: https://mq1.vercel.app — READY (auto-deploys from main)
+
+---
+Task ID: recs-wave-radio-bugfix
+Agent: Main Agent (Claude)
+Task: Найти и починить баги в доработкахrecommendations/wave/PlayerBar из предыдущих двух коммитов
+
+Work Log:
+- Перечитал свой код в useWaveEngine.ts и PlayerBar.tsx — нашёл 5 багов.
+
+BUG #1: startWaveFromCurrentTrack вызывал playTrack(cur, newQueue).
+  - playTrack() сбрасывает progress: 0 (store/useAppStore.ts:1011) —
+    комментарий "preserves playback position" был неправдой.
+  - playTrack() также попадает в _playLock early-return
+    (store/useAppStore.ts:1000), если тот же track id. _playLock
+    снимается только в useAudioEngine когда аудио реально загрузится.
+    В обоих случаях очередь НЕ обновлялась → radio tracks терялись.
+  - FIX: использую useAppStore.setState напрямую для обновления
+    queue/queueIndex/radioMode/upNext, оставляя currentTrack/progress/
+    duration/isPlaying нетронутыми. Воспроизведение продолжается с той
+    же позиции.
+
+BUG #2: startWaveFromCurrentTrack содержал duplicate call:
+    let tracks = await fetchWaveTracks(15);
+    if (tracks.length === 0) {
+      tracks = await fetchWaveTracks(15);  // ← бесполезен
+    }
+  fetchWaveTracks уже сам fallback'ает на recommendations. Второй
+  вызов делал то же самое.
+  - FIX: убрал duplicate call.
+
+BUG #3: startWaveFromCurrentTrack не обрабатывал currentIdx = -1
+  (currentTrack не в queue, например очередь была очищена). В этом
+  случае newQueue = [...shuffled] с queueIndex = -1 ломал prevTrack().
+  - FIX: добавил проверку curInQueue. Если cur не в queue, ставлю
+    его в начало: newQueue = [cur, ...shuffled], newQueueIndex = 0.
+
+BUG #4: fetchWaveTracks, когда /api/music/radio вернул мало треков
+  (< min(5, count)), падал в recommendations fallback и ТЕРЯЛ radio-
+  треки. Пользователь вместо high-relevance radio получал generic recs.
+  - FIX: вынес recommendations+trending+charts fallback в локальную
+    функцию fetchRecsFallback(needed). Когда radio вернул SOME tracks
+    но не enough — MERGE: radio tracks первыми (higher relevance),
+    затем recs чтобы заполнить остаток. Dedup против radio track IDs.
+  - Refactor: один общий excludeSet (history+queue), используемый
+    обоими путями, вместо двух отдельных.
+
+BUG #5: PlayerBar — Up Next tooltip обрезался и уходил за viewport.
+  - 'overflow-hidden' на родительском контейнере player bar обрезал
+    tooltip. Ambient glow имеет свой собственный overflow-hidden +
+    rounded-2xl, так что родительский был избыточен.
+  - FIX: убрал 'overflow-hidden' с родителя. CSS border-radius всё
+    равно клипит background-color и backdrop-filter.
+  - Tooltip был позиционирован 'top-full mt-2' (вниз от SkipForward),
+    но player bar внизу viewport — tooltip уходил за экран.
+  - FIX: изменил на 'bottom-full mb-2' (вверх, в область контента).
+
+Build verification:
+- tsc --noEmit → exit 0
+- next build → ✓ Compiled successfully in 24.1s
+- Pushed to origin/main: 421a950..534e789
+
+Stage Summary:
+- Файлов изменено: useWaveEngine.ts, PlayerBar.tsx
+- 5 багов починено: 3 в useWaveEngine (playTrack reset, duplicate call,
+  currentIdx=-1), 1 в fetchWaveTracks (merge вместо drop), 1 в
+  PlayerBar (overflow-hidden clip + position off-screen).
+- Главный эффект: кнопка "Радио от трека" теперь РЕАЛЬНО запускает
+  радио от текущего трека без сброса позиции воспроизведения и без
+  потери radio tracks. Up Next tooltip теперь виден на экране.
+- Production: https://mq1.vercel.app — READY (auto-deploys from main)

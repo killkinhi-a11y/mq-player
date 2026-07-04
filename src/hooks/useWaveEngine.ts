@@ -21,7 +21,6 @@ import type { Track } from "@/lib/musicApi";
 export function useWaveEngine() {
   const playTrack = useAppStore((s) => s.playTrack);
   const nextTrack = useAppStore((s) => s.nextTrack);
-  const toggleRadioMode = useAppStore((s) => s.toggleRadioMode);
   const radioMode = useAppStore((s) => s.radioMode);
   const currentTrack = useAppStore((s) => s.currentTrack);
   const queue = useAppStore((s) => s.queue);
@@ -29,13 +28,18 @@ export function useWaveEngine() {
   const likedTracksData = useAppStore((s) => s.likedTracksData);
   const history = useAppStore((s) => s.history);
   const dislikedTrackIds = useAppStore((s) => s.dislikedTrackIds);
-  const favoriteArtists = useAppStore((s) => s.favoriteArtists);
   const toggleLike = useAppStore((s) => s.toggleLike);
   const recordSkip = useAppStore((s) => s.recordSkip);
 
   const [waveLoading, setWaveLoading] = useState(false);
   const [waveError, setWaveError] = useState<string | null>(null);
   const lastFetchRef = useRef<number>(0);
+  // In-flight fetch guard: prevents parallel auto-refill fetches when the
+  // effect re-runs (queue/queueIndex/currentTrack change) before the previous
+  // fetch resolves. Without this, rapid track changes trigger 2-3 parallel
+  // /api/music/radio requests, wasting rate-limit budget and causing
+  // duplicate-track races in the queue.
+  const inflightRef = useRef<Promise<Track[]> | null>(null);
 
   // ── Build taste profile ──
   const tasteProfile = useRef(extractTasteProfile({
@@ -296,6 +300,19 @@ export function useWaveEngine() {
     return a;
   }, []);
 
+  // ── Deduplicated fetch wrapper ──
+  // If a fetch is already in-flight, returns the same promise instead of
+  // starting a parallel request. Used by auto-refill effect (which re-runs
+  // on every queue/queueIndex/currentTrack change) and skipTrack.
+  const fetchWaveTracksDedup = useCallback(async (count: number = 20): Promise<Track[]> => {
+    if (inflightRef.current) return inflightRef.current;
+    const p = fetchWaveTracks(count).finally(() => {
+      inflightRef.current = null;
+    });
+    inflightRef.current = p;
+    return p;
+  }, [fetchWaveTracks]);
+
   // ── Start Wave ──
   const startWave = useCallback(async () => {
     if (waveLoading) return;
@@ -363,6 +380,13 @@ export function useWaveEngine() {
       const tracks = await fetchWaveTracks(15);
       const shuffled = shuffle(tracks).filter(t => t.id !== cur.id);
 
+      if (shuffled.length === 0) {
+        // No tracks found from radio OR recommendations — show error,
+        // don't touch the queue (user keeps their current playback).
+        setWaveError("Не удалось подобрать похожие треки. Попробуйте позже.");
+        return;
+      }
+
       // Use setState DIRECTLY (not playTrack) — playTrack resets progress to 0
       // and is also blocked by _playLock when called with the same track id.
       // We want to PRESERVE the current playback position and only update the
@@ -423,10 +447,11 @@ export function useWaveEngine() {
       return;
     }
 
-    // Queue running low — fetch more tracks
+    // Queue running low — fetch more tracks (deduplicated to prevent
+    // parallel fetches if auto-refill effect is also running)
     setWaveLoading(true);
     try {
-      let newTracks = await fetchWaveTracks(10);
+      let newTracks = await fetchWaveTracksDedup(10);
       if (newTracks.length > 0) {
         newTracks = shuffle(newTracks);
         // Add to queue and play first
@@ -443,7 +468,7 @@ export function useWaveEngine() {
     } finally {
       setWaveLoading(false);
     }
-  }, [currentTrack, recordSkip, nextTrack, fetchWaveTracks, shuffle]);
+  }, [currentTrack, recordSkip, nextTrack, fetchWaveTracksDedup, shuffle]);
 
   // ── Dislike current track (skip + mark as disliked) ──
   const dislikeTrack = useCallback(() => {
@@ -473,7 +498,9 @@ export function useWaveEngine() {
       if (now - lastFetchRef.current < 10000) return;
       lastFetchRef.current = now;
 
-      fetchWaveTracks(10).then(newTracks => {
+      // Deduplicated fetch — if skipTrack already started a fetch, this
+      // returns the same promise instead of starting a parallel one
+      fetchWaveTracksDedup(10).then(newTracks => {
         if (newTracks.length > 0) {
           const shuffled = shuffle(newTracks);
           const state = useAppStore.getState();
@@ -488,7 +515,7 @@ export function useWaveEngine() {
         // Silent — auto-refill is best-effort
       });
     }
-  }, [radioMode, currentTrack, queue, queueIndex, fetchWaveTracks, shuffle]);
+  }, [radioMode, currentTrack, queue, queueIndex, fetchWaveTracksDedup, shuffle]);
 
   // ── Auto-stop wave when queue is empty and no current track ──
   useEffect(() => {

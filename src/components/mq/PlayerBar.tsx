@@ -57,6 +57,14 @@ export default function PlayerBar() {
   // Wave engine — used for "Радио от трека" button (starts wave seeded by current track)
   const wave = useWaveEngine();
   const [showUpNext, setShowUpNext] = useState(false);
+  // Hover timer for Up Next tooltip — 150ms open delay prevents flicker when
+  // sweeping the mouse across the controls. Cleared on unmount.
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    };
+  }, []);
 
   const isMobile = useIsMobile();
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -204,11 +212,15 @@ export default function PlayerBar() {
   const hasNextTrack = !!nextTrackPreview;
 
   // ── "Радио от трека" — start wave seeded by current track ──
+  // No-op if radio mode is already active (otherwise we'd rebuild the
+  // queue and lose the upcoming radio tracks the user is about to hear).
+  // User can press Stop in Wave card first if they want to re-seed.
   const handleStartRadio = useCallback(() => {
+    if (radioMode) return;
     if (currentTrack) {
       wave.startWaveFromCurrentTrack();
     }
-  }, [currentTrack, wave]);
+  }, [currentTrack, wave, radioMode]);
 
   if (!currentTrack || miniPlayerHidden || isFullTrackViewOpen) return null;
   if (isMobile) return null;
@@ -316,11 +328,20 @@ export default function PlayerBar() {
                     : <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />}
                 </button>
 
-                {/* SkipForward with hover-triggered Up Next preview */}
+                {/* SkipForward with hover-triggered Up Next preview.
+                    150ms open delay prevents flicker when sweeping the mouse
+                    across the controls. Close is instant so the tooltip
+                    disappears immediately when the user moves away. */}
                 <div
                   className="relative"
-                  onMouseEnter={() => setShowUpNext(true)}
-                  onMouseLeave={() => setShowUpNext(false)}
+                  onMouseEnter={() => {
+                    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                    hoverTimerRef.current = setTimeout(() => setShowUpNext(true), 150);
+                  }}
+                  onMouseLeave={() => {
+                    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+                    setShowUpNext(false);
+                  }}
                 >
                   <button onClick={nextTrack} className="w-8 h-8 rounded-full flex items-center justify-center" title="Следующий">
                     <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
@@ -370,6 +391,17 @@ export default function PlayerBar() {
                             {nextTrackPreview.artist}
                           </p>
                         </div>
+                        {nextTrackPreview.duration > 0 && (
+                          <span
+                            className="text-[10px] font-medium flex-shrink-0 self-center px-1.5 py-0.5 rounded-md"
+                            style={{
+                              color: "var(--mq-text-muted)",
+                              backgroundColor: "color-mix(in srgb, var(--mq-text-muted) 10%, transparent)",
+                            }}
+                          >
+                            {formatDuration(nextTrackPreview.duration)}
+                          </span>
+                        )}
                       </div>
                     </motion.div>
                   )}
