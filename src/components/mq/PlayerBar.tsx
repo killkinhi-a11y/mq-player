@@ -289,10 +289,15 @@ export default function PlayerBar() {
                 {/* Playing indicator on cover — overlay variant
                     (white bars, drop-shadow glow). When paused OR loading,
                     animation freezes and bars dim to 50% opacity.
-                    Always show overlay when there's a current track. */}
+                    Overlay opacity itself is reduced when paused so the
+                    cover art stays more visible in idle state. */}
                 <div
-                  className="absolute inset-0 flex items-end justify-center pb-1.5 transition-opacity duration-200"
-                  style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+                  className="absolute inset-0 flex items-end justify-center pb-1.5"
+                  style={{
+                    backgroundColor: "rgba(0,0,0,0.45)",
+                    opacity: isPlaying ? 1 : 0.65,
+                    transition: "opacity 0.25s ease-out",
+                  }}
                 >
                   <NowPlayingEqualizer
                     size="sm"
