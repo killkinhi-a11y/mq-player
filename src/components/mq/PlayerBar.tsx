@@ -14,6 +14,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import QueueView from "./QueueView";
 import { ProgressBar } from "./ProgressBar";
+import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 
 // ═════════════════════════════════════════════════════════════════════════
 // PLAYER BAR — desktop mini player
@@ -164,8 +165,18 @@ export default function PlayerBar() {
     };
   }, [isVolDragging, seekVolume]);
 
+  const prevVolumeRef = useRef(70);
   const handleVolMute = useCallback(() => {
-    setVolume(volRef.current > 0 ? 0 : 70);
+    // Mute: save current volume to prevVolumeRef so we can restore it.
+    // Unmute: restore from prevVolumeRef (was buggy before — always
+    // restored to 70 even if user had set a different volume).
+    const cur = volRef.current;
+    if (cur > 0) {
+      prevVolumeRef.current = cur;
+      setVolume(0);
+    } else {
+      setVolume(prevVolumeRef.current > 0 ? prevVolumeRef.current : 70);
+    }
   }, [setVolume]);
 
   // ── Actions ──
@@ -275,28 +286,20 @@ export default function PlayerBar() {
                     <Music className="w-5 h-5" style={{ color: "rgba(255,255,255,0.7)" }} />
                   </div>
                 )}
-                {/* Playing indicator on cover */}
-                {isPlaying && (
-                  <div className="absolute inset-0 bg-black/40 flex items-end p-1.5">
-                    <div className="flex items-end gap-[2px] h-4 w-full justify-center">
-                      {[0,1,2,3].map(i => (
-                        <span
-                          key={i}
-                          className="w-[2px] rounded-full"
-                          style={{
-                            display: "block",
-                            backgroundColor: "#fff",
-                            height: "100%",
-                            transformOrigin: "bottom",
-                            animation: `mq-eq 0.6s ease-in-out infinite alternate`,
-                            animationDelay: `${i * 0.12}s`,
-                            animationDuration: `${0.45 + i * 0.1}s`,
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Playing indicator on cover — overlay variant
+                    (white bars, drop-shadow glow). When paused OR loading,
+                    animation freezes and bars dim to 50% opacity.
+                    Always show overlay when there's a current track. */}
+                <div
+                  className="absolute inset-0 flex items-end justify-center pb-1.5 transition-opacity duration-200"
+                  style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+                >
+                  <NowPlayingEqualizer
+                    size="sm"
+                    variant="overlay"
+                    paused={!isPlaying || isLoading}
+                  />
+                </div>
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
@@ -434,18 +437,48 @@ export default function PlayerBar() {
 
             {/* ═══ RIGHT: Like, Dislike, Radio, Volume, Queue ═══ */}
             <div className="flex items-center gap-1 justify-end min-w-0" style={{ width: "calc(100% / 3 - 16px)" }}>
-              {/* Like */}
-              <button onClick={handleLike} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" title="Нравится">
-                <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
-              </button>
+              {/* Like — bounce animation on tap */}
+              <motion.button
+                whileTap={{ scale: 0.7 }}
+                whileHover={{ scale: 1.1 }}
+                onClick={handleLike}
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                title="Нравится"
+              >
+                <Heart
+                  className="w-4 h-4"
+                  style={{
+                    color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                    transition: "color 0.15s, transform 0.15s",
+                    transform: isLiked ? "scale(1.1)" : "scale(1)",
+                  }}
+                  fill={isLiked ? "currentColor" : "none"}
+                />
+              </motion.button>
 
-              {/* Dislike */}
-              <button onClick={handleDislike} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" title="Не нравится">
-                <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
-              </button>
+              {/* Dislike — bounce on tap */}
+              <motion.button
+                whileTap={{ scale: 0.7 }}
+                whileHover={{ scale: 1.1 }}
+                onClick={handleDislike}
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                title="Не нравится"
+              >
+                <ThumbsDown
+                  className="w-4 h-4"
+                  style={{
+                    color: isDisliked ? "#ef4444" : "var(--mq-text-muted)",
+                    transition: "color 0.15s",
+                  }}
+                  fill={isDisliked ? "currentColor" : "none"}
+                />
+              </motion.button>
 
-              {/* Radio from current track — starts Wave seeded by the playing track */}
-              <button
+              {/* Radio from current track — starts Wave seeded by the playing track.
+                  Bounce on tap. Tooltip via title attribute (browser native). */}
+              <motion.button
+                whileTap={{ scale: 0.8 }}
+                whileHover={{ scale: 1.1 }}
                 onClick={handleStartRadio}
                 disabled={wave.waveLoading}
                 className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 relative"
@@ -454,15 +487,23 @@ export default function PlayerBar() {
                 {wave.waveLoading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--mq-accent)" }} />
                 ) : (
-                  <Radio className="w-4 h-4" style={{ color: radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                )}
-                {radioMode && (
-                  <span
-                    className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
-                    style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 0 6px var(--mq-accent)" }}
+                  <Radio
+                    className="w-4 h-4"
+                    style={{
+                      color: radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                      transition: "color 0.15s",
+                    }}
                   />
                 )}
-              </button>
+                {radioMode && !wave.waveLoading && (
+                  <motion.span
+                    className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+                    style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 0 6px var(--mq-accent)" }}
+                    animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                )}
+              </motion.button>
 
               {/* Divider */}
               <div className="w-px h-5 mx-0.5 flex-shrink-0" style={{ backgroundColor: "var(--mq-border-thin)" }} />

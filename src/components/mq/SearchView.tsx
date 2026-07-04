@@ -1003,10 +1003,10 @@ const SearchTrackRow = memo(function SearchTrackRow({
             </div>
           )}
           {/* Play/pause overlay on hover/active */}
-          {(isActive || false) && (
+          {isActive && (
             <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
               {isCurrentlyPlaying ? (
-                <NowPlayingEqualizer />
+                <NowPlayingEqualizer size="sm" variant="overlay" />
               ) : (
                 <Play className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
               )}
@@ -1017,7 +1017,15 @@ const SearchTrackRow = memo(function SearchTrackRow({
         {/* Title + artist + meta */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            {isCurrentlyPlaying && <NowPlayingEqualizer />}
+            {/* Show equalizer inline when track is active — animated when
+                playing, paused state when active but not playing. */}
+            {isActive && (
+              <NowPlayingEqualizer
+                size="sm"
+                variant="inline"
+                paused={!isPlaying}
+              />
+            )}
             <p className="text-sm font-medium truncate" style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text)" }}>
               {track.title}
             </p>

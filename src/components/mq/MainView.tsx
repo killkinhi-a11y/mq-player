@@ -19,6 +19,7 @@ import ScrollReveal from "./ScrollReveal";
 import ArtistDetailView from "./ArtistDetailView";
 import PlaylistArtwork from "./PlaylistArtwork";
 import ContextMenu from "./ContextMenu";
+import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import { useLongPress } from "@/hooks/useLongPress";
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -1282,23 +1283,7 @@ function RecCard({
           <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-md flex items-center gap-1" style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}>
             {/* Animated equalizer bars when playing, static dot when paused */}
             {isPlaying ? (
-              <span className="flex items-end gap-[2px] h-2.5">
-                {[0, 1, 2, 3].map((i) => (
-                  <span
-                    key={i}
-                    style={{
-                      display: "block",
-                      width: 2,
-                      height: "100%",
-                      backgroundColor: "var(--mq-accent)",
-                      transformOrigin: "bottom",
-                      animation: "mq-eq 0.6s ease-in-out infinite alternate",
-                      animationDelay: `${i * 0.12}s`,
-                      animationDuration: `${0.45 + i * 0.1}s`,
-                    }}
-                  />
-                ))}
-              </span>
+              <NowPlayingEqualizer size="xs" variant="inline" />
             ) : (
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
             )}

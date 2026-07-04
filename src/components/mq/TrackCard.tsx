@@ -352,8 +352,11 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
                   : "linear-gradient(to right, transparent, var(--mq-bg, #0e0e0e))",
               }}
             />
-            {/* Now-playing equalizer next to title */}
-            {isActive && isPlaying && !compactMode && <NowPlayingEqualizer />}
+            {/* Now-playing equalizer next to title — shown when active,
+                animated when playing, paused state when active but paused. */}
+            {isActive && !compactMode && (
+              <NowPlayingEqualizer size="sm" variant="inline" paused={!isPlaying} />
+            )}
           </div>
 
           {/* Artist row */}

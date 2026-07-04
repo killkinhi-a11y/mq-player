@@ -813,3 +813,85 @@ Stage Summary:
   радио от текущего трека без сброса позиции воспроизведения и без
   потери radio tracks. Up Next tooltip теперь виден на экране.
 - Production: https://mq1.vercel.app — READY (auto-deploys from main)
+
+---
+Task ID: recs-wave-bugfix-round2
+Agent: Main Agent (Claude)
+Task: Продолжить доработку рекомендаций/wave/PlayerBar и искать новые баги
+
+Work Log:
+- Перечитал свой код — нашёл 5 новых багов в предыдущих доработках.
+
+BUG #1: useWaveEngine auto-refill race condition.
+  - Auto-refill effect имеет deps [radioMode, currentTrack, queue,
+    queueIndex, fetchWaveTracks, shuffle]. На каждое изменение этих
+    effect перезапускается. Если fetch ещё в полёте (await fetch...),
+    а effect перезапустился — запускался ВТОРОЙ параллельный fetch.
+    2-3 параллельных /api/music/radio запроса тратили rate-limit
+    budget и соревновались за добавление треков в очередь (дубликаты).
+  - FIX: добавил inflightRef (Promise<Track[]> | null) и обёртку
+    fetchWaveTracksDedup(count). Если inflight != null — возвращает
+    тот же promise, не запуская новый. .finally() очищает ref.
+    Используется в auto-refill effect и skipTrack. startWave и
+    startWaveFromCurrentTrack оставлены на raw fetchWaveTracks —
+    это одиночные user-initiated действия, dedup не нужен.
+
+BUG #2: useWaveEngine startWaveFromCurrentTrack не обрабатывал
+  пустой tracks.
+  - Если и /api/music/radio, и /api/music/recommendations вернули
+    0 треков (редкий случай — пользователь на эзотерическом вкусе
+    без related контента), функция ставила radioMode=true с queue=
+    [cur] (только текущий трек). Пользователь застревал на том же
+    треке без ошибки.
+  - FIX: early-return с setWaveError("Не удалось подобрать похожие
+    треки. Попробуйте позже."), очередь НЕ трогается. Пользователь
+    продолжает слушать текущий трек и видит понятную ошибку.
+
+BUG #3: PlayerBar handleStartRadio пересоздавал очередь даже когда
+  radioMode уже активен.
+  - Если пользователь нажал Радио-кнопку второй раз (или Wave уже
+    идёт), startWaveFromCurrentTrack пересоздавал очередь с cur
+    как seed, теряя будущие radio tracks, которые уже были в очереди.
+  - FIX: early-return если radioMode === true. Чтобы перезапустить
+    радио — нужно сначала Stop в Wave card.
+
+BUG #4: PlayerBar Up Next tooltip мигал при быстром проведении мыши.
+  - onMouseEnter мгновенно ставил showUpNext=true. При свайпе мышью
+    по controls tooltip появлялся и исчезал на каждом SkipForward
+    hover, создавая flicker.
+  - FIX: 150ms open delay через hoverTimerRef (setTimeout). Close
+    остался мгновенным (clearTimeout + setShowUpNext(false) на
+    mouseLeave). Добавлен cleanup useEffect для очистки таймера
+    при unmount компонента.
+
+BUG #5: PlayerBar Up Next tooltip не показывал длительность
+  следующего трека.
+  - IMPROVEMENT: добавил badge с formatDuration(nextTrackPreview.
+    duration) справа от названия. Серый muted фон, моноширинный
+    вид. Соответствует паттерну Spotify/Apple Music — помогает
+    пользователю решить, стоит ли скипать.
+
+DEAD CODE cleanup:
+- useWaveEngine: убран неиспользуемый toggleRadioMode selector
+  (импортировался, но не вызывался — комментарии ссылались, но
+  код использовал useAppStore.setState напрямую).
+- useWaveEngine: убран неиспользуемый favoriteArtists selector
+  (подписывался на store, но не читался — fetchRecsFallback
+  использует useAppStore.getState() inline, что правильно для
+  one-shot чтений).
+
+Build verification:
+- tsc --noEmit → exit 0
+- next build → ✓ Compiled successfully in 24.3s
+- Pushed to origin/main: 534e789..73b1749
+
+Stage Summary:
+- Файлов: useWaveEngine.ts, PlayerBar.tsx
+- 5 багов починено: race condition в auto-refill (главный!),
+  empty radio queue, radio re-click rebuild, tooltip flicker,
+  + improvement tooltip duration.
+- Главный эффект: теперь при быстрой смене треков (или скипоходе
+  в очереди из 1-2 треков) не летит 2-3 параллельных запроса на
+  /api/music/radio — экономится rate limit и не возникает дубликатов
+  в очереди.
+- Production: https://mq1.vercel.app — READY (auto-deploys from main)

@@ -12,6 +12,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "./EmptyState";
 import ContextMenu from "./ContextMenu";
+import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 
 // ─── helpers ──────────────────────────────────────────────────────────────
 
@@ -974,8 +975,8 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, onPlay, onLike,
       >
       {/* Index / play icon */}
       <div className="w-7 flex-shrink-0 text-center">
-        {isCurrent && isPlaying ? (
-          <EqualizerIcon />
+        {isCurrent ? (
+          <NowPlayingEqualizer size="sm" variant="inline" paused={!isPlaying} />
         ) : hovering ? (
           <Play className="w-3.5 h-3.5 mx-auto" style={{ color: "var(--mq-text)" }} fill="currentColor" />
         ) : (
@@ -1159,7 +1160,7 @@ function PlaylistTile({
             }}
           >
             {isCurrentPlaying ? (
-              <EqualizerIcon small />
+              <NowPlayingEqualizer size="sm" variant="overlay" />
             ) : (
               <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
             )}
@@ -1268,25 +1269,6 @@ function MenuItem({ icon: Icon, label, onClick, danger }: { icon: React.Componen
       <Icon className="w-3.5 h-3.5" />
       {label}
     </button>
-  );
-}
-
-function EqualizerIcon({ small }: { small?: boolean }) {
-  const size = small ? "w-4 h-4" : "w-3.5 h-3.5";
-  return (
-    <div className={`${size} flex items-end justify-center gap-[2px]`}>
-      {[0, 1, 2, 3].map(i => (
-        <span key={i} className="w-[2px] rounded-full" style={{
-          display: "block",
-          backgroundColor: "currentColor",
-          height: "100%",
-          transformOrigin: "bottom",
-          animation: "mq-eq 0.6s ease-in-out infinite alternate",
-          animationDelay: `${i * 0.12}s`,
-          animationDuration: `${0.45 + i * 0.1}s`,
-        }} />
-      ))}
-    </div>
   );
 }
 

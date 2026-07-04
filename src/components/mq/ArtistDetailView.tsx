@@ -9,6 +9,7 @@ import {
 import { useAppStore, type FavoriteArtist } from "@/store/useAppStore";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import { useToast } from "@/hooks/use-toast";
+import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 
 export interface ArtistInfo {
   name: string;
@@ -240,7 +241,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                   >
                     {/* Index / play */}
                     <div className="w-6 flex-shrink-0 text-center">
-                      {isCurPlaying ? <EqIcon /> : <span className="text-[11px] group-hover:hidden" style={{ color: "var(--mq-text-muted)" }}>{i + 1}</span>}
+                      {isCurPlaying ? <NowPlayingEqualizer size="xs" variant="inline" /> : <span className="text-[11px] group-hover:hidden" style={{ color: "var(--mq-text-muted)" }}>{i + 1}</span>}
                       {!isCurPlaying && <Play className="w-3 h-3 hidden group-hover:block mx-auto" style={{ color: "var(--mq-text)" }} fill="currentColor" />}
                     </div>
                     {/* Cover */}
@@ -313,24 +314,6 @@ function plural(n: number): string {
   if (m === 1 && m2 !== 11) return "трек";
   if (m >= 2 && m <= 4 && (m2 < 10 || m2 >= 20)) return "трека";
   return "треков";
-}
-
-function EqIcon() {
-  return (
-    <div className="w-3 h-3 flex items-end justify-center gap-[1px]">
-      {[0, 1, 2].map(i => (
-        <span key={i} className="w-[2px] rounded-full" style={{
-          display: "block",
-          backgroundColor: "var(--mq-accent)",
-          height: "100%",
-          transformOrigin: "bottom",
-          animation: "mq-eq 0.6s ease-in-out infinite alternate",
-          animationDelay: `${i * 0.12}s`,
-          animationDuration: `${0.45 + i * 0.1}s`,
-        }} />
-      ))}
-    </div>
-  );
 }
 
 const ArtistDetailView = memo(ArtistDetailViewBase);
