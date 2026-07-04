@@ -224,7 +224,7 @@ export default function PlayerBar() {
         style={{ bottom: "12px" }}
       >
         <div
-          className="rounded-2xl overflow-hidden relative"
+          className="rounded-2xl relative"
           style={{
             backgroundColor: "color-mix(in srgb, var(--mq-player-bg) 75%, transparent)",
             backdropFilter: "blur(40px) saturate(200%)",
@@ -327,6 +327,8 @@ export default function PlayerBar() {
                   </button>
 
                 {/* Up Next preview — shown on hover over the SkipForward area.
+                    Positioned ABOVE the player bar (player bar is at the bottom
+                    of the viewport, so a top-full tooltip would be off-screen).
                     Not in shuffle (next is random) and only when there is a next track. */}
                 <AnimatePresence>
                   {showUpNext && hasNextTrack && nextTrackPreview && (
@@ -335,7 +337,7 @@ export default function PlayerBar() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 6, scale: 0.96 }}
                       transition={{ duration: 0.15, ease: "easeOut" }}
-                      className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 pointer-events-none"
+                      className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 pointer-events-none"
                       style={{ width: 240 }}
                     >
                       <div

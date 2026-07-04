@@ -65,6 +65,89 @@ export function useWaveEngine() {
     const state = useAppStore.getState();
     const cur = state.currentTrack;
 
+    // Client-side dedup set — used by BOTH radio and recommendations paths
+    const excludeSet = new Set<string>([
+      ...((state.history || []).slice(0, 50).map(h => h.track?.id).filter(Boolean) as string[]),
+      ...((state.queue || []).map(t => t?.id).filter(Boolean) as string[]),
+    ]);
+
+    // ── Helper: fetch from /api/music/recommendations + trending + charts ──
+    // Used as a fallback when radio doesn't return enough tracks, OR as the
+    // primary source on initial wave start (no current track).
+    const fetchRecsFallback = async (needed: number): Promise<Track[]> => {
+      const params = new URLSearchParams();
+      if (tp.topGenres.length > 0) params.set("genres", tp.topGenres.join(","));
+      const favArtists = (useAppStore.getState().favoriteArtists || []).map(a => a.username);
+      const allArtists = [...new Set([...favArtists, ...tp.topArtists])];
+      if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
+      if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
+      params.set("wave", "1");
+      params.set("count", String(needed));
+
+      const likedScIds = (useAppStore.getState().likedTracksData || [])
+        .map((t: any) => t.scTrackId).filter((id: any): id is number => !!id).slice(0, 5).join(",");
+      if (likedScIds) params.set("likedScIds", likedScIds);
+
+      const historyScIds = (useAppStore.getState().history || []).slice(0, 10)
+        .map((h: any) => h.track?.scTrackId).filter((id: any): id is number => !!id).join(",");
+      if (historyScIds) params.set("historyScIds", historyScIds);
+
+      const excludeArr = [...excludeSet];
+      if (excludeArr.length > 0) params.set("excludeIds", excludeArr.join(","));
+
+      let result: Track[] = [];
+      try {
+        const res = await fetch(`/api/music/recommendations?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          result = (data.tracks || []).filter(
+            (t: Track) => !disliked.includes(t.id) && !excludeSet.has(t.id),
+          );
+        }
+      } catch {
+        // Network error — fall through to trending/charts
+      }
+
+      // Fill from trending if we don't have enough
+      if (result.length < needed) {
+        try {
+          const trendingRes = await fetch(`/api/music/trending?limit=${needed - result.length}`);
+          if (trendingRes.ok) {
+            const tData = await trendingRes.json();
+            const extra = (tData.tracks || [])
+              .filter((t: Track) => !disliked.includes(t.id))
+              .filter((t: Track) => !excludeSet.has(t.id))
+              .filter((t: Track) => !result.some(existing => existing.id === t.id));
+            result = [...result, ...extra];
+          }
+        } catch {}
+
+        // Last resort: Apple Music Top + Spotify charts
+        if (result.length < needed) {
+          try {
+            const userCountry = "RU";
+            const [appleRes, spotifyRes] = await Promise.all([
+              fetch(`/api/music/apple-charts?country=${userCountry}`).catch(() => null),
+              fetch(`/api/music/spotify-charts?country=${userCountry}`).catch(() => null),
+            ]);
+            for (const r of [appleRes, spotifyRes]) {
+              if (r && r.ok) {
+                const aData = await r.json();
+                const extra = (aData.tracks || [])
+                  .filter((t: Track) => !disliked.includes(t.id))
+                  .filter((t: Track) => !excludeSet.has(t.id))
+                  .filter((t: Track) => !result.some(existing => existing.id === t.id))
+                  .filter((t: Track) => t.scIsFull || t.scStreamPolicy === "ALLOW");
+                result = [...result, ...extra];
+              }
+            }
+          } catch {}
+        }
+      }
+
+      return result;
+    };
+
     // ── Try radio endpoint first when we have a current SC track ──
     // This is the key fix: refills use the currently playing track as a seed
     // (instead of a generic taste-profile query), so the Wave actually flows
@@ -171,19 +254,27 @@ export function useWaveEngine() {
         if (radioRes.ok) {
           const radioData = await radioRes.json();
           const radioTracks: Track[] = (radioData.tracks || []).filter(
-            (t: Track) => !disliked.includes(t.id),
+            (t: Track) => !disliked.includes(t.id) && !excludeSet.has(t.id),
           );
-          // Client-side dedup against current queue + history
-          const excludeSet = new Set<string>([
-            ...(state.history || []).slice(0, 50).map(h => h.track?.id).filter(Boolean) as string[],
-            ...(state.queue || []).map(t => t.id).filter(Boolean) as string[],
-          ]);
-          const deduped = radioTracks.filter(t => !excludeSet.has(t.id));
-          if (deduped.length >= Math.min(5, count)) {
+
+          if (radioTracks.length >= count) {
             // Enough tracks from radio — return them
-            return deduped.slice(0, count);
+            return radioTracks.slice(0, count);
           }
-          // If radio returned too few, fall through to recommendations to fill
+
+          if (radioTracks.length > 0) {
+            // Radio returned SOME tracks but not enough — MERGE with
+            // recommendations fallback instead of dropping the radio tracks.
+            // Radio tracks are higher-relevance (seeded by current track),
+            // so they go first; recs fill the rest.
+            const fillNeeded = count - radioTracks.length;
+            const recsTracks = await fetchRecsFallback(fillNeeded);
+            // Dedup against radio tracks
+            const radioIds = new Set(radioTracks.map(t => t.id));
+            const uniqueRecs = recsTracks.filter(t => !radioIds.has(t.id));
+            return [...radioTracks, ...uniqueRecs].slice(0, count);
+          }
+          // Radio returned 0 tracks — fall through to pure recommendations
         }
       } catch {
         // Silent — fall through to recommendations fallback
@@ -192,82 +283,7 @@ export function useWaveEngine() {
 
     // ── Fallback: generic recommendations based on taste profile ──
     // Used on initial wave start (no current track) or when radio endpoint fails.
-    const params = new URLSearchParams();
-
-    if (tp.topGenres.length > 0) params.set("genres", tp.topGenres.join(","));
-    const favArtists = (useAppStore.getState().favoriteArtists || []).map(a => a.username);
-    const allArtists = [...new Set([...favArtists, ...tp.topArtists])];
-    if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
-    if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
-    params.set("wave", "1");
-    params.set("count", String(count));
-
-    const likedScIds = useAppStore.getState().likedTracksData
-      .map((t: any) => t.scTrackId).filter((id: any): id is number => !!id).slice(0, 5).join(",");
-    if (likedScIds) params.set("likedScIds", likedScIds);
-
-    const historyScIds = useAppStore.getState().history.slice(0, 10)
-      .map((h: any) => h.track?.scTrackId).filter((id: any): id is number => !!id).join(",");
-    if (historyScIds) params.set("historyScIds", historyScIds);
-
-    // Exclude ALL recently played track IDs (not just 10) to prevent repeats
-    const recentTrackIds = (useAppStore.getState().history || [])
-      .slice(0, 50)
-      .map((h: any) => h.track?.id)
-      .filter(Boolean) as string[];
-    // Also exclude current queue track IDs
-    const queueIds = (useAppStore.getState().queue || [])
-      .map((t: any) => t.id)
-      .filter(Boolean) as string[];
-    const excludeIds = [...new Set([...recentTrackIds, ...queueIds])];
-    if (excludeIds.length > 0) params.set("excludeIds", excludeIds.join(","));
-
-    const res = await fetch(`/api/music/recommendations?${params}`);
-    if (!res.ok) throw new Error(`Wave fetch failed: ${res.status}`);
-    const data = await res.json();
-    // Client-side dedup: filter out tracks already in history or queue
-    const excludeSet = new Set(excludeIds);
-    let tracks = (data.tracks || []).filter((t: Track) => !disliked.includes(t.id) && !excludeSet.has(t.id));
-
-    // If we got fewer than requested, also fetch from trending to fill
-    if (tracks.length < count) {
-      try {
-        const trendingRes = await fetch(`/api/music/trending?limit=${count - tracks.length}`);
-        if (trendingRes.ok) {
-          const tData = await trendingRes.json();
-          const extra = (tData.tracks || [])
-            .filter((t: Track) => !disliked.includes(t.id))
-            .filter((t: Track) => !excludeSet.has(t.id))
-            .filter((t: Track) => !tracks.some(existing => existing.id === t.id));
-          tracks = [...tracks, ...extra];
-        }
-      } catch {}
-
-      // Also try Apple Music Top + Spotify charts for more variety
-      if (tracks.length < count) {
-        try {
-          const userCountry = "RU"; // Default
-          const [appleRes, spotifyRes] = await Promise.all([
-            fetch(`/api/music/apple-charts?country=${userCountry}`).catch(() => null),
-            fetch(`/api/music/spotify-charts?country=${userCountry}`).catch(() => null),
-          ]);
-          for (const res of [appleRes, spotifyRes]) {
-            if (res && res.ok) {
-              const aData = await res.json();
-              const extra = (aData.tracks || [])
-                .filter((t: Track) => !disliked.includes(t.id))
-                .filter((t: Track) => !excludeSet.has(t.id))
-                .filter((t: Track) => !tracks.some(existing => existing.id === t.id))
-                // Prefer playable tracks
-                .filter((t: Track) => t.scIsFull || t.scStreamPolicy === "ALLOW");
-              tracks = [...tracks, ...extra];
-            }
-          }
-        } catch {}
-      }
-    }
-
-    return tracks;
+    return fetchRecsFallback(count);
   }, []);
 
   // ── Shuffle array (Fisher-Yates) ──
@@ -338,33 +354,54 @@ export function useWaveEngine() {
     if (waveLoading) return;
     setWaveLoading(true);
     setWaveError(null);
-    lastFetchRef.current = Date.now();
 
     try {
-      // Fetch tracks seeded by current track (uses /api/music/radio internally)
-      let tracks = await fetchWaveTracks(15);
-      if (tracks.length === 0) {
-        // Radio endpoint didn't return anything — fall back to taste-profile recs
-        tracks = await fetchWaveTracks(15);
-      }
-      tracks = shuffle(tracks);
+      // Fetch tracks seeded by current track.
+      // fetchWaveTracks internally tries /api/music/radio?scTrackId=<cur> first,
+      // and falls back to /api/music/recommendations?wave=1 if radio fails
+      // or returns too few tracks (merging the partial radio result with recs).
+      const tracks = await fetchWaveTracks(15);
+      const shuffled = shuffle(tracks).filter(t => t.id !== cur.id);
 
-      // Build new queue: current track first, then radio-fetched tracks
-      const newQueue = [cur, ...tracks];
+      // Use setState DIRECTLY (not playTrack) — playTrack resets progress to 0
+      // and is also blocked by _playLock when called with the same track id.
+      // We want to PRESERVE the current playback position and only update the
+      // queue so the next track after `cur` is the first radio-fetched track.
+      const state = useAppStore.getState();
+      const currentQueue = Array.isArray(state.queue) ? state.queue : [];
+      const currentIdx = typeof state.queueIndex === "number" ? state.queueIndex : 0;
+      const curInQueue = currentIdx >= 0 && currentQueue[currentIdx]?.id === cur.id;
+
+      let newQueue: Track[];
+      let newQueueIndex: number;
+      if (curInQueue) {
+        // Common case: cur is the current track in the queue. Keep everything
+        // up to and including cur (so "previous" navigation still works),
+        // then append radio tracks. Drop future tracks — user is switching modes.
+        newQueue = [...currentQueue.slice(0, currentIdx + 1), ...shuffled];
+        newQueueIndex = currentIdx;
+      } else {
+        // Edge case: cur is playing but not in the queue (e.g., queue was
+        // cleared or replaced). Put cur at the front, then radio tracks.
+        newQueue = [cur, ...shuffled];
+        newQueueIndex = 0;
+      }
 
       useAppStore.setState({
         radioMode: true,
         radioSeedTrack: cur,
         radioSkipCount: 0,
+        queue: newQueue,
+        queueIndex: newQueueIndex,
+        upNext: [], // clear upNext — radio takes over
+        // currentTrack / progress / duration / isPlaying left untouched
       });
-      // Re-play current track as the seed (preserves playback position)
-      playTrack(cur, newQueue);
     } catch {
       setWaveError("Не удалось запустить радио от трека");
     } finally {
       setWaveLoading(false);
     }
-  }, [waveLoading, fetchWaveTracks, shuffle, playTrack, startWave]);
+  }, [waveLoading, fetchWaveTracks, shuffle, startWave]);
 
   // ── Pause/Resume (doesn't stop wave, just pauses playback) ──
   const pauseWave = useCallback(() => {

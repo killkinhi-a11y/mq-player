@@ -675,3 +675,71 @@ Stage Summary:
   Each card shows play button on mobile, animated EQ when playing,
   reasoning caption. Visual hierarchy clearer.
 - Production: https://mq1.vercel.app — READY (auto-deploys from main)
+
+---
+Task ID: recs-wave-radio-deep
+Agent: Main Agent (Claude)
+Task: Доработать рекомендации (логику, не визуал) в волне + плеер баре
+
+Work Log:
+- Read useWaveEngine.ts (307L → 487L), found that fetchWaveTracks
+  ALWAYS used /api/music/recommendations?wave=1 (generic taste-profile
+  query), ignoring the much better /api/music/radio endpoint that the
+  store's nextTrack() uses when queue ends in radioMode.
+- Read /api/music/radio/route.ts (1176L) and /api/music/recommendations/
+  route.ts (1666L) to understand both endpoints. Radio endpoint takes
+  scTrackId + history/skipped/liked/taste params and returns tracks
+  seeded by the current track. Recommendations endpoint returns
+  categorized tracks based on the user's taste profile (no seed track).
+- Read store/useAppStore.ts nextTrack() — found that when queue ends in
+  radioMode it calls /api/music/radio with full personalization context
+  (history 80 SC IDs, skipped artists/genres, liked artists/genres,
+  taste profile sliders, completed genres, session duration, language).
+- Refactored useWaveEngine.fetchWaveTracks to try /api/music/radio
+  FIRST when there's a current track with scTrackId. Passes the SAME
+  full personalization context that store's nextTrack() does. Falls
+  back to /api/music/recommendations?wave=1 only when:
+    (a) no current track (initial wave start), or
+    (b) radio endpoint fails / returns fewer than min(5, count) tracks.
+  This means: initial start still uses taste-profile recs (correct,
+  no current track to seed from), but skip/refill now flows from one
+  track to related ones — like a real radio.
+- Added useWaveEngine.startWaveFromCurrentTrack(): keeps current track
+  as the seed and only fetches subsequent tracks via /api/music/radio.
+  Lets user turn ANY currently playing track into a radio seed without
+  losing their playback position. Builds queue = [currentTrack,
+  ...radioTracks] and calls playTrack(cur, newQueue).
+- Added 'Up Next' preview to PlayerBar: hover over the SkipForward
+  button shows a small glassmorphic tooltip (240px wide) with the next
+  track's cover, title, and artist. Uses existing peekNextTrack()
+  store action. Hidden in shuffle mode (next is random — preview
+  would be misleading). Uses AnimatePresence for smooth enter/exit.
+- Added 'Радио от трека' button (Radio icon) to PlayerBar between
+  Dislike and Volume sections. Calls wave.startWaveFromCurrentTrack().
+  Shows accent color + small glowing dot when radioMode is already
+  active. Shows Loader2 spinner during waveLoading. Title attribute
+  gives the Russian hint.
+- PlayerBar now subscribes to: queue, queueIndex, upNext, radioMode,
+  peekNextTrack (previously only subscribed to currentTrack/isPlaying/
+  progress/duration/volume/shuffle/repeat/likedTrackIds/dislikedTrackIds/
+  miniPlayerHidden/playbackState/isFullTrackViewOpen).
+- Added useMemo for nextTrackPreview (re-computed when queue/
+  queueIndex/upNext/shuffle/repeat change).
+- Added Radio and Loader2 (already imported) to lucide-react imports.
+- Added useMemo to React imports.
+- Imported useWaveEngine hook.
+- Build verification: tsc --noEmit → exit 0, next build →
+  ✓ Compiled successfully in 24.6s.
+- Pushed to origin/main: 404e5c8..421a950.
+
+Stage Summary:
+- Files: useWaveEngine.ts (307 → 487 lines, +180),
+  PlayerBar.tsx (374 → 480 lines, +106).
+- Wave refills/skip are now SEEDED by the currently playing track
+  (was: always generic taste-profile query). Result: tracks flow
+  naturally from one to related ones, like Yandex Music / Spotify
+  radio, instead of jumping between unrelated recs.
+- PlayerBar gains 'Up Next' preview (hover SkipForward) and 'Радио
+  от трека' button. Both are recommendation-quality-of-life features
+  that bring the bar closer to Spotify/Yandex Music standard.
+- Production: https://mq1.vercel.app — READY (auto-deploys from main)
