@@ -320,6 +320,7 @@ function EqIcon() {
     <div className="w-3 h-3 flex items-end justify-center gap-[1px]">
       {[0, 1, 2].map(i => (
         <span key={i} className="w-[2px] rounded-full" style={{
+          display: "block",
           backgroundColor: "var(--mq-accent)",
           height: "100%",
           transformOrigin: "bottom",

@@ -5,15 +5,11 @@ import { memo } from "react";
 /**
  * Shared "now playing" equalizer animation.
  *
- * Uses inline styles for animation (not CSS classes) to avoid conflicts
- * with mq-eq-bar nth-child rules in globals.css.
+ * CRITICAL: spans must have display: "block" — transform: scaleY does NOT
+ * work on inline elements (span default). Without display: block, the
+ * animation is silently ignored and bars appear static.
  *
  * Each bar has different duration + delay for organic wave effect.
- * transformOrigin: bottom ensures bars grow from bottom up.
- *
- * Usage:
- *   <NowPlayingEqualizer />         // default size
- *   <NowPlayingEqualizer size="sm" /> // smaller variant
  */
 
 interface NowPlayingEqualizerProps {
@@ -32,7 +28,7 @@ export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
   return (
     <span
       className={`inline-flex items-end flex-shrink-0 ${className}`}
-      style={{ height: barHeight, gap }}
+      style={{ height: barHeight, gap, display: "inline-flex" }}
       aria-label="Now playing"
       role="status"
     >
@@ -40,12 +36,13 @@ export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
         <span
           key={i}
           style={{
+            display: "block",
             width: barWidth,
             height: "100%",
             backgroundColor: "var(--mq-accent)",
             borderRadius: 9999,
             transformOrigin: "bottom",
-            animation: `mq-eq 0.6s ease-in-out infinite alternate`,
+            animation: "mq-eq 0.6s ease-in-out infinite alternate",
             animationDelay: `${i * 0.12}s`,
             animationDuration: `${0.45 + i * 0.1}s`,
             boxShadow: "0 0 4px color-mix(in srgb, var(--mq-accent) 40%, transparent)",

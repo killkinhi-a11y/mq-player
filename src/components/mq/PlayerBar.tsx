@@ -246,6 +246,7 @@ export default function PlayerBar() {
                           key={i}
                           className="w-[2px] rounded-full"
                           style={{
+                            display: "block",
                             backgroundColor: "#fff",
                             height: "100%",
                             transformOrigin: "bottom",

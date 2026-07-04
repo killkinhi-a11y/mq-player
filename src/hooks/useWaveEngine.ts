@@ -75,10 +75,24 @@ export function useWaveEngine() {
       .map((h: any) => h.track?.scTrackId).filter((id: any): id is number => !!id).join(",");
     if (historyScIds) params.set("historyScIds", historyScIds);
 
+    // Exclude ALL recently played track IDs (not just 10) to prevent repeats
+    const recentTrackIds = (useAppStore.getState().history || [])
+      .slice(0, 50)
+      .map((h: any) => h.track?.id)
+      .filter(Boolean) as string[];
+    // Also exclude current queue track IDs
+    const queueIds = (useAppStore.getState().queue || [])
+      .map((t: any) => t.id)
+      .filter(Boolean) as string[];
+    const excludeIds = [...new Set([...recentTrackIds, ...queueIds])];
+    if (excludeIds.length > 0) params.set("excludeIds", excludeIds.join(","));
+
     const res = await fetch(`/api/music/recommendations?${params}`);
     if (!res.ok) throw new Error(`Wave fetch failed: ${res.status}`);
     const data = await res.json();
-    let tracks = (data.tracks || []).filter((t: Track) => !disliked.includes(t.id));
+    // Client-side dedup: filter out tracks already in history or queue
+    const excludeSet = new Set(excludeIds);
+    let tracks = (data.tracks || []).filter((t: Track) => !disliked.includes(t.id) && !excludeSet.has(t.id));
 
     // If we got fewer than requested, also fetch from trending to fill
     if (tracks.length < count) {
@@ -88,6 +102,7 @@ export function useWaveEngine() {
           const tData = await trendingRes.json();
           const extra = (tData.tracks || [])
             .filter((t: Track) => !disliked.includes(t.id))
+            .filter((t: Track) => !excludeSet.has(t.id))
             .filter((t: Track) => !tracks.some(existing => existing.id === t.id));
           tracks = [...tracks, ...extra];
         }
@@ -106,6 +121,7 @@ export function useWaveEngine() {
               const aData = await res.json();
               const extra = (aData.tracks || [])
                 .filter((t: Track) => !disliked.includes(t.id))
+                .filter((t: Track) => !excludeSet.has(t.id))
                 .filter((t: Track) => !tracks.some(existing => existing.id === t.id))
                 // Prefer playable tracks
                 .filter((t: Track) => t.scIsFull || t.scStreamPolicy === "ALLOW");

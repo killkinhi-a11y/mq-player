@@ -1277,6 +1277,7 @@ function EqualizerIcon({ small }: { small?: boolean }) {
     <div className={`${size} flex items-end justify-center gap-[2px]`}>
       {[0, 1, 2, 3].map(i => (
         <span key={i} className="w-[2px] rounded-full" style={{
+          display: "block",
           backgroundColor: "currentColor",
           height: "100%",
           transformOrigin: "bottom",

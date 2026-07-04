@@ -2192,6 +2192,7 @@ function EqualizerIcon() {
           key={i}
           className="w-[2px] rounded-full"
           style={{
+            display: "block",
             backgroundColor: "var(--mq-accent)",
             height: "100%",
             transformOrigin: "bottom",
