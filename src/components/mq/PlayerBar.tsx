@@ -239,10 +239,21 @@ export default function PlayerBar() {
                 )}
                 {/* Playing indicator on cover */}
                 {isPlaying && (
-                  <div className="absolute inset-0 bg-black/30 flex items-end p-1">
-                    <div className="flex items-end gap-[1px] h-3 w-full justify-center">
+                  <div className="absolute inset-0 bg-black/40 flex items-end p-1.5">
+                    <div className="flex items-end gap-[2px] h-4 w-full justify-center">
                       {[0,1,2,3].map(i => (
-                        <span key={i} className="mq-eq-bar w-[2px] rounded-full" style={{ backgroundColor: "#fff", height: "100%" }} />
+                        <span
+                          key={i}
+                          className="w-[2px] rounded-full"
+                          style={{
+                            backgroundColor: "#fff",
+                            height: "100%",
+                            transformOrigin: "bottom",
+                            animation: `mq-eq 0.6s ease-in-out infinite alternate`,
+                            animationDelay: `${i * 0.12}s`,
+                            animationDuration: `${0.45 + i * 0.1}s`,
+                          }}
+                        />
                       ))}
                     </div>
                   </div>
