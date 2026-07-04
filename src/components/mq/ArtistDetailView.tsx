@@ -319,7 +319,14 @@ function EqIcon() {
   return (
     <div className="w-3 h-3 flex items-end justify-center gap-[1px]">
       {[0, 1, 2].map(i => (
-        <span key={i} className="mq-eq-bar w-[2px] rounded-full" style={{ backgroundColor: "var(--mq-accent)", height: "100%", animationDelay: `${i * 0.1}s` }} />
+        <span key={i} className="w-[2px] rounded-full" style={{
+          backgroundColor: "var(--mq-accent)",
+          height: "100%",
+          transformOrigin: "bottom",
+          animation: "mq-eq 0.6s ease-in-out infinite alternate",
+          animationDelay: `${i * 0.12}s`,
+          animationDuration: `${0.45 + i * 0.1}s`,
+        }} />
       ))}
     </div>
   );

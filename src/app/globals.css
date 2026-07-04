@@ -1230,13 +1230,7 @@ html.blood-theme body::before {
 @keyframes playerEq2 { from { transform: scaleY(0.3); } to { transform: scaleY(0.7); } }
 @keyframes playerEq3 { from { transform: scaleY(0.5); } to { transform: scaleY(0.85); } }
 
-.mq-eq-bar {
-  will-change: transform;
-  height: 100%;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
-}
+/* .mq-eq-bar class removed — inline styles used instead */
 
 /* GPU-accelerated animation utilities */
 .mq-gpu {
@@ -2478,12 +2472,7 @@ a:not([data-framer-motion-id]),
 
 /* Equalizer bars (playing indicator) */
 @keyframes mq-eq { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
-.mq-eq-bar { display: inline-block; transform-origin: bottom; animation: mq-eq 0.6s ease-in-out infinite; }
-.mq-eq-bar:nth-child(1) { animation-duration: 0.5s; animation-delay: 0s; }
-.mq-eq-bar:nth-child(2) { animation-duration: 0.6s; animation-delay: 0.08s; }
-.mq-eq-bar:nth-child(3) { animation-duration: 0.7s; animation-delay: 0.16s; }
-.mq-eq-bar:nth-child(4) { animation-duration: 0.55s; animation-delay: 0.24s; }
-.mq-eq-bar:nth-child(5) { animation-duration: 0.65s; animation-delay: 0.12s; }
+/* .mq-eq-bar class removed — inline styles used instead to avoid conflicts */
 .mq-eq-paused { animation-play-state: paused; transform: scaleY(0.15); }
 
 /* Pulse border (FullTrackView cover) */
@@ -2505,7 +2494,7 @@ a:not([data-framer-motion-id]),
 .mq-wave-glow-mobile { animation: mq-glow-mobile 5s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .mq-eq-bar, .mq-pulse-border, .mq-pulse-ring, .mq-spin, .mq-wave-glow, .mq-wave-glow-mobile {
+  .mq-pulse-border, .mq-pulse-ring, .mq-spin, .mq-wave-glow, .mq-wave-glow-mobile {
     animation: none;
   }
 }
@@ -2620,7 +2609,7 @@ a:not([data-framer-motion-id]),
     box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
   }
   /* Disable will-change abuse (only keep on actively animated elements) */
-  [style*="will-change"]:not(.mq-visualizer):not(.mq-eq-bar) {
+  [style*="will-change"]:not(.mq-visualizer) {
     will-change: auto !important;
   }
 }
@@ -2642,7 +2631,6 @@ a:not([data-framer-motion-id]),
 
 /* 1. GPU acceleration only for actively animated elements */
 .mq-visualizer,
-.mq-eq-bar,
 canvas {
   will-change: transform;
   transform: translateZ(0);
@@ -2881,11 +2869,7 @@ a,
   animation: mq-card-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* 22. Equalizer bars animation */
-@keyframes mq-eq-bar-anim {
-  0%, 100% { height: 30%; }
-  50% { height: 100%; }
-}
-.mq-eq-bar {
-  animation: mq-eq-bar-anim 0.8s ease-in-out infinite;
-}
+/* 22. Equalizer bars animation — uses mq-eq keyframe (transform: scaleY) */
+/* .mq-eq-bar class removed — all equalizer bars now use inline styles
+   in NowPlayingEqualizer.tsx, PlayerBar.tsx, MainView.tsx to avoid
+   CSS specificity conflicts between multiple .mq-eq-bar rules. */
