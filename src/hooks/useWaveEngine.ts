@@ -54,9 +54,144 @@ export function useWaveEngine() {
   }, [history, likedTracksData, dislikedTrackIds]);
 
   // ── Fetch tracks from recommendations API ──
+  // For INITIAL start (no current track yet): uses /api/music/recommendations?wave=1
+  //   which is based on the user's full taste profile (liked/history/genres).
+  // For REFILL / SKIP (current track playing): uses /api/music/radio?scTrackId=<cur>
+  //   which is seeded by the CURRENTLY PLAYING track — far more relevant for
+  //   continuous radio. Falls back to recommendations if radio fails or no scTrackId.
   const fetchWaveTracks = useCallback(async (count: number = 20): Promise<Track[]> => {
     const tp = tasteProfile.current;
     const disliked = useAppStore.getState().dislikedTrackIds || [];
+    const state = useAppStore.getState();
+    const cur = state.currentTrack;
+
+    // ── Try radio endpoint first when we have a current SC track ──
+    // This is the key fix: refills use the currently playing track as a seed
+    // (instead of a generic taste-profile query), so the Wave actually flows
+    // from one track to related ones — like Yandex/Spotify radio.
+    if (cur?.scTrackId && cur.scTrackId > 0) {
+      try {
+        const radioParams = new URLSearchParams();
+        radioParams.set("scTrackId", String(cur.scTrackId));
+
+        // Pass recent history (so radio doesn't repeat tracks)
+        const playedScIds = [
+          ...state.history.map(h => h.track?.scTrackId).filter((id): id is number => !!id),
+          ...state.queue.map(t => t?.scTrackId).filter((id): id is number => !!id),
+        ];
+        const uniquePlayedScIds = [...new Set(playedScIds)].slice(0, 80).join(",");
+        if (uniquePlayedScIds) radioParams.set("historyScIds", uniquePlayedScIds);
+
+        // Skipped artists/genres from feedback + disliked
+        const fb = state.trackFeedback || {};
+        const skippedIds = Object.entries(fb)
+          .filter(([, v]) => v && v.skips > v.completes && v.skips >= 2)
+          .map(([id]) => id);
+        const skippedArtists = skippedIds.map(id => {
+          const entry = state.history.find(h => h.track.id === id);
+          return entry?.track.artist;
+        }).filter(Boolean).slice(0, 5) as string[];
+        const dislikedArtistsFromLikes = (state.dislikedTracksData || [])
+          .map(t => t.artist).filter(Boolean).slice(0, 10);
+        const allSkippedArtists = [...new Set([...skippedArtists, ...dislikedArtistsFromLikes])];
+        if (allSkippedArtists.length > 0) radioParams.set("skippedArtists", allSkippedArtists.join(","));
+
+        const dislikedGenresFromLikes = (state.dislikedTracksData || [])
+          .map(t => t.genre).filter(Boolean).slice(0, 5);
+        const skippedGenres = state.feedbackBatch?.skippedGenres || [];
+        const allSkippedGenres = [...new Set([...skippedGenres, ...dislikedGenresFromLikes])];
+        if (allSkippedGenres.length > 0) radioParams.set("skippedGenres", allSkippedGenres.join(","));
+
+        // Positive signals: liked artists/genres
+        const likedArtistsFromLikes = (state.likedTracksData || [])
+          .map(t => t.artist).filter(Boolean).slice(0, 5);
+        if (likedArtistsFromLikes.length > 0) radioParams.set("likedArtists", likedArtistsFromLikes.join(","));
+
+        const likedGenresFromLikes = (state.likedTracksData || [])
+          .map(t => t.genre).filter(Boolean).slice(0, 5);
+        const historyGenres = (state.history || []).slice(0, 30)
+          .map(h => h.track?.genre).filter(Boolean) as string[];
+        const genreCount: Record<string, number> = {};
+        for (const g of historyGenres) genreCount[g] = (genreCount[g] || 0) + 1;
+        const topHistoryGenres = Object.entries(genreCount)
+          .sort((a, b) => b[1] - a[1]).slice(0, 3).map(([g]) => g);
+        const allLikedGenres = [...new Set([...likedGenresFromLikes, ...topHistoryGenres])];
+        if (allLikedGenres.length > 0) radioParams.set("likedGenres", allLikedGenres.join(","));
+
+        // Taste profile (explicit user sliders)
+        const tasteG = state.tasteGenres || {};
+        const tasteGenreEntries = Object.entries(tasteG).filter(([, v]) => v >= 20);
+        if (tasteGenreEntries.length > 0) {
+          tasteGenreEntries.sort((a, b) => b[1] - a[1]);
+          radioParams.set("tasteGenres", tasteGenreEntries.slice(0, 8).map(([g, v]) => `${g}:${v}`).join(","));
+        }
+        const tasteA = state.tasteArtists || {};
+        const tasteArtistEntries = Object.entries(tasteA).filter(([, v]) => v >= 20);
+        if (tasteArtistEntries.length > 0) {
+          tasteArtistEntries.sort((a, b) => b[1] - a[1]);
+          radioParams.set("tasteArtists", tasteArtistEntries.slice(0, 5).map(([a, v]) => `${a}:${v}`).join(","));
+        }
+
+        // Language preference from history
+        const langCounts: Record<string, number> = { russian: 0, english: 0 };
+        for (const h of (state.history || []).slice(0, 20)) {
+          const text = `${h.track?.title || ""} ${h.track?.artist || ""}`;
+          const cyrillic = (text.match(/[\u0400-\u04FF]/g) || []).length;
+          const latin = (text.match(/[a-zA-Z]/g) || []).length;
+          if (cyrillic / (cyrillic + latin + 1) > 0.4) langCounts.russian++;
+          else if (latin / (cyrillic + latin + 1) > 0.6) langCounts.english++;
+        }
+        const topLang = Object.entries(langCounts).sort((a, b) => b[1] - a[1]);
+        if (topLang[0]?.[1] > 5) radioParams.set("lang", topLang[0][0]);
+
+        // Session duration for mood adaptation
+        if (state.sessionStartTime) {
+          const sessionMinutes = Math.floor((Date.now() - state.sessionStartTime) / 60000);
+          if (sessionMinutes > 0) radioParams.set("sessionDuration", String(sessionMinutes));
+        }
+
+        // Disliked SC IDs hard exclusion
+        const dislikedScIds = (state.dislikedTracksData || [])
+          .map(t => t.scTrackId).filter((id): id is number => !!id).slice(0, 50);
+        if (dislikedScIds.length > 0) radioParams.set("dislikedScIds", dislikedScIds.join(","));
+
+        // Completed genres (genres user actually finishes — strong positive signal)
+        const completedGenres = state.feedbackBatch?.completedGenres || [];
+        const completedFromFB: string[] = [];
+        for (const [trackId, fbb] of Object.entries(fb)) {
+          if (fbb && fbb.completes > fbb.skips && fbb.completes >= 1) {
+            const he = state.history.find(h => h.track.id === trackId);
+            if (he?.track?.genre) completedFromFB.push(he.track.genre.toLowerCase().trim());
+          }
+        }
+        const allCompletedGenres = [...new Set([...completedGenres, ...completedFromFB])].slice(0, 5);
+        if (allCompletedGenres.length > 0) radioParams.set("completedGenres", allCompletedGenres.join(","));
+
+        const radioRes = await fetch(`/api/music/radio?${radioParams}`);
+        if (radioRes.ok) {
+          const radioData = await radioRes.json();
+          const radioTracks: Track[] = (radioData.tracks || []).filter(
+            (t: Track) => !disliked.includes(t.id),
+          );
+          // Client-side dedup against current queue + history
+          const excludeSet = new Set<string>([
+            ...(state.history || []).slice(0, 50).map(h => h.track?.id).filter(Boolean) as string[],
+            ...(state.queue || []).map(t => t.id).filter(Boolean) as string[],
+          ]);
+          const deduped = radioTracks.filter(t => !excludeSet.has(t.id));
+          if (deduped.length >= Math.min(5, count)) {
+            // Enough tracks from radio — return them
+            return deduped.slice(0, count);
+          }
+          // If radio returned too few, fall through to recommendations to fill
+        }
+      } catch {
+        // Silent — fall through to recommendations fallback
+      }
+    }
+
+    // ── Fallback: generic recommendations based on taste profile ──
+    // Used on initial wave start (no current track) or when radio endpoint fails.
     const params = new URLSearchParams();
 
     if (tp.topGenres.length > 0) params.set("genres", tp.topGenres.join(","));
@@ -188,6 +323,49 @@ export function useWaveEngine() {
     });
   }, []);
 
+  // ── Start Wave FROM current track ──
+  // Unlike startWave() which always builds a fresh queue from the taste profile,
+  // this keeps the currently playing track AS the seed and only fetches
+  // subsequent tracks via /api/music/radio?scTrackId=<cur>. This lets the user
+  // turn ANY track into a radio seed without losing their place.
+  // Used by PlayerBar's "Радио от трека" button.
+  const startWaveFromCurrentTrack = useCallback(async () => {
+    const cur = useAppStore.getState().currentTrack;
+    if (!cur) {
+      // No current track — fall back to regular start
+      return startWave();
+    }
+    if (waveLoading) return;
+    setWaveLoading(true);
+    setWaveError(null);
+    lastFetchRef.current = Date.now();
+
+    try {
+      // Fetch tracks seeded by current track (uses /api/music/radio internally)
+      let tracks = await fetchWaveTracks(15);
+      if (tracks.length === 0) {
+        // Radio endpoint didn't return anything — fall back to taste-profile recs
+        tracks = await fetchWaveTracks(15);
+      }
+      tracks = shuffle(tracks);
+
+      // Build new queue: current track first, then radio-fetched tracks
+      const newQueue = [cur, ...tracks];
+
+      useAppStore.setState({
+        radioMode: true,
+        radioSeedTrack: cur,
+        radioSkipCount: 0,
+      });
+      // Re-play current track as the seed (preserves playback position)
+      playTrack(cur, newQueue);
+    } catch {
+      setWaveError("Не удалось запустить радио от трека");
+    } finally {
+      setWaveLoading(false);
+    }
+  }, [waveLoading, fetchWaveTracks, shuffle, playTrack, startWave]);
+
   // ── Pause/Resume (doesn't stop wave, just pauses playback) ──
   const pauseWave = useCallback(() => {
     useAppStore.getState().togglePlay();
@@ -298,6 +476,7 @@ export function useWaveEngine() {
     waveError,
     radioMode,
     startWave,
+    startWaveFromCurrentTrack,
     stopWave,
     pauseWave,
     skipTrack,

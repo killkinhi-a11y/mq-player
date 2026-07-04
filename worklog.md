@@ -619,3 +619,59 @@ Stage Summary:
 - Real-time stack preserved: SSE with reconnect, BroadcastChannel cross-tab, 8s group polling, typing indicator
 - TypeScript: compiles cleanly with `tsc --noEmit` (exit 0)
 - No other files modified; all existing API endpoints and store actions used as-is
+
+---
+Task ID: recs-wave-polish
+Agent: Main Agent (Claude)
+Task: Доработать рекомендации и волну (refine recommendations + wave)
+
+Work Log:
+- Wave: replaced `useAppStore.getState().progress` (which never
+  triggers re-renders) with a proper `useAppStore((s) => s.progress)`
+  selector subscription. Progress bar now updates smoothly.
+- Wave: added `isLiked` prop to WaveCard and Like (Heart) button
+  in BOTH mobile-active and desktop-active wave states. Heart turns
+  red (#ef4444) when track is in likedTrackIds. Uses previously-
+  unused `onLike` prop that was wired from useWaveEngine.likeTrack.
+- Wave: replaced single-path SVG wave background with 3-layer
+  animated SVG (back/mid/front) — different speeds (8s/5s/3.5s)
+  and opacities (0.10/0.14/0.18) create a more organic ocean wave.
+- Recs: removed ~565 lines of dead code:
+  * Components: RecsHero, RecsTabs, RecsList, RecRow,
+    RecsListSkeleton, InfiniteScrollSentinel, EqualizerIcon
+    (all defined but never rendered after the Spotify-home
+    RecStrip rewrite)
+  * State in MainView: activeRecTab, setRecActiveRecTab,
+    recVisibleCount, setRecVisibleCount, prevCatsRef
+  * Derived memos: visibleRecTracks, recHero, recList, recListTotal
+    (all consumed only by the dead components above)
+  * useEffect hooks for activeRecTab persistence / reset
+  * Unused lucide imports: Share2, ListPlus, Mic2
+- Recs: added new RecHero component at the top of "Для вас" section.
+  Picks the currently-playing track if it's in recs, otherwise falls
+  back to the first track of the first category. Renders blurred
+  cover backdrop, "Рекомендация для вас" eyebrow, reasoning chip
+  (Топ-чарт Spotify / Топ-чарт страны / Популярно сейчас / etc.),
+  play/pause and like buttons. Cover has hover overlay with play icon.
+- Recs: RecCard improvements:
+  * Play button + dark gradient overlay now always visible on mobile
+    (touch devices have no hover) via `opacity-100 sm:opacity-0
+    sm:group-hover:opacity-100` pattern
+  * "ИГРАЕТ" badge shows 4 animated equalizer bars (mq-eq keyframe)
+    when track is currently playing, falls back to static red dot
+    when paused
+  * Added reasoning text below artist name (small muted caption)
+- Build verification: tsc --noEmit → exit 0 (no type errors),
+  next build → ✓ Compiled successfully in 23.7s
+- Pushed to origin/main: 578a6aa..404e5c8
+
+Stage Summary:
+- File: src/components/mq/MainView.tsx (2293 → 1958 lines, net -335
+  lines despite adding 2 new components — 565 lines of dead code
+  removed, 230 lines of new hero/like/eq polish added)
+- Wave now: smooth progress bar, Like button works, 3-layer animated
+  background gives organic ocean feel
+- Recs now: featured hero track on top → category strips below.
+  Each card shows play button on mobile, animated EQ when playing,
+  reasoning caption. Visual hierarchy clearer.
+- Production: https://mq1.vercel.app — READY (auto-deploys from main)
