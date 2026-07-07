@@ -35,9 +35,14 @@ import {
  *   &completedGenres=rock,indie    (optional) genres user completes (feedback)
  */
 
-// ── In-memory cache (4 min TTL) ────────────────────────────────────────────────
+// ── In-memory cache (DISABLED — was causing "constant repeats" bug) ────────
+// Radio MUST return different tracks each call. With cache, the same
+// scTrackId + historyScIds combination returned the same tracks within
+// the TTL window — user heard the same "next 10 tracks" repeatedly.
+// Cache is now disabled (TTL = 0). The endpoint is cheap enough to
+// run fresh every time thanks to upstream SoundCloud API caching.
 const cache = new Map<string, { data: unknown; expiry: number }>();
-const CACHE_TTL = 60 * 1000; // 1 minute (reduced from 4 to prevent repeated tracks from cache)
+const CACHE_TTL = 0; // disabled — see comment above
 
 // ── Mood extraction helper ──────────────────────────────────────────────────
 function extractTrackMoods(title: string, genre: string): string[] {

@@ -7,7 +7,7 @@ import {
   Play, Pause, Music, Heart, Clock, ListMusic, MessageCircle,
   Plus, Sparkles, Waves, User, Flame,
   SkipForward, ThumbsDown, TrendingUp, Compass, RotateCcw,
-  MoreHorizontal,
+  MoreHorizontal, X,
 } from "lucide-react";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { useFriendsListening } from "@/hooks/useFriendsListening";
@@ -419,6 +419,7 @@ function MainView() {
           waveError={wave.waveError}
           onStartWave={wave.startWave}
           onPauseWave={wave.pauseWave}
+          onStopWave={wave.stopWave}
           onSkip={wave.skipTrack}
           onDislike={wave.dislikeTrack}
           onLike={wave.likeTrack}
@@ -1572,6 +1573,7 @@ function WaveCard({
   waveError,
   onStartWave,
   onPauseWave,
+  onStopWave,
   onSkip,
   onDislike,
   onLike,
@@ -1588,6 +1590,7 @@ function WaveCard({
   waveError: string | null;
   onStartWave: () => void;
   onPauseWave: () => void;
+  onStopWave: () => void;
   onSkip: () => void;
   onDislike: () => void;
   onLike: () => void;
@@ -1725,6 +1728,16 @@ function WaveCard({
                 aria-label={isLiked ? "Убрать из избранного" : "В избранное"}>
                 <Heart className="w-4 h-4 sm:w-5 sm:h-5" fill={isLiked ? "currentColor" : "none"} />
               </motion.button>
+              {/* Stop Wave button — exits radio mode entirely (was missing,
+                  user had no way to turn off the wave, only pause). */}
+              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
+                onClick={onStopWave}
+                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)" }}
+                aria-label="Остановить волну"
+                title="Остановить волну">
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
+              </motion.button>
             </div>
           ) : (
             /* Desktop Active Wave */
@@ -1781,6 +1794,15 @@ function WaveCard({
                   style={{ background: isLiked ? "rgba(239,68,68,0.18)" : "rgba(255,255,255,0.08)", color: isLiked ? "#ef4444" : "rgba(255,255,255,0.7)" }}
                   aria-label={isLiked ? "Убрать из избранного" : "В избранное"}>
                   <Heart className="w-5 h-5" fill={isLiked ? "currentColor" : "none"} />
+                </motion.button>
+                {/* Stop Wave button — exits radio mode entirely. */}
+                <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
+                  onClick={onStopWave}
+                  className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)" }}
+                  aria-label="Остановить волну"
+                  title="Остановить волну">
+                  <X className="w-5 h-5" />
                 </motion.button>
               </div>
             </div>

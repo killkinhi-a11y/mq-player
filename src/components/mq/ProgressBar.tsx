@@ -111,11 +111,21 @@ function ProgressBarBase({
     };
   }, [internalDragging, clientXToTime, onSeek, onDragEnd]);
 
-  // ── Cleanup RAF on unmount ──
+  // ── Cleanup RAF on unmount + safety mouseup/touchend to release drag
+  // if component unmounts mid-drag (otherwise isDragging stays true
+  // and the bar appears "stuck") ──
   useEffect(() => {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      // Safety: if component unmounts while dragging, release the drag
+      // state so it doesn't get stuck. This is a fallback — the normal
+      // mouseup/touchend handlers in the drag effect above should fire first.
+      if (internalDragging) {
+        setInternalDragging(false);
+        onDragEnd();
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Touch handlers ──

@@ -69,11 +69,29 @@ export function useWaveEngine() {
     const state = useAppStore.getState();
     const cur = state.currentTrack;
 
-    // Client-side dedup set — used by BOTH radio and recommendations paths
+    // Client-side dedup set — used by BOTH radio and recommendations paths.
+    // Increased from 50 to 100 history entries to prevent repeats of tracks
+    // the user heard earlier in the session.
     const excludeSet = new Set<string>([
-      ...((state.history || []).slice(0, 50).map(h => h.track?.id).filter(Boolean) as string[]),
+      ...((state.history || []).slice(0, 100).map(h => h.track?.id).filter(Boolean) as string[]),
       ...((state.queue || []).map(t => t?.id).filter(Boolean) as string[]),
+      // Also exclude disliked track IDs explicitly (belt and suspenders —
+      // radio endpoint should already filter these, but client-side dedup
+      // catches any that slip through)
+      ...(disliked || []),
     ]);
+
+    // Build a set of recently-played ARTISTS (last 30 tracks) to penalize
+    // repetition of the same artist back-to-back. Radio endpoint tries to
+    // diversify, but client-side filter is the last line of defense.
+    const recentArtists = new Set<string>();
+    for (const h of (state.history || []).slice(0, 30)) {
+      const a = (h.track?.artist || "").toLowerCase().trim();
+      if (a) recentArtists.add(a);
+    }
+    // Current track's artist — never repeat immediately
+    const curArtist = (cur?.artist || "").toLowerCase().trim();
+    if (curArtist) recentArtists.add(curArtist);
 
     // ── Helper: fetch from /api/music/recommendations + trending + charts ──
     // Used as a fallback when radio doesn't return enough tracks, OR as the
@@ -257,9 +275,32 @@ export function useWaveEngine() {
         const radioRes = await fetch(`/api/music/radio?${radioParams}`);
         if (radioRes.ok) {
           const radioData = await radioRes.json();
-          const radioTracks: Track[] = (radioData.tracks || []).filter(
+          let radioTracks: Track[] = (radioData.tracks || []).filter(
             (t: Track) => !disliked.includes(t.id) && !excludeSet.has(t.id),
           );
+
+          // ── Artist diversity filter ──
+          // Limit to max 2 tracks per artist to prevent "same artist spam"
+          // that SoundCloud related API sometimes returns. Also penalize
+          // (but don't exclude) artists from recent history — push them to
+          // the end of the queue so fresh artists surface first.
+          const artistCount = new Map<string, number>();
+          radioTracks = radioTracks.filter(t => {
+            const a = (t.artist || "").toLowerCase().trim();
+            if (!a) return true;
+            const cnt = artistCount.get(a) || 0;
+            if (cnt >= 2) return false; // max 2 per artist
+            artistCount.set(a, cnt + 1);
+            return true;
+          });
+          // Sort: tracks from NEW artists (not in recentArtists) first,
+          // then tracks from recently-played artists. This way the user
+          // hears fresh music before repeats.
+          radioTracks.sort((a, b) => {
+            const aRecent = recentArtists.has((a.artist || "").toLowerCase().trim()) ? 1 : 0;
+            const bRecent = recentArtists.has((b.artist || "").toLowerCase().trim()) ? 1 : 0;
+            return aRecent - bRecent;
+          });
 
           if (radioTracks.length >= count) {
             // Enough tracks from radio — return them

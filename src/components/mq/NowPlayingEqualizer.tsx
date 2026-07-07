@@ -3,18 +3,16 @@
 import { memo } from "react";
 
 /**
- * NowPlayingEqualizer v2 — полностью переработанная визуализация.
+ * NowPlayingEqualizer v3 — упрощённая, надёжная визуализация.
  *
- * Что изменилось vs v1:
- * - 5 полос разной ширины (центральная — самая широкая, как в спектре)
- * - Каждая полоса имеет СВОЙ собственный @keyframes (mq-eq-bar-1..5),
- *   не просто delay/duration от одного keyframe. Движение реально
- *   непохожее между полосами, как в живом аудио-анализаторе.
- * - Gradient на полосах: accent снизу → светлее сверху (color-mix с #fff)
- * - Soft glow только когда playing (filter: drop-shadow)
- * - Props: size (xs/sm/md/lg), variant (overlay/inline), paused
- * - Paused state: animation freezes at current keyframe position, bars
- *   dim to 50% opacity. Glow is removed.
+ * v3 принципы:
+ * - ЯВНАЯ height на каждом баре (не "100%" — percentage height в flex
+ *   может не вычислиться корректно с filter на родителе)
+ * - Без filter: drop-shadow на родителе (drop-shadow создаёт stacking
+ *   context и в некоторых браузерах ломает transform: scaleY на детях)
+ * - Без gradient на barах (gradient + scaleY может давать артефакты)
+ * - 5 полос, каждая со своим @keyframes (mq-eq-bar-1..5)
+ * - paused state: animation-play-state: paused + opacity 0.5
  *
  * CRITICAL: spans должны иметь display: "block" — transform: scaleY
  * не работает на inline элементах (span default).
@@ -30,7 +28,6 @@ interface NowPlayingEqualizerProps {
   className?: string;
 }
 
-// Конфиг размеров: высота, ширина полосы, gap, radius
 const SIZE_CONFIG: Record<EqSize, { height: number; barWidth: number; gap: number; radius: number }> = {
   xs: { height: 8, barWidth: 1.5, gap: 1, radius: 1 },
   sm: { height: 12, barWidth: 2, gap: 1.5, radius: 1.5 },
@@ -38,8 +35,6 @@ const SIZE_CONFIG: Record<EqSize, { height: number; barWidth: number; gap: numbe
   lg: { height: 22, barWidth: 3, gap: 2.5, radius: 2.5 },
 };
 
-// Каждая полоса: свой keyframe, своя длительность, своя задержка
-// Ширина: средние полосы шире (как центр спектра)
 const BAR_CONFIG = [
   { keyframe: "mq-eq-bar-1", duration: "0.85s", delay: "0s", widthMul: 0.7 },
   { keyframe: "mq-eq-bar-2", duration: "1.10s", delay: "0.15s", widthMul: 0.85 },
@@ -56,13 +51,11 @@ export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
 }: NowPlayingEqualizerProps) {
   const cfg = SIZE_CONFIG[size];
 
-  // overlay variant — для тёмного фона поверх обложки (белые полосы с slight transparency)
-  // inline variant — для использования рядом с названием трека (accent gradient)
-  const barGradient = variant === "overlay"
-    ? "linear-gradient(to top, rgba(255,255,255,0.95), rgba(255,255,255,0.65))"
-    : "linear-gradient(to top, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 55%, #fff))";
-
-  const glowColor = variant === "overlay" ? "rgba(255,255,255,0.5)" : "var(--mq-accent)";
+  // overlay — белые полосы для тёмного фона (поверх обложки)
+  // inline — accent-цветные полосы для использования рядом с текстом
+  const barColor = variant === "overlay"
+    ? "rgba(255,255,255,0.95)"
+    : "var(--mq-accent)";
 
   return (
     <span
@@ -71,8 +64,9 @@ export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
         height: cfg.height,
         gap: cfg.gap,
         display: "inline-flex",
-        // Glow только когда playing; на pause — без glow
-        filter: paused ? "none" : `drop-shadow(0 0 ${Math.max(2, cfg.height / 4)}px color-mix(in srgb, ${glowColor} 50%, transparent))`,
+        // NO filter on parent — drop-shadow creates a stacking context
+        // that can break transform: scaleY on children in some browsers.
+        // Glow is achieved via box-shadow on each bar instead (see below).
       }}
       aria-label={paused ? "На паузе" : "Сейчас играет"}
       role="status"
@@ -83,18 +77,16 @@ export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
           style={{
             display: "block",
             width: cfg.barWidth * bar.widthMul,
-            height: "100%",
-            background: barGradient,
+            // ЯВНАЯ height вместо "100%" — percentage height in flex
+            // with filter on parent can fail to compute in some browsers.
+            height: cfg.height,
+            backgroundColor: barColor,
             borderRadius: cfg.radius,
             transformOrigin: "bottom",
             animation: `${bar.keyframe} ${bar.duration} ease-in-out ${bar.delay} infinite alternate`,
-            // Smooth opacity transition при pause/unpause. Transform
-            // transition бесполезен с animation (animation управляет
-            // transform напрямую), поэтому только opacity.
+            // Subtle glow via box-shadow (не filter:drop-shadow на родителе)
+            boxShadow: paused ? "none" : `0 0 3px ${variant === "overlay" ? "rgba(255,255,255,0.6)" : "color-mix(in srgb, var(--mq-accent) 50%, transparent)"}`,
             transition: "opacity 0.3s ease-out",
-            // Дублируем animation-play-state inline для надёжности (CSS
-            // класс .mq-eq-paused span тоже задаёт paused, но inline
-            // имеет более высокий приоритет и не требует !important)
             ...(paused ? { animationPlayState: "paused", opacity: 0.5 } : {}),
           }}
         />

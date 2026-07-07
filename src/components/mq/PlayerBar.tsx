@@ -68,57 +68,27 @@ export default function PlayerBar() {
   }, []);
 
   const isMobile = useIsMobile();
-  const progressBarRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
-  const [hoveredTime, setHoveredTime] = useState<number | null>(null);
 
-  // ── Seek ────────────────────────────────────────────────────────────────
-  const seekTo = useCallback((clientX: number) => {
-    if (!progressBarRef.current || !duration) return;
-    const rect = progressBarRef.current.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-    const time = (pct / 100) * duration;
+  // ── Progress bar callbacks (memoized to prevent ProgressBar's drag
+  // useEffect from re-running on every render — inline arrow functions
+  // create new identities each render, causing the effect to tear down
+  // and re-add window listeners mid-drag, which loses mouseup events
+  // and leaves the bar "stuck" in dragging state) ──
+  const handleProgressSeek = useCallback((time: number) => {
     const audio = getAudioElement();
     if (audio && audio.src) audio.currentTime = time;
     setProgress(time);
-  }, [duration, setProgress]);
+  }, [setProgress]);
 
-  const getHoverTime = useCallback((clientX: number): number => {
-    if (!progressBarRef.current || !duration) return 0;
-    const rect = progressBarRef.current.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-    return (pct / 100) * duration;
-  }, [duration]);
-
-  const handleProgressMouseDown = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleProgressDragStart = useCallback(() => {
     setIsDragging(true);
-    seekTo(e.clientX);
-  }, [seekTo]);
+  }, []);
 
-  const hoverRafRef = useRef(0);
-  const handleProgressMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isDragging) return;
-    const x = e.clientX;
-    if (hoverRafRef.current) return;
-    hoverRafRef.current = requestAnimationFrame(() => {
-      hoverRafRef.current = 0;
-      setHoveredTime(getHoverTime(x));
-    });
-  }, [isDragging, getHoverTime]);
-
-  useEffect(() => {
-    if (!isDragging) return;
-    const onMove = (e: MouseEvent) => seekTo(e.clientX);
-    const onUp = () => setIsDragging(false);
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
-  }, [isDragging, seekTo]);
+  const handleProgressDragEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
 
   // ── Volume ──
   const volTrackRef = useRef<HTMLDivElement>(null);
@@ -208,8 +178,6 @@ export default function PlayerBar() {
   // ── Derived ──
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.id) : false;
   const isDisliked = currentTrack ? dislikedTrackIds.includes(currentTrack.id) : false;
-  const progressPct = duration > 0 ? (progress / duration) * 100 : 0;
-  const hoveredPct = hoveredTime !== null && duration > 0 ? (hoveredTime / duration) * 100 : 0;
   const isLoading = playbackState === "loading" || playbackState === "buffering";
   const VolIcon = volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
 
@@ -422,19 +390,20 @@ export default function PlayerBar() {
                 </button>
               </div>
 
-              {/* Progress bar — premium redesign */}
+              {/* Progress bar — premium redesign.
+                  Memoized callbacks (handleProgressSeek/DragStart/DragEnd)
+                  prevent ProgressBar's drag useEffect from re-running on
+                  every render — inline arrows would create new function
+                  identities each render, tearing down window listeners
+                  mid-drag and losing mouseup events. */}
               <ProgressBar
                 progress={progress}
                 duration={duration}
                 isPlaying={isPlaying}
                 isDragging={isDragging}
-                onSeek={(time) => {
-                  const audio = getAudioElement();
-                  if (audio && audio.src) audio.currentTime = time;
-                  setProgress(time);
-                }}
-                onDragStart={() => setIsDragging(true)}
-                onDragEnd={() => setIsDragging(false)}
+                onSeek={handleProgressSeek}
+                onDragStart={handleProgressDragStart}
+                onDragEnd={handleProgressDragEnd}
                 formatTime={formatDuration}
                 variant="playerbar"
               />

@@ -2693,8 +2693,25 @@ export const useAppStore = create<AppState>()(
         if (!persisted) return current;
         const p = persisted as Record<string, unknown>;
         const merged = { ...current };
+        // Transient fields that must NEVER be restored from persisted state
+        // (even if old localStorage contains them). These are session-only
+        // state that would cause bugs like "wave always active" if restored.
+        const TRANSIENT_FIELDS = new Set([
+          "radioMode", "radioSeedTrack", "radioSkipCount",
+          "isPlaying", "isBuffering", "isDragging", "playbackState",
+          "sessionStartTime", "smartShuffle", "abRepeat",
+          "selectedContactId", "selectedGenre", "selectedPlaylistId",
+          "selectedGroupId", "selectedArtist", "typingUsers",
+          "_authGeneration", "_hasHydrated", "_playLock",
+          "spatialAudioEnabled", "spatialMood", "spatialAutoDetect",
+          "miniPlayerHidden", "isFullTrackViewOpen",
+          "publicPlaylistsLoading", "recommendedPlaylistsLoading",
+          "publicPlaylistsPage", "publicPlaylistsTotal",
+          "publicPlaylistsSearch", "publicPlaylistsSort",
+        ]);
         // Only copy known state keys from persisted data
         for (const key of Object.keys(initialState)) {
+          if (TRANSIENT_FIELDS.has(key)) continue;
           if (p[key] !== undefined) {
             (merged as Record<string, unknown>)[key] = p[key];
           }
@@ -2776,6 +2793,15 @@ export const useAppStore = create<AppState>()(
           if (typeof s.currentTheme !== "string" || !s.currentTheme) fixes.currentTheme = "default";
           // Never auto-play on rehydration — always start paused
           if (s.isPlaying === true) fixes.isPlaying = false;
+          // CRITICAL: Always reset radioMode on rehydration. Previously
+          // radioMode could be persisted in old localStorage (before it
+          // was excluded from partialize), and merge() would copy it
+          // back — causing "wave always active" bug on page reload.
+          // Even if not persisted, a stale radioMode=true from a crashed
+          // session would survive. Force false on every rehydration.
+          if (s.radioMode === true) fixes.radioMode = false;
+          if (s.radioSeedTrack !== null) fixes.radioSeedTrack = null;
+          if (s.radioSkipCount !== 0) fixes.radioSkipCount = 0;
           if (typeof s.volume !== "number") fixes.volume = 70;
           if (typeof s.fontSize !== "number") fixes.fontSize = 16;
           if (typeof s.shuffle !== "boolean") fixes.shuffle = false;
