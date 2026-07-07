@@ -83,7 +83,16 @@ export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
             backgroundColor: barColor,
             borderRadius: cfg.radius,
             transformOrigin: "bottom",
-            animation: `${bar.keyframe} ${bar.duration} ease-in-out ${bar.delay} infinite alternate`,
+            // Use SEPARATE animation properties instead of shorthand.
+            // React inline style 'animation' shorthand can be flaky in
+            // some browsers (Safari especially) — separate properties
+            // are more reliable.
+            animationName: bar.keyframe,
+            animationDuration: bar.duration,
+            animationTimingFunction: "ease-in-out",
+            animationDelay: bar.delay,
+            animationIterationCount: "infinite",
+            animationDirection: "alternate",
             // Subtle glow via box-shadow (не filter:drop-shadow на родителе)
             boxShadow: paused ? "none" : `0 0 3px ${variant === "overlay" ? "rgba(255,255,255,0.6)" : "color-mix(in srgb, var(--mq-accent) 50%, transparent)"}`,
             transition: "opacity 0.3s ease-out",
