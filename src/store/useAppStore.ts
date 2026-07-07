@@ -17,7 +17,9 @@ type PlaybackState = "idle" | "buffering" | "loading" | "playing" | "paused" | "
 
 // ── Storage versioning ──
 // Bump this number to force a fresh store for all users with old data.
-const STORE_VERSION = 9;
+// v10: bumped to force migration that resets radioMode (was persisting
+// "wave always active" bug from v8/v9 localStorage).
+const STORE_VERSION = 10;
 const STORAGE_KEY = "mq-store-v8";
 
 // Nuke stale data BEFORE Zustand tries to hydrate.
@@ -2680,9 +2682,12 @@ export const useAppStore = create<AppState>()(
             eqBands: old?.eqBands ?? initialState.eqBands,
             eqPreset: old?.eqPreset ?? initialState.eqPreset,
             playbackRate: old?.playbackRate ?? initialState.playbackRate,
-            radioMode: old?.radioMode ?? initialState.radioMode,
-            smartShuffle: old?.smartShuffle ?? initialState.smartShuffle,
-            // v9: AI recs now OFF by default — force true for migrating users
+            // DO NOT migrate radioMode/radioSeedTrack/radioSkipCount — these
+            // are session-only transient state. Migrating them caused the
+            // "wave always active on page reload" bug. Always reset to
+            // initialState (false/null/0) on migration.
+            // smartShuffle is also transient — reset on migration.
+            // aiRecsHidden: v9 forces true for migrating users
             aiRecsHidden: true,
           };
         }
