@@ -104,12 +104,13 @@ export function useListenSessionSync() {
         const session = useAppStore.getState().listenSession;
         if (session && !session.isHost) {
           poll();
-          guestIntervalRef.current = setInterval(poll, 5000);
+          // 15s poll for guest sync (was 5s — reduced for less load)
+          guestIntervalRef.current = setInterval(poll, 15000);
         }
       };
       check();
-      // Re-check every 5s whether we need to start/stop the guest interval
-      const metaInterval = setInterval(check, 5000);
+      // Re-check every 15s whether we need to start/stop the guest interval
+      const metaInterval = setInterval(check, 15000);
       return () => clearInterval(metaInterval);
     };
 
@@ -179,12 +180,13 @@ export function useListenSessionSync() {
         const session = useAppStore.getState().listenSession;
         if (session && session.isHost) {
           hostTick();
-          hostIntervalRef.current = setInterval(hostTick, 5000);
+          // 15s host tick (was 5s — reduced for less load)
+          hostIntervalRef.current = setInterval(hostTick, 15000);
         }
       };
       check();
-      // Re-check every 5s whether we need to start/stop the host interval
-      const metaInterval = setInterval(check, 5000);
+      // Re-check every 15s whether we need to start/stop the host interval
+      const metaInterval = setInterval(check, 15000);
       return () => clearInterval(metaInterval);
     };
 

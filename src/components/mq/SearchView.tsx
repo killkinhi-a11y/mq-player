@@ -504,6 +504,30 @@ export default function SearchView() {
         <input ref={fileInputRef} type="file" accept="audio/*" multiple onChange={handleFileUpload} className="hidden" />
       </motion.div>
 
+      {/* ── Search suggestions — autocomplete-style dropdown ──
+          Появляется когда пользователь печатает но ещё не нажал Enter.
+          Показывает: match из recent searches, trending, и popular genres. */}
+      <AnimatePresence>
+        {searchQuery.trim() && isFocused && !hasSearched && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className="relative z-30 -mx-3 sm:-mx-4 lg:-mx-5 px-3 sm:px-4 lg:px-5"
+          >
+            <SearchSuggestions
+              query={searchQuery.trim()}
+              searchHistory={searchHistory}
+              onSelect={(term) => {
+                setSearchQuery(term);
+                searchInputRef.current?.focus();
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ── Genre filters — enhanced with icons and smooth scroll ── */}
       <AnimatePresence>
         {showFilters && (
@@ -1085,3 +1109,138 @@ const SearchTrackRow = memo(function SearchTrackRow({
     </>
   );
 });
+
+// ═════════════════════════════════════════════════════════════════════════
+// SEARCH SUGGESTIONS — autocomplete-style dropdown
+// Показывает подсказки пока пользователь печатает:
+// 1. Match из recent searches (если query частично совпадает)
+// 2. Trending searches (если query частично совпадает)
+// 3. Popular artists/genres (всегда как подсказки)
+// UX Core #6 (Забывание без подсказок): подсказки помогают пользователю
+// вспомнить что он искал, и снижают когнитивную нагрузку.
+// ═════════════════════════════════════════════════════════════════════════
+
+const POPULAR_ARTISTS = [
+  "Mac DeMarco", "Tame Impala", "Arctic Monkeys", "The Weeknd",
+  "Billie Eilish", "Kendrick Lamar", "Frank Ocean", "Tyler, The Creator",
+];
+
+function SearchSuggestions({
+  query,
+  searchHistory,
+  onSelect,
+}: {
+  query: string;
+  searchHistory: string[];
+  onSelect: (term: string) => void;
+}) {
+  const queryLower = query.toLowerCase();
+
+  // 1. Match из recent searches
+  const historyMatches = searchHistory
+    .filter(h => h.toLowerCase().includes(queryLower) && h.toLowerCase() !== queryLower)
+    .slice(0, 3);
+
+  // 2. Match из trending
+  const trendingMatches = TRENDING_SEARCHES
+    .filter(t => t.toLowerCase().includes(queryLower) && t.toLowerCase() !== queryLower)
+    .slice(0, 3);
+
+  // 3. Match из popular artists
+  const artistMatches = POPULAR_ARTISTS
+    .filter(a => a.toLowerCase().includes(queryLower) && a.toLowerCase() !== queryLower)
+    .slice(0, 3);
+
+  // 4. "Search for X" — прямой поиск текущего query
+  const hasSuggestions = historyMatches.length > 0 || trendingMatches.length > 0 || artistMatches.length > 0;
+
+  return (
+    <div
+      className="mt-1 rounded-2xl overflow-hidden"
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--mq-card) 95%, transparent)",
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        border: "1px solid var(--mq-border-thin)",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+      }}
+    >
+      {/* Direct search for current query */}
+      <button
+        onClick={() => onSelect(query)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/5"
+      >
+        <Search className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+        <span className="text-sm" style={{ color: "var(--mq-text)" }}>
+          Искать <span className="font-semibold" style={{ color: "var(--mq-accent)" }}>«{query}»</span>
+        </span>
+      </button>
+
+      {/* History matches */}
+      {historyMatches.length > 0 && (
+        <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
+          <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+            Недавно искали
+          </p>
+          {historyMatches.map((term) => (
+            <button
+              key={`hist-${term}`}
+              onClick={() => onSelect(term)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+            >
+              <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+              <span className="text-sm truncate" style={{ color: "var(--mq-text)" }}>{term}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Trending matches */}
+      {trendingMatches.length > 0 && (
+        <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
+          <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+            Популярное
+          </p>
+          {trendingMatches.map((term) => (
+            <button
+              key={`trend-${term}`}
+              onClick={() => onSelect(term)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+            >
+              <TrendingUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+              <span className="text-sm truncate" style={{ color: "var(--mq-text)" }}>{term}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Artist matches */}
+      {artistMatches.length > 0 && (
+        <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
+          <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+            Артисты
+          </p>
+          {artistMatches.map((artist) => (
+            <button
+              key={`art-${artist}`}
+              onClick={() => onSelect(artist)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+            >
+              <Mic className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+              <span className="text-sm truncate" style={{ color: "var(--mq-text)" }}>{artist}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* If no suggestions — show hint */}
+      {!hasSuggestions && (
+        <div className="border-t px-4 py-3" style={{ borderColor: "var(--mq-border-hairline)" }}>
+          <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+            Нажмите Enter для поиска «{query}»
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}

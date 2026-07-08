@@ -136,8 +136,10 @@ export function useGlobalNotifications() {
       if (waitForAuth()) {
         // First poll immediately
         poll();
-        // Then every 5 seconds
-        pollTimer = setInterval(poll, 5000);
+        // Then every 30 seconds (was 5s — 5s was too aggressive and caused
+        // gradual memory/CPU buildup on long sessions. 30s is enough for
+        // message notifications — users don't need sub-10s latency.)
+        pollTimer = setInterval(poll, 30000);
       } else {
         // Retry in 1 second until authenticated
         setTimeout(startPolling, 1000);
@@ -146,8 +148,24 @@ export function useGlobalNotifications() {
 
     startPolling();
 
+    // Pause polling when tab is hidden — saves API calls and CPU when
+    // user is not actively looking at the app. Resumes on visibility.
+    const onVisibility = () => {
+      if (destroyed) return;
+      if (document.hidden) {
+        if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+      } else {
+        if (!pollTimer) {
+          poll();
+          pollTimer = setInterval(poll, 30000);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     return () => {
       destroyed = true;
+      document.removeEventListener("visibilitychange", onVisibility);
       if (pollTimer) clearInterval(pollTimer);
       try {
         bcRef.current?.close();

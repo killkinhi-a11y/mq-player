@@ -52,7 +52,7 @@ export function useFriendsListening() {
       return;
     }
     fetchFriends();
-    intervalRef.current = setInterval(fetchFriends, 15000); // 15s
+    intervalRef.current = setInterval(fetchFriends, 30000); // 30s (was 15s — reduced for less load)
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
@@ -65,7 +65,7 @@ export function useFriendsListening() {
         if (intervalRef.current) clearInterval(intervalRef.current);
       } else {
         fetchFriends();
-        intervalRef.current = setInterval(fetchFriends, 15000);
+        intervalRef.current = setInterval(fetchFriends, 30000); // 30s
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
