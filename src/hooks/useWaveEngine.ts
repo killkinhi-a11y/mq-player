@@ -70,10 +70,12 @@ export function useWaveEngine() {
     const cur = state.currentTrack;
 
     // Client-side dedup set — used by BOTH radio and recommendations paths.
-    // Increased from 50 to 100 history entries to prevent repeats of tracks
-    // the user heard earlier in the session.
+    // Increased from 100 to 200 history entries to prevent repeats of tracks
+    // the user heard earlier in the session. This is the main fix for
+    // "постоянные повторы" — SoundCloud related API returns overlapping
+    // results for similar seed tracks, so we need a large exclude window.
     const excludeSet = new Set<string>([
-      ...((state.history || []).slice(0, 100).map(h => h.track?.id).filter(Boolean) as string[]),
+      ...((state.history || []).slice(0, 200).map(h => h.track?.id).filter(Boolean) as string[]),
       ...((state.queue || []).map(t => t?.id).filter(Boolean) as string[]),
       // Also exclude disliked track IDs explicitly (belt and suspenders —
       // radio endpoint should already filter these, but client-side dedup
@@ -81,11 +83,12 @@ export function useWaveEngine() {
       ...(disliked || []),
     ]);
 
-    // Build a set of recently-played ARTISTS (last 30 tracks) to penalize
+    // Build a set of recently-played ARTISTS (last 50 tracks) to penalize
     // repetition of the same artist back-to-back. Radio endpoint tries to
     // diversify, but client-side filter is the last line of defense.
+    // Increased from 30 to 50 for stronger artist diversity.
     const recentArtists = new Set<string>();
-    for (const h of (state.history || []).slice(0, 30)) {
+    for (const h of (state.history || []).slice(0, 50)) {
       const a = (h.track?.artist || "").toLowerCase().trim();
       if (a) recentArtists.add(a);
     }
@@ -280,16 +283,18 @@ export function useWaveEngine() {
           );
 
           // ── Artist diversity filter ──
-          // Limit to max 2 tracks per artist to prevent "same artist spam"
-          // that SoundCloud related API sometimes returns. Also penalize
-          // (but don't exclude) artists from recent history — push them to
-          // the end of the queue so fresh artists surface first.
+          // Limit to max 1 track per artist per batch — stricter than before
+          // (was 2) to guarantee variety. SoundCloud related API tends to
+          // return multiple tracks from the same artist, which creates
+          // "same artist spam" in the wave. Also penalize (but don't exclude)
+          // artists from recent history — push them to the end of the queue
+          // so fresh artists surface first.
           const artistCount = new Map<string, number>();
           radioTracks = radioTracks.filter(t => {
             const a = (t.artist || "").toLowerCase().trim();
             if (!a) return true;
             const cnt = artistCount.get(a) || 0;
-            if (cnt >= 2) return false; // max 2 per artist
+            if (cnt >= 1) return false; // max 1 per artist per batch
             artistCount.set(a, cnt + 1);
             return true;
           });
@@ -527,25 +532,31 @@ export function useWaveEngine() {
   }, [currentTrack, toggleLike]);
 
   // ── Auto-refill when queue is low in radio mode ──
+  // Preemptive refill: trigger when 5 or fewer tracks remaining (was 2).
+  // This ensures the wave NEVER runs out of tracks — by the time the user
+  // reaches the end of the current batch, the next batch is already loaded.
+  // Combined with the inflight dedup guard, this creates a truly infinite
+  // stream without parallel-fetch races.
   useEffect(() => {
     if (!radioMode) return;
     if (!currentTrack) return;
 
     const remaining = queue.length - queueIndex - 1;
-    // Refill when 2 or fewer tracks remaining
-    if (remaining <= 2) {
+    // Preemptive refill threshold — 5 tracks ahead
+    if (remaining <= 5) {
       const now = Date.now();
-      // Throttle: don't fetch more than once per 10 seconds
-      if (now - lastFetchRef.current < 10000) return;
+      // Throttle: don't fetch more than once per 8 seconds (was 10 —
+      // lowered to keep up with faster skip rates)
+      if (now - lastFetchRef.current < 8000) return;
       lastFetchRef.current = now;
 
       // Deduplicated fetch — if skipTrack already started a fetch, this
       // returns the same promise instead of starting a parallel one
-      fetchWaveTracksDedup(10).then(newTracks => {
+      fetchWaveTracksDedup(15).then(newTracks => {
         if (newTracks.length > 0) {
           const shuffled = shuffle(newTracks);
           const state = useAppStore.getState();
-          // Avoid duplicates
+          // Avoid duplicates against current queue
           const existingIds = new Set(state.queue.map(t => t.id));
           const filtered = shuffled.filter(t => !existingIds.has(t.id));
           if (filtered.length > 0) {

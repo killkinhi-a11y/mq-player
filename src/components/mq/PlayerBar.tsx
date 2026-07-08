@@ -191,11 +191,17 @@ export default function PlayerBar() {
   const hasNextTrack = !!nextTrackPreview;
 
   // ── "Радио от трека" — start wave seeded by current track ──
-  // No-op if radio mode is already active (otherwise we'd rebuild the
-  // queue and lose the upcoming radio tracks the user is about to hear).
-  // User can press Stop in Wave card first if they want to re-seed.
+  // Radio button acts as TOGGLE: first press starts wave from current
+  // track, second press stops wave entirely. Previously the button only
+  // started the wave and was a no-op when wave was already active — user
+  // had no way to turn it off from the player bar (Stop button was on
+  // Wave Card, now removed). Now toggle behavior is the single control.
   const handleStartRadio = useCallback(() => {
-    if (radioMode) return;
+    if (radioMode) {
+      // Wave is active → stop it
+      wave.stopWave();
+      return;
+    }
     if (currentTrack) {
       wave.startWaveFromCurrentTrack();
     }
@@ -275,7 +281,28 @@ export default function PlayerBar() {
                 </div>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+                <div className="flex items-center gap-1.5">
+                  {/* UX Core #5 (Эффект контекста): показываем индикатор
+                      "Волна" когда radio mode активен — единый контекст
+                      "откуда играет трек". Без этого пользователь не
+                      понимает что трек из волны а не из плейлиста/поиска. */}
+                  {radioMode && (
+                    <span
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider flex-shrink-0"
+                      style={{
+                        color: "var(--mq-accent)",
+                        backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
+                      }}
+                    >
+                      <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{ backgroundColor: "var(--mq-accent)" }}
+                      />
+                      Волна
+                    </span>
+                  )}
+                  <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+                </div>
                 <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
               </div>
               <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
@@ -448,15 +475,16 @@ export default function PlayerBar() {
                 />
               </motion.button>
 
-              {/* Radio from current track — starts Wave seeded by the playing track.
-                  Bounce on tap. Tooltip via title attribute (browser native). */}
+              {/* Radio toggle button — starts Wave from current track on
+                  first press, stops Wave on second press. The pulsing dot
+                  indicates wave is active; tooltip explains toggle behavior. */}
               <motion.button
                 whileTap={{ scale: 0.8 }}
                 whileHover={{ scale: 1.1 }}
                 onClick={handleStartRadio}
                 disabled={wave.waveLoading}
                 className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 relative"
-                title={radioMode ? "Волна активна" : "Радио от этого трека"}
+                title={radioMode ? "Выключить волну" : "Радио от этого трека"}
               >
                 {wave.waveLoading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--mq-accent)" }} />
