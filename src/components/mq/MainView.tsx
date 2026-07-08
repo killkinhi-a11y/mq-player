@@ -401,6 +401,14 @@ function MainView() {
           <h1 className="mq-text-display text-xl sm:text-2xl lg:text-3xl" style={{ color: "var(--mq-text)" }}>
             {greeting()}
           </h1>
+          {/* UX Core #5 (Эффект контекста): когда трек играет, показываем
+              его в hero — единый контекст "что происходит прямо сейчас".
+              Без этого hero greeting и Wave Card создают разрыв контекста. */}
+          {currentTrack && isPlaying && (
+            <p className="text-xs sm:text-sm mt-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
+              <span style={{ color: "var(--mq-accent)" }}>●</span> Сейчас играет: {currentTrack.title} — {currentTrack.artist}
+            </p>
+          )}
         </motion.div>
       </ScrollReveal>
 
@@ -433,10 +441,37 @@ function MainView() {
       {/* ════════════════════════════════════════════════════════════════ */}
       <ScrollReveal direction="up" delay={0.05}>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mb-8">
-          <QuickStat icon={Heart} label="Избранное" value={likedTrackIds.length} onClick={() => setView("favorites")} accent="#ef4444" />
-          <QuickStat icon={Clock} label="История" value={history.length} onClick={() => setView("history")} accent="var(--mq-accent)" />
-          <QuickStat icon={ListMusic} label="Плейлисты" value={playlists.length} onClick={() => setView("playlists")} accent="#8b5cf6" />
-          <QuickStat icon={MessageCircle} label="Чаты" value={contacts.length} onClick={() => setView("messenger")} accent="#06b6d4" />
+          <QuickStat
+            icon={Heart}
+            label="Избранное"
+            value={likedTrackIds.length}
+            onClick={() => setView("favorites")}
+            accent="#ef4444"
+            cover={likedTracksData[0]?.cover}
+          />
+          <QuickStat
+            icon={Clock}
+            label="История"
+            value={history.length}
+            onClick={() => setView("history")}
+            accent="var(--mq-accent)"
+            cover={history[0]?.track?.cover}
+          />
+          <QuickStat
+            icon={ListMusic}
+            label="Плейлисты"
+            value={playlists.length}
+            onClick={() => setView("playlists")}
+            accent="#8b5cf6"
+            cover={playlists[0]?.tracks?.[0]?.cover}
+          />
+          <QuickStat
+            icon={MessageCircle}
+            label="Чаты"
+            value={contacts.length}
+            onClick={() => setView("messenger")}
+            accent="#06b6d4"
+          />
         </div>
       </ScrollReveal>
 
@@ -479,16 +514,37 @@ function MainView() {
         ) : (
           <button
             onClick={() => setView("playlists")}
-            className="w-full rounded-2xl p-5 flex items-center gap-4 transition-all hover:bg-white/[0.02]"
+            className="w-full rounded-2xl p-5 flex items-center gap-4 transition-all hover:bg-white/[0.02] text-left"
             style={{ backgroundColor: "var(--mq-card)", border: "1px dashed var(--mq-border-thin)" }}
           >
             <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}>
               <Plus className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
             </div>
-            <div className="text-left">
-              <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>Создайте плейлист</p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Организуйте любимую музыку</p>
+            <div className="flex-1 min-w-0">
+              {/* UX Core #1 (Эвристика доступности): текст без императива
+                  и долга — "Новый плейлист" + "Собери своё" звучит как
+                  возможность, а не обязанность. Снижает когнитивный барьер. */}
+              <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>Новый плейлист</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Собери своё</p>
             </div>
+            {/* UX Core #6 (Забывание без подсказок): мини-обложки недавно
+                сыгранных треков как визуальная подсказка "вот что можно
+                добавить". Без стимула пользователь забывает что у него
+                есть музыка для плейлиста. */}
+            {recentTracks.length > 0 && (
+              <div className="flex -space-x-2 flex-shrink-0">
+                {recentTracks.slice(0, 3).map((t, i) => t?.cover ? (
+                  <img
+                    key={t.id + "_" + i}
+                    src={t.cover}
+                    alt=""
+                    className="w-8 h-8 rounded-md object-cover"
+                    style={{ border: "2px solid var(--mq-card)" }}
+                    loading="lazy"
+                  />
+                ) : null)}
+              </div>
+            )}
           </button>
         )}
       </Section>
@@ -771,31 +827,51 @@ function QuickStat({
   value,
   onClick,
   accent,
+  cover,
 }: {
   icon: React.ElementType;
   label: string;
   value: number;
   onClick: () => void;
   accent: string;
+  cover?: string;
 }) {
+  // UX Core #1 (Эффект Ресторфф): Quick Stats приглушены чтобы Wave Card
+  // визуально доминировала как единственный главный CTA на экране.
+  // UX Core #14 (Эффект превосходства картинки): мини-обложка слева
+  // запоминается лучше чем иконка + число.
   return (
     <motion.button
       whileTap={{ scale: 0.97 }}
       whileHover={{ y: -2 }}
       onClick={onClick}
-      className="mq-premium-card rounded-2xl p-3 sm:p-3.5 flex items-center gap-2.5 cursor-pointer mq-premium-hover"
+      className="rounded-xl p-2.5 sm:p-3 flex items-center gap-2.5 cursor-pointer transition-colors"
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--mq-card) 60%, transparent)",
+        border: "1px solid var(--mq-border-hairline)",
+      }}
     >
       <div
-        className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+        className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg overflow-hidden flex-shrink-0 relative"
         style={{
-          backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`,
-          boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${accent} 20%, transparent)`,
+          backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`,
         }}
       >
-        <Icon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: accent }} />
+        {cover ? (
+          <img src={cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Icon className="w-4 h-4 sm:w-5 h-5" style={{ color: accent }} />
+          </div>
+        )}
+        {/* Accent dot — subtle indicator of category color */}
+        <span
+          className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: accent, boxShadow: `0 0 4px ${accent}` }}
+        />
       </div>
       <div className="min-w-0">
-        <p className="text-base sm:text-lg font-bold leading-none" style={{ color: "var(--mq-text)" }}>{value}</p>
+        <p className="text-sm sm:text-base font-bold leading-none" style={{ color: "var(--mq-text)" }}>{value}</p>
         <p className="text-[10px] sm:text-[11px] mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>{label}</p>
       </div>
     </motion.button>
@@ -1414,15 +1490,17 @@ function RecsEmptyState({ onRetry, errorType }: { onRetry: () => void; errorType
   const messages = {
     offline: {
       title: "Нет интернета",
-      desc: "Проверьте подключение к сети и попробуйте снова",
+      desc: "Проверьте подключение к сети",
     },
     api: {
       title: "Сервис недоступен",
-      desc: "Не удалось связаться с сервером рекомендаций. Попробуйте через минуту",
+      desc: "Попробуйте через минуту",
     },
     empty: {
-      title: "Пока нет рекомендаций",
-      desc: "Послушайте несколько треков и поставьте лайки — мы подберём похожее",
+      // UX Core #1 (Эвристика доступности): без императива "послушайте и
+      // поставьте лайки" (долг). Позитивная формулировка снижает барьер.
+      title: "Пока пусто",
+      desc: "Запустите волну или лайкните трек — и здесь появятся похожие",
     },
   };
   const msg = messages[errorType || "empty"] || messages.empty;
