@@ -126,6 +126,8 @@ export default function SearchView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [quickPicksSeed, setQuickPicksSeed] = useState(0);
   const [isDebouncing, setIsDebouncing] = useState(false);
   const genreScrollRef = useRef<HTMLDivElement>(null);
@@ -158,6 +160,13 @@ export default function SearchView() {
   // Load search history on mount
   useEffect(() => {
     setSearchHistory(getSearchHistory());
+  }, []);
+
+  // Cleanup suggestions hide timer on unmount
+  useEffect(() => {
+    return () => {
+      if (suggestionsHideTimer.current) clearTimeout(suggestionsHideTimer.current);
+    };
   }, []);
 
   // Auto-focus search input when navigating to search view (desktop only — mobile keyboard is intrusive)
@@ -427,9 +436,30 @@ export default function SearchView() {
             data-search-input
             placeholder="Искать треки, артисты, альбомы..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              // Reset hasSearched so suggestions show again while typing
+              setHasSearched(false);
+              // Show suggestions immediately when there's a query
+              if (e.target.value.trim()) setShowSuggestions(true);
+            }}
+            onFocus={() => {
+              setIsFocused(true);
+              // Cancel any pending hide timer, show suggestions if there's a query
+              if (suggestionsHideTimer.current) {
+                clearTimeout(suggestionsHideTimer.current);
+                suggestionsHideTimer.current = null;
+              }
+              if (searchQuery.trim()) setShowSuggestions(true);
+            }}
+            onBlur={() => {
+              setIsFocused(false);
+              // Delay hiding suggestions so clicking on a suggestion works
+              // (click fires after blur). 200ms is enough for click to register.
+              suggestionsHideTimer.current = setTimeout(() => {
+                setShowSuggestions(false);
+              }, 200);
+            }}
             className="pl-11 pr-11 min-h-[48px] text-[15px] font-medium"
             style={{
               backgroundColor: "var(--mq-card)",
@@ -505,10 +535,13 @@ export default function SearchView() {
       </motion.div>
 
       {/* ── Search suggestions — autocomplete-style dropdown ──
-          Появляется когда пользователь печатает но ещё не нажал Enter.
-          Показывает: match из recent searches, trending, и popular genres. */}
+          Показывается когда есть query и showSuggestions=true.
+          showSuggestions управляется onFocus/onBlur с задержкой скрытия
+          чтобы клик по suggestion успел сработать. Раньше использовалось
+          !hasSearched — но после 300ms debounce hasSearched становилось
+          true и suggestions пропадали (мигание). */}
       <AnimatePresence>
-        {searchQuery.trim() && isFocused && !hasSearched && (
+        {searchQuery.trim() && showSuggestions && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -520,7 +553,13 @@ export default function SearchView() {
               query={searchQuery.trim()}
               searchHistory={searchHistory}
               onSelect={(term) => {
+                // Cancel hide timer, set query, keep suggestions visible
+                if (suggestionsHideTimer.current) {
+                  clearTimeout(suggestionsHideTimer.current);
+                  suggestionsHideTimer.current = null;
+                }
                 setSearchQuery(term);
+                setShowSuggestions(false);
                 searchInputRef.current?.focus();
               }}
             />
@@ -863,9 +902,9 @@ export default function SearchView() {
             transition={{ delay: 0.12 }}
             className="text-center mb-8"
           >
-            <p className="text-lg font-bold mb-1.5" style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}>Найдите свою музыку</p>
+            <p className="text-lg font-bold mb-1.5" style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}>Что послушаем?</p>
             <p className="text-sm leading-relaxed max-w-[280px]" style={{ color: "var(--mq-text-muted)" }}>
-              Введите запрос или выберите жанр для начала
+              Введите название, артиста или жанр — или выберите подсказку ниже
             </p>
           </motion.div>
 

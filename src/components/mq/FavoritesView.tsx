@@ -755,10 +755,10 @@ export default function FavoritesView() {
                 />
               </motion.div>
               <p className="text-sm font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
-                Нет подписок на артистов
+                Пока пусто
               </p>
               <p className="text-xs leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-                Нажмите на артиста и подпишитесь, чтобы увидеть его здесь
+                Подпишитесь на артистов — и они появятся здесь
               </p>
             </div>
           ) : artists.length === 0 && isSearchActive ? (
@@ -909,12 +909,12 @@ export default function FavoritesView() {
                 />
               </motion.div>
               <p className="text-sm font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
-                {activeTab === "liked" ? "Пока нет понравившихся треков" : "Нет непонравившихся треков"}
+                {activeTab === "liked" ? "Пока пусто" : "Пока пусто"}
               </p>
               <p className="text-xs leading-relaxed max-w-[240px] text-center" style={{ color: "var(--mq-text-muted)" }}>
                 {activeTab === "liked"
-                  ? "Нажмите ❤\uFE0F на треке, чтобы добавить его в избранное. Вам будут попадаться больше таких треков."
-                  : "Нажмите 👎 на треке, чтобы он больше не попадался в рекомендациях."}
+                  ? "Лайкните трек — и он окажется здесь. Чем больше лайков, тем точнее рекомендации."
+                  : "Дизлайкните трек — и он больше не попадётся в рекомендациях."}
               </p>
               {activeTab === "liked" && (
                 <motion.button

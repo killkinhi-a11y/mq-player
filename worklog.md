@@ -1134,3 +1134,65 @@ Stage Summary:
   4. Radio кнопка в плеер баре — toggle (второе нажатие выключает)
   5. 'Волна' badge в плеер баре для контекста
 - Production: https://mq1.vercel.app — UPDATED to 5e3a86e.
+
+---
+Task ID: recs-rewrite-search-suggestions-perf
+Agent: Main Agent (Claude)
+Task: Переписать рекомендации с нуля (Spotify-style), подсказки в поиске, починить постепенную нагрузку
+
+Work Log:
+
+RECOMMENDATIONS — переписаны с нуля (Spotify-style):
+- Старый v14: 1665 строк over-engineered scoring с 20+ keyword lists,
+  8 фаз, bridge genres, time-of-day energy matching.
+- Новый v3: ~350 строк clean seed-based logic.
+- SEED-BASED: берёт до 3 лайкнутых + 2 history треков как seeds,
+  /tracks/{id}/related даёт genuinely similar tracks.
+- MIX: 60% familiar (related к лайкнутому), 25% artist-based, 15%
+  discovery (genre search для gaps).
+- DIVERSITY: max 2 трека на артиста в выдаче (Spotify standard).
+  Artist-aware interleaving prevents consecutive same-artist tracks.
+- CATEGORIES: 'Для вас', 'Похожие на {artist}', 'Открытия'.
+- Scoring: related-to-liked +100, related-to-history +60, artist/genre
+  +20. Playable +15, cover +10, promo -15. Duration 2-6min +10. Jitter ±10.
+- Cache 10min (было 6min) — seed-based results стабильнее.
+
+SEARCH SUGGESTIONS — autocomplete dropdown:
+- SearchSuggestions компонент появляется когда пользователь печатает
+  но ещё не нажал Enter.
+- Показывает:
+  1. 'Искать «query»' — прямой поиск
+  2. Recent searches что match (clock icon)
+  3. Trending searches что match (trending icon)
+  4. Popular artists что match (mic icon)
+- UX Core #6 (Забывание без подсказок).
+- POPULAR_ARTISTS: Mac DeMarco, Tame Impala, Arctic Monkeys, The Weeknd,
+  Billie Eilish, Kendrick Lamar, Frank Ocean, Tyler.
+
+PERFORMANCE — починить "постепенную нагрузку":
+- useGlobalNotifications: polling 5s → 30s. Главный виновник — полный
+  unread-count fetch каждые 5 секунд. 30s достаточно для уведомлений.
+- useGlobalNotifications: добавлен visibility-based pause — polling
+  останавливается когда tab hidden, resume on visibility.
+- useFriendsListening: polling 15s → 30s (initial + visibility resume).
+- useListenSessionSync: guest poll 5s → 15s, host tick 5s → 15s,
+  meta check 5s → 15s.
+
+Build verification:
+- tsc --noEmit → exit 0
+- next build → ✓ Compiled successfully in 25.1s
+- Pushed to origin/main: e6284c1..a8915b0
+- Vercel deployment: success
+- Net: +405 / -1481 строк (рекомендации стали в 4 раза короче)
+
+Stage Summary:
+- 5 файлов изменено: recommendations/route.ts (полная перезапись),
+  SearchView.tsx (+suggestions), useGlobalNotifications.ts,
+  useFriendsListening.ts, useListenSessionSync.ts
+- Главные эффекты:
+  1. Рекомендации теперь genuinely seed-based (как Spotify) —
+     related к лайкнутым трекам, не random genre search
+  2. Поиск показывает подсказки при печати (autocomplete)
+  3. Polling частоты уменьшены в 3-6 раз → меньше нагрузка при
+     долгом сидении на сайте
+- Production: https://mq1.vercel.app — UPDATED to a8915b0.

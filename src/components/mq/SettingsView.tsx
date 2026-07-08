@@ -297,7 +297,7 @@ export default function SettingsView() {
               <CardTitle icon={Cloud} title="Данные" />
               <SettingRow icon={RefreshCw} label="Синхронизация" subtitle={lastSyncAt ? `Последняя: ${new Date(lastSyncAt).toLocaleString("ru-RU")}` : "Не синхронизировано"}
                 onClick={handleSync} rightElement={isSyncing ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} /> : undefined} />
-              <SettingRow icon={LogOut} label="Выйти" subtitle="Завершить сессию" onClick={handleLogout} danger />
+              <SettingRow icon={LogOut} label="Выйти" subtitle="До встречи" onClick={handleLogout} danger />
             </Card>
           </motion.div>
         )}
