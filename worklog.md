@@ -1079,3 +1079,58 @@ Stage Summary:
   рекомендован именно этот трек)
 - Эффект фрейминга #22 (для формулировок CTA)
 - Феномен негативного восприятия #17 (для error states — не пугать)
+
+---
+Task ID: wave-fixes-and-playerbar-polish
+Agent: Main Agent (Claude)
+Task: 5 задач — повторы треков, бесконечный поток, убрать Like/Dislike/Stop с волны, toggle радио в плеер баре, доработать плеер бар
+
+Work Log:
+
+TASK 1+2: Повторы треков + бесконечный поток
+- useWaveEngine fetchWaveTracks: excludeSet увеличен с 100 до 200 history
+  entries. SoundCloud related API возвращает overlapping results для
+  похожих seed tracks — большой exclude window предотвращает повторы.
+- recentArtists window увеличен с 30 до 50 для stronger artist diversity.
+- Artist diversity filter: max 1 трек на артиста в батче (было 2).
+  Строже — никаких повторов артиста подряд.
+- Auto-refill: preemptive threshold поднят с 2 до 5 tracks remaining.
+  Волна НИКОГДА не заканчивается — следующий батч грузится до того
+  как текущий закончится.
+- Auto-refill throttle снижен с 10s до 8s для faster skip rates.
+  Batch size увеличен с 10 до 15 для bigger buffer.
+
+TASK 4: Убрать Like/Dislike/Stop с Wave Card
+- Mobile active Wave: убраны ThumbsDown, Heart, X. Только Play/Pause
+  + SkipForward.
+- Desktop active Wave: то же самое.
+- Wave Card теперь фокусируется только на playback. Like/Dislike живут
+  в PlayerBar (там уже были). Wave on/off живёт в PlayerBar Radio toggle.
+
+TASK 5: PlayerBar Radio button как toggle
+- handleStartRadio: было 'if (radioMode) return;' (no-op когда активно).
+  Теперь: if radioMode → wave.stopWave(); else → startWaveFromCurrentTrack().
+  Второе нажатие выключает волну. Раньше нужно было найти Stop на Wave
+  Card (теперь убран) чтобы выключить.
+- Tooltip: 'Волна активна' → 'Выключить волну' когда активно.
+
+TASK 3: PlayerBar доработка
+- Добавлен 'Волна' badge рядом с названием трека когда radioMode активен.
+  UX Core #5 (Эффект контекста): пользователь видит откуда трек (волна
+  vs плейлист vs поиск) без угадывания.
+
+Build verification:
+- tsc --noEmit → exit 0
+- next build → ✓ Compiled successfully in 21.9s
+- Pushed to origin/main: a03047d..5e3a86e
+- Vercel deployment: success
+
+Stage Summary:
+- 4 файла изменено: useWaveEngine.ts, MainView.tsx, PlayerBar.tsx, worklog.md
+- Главные эффекты:
+  1. Волна не повторяет треки (excludeSet 200, 1 трек/артист)
+  2. Бесконечный поток (preemptive refill at 5 remaining)
+  3. Wave Card чистая — только Play/Pause + Skip
+  4. Radio кнопка в плеер баре — toggle (второе нажатие выключает)
+  5. 'Волна' badge в плеер баре для контекста
+- Production: https://mq1.vercel.app — UPDATED to 5e3a86e.

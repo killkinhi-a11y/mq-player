@@ -12,31 +12,33 @@ const HistoryView = lazy(() => import("./HistoryView"));
 
 type LibraryTab = "favorites" | "playlists" | "history";
 
-const tabs: { id: LibraryTab; label: string; icon: React.ElementType }[] = [
-  { id: "favorites", label: "Избранное", icon: Heart },
-  { id: "playlists", label: "Плейлисты", icon: ListMusic },
-  { id: "history", label: "История", icon: Clock },
-];
-
 const LibraryView = React.memo(function LibraryView() {
   const compactMode = useAppStore((s) => s.compactMode);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const currentView = useAppStore((s) => s.currentView);
+  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+  const playlists = useAppStore((s) => s.playlists);
+  const history = useAppStore((s) => s.history);
 
   // Map top-level views to library tabs.
-  // "playlists" / "favorites" / "history" are entry points from MainView quick cards
-  // that should land on the corresponding Library tab.
   const targetTab: LibraryTab =
     currentView === "playlists" ? "playlists" :
     currentView === "history" ? "history" :
     "favorites";
   const [activeTab, setActiveTab] = useState<LibraryTab>(targetTab);
 
-  // When the user clicks a MainView quick card ("Плейлисты", "Избранное", "История"),
-  // currentView changes — sync our local tab to match.
   useEffect(() => {
     setActiveTab(targetTab);
   }, [targetTab]);
+
+  // Tab config with live counts — UX Core #14 (превосходство картинки):
+  // цифра + иконка запоминается лучше чем просто иконка. Также даёт
+  // мгновенную обратную связь о размере библиотеки.
+  const tabs: { id: LibraryTab; label: string; icon: React.ElementType; count: number }[] = [
+    { id: "favorites", label: "Избранное", icon: Heart, count: likedTrackIds.length },
+    { id: "playlists", label: "Плейлисты", icon: ListMusic, count: playlists.length },
+    { id: "history", label: "История", icon: Clock, count: history.length },
+  ];
 
   return (
     <div className={`${compactMode ? "p-3 lg:p-4" : "p-4 lg:p-6"} max-w-[var(--mq-container-narrow)] mx-auto mq-anim-fade-in`}>
@@ -82,6 +84,20 @@ const LibraryView = React.memo(function LibraryView() {
               >
                 <Icon className="w-4 h-4" />
                 <span>{tab.label}</span>
+                {/* Live count badge — shows how many items in each tab */}
+                {tab.count > 0 && (
+                  <span
+                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor: isActive
+                        ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)"
+                        : "color-mix(in srgb, var(--mq-text-muted) 12%, transparent)",
+                      color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                    }}
+                  >
+                    {tab.count}
+                  </span>
+                )}
                 {/* Underline indicator */}
                 {isActive && (
                   <motion.div

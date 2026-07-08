@@ -1109,10 +1109,12 @@ export default function MessengerView() {
                   <MessageCircle className="w-10 h-10 mb-3"
                     style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
                   <p className="text-sm font-medium mb-1" style={{ color: "var(--mq-text)" }}>
-                    {searchQuery.trim() ? "Ничего не найдено" : "Нет чатов"}
+                    {/* UX Core #1 (Эвристика доступности): без императива,
+                        позитивная формулировка снижает барьер. */}
+                    {searchQuery.trim() ? "Ничего не найдено" : "Пока пусто"}
                   </p>
                   <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
-                    {searchQuery.trim() ? "Попробуйте другой запрос" : "Найдите друзей, чтобы начать общение"}
+                    {searchQuery.trim() ? "Попробуйте другой запрос" : "Найдите друзей — и здесь появятся чаты"}
                   </p>
                   {!searchQuery.trim() && (
                     <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.02 }}
@@ -1296,8 +1298,8 @@ export default function MessengerView() {
                   <MessageCircle className="w-10 h-10 mb-3"
                     style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
                   <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                    {isGroupChat ? "Нет сообщений в группе"
-                      : `Начните диалог с ${selectedFriend?.username}`}
+                    {/* UX Core #1: позитивная формулировка вместо императива */}
+                    {isGroupChat ? "Пока тишина" : `Напишите ${selectedFriend?.username} — пусть начнётся`}
                   </p>
                 </div>
               ) : (

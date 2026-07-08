@@ -484,33 +484,47 @@ export function useWaveEngine() {
       recordSkip(currentTrack.id);
     }
 
-    // If queue has more tracks, just next
     const state = useAppStore.getState();
     const remainingInQueue = state.queue.length - state.queueIndex - 1;
 
+    // If queue has more tracks ahead, just call nextTrack — it will
+    // advance queueIndex by 1 and play the next track.
     if (remainingInQueue > 0) {
       nextTrack();
       return;
     }
 
-    // Queue running low — fetch more tracks (deduplicated to prevent
-    // parallel fetches if auto-refill effect is also running)
+    // Queue is empty (no tracks ahead). Fetch new radio tracks and
+    // append to queue, THEN call nextTrack to advance to the first
+    // new track. Previously this called nextTrack() even when fetch
+    // failed/returned 0 — which triggered the store's radio refill
+    // block (nextIdx = 0 bug) causing "skip goes in circles".
     setWaveLoading(true);
     try {
-      let newTracks = await fetchWaveTracksDedup(10);
+      const newTracks = await fetchWaveTracksDedup(15);
       if (newTracks.length > 0) {
-        newTracks = shuffle(newTracks);
-        // Add to queue and play first
-        const currentQueue = useAppStore.getState().queue;
-        const updatedQueue = [...currentQueue, ...newTracks];
-        useAppStore.setState({ queue: updatedQueue });
-        nextTrack();
+        const shuffled = shuffle(newTracks);
+        // Dedup against current queue
+        const currentState = useAppStore.getState();
+        const currentQueue = Array.isArray(currentState.queue) ? currentState.queue : [];
+        const existingIds = new Set(currentQueue.map(t => t.id));
+        const filtered = shuffled.filter(t => !existingIds.has(t.id));
+        if (filtered.length > 0) {
+          const updatedQueue = [...currentQueue, ...filtered];
+          useAppStore.setState({ queue: updatedQueue });
+          // Now nextTrack will find a track at queueIndex + 1
+          nextTrack();
+        } else {
+          // All fetched tracks were duplicates — try one more time with
+          // a different seed (or just stop). For now, stop playback.
+          setWaveError("Не удалось найти новые треки. Попробуйте позже.");
+        }
       } else {
-        // No new tracks — just next (will loop or stop)
-        nextTrack();
+        // No new tracks from radio — show error, don't loop
+        setWaveError("Не удалось загрузить следующие треки.");
       }
     } catch {
-      nextTrack();
+      setWaveError("Ошибка загрузки следующих треков.");
     } finally {
       setWaveLoading(false);
     }

@@ -1361,8 +1361,23 @@ export const useAppStore = create<AppState>()(
                   })
                   .catch(() => {});
               }
-              // Wrap to start while new tracks load
-              nextIdx = 0;
+              // Radio refill is async — we can't block here. Previously
+              // this set nextIdx = 0 which caused "skip goes in circles"
+              // bug: store played queue[0] (the first track of the
+              // already-played queue) while the refill was in flight,
+              // so the user heard the same first track again.
+              //
+              // Fix: DON'T wrap to 0. Instead, stop playback here and
+              // let the radio refill (either from useWaveEngine auto-
+              // refill effect or from skipTrack's fetchWaveTracksDedup)
+              // append new tracks. The user will press play again, or
+              // the auto-refill effect will resume playback once new
+              // tracks arrive.
+              //
+              // This is a no-op return — nextIdx stays out of bounds,
+              // the track = queue[nextIdx] check below will be undefined,
+              // and we bail out without changing currentTrack.
+              nextIdx = -1;
             } else {
               set({ isPlaying: false });
               getAudioElement()?.pause();
