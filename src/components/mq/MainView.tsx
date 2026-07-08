@@ -7,7 +7,7 @@ import {
   Play, Pause, Music, Heart, Clock, ListMusic, MessageCircle,
   Plus, Sparkles, Waves, User, Flame,
   SkipForward, ThumbsDown, TrendingUp, Compass, RotateCcw,
-  MoreHorizontal, X,
+  MoreHorizontal, X, Shuffle,
 } from "lucide-react";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { useFriendsListening } from "@/hooks/useFriendsListening";
@@ -409,6 +409,69 @@ function MainView() {
               <span style={{ color: "var(--mq-accent)" }}>●</span> Сейчас играет: {currentTrack.title} — {currentTrack.artist}
             </p>
           )}
+          {/* Quick actions — functional shortcuts */}
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
+            {/* Play last track from history */}
+            {recentTracks.length > 0 && !currentTrack && (
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03 }}
+                onClick={() => {
+                  const last = recentTracks[0];
+                  if (last) playTrack(last, recentTracks);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                style={{
+                  backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
+                  color: "var(--mq-accent)",
+                  border: "1px solid color-mix(in srgb, var(--mq-accent) 24%, transparent)",
+                }}
+              >
+                <Play className="w-3 h-3" fill="currentColor" />
+                Последний трек
+              </motion.button>
+            )}
+            {/* Shuffle liked tracks */}
+            {likedTracksData.length >= 3 && (
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03 }}
+                onClick={() => {
+                  const shuffled = [...likedTracksData].sort(() => Math.random() - 0.5);
+                  if (shuffled.length > 0) {
+                    useAppStore.setState({ shuffle: true });
+                    playTrack(shuffled[0], shuffled);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                style={{
+                  backgroundColor: "color-mix(in srgb, #ef4444 14%, transparent)",
+                  color: "#ef4444",
+                  border: "1px solid color-mix(in srgb, #ef4444 24%, transparent)",
+                }}
+              >
+                <Shuffle className="w-3 h-3" />
+                Перемешать избранное
+              </motion.button>
+            )}
+            {/* Resume wave */}
+            {!wave.radioMode && history.length > 0 && (
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03 }}
+                onClick={() => wave.startWave()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
+                style={{
+                  backgroundColor: "var(--mq-card)",
+                  color: "var(--mq-text-muted)",
+                  border: "1px solid var(--mq-border-thin)",
+                }}
+              >
+                <Waves className="w-3 h-3" />
+                Запустить волну
+              </motion.button>
+            )}
+          </div>
         </motion.div>
       </ScrollReveal>
 

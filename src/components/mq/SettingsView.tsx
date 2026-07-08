@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Palette, Headphones, Bell, MoreHorizontal,
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
-  RefreshCw, Cloud, Trash2, LogOut, Download,
+  RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
   Smartphone, Monitor, Apple, Info, ChevronRight, X, Check, Loader2,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -235,6 +235,64 @@ export default function SettingsView() {
     }
   }, []);
 
+  // ── Export user data (liked tracks, history, playlists) as JSON ──
+  const handleExportData = useCallback(() => {
+    try {
+      const state = useAppStore.getState();
+      const exportData = {
+        likedTracks: state.likedTracksData,
+        dislikedTracks: state.dislikedTracksData,
+        history: state.history.slice(-200), // last 200
+        playlists: state.playlists,
+        favoriteArtists: state.favoriteArtists,
+        exportedAt: new Date().toISOString(),
+        version: 1,
+      };
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `mq-player-data-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "Данные экспортированы" });
+    } catch {
+      toast({ title: "Ошибка экспорта", variant: "destructive" });
+    }
+  }, []);
+
+  // ── Import user data from JSON file ──
+  const handleImportData = useCallback(() => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json,application/json";
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const state = useAppStore.getState();
+        // Restore liked tracks
+        if (Array.isArray(data.likedTracks)) {
+          for (const t of data.likedTracks) {
+            if (t?.id && !state.likedTrackIds.includes(t.id)) {
+              state.toggleLike(t.id, t);
+            }
+          }
+        }
+        // Restore playlists
+        if (Array.isArray(data.playlists)) {
+          useAppStore.setState({ playlists: [...state.playlists, ...data.playlists] });
+        }
+        toast({ title: "Данные импортированы" });
+      } catch {
+        toast({ title: "Ошибка импорта — неверный файл", variant: "destructive" });
+      }
+    };
+    input.click();
+  }, []);
+
   const accentPresets = ["#e03131", "#8b5cf6", "#4ade80", "#f59e0b", "#ec4899", "#06b6d4", "#f97316"];
 
   return (
@@ -297,6 +355,8 @@ export default function SettingsView() {
               <CardTitle icon={Cloud} title="Данные" />
               <SettingRow icon={RefreshCw} label="Синхронизация" subtitle={lastSyncAt ? `Последняя: ${new Date(lastSyncAt).toLocaleString("ru-RU")}` : "Не синхронизировано"}
                 onClick={handleSync} rightElement={isSyncing ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} /> : undefined} />
+              <SettingRow icon={Download} label="Экспорт данных" subtitle="Сохранить избранное и плейлисты в JSON" onClick={handleExportData} />
+              <SettingRow icon={Upload} label="Импорт данных" subtitle="Восстановить из JSON-файла" onClick={handleImportData} />
               <SettingRow icon={LogOut} label="Выйти" subtitle="До встречи" onClick={handleLogout} danger />
             </Card>
           </motion.div>

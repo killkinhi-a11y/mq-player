@@ -128,6 +128,8 @@ export default function SearchView() {
   const [isFocused, setIsFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestionsHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sortBy, setSortBy] = useState<"relevance" | "duration" | "title">("relevance");
+  const [filterDuration, setFilterDuration] = useState<"all" | "short" | "medium" | "long">("all");
   const [quickPicksSeed, setQuickPicksSeed] = useState(0);
   const [isDebouncing, setIsDebouncing] = useState(false);
   const genreScrollRef = useRef<HTMLDivElement>(null);
@@ -345,6 +347,31 @@ export default function SearchView() {
   const activeTracks = selectedGenre ? genreTracks : searchResults;
   const activeLoading = selectedGenre ? isGenreLoading : isLoading;
   const activeHasSearched = selectedGenre || hasSearched;
+
+  // ── Filter + sort tracks (functional, not cosmetic) ──
+  // filterDuration: short (<2min), medium (2-5min), long (>5min)
+  // sortBy: relevance (API order), duration (asc), title (alphabetical)
+  const processedTracks = useMemo(() => {
+    let result = [...activeTracks];
+    // Duration filter
+    if (filterDuration !== "all") {
+      result = result.filter(t => {
+        const d = t.duration || 0;
+        if (filterDuration === "short") return d > 0 && d < 120;
+        if (filterDuration === "medium") return d >= 120 && d <= 300;
+        if (filterDuration === "long") return d > 300;
+        return true;
+      });
+    }
+    // Sort
+    if (sortBy === "duration") {
+      result.sort((a, b) => (a.duration || 0) - (b.duration || 0));
+    } else if (sortBy === "title") {
+      result.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+    }
+    // relevance = API order, no sort
+    return result;
+  }, [activeTracks, filterDuration, sortBy]);
 
   // ── Main Search View ──
   return (
@@ -847,24 +874,57 @@ export default function SearchView() {
         </motion.div>
       )}
 
-      {/* ── Track results with staggered animation ── */}
-      {!activeLoading && activeTracks.length > 0 && (
+      {/* ── Track results with filter/sort toolbar ── */}
+      {!activeLoading && processedTracks.length > 0 && (
         <div>
-          {/* Section header */}
-          <div className="flex items-center justify-between mb-3 px-1">
+          {/* Section header with filter + sort controls */}
+          <div className="flex items-center justify-between mb-3 px-1 flex-wrap gap-2">
             <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
-              Треки · {activeTracks.length}
+              Треки · {processedTracks.length}
             </h3>
+            <div className="flex items-center gap-1.5">
+              {/* Duration filter dropdown */}
+              <select
+                value={filterDuration}
+                onChange={(e) => setFilterDuration(e.target.value as "all" | "short" | "medium" | "long")}
+                className="text-[11px] font-medium px-2 py-1 rounded-lg cursor-pointer outline-none"
+                style={{
+                  backgroundColor: "var(--mq-card)",
+                  color: "var(--mq-text)",
+                  border: "1px solid var(--mq-border-thin)",
+                }}
+              >
+                <option value="all">Любая длительность</option>
+                <option value="short">До 2 мин</option>
+                <option value="medium">2–5 мин</option>
+                <option value="long">5+ мин</option>
+              </select>
+              {/* Sort dropdown */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as "relevance" | "duration" | "title")}
+                className="text-[11px] font-medium px-2 py-1 rounded-lg cursor-pointer outline-none"
+                style={{
+                  backgroundColor: "var(--mq-card)",
+                  color: "var(--mq-text)",
+                  border: "1px solid var(--mq-border-thin)",
+                }}
+              >
+                <option value="relevance">По релевантности</option>
+                <option value="duration">По длительности</option>
+                <option value="title">По названию</option>
+              </select>
+            </div>
           </div>
 
-          {/* Track list — clean visual rows (no AnimatePresence for perf) */}
+          {/* Track list */}
           <div className="space-y-1">
-            {activeTracks.map((track, i) => (
+            {processedTracks.map((track, i) => (
               <SearchTrackRow
                 key={track.id + "_" + i}
                 track={track}
                 index={i}
-                queue={activeTracks}
+                queue={processedTracks}
                 onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
               />
             ))}

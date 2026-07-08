@@ -164,6 +164,12 @@ interface AppState {
   selectedGenre: string;
   isLoading: boolean;
 
+  // Library search + sort (functional filtering within library tabs)
+  librarySearchQuery: string;
+  librarySort: "recent" | "title" | "artist";
+  setLibrarySearchQuery: (q: string) => void;
+  setLibrarySort: (mode: "recent" | "title" | "artist") => void;
+
   // Full-screen track view
   isFullTrackViewOpen: boolean;
 
@@ -555,6 +561,8 @@ const initialState = {
   searchQuery: "",
   selectedGenre: "",
   isLoading: false,
+  librarySearchQuery: "",
+  librarySort: "recent" as "recent" | "title" | "artist",
   supportUnreadCount: 0 as number,
   notificationCount: 0 as number,
   notifPanelOpen: false as boolean,
@@ -1538,6 +1546,9 @@ export const useAppStore = create<AppState>()(
       setNotifPanelOpen: (open) => set({ notifPanelOpen: open }),
 
       setSearchQuery: (query) => set({ searchQuery: query }),
+
+      setLibrarySearchQuery: (q) => set({ librarySearchQuery: q }),
+      setLibrarySort: (mode) => set({ librarySort: mode }),
 
       setSelectedGenre: (genre) => set({ selectedGenre: genre }),
 
