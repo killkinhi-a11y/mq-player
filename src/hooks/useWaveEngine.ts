@@ -57,190 +57,58 @@ export function useWaveEngine() {
     });
   }, [history, likedTracksData, dislikedTrackIds]);
 
-  // ── Fetch tracks from recommendations API ──
-  // For INITIAL start (no current track yet): uses /api/music/recommendations?wave=1
-  //   which is based on the user's full taste profile (liked/history/genres).
-  // For REFILL / SKIP (current track playing): uses /api/music/radio?scTrackId=<cur>
-  //   which is seeded by the CURRENTLY PLAYING track — far more relevant for
-  //   continuous radio. Falls back to recommendations if radio fails or no scTrackId.
-  const fetchWaveTracks = useCallback(async (count: number = 20): Promise<Track[]> => {
+  // ── Fetch tracks for wave ──
+  // INITIAL start (no current track): /api/music/recommendations?wave=1
+  // REFILL/SKIP (current track playing): /api/music/radio?scTrackId=<cur>
+  // Falls back to recommendations if radio fails.
+  const fetchWaveTracks = useCallback(async (count: number = 15): Promise<Track[]> => {
     const tp = tasteProfile.current;
     const disliked = useAppStore.getState().dislikedTrackIds || [];
     const state = useAppStore.getState();
     const cur = state.currentTrack;
 
-    // Client-side dedup set — used by BOTH radio and recommendations paths.
-    // Increased from 100 to 200 history entries to prevent repeats of tracks
-    // the user heard earlier in the session. This is the main fix for
-    // "постоянные повторы" — SoundCloud related API returns overlapping
-    // results for similar seed tracks, so we need a large exclude window.
+    // Client-side dedup — exclude recently played + queue + disliked
     const excludeSet = new Set<string>([
       ...((state.history || []).slice(0, 200).map(h => h.track?.id).filter(Boolean) as string[]),
       ...((state.queue || []).map(t => t?.id).filter(Boolean) as string[]),
-      // Also exclude disliked track IDs explicitly (belt and suspenders —
-      // radio endpoint should already filter these, but client-side dedup
-      // catches any that slip through)
       ...(disliked || []),
     ]);
 
-    // Build a set of recently-played ARTISTS (last 50 tracks) to penalize
-    // repetition of the same artist back-to-back. Radio endpoint tries to
-    // diversify, but client-side filter is the last line of defense.
-    // Increased from 30 to 50 for stronger artist diversity.
-    const recentArtists = new Set<string>();
-    for (const h of (state.history || []).slice(0, 50)) {
-      const a = (h.track?.artist || "").toLowerCase().trim();
-      if (a) recentArtists.add(a);
-    }
-    // Current track's artist — never repeat immediately
-    const curArtist = (cur?.artist || "").toLowerCase().trim();
-    if (curArtist) recentArtists.add(curArtist);
-
-    // ── Helper: fetch from /api/music/recommendations + trending + charts ──
-    // Used as a fallback when radio doesn't return enough tracks, OR as the
-    // primary source on initial wave start (no current track).
-    const fetchRecsFallback = async (needed: number): Promise<Track[]> => {
-      const params = new URLSearchParams();
-      if (tp.topGenres.length > 0) params.set("genres", tp.topGenres.join(","));
-      const favArtists = (useAppStore.getState().favoriteArtists || []).map(a => a.username);
-      const allArtists = [...new Set([...favArtists, ...tp.topArtists])];
-      if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
-      if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
-      params.set("wave", "1");
-      params.set("count", String(needed));
-
-      const likedScIds = (useAppStore.getState().likedTracksData || [])
-        .map((t: any) => t.scTrackId).filter((id: any): id is number => !!id).slice(0, 5).join(",");
-      if (likedScIds) params.set("likedScIds", likedScIds);
-
-      const historyScIds = (useAppStore.getState().history || []).slice(0, 10)
-        .map((h: any) => h.track?.scTrackId).filter((id: any): id is number => !!id).join(",");
-      if (historyScIds) params.set("historyScIds", historyScIds);
-
-      const excludeArr = [...excludeSet];
-      if (excludeArr.length > 0) params.set("excludeIds", excludeArr.join(","));
-
-      let result: Track[] = [];
-      try {
-        const res = await fetch(`/api/music/recommendations?${params}`);
-        if (res.ok) {
-          const data = await res.json();
-          result = (data.tracks || []).filter(
-            (t: Track) => !disliked.includes(t.id) && !excludeSet.has(t.id),
-          );
-        }
-      } catch {
-        // Network error — fall through to trending/charts
-      }
-
-      // Fill from trending if we don't have enough
-      if (result.length < needed) {
-        try {
-          const trendingRes = await fetch(`/api/music/trending?limit=${needed - result.length}`);
-          if (trendingRes.ok) {
-            const tData = await trendingRes.json();
-            const extra = (tData.tracks || [])
-              .filter((t: Track) => !disliked.includes(t.id))
-              .filter((t: Track) => !excludeSet.has(t.id))
-              .filter((t: Track) => !result.some(existing => existing.id === t.id));
-            result = [...result, ...extra];
-          }
-        } catch {}
-
-        // Last resort: Apple Music Top + Spotify charts
-        if (result.length < needed) {
-          try {
-            const userCountry = "RU";
-            const [appleRes, spotifyRes] = await Promise.all([
-              fetch(`/api/music/apple-charts?country=${userCountry}`).catch(() => null),
-              fetch(`/api/music/spotify-charts?country=${userCountry}`).catch(() => null),
-            ]);
-            for (const r of [appleRes, spotifyRes]) {
-              if (r && r.ok) {
-                const aData = await r.json();
-                const extra = (aData.tracks || [])
-                  .filter((t: Track) => !disliked.includes(t.id))
-                  .filter((t: Track) => !excludeSet.has(t.id))
-                  .filter((t: Track) => !result.some(existing => existing.id === t.id))
-                  .filter((t: Track) => t.scIsFull || t.scStreamPolicy === "ALLOW");
-                result = [...result, ...extra];
-              }
-            }
-          } catch {}
-        }
-      }
-
-      return result;
-    };
-
-    // ── Try radio endpoint first when we have a current SC track ──
-    // This is the key fix: refills use the currently playing track as a seed
-    // (instead of a generic taste-profile query), so the Wave actually flows
-    // from one track to related ones — like Yandex/Spotify radio.
+    // ── Try radio endpoint when we have a current SC track ──
     if (cur?.scTrackId && cur.scTrackId > 0) {
       try {
-        const radioParams = new URLSearchParams();
-        radioParams.set("scTrackId", String(cur.scTrackId));
+        const params = new URLSearchParams();
+        params.set("scTrackId", String(cur.scTrackId));
 
-        // Pass recent history (so radio doesn't repeat tracks)
+        // History SC IDs (prevent repeats)
         const playedScIds = [
           ...state.history.map(h => h.track?.scTrackId).filter((id): id is number => !!id),
           ...state.queue.map(t => t?.scTrackId).filter((id): id is number => !!id),
         ];
-        const uniquePlayedScIds = [...new Set(playedScIds)].slice(0, 80).join(",");
-        if (uniquePlayedScIds) radioParams.set("historyScIds", uniquePlayedScIds);
+        const uniquePlayed = [...new Set(playedScIds)].slice(0, 80).join(",");
+        if (uniquePlayed) params.set("historyScIds", uniquePlayed);
 
-        // Skipped artists/genres from feedback + disliked
-        const fb = state.trackFeedback || {};
-        const skippedIds = Object.entries(fb)
-          .filter(([, v]) => v && v.skips > v.completes && v.skips >= 2)
-          .map(([id]) => id);
-        const skippedArtists = skippedIds.map(id => {
-          const entry = state.history.find(h => h.track.id === id);
-          return entry?.track.artist;
-        }).filter(Boolean).slice(0, 5) as string[];
-        const dislikedArtistsFromLikes = (state.dislikedTracksData || [])
+        // Skipped/disliked artists
+        const dislikedArtists = (state.dislikedTracksData || [])
           .map(t => t.artist).filter(Boolean).slice(0, 10);
-        const allSkippedArtists = [...new Set([...skippedArtists, ...dislikedArtistsFromLikes])];
-        if (allSkippedArtists.length > 0) radioParams.set("skippedArtists", allSkippedArtists.join(","));
+        if (dislikedArtists.length > 0) params.set("skippedArtists", dislikedArtists.join(","));
 
-        const dislikedGenresFromLikes = (state.dislikedTracksData || [])
-          .map(t => t.genre).filter(Boolean).slice(0, 5);
-        const skippedGenres = state.feedbackBatch?.skippedGenres || [];
-        const allSkippedGenres = [...new Set([...skippedGenres, ...dislikedGenresFromLikes])];
-        if (allSkippedGenres.length > 0) radioParams.set("skippedGenres", allSkippedGenres.join(","));
-
-        // Positive signals: liked artists/genres
-        const likedArtistsFromLikes = (state.likedTracksData || [])
+        // Liked artists (positive signal)
+        const likedArtists = (state.likedTracksData || [])
           .map(t => t.artist).filter(Boolean).slice(0, 5);
-        if (likedArtistsFromLikes.length > 0) radioParams.set("likedArtists", likedArtistsFromLikes.join(","));
+        if (likedArtists.length > 0) params.set("likedArtists", likedArtists.join(","));
 
-        const likedGenresFromLikes = (state.likedTracksData || [])
+        // Liked genres
+        const likedGenres = (state.likedTracksData || [])
           .map(t => t.genre).filter(Boolean).slice(0, 5);
-        const historyGenres = (state.history || []).slice(0, 30)
-          .map(h => h.track?.genre).filter(Boolean) as string[];
-        const genreCount: Record<string, number> = {};
-        for (const g of historyGenres) genreCount[g] = (genreCount[g] || 0) + 1;
-        const topHistoryGenres = Object.entries(genreCount)
-          .sort((a, b) => b[1] - a[1]).slice(0, 3).map(([g]) => g);
-        const allLikedGenres = [...new Set([...likedGenresFromLikes, ...topHistoryGenres])];
-        if (allLikedGenres.length > 0) radioParams.set("likedGenres", allLikedGenres.join(","));
+        if (likedGenres.length > 0) params.set("likedGenres", likedGenres.join(","));
 
-        // Taste profile (explicit user sliders)
-        const tasteG = state.tasteGenres || {};
-        const tasteGenreEntries = Object.entries(tasteG).filter(([, v]) => v >= 20);
-        if (tasteGenreEntries.length > 0) {
-          tasteGenreEntries.sort((a, b) => b[1] - a[1]);
-          radioParams.set("tasteGenres", tasteGenreEntries.slice(0, 8).map(([g, v]) => `${g}:${v}`).join(","));
-        }
-        const tasteA = state.tasteArtists || {};
-        const tasteArtistEntries = Object.entries(tasteA).filter(([, v]) => v >= 20);
-        if (tasteArtistEntries.length > 0) {
-          tasteArtistEntries.sort((a, b) => b[1] - a[1]);
-          radioParams.set("tasteArtists", tasteArtistEntries.slice(0, 5).map(([a, v]) => `${a}:${v}`).join(","));
-        }
+        // Disliked SC IDs
+        const dislikedScIds = (state.dislikedTracksData || [])
+          .map(t => t.scTrackId).filter((id): id is number => !!id).slice(0, 50);
+        if (dislikedScIds.length > 0) params.set("dislikedScIds", dislikedScIds.join(","));
 
-        // Language preference from history
+        // Language preference
         const langCounts: Record<string, number> = { russian: 0, english: 0 };
         for (const h of (state.history || []).slice(0, 20)) {
           const text = `${h.track?.title || ""} ${h.track?.artist || ""}`;
@@ -250,90 +118,60 @@ export function useWaveEngine() {
           else if (latin / (cyrillic + latin + 1) > 0.6) langCounts.english++;
         }
         const topLang = Object.entries(langCounts).sort((a, b) => b[1] - a[1]);
-        if (topLang[0]?.[1] > 5) radioParams.set("lang", topLang[0][0]);
+        if (topLang[0]?.[1] > 5) params.set("lang", topLang[0][0]);
 
-        // Session duration for mood adaptation
-        if (state.sessionStartTime) {
-          const sessionMinutes = Math.floor((Date.now() - state.sessionStartTime) / 60000);
-          if (sessionMinutes > 0) radioParams.set("sessionDuration", String(sessionMinutes));
-        }
-
-        // Disliked SC IDs hard exclusion
-        const dislikedScIds = (state.dislikedTracksData || [])
-          .map(t => t.scTrackId).filter((id): id is number => !!id).slice(0, 50);
-        if (dislikedScIds.length > 0) radioParams.set("dislikedScIds", dislikedScIds.join(","));
-
-        // Completed genres (genres user actually finishes — strong positive signal)
-        const completedGenres = state.feedbackBatch?.completedGenres || [];
-        const completedFromFB: string[] = [];
-        for (const [trackId, fbb] of Object.entries(fb)) {
-          if (fbb && fbb.completes > fbb.skips && fbb.completes >= 1) {
-            const he = state.history.find(h => h.track.id === trackId);
-            if (he?.track?.genre) completedFromFB.push(he.track.genre.toLowerCase().trim());
-          }
-        }
-        const allCompletedGenres = [...new Set([...completedGenres, ...completedFromFB])].slice(0, 5);
-        if (allCompletedGenres.length > 0) radioParams.set("completedGenres", allCompletedGenres.join(","));
-
-        const radioRes = await fetch(`/api/music/radio?${radioParams}`);
-        if (radioRes.ok) {
-          const radioData = await radioRes.json();
-          let radioTracks: Track[] = (radioData.tracks || []).filter(
+        const res = await fetch(`/api/music/radio?${params}`);
+        if (res.ok) {
+          const data = await res.json();
+          let tracks: Track[] = (data.tracks || []).filter(
             (t: Track) => !disliked.includes(t.id) && !excludeSet.has(t.id),
           );
-
-          // ── Artist diversity filter ──
-          // Limit to max 1 track per artist per batch — stricter than before
-          // (was 2) to guarantee variety. SoundCloud related API tends to
-          // return multiple tracks from the same artist, which creates
-          // "same artist spam" in the wave. Also penalize (but don't exclude)
-          // artists from recent history — push them to the end of the queue
-          // so fresh artists surface first.
+          // Client-side artist diversity: max 1 per artist
           const artistCount = new Map<string, number>();
-          radioTracks = radioTracks.filter(t => {
+          tracks = tracks.filter(t => {
             const a = (t.artist || "").toLowerCase().trim();
             if (!a) return true;
-            const cnt = artistCount.get(a) || 0;
-            if (cnt >= 1) return false; // max 1 per artist per batch
-            artistCount.set(a, cnt + 1);
+            const c = artistCount.get(a) || 0;
+            if (c >= 1) return false;
+            artistCount.set(a, c + 1);
             return true;
           });
-          // Sort: tracks from NEW artists (not in recentArtists) first,
-          // then tracks from recently-played artists. This way the user
-          // hears fresh music before repeats.
-          radioTracks.sort((a, b) => {
-            const aRecent = recentArtists.has((a.artist || "").toLowerCase().trim()) ? 1 : 0;
-            const bRecent = recentArtists.has((b.artist || "").toLowerCase().trim()) ? 1 : 0;
-            return aRecent - bRecent;
-          });
-
-          if (radioTracks.length >= count) {
-            // Enough tracks from radio — return them
-            return radioTracks.slice(0, count);
-          }
-
-          if (radioTracks.length > 0) {
-            // Radio returned SOME tracks but not enough — MERGE with
-            // recommendations fallback instead of dropping the radio tracks.
-            // Radio tracks are higher-relevance (seeded by current track),
-            // so they go first; recs fill the rest.
-            const fillNeeded = count - radioTracks.length;
-            const recsTracks = await fetchRecsFallback(fillNeeded);
-            // Dedup against radio tracks
-            const radioIds = new Set(radioTracks.map(t => t.id));
-            const uniqueRecs = recsTracks.filter(t => !radioIds.has(t.id));
-            return [...radioTracks, ...uniqueRecs].slice(0, count);
-          }
-          // Radio returned 0 tracks — fall through to pure recommendations
+          if (tracks.length > 0) return tracks.slice(0, count);
         }
       } catch {
-        // Silent — fall through to recommendations fallback
+        // Fall through to recommendations
       }
     }
 
-    // ── Fallback: generic recommendations based on taste profile ──
-    // Used on initial wave start (no current track) or when radio endpoint fails.
-    return fetchRecsFallback(count);
+    // ── Fallback: recommendations based on taste profile ──
+    const recParams = new URLSearchParams();
+    if (tp.topGenres.length > 0) recParams.set("genres", tp.topGenres.join(","));
+    const favArtists = (useAppStore.getState().favoriteArtists || []).map(a => a.username);
+    const allArtists = [...new Set([...favArtists, ...tp.topArtists])];
+    if (allArtists.length > 0) recParams.set("artists", allArtists.slice(0, 5).join(","));
+    if (disliked.length > 0) recParams.set("dislikedIds", disliked.join(","));
+    recParams.set("wave", "1");
+    recParams.set("count", String(count));
+    const likedScIds = (useAppStore.getState().likedTracksData || [])
+      .map((t: any) => t.scTrackId).filter((id: any): id is number => !!id).slice(0, 5).join(",");
+    if (likedScIds) recParams.set("likedScIds", likedScIds);
+    const historyScIds = (useAppStore.getState().history || []).slice(0, 10)
+      .map((h: any) => h.track?.scTrackId).filter((id: any): id is number => !!id).join(",");
+    if (historyScIds) recParams.set("historyScIds", historyScIds);
+    const excludeArr = [...excludeSet];
+    if (excludeArr.length > 0) recParams.set("excludeIds", excludeArr.join(","));
+
+    try {
+      const res = await fetch(`/api/music/recommendations?${recParams}`);
+      if (res.ok) {
+        const data = await res.json();
+        return (data.tracks || []).filter(
+          (t: Track) => !disliked.includes(t.id) && !excludeSet.has(t.id),
+        ).slice(0, count);
+      }
+    } catch {}
+
+    return [];
   }, []);
 
   // ── Shuffle array (Fisher-Yates) ──
