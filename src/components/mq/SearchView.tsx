@@ -391,7 +391,7 @@ export default function SearchView() {
                 whileHover={{ scale: 1.02, backgroundColor: "var(--mq-card-hover)" }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => playTrack(track, quickPicks)}
-                className="flex items-center gap-2.5 p-2.5 rounded-2xl text-left cursor-pointer group transition-all duration-200"
+                className="flex items-center gap-2.5 p-2.5 rounded-2xl text-left cursor-pointer group transition-[transform,background-color,border-color,box-shadow] duration-200"
                 style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.04)" }}
               >
                 <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ boxShadow: "var(--mq-shadow-xs)" }}>
@@ -473,7 +473,7 @@ export default function SearchView() {
         <motion.button
           whileTap={{ scale: 0.92 }}
           onClick={() => setShowFilters(!showFilters)}
-          className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 mt-[1px]"
+          className="w-11 h-11 rounded-xl flex items-center justify-center transition-[transform,background-color,border-color,box-shadow] duration-200 mt-[1px]"
           style={{
             backgroundColor: showFilters || selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
             color: showFilters || selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
@@ -488,7 +488,7 @@ export default function SearchView() {
         <motion.button
           whileTap={{ scale: 0.92 }}
           onClick={() => fileInputRef.current?.click()}
-          className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 mt-[1px]"
+          className="w-11 h-11 rounded-xl flex items-center justify-center transition-[transform,background-color,border-color,box-shadow] duration-200 mt-[1px]"
           style={{
             backgroundColor: "var(--mq-card)",
             color: isUploading ? "var(--mq-accent)" : "var(--mq-text-muted)",
@@ -528,7 +528,7 @@ export default function SearchView() {
                   whileTap={{ scale: 0.93 }}
                   whileHover={{ scale: 1.04 }}
                   onClick={() => setSelectedGenre("")}
-                  className="px-4 py-2.5 rounded-lg text-xs font-semibold transition-all duration-200 flex-shrink-0 flex items-center gap-2"
+                  className="px-4 py-2.5 rounded-lg text-xs font-semibold transition-[transform,background-color,border-color,box-shadow] duration-200 flex-shrink-0 flex items-center gap-2"
                   style={{
                     backgroundColor: !selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
                     color: !selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
@@ -548,7 +548,7 @@ export default function SearchView() {
                       whileTap={{ scale: 0.93 }}
                       whileHover={{ scale: 1.04 }}
                       onClick={() => setSelectedGenre(isSelected ? "" : g)}
-                      className="px-4 py-2.5 rounded-lg text-xs font-semibold transition-all duration-250 flex-shrink-0 flex items-center gap-2"
+                      className="px-4 py-2.5 rounded-lg text-xs font-semibold transition-[transform,background-color,border-color,box-shadow] duration-200 flex-shrink-0 flex items-center gap-2"
                       style={{
                         backgroundColor: isSelected ? "var(--mq-accent)" : `color-mix(in srgb, var(--mq-accent) ${opacity * 100}%, transparent)`,
                         color: isSelected ? "var(--mq-text)" : "var(--mq-text-muted)",
@@ -613,7 +613,7 @@ export default function SearchView() {
                       whileTap={{ scale: 0.93 }}
                       whileHover={{ scale: 1.03, backgroundColor: "var(--mq-card-hover)" }}
                       onClick={() => handleHistoryClick(query)}
-                      className="flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer"
+                      className="flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs font-medium transition-[transform,background-color,border-color,box-shadow] duration-200 cursor-pointer"
                       style={{
                         backgroundColor: "var(--mq-card)",
                         color: "var(--mq-text-muted)",
@@ -673,7 +673,7 @@ export default function SearchView() {
               whileTap={{ scale: 0.93 }}
               whileHover={{ scale: 1.04 }}
               onClick={handlePlayAll}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-[transform,background-color,border-color,box-shadow] duration-200"
               style={{
                 backgroundColor: "var(--mq-accent)",
                 color: "var(--mq-text)",
@@ -766,7 +766,7 @@ export default function SearchView() {
                 whileTap={{ scale: 0.93 }}
                 whileHover={{ scale: 1.03, backgroundColor: "var(--mq-card-hover)" }}
                 onClick={() => handleTrendingClick(term)}
-                className="px-4 py-2 rounded-2xl text-xs font-medium transition-all duration-200 cursor-pointer"
+                className="px-4 py-2 rounded-2xl text-xs font-medium transition-[transform,background-color,border-color,box-shadow] duration-200 cursor-pointer"
                 style={{
                   backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text-muted)",
@@ -864,7 +864,7 @@ export default function SearchView() {
                   whileTap={{ scale: 0.93 }}
                   whileHover={{ scale: 1.05, backgroundColor: "var(--mq-card-hover)" }}
                   onClick={() => handleTrendingClick(term)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-medium transition-[transform,background-color,border-color,box-shadow] duration-200 cursor-pointer"
                   style={{
                     backgroundColor: "var(--mq-card)",
                     color: "var(--mq-text-muted)",
@@ -903,7 +903,7 @@ export default function SearchView() {
                 whileTap={{ scale: 0.93 }}
                 whileHover={{ scale: 1.05, backgroundColor: "var(--mq-card-hover)" }}
                 onClick={() => handleTrendingClick(term)}
-                className="px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-medium transition-[transform,background-color,border-color,box-shadow] duration-200 cursor-pointer"
                 style={{
                   backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text-muted)",

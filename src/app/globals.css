@@ -4,6 +4,22 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ═══════════════════════════════════════════════════════════════
+   Emil Kowalski Design Engineering — Custom Easing Curves
+   Built-in CSS easings are too weak. These cubic-beziers add punch
+   and make animations feel intentional.
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  /* Strong ease-out for enter animations — starts fast, feels responsive */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /* Strong ease-in-out for on-screen movement — natural accel/decel */
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  /* iOS-like drawer curve */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Premium ease for card hovers and premium interactions */
+  --ease-premium: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ═══════════════════════════════════════════════════════════════
    P2-ANIM: Global entrance + interaction animations
    ═══════════════════════════════════════════════════════════════ */
 
@@ -1531,17 +1547,21 @@ a:not([data-framer-motion-id]),
   position: absolute;
   right: -6px;
   top: 50%;
-  transform: translateY(-50%) scale(0);
+  /* Emil Kowalski: never animate from scale(0) — nothing in the real
+     world appears from nothing. Start from scale(0.5) + opacity 0. */
+  transform: translateY(-50%) scale(0.5);
+  opacity: 0;
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background: var(--mq-text);
   box-shadow: 0 0 6px rgba(0,0,0,0.4), 0 0 0 3px rgba(255,255,255,0.1);
-  transition: transform 0.15s ease;
+  transition: transform 0.15s var(--ease-out), opacity 0.15s var(--ease-out);
 }
 
 .mq-progress-premium:hover .mq-progress-premium-fill::after {
   transform: translateY(-50%) scale(1);
+  opacity: 1;
 }
 
 /* ── Progress bar ambient glow ── */
