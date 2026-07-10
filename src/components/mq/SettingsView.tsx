@@ -10,6 +10,7 @@ import {
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
   RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
   Smartphone, Monitor, Apple, Info, ChevronRight, X, Check, Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import VolumeSlider from "@/components/ui/volume-slider";
@@ -226,6 +227,34 @@ export default function SettingsView() {
     if (confirm("Выйти из аккаунта?")) logout();
   }, [logout]);
 
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = useCallback(async () => {
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/user/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: true }),
+      });
+      if (res.ok) {
+        toast({ title: "Аккаунт удалён" });
+        // Clear local state and redirect
+        try { localStorage.removeItem("mq-store-v8"); } catch {}
+        setTimeout(() => window.location.href = "/", 1000);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        toast({ title: data.error || "Ошибка удаления", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Ошибка удаления", variant: "destructive" });
+    } finally {
+      setDeleting(false);
+      setDeleteConfirm(false);
+    }
+  }, [toast]);
+
   // ── Clear cache ──
   const handleClearCache = useCallback(() => {
     if (typeof window !== "undefined" && "caches" in window) {
@@ -358,6 +387,44 @@ export default function SettingsView() {
               <SettingRow icon={Download} label="Экспорт данных" subtitle="Сохранить избранное и плейлисты в JSON" onClick={handleExportData} />
               <SettingRow icon={Upload} label="Импорт данных" subtitle="Восстановить из JSON-файла" onClick={handleImportData} />
               <SettingRow icon={LogOut} label="Выйти" subtitle="До встречи" onClick={handleLogout} danger />
+            </Card>
+
+            {/* Delete account — danger zone */}
+            <Card>
+              <CardTitle icon={AlertTriangle} title="Опасная зона" />
+              {!deleteConfirm ? (
+                <SettingRow
+                  icon={Trash2}
+                  label="Удалить аккаунт"
+                  subtitle="Безвозвратно удалить все данные"
+                  onClick={() => setDeleteConfirm(true)}
+                  danger
+                />
+              ) : (
+                <div className="p-4 space-y-3">
+                  <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
+                    Вы уверены? Все данные будут удалены безвозвратно.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleDeleteAccount}
+                      disabled={deleting}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+                      style={{ backgroundColor: "#ef4444", color: "#fff" }}
+                    >
+                      {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      Удалить навсегда
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(false)}
+                      className="px-4 py-2.5 rounded-xl text-sm font-medium"
+                      style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-thin)" }}
+                    >
+                      Отмена
+                    </button>
+                  </div>
+                </div>
+              )}
             </Card>
           </motion.div>
         )}

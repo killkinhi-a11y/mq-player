@@ -19,7 +19,8 @@ type PlaybackState = "idle" | "buffering" | "loading" | "playing" | "paused" | "
 // Bump this number to force a fresh store for all users with old data.
 // v10: bumped to force migration that resets radioMode (was persisting
 // "wave always active" bug from v8/v9 localStorage).
-const STORE_VERSION = 10;
+// v11: persist username/email/avatar for instant display on reload
+const STORE_VERSION = 11;
 const STORAGE_KEY = "mq-store-v8";
 
 // Nuke stale data BEFORE Zustand tries to hydrate.
@@ -2732,6 +2733,14 @@ export const useAppStore = create<AppState>()(
             eqBands: old?.eqBands ?? initialState.eqBands,
             eqPreset: old?.eqPreset ?? initialState.eqPreset,
             playbackRate: old?.playbackRate ?? initialState.playbackRate,
+            // Preserve auth/user info during migration so username shows
+            // instantly on reload (before /api/auth/me finishes)
+            userId: old?.userId ?? null,
+            username: old?.username ?? null,
+            email: old?.email ?? null,
+            avatar: old?.avatar ?? null,
+            userRole: old?.userRole ?? "user",
+            isAuthenticated: old?.isAuthenticated ?? false,
             // DO NOT migrate radioMode/radioSeedTrack/radioSkipCount — these
             // are session-only transient state. Migrating them caused the
             // "wave always active on page reload" bug. Always reset to
