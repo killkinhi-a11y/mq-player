@@ -68,6 +68,34 @@
   animation: mqFadeIn 0.2s ease-out forwards;
 }
 
+/* ── Settings tabbed layout ──
+   Sections marked with .mq-settings-section[data-tab="..."] are hidden
+   unless they match the active tab on the root container
+   [data-active-tab="..."]. The "account" tab also shows the chat entry card
+   (which has no data-tab attribute) for backwards compat. */
+.mq-settings-section { display: none; }
+[data-active-tab="account"] .mq-settings-section[data-tab="account"] { display: block; }
+[data-active-tab="appearance"] .mq-settings-section[data-tab="appearance"] { display: block; }
+[data-active-tab="playback"] .mq-settings-section[data-tab="playback"] { display: block; }
+[data-active-tab="notifications"] .mq-settings-section[data-tab="notifications"] { display: block; }
+[data-active-tab="more"] .mq-settings-section[data-tab="more"] { display: block; }
+/* Chat entry card — only on account tab */
+[data-active-tab="account"] .mq-settings-chat-entry { display: block; }
+[data-active-tab]:not([data-active-tab="account"]) .mq-settings-chat-entry { display: none; }
+
+/* ── View transition — non-destructive fade-in on view switch ──
+   P3-fix: NO translateY — it caused the "view flies from below" bug
+   when user had scrolled down before switching views. The new view
+   would appear 8px below the current scroll position, creating a
+   jarring vertical jump. Now fade-only for a clean cross-fade. */
+@keyframes mqViewEnter {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+.mq-view-enter {
+  animation: mqViewEnter 0.18s ease-out;
+}
+
 /* Staggered children entrance — apply to parent */
 .mq-stagger > * {
   opacity: 0;
@@ -232,34 +260,39 @@ input, textarea, select {
   }
 }
 
-/* ── Focus visibility ──
-   P2-focus: Use box-shadow ring instead of outline.
-   CSS outline does NOT follow border-radius in most browsers — it draws
-   a square box around rounded elements (buttons, pills, cards), which
-   looks broken. box-shadow follows border-radius perfectly.
-   We keep :focus (mouse/touch) suppressed to avoid noise on click. */
+/* ── Focus System — unified, premium ──
+   One system for all elements. No more 3 competing focus styles.
+   Absolutely NO outline anywhere — ever. Outline is always square. */
 
-/* Mouse/touch focus — suppress default browser outline (which is a square box) */
-*:focus {
-  outline: none;
+/* Kill ALL outlines globally — no exceptions */
+*, *::before, *::after {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Keyboard focus (:focus-visible) — themed ring via box-shadow (follows border-radius) */
+/* Kill Tailwind ring shadows globally */
+*:focus, *:focus-visible {
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-offset-shadow: 0 0 #0000 !important;
+  --tw-ring-color: transparent !important;
+}
+
+/* Keyboard focus — accent ring via box-shadow (follows border-radius) */
 *:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--mq-bg, #0e0e0e), 0 0 0 4px var(--mq-accent, #e03131);
-  /* The first shadow creates a gap (offset ring), the second is the accent ring.
-     Both follow border-radius because box-shadow does. */
+  outline: none !important;
   border-radius: inherit;
 }
 
-/* Form elements — softer accent ring without the bg gap */
+/* Non-input elements get accent ring */
+*:focus-visible:not(input):not(textarea):not(select) {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
+}
+
+/* Inputs manage their own focus style via inline styles */
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 60%, transparent) !important;
-  border-radius: inherit;
+  outline: none !important;
 }
 
 /* MQ Player Theme Variables */
@@ -271,6 +304,12 @@ textarea:focus-visible {
   --mq-text: #f0f0f0;
   --mq-text-muted: #9a9a9a;
   --mq-border: rgba(255,255,255,0.05);
+  --mq-border-hairline: rgba(255,255,255,0.04);
+  --mq-border-thin: rgba(255,255,255,0.06);
+  --mq-border-medium: rgba(255,255,255,0.1);
+  --mq-border-accent: color-mix(in srgb, var(--mq-accent) 25%, transparent);
+  --mq-border-accent-strong: color-mix(in srgb, var(--mq-accent) 40%, transparent);
+  --mq-focus-ring: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 40%, transparent);
   --mq-input-bg: #1a1a1a;
   --mq-player-bg: #111111;
   --mq-nav-bg: #0e0e0eee;
@@ -332,8 +371,112 @@ main {
   --mq-elevation-4: 0 16px 48px rgba(0,0,0,0.6);
   --mq-elevation-float: 0 24px 64px rgba(0,0,0,0.7);
 
+  /* Premium shadows — softer, layered */
+  --mq-shadow-premium-sm:
+    0 1px 2px rgba(0,0,0,0.18),
+    0 2px 6px rgba(0,0,0,0.12);
+  --mq-shadow-premium-md:
+    0 2px 4px rgba(0,0,0,0.2),
+    0 8px 24px rgba(0,0,0,0.18);
+  --mq-shadow-premium-lg:
+    0 4px 8px rgba(0,0,0,0.22),
+    0 16px 40px rgba(0,0,0,0.28);
+  --mq-shadow-premium-xl:
+    0 8px 16px rgba(0,0,0,0.25),
+    0 24px 64px rgba(0,0,0,0.35);
+  --mq-shadow-glow-accent:
+    0 0 0 1px color-mix(in srgb, var(--mq-accent) 20%, transparent),
+    0 4px 16px color-mix(in srgb, var(--mq-accent) 25%, transparent);
+
+  /* Premium motion — Apple-style easing */
+  --mq-ease-premium: cubic-bezier(0.32, 0.72, 0, 1);
+  --mq-ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --mq-ease-decel: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Premium glass */
+  --mq-glass-premium: color-mix(in srgb, var(--mq-bg) 60%, transparent);
+
   /* Spring decel alias (for consistency with design-tokens.css) */
   --mq-spring-decel: cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* Premium utility classes */
+.mq-premium-card {
+  background: var(--mq-card);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 20px;
+  box-shadow: var(--mq-shadow-premium-md);
+  position: relative;
+  overflow: hidden;
+}
+.mq-premium-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.mq-premium-hover {
+  transition: transform 0.3s var(--mq-ease-premium), box-shadow 0.3s var(--mq-ease-premium);
+}
+.mq-premium-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--mq-shadow-premium-lg);
+}
+
+.mq-premium-tap {
+  transition: transform 0.15s var(--mq-ease-premium);
+}
+.mq-premium-tap:active {
+  transform: scale(0.97);
+}
+
+/* Premium text styles */
+.mq-text-display {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+.mq-text-headline {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.mq-text-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--mq-text-muted);
+}
+
+/* Premium gradient text */
+.mq-text-gradient {
+  background: linear-gradient(135deg, var(--mq-text) 0%, color-mix(in srgb, var(--mq-accent) 70%, var(--mq-text)) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Premium shimmer effect for loading */
+@keyframes mqShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.mq-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.04) 0%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: mqShimmer 1.8s ease-in-out infinite;
 }
 
 /* Custom scrollbar — P2: themed, thin, smooth */
@@ -951,7 +1094,7 @@ html.blood-theme body::before {
 }
 .mq-input:focus-within {
   border-color: var(--mq-accent);
-  box-shadow: 0 0 0 3px rgba(var(--mq-accent-rgb, 224,49,49), 0.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mq-accent) 150%, transparent);
 }
 
 /* Smooth icon buttons */
@@ -1010,17 +1153,14 @@ html.blood-theme body::before {
   border-radius: 2px;
 }
 
-/* Focus visible ring — uses box-shadow so it follows border-radius (outline is always square) */
-/* Only for form inputs, not interactive buttons/cards */
+/* Focus ring — deprecated, use global *:focus-visible above */
 .mq-focus-ring:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
-  border-radius: 4px;
+  border-radius: inherit;
 }
 
-/* P1.1: Removed the `*:focus-visible { outline: none !important }` rules
-   that were killing keyboard focus on buttons, links, and cards.
-   The global `*:focus-visible` rule above now provides a themed ring. */
+/* P1.1: Focus system unified at top of file — no more competing rules. */
 
 /* Better skeleton loading */
 .mq-skeleton {
@@ -1106,13 +1246,7 @@ html.blood-theme body::before {
 @keyframes playerEq2 { from { transform: scaleY(0.3); } to { transform: scaleY(0.7); } }
 @keyframes playerEq3 { from { transform: scaleY(0.5); } to { transform: scaleY(0.85); } }
 
-.mq-eq-bar {
-  will-change: transform;
-  height: 100%;
-  animation-timing-function: ease-in-out;
-  animation-iteration-count: infinite;
-  animation-direction: alternate;
-}
+/* .mq-eq-bar class removed — inline styles used instead */
 
 /* GPU-accelerated animation utilities */
 .mq-gpu {
@@ -1376,21 +1510,9 @@ a:not([data-framer-motion-id]),
   100% { transform: translateX(200%); }
 }
 
-/* Mini player EQ bars — CSS-only animated indicator */
-@keyframes mq-eq-bar-1 {
-  0%, 100% { height: 3px; }
-  50% { height: 12px; }
-}
-
-@keyframes mq-eq-bar-2 {
-  0%, 100% { height: 8px; }
-  50% { height: 4px; }
-}
-
-@keyframes mq-eq-bar-3 {
-  0%, 100% { height: 5px; }
-  50% { height: 14px; }
-}
+/* Mini player EQ bars — old keyframes removed. New unified equalizer
+   uses mq-eq-bar-1..5 defined in the MQ UI Animation Keyframes section
+   below, shared between PlayerBar, SearchView, TrackCard, PlaylistView. */
 
 /* Badge pulse — gentle glow pulse for notification badges */
 @keyframes mq-badge-pulse {
@@ -1633,7 +1755,7 @@ a:not([data-framer-motion-id]),
 .mq-player-premium {
   background: linear-gradient(
     180deg,
-    rgba(var(--mq-accent-rgb), 0.03) 0%,
+    color-mix(in srgb, var(--mq-accent) 030%, transparent) 0%,
     var(--mq-player-bg) 30%
   );
   backdrop-filter: var(--mq-glass-blur-heavy);
@@ -1788,10 +1910,10 @@ a:not([data-framer-motion-id]),
   );
 }
 
-/* ── Focus Ring Premium ── */
+/* ── Focus Ring Premium — deprecated, use global *:focus-visible ── */
 .mq-focus-premium:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px var(--mq-surface-1), 0 0 0 4px var(--mq-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
   border-radius: inherit;
 }
 
@@ -1839,25 +1961,8 @@ a:not([data-framer-motion-id]),
 }
 
 /* ── Premium Focus Visible States ── */
-/* P1.1: Replaced the old focus-killing block with themed :focus-visible.
-   Buttons/links now get outline: 2px solid var(--mq-accent) via the
-   global rule at the top of this file. Form inputs get box-shadow ring. */
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: none !important;
-  --tw-ring-shadow: 0 0 #0000 !important;
-  --tw-ring-color: transparent !important;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 60%, transparent) !important;
-  border-radius: inherit;
-}
-button:focus-visible,
-a:focus-visible,
-[role="button"]:focus-visible {
-  --tw-ring-shadow: 0 0 #0000 !important;
-  --tw-ring-color: transparent !important;
-  /* outline is set by the global *:focus-visible rule above */
-}
+/* Unified at top of file — these rules kill Tailwind's default ring
+   which creates square focus indicators. */
 
 /* Kill any Tailwind ring outlines that create square focus indicators */
 *:focus-visible {
@@ -2370,3 +2475,452 @@ a:focus-visible,
   75% { transform: scaleY(0.9); }
   100% { transform: scaleY(0.3); }
 }
+
+/* ═══ MQ UI Animation Keyframes — CSS instead of Framer Motion for performance ═══ */
+
+/* Equalizer bars (playing indicator) — v2 redesign
+   5 independent keyframes, one per bar, each with its own organic pattern.
+   Old single mq-eq keyframe replaced — every bar used to look the same
+   except for delay/duration. Now each bar has a distinct rhythm that
+   resembles a real audio spectrum analyzer.
+   Paused state via .mq-eq-paused: all bars settle at 30% height. */
+
+@keyframes mq-eq-bar-1 {
+  0%, 100% { transform: scaleY(0.20); }
+  20% { transform: scaleY(0.55); }
+  40% { transform: scaleY(0.30); }
+  60% { transform: scaleY(0.85); }
+  80% { transform: scaleY(0.40); }
+}
+@keyframes mq-eq-bar-2 {
+  0%, 100% { transform: scaleY(0.45); }
+  25% { transform: scaleY(0.80); }
+  50% { transform: scaleY(0.25); }
+  75% { transform: scaleY(0.60); }
+}
+@keyframes mq-eq-bar-3 {
+  0%, 100% { transform: scaleY(0.65); }
+  20% { transform: scaleY(0.30); }
+  40% { transform: scaleY(1.00); }
+  60% { transform: scaleY(0.50); }
+  80% { transform: scaleY(0.85); }
+}
+@keyframes mq-eq-bar-4 {
+  0%, 100% { transform: scaleY(0.35); }
+  30% { transform: scaleY(0.70); }
+  60% { transform: scaleY(0.20); }
+  90% { transform: scaleY(0.55); }
+}
+@keyframes mq-eq-bar-5 {
+  0%, 100% { transform: scaleY(0.25); }
+  25% { transform: scaleY(0.45); }
+  50% { transform: scaleY(0.75); }
+  75% { transform: scaleY(0.30); }
+}
+/* Paused state: stop the animation (bars freeze at current keyframe position).
+   The NowPlayingEqualizer component also sets animation-play-state: paused
+   and opacity: 0.5 inline, but we keep this CSS rule as a fallback for
+   any other code that uses the .mq-eq-paused class without the component. */
+.mq-eq-paused span {
+  animation-play-state: paused;
+  opacity: 0.5;
+}
+
+/* Pulse border (FullTrackView cover) */
+@keyframes mq-pulse-border { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.9; } }
+.mq-pulse-border { animation: mq-pulse-border 2s ease-in-out infinite; }
+
+/* Pulse ring (play button) */
+@keyframes mq-pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.4); opacity: 0; } }
+.mq-pulse-ring { animation: mq-pulse-ring 1.5s ease-out infinite; }
+
+/* Spinner */
+@keyframes mq-spin { to { transform: rotate(360deg); } }
+.mq-spin { animation: mq-spin 0.8s linear infinite; }
+
+/* Wave glow */
+@keyframes mq-glow-desktop { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+@keyframes mq-glow-mobile { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.6; } }
+.mq-wave-glow { animation: mq-glow-desktop 4s ease-in-out infinite; }
+.mq-wave-glow-mobile { animation: mq-glow-mobile 5s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mq-pulse-border, .mq-pulse-ring, .mq-spin, .mq-wave-glow, .mq-wave-glow-mobile {
+    animation: none;
+  }
+}
+
+/* ═══ Volume Slider — global styles (no per-instance <style> blocks) ═══ */
+.mq-hslider-input {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+.mq-hslider-input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right,
+    var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol, 0%),
+    rgba(255,255,255,0.1) var(--mq-vol, 0%), rgba(255,255,255,0.1) 100%);
+}
+.mq-hslider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  margin-top: -5px;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+.mq-hslider-input:active::-webkit-slider-thumb {
+  transform: scale(1.25);
+}
+.mq-hslider-input::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.1);
+}
+.mq-hslider-input::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--mq-accent);
+}
+.mq-hslider-input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+/* Vertical slider */
+.mq-vslider-input {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+.mq-vslider-input::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(to right,
+    var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol, 0%),
+    rgba(255,255,255,0.1) var(--mq-vol, 0%), rgba(255,255,255,0.1) 100%);
+}
+.mq-vslider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  margin-top: -5px;
+  cursor: pointer;
+}
+.mq-vslider-input::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.1);
+}
+.mq-vslider-input::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--mq-accent);
+}
+.mq-vslider-input::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+
+/* ═══ Mobile performance optimizations ═══ */
+/* Disable backdrop-blur on mobile — extremely GPU-expensive, causes jank */
+@media (max-width: 768px) {
+  * {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  /* Reduce shadow complexity on mobile */
+  .mq-premium-card,
+  .mq-hero-card {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+  }
+  /* Disable will-change abuse (only keep on actively animated elements) */
+  [style*="will-change"]:not(.mq-visualizer) {
+    will-change: auto !important;
+  }
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   MOBILE PERFORMANCE OPTIMIZATIONS — target stable 60fps
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* 1. GPU acceleration only for actively animated elements */
+.mq-visualizer,
+canvas {
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   ANIMATIONS & MICRO-INTERACTIONS — enhanced UX for mobile + desktop
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* 1. Ripple effect on buttons (material-style) */
+@keyframes mq-ripple {
+  to { transform: scale(4); opacity: 0; }
+}
+.mq-ripple {
+  position: relative;
+  overflow: hidden;
+}
+.mq-ripple::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  transform: translate(-50%, -50%) scale(0);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.4s ease-out, opacity 0.4s ease-out;
+}
+.mq-ripple:active::after {
+  transform: translate(-50%, -50%) scale(4);
+  opacity: 0.3;
+  animation: mq-ripple 0.5s ease-out;
+}
+
+/* 2. Smooth card hover lift (desktop) */
+@media (hover: hover) {
+  .mq-premium-card,
+  .mq-hero-card,
+  [class*="rounded-2xl"][class*="cursor-pointer"] {
+    transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  }
+}
+
+/* 3. Button press feedback (mobile + desktop) */
+button:active:not(:disabled),
+[role="button"]:active:not(:disabled) {
+  transform: scale(0.96);
+  transition: transform 0.08s ease;
+}
+
+/* 4. Smooth view transitions */
+@keyframes mq-view-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.mq-view-enter {
+  animation: mq-view-enter 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 5. Pulse animation for live indicators */
+@keyframes mq-pulse-live {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
+.mq-pulse-live {
+  animation: mq-pulse-live 1.5s ease-in-out infinite;
+}
+
+/* 6. Shimmer loading effect */
+@keyframes mq-shimmer-sweep {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.mq-shimmer {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.03) 0%,
+    rgba(255,255,255,0.08) 50%,
+    rgba(255,255,255,0.03) 100%);
+  background-size: 200% 100%;
+  animation: mq-shimmer-sweep 1.5s ease-in-out infinite;
+}
+
+/* 7. Progress bar glow */
+.mq-progress-glow {
+  box-shadow: 0 0 8px color-mix(in srgb, var(--mq-accent) 40%, transparent);
+}
+
+/* 8. Smooth focus ring (accessibility) */
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--mq-accent, #e03131);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* 9. List item slide-in animation */
+@keyframes mq-slide-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.mq-slide-in {
+  animation: mq-slide-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 10. Heart burst animation */
+@keyframes mq-heart-burst {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.35); }
+  60% { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+.mq-heart-burst {
+  animation: mq-heart-burst 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 11. Smooth scroll for all scrollable containers */
+* {
+  scroll-behavior: smooth;
+}
+
+/* 12. Custom scrollbar (desktop) */
+@media (hover: hover) {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.2);
+  }
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   ENHANCED VISUAL FEEDBACK — desktop + mobile
+   ═════════════════════════════════════════════════════════════════════════ */
+
+/* 13. Scale-in animation for modals/sheets */
+@keyframes mq-scale-in {
+  from { opacity: 0; transform: scale(0.92) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.mq-scale-in {
+  animation: mq-scale-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 14. Slide-up animation for bottom sheets */
+@keyframes mq-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+.mq-slide-up {
+  animation: mq-slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 15. Fade-in for overlays */
+@keyframes mq-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.mq-fade-in {
+  animation: mq-fade-in 0.15s ease-out;
+}
+
+/* 16. Bounce on like */
+@keyframes mq-bounce {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+}
+.mq-bounce {
+  animation: mq-bounce 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 17. Glow pulse for active elements */
+@keyframes mq-glow-pulse {
+  0%, 100% { box-shadow: 0 0 4px color-mix(in srgb, var(--mq-accent) 30%, transparent); }
+  50% { box-shadow: 0 0 12px color-mix(in srgb, var(--mq-accent) 50%, transparent); }
+}
+.mq-glow-pulse {
+  animation: mq-glow-pulse 2s ease-in-out infinite;
+}
+
+/* 18. Smooth color transitions on interactive elements */
+button,
+[role="button"],
+a,
+.mq-premium-card,
+.mq-hero-card {
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease, box-shadow 0.2s ease;
+}
+
+/* 19. Touch feedback — larger press area on mobile */
+@media (hover: none) {
+  button:active:not(:disabled),
+  [role="button"]:active:not(:disabled) {
+    transform: scale(0.94);
+    opacity: 0.85;
+    transition: all 0.06s ease;
+  }
+  /* No hover effects on touch */
+  .group:hover * {
+    transform: none !important;
+    opacity: 0 !important;
+  }
+  /* But keep opacity-100 for always-visible elements */
+  .group:hover .opacity-100,
+  .group .opacity-100 {
+    opacity: 1 !important;
+  }
+}
+
+/* 20. Progress bar enhanced — thicker on hover */
+.mq-progress-track {
+  transition: height 0.15s ease;
+  height: 6px;
+}
+.mq-progress-track:hover {
+  height: 8px;
+}
+
+/* 21. Card entrance stagger */
+@keyframes mq-card-enter {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.mq-card-enter {
+  animation: mq-card-enter 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 22. Equalizer bars animation — uses mq-eq keyframe (transform: scaleY) */
+/* .mq-eq-bar class removed — all equalizer bars now use inline styles
+   in NowPlayingEqualizer.tsx, PlayerBar.tsx, MainView.tsx to avoid
+   CSS specificity conflicts between multiple .mq-eq-bar rules. */

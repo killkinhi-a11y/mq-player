@@ -245,7 +245,7 @@ export default function ArtistCard({
                   backgroundColor: "rgba(0,0,0,0.45)",
                   backdropFilter: "blur(12px) saturate(180%)",
                   WebkitBackdropFilter: "blur(12px) saturate(180%)",
-                  border: "1px solid rgba(255,255,255,0.1)",
+                  border: "1px solid var(--mq-border-medium)",
                   color: "#fff",
                 }}
               >

@@ -471,7 +471,7 @@ export default function OnboardingTour() {
               <div
                 className="px-4 sm:px-5 py-3 sm:py-3"
                 style={{
-                  borderTop: "1px solid rgba(255,255,255,0.06)",
+                  borderTop: "1px solid var(--mq-border-thin)",
                   backgroundColor: "rgba(255,255,255,0.02)",
                 }}
               >

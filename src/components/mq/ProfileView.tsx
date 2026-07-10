@@ -364,6 +364,7 @@ const ProfileView = React.memo(function ProfileView() {
         ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, size, size);
 
         const resized = canvas.toDataURL("image/jpeg", 0.8);
+        const previousAvatar = useAppStore.getState().avatar;
         useAppStore.setState({ avatar: resized });
         const uid = useAppStore.getState().userId;
         if (uid) {
@@ -373,8 +374,17 @@ const ProfileView = React.memo(function ProfileView() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ avatar: resized }),
           })
-            .then((r) => r.json())
-            .catch(() => { setAvatarError("Ошибка загрузки аватара"); })
+            .then(async (r) => {
+              const data = await r.json();
+              if (!r.ok) {
+                setAvatarError(data.error || "Ошибка загрузки аватара");
+                useAppStore.setState({ avatar: previousAvatar });
+              }
+            })
+            .catch(() => {
+              setAvatarError("Ошибка загрузки аватара");
+              useAppStore.setState({ avatar: previousAvatar });
+            })
             .finally(() => setIsSavingAvatar(false));
         }
       };
@@ -470,7 +480,7 @@ const ProfileView = React.memo(function ProfileView() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
           className="relative overflow-hidden rounded-2xl"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
         >
           {/* Gradient background */}
           <div
@@ -618,7 +628,7 @@ const ProfileView = React.memo(function ProfileView() {
 
             {/* Member since badge */}
             {!isEditingName && (
-              <div className="flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid var(--mq-border-thin)" }}>
                 <Calendar className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
                 <span className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)" }}>
                   Участник с {accountCreated || memberSince}
@@ -638,7 +648,7 @@ const ProfileView = React.memo(function ProfileView() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
           className="rounded-2xl overflow-hidden cursor-pointer"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)" }}
           onClick={() => setView("messenger")}
           whileHover={{ backgroundColor: "var(--mq-card-hover)" }}
           whileTap={{ scale: 0.98 }}
@@ -680,7 +690,7 @@ const ProfileView = React.memo(function ProfileView() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
           className="rounded-2xl overflow-hidden cursor-pointer"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)" }}
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)" }}
           onClick={() => setView("settings")}
           whileHover={{ backgroundColor: "var(--mq-card-hover)" }}
           whileTap={{ scale: 0.98 }}
@@ -710,7 +720,7 @@ const ProfileView = React.memo(function ProfileView() {
           {/* Total tracks played */}
           <motion.div
             className="rounded-2xl p-4 flex items-center gap-3.5"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
             initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.06, duration: 0.3 }}
@@ -734,7 +744,7 @@ const ProfileView = React.memo(function ProfileView() {
           {/* Hours listened */}
           <motion.div
             className="rounded-2xl p-4 flex items-center gap-3.5"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
             initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.3 }}
@@ -758,7 +768,7 @@ const ProfileView = React.memo(function ProfileView() {
           {/* Favorite genre */}
           <motion.div
             className="rounded-2xl p-4 flex items-center gap-3.5"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
             initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.14, duration: 0.3 }}
@@ -782,7 +792,7 @@ const ProfileView = React.memo(function ProfileView() {
           {/* Liked tracks */}
           <motion.div
             className="rounded-2xl p-4 flex items-center gap-3.5"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
             initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.18, duration: 0.3 }}
@@ -813,7 +823,7 @@ const ProfileView = React.memo(function ProfileView() {
           initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl overflow-hidden"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
         >
           <div className="px-4 pt-4 pb-2">
             <div className="flex items-center gap-2">
@@ -950,7 +960,7 @@ const ProfileView = React.memo(function ProfileView() {
             initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
             animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl overflow-hidden"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
           >
             <div className="px-4 pt-4 pb-2">
               <div className="flex items-center gap-2">
@@ -1056,7 +1066,7 @@ const ProfileView = React.memo(function ProfileView() {
                 className="flex flex-col items-center gap-1 p-2.5 rounded-xl text-center relative"
                 style={{
                   backgroundColor: ach.unlocked ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)" : "rgba(255,255,255,0.02)",
-                  border: ach.unlocked ? "1px solid color-mix(in srgb, var(--mq-accent) 20%, transparent)" : "1px solid rgba(255,255,255,0.04)",
+                  border: ach.unlocked ? "1px solid color-mix(in srgb, var(--mq-accent) 20%, transparent)" : "1px solid var(--mq-border-hairline)",
                   opacity: ach.unlocked ? 1 : 0.5,
                 }}
               >
@@ -1096,7 +1106,7 @@ const ProfileView = React.memo(function ProfileView() {
             initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
             animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl overflow-hidden"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
           >
             <div className="px-4 pt-4 pb-2">
               <div className="flex items-center gap-2">
@@ -1115,7 +1125,7 @@ const ProfileView = React.memo(function ProfileView() {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: i * 0.05, duration: 0.3 }}
                     className="flex flex-col items-center p-2.5 rounded-xl"
-                    style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.04)" }}
+                    style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--mq-border-hairline)" }}
                   >
                     <div
                       className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center mb-1.5"
@@ -1153,7 +1163,7 @@ const ProfileView = React.memo(function ProfileView() {
             initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
             animate={{ opacity: 1, y: 0 }}
             className="rounded-2xl overflow-hidden"
-            style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
           >
             <div className="px-4 pt-4 pb-2">
               <div className="flex items-center gap-2">
@@ -1208,7 +1218,7 @@ const ProfileView = React.memo(function ProfileView() {
           initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl overflow-hidden"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
         >
           {/* Section header */}
           <div className="px-4 pt-4 pb-2">
@@ -1274,7 +1284,7 @@ const ProfileView = React.memo(function ProfileView() {
           initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl overflow-hidden"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
         >
           {/* Section header */}
           <div className="px-4 pt-4 pb-2">

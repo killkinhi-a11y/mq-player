@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks } from "@/lib/soundcloud";
+import { searchAudiusTracks } from "@/lib/audius";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 
 /**
- * Unified Search API — SoundCloud.
+ * Unified Search API — SoundCloud + Audius.
+ *
+ * Audius is a free, decentralized music platform with no API key required.
+ * If SoundCloud fails (client_id expired), Audius results still come through.
  *
  * Query params:
  *   q       — search query (required)
+ *   source  — "soundcloud" | "audius" | "all" (default: "all")
  */
 
 const cache = new Map<string, { data: unknown; expiry: number }>();
@@ -26,25 +31,44 @@ function setCache(key: string, data: unknown): void {
 async function handler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
+  const source = searchParams.get("source") || "all";
 
   if (!query || query.trim().length === 0) {
     return NextResponse.json({ tracks: [] });
   }
 
   const trimmed = query.trim();
-  const cacheKey = `search:${trimmed.toLowerCase()}`;
+  const cacheKey = `search:${source}:${trimmed.toLowerCase()}`;
   const cached = getFromCache(cacheKey);
   if (cached) return NextResponse.json(cached);
 
   try {
     const allTracks: import("@/lib/musicApi").Track[] = [];
 
-    // SoundCloud search
-    const scTracks = await searchSCTracks(trimmed, 20);
-    allTracks.push(...scTracks);
+    // Run searches in parallel for speed
+    const searchPromises: Promise<import("@/lib/musicApi").Track[]>[] = [];
+
+    if (source === "all" || source === "soundcloud") {
+      searchPromises.push(
+        searchSCTracks(trimmed, 20).catch(() => [])
+      );
+    }
+
+    if (source === "all" || source === "audius") {
+      searchPromises.push(
+        searchAudiusTracks(trimmed, 20).catch(() => [])
+      );
+    }
+
+    const results = await Promise.allSettled(searchPromises);
+    for (const result of results) {
+      if (result.status === "fulfilled" && result.value) {
+        allTracks.push(...result.value);
+      }
+    }
 
     const responseData = {
-      tracks: allTracks.slice(0, 40),
+      tracks: allTracks.slice(0, 50),
     };
     setCache(cacheKey, responseData);
     return NextResponse.json(responseData);

@@ -9,117 +9,91 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js 22 (Capacitor 8 requires >=22)
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          sdk-platform: '34'
-          sdk-build-tools: '34.0.0'
+          sdk-platform: '36'
+          sdk-build-tools: '36.0.0'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
-      - name: Install Capacitor CLI
-        run: npm install @capacitor/cli @capacitor/core @capacitor/android @capacitor/splash-screen
-
-      - name: Add Android platform
-        run: npx cap add android || true
-
-      - name: Copy web assets
+      - name: Show environment diagnostics
         run: |
-          mkdir -p out
-          # Create a minimal index.html that redirects to the web app
-          cat > out/index.html << 'HTMLEOF'
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-            <title>MQ Player</title>
-            <style>
-              body { margin: 0; background: #0e0e0e; }
-              .loader {
-                position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                width: 60px; height: 60px; border: 3px solid rgba(255,255,255,0.1);
-                border-top: 3px solid #e03131; border-radius: 50%;
-                animation: spin 1s linear infinite;
-              }
-              @keyframes spin { 0% { transform: translate(-50%,-50%) rotate(0deg); } 100% { transform: translate(-50%,-50%) rotate(360deg); } }
-            </style>
-          </head>
-          <body><div class="loader"></div></body>
-          </html>
-          HTMLEOF
+          echo "=== Node version ==="
+          node --version
+          echo "=== Capacitor version ==="
+          node node_modules/@capacitor/cli/bin/capacitor --version 2>&1
 
       - name: Sync Capacitor
-        run: npx cap sync android
+        run: node node_modules/@capacitor/cli/bin/capacitor sync android
 
-      - name: Build APK
+      - name: Verify webDir contents
+        run: |
+          echo "out/ contents:"
+          ls -la out/
+          echo "out/index.html head (first 300 chars):"
+          head -c 300 out/index.html
+          echo ""
+          echo "android/app/src/main/assets/capacitor.config.json:"
+          cat android/app/src/main/assets/capacitor.config.json
+
+      - name: Build debug APK
         working-directory: android
-        run: ./gradlew assembleDebug -x lintVitalAnalyzeRelease
-
-      - name: Sign APK
-        uses: r0adkll/sign-android-release@v1
-        id: sign_apk
-        with:
-          releaseDirectory: android/app/build/outputs/apk/release
-          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_KEY }}
-          alias: ${{ secrets.ANDROID_ALIAS }}
-          password: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-        env:
-          BUILD_TOOLS_VERSION: "34.0.0"
+        run: ./gradlew assembleDebug -x lintVitalAnalyzeRelease --no-daemon --stacktrace
 
       - name: Rename APK
         run: |
-          cp ${{ steps.sign_apk.outputs.signedReleaseFile }} mq-player.apk
-          # Also copy debug APK as fallback
-          cp android/app/build/outputs/apk/debug/app-debug.apk mq-player-debug.apk 2>/dev/null || true
+          cp android/app/build/outputs/apk/debug/app-debug.apk mq-player.apk
+          ls -lh mq-player.apk
 
       - name: Upload APK to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             mq-player.apk
-            mq-player-debug.apk
           tag_name: ${{ github.ref_name || 'latest' }}
-          name: MQ Player ${{ github.ref_name || 'Latest' }}
+          name: MQ Player ${{ github.ref_name || 'Latest' }} — Android APK
           body: |
             ## MQ Player Android
 
+            Приложение загружает интерфейс с https://mq1.vercel.app.
+            Требуется интернет-соединение при запуске.
+
             ### Установка
-            1. Скачайте `mq-player.apk`
+            1. Скачайте `mq-player.apk` (~4 МБ)
             2. Откройте файл на телефоне
             3. Разрешите установку из неизвестных источников
             4. Установите и запустите
 
-            ### PWA альтернатива
-            Откройте https://mq1.vercel.app в Chrome → меню → «Установить приложение»
+            ### PWA-альтернатива
+            Откройте https://mq1.vercel.app в Chrome → меню → «Установить приложение».
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload debug APK as artifact
+      - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
           name: mq-player-apk
-          path: |
-            mq-player.apk
-            mq-player-debug.apk
+          path: mq-player.apk
           retention-days: 30

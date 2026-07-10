@@ -10,8 +10,11 @@ import {
   preloadTrack, isGaplessEnabled, setAudioPlaybackRate,
 } from "@/lib/audioEngine";
 import { replayGain, getDefaultGainForGenre } from "@/lib/replayGain";
+import { getAudiusStream, isAudiusTrack, findAudiusAlternative } from "@/lib/audius";
 import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
+import { updateMyListeningStatus } from "@/hooks/useFriendsListening";
+import { enableSpatialAudio, initSpatialAudio, setMoodPreset, detectMoodFromTrack } from "@/lib/spatialAudio";
 import Hls from "hls.js";
 import type { HlsConfig } from "hls.js";
 import type { Track } from "@/lib/musicApi";
@@ -72,9 +75,12 @@ export const PlayerErrorLogger = {
   }
 };
 
-// Run auto-fix every 15 seconds
+// Run auto-fix every 30 seconds — guard against HMR duplicate intervals
+let _autoFixInterval: ReturnType<typeof setInterval> | null = null;
 if (typeof window !== "undefined") {
-  setInterval(() => PlayerErrorLogger.autoFix(), 15000);
+  if (!_autoFixInterval) {
+    _autoFixInterval = setInterval(() => PlayerErrorLogger.autoFix(), 30000);
+  }
 }
 
 // ── Waveform peak generator ──
@@ -660,6 +666,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   const gaplessPreloadStartedRef = useRef(false);
   const gaplessPreloadedTrackRef = useRef<Track | null>(null);
 
+  // Social listening status — last time we POSTed to /api/social/update-status
+  const lastSocialUpdateRef = useRef<number | null>(null);
+
   const retryCountRef = useRef(0);
   const maxRetries = 3;
   const retryingRef = useRef(false);
@@ -852,6 +861,19 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           });
         } catch {}
       }
+
+      // ── Social: update listening status every ~10s (throttled) ──
+      // Lets friends see what you're playing via /api/social/now-listening.
+      if (a) {
+        const now = Date.now();
+        if (!lastSocialUpdateRef.current || now - lastSocialUpdateRef.current > 10000) {
+          lastSocialUpdateRef.current = now;
+          const ct = useAppStore.getState().currentTrack;
+          if (ct) {
+            updateMyListeningStatus(ct, !a.paused, a.currentTime, a.duration || ct.duration || 0);
+          }
+        }
+      }
     };
 
     const onLoaded = (e: Event) => {
@@ -914,15 +936,21 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       const skipToNextWithError = (message: string) => {
         setPlayError(true);
         setIsLoadingTrack(false);
+        // Release play lock on error
+        useAppStore.setState({ _playLock: false });
+        // Mark track as broken — will be skipped by nextTrack
+        const errTrackId = st.currentTrack?.id;
+        if (errTrackId) {
+          useAppStore.getState().markTrackBroken(errTrackId);
+        }
         retryingRef.current = false;
         prevTrackIdForCrossfade.current = null;
-        const errTrackId = st.currentTrack?.id;
         try {
           toast({
-            title: "Ошибка воспроизведения",
+            title: "Трек недоступен",
             description: message,
           });
-        } catch {}
+        } catch (e) { console.warn("[Player] toast failed:", e); }
         setTimeout(() => {
           if (useAppStore.getState().currentTrack?.id === errTrackId) {
             nextTrackRef.current();
@@ -1048,16 +1076,14 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     };
 
     const onCanPlay = (e: Event) => {
-      // CRITICAL: Only handle events from the active audio element.
-      // The inactive element (gapless preload) also fires canplay,
-      // and without this check it would incorrectly call play() on
-      // the active element, causing AbortError and repeated pausing.
       const target = e.target as HTMLAudioElement | null;
       if (target && target !== getActive()) return;
 
       setIsLoadingTrack(false);
       setPlayError(false);
       retryCountRef.current = 0;
+      // Release play lock — track successfully loaded
+      useAppStore.setState({ _playLock: false });
       if (loadingTimeoutId) { clearTimeout(loadingTimeoutId); loadingTimeoutId = null; }
       if (stallTimeoutId) { clearTimeout(stallTimeoutId); stallTimeoutId = null; }
       if (PlayerErrorLogger.logs.length > 0) {
@@ -1073,7 +1099,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       // The isPlaying effect (which depends on isLoadingTrack) will detect
       // that loading finished and call play() centrally, eliminating race
       // conditions between multiple play() calls.
-      useAppStore.setState({ playbackState: st.isPlaying ? 'playing' : 'paused', isBuffering: false });
+      setTimeout(() => useAppStore.setState({ playbackState: st.isPlaying ? 'playing' : 'paused', isBuffering: false }), 0);
     };
 
     const onPlaying = (e: Event) => {
@@ -1100,7 +1126,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         const a = getActive();
         if (a) a.pause();
       } else {
-        useAppStore.setState({ playbackState: 'playing', isBuffering: false });
+        setTimeout(() => useAppStore.setState({ playbackState: 'playing', isBuffering: false }), 0);
       }
       crossfadeRef.current = false;
 
@@ -1112,9 +1138,11 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         const track = useAppStore.getState().currentTrack;
         if (track) {
           const defaultGain = getDefaultGainForGenre(track.genre || "");
+          // Use store volume as base — audioEl.volume may already have gain applied
+          const userVol = Math.pow(useAppStore.getState().volume / 100, 2);
           replayGain.attach(audioEl);
           replayGain.setEnabled(true);
-          replayGain.setBaseVolume(audioEl.volume);
+          replayGain.setBaseVolume(userVol);
           replayGain.applyGain(defaultGain);
         }
       } else {
@@ -1177,7 +1205,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                       setIsLoadingTrack(false);
                       setPlayError(true);
                       prevTrackIdForCrossfade.current = null;
-                      setTimeout(() => nextTrackRef.current(), 1500);
+                      const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
                     }
                   });
                   (activeEl as any)._hlsInstance = hls;
@@ -1219,7 +1247,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                 retryingRef.current = false;
                 if (!stream?.url || !a) {
                   setPlayError(true);
-                  setTimeout(() => nextTrackRef.current(), 1500);
+                  const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
                   return;
                 }
                 if (useAppStore.getState().currentTrack?.scTrackId !== st.currentTrack?.scTrackId) return;
@@ -1253,7 +1281,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                       hls.destroy(); delete (activeEl as any)._hlsInstance;
                       setPlayError(true);
                       prevTrackIdForCrossfade.current = null;
-                      setTimeout(() => nextTrackRef.current(), 1500);
+                      const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
                     }
                   });
                   (activeEl as any)._hlsInstance = hls;
@@ -1266,11 +1294,11 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               }).catch(() => {
                 retryingRef.current = false;
                 setPlayError(true);
-                setTimeout(() => nextTrackRef.current(), 1500);
+                const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
               });
             } else {
               setPlayError(true);
-              setTimeout(() => nextTrackRef.current(), 1500);
+              const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
             }
           }
         }, 8000);
@@ -1291,6 +1319,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     };
 
     const addListeners = (el: HTMLAudioElement) => {
+      // Guard against StrictMode double-mount duplicate listeners
+      if ((el as any)._mqListenersAttached) return;
+      (el as any)._mqListenersAttached = true;
       el.addEventListener("timeupdate", onTimeUpdate);
       el.addEventListener("loadedmetadata", onLoaded);
       el.addEventListener("canplay", onCanPlay);
@@ -1431,7 +1462,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             setIsLoadingTrack(false);
             setPlayError(true);
             prevTrackIdForCrossfade.current = null;
-            setTimeout(() => nextTrackRef.current(), 1500);
+            const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
           }
         }, 10000);
         pendingTimeouts.push(fbTimeout);
@@ -1459,7 +1490,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             setIsLoadingTrack(false);
             setPlayError(true);
             prevTrackIdForCrossfade.current = null;
-            setTimeout(() => nextTrackRef.current(), 1500);
+            const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
           }
         });
 
@@ -1568,12 +1599,72 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
           }
           prevTrackIdForCrossfade.current = currentTrack.id;
+        } else if (currentTrack.source === "audius" || isAudiusTrack(currentTrack.id)) {
+          // P2: Audius — free, decentralized music. Resolve stream URL.
+          setPlaybackMode("soundcloud");
+          resetCorsState();
+          const audiusUrl = await getAudiusStream(currentTrack.id);
+          if (cancelled) return;
+          if (audiusUrl) {
+            ensureWebAudioConnected(audioEl);
+            audioEl.crossOrigin = "anonymous";
+            audioEl.src = audiusUrl;
+            audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
+            audioEl.load();
+            if (canCrossfade) {
+              crossfadeRef.current = true;
+              if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
+              crossfadeTo(audioEl);
+            } else {
+              cancelCrossfade();
+              if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
+            }
+            prevTrackIdForCrossfade.current = currentTrack.id;
+          } else {
+            console.warn("[Player] Audius stream failed:", currentTrack.title);
+            setPlayError(true);
+            setIsLoadingTrack(false);
+            try {
+              toast({ title: "Трек недоступен", description: currentTrack.title });
+            } catch {}
+            const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
+          }
         } else if (currentTrack.source === "soundcloud" && currentTrack.scTrackId) {
           setPlaybackMode("soundcloud");
           resetCorsState();
 
           const stream = await resolveSoundCloudStream(currentTrack.scTrackId);
           if (cancelled) return;
+
+          // ── Preview-only track? Try Audius as fallback for full stream ──
+          if (stream && stream.isPreview && currentTrack.title && currentTrack.artist) {
+            console.log("[Player] Track is preview-only (SNIP), trying Audius fallback...");
+            try {
+              const audiusUrl = await findAudiusAlternative(currentTrack.artist, currentTrack.title);
+              if (cancelled) return;
+              if (audiusUrl) {
+                console.log("[Player] Audius alternative found — using full stream");
+                audioEl.crossOrigin = "anonymous";
+                audioEl.src = audiusUrl;
+                audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
+                audioEl.load();
+                resumeAudioContext();
+                if (canCrossfade) {
+                  crossfadeRef.current = true;
+                  if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
+                  crossfadeTo(audioEl);
+                } else {
+                  cancelCrossfade();
+                  if (useAppStore.getState().isPlaying) audioEl.play().catch(() => {});
+                }
+                prevTrackIdForCrossfade.current = currentTrack.id;
+                setIsLoadingTrack(false);
+                return;
+              }
+            } catch (e) {
+              console.warn("[Player] Audius fallback failed:", e);
+            }
+          }
 
           if (stream && stream.url) {
             fallbackStreamsRef.current = stream.fallbackStreams || null;
@@ -1638,7 +1729,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                 }
               });
 
-              const drmTimeout = setTimeout(() => {
+              // Only arm DRM timeout for encrypted streams — plain HLS can be slow on mobile
+              const drmTimeout = stream.isEncrypted ? setTimeout(() => {
                 if (audioEl.paused && !audioEl.currentTime && !cancelled) {
                   console.error("[Player] DRM playback timeout — license may be invalid");
                   setIsLoadingTrack(false);
@@ -1647,15 +1739,19 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   try { hls.destroy(); } catch {}
                   delete (audioEl as any)._hlsInstance;
                   PlayerErrorLogger.log(currentTrack?.title || "unknown", "DRM timeout (25s)", "skip");
-                  pendingTimeouts.push(setTimeout(() => nextTrackRef.current(), 2000));
+                  const failTrackId = currentTrack.id;
+                  const t = setTimeout(() => {
+                    if (useAppStore.getState().currentTrack?.id === failTrackId) nextTrackRef.current();
+                  }, 2000);
+                  pendingTimeouts.push(t);
                 }
-              }, 25000);
-              pendingTimeouts.push(drmTimeout);
+              }, 25000) : null;
+              if (drmTimeout) pendingTimeouts.push(drmTimeout);
 
               hls.on(Hls.Events.MANIFEST_PARSED, () => {
                 if (!cancelled) {
                   clearTimeout(hlsManifestTimeout);
-                  const clearT = () => { clearTimeout(drmTimeout); };
+                  const clearT = () => { if (drmTimeout) clearTimeout(drmTimeout); };
                   audioEl.addEventListener("playing", clearT, { once: true });
 
                   // Re-apply volume after HLS manifest loads (audio element may reset volume)
@@ -1685,7 +1781,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               hls.on(Hls.Events.ERROR, async (_event, data) => {
                 if (data.type === Hls.ErrorTypes.KEY_SYSTEM_ERROR) {
                   console.error("[Player] DRM/Key system error:", data.details, data.fatal);
-                  clearTimeout(drmTimeout);
+                  if (drmTimeout) clearTimeout(drmTimeout);
                   if (await tryFallbackStream(audioEl, currentTrack, cancelled)) return;
                   if (!retryingRef.current && currentTrack.scTrackId) {
                     retryingRef.current = true;
@@ -1729,29 +1825,29 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                             fbHls.destroy(); delete (activeEl as any)._hlsInstance;
                             setIsLoadingTrack(false); setPlayError(true);
                             prevTrackIdForCrossfade.current = null;
-                            setTimeout(() => nextTrackRef.current(), 1500);
+                            const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
                           }
                         });
                       } else {
                         setIsLoadingTrack(false); setPlayError(true);
                         prevTrackIdForCrossfade.current = null;
-                        setTimeout(() => nextTrackRef.current(), 2000);
+                        const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 2000);
                       }
                     }).catch(() => {
                       setIsLoadingTrack(false); setPlayError(true);
-                      setTimeout(() => nextTrackRef.current(), 2000);
+                      const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 2000);
                     });
                   } else {
                     setIsLoadingTrack(false);
                     setPlayError(true);
                     prevTrackIdForCrossfade.current = null;
-                    setTimeout(() => nextTrackRef.current(), 2000);
+                    const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 2000);
                   }
                   return;
                 }
                 if (data.fatal) {
                   console.error("[Player] HLS fatal error:", data.type, data.details);
-                  clearTimeout(drmTimeout);
+                  if (drmTimeout) clearTimeout(drmTimeout);
                   if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
                     console.warn("[Player] Attempting HLS network recovery...");
                     if (await tryFallbackStream(audioEl, currentTrack, cancelled)) return;
@@ -1764,7 +1860,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                     setPlayError(true);
                     prevTrackIdForCrossfade.current = null;
                     PlayerErrorLogger.log(currentTrack?.title || "unknown", `HLS fatal: ${data.type}/${data.details}`, "skip");
-                    setTimeout(() => nextTrackRef.current(), 1500);
+                    const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
                   }
                 }
               });
@@ -1850,7 +1946,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   : `Трек недоступен: ${currentTrack.title || "неизвестный"}`,
               });
             } catch {}
-            setTimeout(() => nextTrackRef.current(), 1500);
+            const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
           }
         } else if (currentTrack.audioUrl || currentTrack.id.startsWith("local_")) {
           setPlaybackMode("soundcloud");
@@ -1866,7 +1962,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               try {
                 toast({ title: "Ошибка воспроизведения", description: "Локальный файл не найден (перезагрузите страницу)" });
               } catch {}
-              setTimeout(() => nextTrackRef.current(), 1500);
+              const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
               return;
             }
           }
@@ -1893,7 +1989,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           try {
             toast({ title: "Ошибка воспроизведения", description: `Нет источника: ${currentTrack.title || "неизвестный"}` });
           } catch {}
-          setTimeout(() => nextTrackRef.current(), 1500);
+          const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 1500);
         }
       } catch (err) {
         console.error("loadTrack error:", err);
@@ -1902,7 +1998,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         try {
           toast({ title: "Ошибка воспроизведения", description: "Произошла ошибка при загрузке трека" });
         } catch {}
-        setTimeout(() => nextTrackRef.current(), 2000);
+        const _failId = useAppStore.getState().currentTrack?.id; setTimeout(() => { if (useAppStore.getState().currentTrack?.id === _failId) nextTrackRef.current(); }, 2000);
       }
     };
 
@@ -1972,7 +2068,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
       audio.play().then(() => {
         // Successfully started playing — update playback state
-        useAppStore.setState({ playbackState: 'playing', isBuffering: false });
+        setTimeout(() => useAppStore.setState({ playbackState: 'playing', isBuffering: false }), 0);
       }).catch((err) => {
         if (err.name !== 'AbortError' && err.name !== 'NotAllowedError') {
           // Real playback error — retry once after a short delay
@@ -1980,7 +2076,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             const a = getAudioElement();
             if (a && useAppStore.getState().isPlaying) {
               a.play().then(() => {
-                useAppStore.setState({ playbackState: 'playing', isBuffering: false });
+                setTimeout(() => useAppStore.setState({ playbackState: 'playing', isBuffering: false }), 0);
               }).catch(() => {
                 // If retry also fails, pause to avoid spinning forever
                 useAppStore.setState({ playbackState: 'paused', isPlaying: false });
@@ -2024,6 +2120,33 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     const secondary = getInactiveAudio();
     if (secondary) secondary.volume = vol;
   }, [volume, currentTrack?.id]);
+
+  // ── Spatial audio effect ──
+  // Toggles the spatial audio chain (5-band stereo widening) on/off.
+  // Also applies mood preset when the current track changes (auto-detect mode).
+  const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
+  const spatialMood = useAppStore((s) => s.spatialMood);
+  const spatialAutoDetect = useAppStore((s) => s.spatialAutoDetect);
+
+  useEffect(() => {
+    if (spatialAudioEnabled) {
+      // Initialize + enable spatial audio chain
+      initSpatialAudio();
+      enableSpatialAudio(true);
+    } else {
+      enableSpatialAudio(false);
+    }
+  }, [spatialAudioEnabled]);
+
+  useEffect(() => {
+    // Auto-detect mood from track when spatial audio is on
+    if (spatialAudioEnabled && spatialAutoDetect && currentTrack) {
+      const mood = detectMoodFromTrack(currentTrack.title, currentTrack.genre);
+      setMoodPreset(mood);
+    } else if (spatialAudioEnabled && spatialMood) {
+      setMoodPreset(spatialMood);
+    }
+  }, [currentTrack?.id, spatialAudioEnabled, spatialMood, spatialAutoDetect]);
 
   return {
     isLoadingTrack,

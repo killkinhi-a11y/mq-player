@@ -17,7 +17,9 @@ type PlaybackState = "idle" | "buffering" | "loading" | "playing" | "paused" | "
 
 // ── Storage versioning ──
 // Bump this number to force a fresh store for all users with old data.
-const STORE_VERSION = 8;
+// v10: bumped to force migration that resets radioMode (was persisting
+// "wave always active" bug from v8/v9 localStorage).
+const STORE_VERSION = 10;
 const STORAGE_KEY = "mq-store-v8";
 
 // Nuke stale data BEFORE Zustand tries to hydrate.
@@ -36,7 +38,7 @@ if (typeof window !== "undefined") {
     }
   } catch {
     console.warn("[MQ Store] corrupt localStorage – clearing");
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch (e) { console.warn("[store]", e); }
   }
 }
 
@@ -162,6 +164,12 @@ interface AppState {
   selectedGenre: string;
   isLoading: boolean;
 
+  // Library search + sort (functional filtering within library tabs)
+  librarySearchQuery: string;
+  librarySort: "recent" | "title" | "artist";
+  setLibrarySearchQuery: (q: string) => void;
+  setLibrarySort: (mode: "recent" | "title" | "artist") => void;
+
   // Full-screen track view
   isFullTrackViewOpen: boolean;
 
@@ -173,6 +181,10 @@ interface AppState {
   dislikedTrackIds: string[];
   likedTracksData: Track[];
   dislikedTracksData: Track[];
+  /** Tracks that failed to play (404, CORS, network). Skipped by nextTrack. */
+  brokenTrackIds: Set<string>;
+  /** Prevents race condition when playTrack is called while previous load is in progress. */
+  _playLock: boolean;
 
   // Similar tracks panel
   similarTracks: Track[];
@@ -313,6 +325,8 @@ interface AppState {
   toggleDislike: (trackId: string, trackData?: Track) => void;
   isTrackLiked: (trackId: string) => boolean;
   isTrackDisliked: (trackId: string) => boolean;
+  markTrackBroken: (trackId: string) => void;
+  clearBrokenTracks: () => void;
 
   // Similar tracks actions
   setSimilarTracks: (tracks: Track[]) => void;
@@ -547,6 +561,8 @@ const initialState = {
   searchQuery: "",
   selectedGenre: "",
   isLoading: false,
+  librarySearchQuery: "",
+  librarySort: "recent" as "recent" | "title" | "artist",
   supportUnreadCount: 0 as number,
   notificationCount: 0 as number,
   notifPanelOpen: false as boolean,
@@ -556,6 +572,8 @@ const initialState = {
   dislikedTrackIds: [] as string[],
   dislikedTracksData: [] as Track[],
   likedTracksData: [] as Track[],
+  brokenTrackIds: new Set<string>(),
+  _playLock: false,
 
   similarTracks: [] as Track[],
   similarTracksLoading: false,
@@ -664,7 +682,7 @@ const initialState = {
   miniPlayerHidden: false as boolean,
 
   // AI Recommendations visibility
-  aiRecsHidden: false as boolean,
+  aiRecsHidden: true as boolean,
 
   // Demo loading indicator
   demoLoading: false as boolean,
@@ -793,13 +811,13 @@ function createQuotaManagedStorage(): StateStorage {
         // If quota exceeded, clear and retry with minimal state
         try {
           localStorage.removeItem(name);
-        } catch {}
+        } catch (e) { console.warn("[store]", e); }
       }
     },
     removeItem: (name: string) => {
       try {
         localStorage.removeItem(name);
-      } catch {}
+      } catch (e) { console.warn("[store]", e); }
     },
   };
 }
@@ -856,14 +874,35 @@ export const useAppStore = create<AppState>()(
         // Clear any pending sync timer
         const timerRef = (get() as any)._syncTimer;
         if (timerRef) clearTimeout(timerRef);
+        // Clear feedback sync interval to prevent memory leak
+        if (typeof window !== "undefined") {
+          const w = window as Window & { _mqFeedbackSyncInterval?: ReturnType<typeof setInterval> };
+          if (w._mqFeedbackSyncInterval) {
+            clearInterval(w._mqFeedbackSyncInterval);
+            w._mqFeedbackSyncInterval = undefined;
+          }
+        }
         // Increment generation to invalidate any in-flight async operations
         // Keep _hasHydrated: true to prevent hydration loop
         set({ ...initialState, _authGeneration: Date.now(), _hasHydrated: true });
-        // Also clear the JWT cookie on the server
-        fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+        // Use sendBeacon to survive page unload — fire-and-forget fetch may not complete
+        if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+          navigator.sendBeacon('/api/auth/logout');
+        } else {
+          fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
+        }
       },
 
       setView: (view) => {
+        // P3-fix: scroll to top BEFORE changing the view so the user
+        // never sees the new view at a scrolled-down position. Doing
+        // this synchronously (before set()) means the scroll reset
+        // happens in the same frame as the view switch.
+        if (typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "auto" });
+          const main = document.getElementById("main-content");
+          if (main) main.scrollTop = 0;
+        }
         // When navigating to "main", close all overlays/panels without stopping music
         if (view === "main") {
           const state = get();
@@ -964,11 +1003,15 @@ export const useAppStore = create<AppState>()(
 
       playTrack: (track, queue, playlistId) => {
         const state = get();
+
+        // Play lock — prevents race condition when playTrack is called
+        // while previous track is still loading. Without this, rapid taps
+        // cause currentTrack to flip back and forth.
+        if (state._playLock && state.currentTrack?.id === track.id) return;
+
         const newQueue = queue || state.queue;
         const index = newQueue.findIndex((t) => t.id === track.id);
 
-        // Immediate optimistic store update — useAudioEngine's loadTrack effect
-        // will detect the currentTrack change and handle actual audio loading
         set({
           currentTrack: track,
           currentPlaylistId: playlistId ?? (queue ? state.currentPlaylistId : null),
@@ -979,16 +1022,11 @@ export const useAppStore = create<AppState>()(
           duration: track.duration,
           playbackState: "loading",
           isBuffering: true,
-          // ALWAYS show player bar when playTrack is called — fixes double-click bug
-          // where miniPlayerHidden stayed true if user had hidden the mini player
-          // and then tapped the same track again (isNewTrack was false)
+          _playLock: true,
           miniPlayerHidden: false,
-          // Clear upNext when a new queue is explicitly set
           ...(queue ? { upNext: [] as Track[] } : {}),
-          // Start session timer on first play
           ...(state.sessionStartTime === null ? { sessionStartTime: Date.now() } : {}),
         });
-        // Auto-add to history
         get().addToHistory(track);
       },
 
@@ -1029,23 +1067,28 @@ export const useAppStore = create<AppState>()(
       setDuration: (duration) => set({ duration }),
 
       nextTrack: () => {
-        const { queue, queueIndex, shuffle, repeat, upNext, currentTrack, smartShuffle, radioMode } = get();
+        const { queue, queueIndex, shuffle, repeat, upNext, currentTrack, smartShuffle, radioMode, brokenTrackIds } = get();
 
         // ── UpNext priority: play from upNext first (FIFO) ──
         if (upNext.length > 0) {
-          const [next, ...remaining] = upNext;
-          const newQueue = [next, ...remaining, ...queue];
-          set({
-            currentTrack: next,
-            queue: newQueue,
-            queueIndex: 0,
-            upNext: [],
-            progress: 0,
-            duration: next.duration,
-            isPlaying: true,
-          });
-          get().addToHistory(next);
-          return;
+          // Find first non-broken track in upNext
+          const nextIdx = upNext.findIndex(t => !brokenTrackIds.has(t.id));
+          if (nextIdx >= 0) {
+            const next = upNext[nextIdx];
+            const remaining = upNext.filter((_, i) => i !== nextIdx);
+            const newQueue = [next, ...remaining, ...queue];
+            set({
+              currentTrack: next,
+              queue: newQueue,
+              queueIndex: 0,
+              upNext: [],
+              progress: 0,
+              duration: next.duration,
+              isPlaying: true,
+            });
+            get().addToHistory(next);
+            return;
+          }
         }
 
         let nextIdx: number;
@@ -1278,18 +1321,17 @@ export const useAppStore = create<AppState>()(
                     if (!data || !data.tracks || data.tracks.length === 0) return;
                     const newTracks = data.tracks.slice(0, 15);
                     const state = get();
-                    const existingIds = new Set(state.queue.map(t => t.id));
+                    const safeQueue = Array.isArray(state.queue) ? state.queue : [];
+                    const existingIds = new Set(safeQueue.map(t => t.id));
 
                     // ── Cross-batch artist dedup ──
-                    // Count artists in current queue + recent history to prevent
-                    // the same artist from appearing too frequently across batches
                     const recentArtists = new Map<string, number>();
-                    for (const t of state.queue) {
+                    for (const t of safeQueue) {
                       const a = (t.artist || "").toLowerCase().trim();
                       if (a) recentArtists.set(a, (recentArtists.get(a) || 0) + 1);
                     }
                     // Weight recent history artists (last 20 tracks)
-                    for (const h of state.history.slice(0, 20)) {
+                    for (const h of (Array.isArray(state.history) ? state.history : []).slice(0, 20)) {
                       const a = (h.track.artist || "").toLowerCase().trim();
                       if (a) recentArtists.set(a, (recentArtists.get(a) || 0) + 1);
                     }
@@ -1327,8 +1369,23 @@ export const useAppStore = create<AppState>()(
                   })
                   .catch(() => {});
               }
-              // Wrap to start while new tracks load
-              nextIdx = 0;
+              // Radio refill is async — we can't block here. Previously
+              // this set nextIdx = 0 which caused "skip goes in circles"
+              // bug: store played queue[0] (the first track of the
+              // already-played queue) while the refill was in flight,
+              // so the user heard the same first track again.
+              //
+              // Fix: DON'T wrap to 0. Instead, stop playback here and
+              // let the radio refill (either from useWaveEngine auto-
+              // refill effect or from skipTrack's fetchWaveTracksDedup)
+              // append new tracks. The user will press play again, or
+              // the auto-refill effect will resume playback once new
+              // tracks arrive.
+              //
+              // This is a no-op return — nextIdx stays out of bounds,
+              // the track = queue[nextIdx] check below will be undefined,
+              // and we bail out without changing currentTrack.
+              nextIdx = -1;
             } else {
               set({ isPlaying: false });
               getAudioElement()?.pause();
@@ -1336,6 +1393,15 @@ export const useAppStore = create<AppState>()(
             }
           }
         }
+
+        // Skip broken tracks — find next non-broken track
+        let attempts = 0;
+        while (brokenTrackIds.has(queue[nextIdx]?.id) && attempts < queue.length) {
+          nextIdx = (nextIdx + 1) % queue.length;
+          if (nextIdx === queueIndex) break; // full loop, stop
+          attempts++;
+        }
+
         const track = queue[nextIdx];
         if (track) {
           set({
@@ -1418,9 +1484,10 @@ export const useAppStore = create<AppState>()(
         set((s) => {
           // Basic validation
           if (!message?.id || !message.senderId) return s;
+          const currentMsgs = Array.isArray(s.messages) ? s.messages : [];
           // Dedup: skip messages with same ID
-          if (s.messages.some((m) => m.id === message.id)) return s;
-          const updated = [...s.messages, message];
+          if (currentMsgs.some((m) => m.id === message.id)) return s;
+          const updated = [...currentMsgs, message];
           // Keep max 1000 messages in memory to prevent performance issues
           if (updated.length > 1000) return { messages: updated.slice(-1000) };
           return { messages: updated };
@@ -1429,17 +1496,20 @@ export const useAppStore = create<AppState>()(
       setSelectedContact: (contactId) => set({ selectedContactId: contactId, unreadCounts: { ...get().unreadCounts, [contactId as string]: 0 } }),
 
       loadMessages: (incoming) => set((s) => {
-        const existingIds = new Set(s.messages.map(m => m.id));
+        // Defensive: ensure messages is always an array (prevents crash
+        // when s.messages is undefined/null from a corrupted persist)
+        const currentMsgs = Array.isArray(s.messages) ? s.messages : [];
+        const existingIds = new Set(currentMsgs.map(m => m.id));
         const existingSignatures = new Set(
-          s.messages.map(m => `${m.content}|${m.senderId}|${m.receiverId}`)
+          currentMsgs.map(m => `${m.content}|${m.senderId}|${m.receiverId}`)
         );
-        const newMsgs = incoming.filter(m => {
+        const newMsgs = (Array.isArray(incoming) ? incoming : []).filter(m => {
           if (existingIds.has(m.id)) return false;
           const sig = `${m.content}|${m.senderId}|${m.receiverId}`;
           if (existingSignatures.has(sig)) return false;
           return true;
         });
-        return { messages: [...s.messages, ...newMsgs] };
+        return { messages: [...currentMsgs, ...newMsgs] };
       }),
 
       clearUnread: (contactId) =>
@@ -1447,13 +1517,14 @@ export const useAppStore = create<AppState>()(
 
       addContact: (contact) =>
         set((s) => {
-          if (s.contacts.some((c) => c.id === contact.id)) return s;
-          return { contacts: [...s.contacts, contact] };
+          const contacts = Array.isArray(s.contacts) ? s.contacts : [];
+          if (contacts.some((c) => c.id === contact.id)) return s;
+          return { contacts: [...contacts, contact] };
         }),
 
       deleteMessagesForContact: (contactId) =>
         set((s) => ({
-          messages: s.messages.filter(
+          messages: (Array.isArray(s.messages) ? s.messages : []).filter(
             (m) => m.senderId !== contactId && m.receiverId !== contactId
           ),
         })),
@@ -1475,6 +1546,9 @@ export const useAppStore = create<AppState>()(
       setNotifPanelOpen: (open) => set({ notifPanelOpen: open }),
 
       setSearchQuery: (query) => set({ searchQuery: query }),
+
+      setLibrarySearchQuery: (q) => set({ librarySearchQuery: q }),
+      setLibrarySort: (mode) => set({ librarySort: mode }),
 
       setSelectedGenre: (genre) => set({ selectedGenre: genre }),
 
@@ -1535,6 +1609,15 @@ export const useAppStore = create<AppState>()(
 
       isTrackDisliked: (trackId) => get().dislikedTrackIds.includes(trackId),
 
+      markTrackBroken: (trackId) =>
+        set((s) => {
+          const newSet = new Set(s.brokenTrackIds);
+          newSet.add(trackId);
+          return { brokenTrackIds: newSet };
+        }),
+
+      clearBrokenTracks: () => set({ brokenTrackIds: new Set<string>() }),
+
       setSimilarTracks: (tracks) => set({ similarTracks: tracks }),
       setSimilarTracksLoading: (loading) => set({ similarTracksLoading: loading }),
       requestShowSimilar: () => set({ showSimilarRequested: true, isFullTrackViewOpen: true, showLyricsRequested: false }),
@@ -1553,19 +1636,19 @@ export const useAppStore = create<AppState>()(
           tracks: [],
           createdAt: Date.now(),
         };
-        set((s) => ({ playlists: [...s.playlists, newPlaylist] }));
+        set((s) => ({ playlists: [...(Array.isArray(s.playlists) ? s.playlists : []), newPlaylist] }));
       },
 
       deletePlaylist: (playlistId) => {
         set((s) => ({
-          playlists: s.playlists.filter((p) => p.id !== playlistId),
+          playlists: (Array.isArray(s.playlists) ? s.playlists : []).filter((p) => p.id !== playlistId),
           selectedPlaylistId: s.selectedPlaylistId === playlistId ? null : s.selectedPlaylistId,
         }));
       },
 
       renamePlaylist: (playlistId, name) => {
         set((s) => ({
-          playlists: s.playlists.map((p) =>
+          playlists: (Array.isArray(s.playlists) ? s.playlists : []).map((p) =>
             p.id === playlistId ? { ...p, name } : p
           ),
         }));
@@ -1573,7 +1656,7 @@ export const useAppStore = create<AppState>()(
 
       addToPlaylist: (playlistId, track) => {
         set((s) => ({
-          playlists: s.playlists.map((p) => {
+          playlists: (Array.isArray(s.playlists) ? s.playlists : []).map((p) => {
             if (p.id !== playlistId) return p;
             if (p.tracks.some((t) => t.id === track.id)) return p;
             const updatedTracks = [...p.tracks, track];
@@ -1588,7 +1671,7 @@ export const useAppStore = create<AppState>()(
 
       removeFromPlaylist: (playlistId, trackId) => {
         set((s) => ({
-          playlists: s.playlists.map((p) => {
+          playlists: (Array.isArray(s.playlists) ? s.playlists : []).map((p) => {
             if (p.id !== playlistId) return p;
             return {
               ...p,
@@ -1773,8 +1856,9 @@ export const useAppStore = create<AppState>()(
       setFavoriteArtists: (artists) => set({ favoriteArtists: artists }),
       addFavoriteArtist: (artist) => {
         set((s) => {
-          if (s.favoriteArtists.some(a => a.id === artist.id)) return s;
-          return { favoriteArtists: [...s.favoriteArtists, artist] };
+          const favs = Array.isArray(s.favoriteArtists) ? s.favoriteArtists : [];
+          if (favs.some(a => a.id === artist.id)) return s;
+          return { favoriteArtists: [...favs, artist] };
         });
         get().saveFavoriteArtistsToServer();
       },
@@ -1790,7 +1874,7 @@ export const useAppStore = create<AppState>()(
       },
       removeFavoriteArtist: (artistId) => {
         set((s) => ({
-          favoriteArtists: s.favoriteArtists.filter(a => a.id !== artistId),
+          favoriteArtists: (Array.isArray(s.favoriteArtists) ? s.favoriteArtists : []).filter(a => a.id !== artistId),
         }));
         get().saveFavoriteArtistsToServer();
       },
@@ -1804,7 +1888,7 @@ export const useAppStore = create<AppState>()(
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ artists: favoriteArtists }),
           });
-        } catch {}
+        } catch (e) { console.warn("[store]", e); }
       },
       loadFavoriteArtistsFromServer: async () => {
         const { userId } = get();
@@ -1819,7 +1903,7 @@ export const useAppStore = create<AppState>()(
           if (typeof data.onboardingComplete === 'boolean') {
             set({ onboardingComplete: data.onboardingComplete });
           }
-        } catch {}
+        } catch (e) { console.warn("[store]", e); }
       },
 
       // ── Liquid Glass Mobile ──
@@ -1845,7 +1929,7 @@ export const useAppStore = create<AppState>()(
           } else {
             localStorage.removeItem("mq-style");
  }
-        } catch {}
+        } catch (e) { console.warn("[store]", e); }
       },
 
       // ── Style Variant (Light/Dark) ──
@@ -1864,24 +1948,22 @@ export const useAppStore = create<AppState>()(
           } else {
             localStorage.removeItem("mq-style-variant");
           }
-        } catch {}
+        } catch (e) { console.warn("[store]", e); }
       },
 
       // ── History actions ──
       addToHistory: (track) => {
         set((s) => {
-          // Check if track already in history — increment playCount
-          const existing = s.history.find((h) => h.track.id === track.id);
+          const hist = Array.isArray(s.history) ? s.history : [];
+          const existing = hist.find((h) => h.track.id === track.id);
           if (existing) {
-            // Move to front with incremented playCount
-            const filtered = s.history.filter((h) => h.track.id !== track.id);
+            const filtered = hist.filter((h) => h.track.id !== track.id);
             return {
               history: [{ track, playedAt: Date.now(), playCount: (existing.playCount || 0) + 1 }, ...filtered].slice(0, 200),
             };
           }
-          // New entry
           return {
-            history: [{ track, playedAt: Date.now(), playCount: 1 }, ...s.history].slice(0, 200),
+            history: [{ track, playedAt: Date.now(), playCount: 1 }, ...hist].slice(0, 200),
           };
         });
         // Debounced sync to server
@@ -1980,8 +2062,8 @@ export const useAppStore = create<AppState>()(
 
           // Accumulate for server sync
           const batch = { ...s.feedbackBatch };
-          const historyEntry = s.history.find(h => h.track.id === trackId);
-          const likedEntry = s.likedTracksData.find(t => t.id === trackId);
+          const historyEntry = (Array.isArray(s.history) ? s.history : []).find(h => h.track.id === trackId);
+          const likedEntry = (Array.isArray(s.likedTracksData) ? s.likedTracksData : []).find(t => t.id === trackId);
           const trackData = historyEntry?.track || likedEntry;
           const skipGenre = (trackData?.genre || "").toLowerCase().trim();
           const skipArtist = (trackData?.artist || "").toLowerCase().trim();
@@ -2017,8 +2099,8 @@ export const useAppStore = create<AppState>()(
 
           // Accumulate for server sync
           const batch = { ...s.feedbackBatch };
-          const historyEntry = s.history.find(h => h.track.id === trackId);
-          const likedEntry = s.likedTracksData.find(t => t.id === trackId);
+          const historyEntry = (Array.isArray(s.history) ? s.history : []).find(h => h.track.id === trackId);
+          const likedEntry = (Array.isArray(s.likedTracksData) ? s.likedTracksData : []).find(t => t.id === trackId);
           const trackData = historyEntry?.track || likedEntry;
           const completeGenre = (trackData?.genre || "").toLowerCase().trim();
           const completeArtist = (trackData?.artist || "").toLowerCase().trim();
@@ -2122,7 +2204,7 @@ export const useAppStore = create<AppState>()(
                   }
                 }
               }
-            } catch {}
+            } catch (e) { console.warn("[store]", e); }
           }
 
           set({ releaseRadarTracks: allTracks.slice(0, 20), releaseRadarLoading: false });
@@ -2506,11 +2588,9 @@ export const useAppStore = create<AppState>()(
           miniPlayerHidden,
           playbackState, isBuffering, isDragging,
           // These are also excluded (already not in the whitelist below)
-          currentTrack, queue, queueIndex, upNext, playbackMode,
           selectedContactId, selectedGenre, typingUsers,
           selectedPlaylistId, selectedGroupId, selectedArtist,
           spatialAudioEnabled, spatialMood, spatialAutoDetect,
-          crossfadeEnabled, crossfadeDuration,
           radioMode, radioSeedTrack, radioSkipCount,
           smartShuffle, sessionStartTime,
           listenSession, abRepeat,
@@ -2536,6 +2616,17 @@ export const useAppStore = create<AppState>()(
           shuffle: persistent.shuffle,
           repeat: persistent.repeat,
           playbackRate: persistent.playbackRate,
+          // Playback state — persist so player bar shows last track after reload
+          // (isPlaying is NOT persisted — user must press play to resume)
+          currentTrack: persistent.currentTrack ? slimTrack(persistent.currentTrack) : null,
+          queue: (Array.isArray(persistent.queue) ? persistent.queue : []).slice(0, 50).map(slimTrack),
+          queueIndex: persistent.queueIndex ?? 0,
+          upNext: (Array.isArray(persistent.upNext) ? persistent.upNext : []).slice(0, 10).map(slimTrack),
+          currentPlaylistId: persistent.currentPlaylistId ?? null,
+          // Audio settings — persist user preferences
+          crossfadeEnabled: persistent.crossfadeEnabled,
+          crossfadeDuration: persistent.crossfadeDuration,
+          replayGainEnabled: persistent.replayGainEnabled,
           // Auth flag — persisted so rehydration can detect demo users
           isAuthenticated: persistent.isAuthenticated,
           // Persist userId so onRehydrateStorage can detect demo-user-id and clear it
@@ -2617,9 +2708,13 @@ export const useAppStore = create<AppState>()(
             eqBands: old?.eqBands ?? initialState.eqBands,
             eqPreset: old?.eqPreset ?? initialState.eqPreset,
             playbackRate: old?.playbackRate ?? initialState.playbackRate,
-            radioMode: old?.radioMode ?? initialState.radioMode,
-            smartShuffle: old?.smartShuffle ?? initialState.smartShuffle,
-            aiRecsHidden: old?.aiRecsHidden ?? initialState.aiRecsHidden,
+            // DO NOT migrate radioMode/radioSeedTrack/radioSkipCount — these
+            // are session-only transient state. Migrating them caused the
+            // "wave always active on page reload" bug. Always reset to
+            // initialState (false/null/0) on migration.
+            // smartShuffle is also transient — reset on migration.
+            // aiRecsHidden: v9 forces true for migrating users
+            aiRecsHidden: true,
           };
         }
         return { ...initialState };
@@ -2629,8 +2724,25 @@ export const useAppStore = create<AppState>()(
         if (!persisted) return current;
         const p = persisted as Record<string, unknown>;
         const merged = { ...current };
+        // Transient fields that must NEVER be restored from persisted state
+        // (even if old localStorage contains them). These are session-only
+        // state that would cause bugs like "wave always active" if restored.
+        const TRANSIENT_FIELDS = new Set([
+          "radioMode", "radioSeedTrack", "radioSkipCount",
+          "isPlaying", "isBuffering", "isDragging", "playbackState",
+          "sessionStartTime", "smartShuffle", "abRepeat",
+          "selectedContactId", "selectedGenre", "selectedPlaylistId",
+          "selectedGroupId", "selectedArtist", "typingUsers",
+          "_authGeneration", "_hasHydrated", "_playLock",
+          "spatialAudioEnabled", "spatialMood", "spatialAutoDetect",
+          "miniPlayerHidden", "isFullTrackViewOpen",
+          "publicPlaylistsLoading", "recommendedPlaylistsLoading",
+          "publicPlaylistsPage", "publicPlaylistsTotal",
+          "publicPlaylistsSearch", "publicPlaylistsSort",
+        ]);
         // Only copy known state keys from persisted data
         for (const key of Object.keys(initialState)) {
+          if (TRANSIENT_FIELDS.has(key)) continue;
           if (p[key] !== undefined) {
             (merged as Record<string, unknown>)[key] = p[key];
           }
@@ -2640,8 +2752,9 @@ export const useAppStore = create<AppState>()(
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error) {
-            console.error("[MQ Store] rehydration error – clearing localStorage:", error);
-            try { localStorage.removeItem(STORAGE_KEY); } catch {}
+            // TDZ errors during HMR are common — silently clear and continue
+            console.debug("[MQ Store] rehydration error — clearing localStorage and continuing");
+            try { localStorage.removeItem(STORAGE_KEY); } catch (e) { console.warn("[store]", e); }
             // CRITICAL: Even on rehydration error, mark hydration as complete.
             // Otherwise the UI stays stuck on the "mq" loading screen forever.
             useAppStore.setState({ _hasHydrated: true });
@@ -2711,6 +2824,15 @@ export const useAppStore = create<AppState>()(
           if (typeof s.currentTheme !== "string" || !s.currentTheme) fixes.currentTheme = "default";
           // Never auto-play on rehydration — always start paused
           if (s.isPlaying === true) fixes.isPlaying = false;
+          // CRITICAL: Always reset radioMode on rehydration. Previously
+          // radioMode could be persisted in old localStorage (before it
+          // was excluded from partialize), and merge() would copy it
+          // back — causing "wave always active" bug on page reload.
+          // Even if not persisted, a stale radioMode=true from a crashed
+          // session would survive. Force false on every rehydration.
+          if (s.radioMode === true) fixes.radioMode = false;
+          if (s.radioSeedTrack !== null) fixes.radioSeedTrack = null;
+          if (s.radioSkipCount !== 0) fixes.radioSkipCount = 0;
           if (typeof s.volume !== "number") fixes.volume = 70;
           if (typeof s.fontSize !== "number") fixes.fontSize = 16;
           if (typeof s.shuffle !== "boolean") fixes.shuffle = false;
@@ -2750,18 +2872,64 @@ export const useAppStore = create<AppState>()(
           // persisted `s` — otherwise demo-user reset above gets overridden by /api/auth/me
           const currentState = useAppStore.getState();
           if (currentState.isAuthenticated && currentState.userId && currentState.userId !== "demo-user-id") {
-            fetch('/api/auth/me')
+            // Retry up to 3 times with increasing delays to handle:
+            // - WebView cookie race on cold start
+            // - Vercel serverless cold start (function not warmed up)
+            // - Transient network issues
+            const fetchMe = (attempt: number) => fetch('/api/auth/me', { credentials: 'include' })
               .then(async (res) => {
+                if (res.status === 401) {
+                  // Actual auth failure — session expired or invalid
+                  if (attempt < 3) {
+                    // Retry with increasing delay: 500ms, 1s, 2s
+                    const delay = 500 * Math.pow(2, attempt);
+                    await new Promise(r => setTimeout(r, delay));
+                    return fetchMe(attempt + 1);
+                  }
+                  // 401 after 3 retries — session truly expired
+                  console.warn("[MQ Store] /api/auth/me 401 after 3 retries — session expired");
+                  return { _expired: true } as any;
+                }
                 if (!res.ok) {
-                  // Session expired or invalid — logout
-                  console.warn("[MQ Store] session expired on rehydrate — logging out");
-                  useAppStore.getState().logout();
+                  // Server error (500, 502, etc.) — NOT an auth failure.
+                  // Don't logout — keep local state, will retry on next interaction.
+                  console.warn("[MQ Store] /api/auth/me returned", res.status, "— server error, keeping session");
+                  return null;
+                }
+                return res.json();
+              })
+              .catch((err) => {
+                // Network error — don't logout, keep local session
+                console.warn("[MQ Store] /api/auth/me network error:", err.message);
+                return null;
+              });
+            fetchMe(0)
+              .then((me) => {
+                if (me && (me as any)._expired) {
+                  // Session truly expired — force logout
+                  console.warn("[MQ Store] forcing logout — session expired");
+                  useAppStore.setState({
+                    isAuthenticated: false,
+                    userId: null,
+                    username: null,
+                    email: null,
+                    avatar: null,
+                    currentView: "auth",
+                    isPlaying: false,
+                    playbackState: "idle",
+                  });
                   return;
                 }
-                // Session valid — restore user info from server
-                // NOTE: We only refresh user data, NOT re-run setAuth (which would
-                // trigger the 1500ms onboarding redirect). Instead, sync silently.
-                const me = await res.json();
+                if (!me) {
+                  // Server error or network issue — keep local session, ensure
+                  // user stays on main view (not kicked to auth)
+                  console.warn("[MQ Store] /api/auth/me unavailable — keeping local session");
+                  const cs = useAppStore.getState();
+                  if (cs.isAuthenticated && cs.currentView === "auth") {
+                    useAppStore.setState({ currentView: "main" });
+                  }
+                  return;
+                }
                 useAppStore.setState({
                   userId: me.userId,
                   username: me.username,
@@ -2792,8 +2960,11 @@ export const useAppStore = create<AppState>()(
           }
 
           // Periodic feedback sync: every 60 seconds if there are pending items
+          // Guard against HMR/StrictMode duplicate intervals
           if (typeof window !== "undefined") {
-            setInterval(() => {
+            const w = window as Window & { _mqFeedbackSyncInterval?: ReturnType<typeof setInterval> };
+            if (w._mqFeedbackSyncInterval) clearInterval(w._mqFeedbackSyncInterval);
+            w._mqFeedbackSyncInterval = setInterval(() => {
               const currentState = useAppStore.getState();
               if (currentState.feedbackBatch.pendingCount > 0) {
                 currentState.syncFeedbackToServer();

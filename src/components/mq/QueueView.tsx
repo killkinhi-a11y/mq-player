@@ -205,6 +205,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
               maxHeight: "80vh",
               maxWidth: "32rem",
               margin: "0 auto",
+              paddingBottom: "env(safe-area-inset-bottom, 0px)",
               boxShadow: "0 -8px 40px rgba(0,0,0,0.4), 0 -2px 12px rgba(0,0,0,0.2)",
             }}
             onClick={(e) => e.stopPropagation()}
@@ -240,8 +241,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
               </div>
               <div className="flex items-center gap-2">
                 {hasContent && (
-                  <motion.button
-                    whileTap={{ scale: 0.9 }}
+                  <button
                     onClick={() => {
                       clearUpNext();
                       // Also clear remaining queue by resetting to just current track
@@ -255,10 +255,9 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                   >
                     <Trash2 className="w-3 h-3" />
                     Очистить
-                  </motion.button>
+                  </button>
                 )}
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
+                <button
                   onClick={onClose}
                   className="p-2 rounded-full transition-colors"
                   style={{
@@ -266,7 +265,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                   }}
                 >
                   <X className="w-5 h-5" />
-                </motion.button>
+                </button>
               </div>
             </div>
 
@@ -339,15 +338,14 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                     )}
                   </div>
                   {upNext.length > 0 && (
-                    <motion.button
-                      whileTap={{ scale: 0.9 }}
+                    <button
                       onClick={clearUpNext}
                       className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors hover:opacity-80"
                       style={{ color: "var(--mq-text-muted)" }}
                     >
                       <Trash2 className="w-3 h-3" />
                       Очистить
-                    </motion.button>
+                    </button>
                   )}
                 </div>
                 {upNext.length > 0 ? (
@@ -522,12 +520,11 @@ function NowPlayingCard({
 }) {
   return (
     <motion.div
-      layout
       className="flex items-center gap-3 p-3 rounded-xl"
       style={{
         backgroundColor: "var(--mq-card)",
         border: "1px solid var(--mq-border)",
-        boxShadow: "0 0 0 1px rgba(var(--mq-accent-rgb, 255,255,255), 0.1)",
+        boxShadow: "0 0 0 1px color-mix(in srgb, var(--mq-accent) 10%, transparent)",
       }}
     >
       {/* Cover — larger for now playing */}
@@ -659,29 +656,16 @@ function HistoryTrackItem({
   }, [onClick, longPressWasActive]);
 
   return (
-    <motion.button
-      whileTap={{ scale: 0.98 }}
+    <button
       onClick={handleClick}
       onContextMenu={handleRightClick}
       onMouseDown={longPressHandlers.onMouseDown}
       onMouseUp={longPressHandlers.onMouseUp}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.backgroundColor =
-          "rgba(255,255,255,0.03)";
-        (e.currentTarget as HTMLElement).style.opacity = "1";
-      }}
-      onMouseLeave={(e) => {
-        longPressHandlers.onMouseLeave();
-        (e.currentTarget as HTMLElement).style.backgroundColor = "transparent";
-        (e.currentTarget as HTMLElement).style.opacity = "0.6";
-      }}
+      onMouseLeave={longPressHandlers.onMouseLeave}
       onTouchStart={longPressHandlers.onTouchStart}
       onTouchEnd={longPressHandlers.onTouchEnd}
       onTouchMove={longPressHandlers.onTouchMove}
-      className="group w-full flex items-center gap-2.5 p-2 rounded-xl transition-colors text-left select-none"
-      style={{
-        opacity: 0.6,
-      }}
+      className="group w-full flex items-center gap-2.5 p-2 rounded-xl transition-all text-left select-none opacity-60 hover:opacity-100 hover:bg-white/[0.03]"
     >
       {/* Cover thumbnail */}
       <div
@@ -727,7 +711,7 @@ function HistoryTrackItem({
       >
         {formatDuration(track.duration)}
       </span>
-    </motion.button>
+    </button>
   );
 }
 
@@ -799,7 +783,6 @@ function SortableUpNextTrackItem({
 
   return (
     <motion.div
-      layout
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: -50, scaleY: 0 }}
@@ -875,44 +858,41 @@ function SortableUpNextTrackItem({
       <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 sm:opacity-0 [@media(hover:none)]:opacity-100 transition-opacity">
         {/* Reorder up */}
         {!isFirst && onMoveUp ? (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={onMoveUp}
             className="p-1 rounded"
             style={{ color: "var(--mq-text-muted)" }}
             title="Переместить вверх"
           >
             <ChevronUp className="w-3.5 h-3.5" />
-          </motion.button>
+          </button>
         ) : (
           <div className="w-5" />
         )}
 
         {/* Reorder down */}
         {!isLast && onMoveDown ? (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={onMoveDown}
             className="p-1 rounded"
             style={{ color: "var(--mq-text-muted)" }}
             title="Переместить вниз"
           >
             <ChevronDown className="w-3.5 h-3.5" />
-          </motion.button>
+          </button>
         ) : (
           <div className="w-5" />
         )}
 
         {/* Remove */}
-        <motion.button
-          whileTap={{ scale: 0.95 }}
+        <button
           onClick={onRemove}
           className="p-1 rounded hover:text-red-400 transition-colors"
           style={{ color: "var(--mq-text-muted)" }}
           title="Убрать из очереди"
         >
           <X className="w-3.5 h-3.5" />
-        </motion.button>
+        </button>
       </div>
     </motion.div>
   );
@@ -994,7 +974,6 @@ function SortableQueueTrackItem({
 
   return (
     <motion.div
-      layout
       ref={setNodeRef}
       style={style}
       onClick={handleClick}
@@ -1066,28 +1045,26 @@ function SortableQueueTrackItem({
       {/* Reorder controls (visible on hover / touch) + Play icon */}
       <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
         {!isFirst && onMoveUp ? (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={(e) => { e.stopPropagation(); onMoveUp(); }}
             className="p-1 rounded"
             style={{ color: "var(--mq-text-muted)" }}
             title="Переместить вверх"
           >
             <ChevronUp className="w-3.5 h-3.5" />
-          </motion.button>
+          </button>
         ) : (
           <div className="w-5 hidden group-hover:block" />
         )}
         {!isLast && onMoveDown ? (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
+          <button
             onClick={(e) => { e.stopPropagation(); onMoveDown(); }}
             className="p-1 rounded"
             style={{ color: "var(--mq-text-muted)" }}
             title="Переместить вниз"
           >
             <ChevronDown className="w-3.5 h-3.5" />
-          </motion.button>
+          </button>
         ) : (
           <div className="w-5 hidden group-hover:block" />
         )}
@@ -1110,7 +1087,7 @@ function DragOverlayCard({ track }: { track: Track }) {
       className="flex items-center gap-2 p-2.5 rounded-xl select-none"
       style={{
         backgroundColor: "var(--mq-card)",
-        border: "1.5px solid var(--mq-accent)",
+        border: "1.5px solid var(--mq-border-accent-strong)",
         boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 16px color-mix(in srgb, var(--mq-accent) 20%, transparent)",
         maxWidth: "32rem",
         cursor: "grabbing",

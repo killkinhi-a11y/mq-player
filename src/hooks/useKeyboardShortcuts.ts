@@ -66,6 +66,17 @@ export function useKeyboardShortcuts() {
 
     const key = e.key;
 
+    // When FullTrackView is open, it handles its own keyboard shortcuts.
+    // Skip global handler to avoid double-triggering (Space, arrows, etc.)
+    if (store.isFullTrackViewOpen) {
+      const handledByFullView = [
+        " ", "ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown",
+        "n", "N", "p", "P", "m", "M", "l", "L",
+        "f", "F", "Escape",
+      ];
+      if (handledByFullView.includes(key)) return;
+    }
+
     switch (key) {
       // ── Space: toggle play / pause ──
       case " ": {
@@ -203,16 +214,6 @@ export function useKeyboardShortcuts() {
         // Toggle so pressing ? again closes the modal
         const cur = useAppStore.getState().shortcutsHelpOpen;
         useAppStore.getState().setShortcutsHelpOpen(!cur);
-        break;
-      }
-
-      // ── / : also open help (some keyboards need Shift+/ for ?) ──
-      case "/": {
-        // Only open if not already open — don't toggle, to avoid
-        // surprising users who type / expecting it to do nothing.
-        if (!useAppStore.getState().shortcutsHelpOpen) {
-          useAppStore.getState().setShortcutsHelpOpen(true);
-        }
         break;
       }
 

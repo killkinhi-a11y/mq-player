@@ -1,686 +1,305 @@
 "use client";
 
+// MQ Player — Messenger (Telegram-style rewrite)
+// Safety-first: every state array is Array.isArray-guarded, every async op
+// is wrapped in try/catch, and a recoverable error state replaces any white
+// screen.
+
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
-import MessageBubble from "./MessageBubble";
-import { EmptyState } from "./EmptyState";
-// NotificationPanel is now global in play/page.tsx
-import { Input } from "@/components/ui/input";
 import {
-  Lock, Shield, Send, ArrowLeft, Search, ShieldCheck, Smile, Trash2,
-  Plus, Music2, X, Loader2, Copy, Reply, UserPlus, UserCheck, Users, AlertCircle,
-  Play, Pause, ChevronLeft, ChevronRight, ChevronDown, BookOpen, Pin,
-  Mic, MicOff, Edit3, MessageSquare, Sticker,
-  MoreVertical, Check, Bell, Ban, Download, MessageCircle, Phone, Headphones,
-  Palette
+  MessageCircle, Search, Send, ArrowLeft, X, Plus, Loader2, UserPlus, Mic,
+  Pin, Trash2, Smile, Users, Lock, Check, CheckCheck, Copy, Reply,
 } from "lucide-react";
-import { simulateEncrypt, getEncryptionStatus, generateMockFingerprint, simulateDecryptSync } from "@/lib/crypto";
-import Image from "next/image";
+import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
+import { useToast } from "@/hooks/use-toast";
+import type { Message as ChatMessage } from "@/lib/musicApi";
 
-// ═══════════════════════════════════════════════════════════════
-//  TYPES
-// ═══════════════════════════════════════════════════════════════
+// ─── Types ────────────────────────────────────────────────────────────────
 
-interface Story {
-  id: string; userId: string; username: string; avatar: string;
-  content: string; contentType: "text" | "image" | "track" | "video";
-  createdAt: string; expiresAt: string; viewed: boolean; likes: number;
-  trackData?: { id: string; title: string; artist: string; cover: string; duration: number; streamUrl: string };
-  videoUrl?: string;
-}
-
-interface FriendUser { id: string; username: string; avatar: string; addedAt: string; }
-interface PendingRequest { id: string; username: string; requestId: string; }
-interface FetchedUser { id: string; username: string; email: string; createdAt: string; }
-
+interface FriendUser { id: string; username: string; avatar?: string; addedAt: string; }
+interface OnlineStatus { online: boolean; lastSeen: string | null; }
+interface GroupMember { id: string; username: string; avatar?: string; }
 interface GroupChat {
-  id: string; name: string; description?: string; creatorId: string;
-  memberIds: string[]; createdAt: string;
+  id: string; name: string; avatar?: string; members: GroupMember[]; createdAt: string;
 }
+interface ContextMenuState { id: string; x: number; y: number; }
 
-interface EditingMessage { id: string; content: string; }
-interface ReplyingTo { id: string; content: string; senderName: string; senderId: string; }
+const QUICK_EMOJIS = ["❤️", "🔥", "😂", "👍", "😮", "😢"];
 
-// ═══════════════════════════════════════════════════════════════
-//  CONSTANTS & DATA
-// ═══════════════════════════════════════════════════════════════
+// ─── Helpers ──────────────────────────────────────────────────────────────
 
-const storyGradients = [
-  "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-  "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
-  "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
-  "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
-  "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
-  "linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%)",
-];
-
-const quickEmojis = ["😀", "😂", "❤️", "🎵", "🔥", "👍", "😎", "🤔", "💪", "🫡", "✨", "🥳"];
-
-const stickerCategories = [
-  { name: "Смайлы", items: ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "😉", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪"] },
-  { name: "Жесты", items: ["👍", "👎", "👋", "🤝", "👏", "🙌", "🤞", "✌️", "🤟", "🫶", "💪", "🫡", "🤙", "🖕", "✋", "🖖", "👌", "🤌", "🤏", "👈", "👉", "👆", "👇", "☝️"] },
-  { name: "Животные", items: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐸", "🐵", "🐔", "🐧", "🦄", "🐙", "🦋", "🐢", "🦀", "🐬", "🦜", "🐝", "🦉"] },
-  { name: "Еда", items: ["🍕", "🍔", "🍟", "🌮", "🍣", "🍦", "🍩", "🍪", "🍫", "☕", "🧋", "🍺", "🥗", "🍝", "🍜", "🥐", "🧇", "🥞", "🍿", "🧁", "🎂", "🍰", "🥧", "🍬"] },
-  { name: "Сердца", items: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💗", "💖", "💝", "💞", "💕", "💓", "💔", "❤️‍🔥", "❤️‍🩹", "💌", "💗", "💘", "💝", "💟", "♥️", "🏳️"] },
-  { name: "Музыка", items: ["🎵", "🎶", "🎸", "🎹", "🥁", "🎺", "🎻", "🪗", "🎙️", "🎧", "🎤", "🎼", "🪕", "🎷", "🪘", "🥁", "🔊", "🔉", "🔈", "🔇", "📻", "🪇", "🎹", "🎵"] },
-];
-
-// ═══════════════════════════════════════════════════════════════
-//  HELPERS
-// ═══════════════════════════════════════════════════════════════
-
-function AvatarImg({ src, alt, className, style }: { src: string; alt: string; className?: string; style?: React.CSSProperties }) {
-  const [errored, setErrored] = useState(false);
-  const initials = alt.replace("@", "").split(" ").map((w) => w.charAt(0).toUpperCase()).slice(0, 2).join("");
-  const useFallback = errored || !src || src.trim() === "" || src === "null" || src === "undefined";
-  if (useFallback) {
-    const colors = ["#e03131", "#0ea5e9", "#f43f5e", "#f97316", "#34d399", "#a78bfa", "#ff2a6d", "#e040fb"];
-    const colorIdx = (alt.charCodeAt(0) + (alt.charCodeAt(1) || 0)) % colors.length;
-    return (
-      <div className={className} style={{ backgroundColor: colors[colorIdx], display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 700, fontSize: "0.8em", ...style }}>
-        {initials || "?"}
-      </div>
-    );
-  }
-  return <Image src={src} alt={alt} className={className} style={style} width={40} height={40} unoptimized onError={() => setErrored(true)} />;
-}
-
-function getDateLabel(dateStr: string): string {
-  const msgDate = new Date(dateStr);
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const msgDay = new Date(msgDate.getFullYear(), msgDate.getMonth(), msgDate.getDate());
-  if (msgDay.getTime() === today.getTime()) return "Сегодня";
-  if (msgDay.getTime() === yesterday.getTime()) return "Вчера";
-  return msgDate.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+function formatTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  } catch { return ""; }
 }
 
 function formatLastSeen(iso: string | null): string {
-  if (!iso) return "давно";
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (diff < 1) return "только что";
-  if (diff < 5) return `${diff} мин назад`;
-  if (diff < 60) return `был(а) ${diff} мин назад`;
-  if (diff < 1440) return `был(а) ${Math.floor(diff / 60)} ч назад`;
-  return `был(а) ${Math.floor(diff / 1440)} дн назад`;
+  if (!iso) return "был(а) недавно";
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "был(а) недавно";
+    const diffMin = Math.floor((Date.now() - d.getTime()) / 60000);
+    if (diffMin < 1) return "только что";
+    if (diffMin < 60) return `был(а) ${diffMin} мин назад`;
+    const diffH = Math.floor(diffMin / 60);
+    if (diffH < 24) return `был(а) ${diffH} ч назад`;
+    return `был(а) ${d.toLocaleDateString("ru-RU")}`;
+  } catch { return "был(а) недавно"; }
 }
 
-function formatRecordingTime(seconds: number): string {
-  const m = Math.floor(seconds / 60).toString().padStart(2, "0");
-  const s = (seconds % 60).toString().padStart(2, "0");
-  return `${m}:${s}`;
+function formatDuration(sec: number): string {
+  const s = Math.max(0, Math.floor(sec || 0));
+  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  GLASSMORPHISM STYLE HELPERS
-// ═══════════════════════════════════════════════════════════════
+function getDateLabel(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+    const msgDay = new Date(d); msgDay.setHours(0, 0, 0, 0);
+    if (msgDay.getTime() === today.getTime()) return "Сегодня";
+    if (msgDay.getTime() === yesterday.getTime()) return "Вчера";
+    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long" });
+  } catch { return ""; }
+}
 
-// P1-fix: Use glass tokens instead of hardcoded rgba — invisible on Daylight theme otherwise
-const glassPanel: React.CSSProperties = {
-  background: "var(--mq-glass-bg)",
-  backdropFilter: "blur(12px)",
-  WebkitBackdropFilter: "blur(12px)",
-  border: "1px solid var(--mq-glass-border)",
-};
+function sameDay(a: string, b: string): boolean {
+  try {
+    const da = new Date(a), db = new Date(b);
+    return da.getFullYear() === db.getFullYear() &&
+      da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+  } catch { return false; }
+}
 
-const glassPanelSolid: React.CSSProperties = {
-  background: "var(--mq-card)",
-  border: "1px solid var(--mq-border)",
-};
+const AVATAR_COLORS = [
+  "linear-gradient(135deg, #e03131, #b91c1c)",
+  "linear-gradient(135deg, #db2777, #9d174d)",
+  "linear-gradient(135deg, #9333ea, #6b21a8)",
+  "linear-gradient(135deg, #0d9488, #134e4a)",
+  "linear-gradient(135deg, #65a30d, #365314)",
+  "linear-gradient(135deg, #d97706, #78350f)",
+  "linear-gradient(135deg, #0891b2, #155e75)",
+];
 
-const shadowDeep = "0 8px 32px rgba(0,0,0,0.35)";
+function colorForId(id: string): string {
+  let hash = 0;
+  const s = id || "x";
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) | 0;
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
 
-// ═══════════════════════════════════════════════════════════════
-//  TYPING INDICATOR COMPONENT
-// ═══════════════════════════════════════════════════════════════
+function getInitials(name: string): string {
+  return name ? name.replace("@", "").charAt(0).toUpperCase() : "?";
+}
 
-function TypingBubble({ contactId }: { contactId: string }) {
-  // P2-#310: use a stable selector — s.typingUsers[contactId] returns undefined
-  // which is a primitive (stable). But when typingUsers object changes (new ref),
-  // this selector re-runs. If the value is the same, Zustand skips re-render.
-  // The forceUpdate interval was causing #310: every 500ms it called forceUpdate,
-  // which triggered re-render, which triggered the AnimatePresence to re-mount
-  // its child, which triggered another state update → infinite loop.
-  const typingTs = useAppStore((s) => s.typingUsers[contactId]);
-  const [visible, setVisible] = useState(false);
+function parseVoice(content: string): { voiceUrl: string; voiceDuration: number } | null {
+  if (!content || typeof content !== "string") return null;
+  try {
+    const p = JSON.parse(content);
+    if (p && typeof p.voiceUrl === "string") {
+      return { voiceUrl: p.voiceUrl, voiceDuration: Number(p.voiceDuration) || 0 };
+    }
+  } catch {}
+  return null;
+}
+
+function decrypt(content: string): string {
+  try { return simulateDecryptSync(content || ""); } catch { return content || ""; }
+}
+
+// ─── Voice Message Bubble ─────────────────────────────────────────────────
+
+function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
+  voiceUrl: string; duration: number; isMine: boolean;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [dur, setDur] = useState(duration || 0);
 
   useEffect(() => {
-    if (!typingTs) { setVisible(false); return; }
-    const isRecent = Date.now() - typingTs < 4000;
-    setVisible(isRecent);
-    
-    if (!isRecent) return;
-    
-    // Set a timeout to hide after 4s TTL — single timeout, not interval
-    const remaining = 4000 - (Date.now() - typingTs);
-    const timer = setTimeout(() => setVisible(false), Math.max(500, remaining));
-    return () => clearTimeout(timer);
-  }, [typingTs]);
+    let cancelled = false;
+    try {
+      const audio = new Audio(voiceUrl);
+      audio.onloadedmetadata = () => { if (!cancelled) setDur(audio.duration || duration || 0); };
+      audio.ontimeupdate = () => { if (!cancelled) setCurrentTime(audio.currentTime || 0); };
+      audio.onended = () => { if (!cancelled) { setPlaying(false); setCurrentTime(0); } };
+      audioRef.current = audio;
+    } catch {}
+    return () => {
+      cancelled = true;
+      try { audioRef.current?.pause(); } catch {}
+      audioRef.current = null;
+    };
+  }, [voiceUrl, duration]);
 
-  if (!visible) return null;
+  const toggle = useCallback(() => {
+    try {
+      const a = audioRef.current;
+      if (!a) return;
+      if (playing) { a.pause(); setPlaying(false); }
+      else { a.play().catch(() => {}); setPlaying(true); }
+    } catch {}
+  }, [playing]);
+
+  const progress = dur > 0 ? (currentTime / dur) * 100 : 0;
+  // Deterministic waveform (no Math.random to avoid re-renders).
+  const bars = useMemo(() => {
+    const arr: number[] = [];
+    for (let i = 0; i < 28; i++) arr.push(0.25 + ((i * 7) % 10) / 12);
+    return arr;
+  }, []);
 
   return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 5 }}
-        className="flex items-center gap-2 px-4 py-2"
-      >
-        <div className="flex gap-1">
-          <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--mq-accent)", animationDelay: "0ms" }} />
-          <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--mq-accent)", animationDelay: "150ms" }} />
-          <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ backgroundColor: "var(--mq-accent)", animationDelay: "300ms" }} />
+    <div className="flex items-center gap-2 min-w-[180px] py-0.5">
+      <motion.button whileTap={{ scale: 0.9 }} onClick={toggle}
+        className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+        style={{ backgroundColor: isMine ? "rgba(255,255,255,0.22)" : "var(--mq-accent)", color: "#fff" }}
+        aria-label={playing ? "Пауза" : "Воспроизвести"}>
+        {playing ? <span className="text-[10px] leading-none">❚❚</span>
+          : <span className="text-xs leading-none ml-0.5">▶</span>}
+      </motion.button>
+      <div className="flex-1">
+        <div className="flex items-end gap-[2px] h-7">
+          {bars.map((h, i) => {
+            const isActive = (i / bars.length) * 100 < progress;
+            return (
+              <div key={i} className="w-[2px] rounded-full transition-colors"
+                style={{
+                  height: `${h * 100}%`,
+                  backgroundColor: isMine
+                    ? (isActive ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)")
+                    : (isActive ? "var(--mq-accent)" : "var(--mq-text-muted)"),
+                }} />
+            );
+          })}
         </div>
-        <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>печатает...</span>
-      </motion.div>
-    </AnimatePresence>
+        <div className="text-[10px] mt-1"
+          style={{ color: isMine ? "rgba(255,255,255,0.75)" : "var(--mq-text-muted)" }}>
+          {formatDuration(playing ? currentTime : dur)}
+        </div>
+      </div>
+    </div>
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-//  COMPONENT
-// ═══════════════════════════════════════════════════════════════
+// ─── Avatar ───────────────────────────────────────────────────────────────
+
+function Avatar({ src, name, id, size = 44, isGroup = false }: {
+  src?: string; name: string; id: string; size?: number; isGroup?: boolean;
+}) {
+  if (src) {
+    return <img src={src} alt={name} className="rounded-full object-cover flex-shrink-0"
+      style={{ width: size, height: size }} />;
+  }
+  return (
+    <div className="rounded-full flex items-center justify-center font-bold flex-shrink-0"
+      style={{
+        width: size, height: size,
+        background: isGroup ? "linear-gradient(135deg, #8b5cf6, #6366f1)" : colorForId(id),
+        color: "#fff", fontSize: size * 0.4,
+      }}>
+      {isGroup ? <Users style={{ width: size * 0.45, height: size * 0.45 }} /> : getInitials(name)}
+    </div>
+  );
+}
+
+// ─── Date Separator ───────────────────────────────────────────────────────
+
+function DateSeparator({ label }: { label: string }) {
+  return (
+    <div className="flex justify-center my-3">
+      <span className="text-[11px] px-3 py-1 rounded-full font-medium"
+        style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "var(--mq-text-muted)" }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────
 
 export default function MessengerView() {
   const userId = useAppStore((s) => s.userId);
   const username = useAppStore((s) => s.username);
-  const email = useAppStore((s) => s.email);
   const messages = useAppStore((s) => s.messages);
   const addMessage = useAppStore((s) => s.addMessage);
   const selectedContactId = useAppStore((s) => s.selectedContactId);
   const setSelectedContact = useAppStore((s) => s.setSelectedContact);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
-  const currentTrack = useAppStore((s) => s.currentTrack);
-  const isPlaying = useAppStore((s) => s.isPlaying);
-  const unreadCounts = useAppStore((s) => s.unreadCounts);
-  const addContact = useAppStore((s) => s.addContact);
-  const contacts = useAppStore((s) => s.contacts);
-  const loadMessages = useAppStore((s) => s.loadMessages);
-  const notificationCount = useAppStore((s) => s.notificationCount);
+  const unreadCounts = useAppStore((s) => s.unreadCounts) as Record<string, number>;
+  const compactMode = useAppStore((s) => s.compactMode);
+  const { toast } = useToast();
 
-  // ── Core UI state ──
+  // ── Local state ──
+  const [friends, setFriends] = useState<FriendUser[]>([]);
+  const [onlineStatuses, setOnlineStatuses] = useState<Record<string, OnlineStatus>>({});
   const [inputText, setInputText] = useState("");
-  const [searchContact, setSearchContact] = useState("");
-  const [fingerprint] = useState(generateMockFingerprint);
-  const [showEmojis, setShowEmojis] = useState(false);
-  const [mentionSearch, setMentionSearch] = useState("");
-  const [showMentions, setShowMentions] = useState(false);
-  const [contextMenuMsgId, setContextMenuMsgId] = useState<{ id: string; x: number; y: number } | null>(null);
-  const [clearConfirm, setClearConfirm] = useState<{ contactId: string | null; forBoth: boolean } | null>(null);
-  const [showNewChatDialog, setShowNewChatDialog] = useState(false);
-  const [showStoryCreate, setShowStoryCreate] = useState(false);
-  const [storyText, setStoryText] = useState("");
-  const [newChatSearch, setNewChatSearch] = useState("");
-  const [mounted, setMounted] = useState(false);
-  const [showChatSettings, setShowChatSettings] = useState(false);
-  const [showEncryptionDialog, setShowEncryptionDialog] = useState(false);
-  const [showProfileView, setShowProfileView] = useState<string | null>(null);
-  const [showProfileMore, setShowProfileMore] = useState(false);
-
-  // ── Pinned messages — per chat (state only, logic below after activeChatId) ──
-  const [pinnedMessages, setPinnedMessages] = useState<Record<string, string>>(() => {
-    try { return JSON.parse(localStorage.getItem("mq-pinned-messages") || "{}"); } catch { return {}; }
-  });
-  const [showPinnedBar, setShowPinnedBar] = useState(false);
-  const [friendNowPlaying, setFriendNowPlaying] = useState<{ title: string; artist: string; cover: string } | null>(null);
-  const [friendNowPlayingActive, setFriendNowPlayingActive] = useState(false);
-  const [hideOnline, setHideOnline] = useState(() => {
-    if (typeof window !== "undefined") {
-      try { const v = localStorage.getItem("mq-hide-online"); return v === "true"; } catch { return false; }
-    }
-    return false;
-  });
-  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>("default");
-  // notifUnreadCount is now global via store.notificationCount
-
-  // ── Responsive viewport height tracking ──
   const [isMobileView, setIsMobileView] = useState(false);
-  /* useEffect moved to bottom of declarations */
-
-  // ── Pinned chats (persisted to localStorage) ──
-  const [pinnedChatIds, setPinnedChatIds] = useState<Set<string>>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("mq-pinned-chats");
-        return saved ? new Set(JSON.parse(saved)) : new Set();
-      } catch { return new Set(); }
-    }
-    return new Set();
-  });
-
-  // ── New features state ──
-  const [editingMessage, setEditingMessage] = useState<EditingMessage | null>(null);
-  const [replyingTo, setReplyingTo] = useState<ReplyingTo | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingDuration, setRecordingDuration] = useState(0);
-  const [searchMode, setSearchMode] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [showStickers, setShowStickers] = useState(false);
-  const [stickerTab, setStickerTab] = useState(0);
-  const [showGroupCreate, setShowGroupCreate] = useState(false);
-  const [showScrollFAB, setShowScrollFAB] = useState(false);
-  const [showTrackPicker, setShowTrackPicker] = useState(false);
-  const [messageReactions, setMessageReactions] = useState<Record<string, string[]>>({});
-  const [swipeStartX, setSwipeStartX] = useState<number | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
-  const [groupName, setGroupName] = useState("");
-  const [groupDesc, setGroupDesc] = useState("");
-  const [groupMembers, setGroupMembers] = useState<Set<string>>(new Set());
-  const [onlineStatuses, setOnlineStatuses] = useState<Record<string, { online: boolean; lastSeen: string | null }>>({});
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [showNewGroup, setShowNewGroup] = useState(false);
+  const [inChatSearch, setInChatSearch] = useState("");
+  const [showInChatSearch, setShowInChatSearch] = useState(false);
+  const [newChatSearch, setNewChatSearch] = useState("");
+  const [newChatUsers, setNewChatUsers] = useState<any[]>([]);
+  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [groupChats, setGroupChats] = useState<GroupChat[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
-  const [groupMessages, setGroupMessages] = useState<Record<string, any[]>>({});
-
-  // ── Friends system state ──
-  const [friends, setFriends] = useState<FriendUser[]>([]);
-  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
-  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
-  const [friendRequestStatus, setFriendRequestStatus] = useState<Record<string, string>>({});
-  const [showFriendRequests, setShowFriendRequests] = useState(false);
-
-  // ── New chat dialog search results ──
-  const [newChatUsers, setNewChatUsers] = useState<FetchedUser[]>([]);
-  const [isLoadingNewChat, setIsLoadingNewChat] = useState(false);
-
-  // ── Server messages loaded flag ──
-  const [serverMessagesLoaded, setServerMessagesLoaded] = useState<Record<string, boolean>>({});
-
-  // ── Chat themes — P2: custom backgrounds per chat ──
-  const CHAT_THEMES = useMemo(() => ({
-    default: { name: "По умолчанию", bg: "transparent", pattern: "none", patternSize: "0" },
-    midnight: { name: "Полночь", bg: "linear-gradient(180deg, #0a0a1a 0%, #0e0e0e 100%)", pattern: "none", patternSize: "0" },
-    sunset: { name: "Закат", bg: "linear-gradient(180deg, #1a0a1e 0%, #0e0e0e 100%)", pattern: "none", patternSize: "0" },
-    forest: { name: "Лес", bg: "linear-gradient(180deg, #0a1a0e 0%, #0e0e0e 100%)", pattern: "none", patternSize: "0" },
-    ocean: { name: "Океан", bg: "linear-gradient(180deg, #0a1a2a 0%, #0e0e0e 100%)", pattern: "none", patternSize: "0" },
-    rose: { name: "Роза", bg: "linear-gradient(180deg, #2a0a1a 0%, #0e0e0e 100%)", pattern: "none", patternSize: "0" },
-    dots: { name: "Точки", bg: "var(--mq-bg)", pattern: "radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)", patternSize: "20px 20px" },
-    grid: { name: "Сетка", bg: "var(--mq-bg)", pattern: "linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px)", patternSize: "30px 30px" },
-  }), []);
-  const [chatThemes, setChatThemes] = useState<Record<string, string>>(() => {
-    try { return JSON.parse(localStorage.getItem("mq-chat-themes") || "{}"); } catch { return {}; }
+  const [groupMessages, setGroupMessages] = useState<Record<string, ChatMessage[]>>({});
+  const [groupName, setGroupName] = useState("");
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+  const [pinnedChats, setPinnedChats] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem("mq-pinned-chats");
+      const parsed = stored ? JSON.parse(stored) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
   });
-  const [showThemePicker, setShowThemePicker] = useState(false);
-  const activeChatId = selectedGroupId || selectedContactId;
-  const currentChatTheme = chatThemes[activeChatId || ""] || "default";
+  const [pinnedMessages, setPinnedMessages] = useState<Record<string, string>>(() => {
+    try {
+      const stored = localStorage.getItem("mq-pinned-messages");
+      const parsed = stored ? JSON.parse(stored) : {};
+      return parsed && typeof parsed === "object" ? parsed : {};
+    } catch { return {}; }
+  });
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [showQuickEmojis, setShowQuickEmojis] = useState(false);
+  const [loadError, setLoadError] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const setChatTheme = useCallback((themeId: string) => {
-    if (!activeChatId) return;
-    setChatThemes(prev => {
-      const next = { ...prev, [activeChatId]: themeId };
-      try { localStorage.setItem("mq-chat-themes", JSON.stringify(next)); } catch {}
-      return next;
-    });
-    setShowThemePicker(false);
-  }, [activeChatId]);
-
-  // ── Listen together state ──
-  const [listenInviteLoading, setListenInviteLoading] = useState(false);
-  const [listenInviteConfirm, setListenInviteConfirm] = useState<string | null>(null);
-  const [acceptingSessionId, setAcceptingSessionId] = useState<string | null>(null);
-
-  // ── Stories state ──
-  const [stories, setStories] = useState<Story[]>([]);
-  const [viewingStoryIndex, setViewingStoryIndex] = useState<number | null>(null);
-  const [storyProgress, setStoryProgress] = useState(0);
-  const [storyPaused, setStoryPaused] = useState(false);
-  const storyTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // ── All refs declared here before any useEffect to avoid TDZ in SWC minifier ──
-  const bcRef = useRef<BroadcastChannel | null>(null);
+  // ── Refs ──
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const sseRef = useRef<EventSource | null>(null);
-  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const notifAudioCtxRef = useRef<AudioContext | null>(null);
-  const lastSeenTimeRef = useRef<string>(new Date(Date.now() - 10000).toISOString());
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bcRef = useRef<BroadcastChannel | null>(null);
+  const lastSeenTimeRef = useRef<string>(new Date(0).toISOString());
   const recordingDurationRef = useRef(0);
-  const sendingRef = useRef(false);
-  const scrollRafRef = useRef<number>(0);
-  const lastSentTimeRef = useRef(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pullStartYRef = useRef<number | null>(null);
 
-  // ═══════════════════════════════════════════════════════════
-  //  COMPUTED VALUES (useCallback / useMemo)
-  //  Defined before useEffects to avoid TDZ in Turbopack minifier
-  // ═══════════════════════════════════════════════════════════
+  // ── Derived (always-defensive) ──
+  const activeChatId = selectedGroupId || selectedContactId;
+  const isGroupChat = !!selectedGroupId;
+  const safeFriends = Array.isArray(friends) ? friends : [];
+  const safeGroupChats = Array.isArray(groupChats) ? groupChats : [];
+  const safeMessages = Array.isArray(messages) ? (messages as ChatMessage[]) : [];
 
-  // ── Fetch friends list ──
-  const fetchFriends = useCallback(async () => {
-    if (!userId) return;
-    setIsLoadingFriends(true);
-    try {
-      const res = await fetch(`/api/friends?userId=${userId}`);
-      if (res.ok) {
-        const data = await res.json();
-        setFriends(data.friends || []);
-        setPendingRequests(data.pendingRequests || []);
-      }
-    } catch { /* silent */ } finally { setIsLoadingFriends(false); }
-  }, [userId]);
-
-  // ── Notification permission ──
-  const requestNotifPermission = useCallback(async () => {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    try {
-      const perm = await Notification.requestPermission();
-      setNotificationPermission(perm);
-    } catch { /* ignore */ }
-  }, []);
-
-  const playNotifSound = useCallback(() => {
-    try {
-      if (!notifAudioCtxRef.current || notifAudioCtxRef.current.state === "closed") {
-        notifAudioCtxRef.current = new AudioContext();
-      }
-      const ctx = notifAudioCtxRef.current;
-      if (ctx.state === "suspended") ctx.resume();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 880;
-      osc.type = "sine";
-      gain.gain.value = 0.1;
-      osc.start();
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.stop(ctx.currentTime + 0.3);
-    } catch { /* ignore */ }
-  }, []);
-
-  const closeStoryViewer = useCallback(() => { setViewingStoryIndex(null); setStoryProgress(0); }, []);
-  const viewingStory = viewingStoryIndex !== null ? stories[viewingStoryIndex] : null;
-
-  /* useEffect: fetch stories moved to bottom of declarations */
-
-  const notifPermRef = useRef(notificationPermission);
-  useEffect(() => { notifPermRef.current = notificationPermission; }, [notificationPermission]);
-
-  const processIncomingMessage = useCallback((m: any) => {
-    const state = useAppStore.getState();
-    const existing = state.messages.find((em: any) => em.id === m.id);
-    if (existing) return;
-    // Also dedup by signature (content + senderId + receiverId) for messages within 5 seconds
-    const recent = state.messages.find((em: any) => {
-      if (em.senderId !== m.senderId || em.receiverId !== m.receiverId) return false;
-      if (em.content !== m.content) return false;
-      const timeDiff = Math.abs(new Date(em.createdAt).getTime() - new Date(m.createdAt).getTime());
-      return timeDiff < 5000; // within 5 seconds = same message
-    });
-    if (recent) return;
-
-    const msg = {
-      id: m.id,
-      content: m.content,
-      senderId: m.senderId,
-      receiverId: m.receiverId,
-      encrypted: m.encrypted ?? true,
-      createdAt: m.createdAt,
-      senderName: m.senderUsername ? `@${m.senderUsername}` : undefined,
-      messageType: m.messageType,
-      replyToId: m.replyToId,
-      edited: m.edited,
-      voiceUrl: m.voiceUrl,
-      voiceDuration: m.voiceDuration,
-    };
-    state.addMessage(msg);
-
-    // Push notification for new messages (all states, if permission granted)
-    if (m.senderId !== userId) {
-      playNotifSound();
-      // Show browser notification — use ref to avoid stale closure
-      const perm = notifPermRef.current;
-      if (perm === "granted" && document.visibilityState === "hidden") {
-        try {
-          const decrypted = simulateDecryptSync(m.content);
-          const preview = decrypted.length > 60 ? decrypted.slice(0, 60) + "..." : decrypted;
-          const senderName = m.senderUsername || "Someone";
-          new Notification(`Сообщение от ${senderName}`, {
-            body: preview,
-            icon: "/icon-192.png",
-            tag: m.id,
-          });
-        } catch { /* ignore */ }
-      } else if (perm === "default") {
-        requestNotifPermission();
-      }
-      // Broadcast to other tabs — include full message data
-      try {
-        bcRef.current?.postMessage({
-          type: "new_message",
-          payload: m,
-        });
-      } catch { /* BroadcastChannel not available */ }
-    }
-
-    // Update cursor
-    if (m.createdAt) {
-      lastSeenTimeRef.current = m.createdAt;
-    }
-  }, [userId, playNotifSound, requestNotifPermission]);
-
-  const contactList = useMemo(() => {
-    return friends.map((f) => ({
-      id: f.id, name: f.username, username: f.username, avatar: f.avatar || "",
-      online: onlineStatuses[f.id]?.online ?? false,
-      lastSeen: onlineStatuses[f.id]?.lastSeen ?? new Date(f.addedAt).toISOString(),
-    }));
-  }, [friends, onlineStatuses]);
-
-  const filteredContacts = useMemo(() => {
-    if (!searchContact.trim()) return contactList;
-    const q = searchContact.toLowerCase();
-    return contactList.filter((c) => c.username.toLowerCase().includes(q) || c.name.toLowerCase().includes(q));
-  }, [contactList, searchContact]);
-
-  const sortedContacts = useMemo(() => {
-    const pinned: typeof filteredContacts = [];
-    const unpinned: typeof filteredContacts = [];
-    for (const c of filteredContacts) {
-      if (pinnedChatIds.has(c.id)) pinned.push(c);
-      else unpinned.push(c);
-    }
-    return [...pinned, ...unpinned];
-  }, [filteredContacts, pinnedChatIds]);
-
-  const selectedContact = useMemo(
-    () => contacts.find((c) => c.id === selectedContactId) || contactList.find((c) => c.id === selectedContactId),
-    [selectedContactId, contacts, contactList],
-  );
-
-  const selectedGroup = useMemo(
-    () => groupChats.find((g) => g.id === selectedGroupId),
-    [groupChats, selectedGroupId],
-  );
-
-  const getLastMessage = useCallback((contactId: string) => {
-    if (!userId) return null;
-    const msgs = messages.filter((m) => (m.senderId === userId && m.receiverId === contactId) || (m.senderId === contactId && m.receiverId === userId));
-    if (msgs.length === 0) return null;
-    return msgs[msgs.length - 1];
-  }, [messages, userId]);
-
-  const getUnreadCount = useCallback((contactId: string) => unreadCounts[contactId] || 0, [unreadCounts]);
-
-  const friendIds = useMemo(() => new Set(friends.map((f) => f.id)), [friends]);
-
-  const newChatFilteredContacts = useMemo(() => {
-    return newChatUsers.filter((u) => !friendIds.has(u.id)).map((u) => ({
-      id: u.id, name: u.username, username: u.username, avatar: "", online: false,
-      lastSeen: new Date(u.createdAt).toLocaleDateString("ru-RU"),
-    }));
-  }, [newChatUsers, friendIds]);
-
-  // ── DM Messages ──
-  const contactMessages = useMemo(() => {
-    if (!userId || !selectedContactId) return [];
-    return messages.filter((m) => (m.senderId === userId && m.receiverId === selectedContactId) || (m.senderId === selectedContactId && m.receiverId === userId));
-  }, [messages, userId, selectedContactId]);
-
-  const groupedMessages = useMemo(() => {
-    const groups: { label: string; messages: typeof contactMessages }[] = [];
-    let currentLabel = "";
-    for (const msg of contactMessages) {
-      const label = getDateLabel(msg.createdAt);
-      if (label !== currentLabel) { currentLabel = label; groups.push({ label, messages: [] }); }
-      groups[groups.length - 1].messages.push(msg);
-    }
-    return groups;
-  }, [contactMessages]);
-
-  // ── Group messages for selected group ──
-  const currentGroupMessages = useMemo(() => groupMessages[selectedGroupId || ""] || [], [groupMessages, selectedGroupId]);
-
-  /* useEffect: scroll to bottom moved to bottom of declarations */
-
-  const sendMessageOptimistic = useCallback(async (content: string, extra?: Record<string, unknown>) => {
-    const targetId = selectedGroupId || selectedContactId;
-    if (!targetId || !userId) return;
-    // Prevent sending empty text messages
-    if (!extra && (!content || !content.trim())) return;
-    // Prevent duplicate rapid sends
-    if (sendingRef.current) return;
-    const sendNow = Date.now();
-    if (sendNow - lastSentTimeRef.current < 500) return;
-    lastSentTimeRef.current = sendNow;
-    sendingRef.current = true;
-    try {
-    const msgId = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const msg: any = {
-      id: msgId,
-      senderId: userId, receiverId: selectedGroupId ? userId : targetId,
-      createdAt: now, senderName: `@${username || "user"}`,
-    };
-    // For sticker/voice/track_share: content is JSON with type
-    // For reply with text: content is the encrypted text, replyToId is separate
-    if (extra && extra.type && extra.type !== "reply") {
-      msg.content = JSON.stringify(extra);
-      msg.encrypted = false;
-      msg.messageType = extra.type;
-    } else {
-      msg.content = content;
-      msg.encrypted = true;
-      msg.messageType = "text";
-    }
-    if (extra?.replyToId) { msg.replyToId = extra.replyToId; }
-    addMessage(msg);
-    try {
-      const body: any = {
-        id: msgId, content: msg.content, senderId: userId,
-        encrypted: msg.encrypted, messageType: msg.messageType,
-      };
-      if (extra?.voiceUrl) { body.voiceUrl = extra.voiceUrl; }
-      if (extra?.voiceDuration) { body.voiceDuration = extra.voiceDuration; }
-      if (extra?.sticker) { body.content = JSON.stringify({ type: "sticker", sticker: extra.sticker }); }
-      if (extra?.track) { body.content = JSON.stringify({ type: "track_share", track: extra.track }); }
-      if (extra?.replyToId) { body.replyToId = extra.replyToId; }
-      if (selectedGroupId) {
-        body.groupChatId = selectedGroupId;
-        const groupHeaders: Record<string, string> = { "Content-Type": "application/json" };
-        const st = useAppStore.getState();
-        if (st.userId === "demo-user-id") {
-          groupHeaders["x-demo-user-id"] = "demo-user-id";
-          groupHeaders["x-demo-user-name"] = st.username || "Демо";
-        } else if (st.userId) {
-          // Regular users: send userId in header for server auth fallback
-          groupHeaders["x-user-id"] = st.userId;
-        }
-        await fetch(`/api/group-chats/${selectedGroupId}/messages`, {
-          method: "POST",
-          headers: groupHeaders,
-          body: JSON.stringify(body),
-        });
-      } else {
-        body.receiverId = targetId;
-        await fetch("/api/messages", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      }
-    } catch { /* best-effort */ }
-    } finally {
-      setTimeout(() => { sendingRef.current = false; }, 300);
-    }
-  }, [selectedContactId, selectedGroupId, userId, username, addMessage]);
-
-  const startRecording = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      chunksRef.current = [];
-      recordingDurationRef.current = 0;
-      const recorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm" });
-      mediaRecorderRef.current = recorder;
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
-      recorder.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const finalDuration = recordingDurationRef.current;
-        if (finalDuration < 1) { setIsRecording(false); return; } // Too short, discard
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64Url = reader.result as string;
-          // Use selectedGroupId || selectedContactId directly from store
-          // to avoid TDZ from referencing activeChatId before its declaration
-          const chatId = (useAppStore.getState() as any).selectedGroupId || useAppStore.getState().selectedContactId;
-          if (base64Url && chatId && userId) {
-            await sendMessageOptimistic("", { type: "voice", voiceUrl: base64Url, voiceDuration: finalDuration });
-          }
-        };
-        reader.readAsDataURL(blob);
-      };
-      recorder.start();
-      setIsRecording(true);
-      setRecordingDuration(0);
-      recordingTimerRef.current = setInterval(() => {
-        recordingDurationRef.current += 1;
-        setRecordingDuration(recordingDurationRef.current);
-      }, 1000);
-    } catch (err) {
-      showToast("Нет доступа к микрофону");
-    }
-  }, [userId, sendMessageOptimistic]);
-
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current?.state === "recording") mediaRecorderRef.current.stop();
-    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-    setIsRecording(false);
-  }, []);
-
-  const cancelRecording = useCallback(() => {
-    if (mediaRecorderRef.current?.state === "recording") {
-      mediaRecorderRef.current.onstop = null; // Prevent sending
-      mediaRecorderRef.current.stop();
-    }
-    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
-    setIsRecording(false);
-    setRecordingDuration(0);
-    recordingDurationRef.current = 0;
-  }, []);
-
-  const togglePinChat = useCallback((contactId: string) => {
-    setPinnedChatIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(contactId)) next.delete(contactId); else next.add(contactId);
-      try { localStorage.setItem("mq-pinned-chats", JSON.stringify([...next])); } catch { /* */ }
-      return next;
-    });
-  }, []);
-
-  // barHeights removed from here — it was referencing undefined `duration`/`barCount`.
-  // Waveform bars are now computed inside VoiceMessageBubble where they belong.
-
-  // ═══════════════════════════════════════════════════════════
-  //  EFFECTS — all useEffects placed after all useCallback/useMemo declarations
-  //  to avoid TDZ errors in SWC/Turbopack minifier
-  // ═══════════════════════════════════════════════════════════
-
-  // ── Responsive viewport height tracking (moved from above useState block) ──
+  // ── Detect mobile ──
   useEffect(() => {
     const check = () => setIsMobileView(window.innerWidth < 1024);
     check();
@@ -688,3252 +307,1480 @@ export default function MessengerView() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // ── Fetch stories on mount (moved from above useCallback block) ──
-  useEffect(() => {
-    const fetchStories = async () => {
-      try {
-        const res = await fetch("/api/stories?all=true");
-        if (res.ok) {
-          const data = await res.json();
-          const mapped: Story[] = (data.stories || []).map((s: any) => {
-            let trackData: Story["trackData"] | undefined;
-            let contentType: Story["contentType"] = "text";
-            let videoUrl: string | undefined;
-            const cStr = typeof s.content === "string" ? s.content : "";
-            if (s.type === "music" || s.type === "track") {
-              contentType = "track";
-              try { const p = JSON.parse(cStr); if (p.track) trackData = p.track; } catch { /* */ }
-            } else if (s.type === "image") { contentType = "image"; }
-            else if (s.type === "video") { contentType = "video"; videoUrl = cStr; }
-            return { id: s.id, userId: s.userId, username: s.user?.username || "User", avatar: "", content: cStr, contentType, createdAt: s.createdAt, expiresAt: s.expiresAt, viewed: false, likes: s.likes?.length || 0, trackData, videoUrl };
-          });
-          setStories(mapped);
-        }
-      } catch { /* silent */ }
-    };
-    fetchStories();
-  }, []);
+  // ── Mobile view sync ──
+  useEffect(() => { setMobileView(activeChatId ? "chat" : "list"); }, [activeChatId]);
 
-  // ── Scroll to bottom only if user is already near bottom (moved from above sendMessageOptimistic) ──
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
-    if (isNearBottom) {
-      el.scrollTop = el.scrollHeight;
+  // ── Fetch friends ──
+  const fetchFriends = useCallback(async () => {
+    if (!userId) return;
+    setIsLoadingFriends(true);
+    try {
+      const res = await fetch(`/api/friends?userId=${userId}`);
+      if (!res.ok) throw new Error("bad");
+      const data = await res.json();
+      setFriends(Array.isArray(data.friends) ? data.friends : []);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setIsLoadingFriends(false);
     }
-  }, [messages, selectedContactId, groupMessages, selectedGroupId]);
+  }, [userId]);
 
-  // Force scroll to bottom when entering a new chat
+  useEffect(() => { fetchFriends(); }, [fetchFriends]);
+
+  // ── Fetch group chats ──
+  const fetchGroupChats = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const res = await fetch(`/api/group-chats?userId=${userId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const list = Array.isArray(data.groupChats) ? data.groupChats : Array.isArray(data) ? data : [];
+      const normalized: GroupChat[] = list.map((g: any) => ({
+        id: g.id, name: g.name || "Group", avatar: g.avatar,
+        members: Array.isArray(g.members) ? g.members : [],
+        createdAt: g.createdAt || new Date().toISOString(),
+      }));
+      setGroupChats(normalized);
+    } catch {}
+  }, [userId]);
+
+  useEffect(() => { fetchGroupChats(); }, [fetchGroupChats]);
+
+  // ── Fetch online statuses (poll every 30s) ──
   useEffect(() => {
-    if (!selectedContactId) return;
-    // Small delay to let messages render after loading from server
-    const timer = setTimeout(() => {
-      const el = scrollRef.current;
-      if (el) {
-        el.scrollTop = el.scrollHeight;
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [selectedContactId]);
+    if (!userId || safeFriends.length === 0) return;
+    let cancelled = false;
+    const fetchStatuses = async () => {
+      const statuses: Record<string, OnlineStatus> = {};
+      await Promise.all(safeFriends.map(async (f) => {
+        try {
+          const res = await fetch(`/api/user/${f.id}/status`);
+          if (res.ok) {
+            const data = await res.json();
+            statuses[f.id] = { online: !!data.online, lastSeen: data.lastSeen ?? null };
+          } else {
+            statuses[f.id] = { online: false, lastSeen: null };
+          }
+        } catch { statuses[f.id] = { online: false, lastSeen: null }; }
+      }));
+      if (!cancelled) setOnlineStatuses(statuses);
+    };
+    fetchStatuses();
+    const interval = setInterval(fetchStatuses, 30000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [userId, safeFriends]);
 
-  // ── Cross-tab BroadcastChannel for notifications ──
+  // ── SSE for real-time DMs ──
+  useEffect(() => {
+    if (!userId) return;
+    let destroyed = false;
+
+    const processIncoming = (m: any) => {
+      if (!m || !m.id || !m.senderId) return;
+      try {
+        const state = useAppStore.getState();
+        const msgs = Array.isArray(state.messages) ? state.messages : [];
+        if (msgs.some((em: any) => em.id === m.id)) return;
+        state.addMessage({
+          id: m.id, content: m.content || "", senderId: m.senderId,
+          receiverId: m.receiverId || userId, encrypted: m.encrypted ?? true,
+          createdAt: m.createdAt || new Date().toISOString(),
+          senderName: m.senderUsername ? `@${m.senderUsername}` : undefined,
+          messageType: m.messageType, voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
+        });
+        if (m.senderId !== userId && typeof Notification !== "undefined" &&
+            Notification.permission === "granted" && document.visibilityState === "hidden") {
+          try {
+            new Notification(`Сообщение от ${m.senderUsername || "Someone"}`, {
+              body: decrypt(m.content).slice(0, 60),
+            });
+          } catch {}
+        }
+        if (m.createdAt) lastSeenTimeRef.current = m.createdAt;
+      } catch {}
+    };
+
+    const connect = () => {
+      if (destroyed) return;
+      try {
+        const since = encodeURIComponent(lastSeenTimeRef.current);
+        const es = new EventSource(`/api/messages/sse?userId=${userId}&since=${since}`);
+        sseRef.current = es;
+        es.addEventListener("connected", (event: any) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data?.serverTime) lastSeenTimeRef.current = data.serverTime;
+          } catch {}
+        });
+        es.addEventListener("new_message", (event: any) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data?.message) processIncoming(data.message);
+          } catch {}
+        });
+        es.addEventListener("typing", (event: any) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data?.userId) {
+              useAppStore.getState().setTypingUser(data.userId);
+              setTimeout(() => useAppStore.getState().clearTypingUser(data.userId), 4000);
+            }
+          } catch {}
+        });
+        es.onerror = () => {
+          try { es.close(); } catch {}
+          sseRef.current = null;
+          if (!destroyed) setTimeout(connect, 2000);
+        };
+      } catch {}
+    };
+    connect();
+    return () => {
+      destroyed = true;
+      try { sseRef.current?.close(); } catch {}
+      sseRef.current = null;
+    };
+  }, [userId]);
+
+  // ── BroadcastChannel for cross-tab notifications ──
   useEffect(() => {
     if (!userId) return;
     try {
       bcRef.current = new BroadcastChannel("mq-notifications");
       bcRef.current.onmessage = (event) => {
-        const { type, payload } = event.data;
-        if (type === "new_message") {
-          // Add message to store (deduped by processIncomingMessage / addMessage)
-          if (payload?.senderId && payload?.id) {
+        try {
+          const { type, payload } = event.data || {};
+          if (type === "new_message" && payload?.id && payload?.senderId) {
             const state = useAppStore.getState();
-            const existing = state.messages.find((em: any) => em.id === payload.id);
-            if (!existing) {
+            const msgs = Array.isArray(state.messages) ? state.messages : [];
+            if (!msgs.some((em: any) => em.id === payload.id)) {
               state.addMessage({
-                id: payload.id,
-                content: payload.content,
-                senderId: payload.senderId,
-                receiverId: payload.receiverId,
-                encrypted: payload.encrypted ?? true,
-                createdAt: payload.createdAt,
+                id: payload.id, content: payload.content || "", senderId: payload.senderId,
+                receiverId: payload.receiverId || userId, encrypted: payload.encrypted ?? true,
+                createdAt: payload.createdAt || new Date().toISOString(),
                 senderName: payload.senderUsername ? `@${payload.senderUsername}` : undefined,
-                messageType: payload.messageType,
-                replyToId: payload.replyToId,
-                edited: payload.edited,
-                voiceUrl: payload.voiceUrl,
+                messageType: payload.messageType, voiceUrl: payload.voiceUrl,
                 voiceDuration: payload.voiceDuration,
-              } as any);
+              });
             }
+          } else if (type === "friend_request") {
+            fetchFriends();
           }
-          // Show notification if from another user
-          if (payload?.senderId !== userId) {
-            playNotifSound();
-            if (notificationPermission === "granted") {
-              try {
-                let preview = "";
-                try { preview = simulateDecryptSync(payload.content); } catch { preview = (payload.content || "").slice(0, 60); }
-                const senderName = payload.senderUsername || "Someone";
-                new Notification(`Сообщение от ${senderName}`, {
-                  body: preview.length > 60 ? preview.slice(0, 60) + "..." : preview,
-                  icon: "/icon-192.png",
-                  tag: payload.id || "",
-                });
-              } catch { /* ignore */ }
-            }
-          }
-        } else if (type === "friend_request") {
-          playNotifSound();
-          fetchFriends();
-        }
+        } catch {}
       };
-    } catch { /* BroadcastChannel not supported */ }
-    return () => { try { bcRef.current?.close(); } catch { /* */ } };
-  }, [userId, notificationPermission, playNotifSound, fetchFriends]);
+    } catch {}
+    return () => { try { bcRef.current?.close(); } catch {} bcRef.current = null; };
+  }, [userId, fetchFriends]);
 
-  // ── Cross-tab: broadcast new message to other tabs ──
+  // ── Document title with unread count ──
   useEffect(() => {
     if (!userId) return;
-    const unsub = useAppStore.subscribe((state, prev) => {
-      if (state.messages.length > prev.messages.length) {
-        const newMsg = state.messages[state.messages.length - 1];
-        if (newMsg && newMsg.senderId === userId) {
-          // This is a message WE sent — broadcast to other tabs (they are the receivers)
-          try {
-            bcRef.current?.postMessage({ type: "self_message_sent" });
-          } catch { /* */ }
-        }
-      }
-    });
-    return unsub;
-  }, [userId]);
-
-  // ── Document title with unread count for background tab indication ──
-  useEffect(() => {
-    if (!userId) return;
-    const updateTitle = () => {
-      const totalUnread = Object.values(unreadCounts).reduce((sum, c) => sum + (c || 0), 0);
-      const baseTitle = document.title.replace(/^\(\d+\)\s*/, "");
-      document.title = totalUnread > 0 ? `(${totalUnread}) ${baseTitle}` : baseTitle;
-    };
-    updateTitle();
+    try {
+      const total = Object.values(unreadCounts || {}).reduce((sum, c) => sum + (c || 0), 0);
+      document.title = total > 0 ? `(${total}) mq` : "mq";
+    } catch {}
   }, [unreadCounts, userId]);
 
-  // ── Visibility change: poll notifications when tab becomes visible ──
-  useEffect(() => {
-    if (!userId) return;
-    const handler = () => {
-      if (document.visibilityState === "visible") {
-        // Refresh messages, notifications, and friends when returning to tab
-        if (selectedContactId) {
-          fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId}&since=${encodeURIComponent(lastSeenTimeRef.current)}`)
-            .then(r => r.json()).then(data => {
-              (data.messages || []).forEach((m: any) => {
-                const existing = useAppStore.getState().messages.find((em: any) => em.id === m.id);
-                if (!existing) {
-                  useAppStore.getState().addMessage({
-                    id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
-                    encrypted: m.encrypted, createdAt: m.createdAt,
-                    senderName: `@${m.sender?.username || "user"}`,
-                    messageType: m.messageType, replyToId: m.replyToId, edited: m.edited,
-                    voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
-                  } as any);
-                }
-              });
-            }).catch(() => {});
-        }
-        // Refresh unread counts
-        fetch(`/api/notifications?userId=${userId}`)
-          .then(r => r.json()).then(data => { setTimeout(() => useAppStore.getState().setNotificationCount(data.unreadCount || 0), 0); }).catch(() => {});
-        // Refresh friends
-        fetchFriends();
-      }
-    };
-    document.addEventListener("visibilitychange", handler);
-    return () => document.removeEventListener("visibilitychange", handler);
-  }, [userId, selectedContactId, fetchFriends]);
-
-  // ── Stories grouping — P2: useMemo to prevent re-computation on every render (#310 fix) ──
-  const storyGroups = useMemo(() => stories.reduce<Record<string, Story[]>>((acc, s) => {
-    if (!acc[s.userId]) acc[s.userId] = [];
-    acc[s.userId].push(s);
-    return acc;
-  }, {}), [stories]);
-  const storyGroupKeys = useMemo(() => Object.keys(storyGroups), [storyGroups]);
-
-  // ═══════════════════════════════════════════════════════════
-  //  CALLBACKS (defined before effects to avoid TDZ in minifier)
-  // ═══════════════════════════════════════════════════════════
-
-
-
-  // ── Play notification sound ──
-
-  // ═══════════════════════════════════════════════════════════
-  //  EFFECTS
-  // ═══════════════════════════════════════════════════════════
-
-  // Prevent hydration
-  useEffect(() => { setMounted(true); }, []);
-
-  // Auto-advance story
-  useEffect(() => {
-    if (viewingStoryIndex === null) return;
-    setStoryProgress(0);
-    if (storyPaused) { if (storyTimerRef.current) clearInterval(storyTimerRef.current); return; }
-    storyTimerRef.current = setInterval(() => {
-      setStoryProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(storyTimerRef.current!);
-          if (viewingStoryIndex < stories.length - 1) setViewingStoryIndex((p) => (p !== null ? p + 1 : null));
-          else setViewingStoryIndex(null);
-          return 0;
-        }
-        return prev + 2;
-      });
-    }, 100);
-    return () => { if (storyTimerRef.current) clearInterval(storyTimerRef.current); };
-  }, [viewingStoryIndex, storyPaused, stories.length]);
-
-
-  useEffect(() => { fetchFriends(); }, [fetchFriends]);
-
-  // ── Fetch group chats on mount ──
-  useEffect(() => {
-    if (!userId) return;
-    const fetchGroups = async () => {
-      try {
-        const state = useAppStore.getState();
-        const headers: Record<string, string> = {};
-        if (state.userId === "demo-user-id") {
-          headers["x-demo-user-id"] = "demo-user-id";
-          headers["x-demo-user-name"] = state.username || "Демо";
-        }
-        const res = await fetch(`/api/group-chats?userId=${userId}`, { headers });
-        if (res.ok) {
-          const data = await res.json();
-          setGroupChats(data.groupChats || data || []);
-        }
-      } catch { /* silent */ }
-    };
-    fetchGroups();
-  }, [userId]);
-
-  // ═══════════════════════════════════════════════════════════
-  //  REAL-TIME MESSAGES: SSE (primary) + Polling (fallback)
-  // ═══════════════════════════════════════════════════════════
-
-
-  // SSE connection
-  useEffect(() => {
-    if (!userId) return;
-
-    let es: EventSource | null = null;
-    let destroyed = false;
-
-    const connect = () => {
-      if (destroyed) return;
-
-      const since = encodeURIComponent(lastSeenTimeRef.current);
-      es = new EventSource(`/api/messages/sse?userId=${userId}&since=${since}`);
-      sseRef.current = es;
-
-      es.addEventListener("connected", (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data?.serverTime) {
-            lastSeenTimeRef.current = data.serverTime;
-          }
-        } catch { /* ignore */ }
-      });
-
-      es.addEventListener("new_message", (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data?.message) {
-            processIncomingMessage(data.message);
-          }
-        } catch { /* ignore parse errors */ }
-      });
-
-      es.addEventListener("typing", (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === "typing" && data.userId) {
-            useAppStore.getState().setTypingUser(data.userId);
-            // Auto-clear after 4 seconds
-            setTimeout(() => {
-              useAppStore.getState().clearTypingUser(data.userId);
-            }, 4000);
-          }
-        } catch { /* ignore parse errors */ }
-      });
-
-      es.onerror = () => {
-        es?.close();
-        sseRef.current = null;
-        // Reconnect after 2s, but only if not destroyed
-        if (!destroyed) {
-          reconnectTimeoutRef.current = setTimeout(connect, 2000);
-        }
-      };
-    };
-
-    connect();
-
-    return () => {
-      destroyed = true;
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-      es?.close();
-      sseRef.current = null;
-    };
-  }, [userId, processIncomingMessage]);
-
-  // ═══════════════════════════════════════════════════════════
-  //  POLLING FALLBACK — every 3s for selected chat
-  // ═══════════════════════════════════════════════════════════
-
+  // ── Load DM messages when contact selected ──
   useEffect(() => {
     if (!userId || !selectedContactId) return;
-    let latestTime = lastSeenTimeRef.current;
-
-    const poll = async () => {
-      try {
-        const since = encodeURIComponent(latestTime);
-        const res = await fetch(
-          `/api/messages?senderId=${userId}&receiverId=${selectedContactId}&since=${since}`
-        );
-        if (!res.ok) return;
-        const data = await res.json();
-        const msgs: any[] = data.messages || [];
-        if (msgs.length > 0) {
-          const newest = msgs[msgs.length - 1].createdAt;
-          if (newest > latestTime) {
-            latestTime = newest;
-            lastSeenTimeRef.current = newest;
-            msgs.forEach((m: any) => {
-              const existing = useAppStore.getState().messages.find((em: any) => em.id === m.id);
-              if (!existing) {
-                useAppStore.getState().addMessage({
-                  id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
-                  encrypted: m.encrypted, createdAt: m.createdAt,
-                  senderName: `@${m.sender?.username || "user"}`,
-                  messageType: m.messageType, replyToId: m.replyToId, edited: m.edited,
-                  voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
-                } as any);
-              }
-            });
-          }
-        }
-      } catch { /* silent */ }
-    };
-
-    setTimeout(() => poll(), 0);
-    const interval = setInterval(poll, 3000);
-    return () => clearInterval(interval);
-  }, [userId, selectedContactId]);
-
-  // ═══════════════════════════════════════════════════════════
-  //  FEATURE 7: Heartbeat + online status
-  // ═══════════════════════════════════════════════════════════
-
-  // Request notification permission on mount
-  useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setNotificationPermission(Notification.permission);
-    }
-  }, []);
-
-  // Send heartbeat (skip if hideOnline is enabled)
-  useEffect(() => {
-    if (!userId || hideOnline) return;
-    const sendHeartbeat = async () => {
-      try { await fetch("/api/user/heartbeat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }); } catch { /* */ }
-    };
-    sendHeartbeat();
-    heartbeatRef.current = setInterval(sendHeartbeat, 30000);
-    return () => { if (heartbeatRef.current) clearInterval(heartbeatRef.current); };
-  }, [userId, hideOnline]);
-
-  // Persist hideOnline
-  useEffect(() => {
-    try { localStorage.setItem("mq-hide-online", JSON.stringify(hideOnline)); } catch { /* */ }
-  }, [hideOnline]);
-
-  // Poll friend requests periodically for notifications
-  useEffect(() => {
-    if (!userId) return;
-    let prevCount = pendingRequests.length;
-    const checkNewRequests = async () => {
-      try {
-        const res = await fetch(`/api/friends?userId=${userId}`);
-        if (res.ok) {
-          const data = await res.json();
-          const newPending = data.pendingRequests || [];
-          if (newPending.length > prevCount && prevCount >= 0) {
-            playNotifSound();
-            if (notificationPermission === "granted") {
-              try {
-                new Notification("Новая заявка в друзья", {
-                  body: `${newPending[newPending.length - 1].username} хочет добавить вас в друзья`,
-                  icon: "/icon-192.png",
-                });
-              } catch { /* ignore */ }
-            }
-          }
-          prevCount = newPending.length;
-          setPendingRequests(newPending);
-        }
-      } catch { /* silent */ }
-    };
-    const interval = setInterval(checkNewRequests, 15000);
-    return () => clearInterval(interval);
-  }, [userId, pendingRequests.length, notificationPermission, playNotifSound]);
-
-  // ── Server-side notifications: create notification when receiving a message ──
-  useEffect(() => {
-    if (!userId) return;
-    const handler = (msg: any) => {
-      if (msg.senderId !== userId) {
-        // Create server-side notification for the recipient
-        fetch("/api/notifications", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId,
-            type: "message",
-            title: `Сообщение от ${msg.senderUsername || "пользователя"}`,
-            body: (() => { try { const d = JSON.parse(msg.content); return d.type === "sticker" ? "Стикер" : d.type === "voice" ? "Голосовое сообщение" : d.type === "track_share" ? "Поделился треком" : (d.text || msg.content).slice(0, 60); } catch { return msg.content.slice(0, 60); } })(),
-            data: { senderId: msg.senderId, senderUsername: msg.senderUsername },
-          }),
-        }).catch(() => {});
-      }
-    };
-    // Hook into processIncomingMessage by listening to store changes
-    const origMessages = useAppStore.getState().messages;
-    const unsub = useAppStore.subscribe((state, prev) => {
-      if (state.messages.length > prev.messages.length) {
-        const newMsg = state.messages[state.messages.length - 1];
-        if (newMsg && newMsg.senderId !== userId) {
-          handler(newMsg);
-        }
-      }
-    });
-    return unsub;
-  }, [userId]);
-
-  // ── Poll notification unread count ──
-  useEffect(() => {
-    if (!userId) return;
-    const fetchCount = async () => {
-      try {
-        const res = await fetch(`/api/notifications?userId=${userId}`);
-        if (res.ok) {
-          const data = await res.json();
-          useAppStore.getState().setNotificationCount(data.unreadCount || 0);
-        }
-      } catch { /* silent */ }
-    };
-    fetchCount();
-    const interval = setInterval(fetchCount, 20000);
-    return () => clearInterval(interval);
-  }, [userId]);
-
-  // Fetch friend statuses on mount and when friends change
-  useEffect(() => {
-    if (!userId || friends.length === 0) return;
-    const fetchStatuses = async () => {
-      const statuses: Record<string, { online: boolean; lastSeen: string | null }> = {};
-      await Promise.all(friends.map(async (f) => {
-        try {
-          const res = await fetch(`/api/user/${f.id}/status`);
-          if (res.ok) {
-            const data = await res.json();
-            statuses[f.id] = { online: data.online ?? false, lastSeen: data.lastSeen ?? null };
-          }
-        } catch { statuses[f.id] = { online: false, lastSeen: null }; }
-      }));
-      setOnlineStatuses(statuses);
-    };
-    fetchStatuses();
-    // Refresh every 60s
-    const interval = setInterval(fetchStatuses, 5000);
-    return () => clearInterval(interval);
-  }, [userId, friends]);
-
-  // ═══════════════════════════════════════════════════════════
-  //  Load messages from server on contact select
-  // ═══════════════════════════════════════════════════════════
-
-  useEffect(() => {
-    if (!userId || !selectedContactId) return;
-    const cacheKey = `${userId}-${selectedContactId}`;
-    if (serverMessagesLoaded[cacheKey]) return;
-    // P2-#300: mark as loaded IMMEDIATELY (before async fetch) to prevent
-    // re-entry. The previous check was racey: while fetch was in-flight,
-    // a re-render could re-run this effect and start a second fetch.
-    setServerMessagesLoaded((p) => ({ ...p, [cacheKey]: true }));
+    let cancelled = false;
     const load = async () => {
       try {
         const res = await fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.messages?.length > 0) {
-            const serverMsgs = data.messages.map((m: any) => ({
-              id: m.id, content: m.content, senderId: m.senderId, receiverId: m.receiverId,
-              encrypted: m.encrypted, createdAt: m.createdAt, senderName: `@${m.sender?.username || "user"}`,
-              messageType: m.messageType, replyToId: m.replyToId, edited: m.edited,
-              voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration, editedAt: m.editedAt,
-            }));
-            // P2-#300: defer loadMessages to macrotask — it calls setState
-            // on the store which triggers re-renders of MessengerView
-            setTimeout(() => loadMessages(serverMsgs), 0);
-          }
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const serverMsgs: ChatMessage[] = (Array.isArray(data.messages) ? data.messages : []).map(
+          (m: any) => ({
+            id: m.id, content: m.content || "", senderId: m.senderId, receiverId: m.receiverId,
+            encrypted: !!m.encrypted, createdAt: m.createdAt || new Date().toISOString(),
+            senderName: m.sender?.username ? `@${m.sender.username}` : undefined,
+            messageType: m.messageType, voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
+          })
+        );
+        if (!cancelled && serverMsgs.length > 0) {
+          // Defer to avoid setState-during-render warnings.
+          setTimeout(() => useAppStore.getState().loadMessages(serverMsgs), 0);
         }
-      } catch { /* silent */ }
+      } catch {}
     };
     load();
-  }, [userId, selectedContactId, loadMessages]);
+    return () => { cancelled = true; };
+  }, [userId, selectedContactId]);
 
-  // ── Group chat messages polling ──
+  // ── Load group messages + poll every 8s ──
   useEffect(() => {
     if (!userId || !selectedGroupId) return;
+    let cancelled = false;
     const load = async () => {
       try {
-        const state = useAppStore.getState();
-        const headers: Record<string, string> = {};
-        if (state.userId === "demo-user-id") {
-          headers["x-demo-user-id"] = "demo-user-id";
-          headers["x-demo-user-name"] = state.username || "Демо";
-        }
-        const res = await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`, { headers });
-        if (res.ok) {
-          const data = await res.json();
-          setGroupMessages((p) => ({ ...p, [selectedGroupId]: (data.messages || []).map((m: any) => ({
-            id: m.id, content: m.content, senderId: m.senderId || m.sender?.id,
-            createdAt: m.createdAt, senderName: m.sender?.username || "User",
-            messageType: m.messageType,
-          })) }));
-        }
-      } catch { /* silent */ }
+        const res = await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`);
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        const msgs: ChatMessage[] = (Array.isArray(data.messages) ? data.messages : []).map(
+          (m: any) => ({
+            id: m.id, content: m.content || "",
+            senderId: m.senderId || m.sender?.id || "", receiverId: selectedGroupId,
+            encrypted: false, createdAt: m.createdAt || new Date().toISOString(),
+            senderName: m.sender?.username || "User", messageType: m.messageType,
+            voiceUrl: m.voiceUrl, voiceDuration: m.voiceDuration,
+          })
+        );
+        if (!cancelled) setGroupMessages((prev) => ({ ...prev, [selectedGroupId]: msgs }));
+      } catch {}
     };
     load();
     const interval = setInterval(load, 8000);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [userId, selectedGroupId]);
 
-  // ── New chat dialog: search users API with debounce ──
+  // ── Auto-scroll on new message ──
   useEffect(() => {
-    let cancelled = false;
-    const q = newChatSearch.trim();
-    if (!q) { setNewChatUsers([]); return; }
-    const timer = setTimeout(async () => {
-      setIsLoadingNewChat(true);
-      try {
-        const excludeParam = userId ? `&excludeId=${userId}` : "";
-        const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}${excludeParam}`);
-        if (!res.ok) { if (!cancelled) setNewChatUsers([]); return; }
-        const data = await res.json();
-        if (!cancelled) setNewChatUsers(data.users || []);
-      } catch { if (!cancelled) setNewChatUsers([]); } finally { if (!cancelled) setIsLoadingNewChat(false); }
-    }, 300);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [newChatSearch, userId]);
+    const el = scrollRef.current;
+    if (!el) return;
+    try { el.scrollTop = el.scrollHeight; } catch {}
+  }, [safeMessages, selectedContactId, groupMessages, selectedGroupId]);
 
-  // ── Push own now-playing status when track changes ──
+  // ── Auto-resize textarea ──
   useEffect(() => {
-    if (!userId || !mounted) return;
-    const pushNowPlaying = async () => {
-      try {
-        const store = useAppStore.getState();
-        const track = store.currentTrack;
-        const playing = store.isPlaying;
-        if (track && playing) {
-          await fetch("/api/user/now-playing", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              track: { title: track.title, artist: track.artist, cover: track.cover || "" },
-            }),
-          });
-        } else {
-          await fetch("/api/user/now-playing", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ track: {} }),
-          });
-        }
-      } catch { /* silent */ }
-    };
-    pushNowPlaying();
-  }, [currentTrack?.id, isPlaying, userId, mounted]);
+    const el = inputRef.current;
+    if (!el) return;
+    try { el.style.height = "auto"; el.style.height = Math.min(el.scrollHeight, 120) + "px"; } catch {}
+  }, [inputText]);
 
-  // ── Fetch friend's now-playing when viewing their profile ──
+  // ── Close context menu on outside click / Escape ──
   useEffect(() => {
-    if (!showProfileView || showProfileView === userId || !mounted) {
-      setFriendNowPlaying(null);
-      setFriendNowPlayingActive(false);
-      return;
-    }
-    let cancelled = false;
-    const fetchFriendNowPlaying = async () => {
-      try {
-        // Add cache-busting to avoid Vercel edge caching
-        const bust = Date.now();
-        const res = await fetch(`/api/user/now-playing?userId=${showProfileView}&_=${bust}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        if (cancelled) return;
-        if (data.nowPlaying) {
-          setFriendNowPlaying(data.nowPlaying);
-          setFriendNowPlayingActive(true);
-        } else {
-          setFriendNowPlaying(null);
-          setFriendNowPlayingActive(false);
-        }
-      } catch { if (!cancelled) { setFriendNowPlaying(null); setFriendNowPlayingActive(false); } }
-    };
-    fetchFriendNowPlaying();
-    // Poll every 3 seconds for near-real-time updates
-    const interval = setInterval(fetchFriendNowPlaying, 3000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [showProfileView, userId, mounted]);
-
-  // ═══════════════════════════════════════════════════════════
-  //  COMPUTED VALUES
-  // ═══════════════════════════════════════════════════════════
-
-
-
-
-
-
-  // Active chat: either DM or group (declared above with chat themes)
-  // const activeChatId = selectedGroupId || selectedContactId;
-
-  // Sync mobileView with activeChatId
-  useEffect(() => {
-    if (activeChatId) setMobileView("chat");
-    else setMobileView("list");
-  }, [activeChatId]);
-
-  const handleMobileBack = useCallback(() => {
-    setSelectedContact(null);
-    setSelectedGroupId(null);
-    setMobileView("list");
-  }, []);
-
-  const handleSwipeStart = useCallback((e: React.TouchEvent) => {
-    setSwipeStartX(e.touches[0].clientX);
-  }, []);
-
-  const handleSwipeEnd = useCallback((e: React.TouchEvent) => {
-    if (swipeStartX === null) return;
-    const diff = swipeStartX - e.changedTouches[0].clientX;
-    if (diff < -80 && swipeStartX < 50 && mobileView === "chat") {
-      handleMobileBack();
-    }
-    setSwipeStartX(null);
-  }, [swipeStartX, mobileView, handleMobileBack]);
-
-  // Toggle reaction on a message
-  const toggleReaction = useCallback((msgId: string, emoji: string) => {
-    setMessageReactions((prev) => {
-      const current = prev[msgId] || [];
-      const exists = current.includes(emoji);
-      return { ...prev, [msgId]: exists ? current.filter((e) => e !== emoji) : [...current, emoji] };
-    });
-  }, []);
-
-
-
-
-
-
-  // ── Close context menu on click/touch/Escape anywhere ──
-  useEffect(() => {
-    if (!contextMenuMsgId) return;
-    const close = (e: Event) => {
-      // Don't close if click/touch is inside the context menu
-      const menu = document.querySelector("[data-context-menu]");
-      if (menu && menu.contains(e.target as Node)) return;
-      setContextMenuMsgId(null);
-    };
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setContextMenuMsgId(null);
-    };
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setContextMenu(null); };
     const timer = setTimeout(() => {
-      document.addEventListener("mousedown", close);
-      document.addEventListener("touchstart", close, { passive: true });
       document.addEventListener("click", close);
-      document.addEventListener("keydown", handleEscape);
+      document.addEventListener("keydown", onKey);
     }, 50);
     return () => {
       clearTimeout(timer);
-      document.removeEventListener("mousedown", close);
-      document.removeEventListener("touchstart", close);
       document.removeEventListener("click", close);
-      document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("keydown", onKey);
     };
-  }, [contextMenuMsgId]);
+  }, [contextMenu]);
 
-  // ═══════════════════════════════════════════════════════════
-  //  @MENTIONS
-  // ═══════════════════════════════════════════════════════════
+  // ── Selected contact / group ──
+  const selectedFriend = useMemo(
+    () => safeFriends.find((f) => f.id === selectedContactId) || null,
+    [safeFriends, selectedContactId]
+  );
+  const selectedGroup = useMemo(
+    () => safeGroupChats.find((g) => g.id === selectedGroupId) || null,
+    [safeGroupChats, selectedGroupId]
+  );
 
-  const handleInputChange = (value: string) => {
-    setInputText(value);
-    const lastWord = value.split(/\s/).pop() || "";
-    if (lastWord.startsWith("@") && lastWord.length > 1) { setMentionSearch(lastWord.slice(1).toLowerCase()); setShowMentions(true); }
-    else { setShowMentions(false); setMentionSearch(""); }
-
-    // Send typing indicator (debounced)
-    if (selectedContactId) {
-      typingTimeoutRef.current && clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = setTimeout(() => {
-        fetch('/api/messages/typing', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contactId: selectedContactId }),
-        }).catch(() => {});
-      }, 300);
+  // ── Conversation messages (sorted) ──
+  const conversationMessages = useMemo<ChatMessage[]>(() => {
+    if (isGroupChat) {
+      const list = groupMessages[selectedGroupId || ""];
+      return Array.isArray(list) ? list : [];
     }
-  };
+    if (!userId || !selectedContactId) return [];
+    return safeMessages
+      .filter((m) =>
+        (m.senderId === userId && m.receiverId === selectedContactId) ||
+        (m.senderId === selectedContactId && m.receiverId === userId))
+      .sort((a, b) => {
+        try { return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(); }
+        catch { return 0; }
+      });
+  }, [safeMessages, groupMessages, userId, selectedContactId, selectedGroupId, isGroupChat]);
 
-  const filteredMentions = mentionSearch
-    ? contactList.filter((c) => c.username.toLowerCase().includes(mentionSearch) || c.name.toLowerCase().includes(mentionSearch))
-    : contactList;
-
-  const handleMentionSelect = (contact: typeof contactList[0]) => {
-    const words = inputText.split(/\s/);
-    words[words.length - 1] = `@${contact.username} `;
-    setInputText(words.join(" "));
-    setShowMentions(false);
-    setMentionSearch("");
-    inputRef.current?.focus();
-  };
-
-  // ═══════════════════════════════════════════════════════════
-  //  MESSAGE SENDING
-  // ═══════════════════════════════════════════════════════════
-
-
-  const handleSend = async () => {
-    if (!inputText.trim() || !activeChatId || !userId) return;
-    const text = inputText.trim();
-    setInputText("");
-    setShowEmojis(false);
-    setShowStickers(false);
-    try {
-      const encryptedContent = await simulateEncrypt(text);
-      await sendMessageOptimistic(encryptedContent, replyingTo ? { replyToId: replyingTo.id } : undefined);
-    } catch { await sendMessageOptimistic(text, replyingTo ? { replyToId: replyingTo.id } : undefined); }
-    setReplyingTo(null);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (!sendingRef.current) handleSend(); }
-    // Send typing indicator on non-special keys (skip Enter/Escape/Tab/etc.)
-    else if (selectedContactId && !["Enter", "Escape", "Tab", "Shift", "Control", "Alt", "Meta", "CapsLock"].includes(e.key)) {
-      typingTimeoutRef.current && clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = setTimeout(() => {
-        fetch('/api/messages/typing', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contactId: selectedContactId }),
-        }).catch(() => {});
-      }, 300);
-    }
-  };
-
-  // ═══════════════════════════════════════════════════════════
-  //  FEATURE 3: MESSAGE EDITING
-  // ═══════════════════════════════════════════════════════════
-
-  const handleStartEdit = (msg: any) => {
-    if (msg.senderId !== userId) return;
-    try {
-      const decrypted = simulateDecryptSync(msg.content);
-      setEditingMessage({ id: msg.id, content: decrypted });
-    } catch { setEditingMessage({ id: msg.id, content: msg.content }); }
-    setContextMenuMsgId(null);
-    inputRef.current?.focus();
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editingMessage || !userId) return;
-    try {
-      const encrypted = await simulateEncrypt(editingMessage.content);
-      await fetch(`/api/messages/${editingMessage.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: encrypted }) });
-      // Update local state with encrypted content
-      setTimeout(() => useAppStore.setState({ messages: useAppStore.getState().messages.map((m) => m.id === editingMessage.id ? { ...m, content: encrypted, edited: true, editedAt: new Date().toISOString() } : m) }), 0);
-    } catch { /* */ }
-    setEditingMessage(null);
-  };
-
-  const handleCancelEdit = () => { setEditingMessage(null); setInputText(""); };
-
-  // ═══════════════════════════════════════════════════════════
-  //  FEATURE 4: REPLY TO MESSAGES
-  // ═══════════════════════════════════════════════════════════
-
-  const handleReplyMessage = (msg: any) => {
-    let replyText = "";
-    try { const d = simulateDecryptSync(msg.content); replyText = d.length > 50 ? d.slice(0, 50) + "..." : d; } catch { replyText = msg.content.slice(0, 50) + "..."; }
-    const senderName = msg.senderId === userId ? "Вы" : (selectedContact?.name || "User");
-    setReplyingTo({ id: msg.id, content: replyText, senderName, senderId: msg.senderId });
-    setContextMenuMsgId(null);
-    inputRef.current?.focus();
-  };
-
-  // ═══════════════════════════════════════════════════════════
-  //  FEATURE 6: VOICE MESSAGES
-  // ═══════════════════════════════════════════════════════════
-
-
-
-
-  // ═══════════════════════════════════════════════════════════
-  //  FEATURE 5: SEARCH MESSAGES
-  // ═══════════════════════════════════════════════════════════
-
-  useEffect(() => {
-    if (!searchMode || !searchQuery.trim() || !userId || !selectedContactId) { setSearchResults([]); return; }
-    let cancelled = false;
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch(`/api/messages/search?userId=${userId}&q=${encodeURIComponent(searchQuery.trim())}`);
-        if (res.ok && !cancelled) {
-          const data = await res.json();
-          setSearchResults(data.messages || []);
-        }
-      } catch { if (!cancelled) setSearchResults([]); }
-    }, 300);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [searchQuery, userId, selectedContactId, searchMode]);
-
-  const handleSearchResultClick = (msg: any) => {
-    setSearchMode(false);
-    setSearchQuery("");
-    setSearchResults([]);
-    // Scroll to message
-    setTimeout(() => {
-      const el = document.getElementById(`msg-${msg.id}`);
-      if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.style.outline = "2px solid var(--mq-accent)"; setTimeout(() => { el.style.outline = ""; }, 2000); }
-    }, 100);
-  };
-
-  // ═══════════════════════════════════════════════════════════
-  //  CONTEXT MENU ACTIONS
-  // ═══════════════════════════════════════════════════════════
-
-  const handleDeleteMessage = (messageId: string) => {
-    useAppStore.setState({ messages: useAppStore.getState().messages.filter((m) => m.id !== messageId) });
-    setContextMenuMsgId(null);
-  };
-
-  const handleCopyMessage = (msg: any) => {
-    try { navigator.clipboard.writeText(simulateDecryptSync(msg.content)).catch(() => {}); } catch { navigator.clipboard.writeText(msg.content).catch(() => {}); }
-    setContextMenuMsgId(null);
-  };
-
-  const handleSendSticker = (emoji: string) => {
-    if (!activeChatId || !userId) return;
-    sendMessageOptimistic("", { type: "sticker", sticker: emoji });
-    setShowStickers(false);
-  };
-
-  // ═══════════════════════════════════════════════════════════
-  //  CHAT ACTIONS: Export, Clear, Delete
-  // ═══════════════════════════════════════════════════════════
-
-  const handleExportChat = (targetUserId?: string) => {
-    const targetId = targetUserId || selectedContactId;
-    if (!targetId || !userId) return;
-    const msgs = messages.filter((m) =>
-      (m.senderId === userId && m.receiverId === targetId) ||
-      (m.senderId === targetId && m.receiverId === userId)
-    );
-    if (msgs.length === 0) { showToast("Нет сообщений для экспорта"); return; }
-    const contactName = contactList.find(c => c.id === targetId)?.name || contactList.find(c => c.id === targetId)?.username || "chat";
-    let text = `Чат с @${contactName}\nЭкспортирован: ${new Date().toLocaleString("ru-RU")}\n${"═".repeat(40)}\n\n`;
-    msgs.forEach((m) => {
-      const time = new Date(m.createdAt).toLocaleString("ru-RU");
-      const sender = m.senderId === userId ? "Вы" : `@${contactName}`;
+  // ── In-chat message search (functional) ──
+  // Filters conversationMessages by text content when inChatSearch is non-empty.
+  // Highlights matched messages, allows user to find specific content in long chats.
+  const filteredMessages = useMemo<ChatMessage[]>(() => {
+    if (!inChatSearch.trim()) return conversationMessages;
+    const q = inChatSearch.toLowerCase();
+    return conversationMessages.filter(m => {
       let content = "";
-      try { content = simulateDecryptSync(m.content); } catch { content = m.content; }
-      if ((m as any).edited) content += " (ред.)";
-      text += `[${time}] ${sender}: ${content}\n`;
+      try { content = simulateDecryptSync(m.content || ""); } catch { content = m.content || ""; }
+      return content.toLowerCase().includes(q);
     });
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `chat_${contactName}_${Date.now()}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast("История экспортирована");
-  };
+  }, [conversationMessages, inChatSearch]);
 
-  const handleClearHistory = async (targetUserId?: string, forBoth = false) => {
-    const targetId = targetUserId || selectedContactId;
-    if (!targetId || !userId) return;
-    setClearConfirm({ contactId: targetId, forBoth });
-  };
+  // ── Last message preview per DM contact ──
+  const lastMessageByContact = useMemo<Record<string, ChatMessage>>(() => {
+    const map: Record<string, ChatMessage> = {};
+    for (const m of safeMessages) {
+      const otherId = m.senderId === userId ? m.receiverId : m.senderId;
+      if (!otherId) continue;
+      const existing = map[otherId];
+      if (!existing || new Date(m.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
+        map[otherId] = m;
+      }
+    }
+    return map;
+  }, [safeMessages, userId]);
 
-  const confirmClearHistory = async () => {
-    if (!clearConfirm?.contactId || !userId) return;
-    const targetId = clearConfirm.contactId;
-    const forBoth = clearConfirm.forBoth;
+  // ── Sorted chat list (pinned first, then by last activity) ──
+  const sortedChats = useMemo<Array<{
+    type: "dm" | "group"; id: string; name: string; avatar?: string;
+    lastTime: number; lastMsg?: ChatMessage; memberCount: number;
+  }>>(() => {
+    const items: Array<{
+      type: "dm" | "group"; id: string; name: string; avatar?: string;
+      lastTime: number; lastMsg?: ChatMessage; memberCount: number;
+    }> = [];
+    for (const f of safeFriends) {
+      const last = lastMessageByContact[f.id];
+      items.push({
+        type: "dm", id: f.id, name: f.username, avatar: f.avatar,
+        lastTime: last ? new Date(last.createdAt).getTime() : 0,
+        lastMsg: last, memberCount: 0,
+      });
+    }
+    for (const g of safeGroupChats) {
+      const list = groupMessages[g.id];
+      const last = Array.isArray(list) && list.length > 0 ? list[list.length - 1] : undefined;
+      items.push({
+        type: "group", id: g.id, name: g.name, avatar: g.avatar,
+        lastTime: last ? new Date(last.createdAt).getTime() : 0,
+        lastMsg: last, memberCount: Array.isArray(g.members) ? g.members.length : 0,
+      });
+    }
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = q ? items.filter((it) => it.name.toLowerCase().includes(q)) : items;
+    return filtered.sort((a, b) => {
+      const aP = pinnedChats.includes(a.id) ? 1 : 0;
+      const bP = pinnedChats.includes(b.id) ? 1 : 0;
+      if (aP !== bP) return bP - aP;
+      return b.lastTime - a.lastTime;
+    });
+  }, [safeFriends, safeGroupChats, groupMessages, lastMessageByContact, searchQuery, pinnedChats]);
+
+  // ── Toggle pin chat ──
+  const togglePinChat = useCallback((chatId: string) => {
+    setPinnedChats((prev) => {
+      const arr = Array.isArray(prev) ? prev : [];
+      const next = arr.includes(chatId) ? arr.filter((x) => x !== chatId) : [...arr, chatId];
+      try { localStorage.setItem("mq-pinned-chats", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, []);
+
+  // ── Toggle pin message (per-chat, localStorage) ──
+  const pinnedMsgId = activeChatId ? pinnedMessages[activeChatId] : undefined;
+  const pinnedMessage = useMemo(() => {
+    if (!pinnedMsgId) return null;
+    return conversationMessages.find((m) => m.id === pinnedMsgId) || null;
+  }, [pinnedMsgId, conversationMessages]);
+
+  const togglePinMessage = useCallback((msgId: string) => {
+    if (!activeChatId) return;
+    setPinnedMessages((prev) => {
+      const next = { ...prev };
+      if (next[activeChatId] === msgId) delete next[activeChatId];
+      else next[activeChatId] = msgId;
+      try { localStorage.setItem("mq-pinned-messages", JSON.stringify(next)); } catch {}
+      return next;
+    });
+    setContextMenu(null);
+  }, [activeChatId]);
+
+  // ── Delete message (local only) ──
+  const handleDeleteMessage = useCallback((msgId: string) => {
+    try {
+      if (isGroupChat && selectedGroupId) {
+        setGroupMessages((prev) => {
+          const list = prev[selectedGroupId] || [];
+          return { ...prev, [selectedGroupId]: list.filter((m) => m.id !== msgId) };
+        });
+      } else {
+        useAppStore.setState((s) => ({
+          messages: (Array.isArray(s.messages) ? s.messages : []).filter(
+            (m: ChatMessage) => m.id !== msgId),
+        }));
+      }
+      toast({ title: "Сообщение удалено" });
+    } catch { toast({ title: "Не удалось удалить" }); }
+    setContextMenu(null);
+  }, [isGroupChat, selectedGroupId, toast]);
+
+  // ── Copy message ──
+  const handleCopyMessage = useCallback((msgId: string) => {
+    try {
+      const msg = conversationMessages.find((m) => m.id === msgId);
+      if (!msg) return;
+      const voice = parseVoice(msg.content);
+      const text = voice ? "🎤 Голосовое сообщение" : decrypt(msg.content);
+      if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+      toast({ title: "Скопировано" });
+    } catch {}
+    setContextMenu(null);
+  }, [conversationMessages, toast]);
+
+  // ── Reply (quote into input) ──
+  const handleReplyMessage = useCallback((msgId: string) => {
+    try {
+      const msg = conversationMessages.find((m) => m.id === msgId);
+      if (!msg) return;
+      const voice = parseVoice(msg.content);
+      const text = voice ? "🎤 Голосовое сообщение" : decrypt(msg.content).slice(0, 60);
+      setInputText((p) => (p ? p + "\n" : "") + `> ${text}\n`);
+      setTimeout(() => inputRef.current?.focus(), 0);
+    } catch {}
+    setContextMenu(null);
+  }, [conversationMessages]);
+
+  // ── Send message (DM or group) ──
+  const handleSend = useCallback(async () => {
+    const text = (inputText || "").trim();
+    if (!text || !userId || !activeChatId || isSending) return;
+    setIsSending(true);
+    setInputText("");
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const now = new Date().toISOString();
+    const msg: ChatMessage = {
+      id: tempId, content: text, senderId: userId,
+      receiverId: isGroupChat ? userId : activeChatId,
+      encrypted: !isGroupChat, createdAt: now,
+      senderName: username ? `@${username}` : undefined, messageType: "text",
+    };
 
     try {
-      const res = await fetch("/api/messages/clear", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId: targetId, forBoth }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        showToast(data.error || "Ошибка при очистке");
-        setClearConfirm(null);
-        return;
-      }
-      // Clear local state
-      useAppStore.setState({
-        messages: useAppStore.getState().messages.filter(
-          (m) => !((m.senderId === userId && m.receiverId === targetId) ||
-                   (m.senderId === targetId && m.receiverId === userId))
-        ),
-      });
-      setServerMessagesLoaded((p) => ({ ...p, [`${userId}-${targetId}`]: false }));
-      showToast(forBoth ? "Чат очищен для обоих" : "История очищена");
-      if (targetId === selectedContactId) {
-        setSelectedContact(null);
-        setSelectedGroupId(null);
+      if (isGroupChat) {
+        setGroupMessages((prev) => ({
+          ...prev, [activeChatId]: [...(prev[activeChatId] || []), msg],
+        }));
+        await fetch(`/api/group-chats/${activeChatId}/messages`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ senderId: userId, content: text, messageType: "text" }),
+        });
+      } else {
+        addMessage(msg);
+        const encrypted = await simulateEncrypt(text);
+        const res = await fetch("/api/messages", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ receiverId: activeChatId, content: encrypted, encrypted: true, messageType: "text" }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const newId = data?.id || tempId;
+          useAppStore.setState((s) => ({
+            messages: (Array.isArray(s.messages) ? s.messages : []).map((m: ChatMessage) =>
+              m.id === tempId ? { ...m, id: newId } : m),
+          }));
+          try {
+            bcRef.current?.postMessage({
+              type: "new_message",
+              payload: { ...msg, id: newId, senderUsername: username },
+            });
+          } catch {}
+        }
       }
     } catch {
-      showToast("Ошибка сети");
-    }
-    setClearConfirm(null);
-  };
-
-  const handleDeleteChat = async (targetUserId?: string) => {
-    const targetId = targetUserId || selectedContactId;
-    if (!targetId || !userId) return;
-    await handleClearHistory(targetUserId, false);
-  };
-
-  // ═══════════════════════════════════════════════════════════
-  //  FEATURE 13: RESET PASSWORD
-  // ═══════════════════════════════════════════════════════════
-
-  // Password reset is available in Settings only
-
-  // ═══════════════════════════════════════════════════════════
-  //  FEATURE 10: GROUP CHATS
-  // ═══════════════════════════════════════════════════════════
-
-  const handleCreateGroup = async () => {
-    if (!userId || !groupName.trim()) return;
-    try {
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      const state = useAppStore.getState();
-      if (state.userId === "demo-user-id") {
-        headers["x-demo-user-id"] = "demo-user-id";
-        headers["x-demo-user-name"] = state.username || "Демо";
+      toast({ title: "Не удалось отправить" });
+      if (!isGroupChat) {
+        useAppStore.setState((s) => ({
+          messages: (Array.isArray(s.messages) ? s.messages : []).filter(
+            (m: ChatMessage) => m.id !== tempId),
+        }));
+      } else if (activeChatId) {
+        setGroupMessages((prev) => ({
+          ...prev,
+          [activeChatId]: (prev[activeChatId] || []).filter((m) => m.id !== tempId),
+        }));
       }
+    } finally {
+      setIsSending(false);
+    }
+  }, [inputText, userId, activeChatId, isGroupChat, isSending, addMessage, username, toast]);
+
+  // ── Voice recording ──
+  const startRecording = useCallback(async () => {
+    if (!activeChatId || !userId) return;
+    const chatIdSnap = activeChatId;
+    const isGroupSnap = isGroupChat;
+    const userSnap = userId;
+    const usernameSnap = username;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus" : "audio/webm";
+      const recorder = new MediaRecorder(stream, { mimeType });
+      recordingChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordingChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        try {
+          const blob = new Blob(recordingChunksRef.current, { type: "audio/webm" });
+          const reader = new FileReader();
+          reader.onload = async () => {
+            try {
+              const base64Url = String(reader.result || "");
+              const duration = recordingDurationRef.current;
+              const content = JSON.stringify({ voiceUrl: base64Url, voiceDuration: duration });
+              const now = new Date().toISOString();
+              if (isGroupSnap) {
+                setGroupMessages((prev) => ({
+                  ...prev,
+                  [chatIdSnap]: [...(prev[chatIdSnap] || []), {
+                    id: `voice_${Date.now()}`, content, senderId: userSnap,
+                    receiverId: chatIdSnap, encrypted: false, createdAt: now,
+                    senderName: usernameSnap ? `@${usernameSnap}` : undefined,
+                    messageType: "voice",
+                  }],
+                }));
+                await fetch(`/api/group-chats/${chatIdSnap}/messages`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ senderId: userSnap, content, messageType: "voice" }),
+                }).catch(() => {});
+              } else {
+                addMessage({
+                  id: `voice_${Date.now()}`, content, senderId: userSnap,
+                  receiverId: chatIdSnap, encrypted: false, createdAt: now,
+                  senderName: usernameSnap ? `@${usernameSnap}` : undefined,
+                  messageType: "voice",
+                });
+                await fetch("/api/messages", {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ receiverId: chatIdSnap, content, encrypted: false, messageType: "voice" }),
+                }).catch(() => {});
+              }
+            } catch {}
+          };
+          reader.readAsDataURL(blob);
+          stream.getTracks().forEach((t) => t.stop());
+        } catch {}
+      };
+      recorder.start();
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      recordingDurationRef.current = 0;
+      setRecordingDuration(0);
+      recordingTimerRef.current = setInterval(() => {
+        recordingDurationRef.current += 1;
+        setRecordingDuration(recordingDurationRef.current);
+      }, 1000);
+    } catch {
+      toast({ title: "Микрофон недоступен" });
+    }
+  }, [activeChatId, isGroupChat, userId, username, addMessage, toast]);
+
+  const stopRecording = useCallback(() => {
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.stop();
+      }
+    } catch {}
+    setIsRecording(false);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  }, []);
+
+  const cancelRecording = useCallback(() => {
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.stop();
+      }
+    } catch {}
+    mediaRecorderRef.current = null;
+    recordingChunksRef.current = [];
+    setIsRecording(false);
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  }, []);
+
+  // ── Search users (debounced) ──
+  useEffect(() => {
+    if (!showNewChat && !showNewGroup) return;
+    const q = newChatSearch.trim();
+    if (!q) { setNewChatUsers([]); return; }
+    const timer = setTimeout(async () => {
+      try {
+        const excludeParam = userId ? `&excludeId=${userId}` : "";
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(q)}${excludeParam}`);
+        if (res.ok) {
+          const data = await res.json();
+          setNewChatUsers(Array.isArray(data.users) ? data.users : []);
+        }
+      } catch {}
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [showNewChat, showNewGroup, newChatSearch, userId]);
+
+  // ── Start new chat ──
+  const handleStartChat = useCallback((user: any) => {
+    if (!user?.id) return;
+    fetch("/api/friends", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, friendId: user.id }),
+    })
+      .then(() => {
+        fetchFriends();
+        fetchGroupChats();
+        setSelectedContact(user.id);
+        setSelectedGroupId(null);
+        setShowNewChat(false);
+        setNewChatSearch("");
+        setNewChatUsers([]);
+      })
+      .catch(() => toast({ title: "Не удалось добавить" }));
+  }, [userId, fetchFriends, fetchGroupChats, setSelectedContact, toast]);
+
+  // ── Create group ──
+  const handleCreateGroup = useCallback(async () => {
+    if (!groupName.trim() || selectedMembers.length === 0 || !userId) return;
+    try {
       const res = await fetch("/api/group-chats", {
-        method: "POST", headers,
-        body: JSON.stringify({ name: groupName.trim(), description: groupDesc.trim(), memberIds: [...groupMembers] }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setGroupChats((p) => [...p, data.groupChat || data]);
-        setSelectedGroupId(data.groupChat?.id || data.id);
-        setSelectedContact(null);
-        setShowGroupCreate(false);
-        setGroupName("");
-        setGroupDesc("");
-        setGroupMembers(new Set());
-      }
-    } catch { showToast("Не удалось создать группу"); }
-  };
-
-  // ═══════════════════════════════════════════════════════════
-  //  TRACK SHARING & FRIEND REQUESTS
-  // ═══════════════════════════════════════════════════════════
-
-  const shareTrack = async () => {
-    if (!currentTrack || !selectedContactId || !userId) return;
-    await sendMessageOptimistic("", { type: "track_share", track: { id: currentTrack.id, title: currentTrack.title, artist: currentTrack.artist, cover: currentTrack.cover || "", duration: currentTrack.duration, streamUrl: currentTrack.audioUrl || "", scTrackId: currentTrack.scTrackId, source: currentTrack.source } });
-  };
-
-  // ── Listen together: invite ──
-  const sendListenInvite = async (contactId: string) => {
-    if (!currentTrack || !userId) {
-      showToast("Сначала выберите трек для прослушивания");
-      return;
-    }
-    setListenInviteLoading(true);
-    try {
-      const res = await fetch("/api/listen-session/invite", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contactId,
-          trackId: currentTrack.id,
-          trackTitle: currentTrack.title,
-          trackArtist: currentTrack.artist,
-          trackCover: currentTrack.cover || "",
-          scTrackId: currentTrack.scTrackId || null,
-          audioUrl: currentTrack.audioUrl || "",
-          source: currentTrack.source,
+          name: groupName.trim(), creatorId: userId,
+          memberIds: [...selectedMembers, userId],
         }),
       });
       if (res.ok) {
         const data = await res.json();
-        // Start the session immediately as host
-        useAppStore.getState().setListenSession({
-          id: data.sessionId,
-          hostId: userId,
-          hostName: username || "You",
-          guestId: contactId,
-          guestName: null,
-          trackId: currentTrack.id,
-          trackTitle: currentTrack.title,
-          trackArtist: currentTrack.artist,
-          trackCover: currentTrack.cover || "",
-          scTrackId: currentTrack.scTrackId || null,
-          audioUrl: currentTrack.audioUrl || "",
-          source: currentTrack.source,
-          progress: 0,
-          isPlaying: true,
-          isHost: true,
-        });
-        showToast("Приглашение отправлено! 🎵");
-        setListenInviteConfirm(null);
+        const newGroup: GroupChat = data.groupChat || data;
+        setGroupChats((p) => (Array.isArray(p) ? [...p, newGroup] : [newGroup]));
+        setSelectedGroupId(newGroup?.id || null);
+        setSelectedContact(null);
+        setShowNewGroup(false);
+        setGroupName("");
+        setSelectedMembers([]);
+        setNewChatSearch("");
+        setNewChatUsers([]);
+        toast({ title: "Группа создана" });
       } else {
-        const err = await res.json().catch(() => ({}));
-        showToast(err.error || "Ошибка при отправке приглашения");
+        toast({ title: "Не удалось создать группу" });
       }
-    } catch {
-      showToast("Ошибка сети");
-    } finally {
-      setListenInviteLoading(false);
-    }
-  };
+    } catch { toast({ title: "Не удалось создать группу" }); }
+  }, [groupName, selectedMembers, userId, setSelectedContact, toast]);
 
-  // ── Listen together: accept invite ──
-  const acceptListenInvite = async (sessionId: string) => {
-    setAcceptingSessionId(sessionId);
-    try {
-      const res = await fetch("/api/listen-session/accept", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setTimeout(() => useAppStore.getState().setListenSession(data.session), 0);
-        showToast("Вы присоединились к прослушиванию! 🎶");
-        // Switch to play view to show the synced player
-        setTimeout(() => useAppStore.getState().setView("main"), 0);
-      } else {
-        const err = await res.json().catch(() => ({}));
-        showToast(err.error || "Ошибка при принятии приглашения");
-      }
-    } catch {
-      showToast("Ошибка сети");
-    } finally {
-      setAcceptingSessionId(null);
-    }
-  };
+  // ── Typing indicator ──
+  const typingTs = useAppStore((s) =>
+    selectedContactId ? s.typingUsers[selectedContactId] : undefined);
+  const [showTyping, setShowTyping] = useState(false);
+  useEffect(() => {
+    if (!typingTs) { setShowTyping(false); return; }
+    const isRecent = Date.now() - typingTs < 4000;
+    setShowTyping(isRecent);
+    if (!isRecent) return;
+    const remaining = 4000 - (Date.now() - typingTs);
+    const timer = setTimeout(() => setShowTyping(false), Math.max(500, remaining));
+    return () => clearTimeout(timer);
+  }, [typingTs]);
 
-  // ── Listen together: leave session ──
-  const leaveListenSession = async () => {
-    try {
-      await fetch("/api/listen-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "leave" }),
-      });
-      useAppStore.getState().clearListenSession();
-      showToast("Сессия завершена");
-    } catch {
-      // silent
-    }
-  };
+  const handleInputChange = useCallback((value: string) => {
+    setInputText(value);
+    if (!selectedContactId || isGroupChat) return;
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      try {
+        fetch("/api/messages/typing", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ receiverId: selectedContactId }),
+        }).catch(() => {});
+      } catch {}
+    }, 300);
+  }, [selectedContactId, isGroupChat]);
 
-  const sendFriendRequest = async (targetUserId: string) => {
-    if (!userId) return;
-    setFriendRequestStatus((p) => ({ ...p, [targetUserId]: "loading" }));
-    try {
-      const res = await fetch("/api/friends", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ addresseeId: targetUserId }) });
-      const data = await res.json();
-      if (res.ok) { setFriendRequestStatus((p) => ({ ...p, [targetUserId]: "sent" })); if (data.message?.includes("друзья")) fetchFriends(); }
-      else { setFriendRequestStatus((p) => ({ ...p, [targetUserId]: data.error || "error" })); }
-    } catch { setFriendRequestStatus((p) => ({ ...p, [targetUserId]: "error" })); }
-  };
-
-  const handleFriendRequest = async (requestId: string, action: "accept" | "reject") => {
-    try { const res = await fetch(`/api/friends/${requestId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }) }); if (res.ok) fetchFriends(); } catch { /* */ }
-  };
-
-
-  const handleSelectContact = (contact: { id: string; name: string; username: string; avatar: string; online: boolean; lastSeen: string }) => {
-    addContact(contact);
-    setSelectedContact(contact.id);
-    setSelectedGroupId(null);
-    setShowNewChatDialog(false);
-    setNewChatSearch("");
-  };
-
-  const handleSelectGroup = (groupId: string) => {
-    setSelectedGroupId(groupId);
+  // ── Mobile back ──
+  const handleMobileBack = useCallback(() => {
     setSelectedContact(null);
-  };
+    setSelectedGroupId(null);
+    setMobileView("list");
+  }, [setSelectedContact]);
 
-  // ═══════════════════════════════════════════════════════════
-  //  LOADING STATE
-  // ═══════════════════════════════════════════════════════════
+  // ── Pull-to-refresh on mobile list ──
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (mobileView !== "list") return;
+    const el = e.currentTarget as HTMLElement;
+    pullStartYRef.current = el.scrollTop <= 0 ? e.touches[0].clientY : null;
+  }, [mobileView]);
 
-  if (!mounted) {
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (pullStartYRef.current === null) return;
+    const dy = e.changedTouches[0].clientY - pullStartYRef.current;
+    pullStartYRef.current = null;
+    if (dy > 80 && !isRefreshing) {
+      setIsRefreshing(true);
+      Promise.all([fetchFriends(), fetchGroupChats()]).finally(() => {
+        setTimeout(() => setIsRefreshing(false), 600);
+      });
+    }
+  }, [isRefreshing, fetchFriends, fetchGroupChats]);
+
+  // ── Render flags ──
+  const showListPanel = mobileView === "list" || !isMobileView;
+  const showChatPanel = mobileView === "chat" || !isMobileView;
+
+  // ── Recoverable error state (no white screen ever) ──
+  if (loadError && safeFriends.length === 0 && safeGroupChats.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: "var(--mq-bg)" }}>
-        <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }} />
+      <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container)] mx-auto`}
+        style={{ height: "calc(100dvh - 90px - 56px)" }}>
+        <div className="flex flex-col items-center justify-center h-full rounded-3xl"
+          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)" }}>
+          <MessageCircle className="w-10 h-10 mb-3"
+            style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
+          <p className="text-sm font-medium mb-2" style={{ color: "var(--mq-text)" }}>
+            Не удалось загрузить чаты
+          </p>
+          <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
+            Проверьте подключение и попробуйте снова
+          </p>
+          <motion.button whileTap={{ scale: 0.95 }}
+            onClick={() => { setLoadError(false); fetchFriends(); fetchGroupChats(); }}
+            className="px-4 py-2 rounded-xl text-xs font-semibold"
+            style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
+            Повторить
+          </motion.button>
+        </div>
       </div>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  //  RENDER
-  // ═══════════════════════════════════════════════════════════
-
-  const isGroupChat = !!selectedGroupId && !selectedContactId;
-  const displayMessages = isGroupChat ? currentGroupMessages : contactMessages;
-
-  // ── Pinned message logic (after activeChatId + isGroupChat are available) ──
-  // P2-#310: pinnedMessage wrapped in useMemo to prevent infinite re-render
-  const togglePinMessage = useCallback((msgId: string) => {
-    if (!activeChatId) return;
-    const chatId = activeChatId;
-    setPinnedMessages(prev => {
-      const next = { ...prev };
-      if (next[chatId] === msgId) delete next[chatId];
-      else next[chatId] = msgId;
-      try { localStorage.setItem("mq-pinned-messages", JSON.stringify(next)); } catch {}
-      return next;
-    });
-  }, [activeChatId]);
-
-  const pinnedMsgId = activeChatId ? pinnedMessages[activeChatId] : undefined;
-  const pinnedMessage = useMemo(() => {
-    if (!pinnedMsgId) return null;
-    const allMsgs = isGroupChat ? currentGroupMessages : messages;
-    return allMsgs.find((m: any) => m.id === pinnedMsgId) || null;
-  }, [pinnedMsgId, isGroupChat, currentGroupMessages, messages]);
-
-  // P2-#310: useMemo for messengerHeight to prevent re-computation each render
-  const messengerHeight = useMemo(() => {
-    const topNav = isMobileView ? 3.5 : 3.5;
-    const mobileNav = isMobileView ? 3.5 : 0;
-    const playerBar = currentTrack ? 6.25 : 0;
-    return `calc(100dvh - ${topNav + mobileNav + playerBar}rem)`;
-  }, [isMobileView, currentTrack]);
+  const cardStyle = {
+    backgroundColor: "var(--mq-card)" as const,
+    border: "1px solid var(--mq-border-thin)" as const,
+    boxShadow: "var(--mq-shadow-float)" as const,
+  };
+  const inputStyle = {
+    backgroundColor: "var(--mq-input-bg)" as const,
+    border: "1px solid var(--mq-border-hairline)" as const,
+    color: "var(--mq-text)" as const,
+  };
+  const hairlineBorder = { borderColor: "var(--mq-border-hairline)" as const };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-      className="flex flex-col lg:flex-row overflow-hidden relative"
-      style={{ backgroundColor: "var(--mq-bg)", height: messengerHeight }}
-      onTouchStart={handleSwipeStart}
-      onTouchEnd={handleSwipeEnd}
-    >
-      {/* ════════════════════════════════════════════════════════ */}
-      {/*  LEFT SIDEBAR                                         */}
-      {/* ════════════════════════════════════════════════════════ */}
-      <div
-        className={`w-full lg:w-80 flex-shrink-0 ${mobileView === "chat" && isMobileView ? "hidden" : ""} flex-col ${!isMobileView || !activeChatId ? "flex" : ""} ${isMobileView && activeChatId ? "hidden lg:flex" : ""}`}
-        style={{ borderRight: "1px solid var(--mq-border)", flex: "0 0 auto", overflow: "hidden", ...glassPanel }}
-      >
-        {/* ── Sidebar header — redesigned P2 ── */}
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          className="px-4 py-3.5 flex items-center justify-between flex-shrink-0"
-          style={{ borderBottom: "1px solid var(--mq-border)" }}
-        >
-          <div className="flex items-center gap-2">
-            <h2 className="font-bold text-xl tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
-              Чаты
-            </h2>
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.1, type: "spring", stiffness: 400, damping: 25 }}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-full"
-              title="Transport encryption (TLS)"
-              style={{
-                backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
-                border: "1px solid color-mix(in srgb, var(--mq-accent) 18%, transparent)",
-              }}
-            >
-              <Lock className="w-2.5 h-2.5" style={{ color: "var(--mq-accent)" }} />
-              <span className="text-[10px] font-bold tracking-wide" style={{ color: "var(--mq-accent)" }}>TLS</span>
-            </motion.div>
-          </div>
-          <div className="flex items-center gap-0.5">
-            <motion.button
-              whileTap={{ scale: 0.88 }}
-              whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.06)" }}
-              onClick={() => useAppStore.getState().setNotifPanelOpen(true)}
-              className="p-2 rounded-xl cursor-pointer relative transition-colors"
-              style={{ color: "var(--mq-text-muted)" }}
-              title="Уведомления"
-              aria-label="Уведомления"
-            >
-              <Bell className="w-4 h-4" />
-              {notificationCount > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                  className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full text-[10px] flex items-center justify-center px-1 font-bold"
-                  style={{ backgroundColor: "#ef4444", color: "#fff", boxShadow: "0 0 6px rgba(239,68,68,0.5)" }}
-                >
-                  {notificationCount > 99 ? "99" : notificationCount}
-                </motion.span>
-              )}
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.88 }}
-              whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.06)" }}
-              onClick={() => setShowFriendRequests(!showFriendRequests)}
-              className="p-2 rounded-xl cursor-pointer relative transition-colors"
-              style={{ color: showFriendRequests ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
-              title="Заявки в друзья"
-              aria-label="Заявки в друзья"
-            >
-              <Users className="w-4 h-4" />
-              {pendingRequests.length > 0 && (
-                <motion.span
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                  className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] rounded-full text-[10px] flex items-center justify-center px-1 font-bold"
-                  style={{ backgroundColor: "var(--mq-accent)", color: "#fff", boxShadow: "0 0 6px color-mix(in srgb, var(--mq-accent) 40%, transparent)" }}
-                >
-                  {pendingRequests.length}
-                </motion.span>
-              )}
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.88 }}
-              whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.06)" }}
-              onClick={() => { setShowNewChatDialog(true); setShowFriendRequests(false); }}
-              className="p-2 rounded-xl cursor-pointer transition-colors"
-              style={{ color: "var(--mq-text-muted)" }}
-              title="Новый чат"
-              aria-label="Новый чат"
-            >
-              <Plus className="w-4 h-4" />
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.88 }}
-              whileHover={{ scale: 1.05, backgroundColor: "rgba(255,255,255,0.06)" }}
-              onClick={() => setShowGroupCreate(true)}
-              className="p-2 rounded-xl cursor-pointer transition-colors"
-              style={{ color: "var(--mq-text-muted)" }}
-              title="Создать группу"
-              aria-label="Создать группу"
-            >
-              <MessageSquare className="w-4 h-4" />
-            </motion.button>
-          </div>
-        </motion.div>
-
-        {/* ── Stories carousel ── */}
-        {storyGroupKeys.length > 0 && (
-        <div className="flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-          <div className="flex gap-3 overflow-x-auto px-3 py-2.5" style={{ scrollbarWidth: "none" }}>
-            {/* Your story button */}
-            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowStoryCreate(true)}
-              className="flex flex-col items-center gap-1 flex-shrink-0 cursor-pointer">
-              <div className="w-13 h-13 rounded-full flex items-center justify-center"
-                style={{ border: "2px dashed var(--mq-border)", width: 52, height: 52 }}>
-                <Plus className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
-              </div>
-              <span className="text-[11px] max-w-[52px] truncate" style={{ color: "var(--mq-text-muted)" }}>Вы</span>
-            </motion.button>
-            {storyGroupKeys.map((uid) => {
-              const userStories = storyGroups[uid];
-              const firstStory = userStories[0];
-              const hasUnviewed = userStories.some((s) => !s.viewed);
-              const startIdx = stories.findIndex((s) => s.userId === uid && !s.viewed) >= 0
-                ? stories.findIndex((s) => s.userId === uid && !s.viewed)
-                : stories.indexOf(firstStory);
-              return (
-                <motion.button key={uid} whileTap={{ scale: 0.95 }} onClick={() => setViewingStoryIndex(startIdx)}
-                  className="flex flex-col items-center gap-1 flex-shrink-0 cursor-pointer">
-                  <div className="rounded-full p-[2.5px]"
-                    style={{ background: hasUnviewed ? "linear-gradient(135deg, var(--mq-accent), #f5576c, #fa709a)" : "var(--mq-border)", width: 52, height: 52 }}>
-                    <div className="w-full h-full rounded-full overflow-hidden" style={{ border: "2px solid var(--mq-bg)" }}>
-                      <AvatarImg src={firstStory.avatar} alt={firstStory.username} className="w-full h-full object-cover" />
-                    </div>
-                  </div>
-                  <span className="text-[11px] max-w-[52px] truncate" style={{ color: hasUnviewed ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
-                    {firstStory.username}
+    <div className={`${compactMode ? "p-2 lg:p-3" : "p-3 lg:p-4"} max-w-[var(--mq-container)] mx-auto`}
+      style={{ height: "calc(100dvh - 90px - 56px)" }}>
+      <div className="flex rounded-3xl overflow-hidden h-full" style={cardStyle}>
+        {/* ── Contacts list ── */}
+        {showListPanel && (
+          <div className={`${isMobileView && mobileView === "chat" ? "hidden" : "flex"} flex-col w-full lg:w-[380px] flex-shrink-0 border-r`}
+            style={hairlineBorder}>
+            {/* Header */}
+            <div className="p-4 flex items-center justify-between border-b" style={hairlineBorder}>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>Чаты</h2>
+                {safeFriends.length + safeGroupChats.length > 0 && (
+                  <span className="text-xs px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                    {safeFriends.length + safeGroupChats.length}
                   </span>
-                </motion.button>
-              );
-            })}
-          </div>
-        </div>
-        )}
-
-        {/* ── Friend requests panel ── */}
-        <AnimatePresence>
-          {showFriendRequests && (
-            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 300, opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden flex-shrink-0">
-              <div className="p-3" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                <p className="text-xs font-medium mb-2" style={{ color: "var(--mq-text)" }}>Заявки в друзья ({pendingRequests.length})</p>
-                {pendingRequests.length === 0 ? (
-                  <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Нет заявок</p>
-                ) : (
-                  <div className="space-y-2">
-                    {pendingRequests.map((req) => (
-                      <div key={req.requestId} className="flex items-center gap-2 p-2 rounded-xl" style={{ ...glassPanel }}>
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
-                          {req.username.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="text-sm flex-1 truncate" style={{ color: "var(--mq-text)" }}>@{req.username}</span>
-                        <button onClick={() => handleFriendRequest(req.requestId, "accept")} className="p-1 rounded-md" style={{ color: "#4ade80" }} title="Принять"><UserCheck className="w-4 h-4" /></button>
-                        <button onClick={() => handleFriendRequest(req.requestId, "reject")} className="p-1 rounded-md" style={{ color: "#ef4444" }} title="Отклонить"><X className="w-4 h-4" /></button>
-                      </div>
-                    ))}
-                  </div>
                 )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <div className="flex items-center gap-1.5">
+                <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.05 }}
+                  onClick={() => setShowNewGroup(true)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}
+                  aria-label="Новая группа" title="Новая группа">
+                  <Users className="w-4 h-4" />
+                </motion.button>
+                <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.05 }}
+                  onClick={() => setShowNewChat(true)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+                  aria-label="Новый чат">
+                  <Plus className="w-4 h-4" />
+                </motion.button>
+              </div>
+            </div>
 
-        {/* ── Search contacts — redesigned P2 ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.05, duration: 0.3 }}
-          className="px-3 py-2.5 flex-shrink-0"
-        >
-          <div className="relative group/search">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors" style={{ color: searchContact ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-            <Input placeholder="Поиск чатов..." value={searchContact} onChange={(e) => setSearchContact(e.target.value)}
-              className="pl-10 min-h-[40px] rounded-xl text-sm transition-all duration-200"
-              style={{
-                backgroundColor: "var(--mq-card)",
-                border: searchContact ? "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)" : "1px solid rgba(255,255,255,0.06)",
-                color: "var(--mq-text)",
-              }} />
-            {searchContact && (
-              <motion.button
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                whileTap={{ scale: 0.88 }}
-                onClick={() => setSearchContact("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-white/5 transition-colors"
-                style={{ color: "var(--mq-text-muted)" }}
-                aria-label="Очистить"
-              >
-                <X className="w-3.5 h-3.5" />
-              </motion.button>
-            )}
-          </div>
-        </motion.div>
+            {/* Search */}
+            <div className="p-3 border-b" style={hairlineBorder}>
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"
+                  style={{ color: "var(--mq-text-muted)" }} />
+                <input type="text" value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Поиск чатов"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl text-sm outline-none"
+                  style={inputStyle} />
+              </div>
+            </div>
 
-        {/* ── Contacts list ── */}
-        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
-          {isLoadingFriends ? (
-            <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-text-muted)" }} /></div>
-          ) : (
-            <>
-              {/* ── Pinned section ── */}
-              {sortedContacts.filter((c) => pinnedChatIds.has(c.id)).length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest px-3 py-1.5" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
-                    Закреплённые
+            {/* List */}
+            <div className="flex-1 overflow-y-auto"
+              onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+              {isRefreshing && (
+                <div className="flex items-center justify-center py-2">
+                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
+                </div>
+              )}
+              {isLoadingFriends && safeFriends.length === 0 && safeGroupChats.length === 0 ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-text-muted)" }} />
+                </div>
+              ) : sortedChats.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+                  <MessageCircle className="w-10 h-10 mb-3"
+                    style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
+                  <p className="text-sm font-medium mb-1" style={{ color: "var(--mq-text)" }}>
+                    {/* UX Core #1 (Эвристика доступности): без императива,
+                        позитивная формулировка снижает барьер. */}
+                    {searchQuery.trim() ? "Ничего не найдено" : "Пока пусто"}
                   </p>
-                  {sortedContacts.filter((c) => pinnedChatIds.has(c.id)).map((contact, i) => (
-                    <ContactItem key={contact.id} contact={contact} selected={selectedContactId === contact.id} userId={userId || ""}
-                      lastMsg={getLastMessage(contact.id)} unread={getUnreadCount(contact.id)} pinned onlineStatus={onlineStatuses[contact.id]}
-                      animationsEnabled={animationsEnabled} index={i} onClick={() => setSelectedContact(contact.id)} onContextMenu={() => togglePinChat(contact.id)} />
+                  <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
+                    {searchQuery.trim() ? "Попробуйте другой запрос" : "Найдите друзей — и здесь появятся чаты"}
+                  </p>
+                  {!searchQuery.trim() && (
+                    <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.02 }}
+                      onClick={() => setShowNewChat(true)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
+                      style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
+                      <UserPlus className="w-3.5 h-3.5" />
+                      Найти друзей
+                    </motion.button>
+                  )}
+                </div>
+              ) : (
+                sortedChats.map((item, i) => {
+                  const isActive = item.type === "group"
+                    ? selectedGroupId === item.id : selectedContactId === item.id;
+                  const isPinned = pinnedChats.includes(item.id);
+                  const isOnline = item.type === "dm" && onlineStatuses[item.id]?.online;
+                  const unread = item.type === "dm" ? unreadCounts[item.id] || 0 : 0;
+                  const last = item.lastMsg;
+                  let lastText: string;
+                  if (last) {
+                    if (last.messageType === "voice") {
+                      lastText = "🎤 Голосовое сообщение";
+                    } else {
+                      const prefix = last.senderId === userId && item.type === "group" ? "Вы: " : "";
+                      lastText = prefix + decrypt(last.content).slice(0, 40);
+                    }
+                  } else if (item.type === "group") {
+                    lastText = `${item.memberCount} участников`;
+                  } else if (isOnline) {
+                    lastText = "в сети";
+                  } else {
+                    lastText = formatLastSeen(onlineStatuses[item.id]?.lastSeen ?? null);
+                  }
+                  return (
+                    <motion.button key={`${item.type}_${item.id}`}
+                      initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: Math.min(i * 0.025, 0.3), duration: 0.2 }}
+                      whileTap={{ scale: 0.99 }}
+                      onClick={() => {
+                        if (item.type === "group") {
+                          setSelectedGroupId(item.id); setSelectedContact(null);
+                        } else {
+                          setSelectedContact(item.id); setSelectedGroupId(null);
+                        }
+                      }}
+                      onContextMenu={(e) => { e.preventDefault(); togglePinChat(item.id); }}
+                      className="w-full flex items-center gap-3 p-3 text-left transition-colors"
+                      style={{
+                        backgroundColor: isActive
+                          ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)" : "transparent",
+                        borderLeft: isActive ? "3px solid var(--mq-accent)" : "3px solid transparent",
+                      }}>
+                      <div className="relative flex-shrink-0">
+                        <Avatar src={item.avatar} name={item.name} id={item.id} size={44}
+                          isGroup={item.type === "group"} />
+                        {isOnline && (
+                          <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
+                            style={{ backgroundColor: "#4ade80", borderColor: "var(--mq-card)" }} />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold truncate flex items-center gap-1"
+                            style={{ color: "var(--mq-text)" }}>
+                            {isPinned && (
+                              <Pin className="w-3 h-3 flex-shrink-0"
+                                style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
+                            )}
+                            {item.name}
+                          </p>
+                          {last && (
+                            <span className="text-[10px] flex-shrink-0"
+                              style={{ color: isPinned ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
+                              {formatTime(last.createdAt)}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between gap-2 mt-0.5">
+                          <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+                            {lastText}
+                          </p>
+                          {unread > 0 && (
+                            <span className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold px-1 flex-shrink-0"
+                              style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
+                              {unread > 99 ? "99+" : unread}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </motion.button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Chat panel ── */}
+        {showChatPanel && (selectedFriend || selectedGroup) ? (
+          <div className={`${isMobileView && mobileView === "list" ? "hidden" : "flex"} flex-col flex-1 min-w-0`}>
+            {/* Header */}
+            <div className="p-3 sm:p-4 flex items-center gap-3 border-b" style={hairlineBorder}>
+              {isMobileView && (
+                <motion.button whileTap={{ scale: 0.9 }} onClick={handleMobileBack}
+                  className="p-1" style={{ color: "var(--mq-text-muted)" }} aria-label="Назад">
+                  <ArrowLeft className="w-5 h-5" />
+                </motion.button>
+              )}
+              <div className="relative flex-shrink-0">
+                {isGroupChat ? (
+                  <Avatar name={selectedGroup?.name || "Group"} id={selectedGroupId || ""} size={40} isGroup />
+                ) : (
+                  <Avatar src={selectedFriend?.avatar} name={selectedFriend?.username || "User"}
+                    id={selectedFriend?.id || ""} size={40} />
+                )}
+                {!isGroupChat && selectedFriend && onlineStatuses[selectedFriend.id]?.online && (
+                  <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
+                    style={{ backgroundColor: "#4ade80", borderColor: "var(--mq-card)" }} />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+                  {isGroupChat ? selectedGroup?.name : selectedFriend?.username}
+                </p>
+                <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                  {showTyping && !isGroupChat ? (
+                    <span style={{ color: "var(--mq-accent)" }}>печатает…</span>
+                  ) : isGroupChat ? (
+                    `${selectedGroup && Array.isArray(selectedGroup.members) ? selectedGroup.members.length : 0} участников`
+                  ) : onlineStatuses[selectedFriend?.id || ""]?.online ? (
+                    "в сети"
+                  ) : (
+                    formatLastSeen(onlineStatuses[selectedFriend?.id || ""]?.lastSeen ?? null)
+                  )}
+                </p>
+              </div>
+              {isGroupChat && selectedGroup && Array.isArray(selectedGroup.members) &&
+                selectedGroup.members.length > 0 && (
+                <div className="hidden sm:flex -space-x-2">
+                  {selectedGroup.members.slice(0, 4).map((m, idx) => (
+                    <div key={m.id || `m${idx}`} className="rounded-full border-2"
+                      style={{ borderColor: "var(--mq-card)" }}>
+                      <Avatar src={m.avatar} name={m.username} id={m.id || `m${idx}`} size={24} />
+                    </div>
                   ))}
                 </div>
               )}
+              {/* In-chat search toggle button */}
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => {
+                  setShowInChatSearch(!showInChatSearch);
+                  if (showInChatSearch) setInChatSearch("");
+                }}
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors"
+                style={{
+                  backgroundColor: showInChatSearch ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent",
+                  color: showInChatSearch ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                }}
+                title="Поиск по сообщениям"
+              >
+                <Search className="w-4 h-4" />
+              </motion.button>
+            </div>
 
-              {/* ── Group chats section ── */}
-              {groupChats.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest px-3 py-1.5 mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
-                    Группы
-                  </p>
-                  {groupChats.map((g, i) => {
-                    const lastMsg = currentGroupMessages[0];
-                    return (
-                      <motion.button key={g.id} initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.03, duration: 0.25 }}
-                        whileHover={{ backgroundColor: selectedGroupId === g.id ? undefined : "rgba(255,255,255,0.04)" }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleSelectGroup(g.id)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 transition-all text-left cursor-pointer rounded-xl mx-1"
+            {/* In-chat search input (collapsible) */}
+            <AnimatePresence>
+              {showInChatSearch && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 py-2 border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                      <input
+                        type="text"
+                        value={inChatSearch}
+                        onChange={(e) => setInChatSearch(e.target.value)}
+                        placeholder="Поиск в чате..."
+                        autoFocus
+                        className="w-full pl-9 pr-9 py-2 rounded-xl text-sm outline-none"
                         style={{
-                          width: "calc(100% - 8px)",
-                          backgroundColor: selectedGroupId === g.id ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "transparent",
-                          borderLeft: selectedGroupId === g.id ? "3px solid var(--mq-accent)" : "3px solid transparent",
-                        }}>
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-                          style={{ background: "linear-gradient(135deg, var(--mq-accent), #f5576c)", color: "#fff", boxShadow: "var(--mq-shadow-card)" }}>
-                          {g.name.charAt(0).toUpperCase()}
+                          backgroundColor: "var(--mq-card)",
+                          color: "var(--mq-text)",
+                          border: "1px solid var(--mq-border-thin)",
+                        }}
+                      />
+                      {inChatSearch && (
+                        <button
+                          onClick={() => setInChatSearch("")}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full flex items-center justify-center"
+                          style={{ color: "var(--mq-text-muted)" }}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                    {inChatSearch.trim() && (
+                      <p className="text-[11px] mt-1.5" style={{ color: "var(--mq-text-muted)" }}>
+                        Найдено: {filteredMessages.length}
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Pinned message bar */}
+            <AnimatePresence>
+              {pinnedMessage && (
+                <motion.div initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                  className="px-4 py-2 border-b flex items-center gap-2 overflow-hidden"
+                  style={{
+                    borderColor: "var(--mq-border-hairline)",
+                    backgroundColor: "color-mix(in srgb, var(--mq-accent) 6%, transparent)",
+                  }}>
+                  <Pin className="w-3.5 h-3.5 flex-shrink-0"
+                    style={{ color: "var(--mq-accent)" }} fill="currentColor" />
+                  <p className="text-xs truncate flex-1" style={{ color: "var(--mq-text-muted)" }}>
+                    {pinnedMessage.messageType === "voice"
+                      ? "🎤 Голосовое сообщение"
+                      : decrypt(pinnedMessage.content).slice(0, 80)}
+                  </p>
+                  <button onClick={() => togglePinMessage(pinnedMessage.id)}
+                    style={{ color: "var(--mq-text-muted)" }} aria-label="Открепить">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Messages */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
+              {filteredMessages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <MessageCircle className="w-10 h-10 mb-3"
+                    style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
+                  <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                    {/* UX Core #1: позитивная формулировка вместо императива */}
+                    {inChatSearch.trim() ? "Ничего не найдено" : (isGroupChat ? "Пока тишина" : `Напишите ${selectedFriend?.username} — пусть начнётся`)}
+                  </p>
+                </div>
+              ) : (
+                filteredMessages.map((msg, i) => {
+                  const isMine = msg.senderId === userId;
+                  const prev = filteredMessages[i - 1];
+                  const showDateSep = !prev || !sameDay(prev.createdAt, msg.createdAt);
+                  const prevSameSender = prev && prev.senderId === msg.senderId && !showDateSep;
+                  const voiceData = parseVoice(msg.content);
+                  const text = voiceData ? "" : decrypt(msg.content);
+                  const isTemp = String(msg.id).startsWith("temp_");
+                  return (
+                    <div key={msg.id}>
+                      {showDateSep && <DateSeparator label={getDateLabel(msg.createdAt)} />}
+                      <motion.div
+                        initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
+                        animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+                        className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"} ${prevSameSender ? "mt-0.5" : "mt-2"}`}>
+                        {!isMine && (
+                          <div className="w-7 flex-shrink-0">
+                            {!prevSameSender && (
+                              isGroupChat ? (
+                                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
+                                  style={{ background: colorForId(msg.senderId), color: "#fff" }}>
+                                  {getInitials(msg.senderName || msg.senderId)}
+                                </div>
+                              ) : (
+                                <Avatar src={selectedFriend?.avatar}
+                                  name={selectedFriend?.username || "U"}
+                                  id={selectedFriend?.id || ""} size={28} />
+                              )
+                            )}
+                          </div>
+                        )}
+                        <div className="relative group max-w-[85%]">
+                          {isGroupChat && !isMine && !prevSameSender && (
+                            <p className="text-[10px] mb-1 ml-1 font-medium"
+                              style={{ color: colorForId(msg.senderId) }}>
+                              {msg.senderName?.replace("@", "") || "User"}
+                            </p>
+                          )}
+                          <div
+                            onContextMenu={(e) => {
+                              e.preventDefault();
+                              setContextMenu({ id: msg.id, x: e.clientX, y: e.clientY });
+                            }}
+                            className={`px-3.5 py-2 cursor-pointer ${isMine ? "rounded-2xl rounded-br-md" : "rounded-2xl rounded-bl-md"}`}
+                            style={{
+                              backgroundColor: isMine ? "var(--mq-accent)"
+                                : "color-mix(in srgb, var(--mq-text) 8%, var(--mq-card))",
+                              color: isMine ? "#fff" : "var(--mq-text)",
+                            }}>
+                            {voiceData ? (
+                              <VoiceMessageBubble voiceUrl={voiceData.voiceUrl}
+                                duration={voiceData.voiceDuration || 0} isMine={isMine} />
+                            ) : (
+                              <p className="text-sm whitespace-pre-wrap break-words">{text}</p>
+                            )}
+                            <div className="flex items-center justify-end gap-1 mt-0.5">
+                              <span className="text-[10px]"
+                                style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)" }}>
+                                {formatTime(msg.createdAt)}
+                              </span>
+                              {isMine && (isTemp ? (
+                                <Check className="w-3 h-3" style={{ color: "rgba(255,255,255,0.7)" }} />
+                              ) : (
+                                <CheckCheck className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.85)" }} />
+                              ))}
+                            </div>
+                          </div>
                         </div>
+                      </motion.div>
+                    </div>
+                  );
+                })
+              )}
+              {showTyping && !isGroupChat && (
+                <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  className="flex items-end gap-2 justify-start mt-2">
+                  <div className="w-7 flex-shrink-0" />
+                  <div className="px-4 py-3 rounded-2xl rounded-bl-md"
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, var(--mq-card))" }}>
+                    <div className="flex gap-1">
+                      {[0, 1, 2].map((i) => (
+                        <motion.span key={i} className="w-1.5 h-1.5 rounded-full"
+                          style={{ backgroundColor: "var(--mq-text-muted)" }}
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }} />
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </div>
+
+            {/* Input */}
+            <div className="p-3 border-t" style={hairlineBorder}>
+              {isRecording ? (
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center gap-2 px-4 py-2.5 rounded-full"
+                    style={{ backgroundColor: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
+                    <motion.span animate={{ opacity: [1, 0.3, 1] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                      className="w-2 h-2 rounded-full" style={{ backgroundColor: "#ef4444" }} />
+                    <span className="text-sm" style={{ color: "#ef4444" }}>
+                      Запись… {formatDuration(recordingDuration)}
+                    </span>
+                  </div>
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={stopRecording}
+                    className="w-10 h-10 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+                    aria-label="Отправить голосовое">
+                    <Send className="w-4 h-4" />
+                  </motion.button>
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={cancelRecording}
+                    className="w-10 h-10 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
+                    aria-label="Отменить запись">
+                    <X className="w-4 h-4" />
+                  </motion.button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  {showQuickEmojis && (
+                    <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+                      className="flex gap-1">
+                      {QUICK_EMOJIS.map((emoji) => (
+                        <motion.button key={emoji} whileHover={{ scale: 1.2 }} whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            setInputText((p) => p + emoji);
+                            setShowQuickEmojis(false);
+                            inputRef.current?.focus();
+                          }}
+                          className="text-xl p-1.5 rounded-lg"
+                          style={{ backgroundColor: "rgba(255,255,255,0.04)" }}>
+                          {emoji}
+                        </motion.button>
+                      ))}
+                    </motion.div>
+                  )}
+                  <div className="flex items-end gap-2">
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.05 }}
+                      onClick={() => setShowQuickEmojis((v) => !v)}
+                      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{
+                        backgroundColor: showQuickEmojis
+                          ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
+                          : "rgba(255,255,255,0.06)",
+                        color: showQuickEmojis ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                      }} aria-label="Эмодзи">
+                      <Smile className="w-4 h-4" />
+                    </motion.button>
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.05 }}
+                      onClick={startRecording}
+                      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}
+                      aria-label="Записать голосовое">
+                      <Mic className="w-4 h-4" />
+                    </motion.button>
+                    <textarea ref={inputRef} value={inputText}
+                      onChange={(e) => handleInputChange(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSend();
+                        }
+                      }}
+                      placeholder="Сообщение…" rows={1}
+                      className="flex-1 px-4 py-2.5 rounded-2xl text-sm outline-none resize-none max-h-[120px]"
+                      style={inputStyle} />
+                    <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.05 }}
+                      onClick={handleSend} disabled={!inputText.trim() || isSending}
+                      className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{
+                        backgroundColor: inputText.trim() && !isSending
+                          ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                        color: inputText.trim() && !isSending ? "#fff" : "var(--mq-text-muted)",
+                      }} aria-label="Отправить">
+                      {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </motion.button>
+                  </div>
+                  <div className="flex items-center justify-center gap-1 text-[10px]"
+                    style={{ color: "var(--mq-text-muted)" }}>
+                    <Lock className="w-2.5 h-2.5" />
+                    <span>Сообщения защищены TLS-шифрованием</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : showChatPanel ? (
+          <div className={`${isMobileView && mobileView === "list" ? "hidden" : "flex"} flex-1 flex-col items-center justify-center text-center p-8`}>
+            <MessageCircle className="w-12 h-12 mb-4"
+              style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
+            <p className="text-base font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
+              Выберите чат
+            </p>
+            <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+              Выберите собеседника слева, чтобы начать диалог
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      {/* ── Context menu ── */}
+      <AnimatePresence>
+        {contextMenu && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+            onClick={(e) => e.stopPropagation()}
+            className="fixed z-50 min-w-[160px] rounded-xl overflow-hidden py-1"
+            style={{
+              left: Math.min(contextMenu.x,
+                (typeof window !== "undefined" ? window.innerWidth : 9999) - 180),
+              top: Math.min(contextMenu.y,
+                (typeof window !== "undefined" ? window.innerHeight : 9999) - 220),
+              ...cardStyle,
+            }}>
+            <button onClick={() => handleReplyMessage(contextMenu.id)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white/5"
+              style={{ color: "var(--mq-text)" }}>
+              <Reply className="w-3.5 h-3.5" /> Ответить
+            </button>
+            <button onClick={() => handleCopyMessage(contextMenu.id)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white/5"
+              style={{ color: "var(--mq-text)" }}>
+              <Copy className="w-3.5 h-3.5" /> Копировать
+            </button>
+            <button onClick={() => togglePinMessage(contextMenu.id)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white/5"
+              style={{ color: "var(--mq-text)" }}>
+              <Pin className="w-3.5 h-3.5"
+                style={{ color: pinnedMsgId === contextMenu.id ? "var(--mq-accent)" : "currentColor" }}
+                fill={pinnedMsgId === contextMenu.id ? "currentColor" : "none"} />
+              {pinnedMsgId === contextMenu.id ? "Открепить" : "Закрепить"}
+            </button>
+            <button onClick={() => handleDeleteMessage(contextMenu.id)}
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white/5"
+              style={{ color: "#ef4444" }}>
+              <Trash2 className="w-3.5 h-3.5" /> Удалить
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── New chat dialog ── */}
+      <AnimatePresence>
+        {showNewChat && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+            onClick={() => setShowNewChat(false)}>
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="w-full max-w-md rounded-2xl overflow-hidden"
+              style={cardStyle} onClick={(e) => e.stopPropagation()}>
+              <div className="p-4 flex items-center justify-between border-b" style={hairlineBorder}>
+                <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Новый чат</h3>
+                <button onClick={() => setShowNewChat(false)}
+                  style={{ color: "var(--mq-text-muted)" }} aria-label="Закрыть">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-4">
+                <div className="relative mb-3">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: "var(--mq-text-muted)" }} />
+                  <input type="text" value={newChatSearch}
+                    onChange={(e) => setNewChatSearch(e.target.value)}
+                    placeholder="Поиск пользователей" autoFocus
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
+                    style={inputStyle} />
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {!newChatSearch.trim() ? (
+                    <p className="text-center text-sm py-8" style={{ color: "var(--mq-text-muted)" }}>
+                      Начните искать по имени пользователя
+                    </p>
+                  ) : newChatUsers.length === 0 ? (
+                    <p className="text-center text-sm py-8" style={{ color: "var(--mq-text-muted)" }}>
+                      Никого не найдено
+                    </p>
+                  ) : (
+                    newChatUsers.map((user) => (
+                      <motion.button key={user.id}
+                        whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => handleStartChat(user)}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left">
+                        <Avatar src={user.avatar} name={user.username} id={user.id} size={40} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{g.name}</p>
-                          <p className="text-xs truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
-                            {g.memberIds?.length || 0} участников
+                          <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+                            {user.username}
+                          </p>
+                          <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                            Нажмите, чтобы начать чат
                           </p>
                         </div>
+                      </motion.button>
+                    ))
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── New group dialog ── */}
+      <AnimatePresence>
+        {showNewGroup && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+            onClick={() => setShowNewGroup(false)}>
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="w-full max-w-md rounded-2xl overflow-hidden"
+              style={cardStyle} onClick={(e) => e.stopPropagation()}>
+              <div className="p-4 flex items-center justify-between border-b" style={hairlineBorder}>
+                <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>Новая группа</h3>
+                <button onClick={() => setShowNewGroup(false)}
+                  style={{ color: "var(--mq-text-muted)" }} aria-label="Закрыть">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-4 space-y-3">
+                <input type="text" value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  placeholder="Название группы" autoFocus
+                  className="w-full px-3.5 py-2.5 rounded-xl text-sm outline-none"
+                  style={inputStyle} />
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: "var(--mq-text-muted)" }} />
+                  <input type="text" value={newChatSearch}
+                    onChange={(e) => setNewChatSearch(e.target.value)}
+                    placeholder="Добавить участников"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
+                    style={inputStyle} />
+                </div>
+                {selectedMembers.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedMembers.map((id) => {
+                      const u = newChatUsers.find((u) => u.id === id);
+                      if (!u) return null;
+                      return (
+                        <span key={id} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs"
+                          style={{
+                            backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+                            color: "var(--mq-accent)",
+                          }}>
+                          {u.username}
+                          <button onClick={() => setSelectedMembers((p) => p.filter((x) => x !== id))}
+                            aria-label="Убрать">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="max-h-60 overflow-y-auto">
+                  {newChatUsers.map((user) => {
+                    const selected = selectedMembers.includes(user.id);
+                    return (
+                      <motion.button key={user.id}
+                        whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setSelectedMembers((p) =>
+                          selected ? p.filter((x) => x !== user.id) : [...p, user.id])}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left">
+                        <Avatar src={user.avatar} name={user.username} id={user.id} size={36} />
+                        <p className="flex-1 text-sm font-semibold truncate"
+                          style={{ color: "var(--mq-text)" }}>
+                          {user.username}
+                        </p>
+                        {selected && (
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: "var(--mq-accent)" }}>
+                            <span className="text-[10px]" style={{ color: "#fff" }}>✓</span>
+                          </div>
+                        )}
                       </motion.button>
                     );
                   })}
                 </div>
-              )}
-
-              {/* ── All contacts ── */}
-              {sortedContacts.filter((c) => !pinnedChatIds.has(c.id)).map((contact, i) => (
-                <ContactItem key={contact.id} contact={contact} selected={selectedContactId === contact.id} userId={userId || ""}
-                  lastMsg={getLastMessage(contact.id)} unread={getUnreadCount(contact.id)} pinned={false} onlineStatus={onlineStatuses[contact.id]}
-                  animationsEnabled={animationsEnabled} index={i} onClick={() => setSelectedContact(contact.id)} onContextMenu={() => togglePinChat(contact.id)} />
-              ))}
-
-              {sortedContacts.length === 0 && groupChats.length === 0 && (
-                <div className="text-center py-10 px-4">
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4"
-                    style={{ background: "linear-gradient(135deg, rgba(var(--mq-accent-rgb, 255,45,109),0.15), rgba(var(--mq-accent-rgb, 255,45,109),0.05))", border: "1px solid rgba(var(--mq-accent-rgb, 255,45,109),0.12)" }}>
-                    <motion.div
-                      animate={{ y: [0, -5, 0] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}>
-                      <Users className="w-9 h-9" style={{ color: "var(--mq-accent)", opacity: 0.6 }} />
-                    </motion.div>
-                  </motion.div>
-                  {searchContact.trim() ? (
-                    <>
-                      <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Друзья не найдены</p>
-                      <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)" }}>Попробуйте другой запрос</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Пока нет чатов</p>
-                      <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)" }}>Добавьте друзей, чтобы начать общение</p>
-                      <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => useAppStore.getState().setView("friends")}
-                        className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
-                        style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
-                      >
-                        <UserPlus className="w-3.5 h-3.5" />
-                        Найти друзей
-                      </motion.button>
-                    </>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ════════════════════════════════════════════════════════ */}
-      {/*  RIGHT — CHAT AREA                                     */}
-      {/* ════════════════════════════════════════════════════════ */}
-      <div className={`flex-1 flex flex-col ${!activeChatId ? "hidden lg:flex" : "flex"} min-h-0 overflow-hidden`}>
-        {activeChatId ? (
-          <>
-            {/* ── Chat header ── */}
-            <div className="flex items-center gap-2.5 px-3 py-2.5 lg:px-4 lg:py-3 flex-shrink-0 sticky top-0 z-10" style={{ borderBottom: "1px solid var(--mq-border)", backgroundColor: "rgba(21,21,21,0.85)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}>
-              <motion.button whileTap={{ scale: 0.9 }} onClick={handleMobileBack} className="lg:hidden p-1.5 rounded-xl cursor-pointer" style={{ color: "var(--mq-accent)" }}>
-                <ArrowLeft className="w-5 h-5" />
-              </motion.button>
-              <div className="relative cursor-pointer" onClick={() => { if (!isGroupChat && selectedContactId) setShowProfileView(selectedContactId); }}>
-                {isGroupChat ? (
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
-                    style={{ background: "linear-gradient(135deg, var(--mq-accent), #f5576c)", color: "#fff" }}>
-                    {selectedGroup?.name.charAt(0).toUpperCase() || "G"}
-                  </div>
-                ) : (
-                  <AvatarImg src={selectedContact?.avatar || ""} alt={selectedContact?.name || ""} className="w-10 h-10 rounded-full object-cover" />
-                )}
-                {/* Online indicator with pulse */}
-                {!isGroupChat && onlineStatuses[selectedContactId || ""]?.online && (
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2"
-                    style={{ backgroundColor: "#22c55e", borderColor: "var(--mq-player-bg)", boxShadow: "0 0 6px rgba(34,197,94,0.5)" }}>
-                    <div className="w-full h-full rounded-full" style={{ animation: "mq-pulse-online 2s ease-in-out infinite" }} />
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold truncate" style={{ color: "var(--mq-text)" }}>
-                  {isGroupChat ? selectedGroup?.name : selectedContact?.name}
-                </p>
-                <div className="flex items-center gap-1.5">
-                  {!isGroupChat && (
-                    <>
-                      {onlineStatuses[selectedContactId || ""]?.online ? (
-                        <span className="text-[11px] font-medium" style={{ color: "#22c55e" }}>в сети</span>
-                      ) : (
-                        <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
-                          {formatLastSeen(onlineStatuses[selectedContactId || ""]?.lastSeen || null)}
-                        </span>
-                      )}
-                      <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>•</span>
-                      <motion.button
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => setShowEncryptionDialog(true)}
-                        className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full cursor-pointer transition-colors"
-                        style={{ backgroundColor: "rgba(100,116,139,0.1)" }}
-                        title="Подробнее о защите соединения"
-                      >
-                        <Lock className="w-2.5 h-2.5" style={{ color: "#64748b" }} />
-                        <span className="text-[11px] font-medium" style={{ color: "#64748b" }}>TLS</span>
-                      </motion.button>
-                    </>
-                  )}
-                  {isGroupChat && (
-                    <div className="flex items-center gap-1.5">
-                      <Users className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                      <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
-                        {selectedGroup?.memberIds?.length || 0} участников
-                      </span>
-                      {selectedGroup?.memberIds && selectedGroup.memberIds.length > 0 && (
-                        <div className="flex -space-x-1.5 ml-1">
-                          {selectedGroup.memberIds.slice(0, 4).map((mid) => {
-                            const member = contactList.find((c) => c.id === mid);
-                            return (
-                              <div key={mid} className="w-4.5 h-4.5 rounded-full border" style={{ borderColor: "var(--mq-bg)", width: 18, height: 18, overflow: "hidden" }}>
-                                <AvatarImg src={member?.avatar || ""} alt={member?.name || "?"} className="w-full h-full object-cover" />
-                              </div>
-                            );
-                          })}
-                          {selectedGroup.memberIds.length > 4 && (
-                            <div className="w-4.5 h-4.5 rounded-full flex items-center justify-center text-[11px] font-bold border" style={{ borderColor: "var(--mq-bg)", width: 18, height: 18, backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)" }}>
-                              +{selectedGroup.memberIds.length - 4}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {/* Add members button — visible to group admins */}
-                      {selectedGroup && (
-                        <motion.button
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => { setGroupName(selectedGroup.name); setShowGroupCreate(true); }}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg ml-1"
-                          style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-accent)" }}
-                          title="Добавить участников"
-                          aria-label="Добавить участников"
-                        >
-                          <UserPlus className="w-3 h-3" />
-                          <span className="text-[11px] font-medium">Добавить</span>
-                        </motion.button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Header actions */}
-              <div className="flex items-center gap-1">
-                <motion.button whileTap={{ scale: 0.9 }} onClick={() => setSearchMode(!searchMode)}
-                  className="p-2 rounded-xl cursor-pointer" style={{ color: searchMode ? "var(--mq-accent)" : "var(--mq-text-muted)" }} title="Поиск сообщений">
-                  <Search className="w-4.5 h-4.5" />
-                </motion.button>
-                {!isGroupChat && currentTrack && (
-                  <motion.button whileTap={{ scale: 0.9 }} onClick={shareTrack}
-                    className="p-2 rounded-xl cursor-pointer" style={{ color: "var(--mq-accent)" }} title="Поделиться треком">
-                    <Music2 className="w-4.5 h-4.5" />
-                  </motion.button>
-                )}
-                {!isGroupChat && currentTrack && selectedContactId && (
-                  <motion.button whileTap={{ scale: 0.9 }}
-                    onClick={() => setListenInviteConfirm(selectedContactId)}
-                    className="p-2 rounded-xl cursor-pointer" style={{ color: "var(--mq-accent)" }} title="Слушать вместе">
-                    <Headphones className="w-4.5 h-4.5" />
-                  </motion.button>
-                )}
-                <div className="relative">
-                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowChatSettings(!showChatSettings)}
-                    className="p-2 rounded-xl cursor-pointer" style={{ color: "var(--mq-text-muted)" }}>
-                    <MoreVertical className="w-4.5 h-4.5" />
-                  </motion.button>
-                  <AnimatePresence>
-                    {showChatSettings && (
-                      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-                        className="absolute right-0 top-full mt-1 rounded-xl py-1 min-w-[220px] z-50"
-                        style={{ ...glassPanelSolid, boxShadow: shadowDeep }}
-                        onTouchStart={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        data-chat-settings="true"
-                        onClick={(e) => { e.stopPropagation(); setShowChatSettings(false); }}>
-                        {!isGroupChat && selectedContactId && (
-                          <>
-                            <button onClick={() => { setShowChatSettings(false); setShowProfileView(selectedContactId); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
-                              <Users className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Профиль
-                            </button>
-                            <button onClick={() => { setShowChatSettings(false); setShowThemePicker(true); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
-                              <Palette className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Тема чата
-                            </button>
-                            <button onClick={() => { setShowChatSettings(false); handleExportChat(); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
-                              <Download className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Экспорт истории чата
-                            </button>
-                            <button onClick={() => { setShowChatSettings(false); handleClearHistory(undefined, false); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
-                              <Trash2 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Очистить историю
-                            </button>
-                            <button onClick={() => { setShowChatSettings(false); handleClearHistory(undefined, true); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "#f97316" }}>
-                              <Trash2 className="w-4 h-4" /> Очистить для обоих
-                            </button>
-                            <div className="my-1" style={{ borderTop: "1px solid var(--mq-border)" }} />
-                            <button onClick={() => { setShowChatSettings(false); handleDeleteChat(); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "#ef4444" }}>
-                              <Trash2 className="w-4 h-4" /> Удалить чат
-                            </button>
-                          </>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Reply preview bar ── */}
-            <AnimatePresence>
-              {replyingTo && !editingMessage && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 80, opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden flex-shrink-0">
-                  <div className="mx-3 mt-2 p-2.5 rounded-xl flex items-center gap-2" style={{ ...glassPanel }}>
-                    <div className="w-0.5 h-8 rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>{replyingTo.senderName}</p>
-                      <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{replyingTo.content}</p>
-                    </div>
-                    <button onClick={() => setReplyingTo(null)} className="p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}><X className="w-3.5 h-3.5" /></button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Edit mode bar ── */}
-            <AnimatePresence>
-              {editingMessage && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 80, opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden flex-shrink-0">
-                  <div className="mx-3 mt-2 p-2.5 rounded-xl flex items-center gap-2" style={{ ...glassPanel }}>
-                    <Edit3 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-                    <span className="text-[11px] font-semibold flex-shrink-0" style={{ color: "var(--mq-accent)" }}>Редактирование</span>
-                    <div className="flex gap-1 ml-auto flex-shrink-0">
-                      <button onClick={handleCancelEdit} className="px-2.5 py-1 rounded-lg text-[11px] cursor-pointer" style={{ color: "var(--mq-text-muted)", ...glassPanel }}>Отмена</button>
-                      <button onClick={handleSaveEdit} className="px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>Сохранить</button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Search messages panel ── */}
-            <AnimatePresence>
-              {searchMode && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 80, opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden flex-shrink-0">
-                  <div className="p-3" style={{ borderBottom: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                      <Input placeholder="Поиск сообщений..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 min-h-[38px] rounded-xl" autoFocus
-                        style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} />
-                      <button onClick={() => { setSearchMode(false); setSearchQuery(""); setSearchResults([]); }}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}><X className="w-3.5 h-3.5" /></button>
-                    </div>
-                    {searchResults.length > 0 && (
-                      <div className="mt-2 max-h-48 overflow-y-auto rounded-xl" style={{ ...glassPanelSolid }}>
-                        {searchResults.map((m: any) => {
-                          let preview = m.content || "";
-                          try { preview = simulateDecryptSync(preview); } catch { /* */ }
-                          const highlightedPreview = (() => {
-                            if (!searchQuery.trim()) return preview.length > 50 ? preview.slice(0, 50) + "..." : preview;
-                            const q = searchQuery.trim().toLowerCase();
-                            const lowerPreview = preview.toLowerCase();
-                            const idx = lowerPreview.indexOf(q);
-                            if (idx < 0) return preview.length > 50 ? preview.slice(0, 50) + "..." : preview;
-                            const start = Math.max(0, idx - 20);
-                            const end = Math.min(preview.length, idx + q.length + 30);
-                            const before = preview.slice(start, idx);
-                            const match = preview.slice(idx, idx + q.length);
-                            const after = preview.slice(idx + q.length, end);
-                            return (start > 0 ? "..." : "") + before + "«" + match + "»" + after + (end < preview.length ? "..." : "");
-                          })();
-                          const time = new Date(m.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-                          return (
-                            <motion.button
-                              key={m.id}
-                              whileTap={{ scale: 0.98 }}
-                              onClick={() => handleSearchResultClick(m)}
-                              className="w-full text-left p-2.5 hover:bg-white/[0.04] transition-colors cursor-pointer"
-                              style={{ borderBottom: "1px solid var(--mq-border)" }}
-                            >
-                              <div className="flex items-center justify-between gap-2 mb-0.5">
-                                <p className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>
-                                  {m.senderId === userId ? "Вы" : m.sender?.username || "User"}
-                                </p>
-                                <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>{time}</span>
-                              </div>
-                              <p className="text-xs truncate" style={{ color: "var(--mq-text)" }}>{highlightedPreview}</p>
-                            </motion.button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {searchQuery.trim() && searchResults.length === 0 && (
-                      <p className="text-xs text-center py-3" style={{ color: "var(--mq-text-muted)" }}>Ничего не найдено</p>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Pinned message bar — P2 ── */}
-            <AnimatePresence>
-              {pinnedMessage && !showPinnedBar && (
-                <motion.button
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 44, opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  onClick={() => {
-                    // Scroll to pinned message
-                    const el = document.querySelector(`[data-msg-id="${pinnedMessage.id}"]`);
-                    if (el) {
-                      el.scrollIntoView({ behavior: "smooth", block: "center" });
-                      el.classList.add("mq-pulse-highlight");
-                      setTimeout(() => el.classList.remove("mq-pulse-highlight"), 2000);
-                    }
-                  }}
-                  className="flex items-center gap-2.5 px-4 py-2 w-full text-left flex-shrink-0"
+                <button onClick={handleCreateGroup}
+                  disabled={!groupName.trim() || selectedMembers.length === 0}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
                   style={{
-                    backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, var(--mq-player-bg))",
-                    borderBottom: "1px solid color-mix(in srgb, var(--mq-accent) 15%, transparent)",
-                    cursor: "pointer",
-                  }}
-                >
-                  <Pin className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} fill="currentColor" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>
-                      Закреплено
-                    </p>
-                    <p className="text-[11px] truncate" style={{ color: "var(--mq-text)" }}>
-                      {(() => {
-                        try { return simulateDecryptSync(pinnedMessage.content).slice(0, 60); }
-                        catch { return (pinnedMessage.content || "").slice(0, 60); }
-                      })()}
-                    </p>
-                  </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); togglePinMessage(pinnedMessage.id); }}
-                    className="p-1 rounded-full hover:bg-white/5 transition-colors flex-shrink-0"
-                    style={{ color: "var(--mq-text-muted)" }}
-                    aria-label="Открепить"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </motion.button>
-              )}
-            </AnimatePresence>
-
-            {/* ── Messages area — with custom chat theme ── */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 pt-2 pb-4 space-y-1.5 min-h-0 transition-all duration-300"
-              style={{
-                scrollbarWidth: "thin",
-                scrollbarColor: "var(--mq-border) transparent",
-                background: CHAT_THEMES[currentChatTheme as keyof typeof CHAT_THEMES]?.bg || "transparent",
-                backgroundImage: CHAT_THEMES[currentChatTheme as keyof typeof CHAT_THEMES]?.pattern !== "none"
-                  ? CHAT_THEMES[currentChatTheme as keyof typeof CHAT_THEMES]?.pattern
-                  : undefined,
-                backgroundSize: CHAT_THEMES[currentChatTheme as keyof typeof CHAT_THEMES]?.patternSize,
-              }}
-              onScroll={() => {
-                // RAF-throttled scroll handler to prevent excessive re-renders
-                if (scrollRafRef.current) return;
-                scrollRafRef.current = requestAnimationFrame(() => {
-                  const el = scrollRef.current;
-                  if (!el) return;
-                  const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
-                  setShowScrollFAB(!isNearBottom);
-                  scrollRafRef.current = 0;
-                });
-              }}>
-              <div className="flex justify-center mb-2">
-                <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs cursor-pointer group/e2e relative" style={glassPanel}
-                  onClick={() => { if (!isGroupChat) setShowEncryptionDialog(true); }}
-                  title={isGroupChat ? undefined : "Сообщения передаются по защищённому HTTPS-соединению (TLS). Сквозное шифрование (E2E) на стороне клиента не применяется — нажмите для подробностей."}
-                >
-                  <Lock className="w-3 h-3" style={{ color: "#64748b" }} />
-                  <span style={{ color: "var(--mq-text-muted)" }}>
-                    {isGroupChat ? "Групповой чат" : "Сообщения передаются по TLS"}
-                  </span>
-                  {!isGroupChat && (
-                    <Lock className="w-2.5 h-2.5 opacity-0 group-hover/e2e:opacity-100 transition-opacity" style={{ color: "#64748b" }} />
-                  )}
-                </div>
-              </div>
-
-              {/* Typing indicator */}
-              {isGroupChat && (
-                <div className="flex justify-center mb-2">
-                  <div className="flex items-center gap-1 px-3 py-1.5 rounded-full" style={glassPanel}>
-                    {[0, 1, 2].map((i) => (
-                      <motion.div key={i} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }}
-                        animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Loading state for messages */}
-              {!isGroupChat && selectedContactId && !serverMessagesLoaded[`${userId}-${selectedContactId}`] && displayMessages.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-8 px-6">
-                  <div className="space-y-3 w-full max-w-[280px]">
-                    {[0, 1, 2].map((i) => (
-                      <div key={i} className="flex gap-2" style={{ justifyContent: i % 2 === 0 ? "flex-start" : "flex-end" }}>
-                        <div className="rounded-2xl px-4 py-2.5" style={{ backgroundColor: i % 2 === 0 ? "var(--mq-card)" : "var(--mq-accent)", opacity: 0.4, width: `${60 + i * 15}%`, minWidth: 80 }}>
-                          <div className="space-y-1.5">
-                            <div className="h-2.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.15)", width: "80%" }} />
-                            <div className="h-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.1)", width: "50%" }} />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {displayMessages.length === 0 && !isGroupChat && serverMessagesLoaded[`${userId}-${selectedContactId}`] && (
-                <div className="flex flex-col items-center justify-center py-8 px-6">
-                  {/* Empty state card — player style */}
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                    className="w-full max-w-[280px] rounded-2xl p-5 text-center"
-                    style={{ ...glassPanelSolid, boxShadow: shadowDeep }}>
-                    {/* Cute character / icon */}
-                    <div className="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center"
-                      style={{ background: "linear-gradient(135deg, var(--mq-accent), rgba(255,255,255,0.1))" }}>
-                      <motion.span
-                        className="text-4xl"
-                        animate={{ y: [0, -6, 0] }}
-                        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}>
-                        🎵
-                      </motion.span>
-                    </div>
-                    <p className="text-sm font-semibold mb-1.5" style={{ color: "var(--mq-text)" }}>
-                      Здесь пока ничего нет...
-                    </p>
-                    <p className="text-xs leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-                      Отправьте сообщение или поделитесь треком, чтобы начать общение
-                    </p>
-                  </motion.div>
-
-                  {/* Quick action buttons */}
-                  <div className="flex gap-2 mt-5 w-full max-w-[280px]">
-                    {currentTrack && (
-                      <motion.button
-                        whileTap={{ scale: 0.95 }}
-                        onClick={shareTrack}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
-                        style={{ ...glassPanelSolid }}>
-                        <Music2 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-                        <span style={{ color: "var(--mq-text)" }}>Поделиться треком</span>
-                      </motion.button>
-                    )}
-                    <motion.button
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => { setShowEmojis(true); inputRef.current?.focus(); }}
-                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
-                      style={{ ...glassPanelSolid }}>
-                      <Smile className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-                      <span style={{ color: "var(--mq-text)" }}>Привет! 👋</span>
-                    </motion.button>
-                  </div>
-                </div>
-              )}
-
-              {displayMessages.length === 0 && isGroupChat && (
-                <EmptyState type="messages" />
-              )}
-
-              {!isGroupChat && groupedMessages.map((group) => (
-                <div key={group.label}>
-                  <div className="flex items-center justify-center my-4">
-                    <div className="px-3 py-1 rounded-full text-[11px] font-medium" style={{ ...glassPanel, color: "var(--mq-text-muted)" }}>{group.label}</div>
-                  </div>
-                  {group.messages.map((msg) => renderMessageBubble(msg))}
-                </div>
-              ))}
-
-              {isGroupChat && displayMessages.map((msg: any) => renderGroupMessageBubble(msg))}
-            </div>
-
-            {/* ── Scroll to bottom FAB ── */}
-            <AnimatePresence>
-              {showScrollFAB && (
-                <motion.button
-                  initial={{ opacity: 0, scale: 0.6 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.6 }}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => {
-                    const el = scrollRef.current;
-                    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-                  }}
-                  className="absolute bottom-24 right-4 w-10 h-10 rounded-full flex items-center justify-center cursor-pointer z-30"
-                  style={{
-                    backgroundColor: "var(--mq-card)",
-                    border: "1px solid var(--mq-border)",
-                    boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-                    color: "var(--mq-text-muted)",
-                  }}
-                  title="Прокрутить вниз"
-                >
-                  <ChevronDown className="w-5 h-5" />
-                </motion.button>
-              )}
-            </AnimatePresence>
-
-            {/* ── Encryption details dialog ── */}
-            <AnimatePresence>
-              {showEncryptionDialog && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-50 flex items-center justify-center"
-                  style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-                  onClick={() => setShowEncryptionDialog(false)}
-                >
-                  <motion.div
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                    className="w-[90%] max-w-[380px] rounded-2xl p-6"
-                    style={{ ...glassPanel, ...glassPanelSolid, boxShadow: shadowDeep }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex flex-col items-center text-center gap-4">
-                      {/* Neutral lock icon — TLS, not E2E */}
-                      <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(100,116,139,0.12)", border: "1px solid rgba(100,116,139,0.2)" }}>
-                        <Lock className="w-8 h-8" style={{ color: "#64748b" }} />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-bold mb-1" style={{ color: "var(--mq-text)" }}>Транспортное шифрование (TLS)</h3>
-                        <p className="text-xs leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-                          Сообщения передаются между вашим устройством и сервером MQ Player по защищённому HTTPS-соединению (TLS). На сервере сообщения хранятся в исходном виде — сквозного шифрования (E2E) на стороне клиента не применяется.
-                        </p>
-                      </div>
-                      {/* Info row instead of fake fingerprint */}
-                      <div className="w-full rounded-xl p-3" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                        <p className="text-[11px] font-medium mb-1.5" style={{ color: "var(--mq-text-muted)" }}>Режим защиты</p>
-                        <p className="text-[11px] font-mono tracking-wider break-all" style={{ color: "#64748b" }}>{fingerprint}</p>
-                      </div>
-                      {/* Algorithm info */}
-                      <div className="w-full rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                        <Lock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#64748b" }} />
-                        <div className="text-left">
-                          <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Протокол</p>
-                          <p className="text-xs font-medium" style={{ color: "var(--mq-text)" }}>{getEncryptionStatus()}</p>
-                        </div>
-                      </div>
-                      {/* Close button */}
-                      <button
-                        onClick={() => setShowEncryptionDialog(false)}
-                        className="w-full py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-opacity hover:opacity-80"
-                        style={{ backgroundColor: "rgba(100,116,139,0.12)", color: "#64748b", border: "1px solid rgba(100,116,139,0.2)" }}
-                      >
-                        Понятно
-                      </button>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Typing indicator ── */}
-            {!isGroupChat && selectedContactId && <TypingBubble contactId={selectedContactId} />}
-
-            {/* ── @Mentions dropdown ── */}
-            <AnimatePresence>
-              {showMentions && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 200 }} exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden mx-3 mb-1 rounded-xl flex-shrink-0" style={glassPanelSolid}>
-                  <div className="px-3 py-1.5"><p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Упомянуть пользователя</p></div>
-                  {filteredMentions.length > 0 ? (
-                    filteredMentions.slice(0, 5).map((c) => (
-                      <button key={c.id} onClick={() => handleMentionSelect(c)}
-                        className="w-full flex items-center gap-2 px-3 py-2 hover:opacity-80 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-                        <AvatarImg src={c.avatar} alt={c.name} className="w-6 h-6 rounded-full" />
-                        <span className="text-sm font-medium">{c.name}</span>
-                        <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>@{c.username}</span>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="px-3 py-2"><p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Пользователь не найден</p></div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ═══ INPUT AREA ═══ */}
-            {/* ── Voice recording mode: replaces input area ── */}
-            {isRecording ? (
-              <div className="px-3 py-2 flex items-center gap-3 flex-shrink-0 relative z-50" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
-                {/* Cancel button */}
-                <motion.button whileTap={{ scale: 0.95 }} onClick={cancelRecording}
-                  className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
-                  style={{ backgroundColor: "rgba(239,68,68,0.15)" }}>
-                  <X className="w-4 h-4" style={{ color: "#ef4444" }} />
-                </motion.button>
-
-                {/* Recording wave indicator */}
-                <div className="flex-1 flex items-center gap-0.5 h-8 overflow-hidden">
-                  {Array.from({ length: 28 }).map((_, i) => (
-                    <motion.div key={i} className="w-[2.5px] rounded-full flex-shrink-0"
-                      style={{ backgroundColor: "#ef4444" }}
-                      animate={{ height: [4, 6 + Math.random() * 22, 4] }}
-                      transition={{ duration: 0.4 + (i % 3) * 0.15, repeat: Infinity, delay: i * 0.02, ease: "easeInOut" }}
-                    />
-                  ))}
-                </div>
-
-                {/* Timer */}
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: "rgba(239,68,68,0.12)" }}>
-                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className="text-[11px] font-mono font-medium" style={{ color: "#ef4444" }}>{formatRecordingTime(recordingDuration)}</span>
-                </div>
-
-                {/* Send voice button */}
-                <motion.button whileTap={{ scale: 0.95 }} onClick={stopRecording}
-                  className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer"
-                  style={{ background: "linear-gradient(135deg, #ef4444, #dc2626)", boxShadow: "0 4px 15px rgba(239,68,68,0.3)" }}>
-                <Send className="w-4 h-4 text-white" style={{ marginLeft: 1 }} />
-              </motion.button>
-              </div>
-            ) : (
-              /* ── Normal input mode ── */
-              <div className="px-3 py-2.5 flex items-center gap-1.5 flex-shrink-0 relative z-50" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", backgroundColor: "var(--mq-player-bg)" }}>
-                {/* Emoji / Sticker toggle */}
-                <motion.button whileTap={{ scale: 0.9 }}
-                  onClick={() => { if (showEmojis) { setShowEmojis(false); } else if (showStickers) { setShowStickers(false); } else { setShowEmojis(true); } }}
-                  className="p-2 rounded-full cursor-pointer flex-shrink-0 transition-colors"
-                  style={{ color: (showEmojis || showStickers) ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: (showEmojis || showStickers) ? "rgba(var(--mq-accent-rgb, 255,45,109),0.1)" : "transparent" }}>
-                  <Smile className="w-4.5 h-4.5" />
-                </motion.button>
-
-                {/* Attachment / Share track button */}
-                <div className="relative">
-                  <motion.button whileTap={{ scale: 0.9 }}
-                    onClick={() => setShowTrackPicker(!showTrackPicker)}
-                    className="p-2 rounded-full cursor-pointer flex-shrink-0 transition-colors"
-                    style={{ color: showTrackPicker ? "var(--mq-accent)" : "var(--mq-text-muted)", backgroundColor: showTrackPicker ? "rgba(var(--mq-accent-rgb, 255,45,109),0.1)" : "transparent" }}
-                    title="Поделиться треком">
-                    <Music2 className="w-4.5 h-4.5" />
-                  </motion.button>
-                  {/* Track picker dropdown */}
-                  <AnimatePresence>
-                    {showTrackPicker && (
-                      <motion.div initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute bottom-full left-0 mb-2 w-72 rounded-2xl overflow-hidden z-50"
-                        style={{ ...glassPanelSolid, boxShadow: shadowDeep }}>
-                        <div className="px-3 py-2 flex items-center justify-between" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                          <span className="text-xs font-semibold" style={{ color: "var(--mq-text)" }}>Поделиться треком</span>
-                          <button onClick={() => setShowTrackPicker(false)} className="p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}><X className="w-3.5 h-3.5" /></button>
-                        </div>
-                        {currentTrack ? (
-                          <button onClick={() => { shareTrack(); setShowTrackPicker(false); }}
-                            className="w-full flex items-center gap-3 p-3 hover:opacity-80 transition-opacity cursor-pointer text-left">
-                            {currentTrack.cover ? (
-                              <Image src={currentTrack.cover} alt="" width={48} height={48} className="w-12 h-12 rounded-lg object-cover flex-shrink-0" unoptimized />
-                            ) : (
-                              <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }}>
-                                <Music2 className="w-6 h-6" style={{ color: "var(--mq-text)" }} />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
-                              <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
-                            </div>
-                            <Send className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-                          </button>
-                        ) : (
-                          <div className="p-4 text-center">
-                            <Music2 className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
-                            <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Сначала выберите трек</p>
-                          </div>
-                        )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                {/* Text input */}
-                <div className="flex-1 min-w-0">
-                  <Input
-                    ref={inputRef}
-                    value={editingMessage ? editingMessage.content : inputText}
-                    onChange={(e) => { if (editingMessage) setEditingMessage({ ...editingMessage, content: e.target.value }); else handleInputChange(e.target.value); }}
-                    onKeyDown={(e) => { if (editingMessage) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveEdit(); } return; } handleKeyDown(e); }}
-                    placeholder={editingMessage ? "Редактирование..." : replyingTo ? `Ответ для ${replyingTo.senderName}...` : "Сообщение"}
-                    className="min-h-[42px] rounded-2xl"
-                    style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--mq-text)", paddingLeft: 16, paddingRight: 16, fontSize: "14px", transition: "border-color 0.2s, box-shadow 0.2s" }}
-                  />
-                </div>
-
-                {/* Mic button (when no text) OR Send button (when has text) */}
-                {(!inputText.trim() && !editingMessage) ? (
-                  <motion.button whileTap={{ scale: 0.95 }} onClick={startRecording}
-                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer transition-all"
-                    style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.08)" }}
-                    title="Голосовое сообщение">
-                    <Mic className="w-4.5 h-4.5" style={{ color: "var(--mq-text-muted)" }} />
-                  </motion.button>
-                ) : (
-                  <motion.button whileTap={{ scale: 0.8 }} whileHover={{ scale: 1.05 }}
-                    onClick={editingMessage ? handleSaveEdit : handleSend}
-                    disabled={editingMessage ? !editingMessage.content.trim() : !inputText.trim()}
-                    className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer transition-all"
-                    style={{
-                      background: (editingMessage ? editingMessage.content.trim() : inputText.trim())
-                        ? "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 80%, #f5576c))"
-                        : "var(--mq-card)",
-                      boxShadow: (editingMessage ? editingMessage.content.trim() : inputText.trim())
-                        ? "0 3px 18px rgba(var(--mq-accent-rgb, 255,45,109),0.4)" : "none",
-                      opacity: (editingMessage ? editingMessage.content.trim() : inputText.trim()) ? 1 : 0.5,
-                    }}>
-                    {editingMessage
-                      ? <Check className="w-4 h-4" style={{ color: "#fff" }} />
-                      : <Send className="w-4 h-4" style={{ color: "#fff", marginLeft: 1 }} />}
-                  </motion.button>
-                )}
-              </div>
-            )}
-
-            {/* ── Unified Emoji/Sticker picker ── */}
-            <AnimatePresence>
-              {(showEmojis || showStickers) && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }}
-                  className="flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)", maxHeight: "280px" }}>
-                  {/* Tabs: Emojis | Stickers */}
-                  <div className="flex gap-1 px-3 pt-2 pb-1">
-                    <button onClick={() => { setShowEmojis(true); setShowStickers(false); }}
-                      className="px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all"
-                      style={showEmojis ? { backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" } : { ...glassPanel, color: "var(--mq-text-muted)" }}>
-                      Эмодзи
-                    </button>
-                    <button onClick={() => { setShowStickers(true); setShowEmojis(false); }}
-                      className="px-3 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all"
-                      style={showStickers ? { backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" } : { ...glassPanel, color: "var(--mq-text-muted)" }}>
-                      Стикеры
-                    </button>
-                  </div>
-
-                  {/* Emoji grid */}
-                  {showEmojis && (
-                    <div className="grid grid-cols-8 gap-1 px-3 pb-3 pt-1 overflow-y-auto" style={{ maxHeight: "220px", scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
-                      {[...quickEmojis, ...stickerCategories[0].items, ...stickerCategories[1].items].map((emoji) => (
-                        <motion.button key={emoji} whileTap={{ scale: 1.2 }}
-                          onClick={() => { setInputText((p) => p + emoji); inputRef.current?.focus(); }}
-                          className="w-full aspect-square flex items-center justify-center text-xl rounded-xl cursor-pointer hover:opacity-80 transition-opacity"
-                          style={glassPanel}>
-                          {emoji}
-                        </motion.button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Sticker grid with categories */}
-                  {showStickers && (
-                    <>
-                      <div className="flex gap-1 px-3 pb-1 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-                        {stickerCategories.map((cat, i) => (
-                          <button key={cat.name} onClick={() => setStickerTab(i)}
-                            className="px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap cursor-pointer transition-all"
-                            style={stickerTab === i ? { backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" } : { ...glassPanel, color: "var(--mq-text-muted)" }}>
-                            {cat.name}
-                          </button>
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-8 gap-1 px-3 pb-3 overflow-y-auto" style={{ maxHeight: "200px", scrollbarWidth: "thin", scrollbarColor: "var(--mq-border) transparent" }}>
-                        {stickerCategories[stickerTab]?.items.map((emoji) => (
-                          <motion.button key={emoji} whileTap={{ scale: 1.2 }}
-                            onClick={() => handleSendSticker(emoji)}
-                            className="w-full aspect-square flex items-center justify-center text-2xl rounded-xl cursor-pointer hover:opacity-80 transition-opacity"
-                            style={glassPanel}>
-                            {emoji}
-                          </motion.button>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* ── Story creation ── */}
-            <AnimatePresence>
-              {showStoryCreate && (
-                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 240 }} exit={{ opacity: 0, height: 0 }}
-                  className="p-3 flex-shrink-0" style={{ borderTop: "1px solid var(--mq-border)", backgroundColor: "var(--mq-player-bg)" }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <BookOpen className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-                    <span className="text-xs font-medium" style={{ color: "var(--mq-text)" }}>Новая история</span>
-                    {/* Quick content type buttons */}
-                    <div className="flex gap-1 ml-auto">
-                      {currentTrack && (
-                        <motion.button
-                          whileTap={{ scale: 0.9 }}
-                          onClick={async () => {
-                            if (!userId || !currentTrack) return;
-                            try {
-                              const content = JSON.stringify({ type: "track_share", track: { id: currentTrack.id, title: currentTrack.title, artist: currentTrack.artist, cover: currentTrack.cover, duration: currentTrack.duration, streamUrl: currentTrack.audioUrl || "" } });
-                              const res = await fetch("/api/stories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "music", content }) });
-                              if (res.ok) { setShowStoryCreate(false); showToast("Трек в истории!"); }
-                            } catch { /* */ }
-                          }}
-                          className="p-1.5 rounded-lg flex items-center gap-1 text-[11px] font-medium"
-                          style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
-                          title="Поделиться текущим треком"
-                        >
-                          <Music2 className="w-3 h-3" /> Трек
-                        </motion.button>
-                      )}
-                    </div>
-                  </div>
-                  <textarea value={storyText} onChange={(e) => setStoryText(e.target.value)} placeholder="Что у вас нового?" rows={3}
-                    className="w-full rounded-xl px-3 py-2 text-sm resize-none" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} />
-                  <div className="flex gap-2 mt-2">
-                    <motion.button whileTap={{ scale: 0.95 }} onClick={async () => {
-                      if (!storyText.trim() || !userId) return;
-                      try {
-                        const res = await fetch("/api/stories", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "text", content: storyText.trim() }) });
-                        if (res.ok) { setShowStoryCreate(false); setStoryText(""); showToast("История опубликована!"); }
-                      } catch { /* */ }
-                    }} disabled={!storyText.trim()}
-                      className="flex-1 py-2 rounded-xl text-xs font-medium" style={{ backgroundColor: storyText.trim() ? "var(--mq-accent)" : "var(--mq-card)", color: storyText.trim() ? "var(--mq-text)" : "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}>
-                      Опубликовать
-                    </motion.button>
-                    <button onClick={() => { setShowStoryCreate(false); setStoryText(""); }} className="px-3 py-2 rounded-xl text-xs" style={{ color: "var(--mq-text-muted)", ...glassPanel }}>Отмена</button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </>
-        ) : (
-          /* ── Empty state ── */
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center px-8 max-w-sm">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="mb-6"
-              >
-                <div
-                  className="w-24 h-24 mx-auto rounded-3xl flex items-center justify-center"
-                  style={{ background: "linear-gradient(135deg, rgba(var(--mq-accent-rgb, 255,45,109),0.18), rgba(var(--mq-accent-rgb, 255,45,109),0.06))", border: "1px solid rgba(var(--mq-accent-rgb, 255,45,109),0.12)" }}
-                >
-                  <motion.div
-                    animate={{ y: [0, -6, 0] }}
-                    transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    <MessageCircle className="w-12 h-12" style={{ color: "var(--mq-accent)", opacity: 0.7 }} />
-                  </motion.div>
-                </div>
-              </motion.div>
-              <h3 className="text-xl font-bold mb-2" style={{ color: "var(--mq-text)" }}>Мессенджер</h3>
-              <p className="text-sm leading-relaxed mb-2" style={{ color: "var(--mq-text-muted)" }}>Выберите друга или группу для начала разговора</p>
-              <div className="flex items-center justify-center gap-1.5 mt-3">
-                <Lock className="w-3 h-3" style={{ color: "#64748b" }} />
-                <span className="text-[11px] font-medium" style={{ color: "#64748b" }}>Transport encryption (TLS)</span>
-              </div>
-              <p className="text-[11px] font-mono mt-2 px-3 py-1.5 rounded-lg inline-block" style={{ color: "var(--mq-text-muted)", ...glassPanel }}>
-                {fingerprint}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ════════════════════════════════════════════════════════ */}
-      {/*  CLEAR HISTORY CONFIRMATION DIALOG                     */}
-      {/* ════════════════════════════════════════════════════════ */}
-      <AnimatePresence>
-        {clearConfirm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-            onClick={() => setClearConfirm(null)}>
-            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ ...glassPanelSolid, boxShadow: shadowDeep }}
-              onClick={(e) => e.stopPropagation()}>
-              <div className="p-5 text-center">
-                <div className="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: clearConfirm.forBoth ? "rgba(249,115,22,0.15)" : "rgba(239,68,68,0.15)" }}>
-                  <AlertCircle className="w-6 h-6" style={{ color: clearConfirm.forBoth ? "#f97316" : "#ef4444" }} />
-                </div>
-                <h3 className="font-bold text-base mb-2" style={{ color: "var(--mq-text)" }}>
-                  {clearConfirm.forBoth ? "Очистить чат для обоих?" : "Очистить историю чата?"}
-                </h3>
-                <p className="text-xs mb-5" style={{ color: "var(--mq-text-muted)" }}>
-                  {clearConfirm.forBoth
-                    ? "Все сообщения будут удалены для вас и собеседника. Это действие необратимо."
-                    : "Все сообщения будут удалены навсегда."}
-                </p>
-                <div className="flex gap-3">
-                  <button onClick={() => setClearConfirm(null)}
-                    className="flex-1 px-4 py-2.5 rounded-xl text-xs font-medium cursor-pointer transition-opacity active:opacity-70"
-                    style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }}>
-                    Отмена
-                  </button>
-                  <button onClick={confirmClearHistory}
-                    className="flex-1 px-4 py-2.5 rounded-xl text-xs font-medium cursor-pointer transition-opacity active:opacity-70"
-                    style={{ backgroundColor: clearConfirm.forBoth ? "#f97316" : "#ef4444", color: "#fff" }}>
-                    {clearConfirm.forBoth ? "Очистить для обоих" : "Очистить"}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ════════════════════════════════════════════════════════ */}
-      {/*  NEW CHAT / ADD FRIEND DIALOG                        */}
-      {/* ════════════════════════════════════════════════════════ */}
-      <AnimatePresence>
-        {showNewChatDialog && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onClick={() => setShowNewChatDialog(false)}>
-            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="w-full max-w-md rounded-2xl overflow-hidden" style={{ ...glassPanelSolid, boxShadow: shadowDeep }} onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-4" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                <h3 className="font-bold" style={{ color: "var(--mq-text)" }}>Найти и добавить друга</h3>
-                <button onClick={() => setShowNewChatDialog(false)} className="p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}><X className="w-5 h-5" /></button>
-              </div>
-              <div className="p-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                  <Input placeholder="Поиск по @username или имени..." value={newChatSearch} onChange={(e) => setNewChatSearch(e.target.value)}
-                    className="pl-10 min-h-[40px] rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} autoFocus />
-                </div>
-              </div>
-              <div className="max-h-80 overflow-y-auto">
-                {isLoadingNewChat ? (
-                  <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "var(--mq-text-muted)" }} /></div>
-                ) : newChatFilteredContacts.length > 0 ? (
-                  newChatFilteredContacts.map((contact) => {
-                    const status = friendRequestStatus[contact.id];
-                    return (
-                      <div key={contact.id} className="flex items-center gap-3 p-3" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                        <AvatarImg src={contact.avatar} alt={contact.name} className="w-10 h-10 rounded-full object-cover" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{contact.name}</p>
-                          <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>@{contact.username}</p>
-                        </div>
-                        {status === "sent" ? (
-                          <span className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0" style={{ color: "var(--mq-accent)", ...glassPanel }}>Отправлено</span>
-                        ) : status && status !== "loading" ? (
-                          <span className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0 flex items-center gap-1" style={{ color: "#ef4444" }}><AlertCircle className="w-3 h-3" />Ошибка</span>
-                        ) : (
-                          <motion.button whileTap={{ scale: 0.95 }} onClick={() => sendFriendRequest(contact.id)} disabled={status === "loading"}
-                            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
-                            {status === "loading" ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
-                            Добавить
-                          </motion.button>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : newChatSearch.trim() ? (
-                  <div className="text-center py-8"><p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Пользователи не найдены</p></div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Search className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-                    <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Введите имя или @username для поиска</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ════════════════════════════════════════════════════════ */}
-      {/*  GROUP CREATE DIALOG                                   */}
-      {/* ════════════════════════════════════════════════════════ */}
-      <AnimatePresence>
-        {showGroupCreate && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.6)" }} onClick={() => setShowGroupCreate(false)}>
-            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="w-full max-w-md rounded-2xl overflow-hidden" style={{ ...glassPanelSolid, boxShadow: shadowDeep }} onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between p-4" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                <h3 className="font-bold" style={{ color: "var(--mq-text)" }}>Создать группу</h3>
-                <button onClick={() => setShowGroupCreate(false)} className="p-1 cursor-pointer" style={{ color: "var(--mq-text-muted)" }}><X className="w-5 h-5" /></button>
-              </div>
-              <div className="p-4 space-y-3">
-                <div>
-                  <label className="text-[11px] font-medium mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Название группы</label>
-                  <Input value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="Моя группа"
-                    className="min-h-[40px] rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Описание (необязательно)</label>
-                  <Input value={groupDesc} onChange={(e) => setGroupDesc(e.target.value)} placeholder="О чём эта группа..."
-                    className="min-h-[40px] rounded-xl" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border)", color: "var(--mq-text)" }} />
-                </div>
-                <div>
-                  <label className="text-[11px] font-medium mb-1 block" style={{ color: "var(--mq-text-muted)" }}>Добавить участников <span style={{ opacity: 0.6 }}>(необязательно)</span></label>
-                  <div className="max-h-40 overflow-y-auto rounded-xl" style={{ ...glassPanel }}>
-                    {friends.length === 0 ? (
-                      <p className="text-xs p-3 text-center" style={{ color: "var(--mq-text-muted)" }}>У вас пока нет друзей. Вы можете создать группу и добавить их позже</p>
-                    ) : (
-                      friends.map((f) => (
-                        <label key={f.id} className="flex items-center gap-3 p-2.5 cursor-pointer hover:opacity-80 transition-opacity" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-                          <input type="checkbox" checked={groupMembers.has(f.id)} onChange={(e) => {
-                            setGroupMembers((p) => { const n = new Set(p); if (e.target.checked) n.add(f.id); else n.delete(f.id); return n; });
-                          }} className="accent-[var(--mq-accent)]" />
-                          <AvatarImg src="" alt={f.username} className="w-7 h-7 rounded-full" />
-                          <span className="text-sm" style={{ color: "var(--mq-text)" }}>@{f.username}</span>
-                        </label>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="p-4 flex gap-2" style={{ borderTop: "1px solid var(--mq-border)" }}>
-                <motion.button whileTap={{ scale: 0.95 }} onClick={handleCreateGroup} disabled={!groupName.trim()}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-semibold cursor-pointer" style={{ backgroundColor: groupName.trim() ? "var(--mq-accent)" : "var(--mq-card)", color: groupName.trim() ? "var(--mq-text)" : "var(--mq-text-muted)", border: "1px solid var(--mq-border)" }}>
-                  Создать
-                </motion.button>
-                <button onClick={() => setShowGroupCreate(false)} className="px-4 py-2.5 rounded-xl text-xs cursor-pointer" style={{ color: "var(--mq-text-muted)", ...glassPanel }}>
-                  Отмена
+                    backgroundColor: groupName.trim() && selectedMembers.length > 0
+                      ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                    color: groupName.trim() && selectedMembers.length > 0
+                      ? "#fff" : "var(--mq-text-muted)",
+                  }}>
+                  Создать группу
                 </button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ════════════════════════════════════════════════════════ */}
-      {/*  FULL-SCREEN STORY VIEWER                              */}
-      {/* ════════════════════════════════════════════════════════ */}
-      <AnimatePresence>
-        {viewingStory && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.95)" }}
-            onClick={() => { if (viewingStoryIndex !== null && viewingStoryIndex < stories.length - 1) setViewingStoryIndex(viewingStoryIndex + 1); else closeStoryViewer(); }}>
-            <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); closeStoryViewer(); }}
-              className="absolute top-4 right-4 z-[310] p-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.15)" }}><X className="w-5 h-5 text-white" /></motion.button>
-
-            <div className="absolute top-0 left-0 right-0 z-[310] flex gap-1 p-2">
-              {stories.map((_, i) => (
-                <div key={i} className="h-0.5 flex-1 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
-                  <div className="h-full rounded-full transition-all duration-100" style={{
-                    backgroundColor: i === viewingStoryIndex ? "white" : "rgba(255,255,255,0.5)",
-                    width: i < (viewingStoryIndex ?? 0) ? "100%" : i === viewingStoryIndex ? `${storyProgress}%` : "0%",
-                  }} />
-                </div>
-              ))}
-            </div>
-
-            {viewingStoryIndex !== null && viewingStoryIndex > 0 && (
-              <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setViewingStoryIndex(viewingStoryIndex - 1); setStoryProgress(0); }}
-                className="absolute left-2 z-[310] p-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.1)" }}><ChevronLeft className="w-5 h-5 text-white" /></motion.button>
-            )}
-            {viewingStoryIndex !== null && viewingStoryIndex < stories.length - 1 && (
-              <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setViewingStoryIndex(viewingStoryIndex + 1); setStoryProgress(0); }}
-                className="absolute right-2 z-[310] p-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.1)" }}><ChevronRight className="w-5 h-5 text-white" /></motion.button>
-            )}
-
-            <motion.div key={viewingStory.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-              className="relative w-full max-w-[420px] h-[85vh] rounded-2xl overflow-hidden mx-2" style={{ backgroundColor: "var(--mq-card)" }} onClick={(e) => e.stopPropagation()}>
-              <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-3 p-4" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)" }}>
-                <AvatarImg src={viewingStory.avatar} alt={viewingStory.username} className="w-9 h-9 rounded-full object-cover" style={{ border: "2px solid white" }} />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-white">{viewingStory.username}</p>
-                  <p className="text-[11px] text-white/60">{new Date(viewingStory.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}</p>
-                </div>
-                <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); setStoryPaused(!storyPaused); }}
-                  className="p-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.15)" }}>
-                  {storyPaused ? <Play className="w-4 h-4 text-white" /> : <Pause className="w-4 h-4 text-white" />}
-                </motion.button>
-              </div>
-
-              <div className="w-full h-full flex items-center justify-center"
-                style={viewingStory.contentType === "text" ? { background: storyGradients[(viewingStoryIndex ?? 0) % storyGradients.length] } : {}}>
-                {viewingStory.contentType === "text" && (
-                  <div className="p-8 text-center"><p className="text-xl font-medium text-white leading-relaxed">{viewingStory.content}</p></div>
-                )}
-                {viewingStory.contentType === "track" && viewingStory.trackData && (
-                  <div className="p-8 w-full">
-                    <div className="mx-auto max-w-[280px]">
-                      {viewingStory.trackData.cover && (
-                        <Image src={viewingStory.trackData.cover} alt={viewingStory.trackData.title} width={280} height={280} className="w-full aspect-square rounded-2xl object-cover mb-4 shadow-2xl" unoptimized />
-                      )}
-                      <p className="text-white text-lg font-bold text-center mb-1">{viewingStory.trackData.title}</p>
-                      <p className="text-white/60 text-sm text-center">{viewingStory.trackData.artist}</p>
-                      <div className="mt-4 flex justify-center">
-                        <motion.button whileTap={{ scale: 0.9 }} className="w-14 h-14 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}
-                          onClick={() => {
-                            const store = useAppStore.getState();
-                            store.playTrack({ id: viewingStory.trackData!.id, title: viewingStory.trackData!.title, artist: viewingStory.trackData!.artist, cover: viewingStory.trackData!.cover, audioUrl: viewingStory.trackData!.streamUrl, duration: viewingStory.trackData!.duration } as any, []);
-                          }}>
-                          <Play className="w-6 h-6 text-white" style={{ marginLeft: 2 }} />
-                        </motion.button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {viewingStory.contentType === "image" && viewingStory.content && (
-                  <img src={viewingStory.content} alt="Story" className="w-full h-full object-cover" />
-                )}
-                {viewingStory.contentType === "video" && viewingStory.videoUrl && (
-                  <video
-                    src={viewingStory.videoUrl}
-                    className="w-full h-full object-cover"
-                    autoPlay
-                    muted
-                    loop
-                    playsInline
-                  />
-                )}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ════════════════════════════════════════════════════════ */}
-      {/*  PROFILE VIEW PANEL                                    */}
-      {/* ════════════════════════════════════════════════════════ */}
-      <AnimatePresence>
-        {showProfileView && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center"
-            style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
-            onClick={() => { setShowProfileView(null); setShowProfileMore(false); }}>
-            <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-2xl overflow-visible"
-              style={{ ...glassPanelSolid, boxShadow: shadowDeep }}
-              onClick={(e) => e.stopPropagation()}>
-
-              {/* Handle bar for mobile */}
-              <div className="flex justify-center pt-3 pb-1 sm:hidden">
-                <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--mq-border)" }} />
-              </div>
-
-              {/* Close button */}
-              <div className="flex justify-end px-4 pb-2">
-                <button onClick={() => { setShowProfileView(null); setShowProfileMore(false); }} className="p-1.5 rounded-full cursor-pointer" style={{ ...glassPanel, color: "var(--mq-text-muted)" }}>
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Avatar + Name + Status */}
-              <div className="flex flex-col items-center px-6 pb-5 gap-3">
-                <AvatarImg
-                  src={contactList.find(c => c.id === showProfileView)?.avatar || ""}
-                  alt={contactList.find(c => c.id === showProfileView)?.name || "User"}
-                  className="w-24 h-24 rounded-full object-cover"
-                  style={{ border: "3px solid var(--mq-accent)" }}
-                />
-                <div className="text-center">
-                  <p className="text-xl font-bold" style={{ color: "var(--mq-text)" }}>
-                    @{contactList.find(c => c.id === showProfileView)?.username || "User"}
-                  </p>
-                  <div className="flex items-center justify-center gap-1.5 mt-1">
-                    <div className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: onlineStatuses[showProfileView || ""]?.online ? "#4ade80" : "#6b7280" }} />
-                    <p className="text-xs" style={{ color: onlineStatuses[showProfileView || ""]?.online ? "#4ade80" : "var(--mq-text-muted)" }}>
-                      {onlineStatuses[showProfileView || ""]?.online
-                        ? "В сети"
-                        : formatLastSeen(onlineStatuses[showProfileView || ""]?.lastSeen || null)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action buttons row */}
-              <div className="flex justify-center gap-2 px-4 pb-4">
-                <motion.button whileTap={{ scale: 0.9 }}
-                  onClick={() => { setShowProfileView(null); }}
-                  className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
-                  style={{ ...glassPanel }}>
-                  <MessageCircle className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                  <span className="text-[11px] font-medium" style={{ color: "var(--mq-text)" }}>Чат</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.9 }}
-                  onClick={() => { showToast("Звонки скоро будут доступны"); }}
-                  className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
-                  style={{ ...glassPanel }}>
-                  <Phone className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                  <span className="text-[11px] font-medium" style={{ color: "var(--mq-text)" }}>Звонок</span>
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.9 }}
-                  onClick={() => { requestNotifPermission(); showToast(notificationPermission === "granted" ? "Уведомления включены" : "Разрешите уведомления в браузере"); }}
-                  className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer flex-1 max-w-[80px]"
-                  style={{ ...glassPanel }}>
-                  <Bell className="w-5 h-5" style={{ color: notificationPermission === "granted" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                  <span className="text-[11px] font-medium" style={{ color: "var(--mq-text)" }}>Звук</span>
-                </motion.button>
-                <div className="relative flex flex-col items-center gap-1.5 flex-1 max-w-[80px]">
-                  <motion.button whileTap={{ scale: 0.9 }}
-                    onClick={(e) => { e.stopPropagation(); setShowProfileMore(!showProfileMore); }}
-                    className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl cursor-pointer w-full"
-                    style={{ ...glassPanel }}>
-                    <MoreVertical className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                    <span className="text-[11px] font-medium" style={{ color: "var(--mq-text)" }}>Ещё</span>
-                  </motion.button>
-                  <AnimatePresence>
-                    {showProfileMore && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: -5 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: -5 }}
-                        transition={{ duration: 0.15 }}
-                        className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 rounded-xl py-1 min-w-[180px] z-50"
-                        style={{ ...glassPanelSolid, boxShadow: shadowDeep }}
-                        onTouchStart={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        data-context-menu="true"
-                        onClick={(e) => { e.stopPropagation(); setShowProfileMore(false); }}>
-                        <button onClick={() => { handleExportChat(showProfileView!); setShowProfileMore(false); }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
-                          <Download className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Экспорт чата
-                        </button>
-                        <button onClick={() => { handleClearHistory(showProfileView!, false); setShowProfileMore(false); }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "var(--mq-text)" }}>
-                          <Trash2 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Очистить историю
-                        </button>
-                        <button onClick={() => { handleClearHistory(showProfileView!, true); setShowProfileMore(false); }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "#f97316" }}>
-                          <Trash2 className="w-4 h-4" /> Очистить для обоих
-                        </button>
-                        <div className="my-1" style={{ borderTop: "1px solid var(--mq-border)" }} />
-                        <button onClick={() => { handleDeleteChat(showProfileView!); setShowProfileMore(false); setShowProfileView(null); }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-xs text-left cursor-pointer active:opacity-70 transition-opacity" style={{ color: "#ef4444" }}>
-                          <Ban className="w-4 h-4" /> Заблокировать
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-
-              {/* Now listening status — shows friend's currently playing track */}
-              {friendNowPlaying && (
-                <div className="mx-4 mb-4 rounded-xl p-3 flex items-center gap-3" style={{ ...glassPanel }}>
-                  {friendNowPlaying.cover ? (
-                    <Image src={friendNowPlaying.cover} alt="" width={48} height={48} className="w-12 h-12 rounded-lg object-cover flex-shrink-0 shadow-lg" unoptimized />
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }}>
-                      <Music2 className="w-6 h-6" style={{ color: "var(--mq-text)" }} />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-semibold tracking-wide uppercase" style={{ color: "var(--mq-accent)" }}>Сейчас слушает</p>
-                    <p className="text-xs font-medium truncate mt-0.5" style={{ color: "var(--mq-text)" }}>{friendNowPlaying.title}</p>
-                    <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{friendNowPlaying.artist}</p>
-                  </div>
-                  {friendNowPlayingActive && (
-                    <div className="flex items-end gap-[3px] flex-shrink-0 h-5">
-                      {[0, 1, 2, 3].map((i) => (
-                        <motion.div
-                          key={i}
-                          className="w-[3px] rounded-full"
-                          style={{ backgroundColor: "var(--mq-accent)" }}
-                          animate={{
-                            height: [4, 14, 6, 12, 4],
-                            opacity: [0.5, 1, 0.6, 0.9, 0.5],
-                          }}
-                          transition={{
-                            duration: 1.2,
-                            repeat: Infinity,
-                            delay: i * 0.15,
-                            ease: "easeInOut",
-                          }}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Bottom safe area for mobile */}
-              <div className="h-2 sm:hidden" style={{ backgroundColor: "transparent" }} />
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Notification Panel */}
-      {/* NotificationPanel is now global — rendered in play/page.tsx */}
-
-      {/* Listen together invite confirm */}
-      <AnimatePresence>
-        {listenInviteConfirm && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center" onClick={() => setListenInviteConfirm(null)}>
-            <div className="absolute inset-0 bg-black/40" />
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-              className="relative z-10 p-5 rounded-2xl w-72 shadow-xl" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
-              onClick={(e) => e.stopPropagation()}>
-              <div className="text-center mb-4">
-                <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center" style={{ backgroundColor: "rgba(224,49,49,0.1)" }}>
-                  <Headphones className="w-6 h-6" style={{ color: "var(--mq-accent)" }} />
-                </div>
-                <p className="text-sm font-bold mb-1" style={{ color: "var(--mq-text)" }}>Слушать вместе</p>
-                <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Пригласить друга слушать этот трек в реальном времени?</p>
-              </div>
-              <div className="space-y-2">
-                <button onClick={() => sendListenInvite(listenInviteConfirm)} disabled={listenInviteLoading}
-                  className="w-full py-2.5 rounded-xl text-sm font-medium transition-opacity disabled:opacity-50"
-                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
-                  {listenInviteLoading ? "Отправка..." : "Пригласить"}
-                </button>
-                <button onClick={() => setListenInviteConfirm(null)}
-                  className="w-full py-2.5 rounded-xl text-sm" style={{ backgroundColor: "var(--mq-input-bg)", color: "var(--mq-text-muted)" }}>
-                  Отмена
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ════════════════════════════════════════════════════════
-          Chat Theme Picker — P2: custom backgrounds per chat
-          ════════════════════════════════════════════════════════ */}
-      <AnimatePresence>
-        {showThemePicker && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-            style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }}
-            onClick={() => setShowThemePicker(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="rounded-2xl p-5 max-w-sm w-full"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", boxShadow: "var(--mq-shadow-dramatic)" }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>Тема чата</h3>
-                <button onClick={() => setShowThemePicker(false)} className="p-1 rounded-lg" style={{ color: "var(--mq-text-muted)" }}>
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="grid grid-cols-4 gap-2.5">
-                {Object.entries(CHAT_THEMES).map(([themeId, theme]) => (
-                  <motion.button
-                    key={themeId}
-                    whileTap={{ scale: 0.92 }}
-                    whileHover={{ scale: 1.05, y: -2 }}
-                    onClick={() => setChatTheme(themeId)}
-                    className="aspect-square rounded-xl flex items-end justify-center p-1.5 relative overflow-hidden"
-                    style={{
-                      background: theme.bg !== "transparent" && theme.bg !== "var(--mq-bg)"
-                        ? theme.bg
-                        : theme.pattern !== "none"
-                          ? `var(--mq-bg)`
-                          : "var(--mq-card-hover)",
-                      backgroundImage: theme.pattern !== "none" ? theme.pattern : undefined,
-                      backgroundSize: theme.patternSize,
-                      border: currentChatTheme === themeId
-                        ? "2px solid var(--mq-accent)"
-                        : "1px solid var(--mq-border)",
-                      boxShadow: currentChatTheme === themeId ? "var(--mq-shadow-accent)" : "none",
-                    }}
-                    aria-label={theme.name}
-                    title={theme.name}
-                  >
-                    <span
-                      className="text-[9px] font-medium truncate w-full text-center"
-                      style={{ color: "var(--mq-text-muted)" }}
-                    >
-                      {theme.name}
-                    </span>
-                    {currentChatTheme === themeId && (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ type: "spring", stiffness: 500, damping: 20 }}
-                        className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: "var(--mq-accent)" }}
-                      >
-                        <Check className="w-2.5 h-2.5" style={{ color: "#fff" }} strokeWidth={3} />
-                      </motion.div>
-                    )}
-                  </motion.button>
-                ))}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-
-  // ═══════════════════════════════════════════════════════════
-  //  MESSAGE BUBBLE RENDERER (DM)
-  // ═══════════════════════════════════════════════════════════
-
-  function renderMessageBubble(msg: any) {
-    let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-    const handleTouchStart = (e: React.TouchEvent) => {
-      longPressTimer = setTimeout(() => {
-        const touch = e.touches[0];
-        setContextMenuMsgId({ id: msg.id, x: touch.clientX, y: touch.clientY });
-      }, 500);
-    };
-    const handleTouchEnd = (e: React.TouchEvent) => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } };
-    const handleTouchMove = () => { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } };
-
-    // Check if voice message
-    let voiceData: { voiceUrl: string; voiceDuration: number } | null = null;
-    try { const parsed = JSON.parse(msg.content); if (parsed.voiceUrl) voiceData = parsed; } catch { /* not voice */ }
-
-    // Check if sticker
-    let stickerEmoji = "";
-    try { const parsed = JSON.parse(msg.content); if (parsed.type === "sticker" && parsed.sticker) stickerEmoji = parsed.sticker; } catch { /* not sticker */ }
-
-    // Check if reply content
-    let replyPreview: { senderName: string; content: string } | null = null;
-    if (msg.replyToId) {
-      const replyMsg = contactMessages.find((m) => m.id === msg.replyToId);
-      if (replyMsg) {
-        let content = "";
-        try { content = simulateDecryptSync(replyMsg.content); } catch { content = replyMsg.content; }
-        replyPreview = { senderName: replyMsg.senderId === userId ? "Вы" : (selectedContact?.name || "User"), content: content.slice(0, 40) + (content.length > 40 ? "..." : "") };
-      }
-    }
-
-    const isMine = msg.senderId === userId;
-    const isVoice = voiceData !== null;
-    const isSticker = !!stickerEmoji;
-    const isEdited = msg.edited;
-
-    return (
-      <div key={msg.id} id={`msg-${msg.id}`} data-msg-id={msg.id} className="relative group/bubble"
-        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setContextMenuMsgId({ id: msg.id, x: e.clientX, y: e.clientY }); }}
-        onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} onTouchMove={handleTouchMove}>
-        <motion.div initial={animationsEnabled ? { opacity: 0, y: 8, scale: 0.97 } : undefined} animate={{ opacity: 1, y: 0, scale: 1 }}
-          className={`flex flex-col ${isMine ? "items-end" : "items-start"}`}>
-          {replyPreview && (
-            <div className="mb-1 ml-1 px-2.5 py-1.5 rounded-lg max-w-[85%] lg:max-w-[70%] w-fit" style={{ ...glassPanel, borderLeft: "2px solid var(--mq-accent)" }}>
-              <p className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>{replyPreview.senderName}</p>
-              <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{replyPreview.content}</p>
-            </div>
-          )}
-          {isSticker ? (
-            <div className="text-5xl py-2">{stickerEmoji}</div>
-          ) : isVoice ? (
-            <VoiceMessageBubble voiceUrl={voiceData!.voiceUrl} duration={voiceData!.voiceDuration || 0} isMine={isMine} />
-          ) : (
-            <MessageBubble message={msg} currentUserId={userId || undefined} />
-          )}
-          {/* Reactions display */}
-          {messageReactions[msg.id] && messageReactions[msg.id].length > 0 && (
-            <div className={`flex gap-1 mt-0.5 ${isMine ? "justify-end mr-2" : "ml-2"}`}>
-              {messageReactions[msg.id].map((emoji, i) => (
-                <motion.span key={i} initial={{ scale: 0 }} animate={{ scale: 1 }}
-                  className="text-xs px-1.5 py-0.5 rounded-full cursor-pointer select-none"
-                  style={{ backgroundColor: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)" }}
-                  onClick={() => toggleReaction(msg.id, emoji)}>
-                  {emoji}
-                </motion.span>
-              ))}
-            </div>
-          )}
-        </motion.div>
-
-        {/* Context menu — fixed positioning at cursor */}
-        {contextMenuMsgId && contextMenuMsgId.id === msg.id && (
-          <div
-            data-context-menu="true"
-            className="fixed z-[9999] rounded-xl py-1 min-w-[190px]"
-            style={{
-              ...glassPanelSolid,
-              boxShadow: shadowDeep,
-              left: Math.min(contextMenuMsgId.x, window.innerWidth - 210),
-              top: Math.min(contextMenuMsgId.y, window.innerHeight - 280),
-            }}
-            onTouchStart={(e) => e.stopPropagation()}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => handleReplyMessage(msg)}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-              <Reply className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Ответить
-            </button>
-            {msg.senderId === userId && !isVoice && !isSticker && (
-              <button onClick={() => handleStartEdit(msg)}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-                <Edit3 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Редактировать
-              </button>
-            )}
-            <button onClick={() => handleCopyMessage(msg)}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-              <Copy className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> Копировать
-            </button>
-            <button onClick={() => { togglePinMessage(msg.id); setContextMenuMsgId(null); }}
-              className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "var(--mq-text)" }}>
-              <Pin className="w-4 h-4" style={{ color: pinnedMsgId === msg.id ? "var(--mq-accent)" : "var(--mq-accent)" }} fill={pinnedMsgId === msg.id ? "currentColor" : "none"} />
-              {pinnedMsgId === msg.id ? "Открепить" : "Закрепить"}
-            </button>
-            {/* Quick reactions */}
-            <div className="flex items-center gap-1 px-4 py-2" style={{ borderTop: "1px solid var(--mq-border)", borderBottom: "1px solid var(--mq-border)" }}>
-              {quickEmojis.slice(0, 6).map((emoji) => (
-                <button key={emoji} onClick={() => { toggleReaction(msg.id, emoji); setContextMenuMsgId(null); }}
-                  className="text-base hover:scale-125 transition-transform cursor-pointer p-0.5">
-                  {emoji}
-                </button>
-              ))}
-            </div>
-            {msg.senderId === userId && (
-              <button onClick={() => handleDeleteMessage(msg.id)}
-                className="w-full flex items-center gap-2.5 px-4 py-3 text-xs hover:opacity-80 active:opacity-70 transition-opacity text-left cursor-pointer" style={{ color: "#ef4444" }}>
-                <Trash2 className="w-4 h-4" /> Удалить
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  //  GROUP MESSAGE BUBBLE RENDERER
-  // ═══════════════════════════════════════════════════════════
-
-  function renderGroupMessageBubble(msg: any) {
-    const isMine = msg.senderId === userId;
-    let stickerEmoji = "";
-    try { const parsed = JSON.parse(msg.content); if (parsed.type === "sticker" && parsed.sticker) stickerEmoji = parsed.sticker; } catch { /* */ }
-    let voiceData: { voiceUrl: string; voiceDuration: number } | null = null;
-    try { const parsed = JSON.parse(msg.content); if (parsed.voiceUrl) voiceData = parsed; } catch { /* */ }
-
-    // Find sender's avatar for group chats
-    const senderInfo = contactList.find((c) => c.id === msg.senderId);
-
-    return (
-      <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"} mb-3`}>
-          {!isMine ? (
-            <div className="max-w-[85%] lg:max-w-[70%] w-fit">
-              <div className="flex items-center gap-1.5 mb-1 ml-1">
-                {senderInfo && (
-                  <AvatarImg src={senderInfo.avatar} alt={senderInfo.name} className="w-4 h-4 rounded-full object-cover" />
-                )}
-                <p className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>
-                  {msg.senderName || "User"}
-                </p>
-              </div>
-              {stickerEmoji ? (
-                <div className="text-5xl py-2">{stickerEmoji}</div>
-              ) : voiceData ? (
-                <VoiceMessageBubble voiceUrl={voiceData!.voiceUrl} duration={voiceData!.voiceDuration || 0} isMine={isMine} />
-              ) : (
-                <MessageBubble message={{ id: msg.id, content: msg.content, senderId: msg.senderId, receiverId: userId || "", encrypted: false, createdAt: msg.createdAt, senderName: msg.senderName, messageType: msg.messageType, replyToId: msg.replyToId, edited: msg.edited }} currentUserId={userId || undefined} />
-              )}
-              {msg.edited && !stickerEmoji && !voiceData && (
-                <p className={`text-[11px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
-              )}
-            </div>
-          ) : (
-            <>
-              {stickerEmoji ? (
-                <div className="text-5xl py-2">{stickerEmoji}</div>
-              ) : voiceData ? (
-                <VoiceMessageBubble voiceUrl={voiceData!.voiceUrl} duration={voiceData!.voiceDuration || 0} isMine={isMine} />
-              ) : (
-                <MessageBubble message={{ id: msg.id, content: msg.content, senderId: msg.senderId, receiverId: userId || "", encrypted: false, createdAt: msg.createdAt, senderName: msg.senderName, messageType: msg.messageType, replyToId: msg.replyToId, edited: msg.edited }} currentUserId={userId || undefined} />
-              )}
-              {msg.edited && !stickerEmoji && !voiceData && (
-                <p className={`text-[11px] mt-0.5 ${isMine ? "text-right mr-1" : "ml-1"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>ред.</p>
-              )}
-            </>
-          )}
-      </div>
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  VOICE MESSAGE BUBBLE COMPONENT
-// ═══════════════════════════════════════════════════════════════
-
-function VoiceMessageBubble({ voiceUrl, duration, isMine }: { voiceUrl: string; duration: number; isMine: boolean }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Generate pseudo-random bar heights based on duration for consistent waveform
-  const barCount = 28;
-  const barHeights = useMemo(() => {
-    const heights: number[] = [];
-    let seed = duration * 7;
-    for (let i = 0; i < barCount; i++) {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
-      heights.push(20 + (seed % 80));
-    }
-    return heights;
-  }, [duration]);
-
-  useEffect(() => {
-    return () => {
-      if (progressInterval.current) clearInterval(progressInterval.current);
-    };
-  }, []);
-
-  const togglePlay = () => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio(voiceUrl);
-      audioRef.current.onended = () => {
-        setIsPlaying(false);
-        setProgress(0);
-        setCurrentTime(0);
-        if (progressInterval.current) clearInterval(progressInterval.current);
-      };
-      audioRef.current.ontimeupdate = () => {
-        if (audioRef.current) {
-          const pct = (audioRef.current.currentTime / audioRef.current.duration) * 100;
-          setProgress(pct);
-          setCurrentTime(audioRef.current.currentTime);
-        }
-      };
-    }
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-      if (progressInterval.current) clearInterval(progressInterval.current);
-    } else {
-      audioRef.current.play().catch(() => {});
-      setIsPlaying(true);
-    }
-  };
-
-  const formatTime = (s: number) => {
-    const m = Math.floor(s / 60).toString().padStart(2, "0");
-    const sec = Math.floor(s % 60).toString().padStart(2, "0");
-    return `${m}:${sec}`;
-  };
-
-  return (
-    <div className="rounded-2xl px-4 py-3 flex items-center gap-3 min-w-[220px] max-w-[280px]"
-      style={{ backgroundColor: isMine ? "var(--mq-accent)" : "var(--mq-card)", border: isMine ? "none" : "1px solid var(--mq-border)", boxShadow: "0 2px 12px rgba(0,0,0,0.15)" }}>
-      {/* Play button */}
-      <button onClick={togglePlay} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-transform active:scale-90"
-        style={{ backgroundColor: isMine ? "rgba(255,255,255,0.25)" : "var(--mq-accent)" }}>
-        {isPlaying ? (
-          <Pause className="w-3.5 h-3.5" style={{ color: isMine ? "var(--mq-text)" : "var(--mq-text)" }} />
-        ) : (
-          <Play className="w-3.5 h-3.5" style={{ color: isMine ? "var(--mq-text)" : "var(--mq-text)", marginLeft: 2 }} />
-        )}
-      </button>
-      {/* Waveform bars */}
-      <div className="flex-1 flex items-center gap-[2px] h-8 cursor-pointer" onClick={togglePlay}>
-        {barHeights.map((h, i) => {
-          const isPast = (i / barCount) * 100 < progress;
-          return (
-            <div key={i} className="flex-1 rounded-full transition-all duration-200"
-              style={{
-                height: `${h}%`,
-                minHeight: 3,
-                backgroundColor: isPast
-                  ? (isMine ? "rgba(255,255,255,0.9)" : "var(--mq-accent)")
-                  : (isMine ? "rgba(255,255,255,0.3)" : "var(--mq-border)"),
-              }} />
-          );
-        })}
-      </div>
-      {/* Time */}
-      <span className="text-[11px] font-mono flex-shrink-0 w-10 text-right"
-        style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)" }}>
-        {isPlaying ? formatTime(currentTime) : formatTime(duration)}
-      </span>
     </div>
   );
-}
-
-
-// ═══════════════════════════════════════════════════════════════
-//  CONTACT ITEM SUB-COMPONENT
-// ═══════════════════════════════════════════════════════════════
-
-function ContactItem({ contact, selected, userId, lastMsg, unread, pinned, onlineStatus, animationsEnabled, index, onClick, onContextMenu }: {
-  contact: { id: string; name: string; username: string; avatar: string; online: boolean; lastSeen: string };
-  selected: boolean; userId: string; lastMsg: any; unread: number; pinned: boolean;
-  onlineStatus: { online: boolean; lastSeen: string | null } | undefined;
-  animationsEnabled: boolean; index: number;
-  onClick: () => void; onContextMenu: () => void;
-}) {
-  const isOnline = onlineStatus?.online ?? contact.online;
-  // Check if this contact is typing
-  const typingTs = useAppStore((s) => s.typingUsers[contact.id]);
-  const isTyping = typingTs && Date.now() - typingTs < 4000;
-
-  let lastMsgPreview = "";
-  if (lastMsg) {
-    try {
-      let decrypted = simulateDecryptSync(lastMsg.content);
-      // P1-fix: hide system message codes in preview
-      if (lastMsg.messageType === "system") {
-        if (decrypted.startsWith("listen_invite:")) {
-          decrypted = "🎵 Приглашение слушать вместе";
-        } else if (decrypted.startsWith("{") || decrypted.startsWith("[")) {
-          decrypted = "Системное сообщение";
-        } else if (decrypted.startsWith("ENC:")) {
-          decrypted = "Зашифрованное сообщение";
-        }
-      }
-      lastMsgPreview = decrypted.length > 35 ? decrypted.slice(0, 35) + "…" : decrypted;
-    } catch {
-      lastMsgPreview = lastMsg.content.slice(0, 35) + "…";
-    }
-  }
-
-  const formatTime = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - d.getTime();
-    const diffDays = Math.floor(diffMs / 86400000);
-    if (diffDays === 0) return d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
-    if (diffDays === 1) return "Вчера";
-    if (diffDays < 7) return d.toLocaleDateString("ru-RU", { weekday: "short" });
-    return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
-  };
-
-  return (
-    <motion.button
-      key={contact.id}
-      initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.03 }}
-      onClick={onClick}
-      onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onContextMenu(); }}
-      className="w-full flex items-center gap-3 px-3 py-3 transition-all text-left cursor-pointer group rounded-xl mx-1"
-      style={{
-        width: "calc(100% - 8px)",
-        backgroundColor: selected ? "rgba(var(--mq-accent-rgb, 255,45,109),0.12)" : "transparent",
-        borderLeft: selected ? "3px solid var(--mq-accent)" : "3px solid transparent",
-      }}
-      whileHover={{ backgroundColor: selected ? undefined : "rgba(255,255,255,0.04)" }}
-    >
-      <div className="relative flex-shrink-0">
-        <AvatarImg src={contact.avatar} alt={contact.name} className="w-12 h-12 rounded-full object-cover" style={{ boxShadow: isOnline ? "0 0 0 2px rgba(34,197,94,0.3)" : "none" }} />
-        {pinned && (
-          <div className="absolute -top-0.5 -left-0.5 w-4 h-4 rounded-full flex items-center justify-center" style={{ zIndex: 2, backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
-            <Pin className="w-2.5 h-2.5" style={{ color: "var(--mq-accent)", fill: "var(--mq-accent)" }} />
-          </div>
-        )}
-        {/* Online indicator with pulse */}
-        {isOnline && (
-          <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2"
-            style={{ backgroundColor: "#22c55e", borderColor: "var(--mq-bg)", boxShadow: "0 0 8px rgba(34,197,94,0.6)" }}>
-            <div className="w-full h-full rounded-full" style={{ animation: "mq-pulse-online 2s ease-in-out infinite" }} />
-          </div>
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{contact.name}</p>
-            {isOnline && !isTyping && (
-              <span className="text-[11px] font-medium px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ color: "#22c55e", backgroundColor: "rgba(34,197,94,0.12)" }}>в сети</span>
-            )}
-          </div>
-          {lastMsg && (
-            <span className={`text-[11px] flex-shrink-0 ${unread > 0 ? "font-semibold" : ""}`}
-              style={{ color: unread > 0 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
-              {formatTime(lastMsg.createdAt)}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center justify-between gap-2 mt-0.5">
-          <p className="text-xs truncate" style={{ color: unread > 0 ? "var(--mq-text)" : "var(--mq-text-muted)", fontWeight: unread > 0 ? 500 : 400 }}>
-            {isTyping ? null : (lastMsg ? (<>{lastMsg.senderId === userId ? "Вы: " : ""}{lastMsgPreview}</>) : `@${contact.username}`)}
-          </p>
-          {isTyping && (
-            <div className="flex items-center gap-1.5">
-              <div className="flex gap-0.5">
-                <span className="w-1 h-1 rounded-full animate-bounce" style={{ backgroundColor: "var(--mq-accent)", animationDelay: "0ms" }} />
-                <span className="w-1 h-1 rounded-full animate-bounce" style={{ backgroundColor: "var(--mq-accent)", animationDelay: "150ms" }} />
-                <span className="w-1 h-1 rounded-full animate-bounce" style={{ backgroundColor: "var(--mq-accent)", animationDelay: "300ms" }} />
-              </div>
-              <p className="text-xs font-medium" style={{ color: "var(--mq-accent)" }}>печатает...</p>
-            </div>
-          )}
-          {unread > 0 && (
-            <span className="min-w-[20px] h-[20px] rounded-full text-[11px] flex items-center justify-center px-1.5 flex-shrink-0 font-bold"
-              style={{
-                background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 70%, #f5576c))",
-                color: "#fff",
-                boxShadow: "0 2px 8px rgba(var(--mq-accent-rgb, 255,45,109),0.4)",
-              }}>
-              {unread > 99 ? "99+" : unread}
-            </span>
-          )}
-        </div>
-      </div>
-    </motion.button>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  TOAST HELPER
-// ═══════════════════════════════════════════════════════════════
-
-// P1.6: Replaced raw DOM toast with useToast hook.
-// The old showToast() created a document.createElement("div") with
-// hardcoded cssText — completely outside the design system. Now uses
-// the shared toast() from @/hooks/use-toast.
-import { toast } from "@/hooks/use-toast";
-function showToast(message: string) {
-  toast({ title: message });
-}
-
-// Notification permission helper
-function requestNotificationPermission() {
-  if (typeof Notification !== "undefined" && Notification.permission === "default") {
-    Notification.requestPermission();
-  }
 }

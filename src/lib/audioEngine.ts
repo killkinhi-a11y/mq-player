@@ -39,10 +39,25 @@ let _gaplessEnabled = true;
 // already has the next track loaded and ready for instant swap.
 let _gaplessPreloadedTrackId: string | null = null;
 
+function isMobile(): boolean {
+  if (typeof window === "undefined") return false;
+  return /Android|iPhone|iPad|iPod|Mobile|CriOS/i.test(navigator.userAgent) || window.innerWidth < 768;
+}
+
 function createAudioElement(): HTMLAudioElement {
   const audio = new Audio();
+  // crossOrigin = "anonymous" is needed for Web Audio API analyser to work
+  // (otherwise analyser returns silence on CORS-restricted streams).
+  // But it can cause some streams to fail entirely on mobile if the server
+  // doesn't send proper CORS headers. We keep it because SoundCloud proxy
+  // sends the right headers.
   audio.crossOrigin = "anonymous";
-  audio.preload = "auto";
+  // Mobile: "metadata" instead of "auto" to save memory/battery.
+  // Desktop: "auto" for gapless preload.
+  audio.preload = isMobile() ? "metadata" : "auto";
+  // Disable pip on mobile (causes flicker) — cast to any because TS doesn't
+  // have this property on HTMLAudioElement yet
+  (audio as any).disablePictureInPicture = true;
   return audio;
 }
 
@@ -93,6 +108,8 @@ export function setCrossfadeEnabled(enabled: boolean): void {
 }
 
 export function isCrossfadeEnabled(): boolean {
+  // Mobile: disable crossfade to save memory (2 audio elements = 2x RAM)
+  if (isMobile()) return false;
   return _crossfadeEnabled;
 }
 
@@ -126,6 +143,8 @@ export function setGaplessEnabled(enabled: boolean): void {
 }
 
 export function isGaplessEnabled(): boolean {
+  // Mobile: disable gapless preload to save bandwidth + memory
+  if (isMobile()) return false;
   return _gaplessEnabled;
 }
 
@@ -226,19 +245,18 @@ export function crossfadeToGapless(newAudio: HTMLAudioElement): void {
 
   // Determine which element is now the "old" one (fading out)
   const fadingOutElement = wasActiveSlot === "A" ? oldAudioA : oldAudioB;
-  const currentActiveElement = getAudioElement();
 
   // Stop old audio after the quick crossfade completes
+  // Re-read active element inside timeout to handle rapid double-skip
   setTimeout(() => {
-    [_audioA, _audioB].forEach(el => {
-      if (el && el !== currentActiveElement) {
-        el.pause();
-        el.currentTime = 0;
-        // Destroy any HLS instance on the old element
-        const hls = (el as any)._hlsInstance;
-        if (hls) { try { hls.destroy(); } catch {} delete (el as any)._hlsInstance; }
-      }
-    });
+    const nowActive = getAudioElement();
+    if (fadingOutElement && fadingOutElement !== nowActive) {
+      fadingOutElement.pause();
+      fadingOutElement.currentTime = 0;
+      // Destroy any HLS instance on the old element
+      const hls = (fadingOutElement as any)._hlsInstance;
+      if (hls) { try { hls.destroy(); } catch {} delete (fadingOutElement as any)._hlsInstance; }
+    }
   }, 200);
 
   // Clear the preload marker since we've now consumed it
@@ -486,19 +504,18 @@ export function crossfadeTo(newAudio: HTMLAudioElement, fadeIn: boolean = true):
 
   // Determine which element is now the "old" one (fading out)
   const fadingOutElement = wasActiveSlot === "A" ? oldAudioA : oldAudioB;
-  const currentActiveElement = getAudioElement();
 
   // Stop old audio after crossfade completes
+  // Re-read active element inside timeout to handle rapid double-skip
   setTimeout(() => {
-    [_audioA, _audioB].forEach(el => {
-      if (el && el !== currentActiveElement) {
-        el.pause();
-        el.currentTime = 0;
-        // Destroy any HLS instance on the old element to stop buffering
-        const hls = (el as any)._hlsInstance;
-        if (hls) { try { hls.destroy(); } catch {} delete (el as any)._hlsInstance; }
-      }
-    });
+    const nowActive = getAudioElement();
+    if (fadingOutElement && fadingOutElement !== nowActive) {
+      fadingOutElement.pause();
+      fadingOutElement.currentTime = 0;
+      // Destroy any HLS instance on the old element to stop buffering
+      const hls = (fadingOutElement as any)._hlsInstance;
+      if (hls) { try { hls.destroy(); } catch {} delete (fadingOutElement as any)._hlsInstance; }
+    }
   }, (duration + 0.1) * 1000);
 }
 

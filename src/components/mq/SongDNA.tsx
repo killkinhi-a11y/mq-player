@@ -382,7 +382,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
               className="relative rounded-xl p-4 overflow-hidden"
               style={{
                 background: dnaAnimated
-                  ? `linear-gradient(135deg, var(--mq-input-bg) 0%, rgba(var(--mq-accent-rgb, 224,49,49), 0.08) 100%)`
+                  ? `linear-gradient(135deg, var(--mq-input-bg) 0%, color-mix(in srgb, var(--mq-accent) 080%, transparent) 100%)`
                   : "var(--mq-input-bg)",
                 border: "1px solid var(--mq-border)",
                 transition: "background 0.8s ease",
@@ -613,7 +613,7 @@ export default function SongDNA({ track, isOpen, onClose }: SongDNAProps) {
                 </div>
               ) : similarTracks.length > 0 ? (
                 <div
-                  className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
+                  className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-none"
                   style={{
                     scrollbarWidth: "none",
                     msOverflowStyle: "none",

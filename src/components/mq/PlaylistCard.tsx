@@ -47,7 +47,7 @@ export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps)
       style={{
         borderRadius: radius,
         backgroundColor: "var(--mq-card)",
-        border: isMobile ? "1px solid rgba(255,255,255,0.06)" : "1px solid var(--mq-border)",
+        border: isMobile ? "1px solid var(--mq-border-thin)" : "1px solid var(--mq-border)",
         boxShadow: isMobile
           ? "0 4px 20px rgba(0,0,0,0.2), 0 0 20px color-mix(in srgb, var(--mq-accent) 5%, transparent)"
           : "inset 0 1px 0 rgba(255,255,255,0.04)",
@@ -100,7 +100,7 @@ export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps)
               backgroundColor: "rgba(0,0,0,0.45)",
               backdropFilter: "blur(16px) saturate(180%)",
               WebkitBackdropFilter: "blur(16px) saturate(180%)",
-              border: "1px solid rgba(255,255,255,0.12)",
+              border: "1px solid var(--mq-border-medium)",
             }}
           >
             <Play className="w-6 h-6 ml-1" style={{ color: "#fff" }} fill="#fff" />

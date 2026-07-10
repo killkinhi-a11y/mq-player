@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">MQ Player</string>
+    <string name="title_activity_main">MQ Player</string>
+    <string name="package_name">com.mq.player</string>
+    <string name="custom_url_scheme">com.mq.player</string>
+</resources>

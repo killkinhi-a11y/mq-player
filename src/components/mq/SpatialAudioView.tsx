@@ -79,7 +79,10 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
       const ok = initSpatialAudio();
       if (ok) {
         enableSpatialAudio(true);
-        const mood = spatialMood || (currentTrack ? detectMoodFromTrack(currentTrack.title, currentTrack.genre) : "chill");
+        // When auto-detect is on, always re-detect mood for current track on re-enable
+        const mood = spatialAutoDetect && currentTrack
+          ? detectMoodFromTrack(currentTrack.title, currentTrack.genre)
+          : (spatialMood || (currentTrack ? detectMoodFromTrack(currentTrack.title, currentTrack.genre) : "chill"));
         setMoodPreset(mood);
         setSpatialMood(mood);
         setSpatialAudioEnabled(true);
@@ -88,7 +91,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
       enableSpatialAudio(false);
       setSpatialAudioEnabled(false);
     }
-  }, [spatialMood, currentTrack, setSpatialAudioEnabled, setSpatialMood]);
+  }, [spatialMood, spatialAutoDetect, currentTrack, setSpatialAudioEnabled, setSpatialMood]);
 
   // ── Auto-detect mood when track changes ──
   useEffect(() => {
@@ -444,7 +447,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
               >
                 <div
                   className="w-14 h-14 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}
+                  style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--mq-border-thin)" }}
                 >
                   <SoundSpaceIcon color="rgba(255,255,255,0.2)" size={28} />
                 </div>

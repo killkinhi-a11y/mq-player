@@ -163,7 +163,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
       >
         {/* Ambient glow layer — accent color on hover */}
         <div
-          className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
+          className="absolute inset-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
           style={{
             borderRadius: cardRadius,
             boxShadow: `0 0 ${isMobile ? 16 : 20}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 8 : 15}%, transparent)`,
@@ -269,7 +269,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
                 flex items-center justify-center
                 rounded-full
                 ${compactMode ? "w-7 h-7" : "w-8 h-8"}
-                opacity-0 group-hover:opacity-100
+                sm:opacity-0 sm:group-hover:opacity-100
                 transition-opacity duration-200 ease-out
                 ${isActive && isPlaying ? "!opacity-100" : ""}
               `}
@@ -277,7 +277,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
                 backgroundColor: "rgba(0,0,0,0.45)",
                 backdropFilter: "blur(12px) saturate(180%)",
                 WebkitBackdropFilter: "blur(12px) saturate(180%)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                border: "1px solid var(--mq-border-medium)",
               }}
               whileHover={{ scale: 1.05 }}
               transition={{ type: "spring", stiffness: 400, damping: 25 }}
@@ -352,8 +352,11 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
                   : "linear-gradient(to right, transparent, var(--mq-bg, #0e0e0e))",
               }}
             />
-            {/* Now-playing equalizer next to title */}
-            {isActive && isPlaying && !compactMode && <NowPlayingEqualizer />}
+            {/* Now-playing equalizer next to title — shown when active,
+                animated when playing, paused state when active but paused. */}
+            {isActive && !compactMode && (
+              <NowPlayingEqualizer size="sm" variant="inline" paused={!isPlaying} />
+            )}
           </div>
 
           {/* Artist row */}
@@ -424,7 +427,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               hidden sm:flex items-center justify-center
               rounded-full
               transition-colors duration-150
-              opacity-0 group-hover:opacity-100
+              sm:opacity-0 sm:group-hover:opacity-100
               hover:bg-white/10
             `}
             style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }}
@@ -441,7 +444,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               ${compactMode ? "w-7 h-7" : "w-8 h-8"}
               flex items-center justify-center
               rounded-full
-              opacity-0 group-hover:opacity-100
+              sm:opacity-0 sm:group-hover:opacity-100
               hover:bg-white/10
               transition-colors duration-150
             `}

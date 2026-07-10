@@ -754,7 +754,7 @@ export default function SeasonalEffects({ theme }: { theme: SeasonalTheme }) {
         className="fixed bottom-20 right-4 z-[61] w-9 h-9 rounded-full flex items-center justify-center text-xs transition-all"
         style={{
           backgroundColor: isVisible ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.03)",
-          border: "1px solid rgba(255,255,255,0.1)",
+          border: "1px solid var(--mq-border-medium)",
           color: isVisible ? "var(--mq-text-muted)" : "var(--mq-text-muted)",
           opacity: isVisible ? 0.8 : 0.3,
           backdropFilter: "blur(12px)",

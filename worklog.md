@@ -548,3 +548,651 @@ Cumulative final stats:
 - 5 new shared libs (843L), 3 new components (605L)
 - 50 auth-protected API routes (40 original + 10 new M5)
 - Production: https://mq1.vercel.app — READY
+
+---
+Task ID: recs-rewrite-from-scratch
+Agent: main
+Task: Rewrite the "Для вас" (recommended tracks) view on the main page from scratch
+
+Work Log:
+- Read full MainView.tsx (1492 lines) to understand current recommendations structure (RecCategoryRow + RecCard, 5-col grid on desktop / horizontal scroll on mobile, multiple stacked category rows)
+- Designed new layout: Hero featured track + Tab navigation + compact numbered list
+- Added `activeRecTab` state to MainView (default "all")
+- Added memoized `allRecTracks` (deduped aggregation across all categories)
+- Added memoized `visibleRecTracks` (filtered by activeRecTab)
+- Derived `recHero` (first visible track) and `recList` (next 8 tracks)
+- Added `handlePlayRec` callback that plays track in context of all visible tracks
+- Added useEffect to reset activeRecTab if its category disappears after refetch
+- Added module-level `reasonForRec(categoryId)` helper returning Russian reasoning text ("Топ-чарт страны", "Популярно сейчас", "Похоже на ваше", "Подобрано для вас")
+- Replaced recommendations JSX block with new structure: RecsHero + RecsTabs + RecsList
+- Deleted old RecCategoryRow and RecCard components (~155 lines)
+- Added 5 new components: RecsHero (large featured card with blurred bg + reasoning chip + play/like actions), RecsTabs (horizontal tab switcher with counts), RecsList (empty state + list wrapper), RecRow (compact numbered row with rank/cover/title/artist/reason/play button), RecsSkeleton (3-section loading placeholder)
+- Fixed toggleLike call signature (track.id, track) instead of (track)
+- Verified: tsc passes, next build succeeds (Compiled successfully in 11.8s), dev server boots without errors
+
+Stage Summary:
+- File: src/components/mq/MainView.tsx (1492 → 1844 lines, +352 net from richer hero/tabs/skeleton)
+- Old design: monotonous stacked rows of identical card grids — flat hierarchy, every category looked the same
+- New design: clear visual hierarchy with hero (1 featured track w/ blurred bg + reasoning) → tabs (switch context) → list (8 compact rows w/ rank + reasoning chips). Adds 4 distinct UX layers (hero, tabs, list, reasoning) without touching the data layer.
+- All existing data fetching (Apple Music Top, Trending, Recommendations API) preserved unchanged
+- New: aggregated "Все" tab that dedupes across all categories
+- New: reasoning chips explain WHY each track is recommended
+- All Russian copy localized (Рекомендация для вас, Топ-чарт страны, Популярно сейчас, Похоже на ваше, etc.)
+
+---
+Task ID: messenger-rewrite
+Agent: full-stack-developer
+Task: Rewrite MessengerView from scratch
+
+Work Log:
+- Read worklog.md to understand project history (Zustand store v9, M1 honesty pass on crypto, prior SSE/BroadcastChannel work)
+- Read full current MessengerView.tsx (1455 lines) and identified critical bug at line 1066: `const reactions = messageReactionssg.id] || [];` — typo parse error referencing undefined identifier `messageReactionssg`, which throws ReferenceError inside the message renderer and crashes the chat view to a white screen on entry
+- Identified secondary crash risks: missing Array.isArray guards on `friends`, `groupChats`, `messages`, `group.members`; no error boundary; no defensive null-checks on `selectedGroup?.members`
+- Inspected store: confirmed `addMessage`, `loadMessages`, `setSelectedContact`, `clearUnread`, `setTypingUser`, `clearTypingUser` actions and `typingUsers: Record<string, number>` shape
+- Inspected `@/lib/crypto`: `simulateEncrypt` is no-op passthrough, `simulateDecryptSync` strips legacy `ENC:` prefix
+- Inspected `useToast` hook signature: `const { toast } = useToast()`
+- Verified all CSS variables exist in globals.css (`--mq-card`, `--mq-bg`, `--mq-accent`, `--mq-text`, `--mq-text-muted`, `--mq-border-thin`, `--mq-border-hairline`, `--mq-shadow-float`, `--mq-radius-2xl`, `--mq-input-bg`)
+- Imported `Message as ChatMessage` type directly from `@/lib/musicApi` to avoid type duplication
+- Wrote new MessengerView.tsx with:
+  * Three sub-components extracted: `VoiceMessageBubble`, `Avatar`, `DateSeparator`
+  * Helpers: `formatTime`, `formatLastSeen`, `formatDuration`, `getDateLabel`, `sameDay`, `colorForId`, `getInitials`, `parseVoice`, `decrypt`
+  * Safety: every state array access goes through `Array.isArray()` guard (`safeFriends`, `safeGroupChats`, `safeMessages`); every async op wrapped in `try/catch`; recoverable error-state UI replaces any white screen when initial friend/group fetch fails
+  * Chat list: search bar, sorted (pinned-first then last-activity), unread badges, online green dot, last-message preview, voice-message preview, member count for groups, right-click to pin/unpin
+  * Chat view: header (avatar/name/status/back button on mobile/pinned member avatars for groups), pinned-message bar (collapsible), messages with date separators, sender-colored name in groups, message status checkmarks (single check for temp_id=sent, double-check for delivered=server-confirmed), voice messages with waveform + play button + duration, auto-scroll on new messages, typing indicator with animated dots
+  * Input bar: auto-resizing textarea, send button (disabled when empty), 6 quick-emoji picker, voice recording with cancel/send, TLS encryption indicator (Lock icon)
+  * Context menu (right-click): Reply (quotes into input), Copy (clipboard), Pin (per-chat localStorage), Delete (local-only)
+  * Real-time: SSE for DMs with auto-reconnect, BroadcastChannel for cross-tab sync, 8s polling for group messages, typing-indicator broadcast via /api/messages/typing
+  * Mobile: list/chat view toggle, pull-to-refresh (80px pull triggers fetchFriends + fetchGroupChats), swipe-back via mobile back button
+  * Document title updates with total unread count
+  * Group creation dialog with member search and selection chips
+  * New-chat dialog with debounced user search
+- Ran `npx tsc --noEmit -p tsconfig.json` → exit code 0, no type errors
+- Verified no function duplication (single each of MessengerView, VoiceMessageBubble, Avatar, DateSeparator)
+- File size: 1455 → 1708 lines. Slightly larger than original because of: (a) extensive Array.isArray/try-catch safety guards everywhere, (b) error boundary UI, (c) new features not in original (quick-emoji picker, encryption indicator, message status checkmarks, pull-to-refresh, reply action, date separators, voice waveform determinism, member avatars in group header). Per-feature the code is denser; the line growth is safety + features, not bloat.
+
+Stage Summary:
+- File: src/components/mq/MessengerView.tsx (1455 → 1708 lines)
+- Critical bug fixed: `messageReactionssg.id]` typo at line 1066 of old file (undefined identifier → ReferenceError → white screen on chat entry). The whole reactions feature was removed since the spec only asked for Reply/Copy/Pin/Delete in the context menu.
+- Safety hardening: every state array is Array.isArray-guarded, every async op is in try/catch, error boundary shows "Не удалось загрузить чаты" with Retry button instead of white screen, group.members always normalized to [] when missing
+- Telegram-style premium dark UI using MQ design tokens (var(--mq-card) bg, var(--mq-accent) #e03131 for my messages and CTAs, var(--mq-text-muted) for secondary text, var(--mq-shadow-float) on outer card)
+- New sub-components (Avatar, DateSeparator, VoiceMessageBubble) eliminate ~120 lines of duplicated avatar/separator JSX
+- Real-time stack preserved: SSE with reconnect, BroadcastChannel cross-tab, 8s group polling, typing indicator
+- TypeScript: compiles cleanly with `tsc --noEmit` (exit 0)
+- No other files modified; all existing API endpoints and store actions used as-is
+
+---
+Task ID: recs-wave-polish
+Agent: Main Agent (Claude)
+Task: Доработать рекомендации и волну (refine recommendations + wave)
+
+Work Log:
+- Wave: replaced `useAppStore.getState().progress` (which never
+  triggers re-renders) with a proper `useAppStore((s) => s.progress)`
+  selector subscription. Progress bar now updates smoothly.
+- Wave: added `isLiked` prop to WaveCard and Like (Heart) button
+  in BOTH mobile-active and desktop-active wave states. Heart turns
+  red (#ef4444) when track is in likedTrackIds. Uses previously-
+  unused `onLike` prop that was wired from useWaveEngine.likeTrack.
+- Wave: replaced single-path SVG wave background with 3-layer
+  animated SVG (back/mid/front) — different speeds (8s/5s/3.5s)
+  and opacities (0.10/0.14/0.18) create a more organic ocean wave.
+- Recs: removed ~565 lines of dead code:
+  * Components: RecsHero, RecsTabs, RecsList, RecRow,
+    RecsListSkeleton, InfiniteScrollSentinel, EqualizerIcon
+    (all defined but never rendered after the Spotify-home
+    RecStrip rewrite)
+  * State in MainView: activeRecTab, setRecActiveRecTab,
+    recVisibleCount, setRecVisibleCount, prevCatsRef
+  * Derived memos: visibleRecTracks, recHero, recList, recListTotal
+    (all consumed only by the dead components above)
+  * useEffect hooks for activeRecTab persistence / reset
+  * Unused lucide imports: Share2, ListPlus, Mic2
+- Recs: added new RecHero component at the top of "Для вас" section.
+  Picks the currently-playing track if it's in recs, otherwise falls
+  back to the first track of the first category. Renders blurred
+  cover backdrop, "Рекомендация для вас" eyebrow, reasoning chip
+  (Топ-чарт Spotify / Топ-чарт страны / Популярно сейчас / etc.),
+  play/pause and like buttons. Cover has hover overlay with play icon.
+- Recs: RecCard improvements:
+  * Play button + dark gradient overlay now always visible on mobile
+    (touch devices have no hover) via `opacity-100 sm:opacity-0
+    sm:group-hover:opacity-100` pattern
+  * "ИГРАЕТ" badge shows 4 animated equalizer bars (mq-eq keyframe)
+    when track is currently playing, falls back to static red dot
+    when paused
+  * Added reasoning text below artist name (small muted caption)
+- Build verification: tsc --noEmit → exit 0 (no type errors),
+  next build → ✓ Compiled successfully in 23.7s
+- Pushed to origin/main: 578a6aa..404e5c8
+
+Stage Summary:
+- File: src/components/mq/MainView.tsx (2293 → 1958 lines, net -335
+  lines despite adding 2 new components — 565 lines of dead code
+  removed, 230 lines of new hero/like/eq polish added)
+- Wave now: smooth progress bar, Like button works, 3-layer animated
+  background gives organic ocean feel
+- Recs now: featured hero track on top → category strips below.
+  Each card shows play button on mobile, animated EQ when playing,
+  reasoning caption. Visual hierarchy clearer.
+- Production: https://mq1.vercel.app — READY (auto-deploys from main)
+
+---
+Task ID: recs-wave-radio-deep
+Agent: Main Agent (Claude)
+Task: Доработать рекомендации (логику, не визуал) в волне + плеер баре
+
+Work Log:
+- Read useWaveEngine.ts (307L → 487L), found that fetchWaveTracks
+  ALWAYS used /api/music/recommendations?wave=1 (generic taste-profile
+  query), ignoring the much better /api/music/radio endpoint that the
+  store's nextTrack() uses when queue ends in radioMode.
+- Read /api/music/radio/route.ts (1176L) and /api/music/recommendations/
+  route.ts (1666L) to understand both endpoints. Radio endpoint takes
+  scTrackId + history/skipped/liked/taste params and returns tracks
+  seeded by the current track. Recommendations endpoint returns
+  categorized tracks based on the user's taste profile (no seed track).
+- Read store/useAppStore.ts nextTrack() — found that when queue ends in
+  radioMode it calls /api/music/radio with full personalization context
+  (history 80 SC IDs, skipped artists/genres, liked artists/genres,
+  taste profile sliders, completed genres, session duration, language).
+- Refactored useWaveEngine.fetchWaveTracks to try /api/music/radio
+  FIRST when there's a current track with scTrackId. Passes the SAME
+  full personalization context that store's nextTrack() does. Falls
+  back to /api/music/recommendations?wave=1 only when:
+    (a) no current track (initial wave start), or
+    (b) radio endpoint fails / returns fewer than min(5, count) tracks.
+  This means: initial start still uses taste-profile recs (correct,
+  no current track to seed from), but skip/refill now flows from one
+  track to related ones — like a real radio.
+- Added useWaveEngine.startWaveFromCurrentTrack(): keeps current track
+  as the seed and only fetches subsequent tracks via /api/music/radio.
+  Lets user turn ANY currently playing track into a radio seed without
+  losing their playback position. Builds queue = [currentTrack,
+  ...radioTracks] and calls playTrack(cur, newQueue).
+- Added 'Up Next' preview to PlayerBar: hover over the SkipForward
+  button shows a small glassmorphic tooltip (240px wide) with the next
+  track's cover, title, and artist. Uses existing peekNextTrack()
+  store action. Hidden in shuffle mode (next is random — preview
+  would be misleading). Uses AnimatePresence for smooth enter/exit.
+- Added 'Радио от трека' button (Radio icon) to PlayerBar between
+  Dislike and Volume sections. Calls wave.startWaveFromCurrentTrack().
+  Shows accent color + small glowing dot when radioMode is already
+  active. Shows Loader2 spinner during waveLoading. Title attribute
+  gives the Russian hint.
+- PlayerBar now subscribes to: queue, queueIndex, upNext, radioMode,
+  peekNextTrack (previously only subscribed to currentTrack/isPlaying/
+  progress/duration/volume/shuffle/repeat/likedTrackIds/dislikedTrackIds/
+  miniPlayerHidden/playbackState/isFullTrackViewOpen).
+- Added useMemo for nextTrackPreview (re-computed when queue/
+  queueIndex/upNext/shuffle/repeat change).
+- Added Radio and Loader2 (already imported) to lucide-react imports.
+- Added useMemo to React imports.
+- Imported useWaveEngine hook.
+- Build verification: tsc --noEmit → exit 0, next build →
+  ✓ Compiled successfully in 24.6s.
+- Pushed to origin/main: 404e5c8..421a950.
+
+Stage Summary:
+- Files: useWaveEngine.ts (307 → 487 lines, +180),
+  PlayerBar.tsx (374 → 480 lines, +106).
+- Wave refills/skip are now SEEDED by the currently playing track
+  (was: always generic taste-profile query). Result: tracks flow
+  naturally from one to related ones, like Yandex Music / Spotify
+  radio, instead of jumping between unrelated recs.
+- PlayerBar gains 'Up Next' preview (hover SkipForward) and 'Радио
+  от трека' button. Both are recommendation-quality-of-life features
+  that bring the bar closer to Spotify/Yandex Music standard.
+- Production: https://mq1.vercel.app — READY (auto-deploys from main)
+
+---
+Task ID: recs-wave-radio-bugfix
+Agent: Main Agent (Claude)
+Task: Найти и починить баги в доработкахrecommendations/wave/PlayerBar из предыдущих двух коммитов
+
+Work Log:
+- Перечитал свой код в useWaveEngine.ts и PlayerBar.tsx — нашёл 5 багов.
+
+BUG #1: startWaveFromCurrentTrack вызывал playTrack(cur, newQueue).
+  - playTrack() сбрасывает progress: 0 (store/useAppStore.ts:1011) —
+    комментарий "preserves playback position" был неправдой.
+  - playTrack() также попадает в _playLock early-return
+    (store/useAppStore.ts:1000), если тот же track id. _playLock
+    снимается только в useAudioEngine когда аудио реально загрузится.
+    В обоих случаях очередь НЕ обновлялась → radio tracks терялись.
+  - FIX: использую useAppStore.setState напрямую для обновления
+    queue/queueIndex/radioMode/upNext, оставляя currentTrack/progress/
+    duration/isPlaying нетронутыми. Воспроизведение продолжается с той
+    же позиции.
+
+BUG #2: startWaveFromCurrentTrack содержал duplicate call:
+    let tracks = await fetchWaveTracks(15);
+    if (tracks.length === 0) {
+      tracks = await fetchWaveTracks(15);  // ← бесполезен
+    }
+  fetchWaveTracks уже сам fallback'ает на recommendations. Второй
+  вызов делал то же самое.
+  - FIX: убрал duplicate call.
+
+BUG #3: startWaveFromCurrentTrack не обрабатывал currentIdx = -1
+  (currentTrack не в queue, например очередь была очищена). В этом
+  случае newQueue = [...shuffled] с queueIndex = -1 ломал prevTrack().
+  - FIX: добавил проверку curInQueue. Если cur не в queue, ставлю
+    его в начало: newQueue = [cur, ...shuffled], newQueueIndex = 0.
+
+BUG #4: fetchWaveTracks, когда /api/music/radio вернул мало треков
+  (< min(5, count)), падал в recommendations fallback и ТЕРЯЛ radio-
+  треки. Пользователь вместо high-relevance radio получал generic recs.
+  - FIX: вынес recommendations+trending+charts fallback в локальную
+    функцию fetchRecsFallback(needed). Когда radio вернул SOME tracks
+    но не enough — MERGE: radio tracks первыми (higher relevance),
+    затем recs чтобы заполнить остаток. Dedup против radio track IDs.
+  - Refactor: один общий excludeSet (history+queue), используемый
+    обоими путями, вместо двух отдельных.
+
+BUG #5: PlayerBar — Up Next tooltip обрезался и уходил за viewport.
+  - 'overflow-hidden' на родительском контейнере player bar обрезал
+    tooltip. Ambient glow имеет свой собственный overflow-hidden +
+    rounded-2xl, так что родительский был избыточен.
+  - FIX: убрал 'overflow-hidden' с родителя. CSS border-radius всё
+    равно клипит background-color и backdrop-filter.
+  - Tooltip был позиционирован 'top-full mt-2' (вниз от SkipForward),
+    но player bar внизу viewport — tooltip уходил за экран.
+  - FIX: изменил на 'bottom-full mb-2' (вверх, в область контента).
+
+Build verification:
+- tsc --noEmit → exit 0
+- next build → ✓ Compiled successfully in 24.1s
+- Pushed to origin/main: 421a950..534e789
+
+Stage Summary:
+- Файлов изменено: useWaveEngine.ts, PlayerBar.tsx
+- 5 багов починено: 3 в useWaveEngine (playTrack reset, duplicate call,
+  currentIdx=-1), 1 в fetchWaveTracks (merge вместо drop), 1 в
+  PlayerBar (overflow-hidden clip + position off-screen).
+- Главный эффект: кнопка "Радио от трека" теперь РЕАЛЬНО запускает
+  радио от текущего трека без сброса позиции воспроизведения и без
+  потери radio tracks. Up Next tooltip теперь виден на экране.
+- Production: https://mq1.vercel.app — READY (auto-deploys from main)
+
+---
+Task ID: recs-wave-bugfix-round2
+Agent: Main Agent (Claude)
+Task: Продолжить доработку рекомендаций/wave/PlayerBar и искать новые баги
+
+Work Log:
+- Перечитал свой код — нашёл 5 новых багов в предыдущих доработках.
+
+BUG #1: useWaveEngine auto-refill race condition.
+  - Auto-refill effect имеет deps [radioMode, currentTrack, queue,
+    queueIndex, fetchWaveTracks, shuffle]. На каждое изменение этих
+    effect перезапускается. Если fetch ещё в полёте (await fetch...),
+    а effect перезапустился — запускался ВТОРОЙ параллельный fetch.
+    2-3 параллельных /api/music/radio запроса тратили rate-limit
+    budget и соревновались за добавление треков в очередь (дубликаты).
+  - FIX: добавил inflightRef (Promise<Track[]> | null) и обёртку
+    fetchWaveTracksDedup(count). Если inflight != null — возвращает
+    тот же promise, не запуская новый. .finally() очищает ref.
+    Используется в auto-refill effect и skipTrack. startWave и
+    startWaveFromCurrentTrack оставлены на raw fetchWaveTracks —
+    это одиночные user-initiated действия, dedup не нужен.
+
+BUG #2: useWaveEngine startWaveFromCurrentTrack не обрабатывал
+  пустой tracks.
+  - Если и /api/music/radio, и /api/music/recommendations вернули
+    0 треков (редкий случай — пользователь на эзотерическом вкусе
+    без related контента), функция ставила radioMode=true с queue=
+    [cur] (только текущий трек). Пользователь застревал на том же
+    треке без ошибки.
+  - FIX: early-return с setWaveError("Не удалось подобрать похожие
+    треки. Попробуйте позже."), очередь НЕ трогается. Пользователь
+    продолжает слушать текущий трек и видит понятную ошибку.
+
+BUG #3: PlayerBar handleStartRadio пересоздавал очередь даже когда
+  radioMode уже активен.
+  - Если пользователь нажал Радио-кнопку второй раз (или Wave уже
+    идёт), startWaveFromCurrentTrack пересоздавал очередь с cur
+    как seed, теряя будущие radio tracks, которые уже были в очереди.
+  - FIX: early-return если radioMode === true. Чтобы перезапустить
+    радио — нужно сначала Stop в Wave card.
+
+BUG #4: PlayerBar Up Next tooltip мигал при быстром проведении мыши.
+  - onMouseEnter мгновенно ставил showUpNext=true. При свайпе мышью
+    по controls tooltip появлялся и исчезал на каждом SkipForward
+    hover, создавая flicker.
+  - FIX: 150ms open delay через hoverTimerRef (setTimeout). Close
+    остался мгновенным (clearTimeout + setShowUpNext(false) на
+    mouseLeave). Добавлен cleanup useEffect для очистки таймера
+    при unmount компонента.
+
+BUG #5: PlayerBar Up Next tooltip не показывал длительность
+  следующего трека.
+  - IMPROVEMENT: добавил badge с formatDuration(nextTrackPreview.
+    duration) справа от названия. Серый muted фон, моноширинный
+    вид. Соответствует паттерну Spotify/Apple Music — помогает
+    пользователю решить, стоит ли скипать.
+
+DEAD CODE cleanup:
+- useWaveEngine: убран неиспользуемый toggleRadioMode selector
+  (импортировался, но не вызывался — комментарии ссылались, но
+  код использовал useAppStore.setState напрямую).
+- useWaveEngine: убран неиспользуемый favoriteArtists selector
+  (подписывался на store, но не читался — fetchRecsFallback
+  использует useAppStore.getState() inline, что правильно для
+  one-shot чтений).
+
+Build verification:
+- tsc --noEmit → exit 0
+- next build → ✓ Compiled successfully in 24.3s
+- Pushed to origin/main: 534e789..73b1749
+
+Stage Summary:
+- Файлов: useWaveEngine.ts, PlayerBar.tsx
+- 5 багов починено: race condition в auto-refill (главный!),
+  empty radio queue, radio re-click rebuild, tooltip flicker,
+  + improvement tooltip duration.
+- Главный эффект: теперь при быстрой смене треков (или скипоходе
+  в очереди из 1-2 треков) не летит 2-3 параллельных запроса на
+  /api/music/radio — экономится rate limit и не возникает дубликатов
+  в очереди.
+- Production: https://mq1.vercel.app — READY (auto-deploys from main)
+
+---
+Task ID: fix-4bugs-eq-wave-progress-radio
+Agent: Main Agent (Claude)
+Task: 4 бага с последнего деплоя (0f2fad4): eq анимация, волна не выключается, прогресс бар зажимается, рекомендации с повторами
+
+Work Log:
+
+BUG 1: Эквалайзер на обложке в плеер баре не анимируется.
+- Причина: NowPlayingEqualizer использовал height: "100%" на child spans
+  внутри inline-flex parent с filter: drop-shadow. Percentage height в
+  flex + filter-created stacking context может не вычислиться в некоторых
+  браузерах. Плюс filter: drop-shadow на parent может ломать transform:
+  scaleY на children.
+- Фикс: переписал NowPlayingEqualizer v3 — ЯВНАЯ height (cfg.height) на
+  каждом bar вместо "100%". Убрал filter: drop-shadow (glow теперь через
+  box-shadow на каждом bar). Убрал gradient (solid color). Проще = надёжнее.
+
+BUG 2: Волна всегда активна, не выключается.
+- Причина #1: radioMode исключён из partialize(), но merge() копировал
+  его из старого localStorage (где он сохранялся в старых версиях).
+  При reload stale radioMode=true восстанавливался.
+- Причина #2: WaveCard имел Pause/Skip/Dislike/Like но НЕ имел Stop
+  кнопки. stopWave() был определён в useWaveEngine но не подключён к UI.
+- Фикс #1: onRehydrateStorage теперь принудительно ставит radioMode=false,
+  radioSeedTrack=null, radioSkipCount=0 при каждом rehydrate. Также
+  добавил TRANSIENT_FIELDS set в merge() чтобы явно пропускать эти поля.
+- Фикс #2: добавил onStopWave prop в WaveCard, подключил wave.stopWave.
+  Добавил X (close) кнопку в mobile и desktop active Wave, после Like.
+  Полностью останавливает radio mode.
+
+BUG 3: Прогресс бар зажимается при drag.
+- Причина: PlayerBar передавал inline arrow functions как onSeek/
+  onDragStart/onDragEnd в ProgressBar. Они создают новые function
+  identities каждый render. ProgressBar's drag useEffect имеет их в deps,
+  поэтому effect перезапускался на каждом render во время drag. Если
+  render происходил между mousedown и mouseup — mouseup listener
+  удалялся → mouseup терялся → drag застревал.
+- Фикс: memoized onSeek/onDragStart/onDragEnd через useCallback в
+  PlayerBar. Стабильные identities → effect не перезапускается → mouseup
+  всегда ловится.
+- Также убрал 50 строк мёртвого кода (progressBarRef, seekTo,
+  getHoverTime, handleProgressMouseDown/Move, hoveredTime, hoverRafRef,
+  duplicate useEffect) — они не были привязаны к DOM.
+- Добавил safety net в ProgressBar: unmount cleanup release drag state
+  если component unmounts mid-drag.
+
+BUG 4: Рекомендации — "непонятные треки" + "повторы постоянные".
+- Причина #1: radio endpoint имел 1-минутный cache. Тот же scTrackId +
+  historyScIds возвращал те же треки в течение TTL → пользователь слышал
+  те же "next 10 tracks" повторно.
+- Причина #2: client-side excludeSet покрывал только последние 50 history.
+  Треки сыгранные раньше могли повторяться.
+- Причина #3: SoundCloud related API иногда возвращает много треков от
+  одного артиста → artist spam в очереди.
+- Фикс #1: отключил radio cache (TTL=0). Radio ДОЛЖЕН возвращать разные
+  треки каждый вызов — это его суть.
+- Фикс #2: увеличил client-side history exclude с 50 до 100. Также явно
+  добавил disliked track IDs в excludeSet.
+- Фикс #3: добавил artist diversity filter — max 2 трека на артиста в
+  radio results. Также sort: NEW artists (не в recent 30)优先 над
+  recently-played artists, чтобы свежая музыка шла первой.
+
+Build verification:
+- tsc --noEmit → exit 0
+- next build → ✓ Compiled successfully in 24.4s
+- Pushed to origin/main: 0f2fad4..f1c6ae6
+
+Stage Summary:
+- 7 файлов изменено: NowPlayingEqualizer.tsx, useAppStore.ts, PlayerBar.tsx,
+  ProgressBar.tsx, useWaveEngine.ts, radio/route.ts, MainView.tsx
+- 4 бага починены + добавлена Stop кнопка для волны (которой не было).
+- Главные эффекты: eq анимация работает, волна выключается по X, прогресс
+  бар не застревает, radio возвращает разные треки без повторов артистов.
+- Production: https://mq1.vercel.app — READY (auto-deploys from main)
+
+---
+Task ID: trigger-redeploy
+Agent: Main Agent (Claude)
+Task: Форсировать деплой f1c6ae6 на Vercel — webhook не сработал на предыдущий push
+
+Work Log:
+- После push f1c6ae6 проверил GitHub deployments API — последний
+  deployment был от 0f2fad4 (17:39 UTC). Для f1c6ae6 deployments=0,
+  commit status=pending с 0 statuses. Vercel не получил/не обработал
+  webhook.
+- Подождал 90 секунд, перепроверил — ситуация не изменилась.
+- Создал пустой commit b55d42a с описанием причины и запушил.
+  Empty commit триггерит новый GitHub push event → Vercel webhook.
+- Через 20 секунд Vercel начал деплой (commit status: pending,
+  "Vercel is deploying your app").
+- Через 90 секунд деплой завершён (commit status: success,
+  "Deployment has completed").
+- Проверил production: CSS chunk 0us~..scshcy5.css содержит новое
+  правило .mq-eq-paused span{opacity:.5;animation-play-state:paused}
+  (v3 стиль). JS chunks совпадают с локальным build (0-dpw~m0e1rtp.js
+  есть на production).
+- Production: https://mq1.vercel.app — UPDATED to b55d42a (включает
+  все 4 багфикса из f1c6ae6).
+
+Stage Summary:
+- Деплой форсирован пустым commit. Vercel webhook на исходный push
+  f1c6ae6 не сработал (вероятно GitHub временно не доставил webhook
+  или Vercel был недоступен). Empty commit — стандартный приём для
+  таких случаев.
+- Все 4 фикса теперь в production: eq анимация, Stop кнопка волны,
+  прогресс бар drag, radio рекомендации без повторов.
+
+---
+Task ID: ux-core-application
+Agent: Main Agent (Claude)
+Task: Изучить keepsimple.io/ru/uxcore и применить принципы к mq-player
+
+Work Log:
+- Загрузил https://keepsimple.io/ru/uxcore через curl, извлёк JSON
+  из Next.js __NEXT_DATA__. Это библиотека из 105 когнитивных
+  искажений с описаниями и примерами применения в продуктах.
+- Изучил структуру: каждое искажение имеет title, description,
+  usage (HTML), usageHr (HTML для HR).
+- Выбрал 6 искажений применимых к mq-player прямо сейчас.
+
+ПРИНЦИПЫ UX CORE ПРИМЕНЁННЫЕ К MQ-PLAYER:
+
+1. Эффект Ресторфф (изоляции) #15:
+   - Объект выделяющийся из ряда запоминается лучше.
+   - Quick Stats приглушены: mq-premium-card → simpler card with
+     hairline border, 60% transparent bg, smaller padding.
+   - Wave Card теперь визуально доминирует как единственный главный
+     CTA — gradient bg + glow не конкурируют за внимание.
+
+2. Эффект превосходства картинки #14:
+   - Изображения запоминаются лучше слов.
+   - QuickStat: добавлен optional cover prop. Показывает мини-обложку
+     последнего лайкнутого трека (Избранное), последней обложки из
+     истории (История), первой обложки первого плейлиста (Плейлисты).
+     Accent dot индикатор категории. Иконка fallback если cover нет.
+
+3. Эвристика доступности #1:
+   - Действия ассоциирующиеся с негативом реже совершаются.
+   - Empty state плейлистов: 'Создайте плейлист' → 'Новый плейлист',
+     'Организуйте любимую музыку' → 'Собери своё'. Без императива.
+   - RecsEmptyState: 'Пока нет рекомендаций' → 'Пока пусто',
+     'Послушайте несколько треков и поставьте лайки' → 'Запустите
+     волну или лайкните трек'. Короче, позитивнее.
+
+4. Забывание без подсказок #6:
+   - Без стимулов человек не может вспомнить.
+   - Empty state плейлистов: добавлены мини-обложки (3 шт) недавно
+     сыгранных треков справа от текста. Визуальная подсказка 'вот
+     что можно добавить'.
+
+5. Эффект контекста #5:
+   - Окружение влияет на восприятие.
+   - Hero greeting: когда трек играет, под приветствием показываем
+     '● Сейчас играет: Title — Artist'. Единый контекст 'что
+     происходит прямо сейчас' — раньше hero и Wave Card создавали
+     разрыв контекста.
+
+6. Эффект знакомства #4 (частично):
+   - Чем чаще видишь объект, тем приятнее он кажется.
+   - QuickStat и empty state плейлистов используют один паттерн
+     (card + icon/cover + text).
+
+Build verification:
+- tsc --noEmit → exit 0
+- next build → ✓ Compiled successfully in 22.8s
+- Pushed to origin/main: 52ec452..a03047d
+- Vercel deployment: success (3tJpczovJGrXW3DAWBmWoHRo3j9T)
+
+Stage Summary:
+- 1 файл изменён: MainView.tsx (+96 / -18 строк)
+- 6 принципов UX Core применены к MainView.
+- Главные эффекты: Wave визуально доминирует, Quick Stats с обложками,
+  тексты без императива, визуальные подсказки в empty states,
+  контекст текущего трека в hero.
+- Production: https://mq1.vercel.app — UPDATED to a03047d.
+
+Остальные 99 искажений из uxcore можно применять по мере развития
+продукта. Самые перспективные для следующего этапа:
+- Эффект якоря #18 (для pricing/премиум)
+- Предвзятость подтверждения #25 (для рекомендаций — показать почему
+  рекомендован именно этот трек)
+- Эффект фрейминга #22 (для формулировок CTA)
+- Феномен негативного восприятия #17 (для error states — не пугать)
+
+---
+Task ID: wave-fixes-and-playerbar-polish
+Agent: Main Agent (Claude)
+Task: 5 задач — повторы треков, бесконечный поток, убрать Like/Dislike/Stop с волны, toggle радио в плеер баре, доработать плеер бар
+
+Work Log:
+
+TASK 1+2: Повторы треков + бесконечный поток
+- useWaveEngine fetchWaveTracks: excludeSet увеличен с 100 до 200 history
+  entries. SoundCloud related API возвращает overlapping results для
+  похожих seed tracks — большой exclude window предотвращает повторы.
+- recentArtists window увеличен с 30 до 50 для stronger artist diversity.
+- Artist diversity filter: max 1 трек на артиста в батче (было 2).
+  Строже — никаких повторов артиста подряд.
+- Auto-refill: preemptive threshold поднят с 2 до 5 tracks remaining.
+  Волна НИКОГДА не заканчивается — следующий батч грузится до того
+  как текущий закончится.
+- Auto-refill throttle снижен с 10s до 8s для faster skip rates.
+  Batch size увеличен с 10 до 15 для bigger buffer.
+
+TASK 4: Убрать Like/Dislike/Stop с Wave Card
+- Mobile active Wave: убраны ThumbsDown, Heart, X. Только Play/Pause
+  + SkipForward.
+- Desktop active Wave: то же самое.
+- Wave Card теперь фокусируется только на playback. Like/Dislike живут
+  в PlayerBar (там уже были). Wave on/off живёт в PlayerBar Radio toggle.
+
+TASK 5: PlayerBar Radio button как toggle
+- handleStartRadio: было 'if (radioMode) return;' (no-op когда активно).
+  Теперь: if radioMode → wave.stopWave(); else → startWaveFromCurrentTrack().
+  Второе нажатие выключает волну. Раньше нужно было найти Stop на Wave
+  Card (теперь убран) чтобы выключить.
+- Tooltip: 'Волна активна' → 'Выключить волну' когда активно.
+
+TASK 3: PlayerBar доработка
+- Добавлен 'Волна' badge рядом с названием трека когда radioMode активен.
+  UX Core #5 (Эффект контекста): пользователь видит откуда трек (волна
+  vs плейлист vs поиск) без угадывания.
+
+Build verification:
+- tsc --noEmit → exit 0
+- next build → ✓ Compiled successfully in 21.9s
+- Pushed to origin/main: a03047d..5e3a86e
+- Vercel deployment: success
+
+Stage Summary:
+- 4 файла изменено: useWaveEngine.ts, MainView.tsx, PlayerBar.tsx, worklog.md
+- Главные эффекты:
+  1. Волна не повторяет треки (excludeSet 200, 1 трек/артист)
+  2. Бесконечный поток (preemptive refill at 5 remaining)
+  3. Wave Card чистая — только Play/Pause + Skip
+  4. Radio кнопка в плеер баре — toggle (второе нажатие выключает)
+  5. 'Волна' badge в плеер баре для контекста
+- Production: https://mq1.vercel.app — UPDATED to 5e3a86e.
+
+---
+Task ID: recs-rewrite-search-suggestions-perf
+Agent: Main Agent (Claude)
+Task: Переписать рекомендации с нуля (Spotify-style), подсказки в поиске, починить постепенную нагрузку
+
+Work Log:
+
+RECOMMENDATIONS — переписаны с нуля (Spotify-style):
+- Старый v14: 1665 строк over-engineered scoring с 20+ keyword lists,
+  8 фаз, bridge genres, time-of-day energy matching.
+- Новый v3: ~350 строк clean seed-based logic.
+- SEED-BASED: берёт до 3 лайкнутых + 2 history треков как seeds,
+  /tracks/{id}/related даёт genuinely similar tracks.
+- MIX: 60% familiar (related к лайкнутому), 25% artist-based, 15%
+  discovery (genre search для gaps).
+- DIVERSITY: max 2 трека на артиста в выдаче (Spotify standard).
+  Artist-aware interleaving prevents consecutive same-artist tracks.
+- CATEGORIES: 'Для вас', 'Похожие на {artist}', 'Открытия'.
+- Scoring: related-to-liked +100, related-to-history +60, artist/genre
+  +20. Playable +15, cover +10, promo -15. Duration 2-6min +10. Jitter ±10.
+- Cache 10min (было 6min) — seed-based results стабильнее.
+
+SEARCH SUGGESTIONS — autocomplete dropdown:
+- SearchSuggestions компонент появляется когда пользователь печатает
+  но ещё не нажал Enter.
+- Показывает:
+  1. 'Искать «query»' — прямой поиск
+  2. Recent searches что match (clock icon)
+  3. Trending searches что match (trending icon)
+  4. Popular artists что match (mic icon)
+- UX Core #6 (Забывание без подсказок).
+- POPULAR_ARTISTS: Mac DeMarco, Tame Impala, Arctic Monkeys, The Weeknd,
+  Billie Eilish, Kendrick Lamar, Frank Ocean, Tyler.
+
+PERFORMANCE — починить "постепенную нагрузку":
+- useGlobalNotifications: polling 5s → 30s. Главный виновник — полный
+  unread-count fetch каждые 5 секунд. 30s достаточно для уведомлений.
+- useGlobalNotifications: добавлен visibility-based pause — polling
+  останавливается когда tab hidden, resume on visibility.
+- useFriendsListening: polling 15s → 30s (initial + visibility resume).
+- useListenSessionSync: guest poll 5s → 15s, host tick 5s → 15s,
+  meta check 5s → 15s.
+
+Build verification:
+- tsc --noEmit → exit 0
+- next build → ✓ Compiled successfully in 25.1s
+- Pushed to origin/main: e6284c1..a8915b0
+- Vercel deployment: success
+- Net: +405 / -1481 строк (рекомендации стали в 4 раза короче)
+
+Stage Summary:
+- 5 файлов изменено: recommendations/route.ts (полная перезапись),
+  SearchView.tsx (+suggestions), useGlobalNotifications.ts,
+  useFriendsListening.ts, useListenSessionSync.ts
+- Главные эффекты:
+  1. Рекомендации теперь genuinely seed-based (как Spotify) —
+     related к лайкнутым трекам, не random genre search
+  2. Поиск показывает подсказки при печати (autocomplete)
+  3. Polling частоты уменьшены в 3-6 раз → меньше нагрузка при
+     долгом сидении на сайте
+- Production: https://mq1.vercel.app — UPDATED to a8915b0.

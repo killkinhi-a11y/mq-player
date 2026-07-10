@@ -433,7 +433,7 @@ export default function FriendsView() {
                   <h2 className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
                     Входящие запросы
                   </h2>
-                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(var(--mq-accent-rgb, 255,45,109),0.12)", color: "var(--mq-accent)" }}>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 120%, transparent)", color: "var(--mq-accent)" }}>
                     {incomingRequests.length}
                   </span>
                 </div>
@@ -522,7 +522,7 @@ export default function FriendsView() {
                           Ожидает подтверждения
                         </p>
                       </div>
-                      <span className="text-xs px-2.5 py-1.5 rounded-lg" style={{ color: "var(--mq-accent)", backgroundColor: "rgba(var(--mq-accent-rgb, 255,45,109),0.1)" }}>
+                      <span className="text-xs px-2.5 py-1.5 rounded-lg" style={{ color: "var(--mq-accent)", backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
                         Отправлено
                       </span>
                     </motion.div>
@@ -610,7 +610,7 @@ export default function FriendsView() {
             <div className="text-center py-10">
               <div
                 className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3"
-                style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+                style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid var(--mq-border-thin)" }}
               >
                 <WifiOff className="w-7 h-7" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
               </div>
@@ -628,7 +628,7 @@ export default function FriendsView() {
         <div className="text-center py-16 mt-4">
           <div
             className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4"
-            style={{ background: "linear-gradient(135deg, rgba(var(--mq-accent-rgb, 255,45,109),0.15), rgba(var(--mq-accent-rgb, 255,45,109),0.05))", border: "1px solid rgba(var(--mq-accent-rgb, 255,45,109),0.12)" }}
+            style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 150%, transparent), color-mix(in srgb, var(--mq-accent) 050%, transparent))", border: "1px solid color-mix(in srgb, var(--mq-accent) 120%, transparent)" }}
           >
             <Users className="w-9 h-9" style={{ color: "var(--mq-accent)", opacity: 0.5 }} />
           </div>
@@ -745,7 +745,7 @@ export default function FriendsView() {
                           </p>
                         </div>
                         {status === "sent" ? (
-                          <span className="text-xs px-2.5 py-1.5 rounded-lg" style={{ color: "var(--mq-accent)", backgroundColor: "rgba(var(--mq-accent-rgb, 255,45,109),0.1)" }}>
+                          <span className="text-xs px-2.5 py-1.5 rounded-lg" style={{ color: "var(--mq-accent)", backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
                             Отправлено
                           </span>
                         ) : (
@@ -776,7 +776,7 @@ export default function FriendsView() {
                 <div className="text-center py-8">
                   <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3"
-                    style={{ backgroundColor: "rgba(var(--mq-accent-rgb, 255,45,109),0.08)" }}
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 080%, transparent)" }}
                   >
                     <UserPlus className="w-5 h-5" style={{ color: "var(--mq-accent)", opacity: 0.4 }} />
                   </div>
@@ -824,7 +824,7 @@ function FriendCard({
       transition={{ delay: index * 0.04 }}
       whileHover={{ y: -1, boxShadow: "var(--mq-shadow-card-hover)" }}
       className="flex items-center gap-3 p-3 rounded-2xl transition-all"
-      style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.06)" }}
+      style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)" }}
     >
       <div className="relative flex-shrink-0">
         <AvatarImg src={friend.avatar} alt={friend.username} size="md" />
@@ -865,9 +865,9 @@ function FriendCard({
             disabled={listenAlongLoading}
             className="flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs font-medium cursor-pointer min-h-[40px] transition-colors"
             style={{
-              backgroundColor: "rgba(var(--mq-accent-rgb, 255,45,109),0.08)",
+              backgroundColor: "color-mix(in srgb, var(--mq-accent) 080%, transparent)",
               color: "var(--mq-accent)",
-              border: "1px solid rgba(var(--mq-accent-rgb, 255,45,109),0.12)",
+              border: "1px solid color-mix(in srgb, var(--mq-accent) 120%, transparent)",
             }}
             title="Слушать вместе"
           >

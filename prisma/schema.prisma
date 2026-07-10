@@ -47,6 +47,8 @@ model User {
   typingEventsTo         TypingEvent[] @relation("TypingTo")
   trackComments          TrackComment[] @relation("TrackComments")
   smartPlaylists         SmartPlaylist[] @relation("UserSmartPlaylists")
+  listeningStatus        ListeningStatus? @relation("ListeningStatus")
+  hostedLiveSessions     LiveSession[] @relation("HostedLiveSessions")
 }
 
 model AuditLog {
@@ -415,4 +417,64 @@ model SmartPlaylist {
   user        User     @relation("UserSmartPlaylists", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// Listening status — what each user is currently playing (polled by friends)
+// Updated every ~10s while a track is playing. Auto-expires after 5min of inactivity.
+model ListeningStatus {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  trackId      String
+  trackTitle   String
+  trackArtist  String
+  trackCover   String   @default("")
+  scTrackId    Int?
+  isPlaying    Boolean  @default(true)
+  progress     Float    @default(0)  // seconds
+  duration     Float    @default(0)  // seconds
+  source       String   @default("soundcloud")
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation("ListeningStatus", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([updatedAt])
+}
+
+// Live listening sessions — group synchronized playback (host + multiple guests)
+model LiveSession {
+  id           String   @id @default(cuid())
+  hostId       String
+  code         String   @unique  // 6-char join code (e.g. "ABC123")
+  trackId      String
+  trackTitle   String
+  trackArtist  String
+  trackCover   String   @default("")
+  scTrackId    Int?
+  audioUrl     String   @default("")
+  source       String   @default("soundcloud")
+  progress     Float    @default(0)  // seconds
+  isPlaying    Boolean  @default(true)
+  guestCount   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  host         User     @relation("HostedLiveSessions", fields: [hostId], references: [id], onDelete: Cascade)
+  members      LiveSessionMember[] @relation("LiveSessionMembers")
+
+  @@index([hostId])
+  @@index([code])
+}
+
+// Live session members — who's in each session (for guest list + sync)
+model LiveSessionMember {
+  id           String   @id @default(cuid())
+  sessionId    String
+  userId       String
+  username     String
+  avatar       String   @default("")
+  joinedAt     DateTime @default(now())
+  lastSyncAt   DateTime @updatedAt
+  session      LiveSession @relation("LiveSessionMembers", fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@index([sessionId])
 }

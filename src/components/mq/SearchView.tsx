@@ -1,18 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
-import { genresList, type Track } from "@/lib/musicApi";
+import { genresList, type Track, formatDuration } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import ScrollReveal from "./ScrollReveal";
+import ContextMenu from "./ContextMenu";
+import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
+import { useLongPress } from "@/hooks/useLongPress";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Search, X, SlidersHorizontal, Play, Upload, Clock, Trash2, CheckCircle2,
   AlertCircle, Loader2, Headphones, TrendingUp, ChevronRight, Music, Sparkles,
   RefreshCw, Flame, Zap, Mic, Disc, Heart, Piano, Radio, RotateCcw, ListMusic,
-  Hash, ArrowRight
+  Hash, ArrowRight, MoreHorizontal
 } from "lucide-react";
 
 const SEARCH_HISTORY_KEY = "mq-search-history";
@@ -123,6 +126,10 @@ export default function SearchView() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [sortBy, setSortBy] = useState<"relevance" | "duration" | "title">("relevance");
+  const [filterDuration, setFilterDuration] = useState<"all" | "short" | "medium" | "long">("all");
   const [quickPicksSeed, setQuickPicksSeed] = useState(0);
   const [isDebouncing, setIsDebouncing] = useState(false);
   const genreScrollRef = useRef<HTMLDivElement>(null);
@@ -157,12 +164,18 @@ export default function SearchView() {
     setSearchHistory(getSearchHistory());
   }, []);
 
-  // Auto-focus search input when navigating to search view
+  // Cleanup suggestions hide timer on unmount
   useEffect(() => {
-    if (currentView === "search") {
-      // Small delay to ensure the container has display:block (it uses display:none when hidden)
+    return () => {
+      if (suggestionsHideTimer.current) clearTimeout(suggestionsHideTimer.current);
+    };
+  }, []);
+
+  // Auto-focus search input when navigating to search view (desktop only — mobile keyboard is intrusive)
+  useEffect(() => {
+    if (currentView === "search" && window.innerWidth >= 768) {
       const timer = setTimeout(() => {
-        if (searchInputRef.current) searchInputRef.current.focus();
+        if (searchInputRef.current) searchInputRef.current.focus({ preventScroll: true });
       }, 50);
       return () => clearTimeout(timer);
     }
@@ -335,6 +348,31 @@ export default function SearchView() {
   const activeLoading = selectedGenre ? isGenreLoading : isLoading;
   const activeHasSearched = selectedGenre || hasSearched;
 
+  // ── Filter + sort tracks (functional, not cosmetic) ──
+  // filterDuration: short (<2min), medium (2-5min), long (>5min)
+  // sortBy: relevance (API order), duration (asc), title (alphabetical)
+  const processedTracks = useMemo(() => {
+    let result = [...activeTracks];
+    // Duration filter
+    if (filterDuration !== "all") {
+      result = result.filter(t => {
+        const d = t.duration || 0;
+        if (filterDuration === "short") return d > 0 && d < 120;
+        if (filterDuration === "medium") return d >= 120 && d <= 300;
+        if (filterDuration === "long") return d > 300;
+        return true;
+      });
+    }
+    // Sort
+    if (sortBy === "duration") {
+      result.sort((a, b) => (a.duration || 0) - (b.duration || 0));
+    } else if (sortBy === "title") {
+      result.sort((a, b) => (a.title || "").localeCompare(b.title || ""));
+    }
+    // relevance = API order, no sort
+    return result;
+  }, [activeTracks, filterDuration, sortBy]);
+
   // ── Main Search View ──
   return (
     <div className={`${compactMode ? "p-3 sm:p-4 lg:p-5 pb-[var(--mq-player-clearance)] sm:pb-32 lg:pb-32 space-y-4" : "p-4 sm:p-5 lg:p-6 pb-[var(--mq-player-clearance)] sm:pb-36 lg:pb-36 space-y-5"} max-w-[var(--mq-container-base)] mx-auto relative mq-anim-fade-in`} style={{ scrollBehavior: "smooth" }}>
@@ -342,7 +380,7 @@ export default function SearchView() {
       {uploadProgress && (
         <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
           className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[90vw] max-w-md">
-          <div className="rounded-2xl p-4 shadow-2xl" style={{ backgroundColor: "rgba(24,24,27,0.97)", backdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.06)", color: "var(--mq-text)" }}>
+          <div className="rounded-2xl p-4 shadow-2xl" style={{ backgroundColor: "rgba(24,24,27,0.97)", backdropFilter: "blur(24px)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}>
             <div className="flex items-center gap-3 mb-2">
               {uploadProgress.status === "uploading" && <Loader2 className="w-5 h-5 flex-shrink-0 animate-spin" style={{ color: "var(--mq-accent)" }} />}
               {uploadProgress.status === "done" && <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: "#4ade80" }} />}
@@ -391,8 +429,8 @@ export default function SearchView() {
                 whileHover={{ scale: 1.02, backgroundColor: "var(--mq-card-hover)" }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => playTrack(track, quickPicks)}
-                className="flex items-center gap-2.5 p-2.5 rounded-2xl text-left cursor-pointer group transition-[transform,background-color,border-color,box-shadow] duration-200"
-                style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.04)" }}
+                className="flex items-center gap-2.5 p-2.5 rounded-2xl text-left cursor-pointer group transition-all duration-200"
+                style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
               >
                 <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ boxShadow: "var(--mq-shadow-xs)" }}>
                   {track.cover ? (
@@ -425,18 +463,41 @@ export default function SearchView() {
             data-search-input
             placeholder="Искать треки, артисты, альбомы..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            className="pl-11 pr-11 min-h-[48px] text-[15px] rounded-2xl font-medium"
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              // Reset hasSearched so suggestions show again while typing
+              setHasSearched(false);
+              // Show suggestions immediately when there's a query
+              if (e.target.value.trim()) setShowSuggestions(true);
+            }}
+            onFocus={() => {
+              setIsFocused(true);
+              // Cancel any pending hide timer, show suggestions if there's a query
+              if (suggestionsHideTimer.current) {
+                clearTimeout(suggestionsHideTimer.current);
+                suggestionsHideTimer.current = null;
+              }
+              if (searchQuery.trim()) setShowSuggestions(true);
+            }}
+            onBlur={() => {
+              setIsFocused(false);
+              // Delay hiding suggestions so clicking on a suggestion works
+              // (click fires after blur). 200ms is enough for click to register.
+              suggestionsHideTimer.current = setTimeout(() => {
+                setShowSuggestions(false);
+              }, 200);
+            }}
+            className="pl-11 pr-11 min-h-[48px] text-[15px] font-medium"
             style={{
               backgroundColor: "var(--mq-card)",
-              border: isFocused ? "1.5px solid var(--mq-accent)" : "1px solid rgba(255,255,255,0.06)",
+              borderRadius: "16px",
+              border: isFocused ? "1.5px solid var(--mq-accent)" : "1px solid var(--mq-border-thin)",
               color: "var(--mq-text)",
               boxShadow: isFocused
-                ? "0 0 0 3px rgba(var(--mq-accent-rgb, 224,49,49), 0.12), 0 0 20px rgba(var(--mq-accent-rgb, 224,49,49), 0.06), 0 4px 16px rgba(0,0,0,0.12)"
+                ? "0 0 0 3px color-mix(in srgb, var(--mq-accent) 15%, transparent), 0 4px 16px rgba(0,0,0,0.12)"
                 : "0 2px 8px rgba(0,0,0,0.06)",
               transition: "border-color 0.25s ease, box-shadow 0.25s ease",
+              outline: "none",
             }}
           />
           {/* Loading indicator — pulsing dot */}
@@ -473,12 +534,12 @@ export default function SearchView() {
         <motion.button
           whileTap={{ scale: 0.92 }}
           onClick={() => setShowFilters(!showFilters)}
-          className="w-11 h-11 rounded-xl flex items-center justify-center transition-[transform,background-color,border-color,box-shadow] duration-200 mt-[1px]"
+          className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 mt-[1px]"
           style={{
             backgroundColor: showFilters || selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
             color: showFilters || selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
-            border: showFilters || selectedGenre ? "none" : "1px solid rgba(255,255,255,0.06)",
-            boxShadow: showFilters || selectedGenre ? "0 2px 12px rgba(var(--mq-accent-rgb, 224,49,49), 0.25)" : "none",
+            border: showFilters || selectedGenre ? "none" : "1px solid var(--mq-border-thin)",
+            boxShadow: showFilters || selectedGenre ? "0 2px 12px color-mix(in srgb, var(--mq-accent) 250%, transparent)" : "none",
           }}
         >
           <SlidersHorizontal className="w-4 h-4" />
@@ -488,17 +549,50 @@ export default function SearchView() {
         <motion.button
           whileTap={{ scale: 0.92 }}
           onClick={() => fileInputRef.current?.click()}
-          className="w-11 h-11 rounded-xl flex items-center justify-center transition-[transform,background-color,border-color,box-shadow] duration-200 mt-[1px]"
+          className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 mt-[1px]"
           style={{
             backgroundColor: "var(--mq-card)",
             color: isUploading ? "var(--mq-accent)" : "var(--mq-text-muted)",
-            border: "1px solid rgba(255,255,255,0.06)",
+            border: "1px solid var(--mq-border-thin)",
           }}
         >
           <Upload className={`w-4 h-4 ${isUploading ? "animate-pulse" : ""}`} />
         </motion.button>
         <input ref={fileInputRef} type="file" accept="audio/*" multiple onChange={handleFileUpload} className="hidden" />
       </motion.div>
+
+      {/* ── Search suggestions — autocomplete-style dropdown ──
+          Показывается когда есть query и showSuggestions=true.
+          showSuggestions управляется onFocus/onBlur с задержкой скрытия
+          чтобы клик по suggestion успел сработать. Раньше использовалось
+          !hasSearched — но после 300ms debounce hasSearched становилось
+          true и suggestions пропадали (мигание). */}
+      <AnimatePresence>
+        {searchQuery.trim() && showSuggestions && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className="relative z-30 -mx-3 sm:-mx-4 lg:-mx-5 px-3 sm:px-4 lg:px-5"
+          >
+            <SearchSuggestions
+              query={searchQuery.trim()}
+              searchHistory={searchHistory}
+              onSelect={(term) => {
+                // Cancel hide timer, set query, keep suggestions visible
+                if (suggestionsHideTimer.current) {
+                  clearTimeout(suggestionsHideTimer.current);
+                  suggestionsHideTimer.current = null;
+                }
+                setSearchQuery(term);
+                setShowSuggestions(false);
+                searchInputRef.current?.focus();
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Genre filters — enhanced with icons and smooth scroll ── */}
       <AnimatePresence>
@@ -515,7 +609,7 @@ export default function SearchView() {
               <div className="absolute right-0 top-0 bottom-0 w-6 z-10 pointer-events-none" style={{ background: "linear-gradient(to left, var(--mq-bg), transparent)" }} />
               <div
                 ref={genreScrollRef}
-                className="flex gap-2.5 overflow-x-auto pb-2 px-2"
+                className="flex gap-2.5 overflow-x-auto pb-2 px-2 scrollbar-none"
                 style={{
                   scrollbarWidth: "none",
                   msOverflowStyle: "none",
@@ -528,12 +622,12 @@ export default function SearchView() {
                   whileTap={{ scale: 0.93 }}
                   whileHover={{ scale: 1.04 }}
                   onClick={() => setSelectedGenre("")}
-                  className="px-4 py-2.5 rounded-lg text-xs font-semibold transition-[transform,background-color,border-color,box-shadow] duration-200 flex-shrink-0 flex items-center gap-2"
+                  className="px-4 py-2.5 rounded-lg text-xs font-semibold transition-all duration-200 flex-shrink-0 flex items-center gap-2"
                   style={{
                     backgroundColor: !selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
                     color: !selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
-                    border: !selectedGenre ? "1.5px solid var(--mq-accent)" : "1px solid rgba(255,255,255,0.06)",
-                    boxShadow: !selectedGenre ? "0 4px 16px rgba(var(--mq-accent-rgb, 224,49,49), 0.2)" : "none",
+                    border: !selectedGenre ? "1.5px solid var(--mq-border-accent-strong)" : "1px solid var(--mq-border-thin)",
+                    boxShadow: !selectedGenre ? "0 4px 16px color-mix(in srgb, var(--mq-accent) 20%, transparent)" : "none",
                   }}
                 >
                   <ListMusic className="w-3.5 h-3.5" />
@@ -548,12 +642,12 @@ export default function SearchView() {
                       whileTap={{ scale: 0.93 }}
                       whileHover={{ scale: 1.04 }}
                       onClick={() => setSelectedGenre(isSelected ? "" : g)}
-                      className="px-4 py-2.5 rounded-lg text-xs font-semibold transition-[transform,background-color,border-color,box-shadow] duration-200 flex-shrink-0 flex items-center gap-2"
+                      className="px-4 py-2.5 rounded-lg text-xs font-semibold transition-all duration-250 flex-shrink-0 flex items-center gap-2"
                       style={{
                         backgroundColor: isSelected ? "var(--mq-accent)" : `color-mix(in srgb, var(--mq-accent) ${opacity * 100}%, transparent)`,
                         color: isSelected ? "var(--mq-text)" : "var(--mq-text-muted)",
-                        border: isSelected ? "1.5px solid var(--mq-accent)" : "1px solid rgba(255,255,255,0.06)",
-                        boxShadow: isSelected ? "0 2px 8px rgba(var(--mq-accent-rgb, 224,49,49), 0.15)" : "none",
+                        border: isSelected ? "1.5px solid var(--mq-border-accent-strong)" : "1px solid var(--mq-border-thin)",
+                        boxShadow: isSelected ? "0 2px 8px color-mix(in srgb, var(--mq-accent) 150%, transparent)" : "none",
                       }}
                     >
                       <span style={{ color: isSelected ? "var(--mq-text)" : "var(--mq-accent)", opacity: isSelected ? 1 : 0.7 }}>
@@ -593,7 +687,7 @@ export default function SearchView() {
             <div className="relative -mx-1 px-1">
               <div
                 ref={historyScrollRef}
-                className="flex gap-2 overflow-x-auto pb-1"
+                className="flex gap-2 overflow-x-auto pb-1 scrollbar-none"
                 style={{
                   scrollbarWidth: "none",
                   msOverflowStyle: "none",
@@ -613,11 +707,11 @@ export default function SearchView() {
                       whileTap={{ scale: 0.93 }}
                       whileHover={{ scale: 1.03, backgroundColor: "var(--mq-card-hover)" }}
                       onClick={() => handleHistoryClick(query)}
-                      className="flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs font-medium transition-[transform,background-color,border-color,box-shadow] duration-200 cursor-pointer"
+                      className="flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer"
                       style={{
                         backgroundColor: "var(--mq-card)",
                         color: "var(--mq-text-muted)",
-                        border: "1px solid rgba(255,255,255,0.06)",
+                        border: "1px solid var(--mq-border-thin)",
                       }}
                     >
                       <Clock className="w-3 h-3 opacity-40" />
@@ -629,7 +723,7 @@ export default function SearchView() {
                           e.stopPropagation();
                           handleRemoveHistoryItem(query);
                         }}
-                        className="w-4 h-4 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity ml-0.5"
+                        className="w-4 h-4 rounded-full flex items-center justify-center transition-opacity ml-0.5 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:pointer-events-auto hover:!opacity-100"
                         style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
                       >
                         <X className="w-2.5 h-2.5" />
@@ -673,7 +767,7 @@ export default function SearchView() {
               whileTap={{ scale: 0.93 }}
               whileHover={{ scale: 1.04 }}
               onClick={handlePlayAll}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-[transform,background-color,border-color,box-shadow] duration-200"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200"
               style={{
                 backgroundColor: "var(--mq-accent)",
                 color: "var(--mq-text)",
@@ -766,11 +860,11 @@ export default function SearchView() {
                 whileTap={{ scale: 0.93 }}
                 whileHover={{ scale: 1.03, backgroundColor: "var(--mq-card-hover)" }}
                 onClick={() => handleTrendingClick(term)}
-                className="px-4 py-2 rounded-2xl text-xs font-medium transition-[transform,background-color,border-color,box-shadow] duration-200 cursor-pointer"
+                className="px-4 py-2 rounded-2xl text-xs font-medium transition-all duration-200 cursor-pointer"
                 style={{
                   backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text-muted)",
-                  border: "1px solid rgba(255,255,255,0.06)",
+                  border: "1px solid var(--mq-border-thin)",
                 }}
               >
                 {term}
@@ -780,28 +874,60 @@ export default function SearchView() {
         </motion.div>
       )}
 
-      {/* ── Track results with staggered animation ── */}
-      {!activeLoading && activeTracks.length > 0 && (
+      {/* ── Track results with filter/sort toolbar ── */}
+      {!activeLoading && processedTracks.length > 0 && (
         <div>
-          <div className="space-y-0.5">
-            <AnimatePresence mode="popLayout">
-              {activeTracks.map((track, i) => (
-                <motion.div
-                  key={track.id}
-                  initial={animationsEnabled ? { opacity: 0, y: 8 } : undefined}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8, transition: { duration: 0.15 } }}
-                  transition={{ delay: Math.min(i * 0.03, 0.5), duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
-                >
-                  <TrackCard
-                    track={track}
-                    index={i}
-                    queue={activeTracks}
-                    onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
+          {/* Section header with filter + sort controls */}
+          <div className="flex items-center justify-between mb-3 px-1 flex-wrap gap-2">
+            <h3 className="text-sm font-bold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+              Треки · {processedTracks.length}
+            </h3>
+            <div className="flex items-center gap-1.5">
+              {/* Duration filter dropdown */}
+              <select
+                value={filterDuration}
+                onChange={(e) => setFilterDuration(e.target.value as "all" | "short" | "medium" | "long")}
+                className="text-[11px] font-medium px-2 py-1 rounded-lg cursor-pointer outline-none"
+                style={{
+                  backgroundColor: "var(--mq-card)",
+                  color: "var(--mq-text)",
+                  border: "1px solid var(--mq-border-thin)",
+                }}
+              >
+                <option value="all">Любая длительность</option>
+                <option value="short">До 2 мин</option>
+                <option value="medium">2–5 мин</option>
+                <option value="long">5+ мин</option>
+              </select>
+              {/* Sort dropdown */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as "relevance" | "duration" | "title")}
+                className="text-[11px] font-medium px-2 py-1 rounded-lg cursor-pointer outline-none"
+                style={{
+                  backgroundColor: "var(--mq-card)",
+                  color: "var(--mq-text)",
+                  border: "1px solid var(--mq-border-thin)",
+                }}
+              >
+                <option value="relevance">По релевантности</option>
+                <option value="duration">По длительности</option>
+                <option value="title">По названию</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Track list */}
+          <div className="space-y-1">
+            {processedTracks.map((track, i) => (
+              <SearchTrackRow
+                key={track.id + "_" + i}
+                track={track}
+                index={i}
+                queue={processedTracks}
+                onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
+              />
+            ))}
           </div>
         </div>
       )}
@@ -836,9 +962,9 @@ export default function SearchView() {
             transition={{ delay: 0.12 }}
             className="text-center mb-8"
           >
-            <p className="text-lg font-bold mb-1.5" style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}>Найдите свою музыку</p>
+            <p className="text-lg font-bold mb-1.5" style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}>Что послушаем?</p>
             <p className="text-sm leading-relaxed max-w-[280px]" style={{ color: "var(--mq-text-muted)" }}>
-              Введите запрос или выберите жанр для начала
+              Введите название, артиста или жанр — или выберите подсказку ниже
             </p>
           </motion.div>
 
@@ -864,11 +990,11 @@ export default function SearchView() {
                   whileTap={{ scale: 0.93 }}
                   whileHover={{ scale: 1.05, backgroundColor: "var(--mq-card-hover)" }}
                   onClick={() => handleTrendingClick(term)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium transition-[transform,background-color,border-color,box-shadow] duration-200 cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer"
                   style={{
                     backgroundColor: "var(--mq-card)",
                     color: "var(--mq-text-muted)",
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    border: "1px solid var(--mq-border-thin)",
                   }}
                 >
                   {term}
@@ -903,11 +1029,11 @@ export default function SearchView() {
                 whileTap={{ scale: 0.93 }}
                 whileHover={{ scale: 1.05, backgroundColor: "var(--mq-card-hover)" }}
                 onClick={() => handleTrendingClick(term)}
-                className="px-4 py-2 rounded-xl text-xs font-medium transition-[transform,background-color,border-color,box-shadow] duration-200 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer"
                 style={{
                   backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text-muted)",
-                  border: "1px solid rgba(255,255,255,0.06)",
+                  border: "1px solid var(--mq-border-thin)",
                 }}
               >
                 {term}
@@ -918,6 +1044,302 @@ export default function SearchView() {
       )}
 
 
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// SEARCH TRACK ROW — clean visual row optimized for mobile
+// Lightweight: no framer-motion per-row (uses CSS transitions), no context
+// menu overhead (uses simple onClick + long-press), no next/image (plain img).
+// ═════════════════════════════════════════════════════════════════════════
+
+const SearchTrackRow = memo(function SearchTrackRow({
+  track,
+  index,
+  queue,
+  onArtistClick,
+}: {
+  track: Track;
+  index: number;
+  queue: Track[];
+  onArtistClick?: (artistName: string, coverUrl?: string) => void;
+}) {
+  const currentTrackId = useAppStore((s) => s.currentTrack?.id);
+  const isPlaying = useAppStore((s) => s.isPlaying);
+  const playTrack = useAppStore((s) => s.playTrack);
+  const togglePlay = useAppStore((s) => s.togglePlay);
+  const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+  const toggleLike = useAppStore((s) => s.toggleLike);
+
+  const isActive = currentTrackId === track.id;
+  const isCurrentlyPlaying = isActive && isPlaying;
+  const isLiked = likedTrackIds.includes(track.id);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
+
+  // Long-press for context menu (mobile)
+  const handleLongPress = useCallback((e: React.TouchEvent | React.MouseEvent) => {
+    const clientX = "touches" in e ? e.touches[0]?.clientX ?? 0 : (e as React.MouseEvent).clientX;
+    const clientY = "touches" in e ? e.touches[0]?.clientY ?? 0 : (e as React.MouseEvent).clientY;
+    setContextMenu({ x: clientX, y: clientY, show: true });
+  }, []);
+  const { wasLongPress: longPressWasActive, ...longPressHandlers } = useLongPress(handleLongPress, { delay: 500, threshold: 10 });
+
+  const handleClick = useCallback(() => {
+    if (longPressWasActive()) return;
+    if (isActive) togglePlay();
+    else playTrack(track, queue);
+  }, [longPressWasActive, isActive, togglePlay, playTrack, track, queue]);
+
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, show: true });
+  }, []);
+
+  const handleMoreClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setContextMenu({ x: rect.left, y: rect.bottom + 4, show: true });
+  }, []);
+
+  const closeContextMenu = useCallback(() => setContextMenu((p) => ({ ...p, show: false })), []);
+
+  return (
+    <>
+      <div
+        {...longPressHandlers}
+        onClick={handleClick}
+        onContextMenu={handleContextMenu}
+        className="group flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors"
+        style={{
+          backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "transparent",
+        }}
+      >
+        {/* Cover */}
+        <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 relative" style={{ backgroundColor: "var(--mq-card)" }}>
+          {track.cover ? (
+            <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+            </div>
+          )}
+          {/* Play/pause overlay on hover/active */}
+          {isActive && (
+            <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+              {isCurrentlyPlaying ? (
+                <NowPlayingEqualizer size="sm" variant="overlay" />
+              ) : (
+                <Play className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Title + artist + meta */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            {/* Show equalizer inline when track is active — animated when
+                playing, paused state when active but not playing. */}
+            {isActive && (
+              <NowPlayingEqualizer
+                size="sm"
+                variant="inline"
+                paused={!isPlaying}
+              />
+            )}
+            <p className="text-sm font-medium truncate" style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text)" }}>
+              {track.title}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <button
+              onClick={(e) => { e.stopPropagation(); onArtistClick?.(track.artist, track.cover); }}
+              className="text-xs truncate hover:underline"
+              style={{ color: "var(--mq-text-muted)" }}
+            >
+              {track.artist}
+            </button>
+            {track.duration > 0 && (
+              <>
+                <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
+                <span className="text-[11px] tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                  {formatDuration(track.duration)}
+                </span>
+              </>
+            )}
+            {track.genre && (
+              <>
+                <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
+                <span className="text-[10px] px-1.5 py-0 rounded-md" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                  {track.genre}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Like button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); toggleLike(track.id, track); }}
+          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+          aria-label={isLiked ? "Убрать из избранного" : "В избранное"}
+        >
+          <Heart className="w-4 h-4" fill={isLiked ? "currentColor" : "none"} />
+        </button>
+
+        {/* More button (3-dot) */}
+        <button
+          onClick={handleMoreClick}
+          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+          style={{ color: "var(--mq-text-muted)" }}
+          aria-label="Меню"
+        >
+          <MoreHorizontal className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Context menu */}
+      {contextMenu.show && (
+        <ContextMenu track={track} x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu} />
+      )}
+    </>
+  );
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+// SEARCH SUGGESTIONS — autocomplete-style dropdown
+// Показывает подсказки пока пользователь печатает:
+// 1. Match из recent searches (если query частично совпадает)
+// 2. Trending searches (если query частично совпадает)
+// 3. Popular artists/genres (всегда как подсказки)
+// UX Core #6 (Забывание без подсказок): подсказки помогают пользователю
+// вспомнить что он искал, и снижают когнитивную нагрузку.
+// ═════════════════════════════════════════════════════════════════════════
+
+const POPULAR_ARTISTS = [
+  "Mac DeMarco", "Tame Impala", "Arctic Monkeys", "The Weeknd",
+  "Billie Eilish", "Kendrick Lamar", "Frank Ocean", "Tyler, The Creator",
+];
+
+function SearchSuggestions({
+  query,
+  searchHistory,
+  onSelect,
+}: {
+  query: string;
+  searchHistory: string[];
+  onSelect: (term: string) => void;
+}) {
+  const queryLower = query.toLowerCase();
+
+  // 1. Match из recent searches
+  const historyMatches = searchHistory
+    .filter(h => h.toLowerCase().includes(queryLower) && h.toLowerCase() !== queryLower)
+    .slice(0, 3);
+
+  // 2. Match из trending
+  const trendingMatches = TRENDING_SEARCHES
+    .filter(t => t.toLowerCase().includes(queryLower) && t.toLowerCase() !== queryLower)
+    .slice(0, 3);
+
+  // 3. Match из popular artists
+  const artistMatches = POPULAR_ARTISTS
+    .filter(a => a.toLowerCase().includes(queryLower) && a.toLowerCase() !== queryLower)
+    .slice(0, 3);
+
+  // 4. "Search for X" — прямой поиск текущего query
+  const hasSuggestions = historyMatches.length > 0 || trendingMatches.length > 0 || artistMatches.length > 0;
+
+  return (
+    <div
+      className="mt-1 rounded-2xl overflow-hidden"
+      style={{
+        backgroundColor: "color-mix(in srgb, var(--mq-card) 95%, transparent)",
+        backdropFilter: "blur(20px) saturate(180%)",
+        WebkitBackdropFilter: "blur(20px) saturate(180%)",
+        border: "1px solid var(--mq-border-thin)",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+      }}
+    >
+      {/* Direct search for current query */}
+      <button
+        onClick={() => onSelect(query)}
+        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/5"
+      >
+        <Search className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+        <span className="text-sm" style={{ color: "var(--mq-text)" }}>
+          Искать <span className="font-semibold" style={{ color: "var(--mq-accent)" }}>«{query}»</span>
+        </span>
+      </button>
+
+      {/* History matches */}
+      {historyMatches.length > 0 && (
+        <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
+          <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+            Недавно искали
+          </p>
+          {historyMatches.map((term) => (
+            <button
+              key={`hist-${term}`}
+              onClick={() => onSelect(term)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+            >
+              <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+              <span className="text-sm truncate" style={{ color: "var(--mq-text)" }}>{term}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Trending matches */}
+      {trendingMatches.length > 0 && (
+        <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
+          <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+            Популярное
+          </p>
+          {trendingMatches.map((term) => (
+            <button
+              key={`trend-${term}`}
+              onClick={() => onSelect(term)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+            >
+              <TrendingUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+              <span className="text-sm truncate" style={{ color: "var(--mq-text)" }}>{term}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Artist matches */}
+      {artistMatches.length > 0 && (
+        <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
+          <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+            Артисты
+          </p>
+          {artistMatches.map((artist) => (
+            <button
+              key={`art-${artist}`}
+              onClick={() => onSelect(artist)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+            >
+              <Mic className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+              <span className="text-sm truncate" style={{ color: "var(--mq-text)" }}>{artist}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* If no suggestions — show hint */}
+      {!hasSuggestions && (
+        <div className="border-t px-4 py-3" style={{ borderColor: "var(--mq-border-hairline)" }}>
+          <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+            Нажмите Enter для поиска «{query}»
+          </p>
+        </div>
+      )}
     </div>
   );
 }

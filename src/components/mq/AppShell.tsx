@@ -7,8 +7,11 @@ import { themes, applyThemeToDOM } from "@/lib/themes";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { useListenSessionSync } from "@/hooks/useListenSessionSync";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { useAndroidPermissions } from "@/hooks/use-android-permissions";
+import { useIsMobile } from "@/hooks/use-mobile";
 import dynamic from "next/dynamic";
 import CobaltTurnstile from "@/components/mq/CobaltTurnstile";
+import { OfflineBanner } from "@/components/mq/OfflineBanner";
 import "@/styles/ipod-2001.css";
 import "@/styles/japan.css";
 import "@/styles/swag.css";
@@ -17,12 +20,6 @@ import "@/styles/minimal.css";
 import "@/styles/pixel-flower.css";
 import "@/styles/streaming.css";
 import "@/styles/design-tokens.css";
-
-declare global {
-  interface Window {
-    __mqRemoveSplash?: () => void;
-  }
-}
 
 // ── Eager imports for critical first-paint views only ──
 // AuthView is the entry point for unauthenticated users — must be eager.
@@ -50,7 +47,6 @@ const MessengerView = dynamic(() => import("@/components/mq/MessengerView"), {
 // ── Dynamic imports for rarely-used views (still lazy) ──
 const ProfileView = dynamic(() => import("@/components/mq/ProfileView"), { ssr: false });
 const PublicPlaylistsView = dynamic(() => import("@/components/mq/PublicPlaylistsView"), { ssr: false });
-const HistoryView = dynamic(() => import("@/components/mq/HistoryView"), { ssr: false });
 const StoriesView = dynamic(() => import("@/components/mq/StoriesView"), { ssr: false });
 const OnboardingView = dynamic(() => import("@/components/mq/OnboardingView"), { ssr: false });
 const SpatialAudioView = dynamic(() => import("@/components/mq/SpatialAudioView"), { ssr: false });
@@ -83,9 +79,11 @@ function ViewSkeleton() {
 const MqCat = dynamic(() => import("@/components/mq/MqCat"), { ssr: false });
 const PlayerBar = dynamic(() => import("@/components/mq/PlayerBar"), { ssr: false });
 const FullTrackView = dynamic(() => import("@/components/mq/FullTrackView"), { ssr: false });
+const FullTrackViewMobile = dynamic(() => import("@/components/mq/FullTrackViewMobile"), { ssr: false });
 const KeyboardShortcutsHelp = dynamic(() => import("@/components/mq/KeyboardShortcutsHelp").then(m => ({ default: m.KeyboardShortcutsHelp })), { ssr: false });
 const NavBar = dynamic(() => import("@/components/mq/NavBar"), { ssr: false });
 const MobileNav = dynamic(() => import("@/components/mq/MobileNav"), { ssr: false });
+const MobileDock = dynamic(() => import("@/components/mq/MobileDock"), { ssr: false });
 const NotificationPanel = dynamic(() => import("@/components/mq/NotificationPanel"), { ssr: false });
 const SeasonalEffects = dynamic(() => import("@/components/mq/SeasonalEffects"), { ssr: false });
 const CinematicAtmosphere = dynamic(() => import("@/components/mq/CinematicAtmosphere"), { ssr: false });
@@ -93,12 +91,24 @@ const MaintenanceBanner = dynamic(() => import("@/components/mq/MaintenanceBanne
 const OnboardingTour = dynamic(() => import("@/components/mq/OnboardingTour"), { ssr: false });
 const CommandPalette = dynamic(() => import("@/components/mq/CommandPalette"), { ssr: false });
 
+// P2-#300/#310: Error boundary per view — catches React errors without crashing the whole app
+import { ViewErrorBoundary } from "@/components/mq/ViewErrorBoundary";
+import { ViewTransition } from "@/components/mq/ViewTransition";
+import { useAudioEngine } from "@/components/mq/useAudioEngine";
+import { useMediaSession } from "@/components/mq/useMediaSession";
+
 // Views tracked by the visited-Set pattern — mounted once and kept alive
 // with display:none so state is preserved when switching back.
+// NOTE: "playlists" / "favorites" / "history" all render LibraryView, which
+// internally syncs its activeTab based on currentView. This way MainView's
+// quick cards (Плейлисты / Избранное / История) land on the right tab.
 const VISITED_VIEW_COMPONENTS: { id: string; Component: React.ComponentType }[] = [
   { id: "main", Component: MainView },
   { id: "search", Component: SearchView },
   { id: "library", Component: LibraryView },
+  { id: "playlists", Component: LibraryView },
+  { id: "favorites", Component: LibraryView },
+  { id: "history", Component: LibraryView },
   { id: "messenger", Component: MessengerView },
   { id: "settings", Component: SettingsView },
   { id: "profile", Component: ProfileView },
@@ -127,8 +137,9 @@ export default function AppShell() {
   const catEnabled = useAppStore((s) => s.catEnabled);
   const isPlaying = useAppStore((s) => s.isPlaying);
   const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
-  const demoLoading = useAppStore((s) => s.demoLoading);
   const _hasHydrated = useAppStore((s) => s._hasHydrated);
+  const demoLoading = useAppStore((s) => s.demoLoading);
+  const isMobile = useIsMobile();
 
   // ── Visited views tracking: must be BEFORE any conditional returns (Rules of Hooks) ──
   const [visitedViews, setVisitedViews] = useState<Set<string>>(new Set(["main"]));
@@ -150,7 +161,7 @@ export default function AppShell() {
     const timer = setTimeout(() => {
       const s = useAppStore.getState();
       if (!s._hasHydrated) {
-        console.warn("[MQ] Hydration timeout — forcing _hasHydrated = true");
+        console.debug("[MQ] Hydration timeout — forcing _hasHydrated = true");
         useAppStore.setState({ _hasHydrated: true });
       }
     }, 5000);
@@ -202,11 +213,6 @@ export default function AppShell() {
     return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
-  useEffect(() => {
-    if (typeof window !== "undefined" && window.__mqRemoveSplash) {
-      window.__mqRemoveSplash();
-    }
-  }, []);
 
   // P2: PWA install prompt — capture for Android install button
   useEffect(() => {
@@ -226,22 +232,117 @@ export default function AppShell() {
     }
   }, [isAuthenticated, currentView, setView]);
 
-  // ── Browser back/forward button support ──
+  // ── Browser back button support (mobile hardware back) ──
+  // Layered close behavior (highest priority first):
+  //   1. Full track view open → close it
+  //   2. Notification panel open → close it
+  //   3. Context menu / sheet open → close it
+  //   4. Non-main view → go to main
+  //   5. Main view → default browser behavior (exit app on mobile)
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
+      const state = useAppStore.getState();
+
+      // Layer 1: close full track view
+      if (state.isFullTrackViewOpen) {
+        useAppStore.setState({ isFullTrackViewOpen: false });
+        // Push state back so next back also works
+        window.history.pushState({ view: state.currentView }, "", window.location.pathname);
+        return;
+      }
+
+      // Layer 2: close notification panel
+      if (state.notifPanelOpen) {
+        useAppStore.setState({ notifPanelOpen: false });
+        window.history.pushState({ view: state.currentView }, "", window.location.pathname);
+        return;
+      }
+
+      // Layer 3: close command palette if open
+      if ((window as any).__mqCommandPaletteOpen) {
+        (window as any).__mqCommandPaletteOpen = false;
+        window.dispatchEvent(new CustomEvent("mq-close-command-palette"));
+        window.history.pushState({ view: state.currentView }, "", window.location.pathname);
+        return;
+      }
+
+      // Layer 4: navigate to view from history state
       const view = e.state?.view as ViewType | undefined;
-      if (view) {
+      if (view && view !== state.currentView) {
         useAppStore.setState({ currentView: view });
-      } else {
+      } else if (!view && state.currentView !== "main") {
         useAppStore.setState({ currentView: "main" });
       }
+      // Layer 5: on main view, default behavior (exit app)
     };
+
+    // Push history entries when UI layers open, so back button can pop them
+    const handleStateChange = () => {
+      const state = useAppStore.getState();
+      if (state.isFullTrackViewOpen || state.notifPanelOpen) {
+        // Don't push duplicate entries
+        if (!window.history.state?._mqOverlay) {
+          window.history.pushState({ _mqOverlay: true, view: state.currentView }, "", window.location.pathname);
+        }
+      }
+    };
+
     window.addEventListener("popstate", handlePopState);
     if (!window.history.state?.view) {
       window.history.replaceState({ view: currentView }, "", currentView === "main" ? "/play" : `/play?v=${currentView}`);
     }
     return () => window.removeEventListener("popstate", handlePopState);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Capacitor native back button (APK) ──
+  // In native APK, the hardware back button doesn't fire 'popstate' — it exits
+  // the app by default. We intercept it via @capacitor/app to close overlays
+  // and navigate back, matching the web popstate behavior.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const cap = (window as any).Capacitor;
+    if (!cap?.isNativePlatform?.()) return;
+
+    let listener: any;
+    (async () => {
+      try {
+        const { App } = await import("@capacitor/app");
+        listener = await App.addListener("backButton", () => {
+          const state = useAppStore.getState();
+
+          // Layer 1: close full track view
+          if (state.isFullTrackViewOpen) {
+            state.setFullTrackViewOpen(false);
+            return;
+          }
+          // Layer 2: close notification panel
+          if (state.notifPanelOpen) {
+            useAppStore.setState({ notifPanelOpen: false });
+            return;
+          }
+          // Layer 3: close command palette
+          if ((window as any).__mqCommandPaletteOpen) {
+            (window as any).__mqCommandPaletteOpen = false;
+            window.dispatchEvent(new CustomEvent("mq-close-command-palette"));
+            return;
+          }
+          // Layer 4: navigate to main if not on main
+          if (state.currentView !== "main") {
+            state.setView("main");
+            return;
+          }
+          // Layer 5: on main view — exit app
+          App.exitApp();
+        });
+      } catch (e) {
+        console.warn("[AppShell] Capacitor App plugin not available:", e);
+      }
+    })();
+
+    return () => {
+      listener?.remove?.();
+    };
+  }, []);
 
   useEffect(() => {
     if (currentStyle) return;
@@ -351,9 +452,58 @@ export default function AppShell() {
   // The previous useEffect called `syncWithPlaybackEngine()` which was
   // itself a no-op since 2025-Q2.
 
+  // P3-fix: useAudioEngine MUST be called here (was previously called inside
+  // PlayerBar, but the rewritten PlayerBar no longer calls it). Without this,
+  // the audio element is never created and tracks don't play.
+  // Reuse existing subscriptions from above to avoid duplicate store listeners
+  const _volume = useAppStore((s) => s.volume);
+  const _playbackRate = useAppStore((s) => s.playbackRate);
+  const _setProgress = useAppStore((s) => s.setProgress);
+  const _setDuration = useAppStore((s) => s.setDuration);
+  const _setPlaybackMode = useAppStore((s) => s.setPlaybackMode);
+  const _togglePlay = useAppStore((s) => s.togglePlay);
+  const _nextTrack = useAppStore((s) => s.nextTrack);
+  const _prevTrack = useAppStore((s) => s.prevTrack);
+  const _setMiniPlayerHidden = useAppStore((s) => s.setMiniPlayerHidden);
+  useAudioEngine({
+    currentTrack,
+    isPlaying,
+    volume: _volume,
+    playbackRate: _playbackRate,
+    setProgress: _setProgress,
+    setDuration: _setDuration,
+    setPlaybackMode: _setPlaybackMode,
+    togglePlay: _togglePlay,
+    nextTrack: _nextTrack,
+    prevTrack: _prevTrack,
+    miniPlayerHidden,
+    setMiniPlayerHidden: _setMiniPlayerHidden,
+  });
+
+  // MediaSession API — required for lock screen / notification / Android Auto controls
+  const _progress = useAppStore((s) => s.progress);
+  const _duration = useAppStore((s) => s.duration);
+  useMediaSession({
+    currentTrack,
+    isPlaying,
+    progress: _progress,
+    duration: _duration,
+    playbackRate: _playbackRate,
+  });
+
   useGlobalNotifications();
   useListenSessionSync();
   useKeyboardShortcuts();
+  useAndroidPermissions();
+
+  // ── Sleep timer countdown (global — works even when SleepTimerView not mounted) ──
+  const _sleepTimerActive = useAppStore((s) => s.sleepTimerActive);
+  const _updateSleepTimer = useAppStore((s) => s.updateSleepTimer);
+  useEffect(() => {
+    if (!_sleepTimerActive) return;
+    const i = setInterval(() => _updateSleepTimer(), 1000);
+    return () => clearInterval(i);
+  }, [_sleepTimerActive, _updateSleepTimer]);
 
   useEffect(() => {
     if (prevViewRef.current === "search" && currentView !== "search" && searchQuery) {
@@ -367,7 +517,6 @@ export default function AppShell() {
     switch (currentView) {
       case "auth": return <AuthView />;
       case "public-playlists": return <PublicPlaylistsView />;
-      case "history": return <HistoryView />;
       case "stories": return <StoriesView />;
       case "onboarding": return <OnboardingView />;
       case "spatial": return <SpatialAudioView currentTrack={currentTrack} />;
@@ -417,8 +566,9 @@ export default function AppShell() {
     >
       <Suspense fallback={null}><CinematicAtmosphere /></Suspense>
       <Suspense fallback={null}><MaintenanceBanner /></Suspense>
+      <OfflineBanner />
 
-      {/* ── Demo loading overlay: skeleton shown while demo data loads ── */}
+      {/* Demo loading overlay */}
       <AnimatePresence>
         {demoLoading && (
           <motion.div
@@ -431,7 +581,6 @@ export default function AppShell() {
             style={{ backgroundColor: "var(--mq-bg, #0e0e0e)" }}
           >
             <div className="flex flex-col items-center gap-6 p-8">
-              {/* Logo pulse */}
               <motion.div
                 className="w-16 h-16 rounded-2xl flex items-center justify-center"
                 style={{ backgroundColor: "var(--mq-accent, #e03131)" }}
@@ -440,25 +589,7 @@ export default function AppShell() {
               >
                 <span className="text-2xl font-black text-white">mq</span>
               </motion.div>
-              {/* Skeleton cards */}
-              <div className="w-full max-w-xs space-y-3">
-                {[0, 1, 2].map((i) => (
-                  <motion.div
-                    key={i}
-                    className="flex items-center gap-3 p-3 rounded-xl"
-                    style={{ backgroundColor: "var(--mq-card, #1a1a1a)" }}
-                    animate={{ opacity: [0.4, 0.7, 0.4] }}
-                    transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.2, ease: "easeInOut" }}
-                  >
-                    <div className="w-10 h-10 rounded-lg" style={{ backgroundColor: "rgba(255,255,255,0.06)" }} />
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-3 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)", width: `${70 - i * 10}%` }} />
-                      <div className="h-2 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.04)", width: `${45 - i * 5}%` }} />
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-              <p className="text-sm" style={{ color: "var(--mq-text-muted, #888)" }}>Загрузка демо-контента...</p>
+              <p className="text-sm" style={{ color: "var(--mq-text-muted, #888)" }}>Загрузка...</p>
             </div>
           </motion.div>
         )}
@@ -473,24 +604,42 @@ export default function AppShell() {
         {showNav && !hideUiForFullscreen && <NavBar />}
       </Suspense>
 
-      <main id="main-content" className={showNav && !hideUiForFullscreen ? "lg:pt-14" : ""}>
-        {/* ── Visited-Set view rendering ──
-            Views are mounted lazily on first visit and kept alive with display:none.
-            This preserves component state (scroll position, form inputs, etc.) while
-            avoiding mounting unvisited views that would subscribe to the store. */}
-        {showNav && VISITED_VIEW_COMPONENTS.map(({ id, Component }) => {
-          if (!visitedViews.has(id)) return null;
-          const isActive = currentView === id;
+      <main id="main-content" className={showNav && !hideUiForFullscreen ? "lg:pt-16" : ""} data-view={currentView}>
+        {/* ── Active view rendering ──
+            P2-#300/#310/#185 FIX: Only render the ACTIVE view, not all visited views.
+            Previous pattern mounted ALL visited views simultaneously (display:none),
+            which caused #300 when one view's useEffect triggered a store update
+            during another view's render commit phase.
+
+            P3-revised: NO AnimatePresence around <Component /> here.
+            AnimatePresence mode="wait" caused the view to fully unmount on
+            switch (220ms exit + 220ms enter = 440ms gap), which re-triggered
+            all useEffects in MessengerView (SSE reconnect, polling, heartbeat)
+            on every re-entry — that cascade produced React #185
+            (Maximum update depth exceeded) when switching fast.
+
+            Instead: wrap <Component /> in a <ViewTransition> div that toggles
+            a CSS class on currentView change. The class re-triggers a CSS
+            keyframe animation (fade-in + slide-up) WITHOUT unmounting the
+            Component — so useEffects in MessengerView stay alive. */}
+        {showNav && (() => {
+          const active = VISITED_VIEW_COMPONENTS.find(v => v.id === currentView);
+          if (!active || !visitedViews.has(active.id)) return null;
+          const Component = active.Component;
+          // P2-#185: NO key on ViewErrorBoundary — key forces React to
+          // recreate the boundary (and unmount its child) on every view
+          // switch. That re-runs all of MessengerView's useEffects
+          // (SSE, polling, heartbeat, BroadcastChannel) → cascade → #185.
+          // Without key, the boundary persists across switches; only the
+          // inner Component changes via React's reconciliation.
           return (
-            <div
-              key={id}
-              style={{ display: isActive ? "block" : "none" }}
-              aria-hidden={!isActive}
-            >
-              <Component />
-            </div>
+            <ViewErrorBoundary key={currentView}>
+              <ViewTransition trigger={currentView} animationsEnabled={animationsEnabled}>
+                <Component />
+              </ViewTransition>
+            </ViewErrorBoundary>
           );
-        })}
+        })()}
 
         {/* ── Auth view: shown when not authenticated ── */}
         {!showNav && currentView === "auth" && <AuthView />}
@@ -498,15 +647,23 @@ export default function AppShell() {
         {/* ── Onboarding: shown separately ── */}
         {!showNav && currentView === "onboarding" && <OnboardingView />}
 
-        {/* ── Dynamic views: loaded lazily, with AnimatePresence ── */}
+        {/* ── Dynamic views: loaded lazily, with AnimatePresence ──
+            These are rarely-visited views (stories, onboarding, spatial, etc.)
+            that don't have heavy useEffects like MessengerView, so the
+            mount/unmount cycle is safe here. AnimatePresence gives the
+            cross-fade + slide for premium feel on these. */}
         {showNav && !isMountedView && !["auth", "onboarding"].includes(currentView) && (
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={currentView}
-              initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
+              initial={animationsEnabled ? { opacity: 0, y: 12 } : false}
               animate={{ opacity: 1, y: 0 }}
-              exit={animationsEnabled ? { opacity: 0 } : undefined}
-              transition={{ duration: 0.12, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
+              exit={animationsEnabled ? { opacity: 0, y: -8 } : { opacity: 1 }}
+              transition={{
+                duration: 0.2,
+                ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+              }}
+              style={{ willChange: "opacity, transform" }}
             >
               <Suspense fallback={
                 <div className="flex items-center justify-center py-8">
@@ -521,14 +678,17 @@ export default function AppShell() {
         )}
       </main>
 
-      {/* PlayerBar is ALWAYS mounted — never unmount to preserve playback engine */}
+      {/* PlayerBar (desktop only — mobile uses MobileDock which combines player + nav) */}
       <Suspense fallback={null}><PlayerBar /></Suspense>
-      <Suspense fallback={null}><FullTrackView /></Suspense>
+      <Suspense fallback={null}>{isMobile ? <FullTrackViewMobile /> : <FullTrackView />}</Suspense>
       <Suspense fallback={null}><KeyboardShortcutsHelp /></Suspense>
       <Suspense fallback={null}>{showNav && <CommandPalette />}</Suspense>
       <Suspense fallback={null}>{catEnabled && <MqCat />}</Suspense>
       {/* Cobalt Turnstile — invisible widget for SNIP bypass JWT */}
       <CobaltTurnstile />
+      {/* Mobile: unified dock (player + nav in one glass container) */}
+      <Suspense fallback={null}>{showNav && !hideUiForFullscreen && <MobileDock />}</Suspense>
+      {/* Desktop: separate nav bar (PlayerBar already rendered above) */}
       <Suspense fallback={null}>{showNav && !hideUiForFullscreen && <MobileNav />}</Suspense>
       <Suspense fallback={null}>{isAuthenticated && <NotificationPanel isOpen={notifPanelOpen} onClose={() => setNotifPanelOpen(false)} />}</Suspense>
       <Suspense fallback={null}>{

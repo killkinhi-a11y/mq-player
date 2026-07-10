@@ -272,7 +272,7 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
       onClick={(e) => e.stopPropagation()}
     >
       {/* Track header in context menu */}
-      <div className="px-3 py-2.5 flex items-center gap-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      <div className="px-3 py-2.5 flex items-center gap-2.5" style={{ borderBottom: "1px solid var(--mq-border-thin)" }}>
         <div className="w-9 h-9 rounded-lg flex-shrink-0 overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
           {track.cover ? (
             <img src={track.cover} alt="" className="w-full h-full object-cover" />

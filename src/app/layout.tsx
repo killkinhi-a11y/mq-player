@@ -47,6 +47,30 @@ export default function RootLayout({
         <meta httpEquiv="Expires" content="0" />
         <meta name="msapplication-TileColor" content="#0e0e0e" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        {/* Inline CSS — kills ALL square outlines globally.
+            Must be in <head> so it loads BEFORE any external CSS.
+            This is the ONLY way to guarantee no square focus rings. */}
+        <style dangerouslySetInnerHTML={{ __html: `
+          *, *::before, *::after {
+            outline: none !important;
+            -webkit-tap-highlight-color: transparent !important;
+          }
+          *:focus, *:focus-visible {
+            --tw-ring-shadow: 0 0 #0000 !important;
+            --tw-ring-offset-shadow: 0 0 #0000 !important;
+            --tw-ring-color: transparent !important;
+            outline: none !important;
+          }
+          *:focus-visible {
+            outline: none !important;
+          }
+          input:focus, input:focus-visible,
+          textarea:focus, textarea:focus-visible,
+          select:focus, select:focus-visible {
+            outline: none !important;
+            box-shadow: none !important;
+          }
+        `}} />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){
@@ -92,15 +116,14 @@ export default function RootLayout({
       // Runs BEFORE React hydrates, so it can auto-recover before the error boundary.
       window.addEventListener('error',function(e){
         var msg=(e&&e.message)||'';
+        // TDZ recovery
         if(/can\\'t access.*lexical declaration/i.test(msg)){
           console.warn('[MQ] TDZ chunk error detected, auto-recovering...');
-          // Only auto-reload once per session to prevent loops
           var key='mq-tdz-recovered';
           try{
             if(sessionStorage.getItem(key))return;
             sessionStorage.setItem(key,'1');
           }catch(ex){return}
-          // Clear all caches and reload
           if(navigator.serviceWorker){
             navigator.serviceWorker.getRegistrations().then(function(regs){
               regs.forEach(function(r){r.unregister()});
@@ -116,22 +139,33 @@ export default function RootLayout({
           }
           window.location.replace(window.location.pathname+'?_tdz='+Date.now());
         }
+        // Chunk loading error recovery
+        if(msg.indexOf('Failed to load chunk')>=0||msg.indexOf('Loading chunk')>=0||msg.indexOf('Loading CSS chunk')>=0){
+          console.warn('[MQ] Chunk loading error detected, auto-reloading...');
+          var ckey='mq-chunk-recovered';
+          try{
+            if(sessionStorage.getItem(ckey))return;
+            sessionStorage.setItem(ckey,'1');
+          }catch(ex){return}
+          window.location.reload();
+        }
+        // React #300/#310/#185 recovery — auto-reload once
+        if(msg.indexOf('Minified React error #300')>=0||msg.indexOf('Minified React error #310')>=0||msg.indexOf('Minified React error #185')>=0){
+          console.warn('[MQ] React error detected, auto-reloading...');
+          var rkey='mq-react-recovered';
+          try{
+            if(sessionStorage.getItem(rkey))return;
+            sessionStorage.setItem(rkey,'1');
+          }catch(ex){return}
+          // Clear service worker cache to get fresh chunks
+          if(navigator.serviceWorker){
+            navigator.serviceWorker.getRegistrations().then(function(regs){
+              regs.forEach(function(r){r.unregister()});
+            });
+          }
+          setTimeout(function(){window.location.reload()},100);
+        }
       },true);
-
-      function initSplash(){
-        if(!document.body){document.addEventListener('DOMContentLoaded',initSplash);return}
-        var splash=document.createElement('div');
-        splash.id='mq-splash';
-        splash.style.cssText='position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#0e0e0e;';
-        splash.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;gap:16px"><div style="display:flex;gap:4px"><div style="width:6px;height:6px;border-radius:50%;background:#e03131;animation:mqDot 1.2s ease-in-out infinite;animation-delay:0s"></div><div style="width:6px;height:6px;border-radius:50%;background:#e03131;animation:mqDot 1.2s ease-in-out infinite;animation-delay:0.15s"></div><div style="width:6px;height:6px;border-radius:50%;background:#e03131;animation:mqDot 1.2s ease-in-out infinite;animation-delay:0.3s"></div></div><span style="font-size:14px;font-weight:300;color:rgba(255,255,255,0.25);font-family:var(--font-outfit),system-ui,sans-serif;letter-spacing:4px">mq</span></div>';
-        var style=document.createElement('style');
-        style.textContent='@keyframes mqDot{0%,80%,100%{transform:scale(0.4);opacity:0.3}40%{transform:scale(1);opacity:1}}';
-        document.head.appendChild(style);
-        document.body.appendChild(splash);
-        window.__mqRemoveSplash=function(){splash.style.transition='opacity 0.3s ease';splash.style.opacity='0';setTimeout(function(){splash.remove()},300)};
-        setTimeout(function(){if(splash.parentNode){splash.style.transition='opacity 0.3s ease';splash.style.opacity='0';setTimeout(function(){splash.remove()},300)}},2500);
-      }
-      initSplash();
     })()`,
           }}
         />

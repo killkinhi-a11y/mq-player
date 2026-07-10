@@ -9,8 +9,10 @@ import ScrollReveal from "./ScrollReveal";
 import {
   Trash2, Clock, Music, Play, Pause, Headphones, CalendarDays,
   TrendingUp, Repeat, Search, X, ListMusic, BarChart3, Flame,
-  ChevronRight, Zap, Disc3,
+  ChevronRight, Zap, Disc3, MoreHorizontal,
 } from "lucide-react";
+import ContextMenu from "./ContextMenu";
+import { useTrackContextMenu } from "@/hooks/useTrackContextMenu";
 
 export default function HistoryView() {
   const history = useAppStore((s) => s.history);
@@ -24,6 +26,9 @@ export default function HistoryView() {
   const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
 
   const [hoveredTrackId, setHoveredTrackId] = useState<string | null>(null);
+
+  // Context menu
+  const { contextMenu, closeContextMenu, handleContextMenu, handleMoreClick } = useTrackContextMenu();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -269,7 +274,7 @@ export default function HistoryView() {
           <div className="grid grid-cols-3 gap-2">
             <motion.div
               className="rounded-2xl p-3 flex flex-col items-center text-center"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
               initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.06, duration: 0.3 }}
@@ -290,7 +295,7 @@ export default function HistoryView() {
 
             <motion.div
               className="rounded-2xl p-3 flex flex-col items-center text-center"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
               initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1, duration: 0.3 }}
@@ -311,7 +316,7 @@ export default function HistoryView() {
 
             <motion.div
               className="rounded-2xl p-3 flex flex-col items-center text-center"
-              style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+              style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
               initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.14, duration: 0.3 }}
@@ -342,7 +347,7 @@ export default function HistoryView() {
               {stats.topArtist && (
                 <div
                   className="rounded-xl px-3 py-2.5 flex items-center gap-2.5"
-                  style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+                  style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
                 >
                   <div
                     className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -360,7 +365,7 @@ export default function HistoryView() {
               {stats.topGenre && (
                 <div
                   className="rounded-xl px-3 py-2.5 flex items-center gap-2.5"
-                  style={{ backgroundColor: "var(--mq-card)", border: "1px solid rgba(255,255,255,0.05)" }}
+                  style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
                 >
                   <div
                     className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -435,7 +440,7 @@ export default function HistoryView() {
                     className="rounded-2xl overflow-hidden"
                     style={{
                       backgroundColor: "var(--mq-card)",
-                      border: "1px solid rgba(255,255,255,0.05)",
+                      border: "1px solid var(--mq-border-hairline)",
                       boxShadow: "var(--mq-shadow-xs)",
                     }}
                   >
@@ -454,6 +459,7 @@ export default function HistoryView() {
                             onMouseEnter={() => setHoveredTrackId(track.id)}
                             onMouseLeave={() => setHoveredTrackId(null)}
                             onClick={() => handleTrackClick(track)}
+                            onContextMenu={(e) => handleContextMenu(track, e)}
                             className={`group flex items-center gap-3 px-3 py-2.5 cursor-pointer relative overflow-hidden`}
                             style={{
                               backgroundColor: isActive
@@ -589,6 +595,16 @@ export default function HistoryView() {
                               )}
                             </div>
 
+                            {/* More button (3-dot) — opens context menu */}
+                            <button
+                              onClick={(e) => handleMoreClick(track, e)}
+                              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              style={{ color: "var(--mq-text-muted)" }}
+                              title="Меню"
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+
                             {/* Subtle divider */}
                             {i < group.items.length - 1 && (
                               <div className="absolute bottom-0 left-14 right-3" style={{ height: 1, backgroundColor: "rgba(255,255,255,0.04)" }} />
@@ -698,6 +714,16 @@ export default function HistoryView() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Context menu */}
+      {contextMenu.show && contextMenu.track && (
+        <ContextMenu
+          track={contextMenu.track}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={closeContextMenu}
+        />
+      )}
     </div>
   );
 }

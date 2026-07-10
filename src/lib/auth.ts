@@ -1,11 +1,24 @@
 import { SignJWT, jwtVerify } from "jose";
+import type { NextResponse } from "next/server";
+
+/**
+ * Cached JWT secret — TextEncoder().encode() creates a new Uint8Array
+ * on every call. At 100 RPS that's 100 allocations/sec (~2 KB garbage/sec).
+ * Cached after first access, never re-encoded.
+ *
+ * The cache is safe because JWT_SECRET is set at deploy time and never
+ * changes during the lifetime of the process.
+ */
+let _cachedSecret: Uint8Array | null = null;
 
 function getSecret(): Uint8Array {
+  if (_cachedSecret) return _cachedSecret;
   const secretRaw = process.env.JWT_SECRET;
   if (!secretRaw) {
     throw new Error("JWT_SECRET environment variable is required");
   }
-  return new TextEncoder().encode(secretRaw);
+  _cachedSecret = new TextEncoder().encode(secretRaw);
+  return _cachedSecret;
 }
 
 export interface SessionPayload {
@@ -16,8 +29,8 @@ export interface SessionPayload {
 }
 
 /**
- * Create a signed JWT token for a user session.
- * Tokens expire in 7 days.
+ * Create a signed JWT token. Expires in 7 days.
+ * Uses HS256 — sufficient for single-server. For distributed auth, use RS256.
  */
 export async function signToken(payload: SessionPayload): Promise<string> {
   return new SignJWT(payload as unknown as Record<string, unknown>)
@@ -29,7 +42,7 @@ export async function signToken(payload: SessionPayload): Promise<string> {
 
 /**
  * Verify and decode a JWT token.
- * Returns null if token is invalid or expired.
+ * Returns null on invalid/expired token — never throws.
  */
 export async function verifyToken(token: string): Promise<SessionPayload | null> {
   try {
@@ -40,7 +53,8 @@ export async function verifyToken(token: string): Promise<SessionPayload | null>
       email: payload.email as string | undefined,
       role: payload.role as string | undefined,
     };
-  } catch {
+  } catch (e) {
+    console.warn("[auth] JWT verification failed:", e instanceof Error ? e.message : e);
     return null;
   }
 }
@@ -60,8 +74,6 @@ export const SESSION_COOKIE_OPTIONS = {
  * Set session cookie on a NextResponse.
  * Convenience helper for login/register/confirm routes.
  */
-import type { NextResponse } from "next/server";
-
 export async function setSessionCookie(
   response: NextResponse,
   payload: SessionPayload

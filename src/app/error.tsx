@@ -28,7 +28,26 @@ export default function ErrorBoundary({
     ];
     const isStaleError = stalePatterns.some((p) => errorMsg.includes(p));
 
-    if (!isTdZError && !isStaleError) return;
+    // ── Auto-recover from chunk loading errors (stale deployment) ──
+    const isChunkError = errorMsg.includes("Failed to load chunk") ||
+      errorMsg.includes("Loading chunk") || errorMsg.includes("Loading CSS chunk");
+
+    if (!isTdZError && !isStaleError && !isChunkError) return;
+
+    // For chunk errors: just reload the page (new deployment = new chunks)
+    if (isChunkError) {
+      try {
+        const count = parseInt(sessionStorage.getItem(RELOAD_KEY) || "0");
+        if (count >= MAX_AUTO_RELOADS) {
+          sessionStorage.removeItem(RELOAD_KEY);
+          return;
+        }
+        sessionStorage.setItem(RELOAD_KEY, String(count + 1));
+        // Force reload (bypass cache)
+        window.location.reload();
+      } catch {}
+      return;
+    }
 
     try {
       const count = parseInt(sessionStorage.getItem(RELOAD_KEY) || "0");

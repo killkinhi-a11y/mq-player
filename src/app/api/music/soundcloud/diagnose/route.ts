@@ -15,7 +15,8 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "edge";
 
 const CLIENT_IDS = [
-  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // Fresh: extracted from SC website (2025-06)
+  "O7atZypwLvuWSY9hWnnQ3vrLTHH7wqMe", // 2025-07 — freshly extracted
+  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // backup
 ];
 
 export async function GET(request: NextRequest) {

@@ -54,25 +54,26 @@ export function useListenSessionSync() {
 
         // Track changed
         if (activeSession.trackId && activeSession.trackId !== store.currentTrack?.id) {
-          useAppStore.setState({
-            currentTrack: {
-              id: activeSession.trackId,
-              title: activeSession.trackTitle || "",
-              artist: activeSession.trackArtist || "",
-              cover: activeSession.trackCover || "",
-              audioUrl: activeSession.audioUrl || "",
-              duration: 0,
-              album: "",
-              genre: "",
-              source: (activeSession.source as any) || "soundcloud",
-              scTrackId: activeSession.scTrackId,
-            } as Track,
+          const newTrack = {
+            id: activeSession.trackId,
+            title: activeSession.trackTitle || "",
+            artist: activeSession.trackArtist || "",
+            cover: activeSession.trackCover || "",
+            audioUrl: activeSession.audioUrl || "",
+            duration: 0,
+            album: "",
+            genre: "",
+            source: (activeSession.source as any) || "soundcloud",
+            scTrackId: activeSession.scTrackId,
+          } as Track;
+          setTimeout(() => useAppStore.setState({
+            currentTrack: newTrack,
             queue: [],
             queueIndex: 0,
             progress: 0,
             duration: 0,
             isPlaying: true,
-          });
+          }), 0);
         }
 
         // Sync progress (seek if differs by > 3s)
@@ -103,12 +104,13 @@ export function useListenSessionSync() {
         const session = useAppStore.getState().listenSession;
         if (session && !session.isHost) {
           poll();
-          guestIntervalRef.current = setInterval(poll, 5000);
+          // 15s poll for guest sync (was 5s — reduced for less load)
+          guestIntervalRef.current = setInterval(poll, 15000);
         }
       };
       check();
-      // Re-check every 5s whether we need to start/stop the guest interval
-      const metaInterval = setInterval(check, 5000);
+      // Re-check every 15s whether we need to start/stop the guest interval
+      const metaInterval = setInterval(check, 15000);
       return () => clearInterval(metaInterval);
     };
 
@@ -178,12 +180,13 @@ export function useListenSessionSync() {
         const session = useAppStore.getState().listenSession;
         if (session && session.isHost) {
           hostTick();
-          hostIntervalRef.current = setInterval(hostTick, 5000);
+          // 15s host tick (was 5s — reduced for less load)
+          hostIntervalRef.current = setInterval(hostTick, 15000);
         }
       };
       check();
-      // Re-check every 5s whether we need to start/stop the host interval
-      const metaInterval = setInterval(check, 5000);
+      // Re-check every 15s whether we need to start/stop the host interval
+      const metaInterval = setInterval(check, 15000);
       return () => clearInterval(metaInterval);
     };
 

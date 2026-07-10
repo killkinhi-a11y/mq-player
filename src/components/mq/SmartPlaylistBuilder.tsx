@@ -79,8 +79,10 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
         updated[index].op = "eq";
       } else if (fieldDef?.type === "number") {
         updated[index].value = 0;
+        updated[index].op = "eq";
       } else {
         updated[index].value = "";
+        updated[index].op = "eq";
       }
     }
     setRules(updated);
@@ -170,7 +172,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[150] flex items-center justify-center p-4"
       style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
       onClick={onClose}
       role="dialog"
@@ -220,7 +222,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
                   className="text-left p-3 rounded-xl transition-all hover:opacity-80"
                   style={{
                     backgroundColor: "rgba(255,255,255,0.04)",
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    border: "1px solid var(--mq-border-thin)",
                   }}
                 >
                   <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>{preset.name}</p>
@@ -241,7 +243,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
               className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
               style={{
                 backgroundColor: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.08)",
+                border: "1px solid var(--mq-border-thin)",
                 color: "var(--mq-text)",
               }}
             />
@@ -263,16 +265,16 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
                 return (
                   <motion.div
                     key={index}
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
                     className="flex items-center gap-2 mb-2"
                   >
                     <select
                       value={rule.field}
                       onChange={(e) => updateRule(index, { field: e.target.value as SmartPlaylistRule["field"] })}
                       className="px-2 py-1.5 rounded-lg text-xs outline-none flex-shrink-0"
-                      style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--mq-text)" }}
+                      style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
                     >
                       {FIELDS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                     </select>
@@ -280,7 +282,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
                       value={rule.op}
                       onChange={(e) => updateRule(index, { op: e.target.value as SmartPlaylistRule["op"] })}
                       className="px-2 py-1.5 rounded-lg text-xs outline-none flex-shrink-0"
-                      style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--mq-text)" }}
+                      style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
                     >
                       {getOpsForField(rule.field).map((op) => <option key={op.value} value={op.value}>{op.label}</option>)}
                     </select>
@@ -292,7 +294,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
                         value={String(rule.value)}
                         onChange={(e) => updateRule(index, { value: fieldDef?.type === "number" ? Number(e.target.value) : e.target.value })}
                         className="flex-1 min-w-0 px-2 py-1.5 rounded-lg text-xs outline-none"
-                        style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--mq-text)" }}
+                        style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
                       />
                     )}
                     <button onClick={() => removeRule(index)} className="p-1.5 rounded-lg cursor-pointer hover:opacity-70 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
@@ -318,7 +320,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
                 value={limit}
                 onChange={(e) => setLimit(Math.min(Math.max(1, Number(e.target.value) || 100), 500))}
                 className="w-full px-2 py-1.5 rounded-lg text-xs outline-none"
-                style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--mq-text)" }}
+                style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
               />
             </div>
             <div className="flex-1">
@@ -327,7 +329,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SmartPlaylistConfig["sortBy"])}
                 className="w-full px-2 py-1.5 rounded-lg text-xs outline-none"
-                style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "var(--mq-text)" }}
+                style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
               >
                 {SORT_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
               </select>

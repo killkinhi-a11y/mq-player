@@ -91,3 +91,11 @@ mq-player-src/
 # Lock files (choose ONE package manager, ignore the others)
 bun.lock
 bun.lockb
+
+# OpenNext (Cloudflare) build output
+.open-next/
+
+# Capacitor / Android build output
+/android/
+/out/
+/capacitor.config.json

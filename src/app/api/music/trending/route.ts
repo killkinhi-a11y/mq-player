@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchSCTracks, type SCTrack } from "@/lib/soundcloud";
+import { getAudiusTrending } from "@/lib/audius";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { RECOMMENDATIONS_CONFIG as CFG } from "@/config/recommendations";
 
@@ -195,6 +196,9 @@ async function handler(request: NextRequest) {
       selectedQueries.map(({ query }) => searchSCTracks(query, 15))
     );
 
+    // Also fetch trending from Audius (free, no API key)
+    const audiusTrending = await getAudiusTrending(15).catch(() => []);
+
     // Aggregate tracks across all queries
     const trackMap = new Map<number, {
       track: ScoredTrack["track"];
@@ -318,6 +322,13 @@ async function handler(request: NextRequest) {
           existingIds.add(track.scTrackId);
         }
       }
+    }
+
+    // Add Audius trending tracks directly (they're pre-filtered by Audius)
+    for (const track of audiusTrending) {
+      if (!track.cover) continue;
+      if (dislikedArtists.size > 0 && track.artist && dislikedArtists.has(track.artist.toLowerCase())) continue;
+      finalTracks.push(track as any);
     }
 
     const responseData = {
