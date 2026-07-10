@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sliders, RotateCcw } from "lucide-react";
+import { X, Sliders, RotateCcw, Sparkles } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
-import { EQ_BANDS, EQ_PRESETS } from "@/lib/eq";
+import { EQ_BANDS, EQ_PRESETS, EQ_MIN, EQ_MAX } from "@/lib/eq";
 
 interface EqualizerViewProps {
   show: boolean;
@@ -12,19 +12,23 @@ interface EqualizerViewProps {
 }
 
 /**
- * EqualizerView v2 — полная переработка с нуля.
+ * EqualizerView v3 — полная переработка с нуля.
  *
- * Старый: 697 строк с canvas FFT анимацией, peak hold, spectral centroid,
- * waveform — перегруженный и сложный.
+ * v1: 697 строк, canvas FFT анимация — перегруженный.
+ * v2: 237 строк, использовал input[type=range] с appearance:slider-vertical —
+ *     устаревший подход (deprecated в Chrome 124+, ломается в Firefox).
+ * v3: ТЕКУЩАЯ — кастомные вертикальные слайдеры на pointer events.
  *
- * Новый: ~200 строк, чистый и минималистичный:
- * - 10 вертикальных слайдеров с метками частот
- * - Пресеты в виде чипов
- * - Включение/выключение одним тапом
- * - Сброс к плоской
- * - Дизайн в стиле проекта (glassmorphic, accent)
+ * Особенности:
+ *  - 10 вертикальных слайдеров, кастомный рендер (pointer events)
+ *  - Пресеты в виде чипов (12 штук)
+ *  - Включение/выключение одним тапом
+ *  - Сброс к плоской
+ *  - Дизайн полностью на design tokens (--mq-accent, --mq-card, etc.)
+ *  - Поддержка клавиатуры (Esc — закрыть, стрелки на слайдере — ±0.5dB)
+ *  - Двойной тап по слайдеру — сброс полосы в 0
+ *  - Адаптивный layout: 10 полос всегда помещаются
  */
-
 export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
   const eqEnabled = useAppStore((s) => s.eqEnabled);
   const eqBands = useAppStore((s) => s.eqBands);
@@ -44,16 +48,15 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
   }, [eqPreset, eqEnabled, setEqPreset, setEqEnabled]);
 
   const handleBandChange = useCallback((index: number, value: number) => {
-    setEqBand(index, value);
-    // Changing a band manually means it's no longer a preset
+    const clamped = Math.max(EQ_MIN, Math.min(EQ_MAX, value));
+    setEqBand(index, clamped);
     if (eqPreset !== "custom") {
       setEqPreset("custom");
     }
   }, [setEqBand, eqPreset, setEqPreset]);
 
   const handleReset = useCallback(() => {
-    // Reset all bands to 0 manually
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < EQ_BANDS.length; i++) {
       setEqBand(i, 0);
     }
     setEqPreset("flat");
@@ -77,51 +80,66 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-          style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+          className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-4"
+          style={{ backgroundColor: "var(--mq-overlay-scrim)", backdropFilter: "blur(8px) saturate(120%)", WebkitBackdropFilter: "blur(8px) saturate(120%)" }}
           onClick={onClose}
         >
           <motion.div
-            initial={{ scale: 0.92, y: 20 }}
-            animate={{ scale: 1, y: 0 }}
-            exit={{ scale: 0.92, y: 20 }}
-            transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+            initial={{ scale: 0.94, y: 24, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            exit={{ scale: 0.94, y: 24, opacity: 0 }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             className="w-full max-w-lg rounded-3xl overflow-hidden"
             style={{
               backgroundColor: "var(--mq-card)",
               border: "1px solid var(--mq-border-thin)",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+              boxShadow: "0 24px 64px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
+            <div
+              className="flex items-center justify-between px-5 py-4"
+              style={{ borderBottom: "1px solid var(--mq-border-hairline)" }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{
+                    backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--mq-accent) 25%, transparent)",
+                  }}
+                >
                   <Sliders className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>Эквалайзер</h2>
-                  <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>10-полосный</p>
+                  <h2 className="text-base font-bold leading-tight" style={{ color: "var(--mq-text)" }}>
+                    Эквалайзер
+                  </h2>
+                  <p className="text-[11px] leading-tight mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+                    {EQ_BANDS.length}-полосный · {eqEnabled ? "включён" : "выключен"}
+                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {/* Reset */}
                 <button
                   onClick={handleReset}
-                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
                   style={{ color: "var(--mq-text-muted)" }}
-                  title="Сброс"
+                  title="Сбросить"
+                  aria-label="Сбросить"
                 >
-                  <RotateCcw className="w-3.5 h-3.5" />
+                  <RotateCcw className="w-4 h-4" />
                 </button>
                 {/* Close */}
                 <button
                   onClick={onClose}
-                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
                   style={{ color: "var(--mq-text-muted)" }}
+                  title="Закрыть"
+                  aria-label="Закрыть"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -129,24 +147,27 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
             </div>
 
             {/* Presets */}
-            <div className="px-5 py-3 border-b" style={{ borderColor: "var(--mq-border-hairline)" }}>
-              <div className="flex flex-wrap gap-2">
+            <div
+              className="px-5 py-3"
+              style={{ borderBottom: "1px solid var(--mq-border-hairline)" }}
+            >
+              <div className="flex flex-wrap gap-1.5">
                 {EQ_PRESETS.map((preset) => {
                   const isActive = preset.id === eqPreset && eqEnabled;
                   return (
                     <button
                       key={preset.id}
                       onClick={() => handlePresetClick(preset.id)}
-                      className="px-3 py-1.5 rounded-full text-xs font-medium"
+                      className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
                       style={{
                         backgroundColor: isActive
-                          ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
-                          : "var(--mq-bg)",
+                          ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)"
+                          : "var(--mq-glass-bg)",
                         border: isActive
-                          ? "1px solid color-mix(in srgb, var(--mq-accent) 35%, transparent)"
+                          ? "1px solid color-mix(in srgb, var(--mq-accent) 45%, transparent)"
                           : "1px solid var(--mq-border-thin)",
                         color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
-                        transition: "all 0.2s var(--ease-out, ease-out)",
+                        transition: "background-color 200ms cubic-bezier(0.4,0,0.2,1), border-color 200ms cubic-bezier(0.4,0,0.2,1), color 200ms cubic-bezier(0.4,0,0.2,1)",
                       }}
                     >
                       {preset.name}
@@ -156,81 +177,296 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
               </div>
             </div>
 
-            {/* EQ Bands */}
-            <div className="px-5 py-6">
-              {/* Enabled toggle */}
-              <div className="flex items-center justify-between mb-5">
-                <span className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>Эквалайзер</span>
-                <button
-                  onClick={() => setEqEnabled(!eqEnabled)}
-                  className="relative w-11 h-6 rounded-full"
+            {/* Enabled toggle */}
+            <div
+              className="flex items-center justify-between px-5 py-3.5"
+              style={{ borderBottom: "1px solid var(--mq-border-hairline)" }}
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
                   style={{
-                    backgroundColor: eqEnabled ? "var(--mq-accent)" : "var(--mq-border-thin)",
-                    transition: "background-color 0.2s",
+                    backgroundColor: eqEnabled
+                      ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
+                      : "var(--mq-glass-bg)",
                   }}
                 >
-                  <motion.div
-                    layout
-                    className="absolute top-0.5 w-5 h-5 rounded-full bg-white"
-                    style={{ left: eqEnabled ? 22 : 2 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                  <Sparkles
+                    className="w-3.5 h-3.5"
+                    style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
                   />
-                </button>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
+                    Эквалайзер
+                  </p>
+                  <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                    {eqEnabled ? "Активен — применяет настройки к звуку" : "Выключен — звук без изменений"}
+                  </p>
+                </div>
               </div>
+              <button
+                onClick={() => setEqEnabled(!eqEnabled)}
+                className="relative w-11 h-6 rounded-full transition-colors"
+                style={{
+                  backgroundColor: eqEnabled ? "var(--mq-accent)" : "var(--mq-border-thin)",
+                  transition: "background-color 200ms cubic-bezier(0.4,0,0.2,1)",
+                }}
+                role="switch"
+                aria-checked={eqEnabled}
+                aria-label="Включить эквалайзер"
+              >
+                <motion.div
+                  layout
+                  className="absolute top-0.5 w-5 h-5 rounded-full"
+                  style={{
+                    left: eqEnabled ? 22 : 2,
+                    backgroundColor: "#fff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  }}
+                  transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                />
+              </button>
+            </div>
 
-              {/* Band sliders */}
+            {/* Band sliders */}
+            <div className="px-4 sm:px-5 py-5">
               <div
-                className="flex items-end justify-between gap-1 sm:gap-2"
-                style={{ opacity: eqEnabled ? 1 : 0.4, transition: "opacity 0.2s", height: 180 }}
+                className="flex items-end justify-between gap-1 sm:gap-1.5"
+                style={{
+                  opacity: eqEnabled ? 1 : 0.45,
+                  transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1)",
+                }}
               >
                 {EQ_BANDS.map((band, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                    {/* Value label */}
-                    <span className="text-[10px] font-mono font-semibold" style={{ color: "var(--mq-text-muted)" }}>
-                      {eqBands[i] > 0 ? `+${eqBands[i]}` : eqBands[i]}
-                    </span>
-
-                    {/* Slider */}
-                    <div className="relative flex-1 w-full" style={{ minHeight: 120 }}>
-                      <input
-                        type="range"
-                        min={-12}
-                        max={12}
-                        step={1}
-                        value={eqBands[i]}
-                        onChange={(e) => handleBandChange(i, parseInt(e.target.value))}
-                        disabled={!eqEnabled}
-                        className="eq-slider"
-                        style={{
-                          writingMode: "vertical-lr" as any,
-                          direction: "rtl" as any,
-                          width: "100%",
-                          height: "100%",
-                          appearance: "slider-vertical" as any,
-                          WebkitAppearance: "slider-vertical" as any,
-                          accentColor: "var(--mq-accent)",
-                        }}
-                      />
-                    </div>
-
-                    {/* Frequency label */}
-                    <span className="text-[9px] sm:text-[10px] font-medium text-center" style={{ color: "var(--mq-text-muted)" }}>
-                      {band.frequency >= 1000 ? `${band.frequency / 1000}k` : band.frequency}
-                    </span>
-                  </div>
+                  <EqBandSlider
+                    key={i}
+                    label={band.frequency >= 1000 ? `${band.frequency / 1000}k` : `${band.frequency}`}
+                    value={eqBands[i] ?? 0}
+                    disabled={!eqEnabled}
+                    onChange={(v) => handleBandChange(i, v)}
+                  />
                 ))}
+              </div>
+
+              {/* dB scale hint */}
+              <div className="flex items-center justify-between mt-3 px-1">
+                <span className="text-[9px] font-mono" style={{ color: "var(--mq-text-muted)" }}>+{EQ_MAX} dB</span>
+                <span className="text-[9px] font-mono" style={{ color: "var(--mq-text-muted)" }}>0</span>
+                <span className="text-[9px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{EQ_MIN} dB</span>
               </div>
             </div>
 
             {/* Footer hint */}
-            <div className="px-5 py-3 border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-              <p className="text-[11px] text-center" style={{ color: "var(--mq-text-muted)" }}>
-                {eqEnabled ? "Эквалайзер активен" : "Эквалайзер выключен — звук без изменений"}
-              </p>
+            <div
+              className="px-5 py-3 flex items-center justify-center gap-2"
+              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+            >
+              <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                Двойной тап по слайдеру сбрасывает полосу в 0
+              </span>
             </div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// ─── Vertical Band Slider ───────────────────────────────────────────────────
+
+interface EqBandSliderProps {
+  label: string;
+  value: number; // -12 to +12
+  disabled: boolean;
+  onChange: (v: number) => void;
+}
+
+function EqBandSlider({ label, value, disabled, onChange }: EqBandSliderProps) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  // Slider geometry: track is 160px tall, value range is [-12, +12]
+  // 0 dB is in the middle.
+  const TRACK_HEIGHT = 160;
+  const RANGE = EQ_MAX - EQ_MIN; // 24
+  // Percent of value from min (0..1)
+  const valuePercent = (value - EQ_MIN) / RANGE; // 0 at -12, 0.5 at 0, 1 at +12
+  // Position of thumb from top: 0 at +12 (top), TRACK_HEIGHT at -12 (bottom)
+  const thumbTop = (1 - valuePercent) * TRACK_HEIGHT;
+
+  const updateFromClientY = useCallback(
+    (clientY: number) => {
+      const el = trackRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const y = clientY - rect.top;
+      const clamped = Math.max(0, Math.min(TRACK_HEIGHT, y));
+      const pct = 1 - clamped / TRACK_HEIGHT; // 0 at bottom, 1 at top
+      const newValue = EQ_MIN + pct * RANGE;
+      // Round to 0.5
+      const rounded = Math.round(newValue * 2) / 2;
+      onChange(rounded);
+    },
+    [onChange]
+  );
+
+  // Pointer events for drag
+  useEffect(() => {
+    if (!isDragging) return;
+    const onMove = (e: PointerEvent) => {
+      e.preventDefault();
+      updateFromClientY(e.clientY);
+    };
+    const onUp = () => {
+      setIsDragging(false);
+    };
+    window.addEventListener("pointermove", onMove, { passive: false });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [isDragging, updateFromClientY]);
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (disabled) return;
+    e.preventDefault();
+    setIsDragging(true);
+    updateFromClientY(e.clientY);
+  };
+
+  const handleDoubleClick = () => {
+    if (disabled) return;
+    onChange(0);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled) return;
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      onChange(value + 0.5);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      onChange(value - 0.5);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      onChange(EQ_MAX);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      onChange(EQ_MIN);
+    } else if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      onChange(0);
+    }
+  };
+
+  // Color band value: positive = accent, negative = muted blue, 0 = neutral
+  const isPositive = value > 0;
+  const isNegative = value < 0;
+  const fillHeight = Math.abs(value) / RANGE * TRACK_HEIGHT; // height of the "fill" portion from 0 line
+  const zeroLineTop = TRACK_HEIGHT / 2;
+
+  return (
+    <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
+      {/* Value label */}
+      <span
+        className="text-[10px] font-mono font-semibold tabular-nums"
+        style={{
+          color: isPositive
+            ? "var(--mq-accent)"
+            : isNegative
+              ? "color-mix(in srgb, var(--mq-text-muted) 80%, var(--mq-accent) 20%)"
+              : "var(--mq-text-muted)",
+          opacity: isDragging || isHovered ? 1 : 0.7,
+          transition: "opacity 150ms",
+        }}
+      >
+        {value > 0 ? `+${value}` : value === 0 ? "0" : `${value}`}
+      </span>
+
+      {/* Track */}
+      <div
+        ref={trackRef}
+        role="slider"
+        tabIndex={disabled ? -1 : 0}
+        aria-valuemin={EQ_MIN}
+        aria-valuemax={EQ_MAX}
+        aria-valuenow={value}
+        aria-label={`${label} Hz`}
+        onPointerDown={handlePointerDown}
+        onDoubleClick={handleDoubleClick}
+        onKeyDown={handleKeyDown}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        className="relative w-full rounded-full cursor-pointer touch-none select-none"
+        style={{
+          height: TRACK_HEIGHT,
+          width: 6,
+          backgroundColor: "var(--mq-glass-bg)",
+          outline: "none",
+          cursor: disabled ? "default" : "pointer",
+          // Soft inset shadow for depth
+          boxShadow: "inset 0 1px 2px rgba(0,0,0,0.2)",
+        }}
+      >
+        {/* Zero line — subtle horizontal marker at 0 dB */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 w-3 h-px"
+          style={{
+            top: zeroLineTop,
+            backgroundColor: "var(--mq-border-default)",
+            opacity: 0.6,
+          }}
+        />
+
+        {/* Fill — from 0 line to current value */}
+        {!disabled && value !== 0 && (
+          <div
+            className="absolute left-0 right-0 rounded-full"
+            style={{
+              top: isPositive ? thumbTop : zeroLineTop,
+              height: fillHeight,
+              backgroundColor: "var(--mq-accent)",
+              opacity: isDragging ? 1 : 0.9,
+              transition: isDragging ? "none" : "top 120ms cubic-bezier(0.4,0,0.2,1), height 120ms cubic-bezier(0.4,0,0.2,1)",
+            }}
+          />
+        )}
+
+        {/* Thumb */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 rounded-full"
+          style={{
+            top: thumbTop - 7,
+            width: 14,
+            height: 14,
+            backgroundColor: "#fff",
+            border: "2px solid var(--mq-accent)",
+            boxShadow: isDragging
+              ? "0 4px 12px rgba(0,0,0,0.4), 0 0 0 6px color-mix(in srgb, var(--mq-accent) 18%, transparent)"
+              : isHovered
+                ? "0 2px 8px rgba(0,0,0,0.3), 0 0 0 3px color-mix(in srgb, var(--mq-accent) 12%, transparent)"
+                : "0 2px 6px rgba(0,0,0,0.3)",
+            opacity: disabled ? 0.5 : 1,
+            transition: isDragging
+              ? "none"
+              : "top 120ms cubic-bezier(0.4,0,0.2,1), box-shadow 150ms cubic-bezier(0.4,0,0.2,1)",
+            cursor: disabled ? "default" : "grab",
+          }}
+        />
+      </div>
+
+      {/* Frequency label */}
+      <span
+        className="text-[9px] sm:text-[10px] font-semibold text-center tabular-nums"
+        style={{ color: "var(--mq-text-muted)" }}
+      >
+        {label}
+      </span>
+    </div>
   );
 }

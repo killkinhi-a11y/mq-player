@@ -8,7 +8,7 @@ import {
   Shuffle, Repeat, Repeat1, Volume2, VolumeX, Volume1,
   Music, ListMusic, Share2, Loader2, Clock, Mic2,
   ThumbsDown, AirVent, Gauge, Timer,
-  History, Sparkles, X, ListPlus, Plus,
+  History, Sparkles, X, ListPlus, Plus, Sliders,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
@@ -170,6 +170,8 @@ export default function FullTrackView() {
   const radioMode = useAppStore((s) => s.radioMode);
   const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
   const setSpatialAudioEnabled = useAppStore((s) => s.setSpatialAudioEnabled);
+  const setEqOpen = useAppStore((s) => s.setEqOpen);
+  const eqEnabled = useAppStore((s) => s.eqEnabled);
   const playbackRate = useAppStore((s) => s.playbackRate);
   const setPlaybackRate = useAppStore((s) => s.setPlaybackRate);
   const sleepTimerActive = useAppStore((s) => s.sleepTimerActive);
@@ -835,6 +837,14 @@ export default function FullTrackView() {
                       <History className="w-4 h-4" style={{ color: activePanel === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </button>
                     <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
+                    <button
+                      onClick={() => setEqOpen(true)}
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      style={{ backgroundColor: eqEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
+                      title="Эквалайзер"
+                    >
+                      <Sliders className="w-4 h-4" style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                    </button>
                     <button onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: spatialAudioEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Пространственное аудио">
                       <AirVent className="w-4 h-4" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </button>

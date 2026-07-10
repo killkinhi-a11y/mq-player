@@ -174,6 +174,9 @@ interface AppState {
   // Full-screen track view
   isFullTrackViewOpen: boolean;
 
+  // Equalizer modal
+  isEqOpen: boolean;
+
   // Keyboard shortcuts help modal (M4.2)
   shortcutsHelpOpen: boolean;
 
@@ -317,6 +320,9 @@ interface AppState {
 
   // Full-screen track view actions
   setFullTrackViewOpen: (open: boolean) => void;
+
+  // Equalizer modal actions
+  setEqOpen: (open: boolean) => void;
 
   // Keyboard shortcuts help modal (M4.2)
   setShortcutsHelpOpen: (open: boolean) => void;
@@ -568,6 +574,7 @@ const initialState = {
   notificationCount: 0 as number,
   notifPanelOpen: false as boolean,
   isFullTrackViewOpen: false,
+  isEqOpen: false as boolean,
   shortcutsHelpOpen: false as boolean,
   likedTrackIds: [] as string[],
   dislikedTrackIds: [] as string[],
@@ -1574,6 +1581,8 @@ export const useAppStore = create<AppState>()(
       setIsLoading: (loading) => set({ isLoading: loading }),
 
       setFullTrackViewOpen: (open) => set({ isFullTrackViewOpen: open }),
+
+      setEqOpen: (open) => set({ isEqOpen: open }),
 
       setShortcutsHelpOpen: (open) => set({ shortcutsHelpOpen: open }),
 
@@ -2602,7 +2611,7 @@ export const useAppStore = create<AppState>()(
           releaseRadarTracks, releaseRadarLoading,
           publicPlaylistsLoading, recommendedPlaylistsLoading, publicPlaylistsTotal,
           isSyncing, syncError, supportUnreadCount,
-          isFullTrackViewOpen, notifPanelOpen, notificationCount,
+          isFullTrackViewOpen, isEqOpen, notifPanelOpen, notificationCount,
           sleepTimerActive, sleepTimerRemaining, sleepTimerEndTime,
           miniPlayerHidden,
           playbackState, isBuffering, isDragging,
@@ -2768,7 +2777,7 @@ export const useAppStore = create<AppState>()(
           "selectedGroupId", "selectedArtist", "typingUsers",
           "_authGeneration", "_hasHydrated", "_playLock",
           "spatialAudioEnabled", "spatialMood", "spatialAutoDetect",
-          "miniPlayerHidden", "isFullTrackViewOpen",
+          "miniPlayerHidden", "isFullTrackViewOpen", "isEqOpen",
           "publicPlaylistsLoading", "recommendedPlaylistsLoading",
           "publicPlaylistsPage", "publicPlaylistsTotal",
           "publicPlaylistsSearch", "publicPlaylistsSort",

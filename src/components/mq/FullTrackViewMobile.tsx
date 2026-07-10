@@ -6,7 +6,7 @@ import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
 import type { Track } from "@/lib/musicApi";
 import { toast } from "@/hooks/use-toast";
-import { Play, Pause, SkipBack, SkipForward, ChevronDown, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2, Timer, Gauge, AirVent, ListPlus } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, ChevronDown, Heart, Shuffle, Repeat, Repeat1, Music, ListMusic, Share2, Loader2, Mic2, ThumbsDown, History, X, MoreHorizontal, Volume2, Timer, Gauge, AirVent, ListPlus, Sliders } from "lucide-react";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — MOBILE
@@ -108,6 +108,9 @@ function FullTrackViewMobileInner() {
   const addToPlaylist = useAppStore((s) => s.addToPlaylist);
   const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
   const setSpatialAudioEnabled = useAppStore((s) => s.setSpatialAudioEnabled);
+  const setEqOpen = useAppStore((s) => s.setEqOpen);
+  const eqEnabled = useAppStore((s) => s.eqEnabled);
+  const eqPreset = useAppStore((s) => s.eqPreset);
   const playbackRate = useAppStore((s) => s.playbackRate);
   const setPlaybackRate = useAppStore((s) => s.setPlaybackRate);
   const sleepTimerActive = useAppStore((s) => s.sleepTimerActive);
@@ -604,6 +607,32 @@ function FullTrackViewMobileInner() {
                   )}
                 </div>
               </div>
+              <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
+
+              {/* Equalizer */}
+              <button onClick={() => { setShowMore(false); setEqOpen(true); }} className="mq-ft-btn w-full flex items-center gap-3 py-3" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
+                <Sliders className="w-5 h-5" style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                <div className="flex-1 text-left min-w-0">
+                  <p className="text-sm" style={{ color: "var(--mq-text)" }}>Эквалайзер</p>
+                  <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                    {eqEnabled ? `Активен · ${eqPreset === "custom" ? "свои настройки" : eqPreset}` : "10-полосный с пресетами"}
+                  </p>
+                </div>
+                <span
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                  style={{
+                    backgroundColor: eqEnabled
+                      ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)"
+                      : "var(--mq-glass-bg)",
+                    color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                    border: eqEnabled
+                      ? "1px solid color-mix(in srgb, var(--mq-accent) 35%, transparent)"
+                      : "1px solid var(--mq-border-thin)",
+                  }}
+                >
+                  {eqEnabled ? "ON" : "OFF"}
+                </span>
+              </button>
               <div className="h-px my-2" style={{ background: "var(--mq-border-thin)" }} />
 
               {/* Spatial audio toggle */}

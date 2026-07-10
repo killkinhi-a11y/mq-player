@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward,
   Repeat, Repeat1, Shuffle, Music, Heart, ListMusic, ChevronUp,
-  Loader2, ThumbsDown, Volume2, VolumeX, Volume1, Radio,
+  Loader2, ThumbsDown, Volume2, VolumeX, Volume1, Radio, Sliders,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
@@ -56,6 +56,8 @@ export default function PlayerBar() {
   const toggleLike = useAppStore((s) => s.toggleLike);
   const toggleDislike = useAppStore((s) => s.toggleDislike);
   const setFullTrackViewOpen = useAppStore((s) => s.setFullTrackViewOpen);
+  const setEqOpen = useAppStore((s) => s.setEqOpen);
+  const eqEnabled = useAppStore((s) => s.eqEnabled);
 
   // Wave engine — used for "Радио от трека" button (starts wave seeded by current track)
   const wave = useWaveEngine();
@@ -552,6 +554,32 @@ export default function PlayerBar() {
 
               {/* Divider */}
               <div className="w-px h-5 mx-0.5 flex-shrink-0" style={{ backgroundColor: "var(--mq-border-thin)" }} />
+
+              {/* Equalizer */}
+              <motion.button
+                whileTap={{ scale: 0.85 }}
+                whileHover={{ scale: 1.1 }}
+                onClick={() => setEqOpen(true)}
+                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 relative"
+                title="Эквалайзер"
+                aria-label="Эквалайзер"
+              >
+                <Sliders
+                  className="w-4 h-4"
+                  style={{
+                    color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                    transition: "color 150ms",
+                  }}
+                />
+                {eqEnabled && (
+                  <motion.span
+                    className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
+                    style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 0 6px var(--mq-accent)" }}
+                    animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                  />
+                )}
+              </motion.button>
 
               {/* Queue */}
               <button onClick={() => setShowQueue(true)} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" title="Очередь">

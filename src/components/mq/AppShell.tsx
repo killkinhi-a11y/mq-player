@@ -52,6 +52,7 @@ const OnboardingView = dynamic(() => import("@/components/mq/OnboardingView"), {
 const SpatialAudioView = dynamic(() => import("@/components/mq/SpatialAudioView"), { ssr: false });
 const FriendsView = dynamic(() => import("@/components/mq/FriendsView"), { ssr: false });
 const SleepTimerView = dynamic(() => import("@/components/mq/SleepTimerView"), { ssr: false });
+const EqualizerView = dynamic(() => import("@/components/mq/EqualizerView"), { ssr: false });
 
 // Inline skeleton shown while a lazy view chunk is loading.
 function ViewSkeleton() {
@@ -134,6 +135,8 @@ export default function AppShell() {
   const currentStyle = useAppStore((s) => s.currentStyle);
   const currentTrack = useAppStore((s) => s.currentTrack);
   const isFullTrackViewOpen = useAppStore((s) => s.isFullTrackViewOpen);
+  const isEqOpen = useAppStore((s) => s.isEqOpen);
+  const setEqOpen = useAppStore((s) => s.setEqOpen);
   const catEnabled = useAppStore((s) => s.catEnabled);
   const isPlaying = useAppStore((s) => s.isPlaying);
   const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
@@ -681,6 +684,7 @@ export default function AppShell() {
       {/* PlayerBar (desktop only — mobile uses MobileDock which combines player + nav) */}
       <Suspense fallback={null}><PlayerBar /></Suspense>
       <Suspense fallback={null}>{isMobile ? <FullTrackViewMobile /> : <FullTrackView />}</Suspense>
+      <Suspense fallback={null}><EqualizerView show={isEqOpen} onClose={() => setEqOpen(false)} /></Suspense>
       <Suspense fallback={null}><KeyboardShortcutsHelp /></Suspense>
       <Suspense fallback={null}>{showNav && <CommandPalette />}</Suspense>
       <Suspense fallback={null}>{catEnabled && <MqCat />}</Suspense>

@@ -10,7 +10,7 @@ import {
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
   RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
   Smartphone, Monitor, Apple, Info, ChevronRight, X, Check, Loader2,
-  AlertTriangle,
+  AlertTriangle, Sliders,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import VolumeSlider from "@/components/ui/volume-slider";
@@ -141,6 +141,9 @@ export default function SettingsView() {
   const avatar = useAppStore((s) => s.avatar);
   const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
   const setSpatialAudioEnabled = useAppStore((s) => s.setSpatialAudioEnabled);
+  const setEqOpen = useAppStore((s) => s.setEqOpen);
+  const eqEnabled = useAppStore((s) => s.eqEnabled);
+  const eqPreset = useAppStore((s) => s.eqPreset);
   const crossfadeEnabled = useAppStore((s) => s.crossfadeEnabled);
   const setCrossfadeEnabled = useAppStore((s) => s.setCrossfadeEnabled);
   const crossfadeDuration = useAppStore((s) => s.crossfadeDuration);
@@ -499,6 +502,13 @@ export default function SettingsView() {
 
             <Card>
               <CardTitle icon={Headphones} title="Качество" />
+              <SettingRow
+                icon={Sliders}
+                label="Эквалайзер"
+                subtitle={eqEnabled ? `Активен · ${eqPreset === "custom" ? "свои настройки" : eqPreset}` : "10-полосный с пресетами"}
+                value={eqEnabled ? "ON" : "OFF"}
+                onClick={() => setEqOpen(true)}
+              />
               <SettingToggle icon={Headphones} label="Пространственное аудио" subtitle="3D-звучание" value={spatialAudioEnabled} onCheckedChange={setSpatialAudioEnabled} />
               <SettingToggle icon={Zap} label="Gapless" subtitle="Без пауз между треками" value={gaplessEnabled} onCheckedChange={setGaplessEnabled} />
             </Card>
