@@ -118,7 +118,12 @@ export const turso: Client = new Proxy({} as Client, {
 // Call this once on app startup to ensure all tables exist
 
 export async function initTursoSchema(): Promise<void> {
-  await turso.execute(`
+  // Use getTurso() directly instead of the turso Proxy — the Proxy
+  // causes "Cannot read private member #promiseLimitFunction" errors
+  // on Vercel serverless because the Proxy intercepts property access
+  // differently than direct method calls.
+  const client = getTurso();
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS User (
       id TEXT PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
@@ -141,7 +146,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS Message (
       id TEXT PRIMARY KEY,
       content TEXT NOT NULL,
@@ -159,7 +164,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS Friend (
       id TEXT PRIMARY KEY,
       requesterId TEXT NOT NULL REFERENCES User(id),
@@ -171,7 +176,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS Playlist (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL REFERENCES User(id) ON DELETE CASCADE,
@@ -187,7 +192,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS PlaylistLike (
       id TEXT PRIMARY KEY,
       playlistId TEXT NOT NULL REFERENCES Playlist(id) ON DELETE CASCADE,
@@ -197,7 +202,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS VerificationCode (
       id TEXT PRIMARY KEY,
       email TEXT NOT NULL,
@@ -210,7 +215,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS UserSync (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL REFERENCES User(id) ON DELETE CASCADE,
@@ -221,7 +226,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS ListenSession (
       id TEXT PRIMARY KEY,
       hostId TEXT NOT NULL REFERENCES User(id),
@@ -241,7 +246,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS Notification (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL REFERENCES User(id) ON DELETE CASCADE,
@@ -254,15 +259,15 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE INDEX IF NOT EXISTS idx_notification_user_read ON Notification(userId, read);
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE INDEX IF NOT EXISTS idx_notification_user_created ON Notification(userId, createdAt);
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS AuditLog (
       id TEXT PRIMARY KEY,
       adminId TEXT NOT NULL REFERENCES User(id),
@@ -273,7 +278,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS TelegramAuthCode (
       id TEXT PRIMARY KEY,
       chatId TEXT NOT NULL,
@@ -287,11 +292,11 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE INDEX IF NOT EXISTS idx_telegram_auth_code ON TelegramAuthCode(code, used, expiresAt);
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS TelegramBotState (
       id TEXT PRIMARY KEY,
       chatId TEXT UNIQUE NOT NULL,
@@ -305,11 +310,11 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE INDEX IF NOT EXISTS idx_telegram_bot_chat ON TelegramBotState(chatId);
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS TrackComment (
       id TEXT PRIMARY KEY,
       trackId TEXT NOT NULL,
@@ -323,11 +328,11 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE INDEX IF NOT EXISTS idx_track_comment ON TrackComment(trackId, createdAt);
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS GroupChat (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -339,7 +344,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS GroupChatMember (
       id TEXT PRIMARY KEY,
       groupChatId TEXT NOT NULL REFERENCES GroupChat(id) ON DELETE CASCADE,
@@ -350,7 +355,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS GroupMessage (
       id TEXT PRIMARY KEY,
       groupChatId TEXT NOT NULL REFERENCES GroupChat(id) ON DELETE CASCADE,
@@ -367,7 +372,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS TypingEvent (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL REFERENCES User(id) ON DELETE CASCADE,
@@ -377,7 +382,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS Story (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL REFERENCES User(id),
@@ -390,7 +395,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS StoryLike (
       id TEXT PRIMARY KEY,
       storyId TEXT NOT NULL REFERENCES Story(id) ON DELETE CASCADE,
@@ -400,7 +405,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS StoryComment (
       id TEXT PRIMARY KEY,
       storyId TEXT NOT NULL REFERENCES Story(id) ON DELETE CASCADE,
@@ -410,7 +415,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS SupportMessage (
       id TEXT PRIMARY KEY,
       userId TEXT,
@@ -422,7 +427,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS SupportChatSession (
       id TEXT PRIMARY KEY,
       sessionId TEXT UNIQUE NOT NULL,
@@ -436,7 +441,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS SupportChatMessage (
       id TEXT PRIMARY KEY,
       sessionId TEXT NOT NULL REFERENCES SupportChatSession(sessionId) ON DELETE CASCADE,
@@ -446,7 +451,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS FeatureFlag (
       id TEXT PRIMARY KEY,
       key TEXT UNIQUE NOT NULL,
@@ -458,7 +463,7 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
-  await turso.execute(`
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS CronJob (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
