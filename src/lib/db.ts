@@ -4,13 +4,25 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
+// Build Prisma URL with connection timeout params for Neon cold starts
+function buildPrismaUrl(): string {
+  const url = process.env.DATABASE_URL || "";
+  if (!url) return url;
+  // Add connect_timeout=30 if not already present (gives Neon time to wake up)
+  if (!url.includes("connect_timeout") && !url.includes("connect_timeout=")) {
+    const separator = url.includes("?") ? "&" : "?";
+    return `${url}${separator}connect_timeout=30&pool_timeout=30`;
+  }
+  return url;
+}
+
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query'] : [],
     datasources: {
       db: {
-        url: process.env.DATABASE_URL,
+        url: buildPrismaUrl(),
       },
     },
   })
