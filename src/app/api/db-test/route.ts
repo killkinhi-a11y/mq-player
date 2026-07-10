@@ -1,31 +1,35 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/db";
-import { isTurso } from "@/lib/database";
+import { database, isTurso, ensureTursoSchema } from "@/lib/database";
 
 export async function GET() {
   const results: any = {
     timestamp: new Date().toISOString(),
     usingTurso: isTurso(),
-    databaseUrlPrefix: process.env.DATABASE_URL?.slice(0, 30) + "...",
     tursoUrl: process.env.TURSO_DATABASE_URL ? "SET" : "NOT SET",
     tursoToken: process.env.TURSO_AUTH_TOKEN ? "SET" : "NOT SET",
   };
 
-  // Try Prisma connection with retry
-  for (let i = 0; i < 3; i++) {
+  // If using Turso, ensure schema exists first
+  if (isTurso()) {
     try {
-      const count = await db.user.count();
-      results.db = { ok: true, userCount: count, attempt: i + 1 };
-      return NextResponse.json(results);
-    } catch (err: any) {
-      results[`attempt_${i+1}`] = {
-        error: err.message?.slice(0, 300),
-        code: err.code,
-      };
-      if (i < 2) await new Promise(r => setTimeout(r, 3000));
+      await ensureTursoSchema();
+      results.schemaInit = "ok";
+    } catch (e: any) {
+      results.schemaInit = { error: e.message?.slice(0, 200) };
     }
   }
 
-  results.db = { ok: false, allRetriesFailed: true };
-  return NextResponse.json(results, { status: 500 });
+  // Test DB via the unified database adapter (works for both Turso and Prisma)
+  try {
+    const count = await database.countUsers();
+    results.db = { ok: true, userCount: count, backend: isTurso() ? "turso" : "prisma" };
+  } catch (err: any) {
+    results.db = {
+      ok: false,
+      error: err.message?.slice(0, 300),
+      backend: isTurso() ? "turso" : "prisma",
+    };
+  }
+
+  return NextResponse.json(results);
 }
