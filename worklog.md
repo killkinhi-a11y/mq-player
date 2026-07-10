@@ -1196,3 +1196,40 @@ Stage Summary:
   3. Polling частоты уменьшены в 3-6 раз → меньше нагрузка при
      долгом сидении на сайте
 - Production: https://mq1.vercel.app — UPDATED to a8915b0.
+
+---
+Task ID: emil-kowalski-skills
+Agent: Main Agent (Claude)
+Task: Установить emilkowalski/skills и применить принципы анимации к mq-player
+
+Work Log:
+- Клонировал https://github.com/emilkowalski/skills — 4 скилла:
+  emil-design-eng, review-animations, animation-vocabulary, apple-design
+- Скопировал в ./skills-emilkowalski/
+- Изучил все SKILL.md файлы
+
+ПРИМЕНЁННЫЕ ПРИНЦИПЫ Emil Kowalski:
+
+1. Custom easing curves (globals.css):
+   Добавлены 4 cubic-bezier CSS variables:
+   --ease-out: cubic-bezier(0.23, 1, 0.32, 1)
+   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1)
+   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1)
+   --ease-premium: cubic-bezier(0.16, 1, 0.3, 1)
+   Built-in CSS easings too weak — these add punch.
+
+2. Fixed scale(0) → scale(0.5) + opacity:0 (globals.css):
+   Progress bar thumb animated from scale(0) — violated principle
+   "nothing in the real world appears from nothing".
+
+3. Replaced transition: all with specific properties:
+   SearchView: 10 instances fixed
+   MainView: 7 instances fixed
+   button.tsx: transition-all → transition-[transform,background-color,
+   border-color,box-shadow,opacity]
+
+4. Added active:scale-[0.97] to UI button component:
+   "Buttons must feel responsive to press" — scale(0.97) on :active.
+
+Build: tsc clean, next build ✓ Compiled successfully in 23.6s
+Pushed to origin/main (merge conflicts resolved)
