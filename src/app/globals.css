@@ -2924,3 +2924,163 @@ a,
 /* .mq-eq-bar class removed — all equalizer bars now use inline styles
    in NowPlayingEqualizer.tsx, PlayerBar.tsx, MainView.tsx to avoid
    CSS specificity conflicts between multiple .mq-eq-bar rules. */
+
+/* ═══════════════════════════════════════════════════════════════
+   Toast smooth fade-out — Emil Kowalski: "use transitions, not
+   keyframes, for dynamic UI". Toasts are added/removed rapidly,
+   so exit must be smooth + interruptible.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Override the default tw-animate-css exit for toasts.
+   fade-out-80 only went to 80% opacity — not a real fade.
+   This gives a full opacity → 0 + scale(0.95) smooth exit. */
+.mq-toast-exit[data-state="closed"] {
+  animation: mq-toast-fade-out 300ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) forwards;
+}
+
+@keyframes mq-toast-fade-out {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(20px) scale(0.95);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   MQ Mercury Animation — letters assemble from liquid mercury
+   droplets. Used on app entry + on hover of MQ logo in corner.
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes mq-mercury-entry {
+  0% {
+    opacity: 0;
+    transform: scale(0.3) rotate(-15deg);
+    filter: blur(12px) brightness(2);
+  }
+  30% {
+    opacity: 0.6;
+    transform: scale(0.6) rotate(-5deg);
+    filter: blur(8px) brightness(1.8);
+  }
+  60% {
+    opacity: 0.9;
+    transform: scale(1.1) rotate(2deg);
+    filter: blur(3px) brightness(1.3);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(0.97) rotate(-1deg);
+    filter: blur(1px) brightness(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0deg);
+    filter: blur(0px) brightness(1);
+  }
+}
+
+@keyframes mq-mercury-hover {
+  0% {
+    transform: scale(1) rotate(0deg);
+    filter: blur(0px) brightness(1);
+  }
+  20% {
+    transform: scale(1.08) rotate(3deg);
+    filter: blur(2px) brightness(1.3);
+  }
+  40% {
+    transform: scale(0.95) rotate(-2deg);
+    filter: blur(4px) brightness(1.5);
+  }
+  60% {
+    transform: scale(1.05) rotate(1deg);
+    filter: blur(2px) brightness(1.2);
+  }
+  80% {
+    transform: scale(0.99) rotate(-0.5deg);
+    filter: blur(1px) brightness(1.05);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    filter: blur(0px) brightness(1);
+  }
+}
+
+/* Mercury shine sweep — pseudo-element overlay */
+.mq-mercury-logo {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.mq-mercury-logo::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  background: radial-gradient(
+    ellipse at 30% 40%,
+    color-mix(in srgb, var(--mq-accent) 30%, transparent),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+  border-radius: 50%;
+}
+
+.mq-mercury-logo:hover::before {
+  opacity: 1;
+}
+
+/* Entry animation — runs once on mount */
+.mq-mercury-entry {
+  animation: mq-mercury-entry 1.2s var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) both;
+}
+
+/* Hover animation — runs on hover, can be re-triggered */
+.mq-mercury-logo:hover .mq-mercury-text {
+  animation: mq-mercury-hover 0.8s var(--ease-in-out, cubic-bezier(0.77, 0, 0.175, 1)) both;
+}
+
+/* Mercury text gradient — silver/chrome look */
+.mq-mercury-text {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--mq-accent) 80%, #fff 20%),
+    color-mix(in srgb, var(--mq-accent) 50%, #aaa 50%),
+    color-mix(in srgb, var(--mq-accent) 70%, #fff 30%),
+    color-mix(in srgb, var(--mq-accent) 40%, #888 60%)
+  );
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+/* Shimmer sweep on the mercury text */
+.mq-mercury-text::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: mq-mercury-shimmer 3s ease-in-out infinite;
+}
+
+@keyframes mq-mercury-shimmer {
+  0%, 100% { left: -100%; }
+  50% { left: 100%; }
+}
