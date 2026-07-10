@@ -16,6 +16,7 @@
  */
 
 import { database, isTurso, getTursoClient, tursoQuery, ensureTursoSchema } from "@/lib/database";
+import { prismaRetry } from "@/lib/db";
 import { APP_URL } from "@/lib/config";
 import {
   sendTelegramMessage,
@@ -379,7 +380,7 @@ async function createTelegramAuthCode(data: {
     return;
   }
   const { db } = await import("@/lib/db");
-  await db.telegramAuthCode.create({
+  await prismaRetry(() => db.telegramAuthCode.create({
     data: {
       chatId: data.chatId,
       telegramUserId: BigInt(data.telegramUserId),
@@ -387,7 +388,7 @@ async function createTelegramAuthCode(data: {
       code: data.code,
       expiresAt: new Date(data.expiresAt),
     },
-  });
+  }));
 }
 
 async function deleteExpiredTelegramAuthCodes(chatId: string): Promise<void> {
@@ -960,11 +961,13 @@ async function handleAuthCode(chatId: string, from: Record<string, any>) {
     } else if (errMsg.includes("UNIQUE") || errMsg.includes("constraint")) {
       userMsg = "Попробуйте ещё раз — произошёл конфликт кодов.";
     } else if (errMsg.includes("TURSO_DATABASE_URL") || errMsg.includes("not configured")) {
-      // Environment variable not set — this is a config issue, not a retry issue
       console.error("[TG Bot] CRITICAL: TURSO_DATABASE_URL not configured!");
       userMsg = "Сервис временно недоступен. Мы уже чиним это.";
-    } else if (errMsg.includes("fetch") || errMsg.includes("ECONNREFUSED") || errMsg.includes("ETIMEDOUT") || errMsg.includes("connect")) {
-      // Network/connection error — might be transient
+    } else if (errMsg.includes("Can't reach database") || errMsg.includes("Connection terminated") || errMsg.includes("fetch failed")) {
+      // Neon cold start or network error — prismaRetry should handle this,
+      // but if all retries failed:
+      userMsg = "База данных просыпается. Попробуйте через 10 секунд.";
+    } else if (errMsg.includes("ECONNREFUSED") || errMsg.includes("ETIMEDOUT") || errMsg.includes("connect")) {
       userMsg = "Не удалось подключиться к базе. Попробуйте через минуту.";
     } else if (errMsg.includes("prisma") || errMsg.includes("database")) {
       userMsg = "Временная ошибка базы данных. Попробуйте через минуту.";
