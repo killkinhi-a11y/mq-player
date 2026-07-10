@@ -2650,8 +2650,14 @@ export const useAppStore = create<AppState>()(
           // Persist userId so onRehydrateStorage can detect demo-user-id and clear it
           // Non-demo users get their data refreshed from /api/auth/me anyway
           userId: persistent.userId ?? null,
-          // SECURITY: do NOT persist username, email, avatar, userRole
-          // These come from the JWT httpOnly cookie via /api/auth/me
+          // Persist username/email/avatar for instant display on page reload.
+          // Previously NOT persisted for "security" — but these are just display
+          // info, not secrets. JWT stays in httpOnly cookie. Not persisting them
+          // caused "User" fallback to show for 1-2 seconds on every reload.
+          username: persistent.username ?? null,
+          email: persistent.email ?? null,
+          avatar: persistent.avatar ?? null,
+          userRole: persistent.userRole ?? "user",
           // Messenger
           messages: persistent.messages.length > MAX_MESSAGES ? persistent.messages.slice(-MAX_MESSAGES) : persistent.messages,
           unreadCounts: persistent.unreadCounts,

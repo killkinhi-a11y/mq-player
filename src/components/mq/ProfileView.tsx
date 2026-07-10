@@ -1035,69 +1035,6 @@ const ProfileView = React.memo(function ProfileView() {
       )}
 
       {/* ════════════════════════════════════════════
-          Achievements — gamification badges
-          ════════════════════════════════════════════ */}
-      <ScrollReveal direction="up" delay={0.15}>
-        <motion.div
-          initial={animationsEnabled ? { opacity: 0, y: 20 } : undefined}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl overflow-hidden mb-4"
-          style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", boxShadow: "var(--mq-shadow-card)" }}
-        >
-          <div className="px-4 pt-4 pb-2 flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 18%, transparent)" }}>
-              <span className="text-xs">🏆</span>
-            </div>
-            <h3 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
-              Достижения
-            </h3>
-            <span className="text-[11px] ml-auto font-medium" style={{ color: "var(--mq-text-muted)" }}>
-              {achievements.filter(a => a.unlocked).length} / {achievements.length}
-            </span>
-          </div>
-          <div className="px-4 pb-4 pt-2 grid grid-cols-2 sm:grid-cols-5 gap-2.5">
-            {achievements.map((ach, i) => (
-              <motion.div
-                key={ach.id}
-                initial={animationsEnabled ? { opacity: 0, scale: 0.8 } : undefined}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.02 * i, type: "spring", stiffness: 400, damping: 25 }}
-                whileHover={ach.unlocked ? { scale: 1.05, y: -2 } : {}}
-                className="flex flex-col items-center gap-1 p-2.5 rounded-xl text-center relative"
-                style={{
-                  backgroundColor: ach.unlocked ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)" : "rgba(255,255,255,0.02)",
-                  border: ach.unlocked ? "1px solid color-mix(in srgb, var(--mq-accent) 20%, transparent)" : "1px solid var(--mq-border-hairline)",
-                  opacity: ach.unlocked ? 1 : 0.5,
-                }}
-              >
-                <div className="text-xl" style={{ filter: ach.unlocked ? "none" : "grayscale(1)" }}>{ach.icon}</div>
-                <p className="text-[10px] font-bold leading-tight" style={{ color: ach.unlocked ? "var(--mq-text)" : "var(--mq-text-muted)" }}>{ach.title}</p>
-                <p className="text-[9px] leading-tight" style={{ color: "var(--mq-text-muted)" }}>{ach.desc}</p>
-                {!ach.unlocked && ach.progress > 0 && (
-                  <div className="w-full h-0.5 rounded-full mt-0.5 overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
-                    <div className="h-full rounded-full" style={{ width: `${ach.progress}%`, backgroundColor: "var(--mq-accent)" }} />
-                  </div>
-                )}
-                {ach.unlocked && (
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: 0.1 + 0.02 * i, type: "spring", stiffness: 500, damping: 20 }}
-                    className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: "var(--mq-accent)" }}
-                  >
-                    <svg className="w-2 h-2" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  </motion.div>
-                )}
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      </ScrollReveal>
-
-      {/* ════════════════════════════════════════════
           Favorite Artists — cards with avatars
           ════════════════════════════════════════════ */}
       {topArtists.length > 0 && (
