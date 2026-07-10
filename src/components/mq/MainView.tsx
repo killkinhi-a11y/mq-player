@@ -20,7 +20,6 @@ import ArtistDetailView from "./ArtistDetailView";
 import PlaylistArtwork from "./PlaylistArtwork";
 import ContextMenu from "./ContextMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
-import { MercuryLogo } from "./MercuryLogo";
 import { useLongPress } from "@/hooks/useLongPress";
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -398,10 +397,6 @@ function MainView() {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="mb-6"
         >
-          {/* Mercury MQ logo — large, entry animation on page load */}
-          <div className="mb-3">
-            <MercuryLogo size="lg" />
-          </div>
           <p className="mq-text-eyebrow mb-1.5 text-[10px] sm:text-[11px]">{currentDate()}</p>
           <h1 className="mq-text-display text-xl sm:text-2xl lg:text-3xl" style={{ color: "var(--mq-text)" }}>
             {greeting()}

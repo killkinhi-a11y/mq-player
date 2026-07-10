@@ -8,7 +8,6 @@ import {
   Library, Command,
 } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
-import { MercuryLogo } from "./MercuryLogo";
 
 const navItems: { id: ViewType; icon: typeof Home; label: string; badgeKey?: "messenger" | "settings" }[] = [
   { id: "main", icon: Home, label: "Главная" },
@@ -103,9 +102,15 @@ const NavBar = React.memo(function NavBar() {
         >
           <img src="/favicon.ico" alt="mq" className="w-full h-full object-cover" />
         </div>
-        {/* Mercury logo — letters assemble from liquid mercury on entry,
-            hover triggers the same mercury effect again. */}
-        <MercuryLogo size="sm" />
+        <span
+          className="font-light text-lg tracking-[0.15em] select-none"
+          style={{
+            color: "var(--mq-text)",
+            fontFamily: "var(--font-outfit), system-ui, sans-serif",
+          }}
+        >
+          mq
+        </span>
       </motion.div>
 
       {/* ── Nav pills (center) ── */}
