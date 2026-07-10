@@ -917,6 +917,11 @@ export async function handleCallbackQuery(body: Record<string, any>) {
 
 async function handleAuthCode(chatId: string, from: Record<string, any>) {
   try {
+    // Ensure DB schema exists before any DB operation
+    if (isTurso()) {
+      await ensureTursoSchema().catch(() => {});
+    }
+
     const crypto = await import("crypto");
     const code = crypto.randomInt(100000, 999999).toString();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -925,7 +930,6 @@ async function handleAuthCode(chatId: string, from: Record<string, any>) {
     await deleteExpiredTelegramAuthCodes(chatId).catch(() => {});
 
     // Telegram user ID — BigInt in Prisma, regular number in Turso.
-    // BigInt() can throw on invalid input; fall back to Number.
     let telegramUserId: number;
     try {
       telegramUserId = BigInt(from.id) as unknown as number;
@@ -947,18 +951,25 @@ async function handleAuthCode(chatId: string, from: Record<string, any>) {
     );
   } catch (err: any) {
     const errMsg = err?.message || String(err);
-    console.error("[TG Bot] handleAuthCode error:", errMsg);
+    console.error("[TG Bot] handleAuthCode error:", errMsg, err?.stack);
     // Provide more specific error message based on error type
     let userMsg = "Ошибка при генерации кода. Попробуйте ещё раз.";
+
     if (errMsg.includes("no such table") || errMsg.includes("does not exist")) {
-      // Schema missing — this should auto-fix via tursoQuery, but if it still fails:
       userMsg = "База данных инициализируется. Попробуйте через 10 секунд.";
     } else if (errMsg.includes("UNIQUE") || errMsg.includes("constraint")) {
-      // Duplicate code — just retry
       userMsg = "Попробуйте ещё раз — произошёл конфликт кодов.";
-    } else if (errMsg.includes("prisma") || errMsg.includes("database") || errMsg.includes("connect")) {
+    } else if (errMsg.includes("TURSO_DATABASE_URL") || errMsg.includes("not configured")) {
+      // Environment variable not set — this is a config issue, not a retry issue
+      console.error("[TG Bot] CRITICAL: TURSO_DATABASE_URL not configured!");
+      userMsg = "Сервис временно недоступен. Мы уже чиним это.";
+    } else if (errMsg.includes("fetch") || errMsg.includes("ECONNREFUSED") || errMsg.includes("ETIMEDOUT") || errMsg.includes("connect")) {
+      // Network/connection error — might be transient
+      userMsg = "Не удалось подключиться к базе. Попробуйте через минуту.";
+    } else if (errMsg.includes("prisma") || errMsg.includes("database")) {
       userMsg = "Временная ошибка базы данных. Попробуйте через минуту.";
     }
+
     await sendTelegramMessage(chatId, userMsg);
   }
 }

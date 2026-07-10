@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isTurso, getTursoClient, database } from "@/lib/database";
+import { isTurso, getTursoClient, database, ensureTursoSchema, tursoQuery } from "@/lib/database";
 import { sendTelegramMessage, isTelegramConfigured, getBotInfo, getWebhookInfo } from "@/lib/telegram";
 
 /**
@@ -17,6 +17,7 @@ export async function GET(_req: NextRequest) {
     TELEGRAM_BOT_NAME: process.env.TELEGRAM_BOT_NAME || "NOT SET",
     DATABASE_URL: process.env.DATABASE_URL ? `set (${process.env.DATABASE_URL.slice(0, 20)}...)` : "NOT SET",
     TURSO_DATABASE_URL: process.env.TURSO_DATABASE_URL ? `set (${process.env.TURSO_DATABASE_URL.slice(0, 20)}...)` : "NOT SET",
+    TURSO_AUTH_TOKEN: process.env.TURSO_AUTH_TOKEN ? "set" : "NOT SET",
   };
 
   results.configured = isTelegramConfigured();
@@ -36,12 +37,24 @@ export async function GET(_req: NextRequest) {
     results.webhookInfo = { error: e.message };
   }
 
+  // 3.5. Ensure schema exists (auto-init)
+  if (isTurso()) {
+    try {
+      await ensureTursoSchema();
+      results.schemaInit = "ok";
+    } catch (e: any) {
+      results.schemaInit = { error: e.message };
+    }
+  }
+
   // 4. Database — check if TelegramAuthCode table exists
   try {
     let count: number;
     if (isTurso()) {
-      const t = getTursoClient();
-      const result = await t.execute("SELECT COUNT(*) as c FROM TelegramAuthCode");
+      const result = await tursoQuery(async () => {
+        const t = getTursoClient();
+        return await t.execute("SELECT COUNT(*) as c FROM TelegramAuthCode");
+      });
       count = Number(result.rows[0]?.c ?? 0);
     } else {
       const { db } = await import("@/lib/db");
@@ -57,7 +70,7 @@ export async function GET(_req: NextRequest) {
     results.db = {
       ok: false,
       error: e.message,
-      fix: "Миграция не применена! Запусти локально: cd mq-player && npx prisma db push (dev) или проверь Turso schema (prod)",
+      backend: isTurso() ? "turso" : "prisma",
     };
   }
 
