@@ -20,7 +20,10 @@
  */
 
 import { db } from "@/lib/db";
-import { getTurso, initTursoSchema } from "@/lib/turso";
+import { getTurso, initTursoSchema, ensureTursoSchema, tursoQuery } from "@/lib/turso";
+
+// Re-export for external consumers (telegram-bot.ts etc.)
+export { tursoQuery, ensureTursoSchema };
 import type { Client, InValue } from "@libsql/client";
 import { randomUUID } from "crypto";
 
@@ -1515,8 +1518,9 @@ export const database = {
 
   async findFriends(userId: string): Promise<Array<FriendRow & { requester: UserRow; addressee: UserRow }>> {
     if (isTurso()) {
-      const result = await getTurso().execute({
-        sql: `SELECT f.*,
+      return await tursoQuery(async () => {
+        const result = await getTurso().execute({
+          sql: `SELECT f.*,
                 r.id as r_id, r.username as r_username, r.avatar as r_avatar, r.email as r_email, r.password as r_password, r.confirmed as r_confirmed, r.role as r_role, r.blocked as r_blocked, r.blockedAt as r_blockedAt, r.blockedReason as r_blockedReason, r.theme as r_theme, r.accent as r_accent, r.favoriteArtists as r_favoriteArtists, r.onboardingComplete as r_onboardingComplete, r.telegramChatId as r_telegramChatId, r.telegramUsername as r_telegramUsername, r.lastSeen as r_lastSeen, r.createdAt as r_createdAt,
                 a.id as a_id, a.username as a_username, a.avatar as a_avatar, a.email as a_email, a.password as a_password, a.confirmed as a_confirmed, a.role as a_role, a.blocked as a_blocked, a.blockedAt as a_blockedAt, a.blockedReason as a_blockedReason, a.theme as a_theme, a.accent as a_accent, a.favoriteArtists as a_favoriteArtists, a.onboardingComplete as a_onboardingComplete, a.telegramChatId as a_telegramChatId, a.telegramUsername as a_telegramUsername, a.lastSeen as a_lastSeen, a.createdAt as a_createdAt
               FROM Friend f
@@ -1524,9 +1528,9 @@ export const database = {
               JOIN User a ON f.addresseeId = a.id
               WHERE f.requesterId = ? OR f.addresseeId = ?
               ORDER BY f.updatedAt DESC`,
-        args: [userId, userId],
-      });
-      return result.rows.map((row) => {
+          args: [userId, userId],
+        });
+        return result.rows.map((row) => {
         const r = row as Record<string, unknown>;
         const friend = parseFriendRow(r);
         const requester = parseUserRow({
@@ -1546,6 +1550,7 @@ export const database = {
           telegramUsername: r.a_telegramUsername, lastSeen: r.a_lastSeen, createdAt: r.a_createdAt,
         });
         return { ...friend, requester, addressee };
+        });
       });
     }
     const friendships = await db.friend.findMany({

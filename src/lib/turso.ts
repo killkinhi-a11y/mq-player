@@ -61,6 +61,52 @@ export function getTurso(): Client {
   return getOrCreateTursoClient();
 }
 
+// ── Auto schema initialization ──────────────────────────────────────────────
+// Track whether schema has been initialized in this process
+let schemaInitialized = false;
+let schemaInitPromise: Promise<void> | null = null;
+
+/**
+ * Ensure schema exists — call this before any DB operation.
+ * Uses a singleton promise so multiple concurrent calls don't re-init.
+ * Safe to call multiple times — no-op after first success.
+ */
+export async function ensureTursoSchema(): Promise<void> {
+  if (schemaInitialized) return;
+  if (schemaInitPromise) return schemaInitPromise;
+  schemaInitPromise = initTursoSchema().then(() => {
+    schemaInitialized = true;
+    schemaInitPromise = null;
+  }).catch((err) => {
+    schemaInitPromise = null;
+    throw err;
+  });
+  return schemaInitPromise;
+}
+
+/**
+ * Execute a Turso query with auto schema initialization + retry.
+ * If the first attempt fails with "no such table", initializes the schema
+ * and retries once. This fixes the "ensureSchema never called" bug where
+ * tables don't exist on fresh Turso databases.
+ */
+export async function tursoQuery<T>(
+  fn: () => Promise<T>
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (err: any) {
+    const msg = err?.message || String(err);
+    // If table doesn't exist, init schema and retry
+    if (msg.includes("no such table") || msg.includes("does not exist")) {
+      console.warn("[Turso] Table missing — initializing schema and retrying...");
+      await ensureTursoSchema();
+      return await fn();
+    }
+    throw err;
+  }
+}
+
 /** Turso client — lazily initialized on first access */
 export const turso: Client = new Proxy({} as Client, {
   get(_target, prop) {

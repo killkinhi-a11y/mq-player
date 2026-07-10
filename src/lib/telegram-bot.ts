@@ -15,7 +15,7 @@
  * Uses callback_query for inline keyboard interactions.
  */
 
-import { database, isTurso, getTursoClient } from "@/lib/database";
+import { database, isTurso, getTursoClient, tursoQuery, ensureTursoSchema } from "@/lib/database";
 import { APP_URL } from "@/lib/config";
 import {
   sendTelegramMessage,
@@ -361,12 +361,20 @@ async function createTelegramAuthCode(data: {
   expiresAt: string;
 }): Promise<void> {
   if (isTurso()) {
-    const t = getTursoClient();
-    const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
-    const now = new Date().toISOString();
-    await t.execute({
-      sql: "INSERT INTO TelegramAuthCode (id, chatId, telegramUserId, telegramUsername, code, expiresAt, used, createdAt) VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
-      args: [id, data.chatId, data.telegramUserId, data.telegramUsername ?? null, data.code, data.expiresAt, now],
+    await tursoQuery(async () => {
+      const t = getTursoClient();
+      const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+      const now = new Date().toISOString();
+      // First delete any existing unused codes for this chatId to avoid
+      // UNIQUE(chatId, code) constraint issues
+      await t.execute({
+        sql: "DELETE FROM TelegramAuthCode WHERE chatId = ? AND used = 0",
+        args: [data.chatId],
+      });
+      await t.execute({
+        sql: "INSERT INTO TelegramAuthCode (id, chatId, telegramUserId, telegramUsername, code, expiresAt, used, createdAt) VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
+        args: [id, data.chatId, data.telegramUserId, data.telegramUsername ?? null, data.code, data.expiresAt, now],
+      });
     });
     return;
   }
@@ -942,10 +950,14 @@ async function handleAuthCode(chatId: string, from: Record<string, any>) {
     console.error("[TG Bot] handleAuthCode error:", errMsg);
     // Provide more specific error message based on error type
     let userMsg = "Ошибка при генерации кода. Попробуйте ещё раз.";
-    if (errMsg.includes("prisma") || errMsg.includes("database") || errMsg.includes("connect")) {
-      userMsg = "Ошибка подключения к базе данных. Попробуйте через минуту.";
-    } else if (errMsg.includes("BigInt") || errMsg.includes("bigint")) {
-      userMsg = "Ошибка обработки ID пользователя. Попробуйте ещё раз.";
+    if (errMsg.includes("no such table") || errMsg.includes("does not exist")) {
+      // Schema missing — this should auto-fix via tursoQuery, but if it still fails:
+      userMsg = "База данных инициализируется. Попробуйте через 10 секунд.";
+    } else if (errMsg.includes("UNIQUE") || errMsg.includes("constraint")) {
+      // Duplicate code — just retry
+      userMsg = "Попробуйте ещё раз — произошёл конфликт кодов.";
+    } else if (errMsg.includes("prisma") || errMsg.includes("database") || errMsg.includes("connect")) {
+      userMsg = "Временная ошибка базы данных. Попробуйте через минуту.";
     }
     await sendTelegramMessage(chatId, userMsg);
   }

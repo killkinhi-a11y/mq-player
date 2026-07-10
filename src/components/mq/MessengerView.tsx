@@ -311,8 +311,8 @@ export default function MessengerView() {
   // ── Mobile view sync ──
   useEffect(() => { setMobileView(activeChatId ? "chat" : "list"); }, [activeChatId]);
 
-  // ── Fetch friends ──
-  const fetchFriends = useCallback(async () => {
+  // ── Fetch friends (with auto-retry) ──
+  const fetchFriends = useCallback(async (retryCount = 0) => {
     if (!userId) return;
     setIsLoadingFriends(true);
     try {
@@ -322,6 +322,11 @@ export default function MessengerView() {
       setFriends(Array.isArray(data.friends) ? data.friends : []);
       setLoadError(false);
     } catch {
+      // Auto-retry once after 2s delay (handles transient Turso connection issues)
+      if (retryCount < 2) {
+        setTimeout(() => fetchFriends(retryCount + 1), 2000);
+        return;
+      }
       setLoadError(true);
     } finally {
       setIsLoadingFriends(false);
