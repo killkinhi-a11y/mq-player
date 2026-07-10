@@ -32,6 +32,35 @@ export default function HistoryView() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // ── Listening stats (weekly) ──
+  // Compute from history: total time, top artists, top genres, track count.
+  const weeklyStats = useMemo(() => {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const recentHistory = history.filter(h => h.playedAt >= weekAgo);
+    let totalSeconds = 0;
+    const artistCount = new Map<string, number>();
+    const genreCount = new Map<string, number>();
+    for (const h of recentHistory) {
+      // Estimate listen time: use track duration or 3min default
+      totalSeconds += h.track?.duration || 180;
+      const artist = (h.track?.artist || "").trim();
+      if (artist) artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
+      const genre = (h.track?.genre || "").trim();
+      if (genre) genreCount.set(genre, (genreCount.get(genre) || 0) + 1);
+    }
+    const topArtists = [...artistCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const topGenres = [...genreCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    return {
+      totalTracks: recentHistory.length,
+      totalHours: hours,
+      totalMinutes: minutes,
+      topArtists,
+      topGenres,
+    };
+  }, [history]);
+
   const handlePlayAll = useCallback(() => {
     if (history.length > 0) {
       const tracks = history.map((h) => h.track);
@@ -219,6 +248,62 @@ export default function HistoryView() {
           </div>
         </motion.div>
       </ScrollReveal>
+
+      {/* ── Weekly listening stats ── */}
+      {weeklyStats.totalTracks > 0 && (
+        <ScrollReveal direction="up" delay={0.07}>
+          <div
+            className="rounded-2xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-3"
+            style={{
+              backgroundColor: "var(--mq-card)",
+              border: "1px solid var(--mq-border-hairline)",
+            }}
+          >
+            {/* Total listening time */}
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Headphones className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>За неделю</span>
+              </div>
+              <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
+                {weeklyStats.totalHours > 0 ? `${weeklyStats.totalHours}ч ` : ""}{weeklyStats.totalMinutes}м
+              </p>
+              <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>{weeklyStats.totalTracks} треков</p>
+            </div>
+            {/* Top artist */}
+            {weeklyStats.topArtists[0] && (
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Flame className="w-3.5 h-3.5" style={{ color: "#f97316" }} />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Топ-артист</span>
+                </div>
+                <p className="text-sm font-bold truncate" style={{ color: "var(--mq-text)" }}>{weeklyStats.topArtists[0][0]}</p>
+                <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>{weeklyStats.topArtists[0][1]} раз</p>
+              </div>
+            )}
+            {/* Top genre */}
+            {weeklyStats.topGenres[0] && (
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <TrendingUp className="w-3.5 h-3.5" style={{ color: "#8b5cf6" }} />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Топ-жанр</span>
+                </div>
+                <p className="text-sm font-bold truncate" style={{ color: "var(--mq-text)" }}>{weeklyStats.topGenres[0][0]}</p>
+                <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>{weeklyStats.topGenres[0][1]} треков</p>
+              </div>
+            )}
+            {/* Unique artists count */}
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5 mb-1">
+                <BarChart3 className="w-3.5 h-3.5" style={{ color: "#06b6d4" }} />
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Артистов</span>
+              </div>
+              <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>{weeklyStats.topArtists.length}</p>
+              <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>за неделю</p>
+            </div>
+          </div>
+        </ScrollReveal>
+      )}
 
       {/* ── Search / Filter bar (always visible when history has items) ── */}
       {history.length > 0 && (

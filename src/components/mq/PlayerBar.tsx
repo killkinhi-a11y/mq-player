@@ -12,6 +12,8 @@ import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
+import { hapticLike, hapticDislike, hapticSkip, hapticPlay } from "@/lib/haptics";
+import { useToast } from "@/hooks/use-toast";
 import QueueView from "./QueueView";
 import { ProgressBar } from "./ProgressBar";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
@@ -57,6 +59,7 @@ export default function PlayerBar() {
 
   // Wave engine — used for "Радио от трека" button (starts wave seeded by current track)
   const wave = useWaveEngine();
+  const { toast } = useToast();
   const [showUpNext, setShowUpNext] = useState(false);
   // Hover timer for Up Next tooltip — 150ms open delay prevents flicker when
   // sweeping the mouse across the controls. Cleared on unmount.
@@ -149,17 +152,30 @@ export default function PlayerBar() {
     }
   }, [setVolume]);
 
-  // ── Actions ──
+  // ── Actions (with haptic feedback + toast notifications) ──
   const handleLike = useCallback(() => {
-    if (currentTrack) toggleLike(currentTrack.id, currentTrack);
-  }, [currentTrack, toggleLike]);
+    if (currentTrack) {
+      const wasLiked = likedTrackIds.includes(currentTrack.id);
+      toggleLike(currentTrack.id, currentTrack);
+      hapticLike();
+      toast({
+        title: wasLiked ? "Убрано из избранного" : "Добавлено в избранное",
+        duration: 2000,
+      });
+    }
+  }, [currentTrack, toggleLike, likedTrackIds, toast]);
 
   const handleDislike = useCallback(() => {
     if (currentTrack) {
       toggleDislike(currentTrack.id, currentTrack);
-      // toggleDislike already calls nextTrack() internally
+      hapticDislike();
+      toast({
+        title: "Не нравится",
+        description: "Больше не будет попадаться",
+        duration: 2000,
+      });
     }
-  }, [currentTrack, toggleDislike]);
+  }, [currentTrack, toggleDislike, toast]);
 
   const handleShare = useCallback(async () => {
     if (!currentTrack) return;
@@ -316,12 +332,12 @@ export default function PlayerBar() {
                   <Shuffle className="w-3.5 h-3.5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                 </button>
 
-                <button onClick={prevTrack} className="w-8 h-8 rounded-full flex items-center justify-center" title="Предыдущий">
+                <button onClick={() => { prevTrack(); hapticSkip(); }} className="w-8 h-8 rounded-full flex items-center justify-center" title="Предыдущий">
                   <SkipBack className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                 </button>
 
                 <button
-                  onClick={togglePlay}
+                  onClick={() => { togglePlay(); hapticPlay(); }}
                   className="w-10 h-10 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
                   title="Play/Pause"
@@ -346,7 +362,7 @@ export default function PlayerBar() {
                     setShowUpNext(false);
                   }}
                 >
-                  <button onClick={nextTrack} className="w-8 h-8 rounded-full flex items-center justify-center" title="Следующий">
+                  <button onClick={() => { nextTrack(); hapticSkip(); }} className="w-8 h-8 rounded-full flex items-center justify-center" title="Следующий">
                     <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                   </button>
 
