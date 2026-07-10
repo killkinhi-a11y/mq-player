@@ -1,0 +1,23 @@
+name: Setup Turso Database
+
+on:
+  workflow_dispatch:
+
+jobs:
+  setup-turso:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Turso Database
+        uses: tursodatabase/turso-action@v1
+        with:
+          command: db create mq-player
+          
+      - name: Get Turso URL
+        uses: tursodatabase/turso-action@v1
+        with:
+          command: db show mq-player --url
+          
+      - name: Create Turso Token
+        uses: tursodatabase/turso-action@v1
+        with:
+          command: db tokens create mq-player
