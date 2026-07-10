@@ -10,7 +10,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageCircle, Search, Send, ArrowLeft, X, Plus, Loader2, UserPlus, Mic,
-  Pin, Trash2, Smile, Users, Lock, Check, CheckCheck, Copy, Reply,
+  Pin, Trash2, Smile, Users, Lock, Check, CheckCheck, Copy, Reply, User,
 } from "lucide-react";
 import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
 import { useToast } from "@/hooks/use-toast";
@@ -248,6 +248,7 @@ export default function MessengerView() {
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [inChatSearch, setInChatSearch] = useState("");
   const [showInChatSearch, setShowInChatSearch] = useState(false);
+  const [showProfile, setShowProfile] = useState<string | null>(null); // userId for profile modal
   const [newChatSearch, setNewChatSearch] = useState("");
   const [newChatUsers, setNewChatUsers] = useState<any[]>([]);
   const [isLoadingFriends, setIsLoadingFriends] = useState(false);
@@ -1240,7 +1241,14 @@ export default function MessengerView() {
                   <ArrowLeft className="w-5 h-5" />
                 </motion.button>
               )}
-              <div className="relative flex-shrink-0">
+              <div
+                className="relative flex-shrink-0 cursor-pointer"
+                onClick={() => {
+                  if (!isGroupChat && selectedFriend) {
+                    setShowProfile(selectedFriend.id);
+                  }
+                }}
+              >
                 {isGroupChat ? (
                   <Avatar name={selectedGroup?.name || "Group"} id={selectedGroupId || ""} size={40} isGroup />
                 ) : (
@@ -1780,6 +1788,118 @@ export default function MessengerView() {
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* ── User Profile Modal ──
+          Shows when clicking on a friend's avatar in chat header.
+          Displays avatar, username, online status, and actions. */}
+      <AnimatePresence>
+        {showProfile && (() => {
+          const friend = safeFriends.find(f => f.id === showProfile);
+          if (!friend) return null;
+          const status = onlineStatuses[friend.id];
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+              style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+              onClick={() => setShowProfile(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.9, y: 20 }}
+                transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
+                className="rounded-3xl overflow-hidden w-full max-w-sm"
+                style={{
+                  backgroundColor: "var(--mq-card)",
+                  border: "1px solid var(--mq-border-thin)",
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.5)",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Cover gradient */}
+                <div
+                  className="h-24 relative"
+                  style={{
+                    background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 30%, var(--mq-bg)), color-mix(in srgb, var(--mq-accent) 10%, var(--mq-bg)))",
+                  }}
+                >
+                  <button
+                    onClick={() => setShowProfile(null)}
+                    className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: "rgba(0,0,0,0.3)", color: "#fff" }}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Avatar + name */}
+                <div className="px-6 pb-6 -mt-12 flex flex-col items-center text-center">
+                  <div className="relative mb-3">
+                    <Avatar src={friend.avatar} name={friend.username} id={friend.id} size={80} />
+                    {status?.online && (
+                      <span
+                        className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-3"
+                        style={{ backgroundColor: "#4ade80", borderColor: "var(--mq-card)" }}
+                      />
+                    )}
+                  </div>
+                  <h3 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
+                    {friend.username}
+                  </h3>
+                  <p className="text-sm mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+                    {status?.online ? "в сети" : formatLastSeen(status?.lastSeen ?? null)}
+                  </p>
+
+                  {/* Added date */}
+                  {friend.addedAt && (
+                    <p className="text-xs mt-2" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                      В друзьях с {new Date(friend.addedAt).toLocaleDateString("ru-RU")}
+                    </p>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 mt-5 w-full">
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        setShowProfile(null);
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold"
+                      style={{
+                        backgroundColor: "var(--mq-accent)",
+                        color: "#fff",
+                      }}
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      Написать
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        setSelectedContact(friend.id);
+                        setShowProfile(null);
+                        if (isMobileView) setMobileView("chat");
+                      }}
+                      className="flex items-center justify-center w-11 h-11 rounded-xl flex-shrink-0"
+                      style={{
+                        backgroundColor: "var(--mq-bg)",
+                        color: "var(--mq-text-muted)",
+                        border: "1px solid var(--mq-border-thin)",
+                      }}
+                    >
+                      <User className="w-4 h-4" />
+                    </motion.button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
     </div>
   );

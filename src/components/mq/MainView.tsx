@@ -401,14 +401,6 @@ function MainView() {
           <h1 className="mq-text-display text-xl sm:text-2xl lg:text-3xl" style={{ color: "var(--mq-text)" }}>
             {greeting()}
           </h1>
-          {/* UX Core #5 (Эффект контекста): когда трек играет, показываем
-              его в hero — единый контекст "что происходит прямо сейчас".
-              Без этого hero greeting и Wave Card создают разрыв контекста. */}
-          {currentTrack && isPlaying && (
-            <p className="text-xs sm:text-sm mt-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
-              <span style={{ color: "var(--mq-accent)" }}>●</span> Сейчас играет: {currentTrack.title} — {currentTrack.artist}
-            </p>
-          )}
         </motion.div>
       </ScrollReveal>
 
