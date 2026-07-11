@@ -84,7 +84,8 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
   // Close on scroll (user scrolled away from context)
   useEffect(() => {
     const handleScroll = () => onClose();
-    window.addEventListener("scroll", handleScroll, true);
+    // client-passive-event-listeners: scroll listener just closes menu, no preventDefault
+    window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
     return () => window.removeEventListener("scroll", handleScroll, true);
   }, [onClose]);
 

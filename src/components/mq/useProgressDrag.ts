@@ -104,8 +104,11 @@ export function useProgressDrag({ progressRef, duration }: UseProgressDragParams
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", onTouchEnd);
     };
-    window.addEventListener("touchmove", onTouchMove);
-    window.addEventListener("touchend", onTouchEnd);
+    // react-best-practices rule client-passive-event-listeners: touchmove
+    // and touchend don't call preventDefault here, so mark as passive to
+    // avoid scroll jank on mobile.
+    window.addEventListener("touchmove", onTouchMove, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
   }, [seekToPosition]);
 
   return {

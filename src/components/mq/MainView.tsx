@@ -1683,7 +1683,7 @@ function WaveCard({
 }) {
   return (
     <div
-      className={isMobile ? "relative mb-8 rounded-[28px] overflow-hidden" : "mq-hero-card relative mb-8"}
+      className={isMobile ? "relative mb-8 rounded-3xl overflow-hidden" : "mq-hero-card relative mb-8"}
       style={{
         background: isMobile
           ? (currentTrack?.cover
@@ -1865,7 +1865,9 @@ function WaveCard({
                   {[0, 1, 2, 3, 4].map((i) => (
                     <motion.div key={i} className="w-[2.5px] rounded-full"
                       style={{ height: "100%", transformOrigin: "bottom", willChange: "transform", backgroundColor: "rgba(255,255,255,0.7)" }}
-                      animate={isPlaying ? { height: [3, 5 + (i % 3) * 2, 3] } : { height: 3 }}
+                      // ui-ux-design rule: animate transform (scaleY) instead of height
+                      // — GPU-accelerated, no layout reflow.
+                      animate={isPlaying ? { scaleY: [0.3, 1, 0.3 + (i % 3) * 0.2, 0.5, 0.3] } : { scaleY: 0.3 }}
                       transition={isPlaying ? { duration: 0.5 + i * 0.08, repeat: Infinity, ease: "easeInOut", delay: i * 0.06 } : { duration: 0.2 }} />
                   ))}
                 </div>

@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback } from "react";
+/**
+ * global-error.tsx — frontend-patterns skill: root-level error boundary.
+ * Catches errors in the root layout itself (which error.tsx cannot catch).
+ * Must render its own <html> and <body> since the root layout is bypassed
+ * when this component is invoked.
+ */
+
+import { useEffect } from "react";
 
 export default function GlobalError({
   error,
@@ -9,130 +16,51 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  const errorMsg = error?.message || "";
-
-  const handleReset = useCallback(() => {
-    // Clear mq-related storage
-    try {
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && (k.includes("mq") || k.includes("MQ") || k.includes("zustand"))) {
-          keysToRemove.push(k);
-        }
-      }
-      keysToRemove.forEach((k) => localStorage.removeItem(k));
-    } catch {}
-    try { sessionStorage.removeItem("mq-error-reload-count"); } catch {}
-
-    // Unregister service workers
-    if (navigator.serviceWorker) {
-      navigator.serviceWorker.getRegistrations().then((regs) => {
-        regs.forEach((r) => r.unregister());
-      });
-    }
-
-    // Clear Cache API then reload
-    if (window.caches) {
-      window.caches.keys().then((ks) => {
-        Promise.all(ks.map((k) => window.caches.delete(k))).then(() => {
-          window.location.replace("/play?_r=" + Date.now());
-        });
-      });
-      return;
-    }
-
-    window.location.replace("/play?_r=" + Date.now());
-  }, []);
+  useEffect(() => {
+    console.error("[mq] Global error boundary caught:", error);
+  }, [error]);
 
   return (
     <html lang="ru">
       <body
         style={{
           margin: 0,
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 24,
+          padding: 24,
           backgroundColor: "#0e0e0e",
-          fontFamily: "system-ui, sans-serif",
+          color: "#fff",
+          fontFamily: "system-ui, -apple-system, sans-serif",
+          textAlign: "center",
         }}
       >
-        <div
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 600, marginBottom: 8 }}>
+            Критическая ошибка
+          </h2>
+          <p style={{ fontSize: 14, opacity: 0.7, maxWidth: 320 }}>
+            Приложение не может загрузиться. Попробуйте обновить страницу.
+          </p>
+        </div>
+        <button
+          onClick={reset}
           style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
+            padding: "10px 20px",
+            borderRadius: 9999,
+            border: "none",
+            backgroundColor: "#e03131",
+            color: "#fff",
+            fontSize: 14,
+            fontWeight: 500,
+            cursor: "pointer",
           }}
         >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: "400px",
-              borderRadius: "16px",
-              padding: "24px",
-              textAlign: "center",
-              backgroundColor: "#1a1a1a",
-              border: "1px solid #333",
-            }}
-          >
-            <div
-              style={{
-                fontSize: "48px",
-                marginBottom: "16px",
-                color: "#e03131",
-              }}
-            >
-              !
-            </div>
-            <h2
-              style={{
-                fontSize: "20px",
-                fontWeight: "bold",
-                marginBottom: "8px",
-                color: "#f5f5f5",
-              }}
-            >
-              Что-то пошло не так
-            </h2>
-            <p
-              style={{
-                fontSize: "14px",
-                marginBottom: "24px",
-                color: "#888",
-                lineHeight: 1.5,
-              }}
-            >
-              Произошла критическая ошибка. Попробуйте перезагрузить страницу.
-              Если ошибка не исчезает — откройте в приватном окне (Ctrl+Shift+N)
-              или очистите кэш браузера.
-            </p>
-            <button
-              onClick={handleReset}
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: "12px",
-                fontSize: "14px",
-                fontWeight: 500,
-                backgroundColor: "#e03131",
-                color: "#f5f5f5",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
-              Сбросить и перезагрузить
-            </button>
-            <p
-              style={{
-                fontSize: "12px",
-                marginTop: "16px",
-                color: "#888",
-                opacity: 0.5,
-              }}
-            >
-              {errorMsg || "Unknown error"}
-            </p>
-          </div>
-        </div>
+          Попробовать снова
+        </button>
       </body>
     </html>
   );

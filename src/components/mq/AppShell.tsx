@@ -552,6 +552,18 @@ export default function AppShell() {
         backgroundColor: "var(--mq-bg)",
       }}
     >
+      {/* web-accessibility rule: skip-to-content link for keyboard users.
+          Visually hidden until focused, then jumps to #main-content. */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[500] focus:px-4 focus:py-2 focus:rounded-full focus:text-sm focus:font-medium"
+        style={{
+          backgroundColor: "var(--mq-accent, #e03131)",
+          color: "var(--mq-text-on-accent, #fff)",
+        }}
+      >
+        Перейти к содержимому
+      </a>
       <Suspense fallback={null}><CinematicAtmosphere /></Suspense>
       <Suspense fallback={null}><MaintenanceBanner /></Suspense>
       <OfflineBanner />

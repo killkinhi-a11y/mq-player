@@ -188,7 +188,8 @@ export default function OnboardingTour() {
 
     const handleResize = () => updatePosition();
     window.addEventListener("resize", handleResize);
-    window.addEventListener("scroll", handleResize, true);
+    // client-passive-event-listeners: scroll listener just repositions, no preventDefault
+    window.addEventListener("scroll", handleResize, { capture: true, passive: true });
 
     return () => {
       window.removeEventListener("resize", handleResize);

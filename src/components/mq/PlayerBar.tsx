@@ -330,11 +330,11 @@ export default function PlayerBar() {
             <div className="flex flex-col items-center gap-1.5 flex-1 max-w-md">
               {/* Control buttons */}
               <div className="flex items-center gap-3 relative">
-                <button onClick={toggleShuffle} className="w-7 h-7 rounded-full flex items-center justify-center" title="Перемешать">
+                <button onClick={toggleShuffle} className="w-7 h-7 rounded-full flex items-center justify-center" title="Перемешать" aria-label="Перемешать">
                   <Shuffle className="w-3.5 h-3.5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                 </button>
 
-                <button onClick={() => { prevTrack(); hapticSkip(); }} className="w-8 h-8 rounded-full flex items-center justify-center" title="Предыдущий">
+                <button onClick={() => { prevTrack(); hapticSkip(); }} className="w-8 h-8 rounded-full flex items-center justify-center" title="Предыдущий" aria-label="Предыдущий трек">
                   <SkipBack className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                 </button>
 
@@ -364,7 +364,7 @@ export default function PlayerBar() {
                     setShowUpNext(false);
                   }}
                 >
-                  <button onClick={() => { nextTrack(); hapticSkip(); }} className="w-8 h-8 rounded-full flex items-center justify-center" title="Следующий">
+                  <button onClick={() => { nextTrack(); hapticSkip(); }} className="w-8 h-8 rounded-full flex items-center justify-center" title="Следующий" aria-label="Следующий трек">
                     <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                   </button>
 
@@ -429,7 +429,7 @@ export default function PlayerBar() {
                 </AnimatePresence>
                 </div>
 
-                <button onClick={toggleRepeat} className="w-7 h-7 rounded-full flex items-center justify-center" title="Повтор">
+                <button onClick={toggleRepeat} className="w-7 h-7 rounded-full flex items-center justify-center" title="Повтор" aria-label="Повтор">
                   {repeat === "one" ? <Repeat1 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                     : <Repeat className="w-3.5 h-3.5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
                 </button>
@@ -585,7 +585,7 @@ export default function PlayerBar() {
               </motion.button>
 
               {/* Queue */}
-              <button onClick={() => setShowQueue(true)} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" title="Очередь">
+              <button onClick={() => setShowQueue(true)} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" title="Очередь" aria-label="Очередь воспроизведения">
                 <ListMusic className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
               </button>
             </div>

@@ -20,9 +20,10 @@ const playfairDisplay = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "mq",
-  description: "mq — музыкальный плеер с мессенджером, таймером сна и кастомизацией",
-  keywords: ["mq", "music", "player", "мессенджер"],
+  // rupert-seo-optimizer: title 50-60 chars, include primary keyword + brand
+  title: "mq — музыкальный плеер с рекомендациями и чатом",
+  description: "mq — стриминговый плеер с умными рекомендациями, эквалайзером, мессенджером и кастомными темами. Слушай музыку, открывай новых артистов, общайся с друзьями.",
+  keywords: ["mq", "музыкальный плеер", "стриминг", "музыка", "эквалайзер", "рекомендации", "плейлисты", "music player", "streaming"],
   authors: [{ name: "mq Team" }],
   icons: {
     icon: "/favicon.ico",
@@ -39,6 +40,42 @@ export const metadata: Metadata = {
     title: "mq",
   },
   applicationName: "mq",
+  // rupert-seo-optimizer: Open Graph for social sharing
+  openGraph: {
+    title: "mq — музыкальный плеер с рекомендациями и чатом",
+    description: "Стриминговый плеер с умными рекомендациями, эквалайзером, мессенджером и кастомными темами.",
+    type: "website",
+    locale: "ru_RU",
+    siteName: "mq",
+    images: [
+      {
+        url: "/icon-512.png",
+        width: 512,
+        height: 512,
+        alt: "mq — музыкальный плеер",
+      },
+    ],
+  },
+  // rupert-seo-optimizer: Twitter Card
+  twitter: {
+    card: "summary_large_image",
+    title: "mq — музыкальный плеер",
+    description: "Стриминг с умными рекомендациями, эквалайзером и мессенджером",
+    images: ["/icon-512.png"],
+  },
+  // rupert-seo-optimizer: canonical URL
+  alternates: {
+    canonical: process.env.NEXT_PUBLIC_APP_URL || "https://mq-player.vercel.app",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+    },
+  },
 };
 
 // Force this page to never be cached by CDN / browser
@@ -189,6 +226,34 @@ export default function RootLayout({
             __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js').catch(function(){})})}`,
           }}
         />
+      {/* rupert-seo-optimizer: structured data (JSON-LD) for MusicApplication.
+          Helps Google understand the site is a music app, enables rich results. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "MusicApplication",
+            name: "mq",
+            applicationCategory: "MusicApplication",
+            operatingSystem: "Web",
+            offers: {
+              "@type": "Offer",
+              price: "0",
+              priceCurrency: "USD",
+            },
+            description: "Стриминговый плеер с умными рекомендациями, эквалайзером, мессенджером и кастомными темами.",
+            featureList: [
+              "Стриминг музыки",
+              "Умные рекомендации",
+              "10-полосный эквалайзер",
+              "Мессенджер",
+              "Кастомные темы оформления",
+              "Плейлисты",
+            ],
+          }),
+        }}
+      />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} ${spaceGrotesk.variable} ${playfairDisplay.variable} antialiased`}
