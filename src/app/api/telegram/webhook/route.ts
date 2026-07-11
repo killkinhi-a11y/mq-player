@@ -5,16 +5,18 @@ import { handleTelegramMessage, handleCallbackQuery, setSiteOrigin } from "@/lib
 /**
  * Telegram Webhook endpoint.
  *
- * Security: Validates the X-Telegram-Bot-Api-Secret-Token header
- * to prevent forged webhook requests.
+ * Performance: Telegram expects a 200 OK within ~5 seconds or it retries the
+ * webhook. We use `after()` for messages (heavy: search/import) so we can
+ * respond immediately and process in the background. Callback queries are
+ * handled synchronously because they need answerCallbackQuery within ~10s.
  *
- * Callback queries (button presses) are handled SYNCHRONOUSLY before responding,
- * because Telegram requires the callback to be acknowledged (answerCallbackQuery)
- * within a short window.
- *
- * Regular messages still use `after()` to avoid Telegram timeout on slow operations
- * (search, import, etc.).
+ * maxDuration=300 (5 min) gives `after()` plenty of time to finish imports,
+ * SoundCloud searches, and audio downloads on Vercel Pro. On Hobby plan the
+ * cap is 60s — still way better than the default 10s.
  */
+
+// Allow up to 5 minutes for background processing (after())
+export const maxDuration = 300;
 
 const WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET || "";
 

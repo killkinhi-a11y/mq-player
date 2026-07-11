@@ -19,6 +19,39 @@ const TELEGRAM_API_URL = TELEGRAM_BOT_TOKEN
   ? `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}`
   : null;
 
+// ── Telegram API call timeouts ──
+// Telegram Bot API typically responds in 100-500ms. Anything slower means
+// either network issues or rate limiting. We use short timeouts to fail fast
+// and let the caller handle the error, rather than blocking the webhook for
+// 30s waiting on a dead connection.
+//
+// - sendMessage / editMessageText / answerCallbackQuery: 5s (interactive)
+// - sendAudio: 30s (large file upload, can be slow)
+// - getFile (audio download): 10s
+// - setMyCommands / setChatMenuButton: 8s (one-time setup, can be slow)
+const TG_TIMEOUT_INTERACTIVE = 5000;
+const TG_TIMEOUT_AUDIO = 30000;
+const TG_TIMEOUT_FILE = 10000;
+const TG_TIMEOUT_SETUP = 8000;
+
+/** Send a "typing..." indicator to a chat. Use while processing long ops. */
+export async function sendChatAction(
+  chatId: string | number,
+  action: "typing" | "upload_audio" | "upload_photo" | "upload_document" = "typing",
+): Promise<void> {
+  if (!TELEGRAM_API_URL) return;
+  try {
+    await fetch(`${TELEGRAM_API_URL}/sendChatAction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action }),
+      signal: AbortSignal.timeout(2000),
+    });
+  } catch {
+    // Silent fail — typing indicator is best-effort
+  }
+}
+
 /**
  * Check if Telegram bot is configured.
  */
@@ -59,6 +92,7 @@ export async function sendTelegramMessage(
         parse_mode: options?.parseMode || "HTML",
         reply_markup: options?.replyMarkup,
       }),
+      signal: AbortSignal.timeout(TG_TIMEOUT_INTERACTIVE),
     });
 
     const data = await res.json();
@@ -129,6 +163,7 @@ export async function sendTelegramAudio(
         duration: options?.duration,
         reply_markup: options?.replyMarkup,
       }),
+      signal: AbortSignal.timeout(TG_TIMEOUT_AUDIO),
     });
 
     const data = await res.json();
@@ -160,6 +195,7 @@ export async function answerCallbackQuery(
         text: text || "",
         cache_time: 0,
       }),
+      signal: AbortSignal.timeout(TG_TIMEOUT_INTERACTIVE),
     });
     const data = await res.json();
     return data;
@@ -195,6 +231,7 @@ export async function editMessageText(
         reply_markup: options?.replyMarkup,
         disable_web_page_preview: options?.disablePreview !== false,
       }),
+      signal: AbortSignal.timeout(TG_TIMEOUT_INTERACTIVE),
     });
     const data = await res.json();
     return data;
@@ -217,6 +254,7 @@ export async function deleteMessage(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
+      signal: AbortSignal.timeout(TG_TIMEOUT_INTERACTIVE),
     });
     const data = await res.json();
     return data;
@@ -236,6 +274,7 @@ export async function getTelegramFileUrl(fileId: string): Promise<string | null>
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ file_id: fileId }),
+      signal: AbortSignal.timeout(TG_TIMEOUT_FILE),
     });
     const data = await res.json();
     if (!data.ok || !data.result?.file_path) return null;
@@ -314,6 +353,7 @@ export async function setMyCommands(): Promise<boolean> {
           { command: "help", description: "Помощь" },
         ],
       }),
+      signal: AbortSignal.timeout(TG_TIMEOUT_SETUP),
     });
     const data = await res.json();
     if (!data.ok) console.error("[TELEGRAM] setMyCommands failed:", data.description);
@@ -338,6 +378,7 @@ export async function setChatMenuButton(): Promise<boolean> {
           type: "commands",
         },
       }),
+      signal: AbortSignal.timeout(TG_TIMEOUT_SETUP),
     });
     const data = await res.json();
     return data.ok;

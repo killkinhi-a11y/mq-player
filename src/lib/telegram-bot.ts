@@ -25,8 +25,44 @@ import {
   editMessageText,
   setMyCommands,
   setChatMenuButton,
+  sendChatAction,
 } from "@/lib/telegram";
 import { searchSCTracks, resolveSCStreamUrl } from "@/lib/soundcloud";
+
+/* ------------------------------------------------------------------ */
+/*  Schema init — run ONCE per cold start, not per request             */
+/* ------------------------------------------------------------------ */
+
+// Module-scoped promise: the first call triggers ensureTursoSchema(), all
+// subsequent calls await the same promise. This prevents every webhook
+// invocation from firing a redundant schema check.
+let _schemaInitPromise: Promise<void> | null = null;
+
+function ensureSchemaOnce(): Promise<void> {
+  if (!isTurso()) return Promise.resolve();
+  if (!_schemaInitPromise) {
+    _schemaInitPromise = ensureTursoSchema().catch((err) => {
+      console.error("[telegram-bot] ensureTursoSchema failed:", err);
+      // Reset so the next request can retry
+      _schemaInitPromise = null;
+    });
+  }
+  return _schemaInitPromise;
+}
+
+// Module-scoped bot setup flag — setMyCommands and setChatMenuButton are
+// GLOBAL bot settings (per-bot, not per-chat). Calling them on every /start
+// wastes 1-2s per request and hits Telegram rate limits. Run once per cold
+// start, then skip.
+let _botSetupDone = false;
+async function setupBotOnce(): Promise<void> {
+  if (_botSetupDone) return;
+  await Promise.all([
+    setMyCommands().catch(() => {}),
+    setChatMenuButton().catch(() => {}),
+  ]);
+  _botSetupDone = true;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Site origin (set from webhook request)                             */
@@ -524,27 +560,23 @@ export async function handleTelegramMessage(body: Record<string, any>) {
   if (text === "/start" || text.startsWith("/start ")) {
     const payload = text.replace("/start", "").trim();
 
+    // Bot menu setup is global and idempotent — run once per cold start
+    // (was firing on EVERY /start, wasting 1-2s and hitting rate limits).
+    setupBotOnce().catch(() => {});
+
     // If payload is "code" — auto-trigger auth code flow
     if (payload === "code") {
-      await Promise.all([
-        setMyCommands().catch(() => {}),
-        setChatMenuButton().catch(() => {}),
-      ]);
       await handleAuthCode(chatId, from);
       return;
     }
 
     // Default welcome
-    await Promise.all([
-      sendTelegramMessage(chatId,
-        `🎵 <b>Добро пожаловать в mq!</b>\n\n` +
-        `Введите <b>любое сообщение</b> (или /code), чтобы получить код входа.\n\n` +
-        `После авторизации используйте /menu для доступа к функциям плеера.`,
-        { parseMode: "HTML" }
-      ),
-      setMyCommands().catch(() => {}),
-      setChatMenuButton().catch(() => {}),
-    ]);
+    await sendTelegramMessage(chatId,
+      `🎵 <b>Добро пожаловать в mq!</b>\n\n` +
+      `Введите <b>любое сообщение</b> (или /code), чтобы получить код входа.\n\n` +
+      `После авторизации используйте /menu для доступа к функциям плеера.`,
+      { parseMode: "HTML" }
+    );
     return;
   }
 
@@ -600,13 +632,16 @@ export async function handleTelegramMessage(body: Record<string, any>) {
 
   // ---- Audio message received (before state check) ----
   if (message.audio || message.voice) {
-    const user = await findUserByChatId(chatId);
+    // Parallel: fetch user + state at the same time (was 2 sequential DB calls)
+    const [user, existingState] = await Promise.all([
+      findUserByChatId(chatId),
+      getChatState(chatId),
+    ]);
     if (!user) {
       await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code для получения кода входа.");
       return;
     }
     // Check if already collecting — if so, add to batch
-    const existingState = await getChatState(chatId);
     if (existingState && existingState.state === "collecting_audios") {
       await addToAudioBatch(chatId, message, existingState);
       return;
@@ -918,10 +953,8 @@ export async function handleCallbackQuery(body: Record<string, any>) {
 
 async function handleAuthCode(chatId: string, from: Record<string, any>) {
   try {
-    // Ensure DB schema exists before any DB operation
-    if (isTurso()) {
-      await ensureTursoSchema().catch(() => {});
-    }
+    // Ensure DB schema exists before any DB operation (cached at module scope)
+    await ensureSchemaOnce();
 
     const crypto = await import("crypto");
     const code = crypto.randomInt(100000, 999999).toString();
@@ -1275,33 +1308,50 @@ async function handleImportToPlaylist(chatId: string, playlistId: string, data: 
 /* ================================================================== */
 
 async function handleSearch(chatId: string, query: string) {
-  await sendTelegramMessage(chatId, `Ищу: <i>${query}</i>...`, { parseMode: "HTML" });
-
-  const results = await searchSCTracks(query, 15);
-  if (results.length === 0) {
-    await sendTelegramMessage(chatId, "Ничего не найдено. Попробуйте другой запрос.");
-    return;
-  }
-
-  // Store search results in DB state
-  await setChatState(chatId, "idle", { fileUrl: null, fileDuration: 0, originalFilename: "" }, results);
-
-  // Build keyboard with preview + add buttons per track
-  const perPage = 5;
-  const items = results.slice(0, perPage);
-  const rows: Array<Array<{ text: string; callback_data: string }>> = items.map((t: any, i: number) => [
-    { text: `▶ ${t.title} — ${t.artist}`, callback_data: `preview:${i}` },
-    { text: `+ Добавить`, callback_data: `add_search:${i}` },
+  // Fire typing indicator + initial "searching" message IN PARALLEL — user
+  // sees feedback within 200ms instead of waiting 3-5s for SC API response.
+  // The typing indicator auto-expires after 5s, so we re-send it below if
+  // SC search takes longer.
+  await Promise.all([
+    sendChatAction(chatId, "typing"),
+    sendTelegramMessage(chatId, `Ищу: <i>${query}</i>...`, { parseMode: "HTML" }),
   ]);
-  const navRow: Array<{ text: string; callback_data: string }> = [];
-  if (results.length > perPage) navRow.push({ text: "Далее >", callback_data: "search_page:1" });
-  if (navRow.length > 0) rows.push(navRow);
-  rows.push([{ text: "Отмена", callback_data: "cancel" }]);
 
-  await sendTelegramMessage(chatId,
-    `Найдено ${results.length} треков по запросу "${query}":\n\nНажмите ▶ для прослушивания, или + для добавления в плейлист.`,
-    { parseMode: "HTML", replyMarkup: { inline_keyboard: rows } }
-  );
+  // Start a 4s interval to keep the typing indicator alive during long searches.
+  // Cleared when the results message is sent.
+  const typingInterval = setInterval(() => {
+    sendChatAction(chatId, "typing").catch(() => {});
+  }, 4000);
+
+  try {
+    const results = await searchSCTracks(query, 15);
+    if (results.length === 0) {
+      await sendTelegramMessage(chatId, "Ничего не найдено. Попробуйте другой запрос.");
+      return;
+    }
+
+    // Store search results in DB state
+    await setChatState(chatId, "idle", { fileUrl: null, fileDuration: 0, originalFilename: "" }, results);
+
+    // Build keyboard with preview + add buttons per track
+    const perPage = 5;
+    const items = results.slice(0, perPage);
+    const rows: Array<Array<{ text: string; callback_data: string }>> = items.map((t: any, i: number) => [
+      { text: `▶ ${t.title} — ${t.artist}`, callback_data: `preview:${i}` },
+      { text: `+ Добавить`, callback_data: `add_search:${i}` },
+    ]);
+    const navRow: Array<{ text: string; callback_data: string }> = [];
+    if (results.length > perPage) navRow.push({ text: "Далее >", callback_data: "search_page:1" });
+    if (navRow.length > 0) rows.push(navRow);
+    rows.push([{ text: "Отмена", callback_data: "cancel" }]);
+
+    await sendTelegramMessage(chatId,
+      `Найдено ${results.length} треков по запросу "${query}":\n\nНажмите ▶ для прослушивания, или + для добавления в плейлист.`,
+      { parseMode: "HTML", replyMarkup: { inline_keyboard: rows } }
+    );
+  } finally {
+    clearInterval(typingInterval);
+  }
 }
 
 /* ================================================================== */
