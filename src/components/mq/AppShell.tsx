@@ -53,6 +53,7 @@ const SpatialAudioView = dynamic(() => import("@/components/mq/SpatialAudioView"
 const FriendsView = dynamic(() => import("@/components/mq/FriendsView"), { ssr: false });
 const SleepTimerView = dynamic(() => import("@/components/mq/SleepTimerView"), { ssr: false });
 const EqualizerView = dynamic(() => import("@/components/mq/EqualizerView"), { ssr: false });
+const SplashScreen = dynamic(() => import("@/components/mq/SplashScreen"), { ssr: false });
 
 // Inline skeleton shown while a lazy view chunk is loading.
 function ViewSkeleton() {
@@ -531,22 +532,7 @@ export default function AppShell() {
 
   // Wait for Zustand hydration before rendering — prevents auth↔main flash
   if (!_hasHydrated) {
-    return (
-      <div
-        className="min-h-screen flex flex-col items-center justify-center gap-6"
-        style={{ backgroundColor: "#0e0e0e" }}
-      >
-        <div className="flex flex-col items-center gap-3">
-          <div
-            className="w-20 h-20 rounded-2xl flex items-center justify-center"
-            style={{ backgroundColor: "#e03131", boxShadow: "0 0 40px rgba(224,49,49,0.4)" }}
-          >
-            <span className="text-3xl font-black text-white">mq</span>
-          </div>
-        </div>
-        <div className="h-0.5 w-24 rounded-full animate-pulse" style={{ backgroundColor: "#e03131", opacity: 0.4 }} />
-      </div>
-    );
+    return <SplashScreen label="Загрузка" showDelay={150} />;
   }
 
   const showNav = currentView !== "auth" && currentView !== "onboarding";
@@ -571,31 +557,9 @@ export default function AppShell() {
       <Suspense fallback={null}><MaintenanceBanner /></Suspense>
       <OfflineBanner />
 
-      {/* Demo loading overlay */}
+      {/* Demo loading overlay — uses unified SplashScreen component */}
       <AnimatePresence>
-        {demoLoading && (
-          <motion.div
-            key="demo-loader"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center"
-            style={{ backgroundColor: "var(--mq-bg, #0e0e0e)" }}
-          >
-            <div className="flex flex-col items-center gap-6 p-8">
-              <motion.div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                style={{ backgroundColor: "var(--mq-accent, #e03131)" }}
-                animate={{ scale: [1, 1.08, 1], opacity: [0.8, 1, 0.8] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <span className="text-2xl font-black text-white">mq</span>
-              </motion.div>
-              <p className="text-sm" style={{ color: "var(--mq-text-muted, #888)" }}>Загрузка...</p>
-            </div>
-          </motion.div>
-        )}
+        {demoLoading && <SplashScreen key="demo-loader" label="Готовим демо-режим" showDelay={0} />}
       </AnimatePresence>
 
       <Suspense fallback={
