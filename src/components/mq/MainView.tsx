@@ -397,8 +397,22 @@ function MainView() {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="mb-6"
         >
-          <p className="mq-text-eyebrow mb-1.5 text-[10px] sm:text-[11px]">{currentDate()}</p>
-          <h1 className="mq-text-display text-xl sm:text-2xl lg:text-3xl" style={{ color: "var(--mq-text)" }}>
+          <p
+            className="mq-text-eyebrow mb-1.5 text-[10px] sm:text-[11px] uppercase tracking-widest"
+            style={{ color: "var(--mq-text)", opacity: "var(--mq-emphasis-low)" }}
+          >
+            {currentDate()}
+          </p>
+          <h1
+            className="text-3xl sm:text-4xl lg:text-5xl"
+            style={{
+              color: "var(--mq-text)",
+              fontFamily: "var(--mq-font-serif)",
+              fontWeight: 600,
+              letterSpacing: "-0.02em",
+              lineHeight: 1.1,
+            }}
+          >
             {greeting()}
           </h1>
         </motion.div>
@@ -1680,6 +1694,19 @@ function WaveCard({
         boxShadow: "var(--mq-shadow-float)",
       }}
     >
+      {/* Tip 4 (Depth & texture from video): subtle noise overlay on the
+          star element. Pure CSS via SVG turbulence filter — no image asset,
+          no extra request. 4% opacity keeps it from competing with content. */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          opacity: 0.04,
+          mixBlendMode: "overlay",
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>\")",
+          backgroundSize: "120px 120px",
+        }}
+      />
       {/* Blurred album art background (mobile only) */}
       {isMobile && currentTrack?.cover && (
         <div className="absolute inset-0 pointer-events-none">
@@ -1800,11 +1827,32 @@ function WaveCard({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <Waves className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.9)" }} />
-                  <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.85)" }}>Волна · Играет</span>
+                  <Waves className="w-3.5 h-3.5" style={{ color: "#fff", opacity: "var(--mq-emphasis-medium)" }} />
+                  <span
+                    className="text-[11px] font-semibold uppercase tracking-wider"
+                    style={{ color: "#fff", opacity: "var(--mq-emphasis-medium)" }}
+                  >
+                    Волна · Играет
+                  </span>
                 </div>
-                <p className="text-lg font-bold truncate" style={{ color: "#fff" }}>{currentTrack.title}</p>
-                <p className="text-sm truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{currentTrack.artist}</p>
+                {/* Tip 5 (Opacity hierarchy): title 100% (high), artist 70% (medium) */}
+                <p
+                  className="text-lg font-bold truncate"
+                  style={{
+                    color: "#fff",
+                    fontFamily: "var(--mq-font-serif)",
+                    fontWeight: 600,
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  {currentTrack.title}
+                </p>
+                <p
+                  className="text-sm truncate"
+                  style={{ color: "#fff", opacity: "var(--mq-emphasis-medium)" }}
+                >
+                  {currentTrack.artist}
+                </p>
                 {isPlaying && duration > 0 && (
                   <div className="mt-2.5 h-[3px] rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.15)", maxWidth: 200 }}>
                     <motion.div className="h-full rounded-full" style={{ width: "100%", transformOrigin: "left", willChange: "transform", backgroundColor: "rgba(255,255,255,0.8)" }}

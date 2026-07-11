@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward,
   Repeat, Repeat1, Shuffle, Music, Heart, ListMusic, ChevronUp,
-  Loader2, ThumbsDown, Volume2, VolumeX, Volume1, Radio, Sliders,
+  Loader2, ThumbsDown, Volume2, VolumeX, Volume1, Radio, Sliders, Waves,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
@@ -507,7 +507,10 @@ export default function PlayerBar() {
                 {wave.waveLoading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--mq-accent)" }} />
                 ) : (
-                  <Radio
+                  /* Tip 3 (Visual rhyming from video): use Waves icon instead
+                     of Radio — repeats the wave motif from Wave Card so the
+                     whole app feels like it's from the same universe. */
+                  <Waves
                     className="w-4 h-4"
                     style={{
                       color: radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)",

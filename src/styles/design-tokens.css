@@ -157,6 +157,23 @@
   --mq-ambient-opacity: 0.06;
   --mq-ambient-size: 400px;
   --mq-ambient-blur: 60px;
+
+  /* Tip 5 (Opacity hierarchy from video) — Material Design style emphasis.
+     Instead of using --mq-text-muted for everything secondary, apply opacity
+     directly to --mq-text for predictable hierarchy:
+       - High emphasis:   100% (headlines, primary actions)
+       - Medium emphasis: 70%  (subheadings, supporting copy)
+       - Low emphasis:    50%  (captions, metadata, timestamps)
+       - Disabled:        38%  (placeholder, disabled states)
+     Use via: color: var(--mq-text); opacity: var(--mq-emphasis-medium); */
+  --mq-emphasis-high: 1;
+  --mq-emphasis-medium: 0.7;
+  --mq-emphasis-low: 0.5;
+  --mq-emphasis-disabled: 0.38;
+
+  /* Tip 1 (Typography anchor) — serif headline font variable.
+     Playfair Display loaded in layout.tsx; fallback to Georgia then serif. */
+  --mq-font-serif: var(--font-playfair-display), Georgia, "Times New Roman", serif;
 }
 
 /* Shimmer keyframe animation for skeleton loading */
