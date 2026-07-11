@@ -245,7 +245,7 @@ export default function PlayerBar() {
             backdropFilter: "blur(40px) saturate(200%)",
             WebkitBackdropFilter: "blur(40px) saturate(200%)",
             border: "1px solid var(--mq-border-thin)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)",
+            boxShadow: "var(--mq-shadow-float), var(--mq-shadow-inner-glow)",
           }}
         >
           {/* Ambient cover glow */}
@@ -286,7 +286,7 @@ export default function PlayerBar() {
                 <div
                   className="absolute inset-0 flex items-end justify-center pb-1.5"
                   style={{
-                    backgroundColor: "rgba(0,0,0,0.45)",
+                    backgroundColor: "var(--mq-overlay-scrim)",
                     opacity: isPlaying ? 1 : 0.65,
                     transition: "opacity 0.25s ease-out",
                   }}
@@ -389,7 +389,7 @@ export default function PlayerBar() {
                           backdropFilter: "blur(24px) saturate(180%)",
                           WebkitBackdropFilter: "blur(24px) saturate(180%)",
                           border: "1px solid var(--mq-border-thin)",
-                          boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+                          boxShadow: "var(--mq-shadow-lg)",
                         }}
                       >
                         <div className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-card)" }}>
@@ -537,7 +537,7 @@ export default function PlayerBar() {
                   ref={volTrackRef}
                   onMouseDown={handleVolDown}
                   className="relative cursor-pointer rounded-full group/vol"
-                  style={{ width: 56, height: 4, backgroundColor: "rgba(255,255,255,0.1)" }}
+                  style={{ width: 56, height: 4, backgroundColor: "var(--mq-glass-bg-hover)" }}
                 >
                   <div
                     ref={volFillRef}

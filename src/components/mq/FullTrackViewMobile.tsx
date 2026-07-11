@@ -307,7 +307,7 @@ function FullTrackViewMobileInner() {
           border-radius: 2px;
           background: linear-gradient(to right,
             var(--mq-accent) 0%, var(--mq-accent) var(--mq-seek-pct, 0%),
-            rgba(255,255,255,0.12) var(--mq-seek-pct, 0%), rgba(255,255,255,0.12) 100%);
+            var(--mq-glass-bg-hover) var(--mq-seek-pct, 0%), var(--mq-glass-bg-hover) 100%);
         }
         .mq-ft-seek-input::-webkit-slider-thumb {
           -webkit-appearance: none;
@@ -323,7 +323,7 @@ function FullTrackViewMobileInner() {
         .mq-ft-seek-input::-moz-range-track {
           height: 4px;
           border-radius: 2px;
-          background: rgba(255,255,255,0.12);
+          background: var(--mq-glass-bg-hover);
         }
         .mq-ft-seek-input::-moz-range-progress {
           height: 4px;
@@ -352,7 +352,7 @@ function FullTrackViewMobileInner() {
         .mq-ft-vol::-webkit-slider-runnable-track {
           height: 4px;
           border-radius: 2px;
-          background: linear-gradient(to right, var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol-pct, 0%), rgba(255,255,255,0.1) var(--mq-vol-pct, 0%), rgba(255,255,255,0.1) 100%);
+          background: linear-gradient(to right, var(--mq-accent) 0%, var(--mq-accent) var(--mq-vol-pct, 0%), var(--mq-glass-bg-hover) var(--mq-vol-pct, 0%), var(--mq-glass-bg-hover) 100%);
         }
         .mq-ft-vol::-webkit-slider-thumb {
           -webkit-appearance: none;
@@ -364,7 +364,7 @@ function FullTrackViewMobileInner() {
           margin-top: -4px;
           cursor: pointer;
         }
-        .mq-ft-vol::-moz-range-track { height: 4px; border-radius: 2px; background: rgba(255,255,255,0.1); }
+        .mq-ft-vol::-moz-range-track { height: 4px; border-radius: 2px; background: var(--mq-glass-bg-hover); }
         .mq-ft-vol::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: #fff; border: none; cursor: pointer; }
       `}</style>
 
@@ -386,7 +386,7 @@ function FullTrackViewMobileInner() {
               maxWidth: "300px",
               maxHeight: "300px",
               aspectRatio: "1 / 1",
-              boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
+              boxShadow: "var(--mq-shadow-elevated)",
             }}
             onTouchStart={handleCoverTouchStart}
             onTouchEnd={handleCoverTouchEnd}
@@ -395,7 +395,7 @@ function FullTrackViewMobileInner() {
               <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" draggable={false} />
             ) : (
               <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.5)" }} />
+                <Music className="w-16 h-16" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
               </div>
             )}
           </div>
@@ -408,17 +408,17 @@ function FullTrackViewMobileInner() {
             <button onClick={handleArtist} className="text-sm hover:underline mt-0.5 block truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</button>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <button onClick={handleLike} aria-label="Нравится" className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.05)" }}>
+            <button onClick={handleLike} aria-label="Нравится" className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}>
               <Heart className="w-5 h-5" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
             </button>
-            <button onClick={handleDislike} aria-label="Не нравится" className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)" }}>
+            <button onClick={handleDislike} aria-label="Не нравится" className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40, backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "var(--mq-glass-bg)" }}>
               <ThumbsDown className="w-5 h-5" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
             </button>
             <button
               onClick={() => setShowPlaylistPicker(v => !v)}
               aria-label="Добавить в плейлист"
               className="mq-ft-btn"
-              style={{ ...iconBtn, width: 40, height: 40, backgroundColor: showPlaylistPicker ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.05)" }}
+              style={{ ...iconBtn, width: 40, height: 40, backgroundColor: showPlaylistPicker ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
             >
               <ListPlus className="w-5 h-5" style={{ color: showPlaylistPicker ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
             </button>
@@ -501,7 +501,7 @@ function FullTrackViewMobileInner() {
         <div className="flex items-center justify-between px-5 mb-4" style={{ flexShrink: 0 }}>
           <button onClick={toggleShuffle} aria-label="Перемешать" className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40 }}><Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} /></button>
           <button onClick={prevTrack} aria-label="Предыдущий" className="mq-ft-btn" style={{ ...iconBtn, width: 48, height: 48 }}><SkipBack className="w-7 h-7" style={{ color: "var(--mq-text)" }} fill="currentColor" /></button>
-          <button onClick={togglePlay} aria-label="Play/Pause" className="mq-ft-btn" style={{ width: 68, height: 68, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#fff", border: "none", cursor: "pointer", padding: 0, boxShadow: "0 6px 20px rgba(255,255,255,0.15)" }}>
+          <button onClick={togglePlay} aria-label="Play/Pause" className="mq-ft-btn" style={{ width: 68, height: 68, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#fff", border: "none", cursor: "pointer", padding: 0, boxShadow: "var(--mq-shadow-button-hover)" }}>
             {isLoading ? <Loader2 className="w-7 h-7 animate-spin" style={{ color: "#000" }} /> : isPlaying ? <Pause className="w-7 h-7" fill="#000" style={{ color: "#000" }} /> : <Play className="w-7 h-7 ml-1" fill="#000" style={{ color: "#000" }} />}
           </button>
           <button onClick={nextTrack} aria-label="Следующий" className="mq-ft-btn" style={{ ...iconBtn, width: 48, height: 48 }}><SkipForward className="w-7 h-7" style={{ color: "var(--mq-text)" }} fill="currentColor" /></button>
@@ -561,9 +561,9 @@ function FullTrackViewMobileInner() {
         {/* ── More sheet (volume, speed, sleep timer, spatial, share) ── */}
         {showMore && (
           <>
-            <div className="absolute inset-0 z-30" style={{ background: "rgba(0,0,0,0.6)" }} onClick={() => setShowMore(false)} />
-            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 40, borderRadius: "20px 20px 0 0", padding: "20px", paddingBottom: "max(20px, env(safe-area-inset-bottom))", background: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "0 -8px 32px rgba(0,0,0,0.5)", animation: "mqFtSlideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1)", maxHeight: "80vh", overflowY: "auto" }}>
-              <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: "rgba(255,255,255,0.15)" }} />
+            <div className="absolute inset-0 z-30" style={{ background: "var(--mq-overlay-scrim)" }} onClick={() => setShowMore(false)} />
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 40, borderRadius: "20px 20px 0 0", padding: "20px", paddingBottom: "max(20px, env(safe-area-inset-bottom))", background: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "var(--mq-shadow-elevated)", animation: "mqFtSlideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1)", maxHeight: "80vh", overflowY: "auto" }}>
+              <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: "var(--mq-glass-bg-active)" }} />
               {/* Track info header */}
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">{currentTrack.cover ? <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ background: "var(--mq-accent)" }} />}</div>
@@ -639,7 +639,7 @@ function FullTrackViewMobileInner() {
               <button onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="mq-ft-btn w-full flex items-center gap-3 py-3" style={{ background: "transparent", border: "none", cursor: "pointer" }}>
                 <AirVent className="w-5 h-5" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                 <span className="text-sm flex-1 text-left" style={{ color: "var(--mq-text)" }}>Пространственное аудио</span>
-                <div className="w-10 h-6 rounded-full relative flex-shrink-0" style={{ background: spatialAudioEnabled ? "var(--mq-accent)" : "rgba(255,255,255,0.15)" }}>
+                <div className="w-10 h-6 rounded-full relative flex-shrink-0" style={{ background: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-glass-bg-active)" }}>
                   <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform" style={{ transform: spatialAudioEnabled ? "translateX(20px)" : "translateX(2px)" }} />
                 </div>
               </button>

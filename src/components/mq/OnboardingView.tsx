@@ -260,7 +260,7 @@ export default function OnboardingView() {
                                   ? "1px solid color-mix(in srgb, var(--mq-accent) 40%, transparent)"
                                   : "1px solid var(--mq-border-thin)",
                                 color: isSelected ? "var(--mq-accent)" : "var(--mq-text-muted)",
-                                transition: "all 0.2s var(--ease-out, ease-out)",
+                                transition: "all var(--mq-duration-fast) var(--mq-spring-smooth)",
                               }}
                             >
                               {isSelected && <Check className="w-3.5 h-3.5 inline mr-1.5" />}
@@ -290,7 +290,7 @@ export default function OnboardingView() {
                     backgroundColor: selectedGenres.length >= MIN_GENRES ? "var(--mq-accent)" : "var(--mq-card)",
                     color: selectedGenres.length >= MIN_GENRES ? "#fff" : "var(--mq-text-muted)",
                     boxShadow: selectedGenres.length >= MIN_GENRES ? "var(--mq-shadow-accent)" : "none",
-                    transition: "all 0.2s var(--ease-out, ease-out)",
+                    transition: "all var(--mq-duration-fast) var(--mq-spring-smooth)",
                   }}>
                   Далее
                   <ChevronRight className="w-4 h-4" />
@@ -356,7 +356,7 @@ export default function OnboardingView() {
                           border: isSelected
                             ? "1px solid color-mix(in srgb, var(--mq-accent) 35%, transparent)"
                             : "1px solid var(--mq-border-hairline)",
-                          transition: "all 0.2s var(--ease-out, ease-out)",
+                          transition: "all var(--mq-duration-fast) var(--mq-spring-smooth)",
                         }}
                       >
                         <div className="w-16 h-16 rounded-full overflow-hidden mb-2 flex-shrink-0"
@@ -366,7 +366,7 @@ export default function OnboardingView() {
                           ) : (
                             <div className="w-full h-full flex items-center justify-center"
                               style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                              <Music className="w-6 h-6" style={{ color: "rgba(255,255,255,0.6)" }} />
+                              <Music className="w-6 h-6" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
                             </div>
                           )}
                         </div>

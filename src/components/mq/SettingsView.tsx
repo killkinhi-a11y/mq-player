@@ -71,7 +71,7 @@ function SettingRow({
   const Wrapper = onClick ? motion.button : "div";
   return (
     <Wrapper
-      {...(onClick ? { whileTap: { scale: 0.99 }, whileHover: { backgroundColor: "rgba(255,255,255,0.03)" }, onClick } : {})}
+      {...(onClick ? { whileTap: { scale: 0.99 }, whileHover: { backgroundColor: "var(--mq-overlay-hover)" }, onClick } : {})}
       className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5 text-left transition-colors"
       style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
     >
@@ -86,7 +86,7 @@ function SettingRow({
         {subtitle && <p className="text-[11px] sm:text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{subtitle}</p>}
       </div>
       {value && (
-        <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>{value}</span>
+        <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: "var(--mq-glass-bg)", color: "var(--mq-text-muted)" }}>{value}</span>
       )}
       {rightElement}
       {onClick && !rightElement && <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />}
@@ -104,7 +104,7 @@ function SettingToggle({
     <div className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
       <div
         className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: value ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.05)" }}
+        style={{ backgroundColor: value ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
       >
         <Icon className="w-4 h-4" style={{ color: value ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
       </div>
@@ -338,7 +338,7 @@ export default function SettingsView() {
       {/* Tab bar */}
       <div className="sticky z-30 mb-4 sm:mb-5" style={{ top: 0, paddingTop: 8, paddingBottom: 8, backgroundColor: "var(--mq-bg)" }}>
         <div className="flex gap-1 p-1 rounded-2xl overflow-x-auto scrollbar-none"
-          style={{ background: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "0 8px 24px rgba(0,0,0,0.2)", WebkitOverflowScrolling: "touch" }}>
+          style={{ background: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "var(--mq-shadow-lg)", WebkitOverflowScrolling: "touch" }}>
           {TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -363,7 +363,7 @@ export default function SettingsView() {
               <CardTitle icon={User} title="Профиль" />
               <div className="px-3 sm:px-4 py-3 sm:py-4 flex items-center gap-3 sm:gap-4" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="relative flex-shrink-0">
-                  <div className="absolute -inset-1 rounded-full opacity-60" style={{ background: "linear-gradient(135deg, var(--mq-accent), rgba(255,255,255,0.15))" }} />
+                  <div className="absolute -inset-1 rounded-full opacity-60" style={{ background: "linear-gradient(135deg, var(--mq-accent), var(--mq-glass-bg-active))" }} />
                   {avatar ? (
                     <img src={avatar} alt="" className="w-14 h-14 rounded-full object-cover relative z-10" style={{ border: "2.5px solid var(--mq-card)" }} />
                   ) : (
@@ -444,7 +444,7 @@ export default function SettingsView() {
                     return (
                       <motion.button key={key} whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={() => setTheme(key)}
                         className="relative p-2 rounded-xl flex flex-col items-center gap-1.5"
-                        style={{ backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "rgba(255,255,255,0.03)", border: isActive ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-hairline)" }}>
+                        style={{ backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "var(--mq-overlay-hover)", border: isActive ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-hairline)" }}>
                         <div className="w-10 h-10 rounded-full" style={{ background: `linear-gradient(135deg, ${theme.accent || "#e03131"}, ${theme.bg || "#0e0e0e"})` }} />
                         <span className="text-[10px] font-medium truncate w-full text-center" style={{ color: "var(--mq-text-muted)" }}>{theme.name || key}</span>
                         {isActive && <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}><Check className="w-2.5 h-2.5" style={{ color: "#fff" }} /></div>}
@@ -466,7 +466,7 @@ export default function SettingsView() {
                       {customAccent === color && <Check className="w-4 h-4" style={{ color: "#fff" }} />}
                     </motion.button>
                   ))}
-                  <label className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer" style={{ backgroundColor: "rgba(255,255,255,0.05)", border: "1px dashed var(--mq-border-medium)" }}>
+                  <label className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer" style={{ backgroundColor: "var(--mq-glass-bg)", border: "1px dashed var(--mq-border-medium)" }}>
                     <input type="color" value={customAccent || "#e03131"} onChange={(e) => setCustomAccent(e.target.value)} className="opacity-0 absolute w-0 h-0" />
                     <Palette className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
                   </label>

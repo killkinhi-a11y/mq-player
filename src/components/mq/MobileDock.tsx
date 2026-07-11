@@ -84,7 +84,7 @@ function MobileDockInner() {
         .mq-dock-progress-track {
           position: relative;
           height: 2px;
-          background: rgba(255,255,255,0.06);
+          background: var(--mq-glass-bg);
           cursor: pointer;
         }
         .mq-dock-progress-fill {
@@ -117,7 +117,7 @@ function MobileDockInner() {
             <button onClick={openFull} className="mq-mini flex items-center gap-2.5 flex-1 min-w-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
               <div className="rounded-md overflow-hidden flex-shrink-0" style={{ width: "38px", height: "38px" }}>
                 {currentTrack!.cover ? <img src={currentTrack!.cover} alt="" className="w-full h-full object-cover" />
-                  : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.7)" }} /></div>}
+                  : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} /></div>}
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-semibold truncate" style={{ color: "var(--mq-text)", lineHeight: "1.2" }}>{currentTrack!.title}</p>

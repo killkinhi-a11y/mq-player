@@ -658,7 +658,7 @@ export default function FullTrackView() {
               <button
                 onClick={() => setOpen(false)}
                 className="w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
+                style={{ backgroundColor: "var(--mq-glass-bg)" }}
                 aria-label="Закрыть"
               >
                 <ChevronDown className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
@@ -672,7 +672,7 @@ export default function FullTrackView() {
               <button
                 onClick={handleShare}
                 className="w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
+                style={{ backgroundColor: "var(--mq-glass-bg)" }}
                 aria-label="Поделиться"
               >
                 <Share2 className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
@@ -709,14 +709,14 @@ export default function FullTrackView() {
                     <div
                       className="w-full h-full rounded-3xl overflow-hidden relative"
                       style={{
-                        boxShadow: "0 24px 64px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)",
+                        boxShadow: "var(--mq-shadow-dramatic), var(--mq-shadow-inner-glow)",
                       }}
                     >
                       {currentTrack.cover ? (
                         <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                          <Music className="w-16 h-16" style={{ color: "rgba(255,255,255,0.5)" }} />
+                          <Music className="w-16 h-16" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
                         </div>
                       )}
                       {/* Subtle playing indicator — pulsing border (CSS) */}
@@ -745,7 +745,7 @@ export default function FullTrackView() {
                         className="absolute top-1/2 -translate-y-1/2 px-4 py-2 rounded-2xl pointer-events-none"
                         style={{
                           [seekFeedback.side]: "20%",
-                          backgroundColor: "rgba(0,0,0,0.7)",
+                          backgroundColor: "var(--mq-overlay-scrim)",
                           backdropFilter: "blur(10px)",
                           color: "#fff",
                           fontSize: 14,
@@ -758,7 +758,7 @@ export default function FullTrackView() {
                   </AnimatePresence>
 
                   {/* Hint text for double-tap */}
-                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] pointer-events-none" style={{ color: "rgba(255,255,255,0.3)" }}>
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] pointer-events-none" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
                     ← двойной тап →
                   </div>
                 </motion.div>
@@ -795,18 +795,18 @@ export default function FullTrackView() {
                   {/* Action buttons row */}
                   <div className={`flex items-center gap-2 mb-4 flex-wrap ${isMobile ? "justify-center" : "justify-start"}`}>
                     <div className="relative">
-                      <button onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Нравится (L)">
+                      <button onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }} title="Нравится (L)">
                         <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
                       </button>
                       <HeartBurst trigger={heartBurstTrigger} />
                     </div>
-                    <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.06)" }} title="Не нравится">
+                    <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "var(--mq-glass-bg)" }} title="Не нравится">
                       <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
                     </button>
                     <button
                       onClick={() => setShowPlaylistPicker(v => !v)}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: showPlaylistPicker ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
+                      style={{ backgroundColor: showPlaylistPicker ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
                       title="Добавить в плейлист"
                     >
                       <ListPlus className="w-4 h-4" style={{ color: showPlaylistPicker ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -815,7 +815,7 @@ export default function FullTrackView() {
                     <button
                       onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: activePanel === "queue" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
+                      style={{ backgroundColor: activePanel === "queue" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
                       title="Очередь (Q)"
                     >
                       <ListMusic className="w-4 h-4" style={{ color: activePanel === "queue" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -823,7 +823,7 @@ export default function FullTrackView() {
                     <button
                       onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: activePanel === "lyrics" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
+                      style={{ backgroundColor: activePanel === "lyrics" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
                       title="Текст песни (F)"
                     >
                       <Mic2 className="w-4 h-4" style={{ color: activePanel === "lyrics" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -831,7 +831,7 @@ export default function FullTrackView() {
                     <button
                       onClick={() => setActivePanel(p => p === "history" ? null : "history")}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: activePanel === "history" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
+                      style={{ backgroundColor: activePanel === "history" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
                       title="История (H)"
                     >
                       <History className="w-4 h-4" style={{ color: activePanel === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -840,18 +840,18 @@ export default function FullTrackView() {
                     <button
                       onClick={() => setEqOpen(true)}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: eqEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }}
+                      style={{ backgroundColor: eqEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
                       title="Эквалайзер"
                     >
                       <Sliders className="w-4 h-4" style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </button>
-                    <button onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: spatialAudioEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Пространственное аудио">
+                    <button onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: spatialAudioEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }} title="Пространственное аудио">
                       <AirVent className="w-4 h-4" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </button>
-                    <button onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowSleepMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: playbackRate !== 1 ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Скорость">
+                    <button onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowSleepMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: playbackRate !== 1 ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }} title="Скорость">
                       <span className="text-[10px] font-bold" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span>
                     </button>
-                    <button onClick={() => { setShowSleepMenu(!showSleepMenu); setShowSpeedMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center relative" style={{ backgroundColor: sleepTimerActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "rgba(255,255,255,0.06)" }} title="Таймер сна">
+                    <button onClick={() => { setShowSleepMenu(!showSleepMenu); setShowSpeedMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center relative" style={{ backgroundColor: sleepTimerActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }} title="Таймер сна">
                       <Timer className="w-4 h-4" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                       {sleepTimerActive && (
                         <span className="absolute -bottom-0.5 -right-0.5 text-[8px] font-mono px-1 rounded-full" style={{ background: "var(--mq-accent)", color: "#fff" }}>{sleepRemainingMin}м</span>
@@ -979,7 +979,7 @@ export default function FullTrackView() {
                         className="w-full mb-4 overflow-hidden"
                       >
                         <div className="flex items-center justify-end mb-2">
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
                             <X className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
@@ -1012,7 +1012,7 @@ export default function FullTrackView() {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Далее в очереди</p>
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
                             <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
@@ -1028,7 +1028,7 @@ export default function FullTrackView() {
                               >
                                 <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
                                   {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
-                                    : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.5)" }} /></div>}
+                                    : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} /></div>}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
@@ -1052,7 +1052,7 @@ export default function FullTrackView() {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Недавно играло</p>
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
                             <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
@@ -1068,7 +1068,7 @@ export default function FullTrackView() {
                               >
                                 <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
                                   {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
-                                    : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "rgba(255,255,255,0.5)" }} /></div>}
+                                    : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} /></div>}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
@@ -1093,9 +1093,9 @@ export default function FullTrackView() {
                       onMouseLeave={() => setHoveredTime(null)}
                       onMouseMove={handleProgressMouseMove}
                     >
-                      <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.08)" }} />
+                      <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "var(--mq-glass-bg-hover)" }} />
                       {hoveredPct > progressPct && (
-                        <div className="absolute inset-y-0 left-0 rounded-full opacity-0 group-hover:opacity-100" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "rgba(255,255,255,0.12)" }} />
+                        <div className="absolute inset-y-0 left-0 rounded-full opacity-0 group-hover:opacity-100" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-glass-bg-active)" }} />
                       )}
                       <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", willChange: "transform", transition: isDragging ? "none" : "transform 0.1s linear" }} />
                       <div
@@ -1161,19 +1161,19 @@ export default function FullTrackView() {
                   {/* ═══ Keyboard shortcuts hint (desktop, small) ═══ */}
                   {!isMobile && (
                     <div className="mt-4 flex items-center gap-2 flex-wrap text-[9px] opacity-50" style={{ color: "var(--mq-text-muted)" }}>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>Space</kbd>
+                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>Space</kbd>
                       <span>play</span>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>←/→</kbd>
+                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>←/→</kbd>
                       <span>seek 5s</span>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>↑/↓</kbd>
+                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>↑/↓</kbd>
                       <span>vol</span>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>scroll</kbd>
+                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>scroll</kbd>
                       <span>vol</span>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>L</kbd>
+                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>L</kbd>
                       <span>like</span>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>F</kbd>
+                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>F</kbd>
                       <span>lyrics</span>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>Esc</kbd>
+                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>Esc</kbd>
                       <span>close</span>
                     </div>
                   )}

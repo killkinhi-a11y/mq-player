@@ -93,7 +93,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
             style={{
               backgroundColor: "var(--mq-card)",
               border: "1px solid var(--mq-border-thin)",
-              boxShadow: "0 24px 64px rgba(0,0,0,0.5), 0 8px 24px rgba(0,0,0,0.3)",
+              boxShadow: "var(--mq-shadow-dramatic)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -410,7 +410,7 @@ function EqBandSlider({ label, value, disabled, onChange }: EqBandSliderProps) {
           outline: "none",
           cursor: disabled ? "default" : "pointer",
           // Soft inset shadow for depth
-          boxShadow: "inset 0 1px 2px rgba(0,0,0,0.2)",
+          boxShadow: "var(--mq-shadow-inner-glow)",
         }}
       >
         {/* Zero line — subtle horizontal marker at 0 dB */}
@@ -447,10 +447,10 @@ function EqBandSlider({ label, value, disabled, onChange }: EqBandSliderProps) {
             backgroundColor: "#fff",
             border: "2px solid var(--mq-accent)",
             boxShadow: isDragging
-              ? "0 4px 12px rgba(0,0,0,0.4), 0 0 0 6px color-mix(in srgb, var(--mq-accent) 18%, transparent)"
+              ? "var(--mq-shadow-accent-hover), 0 0 0 6px color-mix(in srgb, var(--mq-accent) 18%, transparent)"
               : isHovered
-                ? "0 2px 8px rgba(0,0,0,0.3), 0 0 0 3px color-mix(in srgb, var(--mq-accent) 12%, transparent)"
-                : "0 2px 6px rgba(0,0,0,0.3)",
+                ? "var(--mq-shadow-accent), 0 0 0 3px color-mix(in srgb, var(--mq-accent) 12%, transparent)"
+                : "var(--mq-shadow-sm)",
             opacity: disabled ? 0.5 : 1,
             transition: isDragging
               ? "none"
