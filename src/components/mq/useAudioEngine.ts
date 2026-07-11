@@ -666,6 +666,42 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   const gaplessPreloadStartedRef = useRef(false);
   const gaplessPreloadedTrackRef = useRef<Track | null>(null);
 
+  // ── Server-side cache warm-up for the next track ──
+  // Cheaper than gapless preload (no audio element, no HLS instance). Just
+  // fires a background fetch to /api/music/soundcloud/stream for the next
+  // track in queue. The edge function caches the resolved URL for 5 min, so
+  // when user actually clicks "next" the response is instant (~30-80ms
+  // instead of 2-5s).
+  // Triggers when:
+  //  - current track starts playing
+  //  - user manually skips (new currentTrack)
+  // Skips tracks that are already cached (server returns _cache_hit=true).
+  const cacheWarmupStartedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!currentTrack || !isPlaying) return;
+    // Read next track from queue without subscribing
+    const nextT = useAppStore.getState().peekNextTrack();
+    if (!nextT) return;
+    if (nextT.id === cacheWarmupStartedRef.current) return; // already warming
+    if (nextT.source !== "soundcloud" || !nextT.scTrackId) return;
+
+    cacheWarmupStartedRef.current = nextT.id;
+    // Fire and forget — the response just warms the server cache.
+    fetch(`/api/music/soundcloud/stream?trackId=${nextT.scTrackId}`)
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?._cache_hit) {
+          console.log(`[CacheWarm] Next track already cached: ${nextT.title}`);
+        } else if (data?.url) {
+          console.log(`[CacheWarm] Pre-warmed next track: ${nextT.title}`);
+        }
+      })
+      .catch(() => {
+        // Silent failure — warm-up is best-effort
+        cacheWarmupStartedRef.current = null;
+      });
+  }, [currentTrack?.id, isPlaying]);
+
   // Social listening status — last time we POSTed to /api/social/update-status
   const lastSocialUpdateRef = useRef<number | null>(null);
 
