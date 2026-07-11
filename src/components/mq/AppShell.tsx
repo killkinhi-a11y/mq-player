@@ -142,7 +142,6 @@ export default function AppShell() {
   const isPlaying = useAppStore((s) => s.isPlaying);
   const miniPlayerHidden = useAppStore((s) => s.miniPlayerHidden);
   const _hasHydrated = useAppStore((s) => s._hasHydrated);
-  const demoLoading = useAppStore((s) => s.demoLoading);
   const isMobile = useIsMobile();
 
   // ── Visited views tracking: must be BEFORE any conditional returns (Rules of Hooks) ──
@@ -532,7 +531,7 @@ export default function AppShell() {
 
   // Wait for Zustand hydration before rendering — prevents auth↔main flash
   if (!_hasHydrated) {
-    return <SplashScreen label="Загрузка" showDelay={150} />;
+    return <SplashScreen showDelay={150} />;
   }
 
   const showNav = currentView !== "auth" && currentView !== "onboarding";
@@ -556,11 +555,6 @@ export default function AppShell() {
       <Suspense fallback={null}><CinematicAtmosphere /></Suspense>
       <Suspense fallback={null}><MaintenanceBanner /></Suspense>
       <OfflineBanner />
-
-      {/* Demo loading overlay — uses unified SplashScreen component */}
-      <AnimatePresence>
-        {demoLoading && <SplashScreen key="demo-loader" label="Готовим демо-режим" showDelay={0} />}
-      </AnimatePresence>
 
       <Suspense fallback={
         <nav className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center border-b"
