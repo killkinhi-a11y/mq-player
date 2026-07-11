@@ -354,40 +354,6 @@ export default function AuthView() {
             <div className="rounded-2xl p-6 lg:p-8"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}>
 
-              {/* Logo */}
-              <motion.div
-                className="flex items-center justify-center gap-3 mb-6"
-                initial={{ opacity: 0, scale: 0.3, y: -20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}>
-                <motion.div
-                  animate={{
-                    boxShadow: [
-                      "0 0 0px rgba(42,171,238,0)",
-                      "0 0 25px rgba(42,171,238,0.4)",
-                      "0 0 0px rgba(42,171,238,0)",
-                    ],
-                    rotate: [0, 3, -3, 0],
-                  }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className="rounded-xl overflow-hidden"
-                >
-                  <img src="/favicon.ico" alt="mq" className="w-10 h-10 object-cover" />
-                </motion.div>
-                <motion.h1
-                  className="text-4xl tracking-tight"
-                  style={{ color: "#2AABEE", fontFamily: "var(--font-outfit), system-ui, sans-serif", fontWeight: 300 }}
-                  animate={{
-                    textShadow: [
-                      "0 0 0px transparent",
-                      "0 0 20px rgba(42,171,238,0.5)",
-                      "0 0 0px transparent",
-                    ]
-                  }}
-                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                >mq</motion.h1>
-              </motion.div>
-
               {/* Title & instructions */}
               <motion.div
                 className="flex flex-col items-center text-center mb-6"

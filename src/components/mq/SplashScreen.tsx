@@ -6,7 +6,8 @@ import { useEffect, useState } from "react";
 /**
  * SplashScreen — минималистичная геометрическая анимация.
  *
- * Концепция: три концентрических круга плавно пульсируют.
+ * Концепция: «дышащий» круг. Один акцентный круг плавно пульсирует
+ * (масштаб + прозрачность), создавая ритмичную, медленную анимацию.
  * Никаких букв, слов, логотипов — чистая геометрия.
  *
  * Используется только для hydration (пока Zustand не hydrat'нулся).
@@ -16,6 +17,7 @@ import { useEffect, useState } from "react";
  *  - Только design tokens — работает в любой теме
  *  - Фирменная кривая cubic-bezier(0.22, 1, 0.36, 1)
  *  - Никакого текста, никаких букв, никаких логотипов
+ *  - GPU-accelerated (transform + opacity)
  */
 
 interface SplashScreenProps {
@@ -46,32 +48,24 @@ export default function SplashScreen({ showDelay = 150 }: SplashScreenProps) {
       className="fixed inset-0 z-[300] flex items-center justify-center"
       style={{ backgroundColor: "var(--mq-bg, #0e0e0e)" }}
     >
-      {/* Три концентрических круга — плавная пульсация */}
-      <div className="relative" style={{ width: 80, height: 80 }}>
-        {[0, 1, 2].map((i) => (
-          <motion.span
-            key={i}
-            className="absolute top-1/2 left-1/2 rounded-full"
-            style={{
-              width: 80,
-              height: 80,
-              marginLeft: -40,
-              marginTop: -40,
-              border: "1.5px solid var(--mq-accent, #e03131)",
-            }}
-            animate={{
-              scale: [0.4, 1.4],
-              opacity: [0.6, 0],
-            }}
-            transition={{
-              duration: 2,
-              repeat: Infinity,
-              ease: "easeOut",
-              delay: i * 0.66,
-            }}
-          />
-        ))}
-      </div>
+      {/* «Дышащий» круг — основной элемент */}
+      <motion.div
+        className="rounded-full"
+        style={{
+          width: 48,
+          height: 48,
+          backgroundColor: "var(--mq-accent, #e03131)",
+        }}
+        animate={{
+          scale: [1, 1.4, 1],
+          opacity: [0.8, 0.3, 0.8],
+        }}
+        transition={{
+          duration: 2.4,
+          repeat: Infinity,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+      />
     </motion.div>
   );
 }
