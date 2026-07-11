@@ -740,9 +740,13 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     return;
   }
   if (data === "cmd_search") {
-    const user = await findUserByChatId(chatId);
+    // react-best-practices rule async-parallel: findUserByChatId and
+    // setChatState are independent — run in parallel instead of sequential.
+    const [user] = await Promise.all([
+      findUserByChatId(chatId),
+      setChatState(chatId, "awaiting_search_query"),
+    ]);
     if (!user) { await editMessageText(chatId, messageId, "Сначала авторизуйтесь — отправьте /code"); return; }
-    await setChatState(chatId, "awaiting_search_query");
     await editMessageText(chatId, messageId, "Введите название трека или исполнителя для поиска:");
     return;
   }
@@ -751,9 +755,12 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     return;
   }
   if (data === "cmd_newplaylist") {
-    const user = await findUserByChatId(chatId);
+    // async-parallel: findUserByChatId + setChatState independent
+    const [user] = await Promise.all([
+      findUserByChatId(chatId),
+      setChatState(chatId, "awaiting_new_playlist"),
+    ]);
     if (!user) { await editMessageText(chatId, messageId, "Сначала авторизуйтесь — отправьте /code"); return; }
-    await setChatState(chatId, "awaiting_new_playlist");
     await editMessageText(chatId, messageId, "Введите название нового плейлиста:");
     return;
   }

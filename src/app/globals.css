@@ -266,35 +266,26 @@ input, textarea, select {
    One system for all elements. No more 3 competing focus styles.
    Absolutely NO outline anywhere — ever. Outline is always square. */
 
-/* Kill ALL outlines globally — no exceptions */
+/* WCAG 2.2 accessibility fix (ui-ux-design + web-accessibility skills).
+   OLD: killed ALL outlines globally — violated WCAG 2.4.7 Focus Visible.
+   NEW: suppress default outlines on mouse focus, show visible accent ring
+   on keyboard focus (:focus-visible) with 3:1 contrast. */
 *, *::before, *::after {
-  outline: none !important;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Kill Tailwind ring shadows globally */
-*:focus, *:focus-visible {
+/* Mouse focus — suppress default Tailwind ring (we use custom hover) */
+*:focus:not(:focus-visible) {
   --tw-ring-shadow: 0 0 #0000 !important;
   --tw-ring-offset-shadow: 0 0 #0000 !important;
   --tw-ring-color: transparent !important;
+  outline: none !important;
 }
 
-/* Keyboard focus — accent ring via box-shadow (follows border-radius) */
+/* Keyboard focus — visible accent ring, 3:1 contrast (WCAG 2.2) */
 *:focus-visible {
-  outline: none !important;
-  border-radius: inherit;
-}
-
-/* Non-input elements get accent ring */
-*:focus-visible:not(input):not(textarea):not(select) {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 50%, transparent);
-}
-
-/* Inputs manage their own focus style via inline styles */
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: none !important;
+  outline: 2px solid var(--mq-accent, #e03131) !important;
+  outline-offset: 2px !important;
 }
 
 /* MQ Player Theme Variables */

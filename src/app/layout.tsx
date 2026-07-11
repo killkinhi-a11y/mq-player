@@ -57,28 +57,33 @@ export default function RootLayout({
         <meta httpEquiv="Expires" content="0" />
         <meta name="msapplication-TileColor" content="#0e0e0e" />
         <link rel="apple-touch-icon" href="/icon-192.png" />
-        {/* Inline CSS — kills ALL square outlines globally.
-            Must be in <head> so it loads BEFORE any external CSS.
-            This is the ONLY way to guarantee no square focus rings. */}
+        {/* Inline CSS — accessibility fix (WCAG 2.2 / ui-ux-design skill).
+            OLD: killed ALL focus outlines globally with `outline: none !important`
+            — violated WCAG 2.4.7 (Focus Visible) and made keyboard navigation
+            impossible for visually-impaired users.
+            NEW: hide default outlines only on mouse focus (:focus), but show
+            a visible accent ring on keyboard focus (:focus-visible) with 3:1
+            contrast ratio per WCAG 2.2. Also kill tap highlight (mobile only). */}
         <style dangerouslySetInnerHTML={{ __html: `
           *, *::before, *::after {
-            outline: none !important;
             -webkit-tap-highlight-color: transparent !important;
           }
-          *:focus, *:focus-visible {
+          /* Mouse focus — suppress default ring (we use custom hover states) */
+          *:focus:not(:focus-visible) {
+            outline: none !important;
             --tw-ring-shadow: 0 0 #0000 !important;
             --tw-ring-offset-shadow: 0 0 #0000 !important;
             --tw-ring-color: transparent !important;
-            outline: none !important;
           }
+          /* Keyboard focus — visible accent ring, 3:1 contrast (WCAG 2.2) */
           *:focus-visible {
-            outline: none !important;
+            outline: 2px solid var(--mq-accent, #e03131) !important;
+            outline-offset: 2px !important;
+            border-radius: 4px;
           }
-          input:focus, input:focus-visible,
-          textarea:focus, textarea:focus-visible,
-          select:focus, select:focus-visible {
-            outline: none !important;
-            box-shadow: none !important;
+          input:focus-visible, textarea:focus-visible, select:focus-visible {
+            outline: 2px solid var(--mq-accent, #e03131) !important;
+            outline-offset: 2px !important;
           }
         `}} />
         <script

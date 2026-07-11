@@ -25,6 +25,18 @@ const nextConfig: NextConfig = {
   experimental: {
     // Allow uploads up to 200MB (default is 10MB)
     proxyClientMaxBodySize: 200 * 1024 * 1024,
+    // react-best-practices rule bundle-barrel-imports (CRITICAL):
+    // 44 files import from 'lucide-react' barrel — without this flag, each
+    // import loads ~1,583 modules (200-800ms cold start cost). With it,
+    // Next.js transforms `import { X } from 'lucide-react'` to direct
+    // path imports at build time. 15-70% faster dev boot, 28% faster
+    // builds, 40% faster cold starts.
+    optimizePackageImports: [
+      "lucide-react",
+      "@radix-ui/react-*",
+      "date-fns",
+      "framer-motion",
+    ],
   },
   // Granular cache headers — static assets get long-lived immutable cache,
   // API routes get no-store, pages get must-revalidate.
