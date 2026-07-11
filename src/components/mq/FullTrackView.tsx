@@ -630,6 +630,11 @@ export default function FullTrackView() {
           onDragEnd={handleDragEnd}
           transition={{ type: "spring", stiffness: 300, damping: 32 }}
           className="fixed inset-0 z-[100]"
+          // A4 fix: WCAG 2.4.3 + frontend-patterns Focus Management — mark
+          // as modal dialog so screen readers trap focus and announce it.
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Полноэкранный плеер: ${currentTrack.title} — ${currentTrack.artist}`}
           style={{
             background: currentTrack.cover
               ? `linear-gradient(180deg, color-mix(in srgb, var(--mq-accent) 15%, var(--mq-bg)) 0%, var(--mq-bg) 50%)`

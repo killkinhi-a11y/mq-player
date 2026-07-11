@@ -124,10 +124,10 @@ function MobileDockInner() {
                 <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)", lineHeight: "1.2", marginTop: "1px" }}>{currentTrack!.artist}</p>
               </div>
             </button>
-            <button onClick={onLike} aria-label="Нравится" className="mq-mini w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+            <button onClick={onLike} aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
               <Heart className="w-[18px] h-[18px]" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
             </button>
-            <button onClick={onPlay} aria-label="Play/Pause" className="mq-mini w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+            <button onClick={onPlay} aria-label={isPlaying ? "Пауза" : "Воспроизвести"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
               style={{ background: "var(--mq-accent)", border: "none", cursor: "pointer", padding: 0 }}>
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#fff" }} />
                 : isPlaying ? <Pause className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
@@ -137,20 +137,25 @@ function MobileDockInner() {
         )}
 
         {/* Navigation */}
-        <div className="flex items-stretch justify-around" style={{ height: "52px" }}>
+        <div className="flex items-stretch justify-around" style={{ height: "var(--mq-nav-height-mobile, 50px)" }}>
           {NAV.map((item) => {
             const Icon = item.icon;
             const active = currentView === item.id;
             const badge = item.badgeKey === "messenger" ? msgBadge : item.badgeKey === "settings" ? setBadge : 0;
             return (
-              <button key={item.id} onClick={() => onNav(item, active)} className="mq-nav flex flex-col items-center justify-center gap-0.5 flex-1"
+              <button
+                key={item.id}
+                onClick={() => onNav(item, active)}
+                aria-current={active ? "page" : undefined}
+                aria-label={item.label}
+                className="mq-nav flex flex-col items-center justify-center gap-0.5 flex-1"
                 style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, color: active ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text-muted) 70%, transparent)" }}>
                 <div className="relative">
                   <Icon className="w-[22px] h-[22px]" strokeWidth={active ? 2.3 : 1.7} />
                   {badge > 0 && <span className="absolute -top-1 -right-2 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[9px] font-bold px-1"
                     style={{ background: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>{badge > 99 ? "99" : badge}</span>}
                 </div>
-                <span className="text-[9px] leading-none" style={{ opacity: active ? 1 : 0.6 }}>{item.label}</span>
+                <span className="text-[10px] leading-none" style={{ opacity: active ? 1 : 0.6 }}>{item.label}</span>
               </button>
             );
           })}

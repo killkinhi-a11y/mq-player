@@ -32,7 +32,9 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
   const compactMode = useAppStore((s) => s.compactMode);
   const isMobile = useIsMobile();
 
-  const cardRadius = isMobile ? "16px" : "14px";
+  // B1 fix: use design tokens (--mq-radius-xl=16px, --mq-radius-lg=12px)
+  // instead of hardcoded px literals — keeps 1500+ card instances consistent.
+  const cardRadius = isMobile ? "var(--mq-radius-xl)" : "var(--mq-radius-lg)";
 
   // P4.3: Subscribe to likedTrackIds array reference (not .includes() per render).
   // The selector returns a boolean — Zustand only re-renders when the boolean
@@ -130,6 +132,17 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
         transition={{ delay: Math.min(index * 0.025, 0.4), duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
+        // A1 fix: keyboard a11y — Enter/Space triggers click, screen reader
+        // announces track title + artist + active state.
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleClick();
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-label={`Слушать ${track.title} — ${track.artist}${isActive ? " (играет сейчас)" : ""}`}
         onMouseDown={longPressHandlers.onMouseDown}
         onMouseUp={longPressHandlers.onMouseUp}
         onMouseLeave={longPressHandlers.onMouseLeave}
@@ -142,6 +155,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
           cursor-pointer relative overflow-hidden
           transition-[background-color] duration-300 ease-out
           select-none
+          focus-visible:outline-2 focus-visible:outline-offset-2
         `}
         style={{
           borderRadius: cardRadius,

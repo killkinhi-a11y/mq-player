@@ -331,7 +331,7 @@ export default function SettingsView() {
     <div className="p-3 sm:p-4 lg:p-6 max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-24" data-active-tab={activeTab}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-4 sm:mb-5">
-        <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>Настройки</h1>
+        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>Настройки</h1>
         <p className="text-xs sm:text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>Персонализируйте ваш mq</p>
       </motion.div>
 

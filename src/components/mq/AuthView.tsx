@@ -322,7 +322,7 @@ export default function AuthView() {
             style={{
               width: 100 + i * 60,
               height: 100 + i * 60,
-              background: "radial-gradient(circle, #2AABEE 0%, transparent 70%)",
+              background: "radial-gradient(circle, var(--mq-telegram) 0%, transparent 70%)",
               opacity: 0.03 + i * 0.01,
               left: `${10 + i * 15}%`,
               top: `${20 + (i % 3) * 20}%`,
@@ -366,13 +366,13 @@ export default function AuthView() {
                   animate={{ boxShadow: ["0 0 0px rgba(42,171,238,0)", "0 0 30px rgba(42,171,238,0.2)", "0 0 0px rgba(42,171,238,0)"] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                 >
-                  <Send className="w-8 h-8" style={{ color: "#2AABEE" }} />
+                  <Send className="w-8 h-8" style={{ color: "var(--mq-telegram)" }} />
                 </motion.div>
                 <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--mq-text)" }}>Вход через Telegram</h2>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
                   Нажмите кнопку ниже, чтобы открыть бота в Telegram
                 </p>
-                <p className="text-sm font-medium mt-0.5" style={{ color: "#2AABEE" }}>
+                <p className="text-sm font-medium mt-0.5" style={{ color: "var(--mq-telegram)" }}>
                   и отправьте любое сообщение
                 </p>
                 <p className="text-xs mt-2" style={{ color: "var(--mq-text-muted)" }}>
@@ -402,7 +402,7 @@ export default function AuthView() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3, duration: 0.3 }}
                   className="flex items-center justify-center gap-2 w-full min-h-[44px] rounded-xl text-sm font-medium transition-all duration-200 hover:brightness-110 mb-6"
-                  style={{ backgroundColor: "rgba(42,171,238,0.15)", color: "#2AABEE", border: "1px solid rgba(42,171,238,0.3)" }}
+                  style={{ backgroundColor: "rgba(42,171,238,0.15)", color: "var(--mq-telegram)", border: "1px solid rgba(42,171,238,0.3)" }}
                 >
                   <Send className="w-4 h-4" />
                   Открыть бота в Telegram
@@ -445,9 +445,9 @@ export default function AuthView() {
                       className="w-11 h-14 sm:w-13 sm:h-16 text-center text-xl sm:text-2xl font-bold rounded-xl outline-none transition-all duration-200"
                       style={{
                         backgroundColor: "var(--mq-input-bg)",
-                        border: `2px solid ${tgVerifyError ? '#ef4444' : digit ? '#2AABEE' : 'var(--mq-border)'}`,
+                        border: `2px solid ${tgVerifyError ? '#ef4444' : digit ? 'var(--mq-telegram)' : 'var(--mq-border)'}`,
                         color: "var(--mq-text)",
-                        caretColor: "#2AABEE",
+                        caretColor: "var(--mq-telegram)",
                         boxShadow: digit ? '0 0 12px rgba(42,171,238,0.15)' : 'none',
                       }}
                       autoComplete="one-time-code"
@@ -462,7 +462,7 @@ export default function AuthView() {
                   onClick={() => handleTgVerify()}
                   disabled={tgVerifyLoading || verifyCode.some(d => !d)}
                   className="w-full min-h-[44px]"
-                  style={{ backgroundColor: "#2AABEE", color: "#ffffff" }}
+                  style={{ backgroundColor: "var(--mq-telegram)", color: "#ffffff" }}
                 >
                   {tgVerifyLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Подтвердить"}
                 </Button>
@@ -508,7 +508,7 @@ export default function AuthView() {
                   animate={{ boxShadow: ["0 0 0px rgba(42,171,238,0)", "0 0 25px rgba(42,171,238,0.3)", "0 0 0px rgba(42,171,238,0)"] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                 >
-                  <UserPlus className="w-8 h-8" style={{ color: "#2AABEE" }} />
+                  <UserPlus className="w-8 h-8" style={{ color: "var(--mq-telegram)" }} />
                 </motion.div>
                 <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--mq-text)" }}>Новый аккаунт</h2>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
@@ -592,7 +592,7 @@ export default function AuthView() {
 
                 <Button onClick={handleTgRegister}
                   disabled={tgRegisterLoading || !tgUsername || usernameStatus === 'invalid' || usernameStatus === 'checking'}
-                  className="w-full min-h-[44px]" style={{ backgroundColor: usernameStatus === 'taken' ? '#1d4ed8' : "#2AABEE", color: "#ffffff" }}>
+                  className="w-full min-h-[44px]" style={{ backgroundColor: usernameStatus === 'taken' ? '#1d4ed8' : "var(--mq-telegram)", color: "#ffffff" }}>
                   {tgRegisterLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : usernameStatus === 'taken' ? "Привязать к существующему аккаунту" : "Создать аккаунт"}
                 </Button>
               </div>
@@ -627,7 +627,7 @@ export default function AuthView() {
                   animate={{ boxShadow: ["0 0 0px rgba(42,171,238,0)", "0 0 25px rgba(42,171,238,0.3)", "0 0 0px rgba(42,171,238,0)"] }}
                   transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
                 >
-                  <Lock className="w-8 h-8" style={{ color: "#2AABEE" }} />
+                  <Lock className="w-8 h-8" style={{ color: "var(--mq-telegram)" }} />
                 </motion.div>
                 <h2 className="text-xl font-semibold mb-2" style={{ color: "var(--mq-text)" }}>Подтверждение аккаунта</h2>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
@@ -636,7 +636,7 @@ export default function AuthView() {
                 <p className="text-xs mt-1" style={{ color: "var(--mq-text-muted)" }}>
                   Email: {tgLinkEmail}
                 </p>
-                <p className="text-sm mt-2" style={{ color: "#2AABEE" }}>
+                <p className="text-sm mt-2" style={{ color: "var(--mq-telegram)" }}>
                   Введите пароль для привязки Telegram
                 </p>
               </motion.div>
@@ -679,7 +679,7 @@ export default function AuthView() {
 
                 <Button onClick={handleTgLinkSubmit}
                   disabled={tgLinkLoading || !tgLinkPassword}
-                  className="w-full min-h-[44px]" style={{ backgroundColor: "#2AABEE", color: "#ffffff" }}>
+                  className="w-full min-h-[44px]" style={{ backgroundColor: "var(--mq-telegram)", color: "#ffffff" }}>
                   {tgLinkLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Привязать Telegram"}
                 </Button>
               </div>

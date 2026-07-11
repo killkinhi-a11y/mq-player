@@ -104,19 +104,22 @@ export default function PlayerBar() {
   const volRef = useRef(volume);
   useEffect(() => { volRef.current = volume; }, [volume]);
 
-  // Sync fill/thumb from store volume when not dragging
+  // Sync fill/thumb from store volume when not dragging.
+  // E2 fix: use transform: scaleX (GPU) instead of width (layout reflow).
+  // Thumb uses translateX (GPU) instead of left (layout). Same pattern as
+  // MobileDock progress bar.
   useEffect(() => {
     if (isVolDragging) return;
-    if (volFillRef.current) volFillRef.current.style.width = `${volume}%`;
-    if (volThumbRef.current) volThumbRef.current.style.left = `${volume}%`;
+    if (volFillRef.current) volFillRef.current.style.transform = `scaleX(${volume / 100})`;
+    if (volThumbRef.current) volThumbRef.current.style.transform = `translateX(${volume}%) translateY(-50%)`;
   }, [volume, isVolDragging]);
 
   const seekVolume = useCallback((clientX: number) => {
     if (!volTrackRef.current) return;
     const rect = volTrackRef.current.getBoundingClientRect();
     const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-    if (volFillRef.current) volFillRef.current.style.width = `${pct}%`;
-    if (volThumbRef.current) volThumbRef.current.style.left = `${pct}%`;
+    if (volFillRef.current) volFillRef.current.style.transform = `scaleX(${pct / 100})`;
+    if (volThumbRef.current) volThumbRef.current.style.transform = `translateX(${pct}%) translateY(-50%)`;
     volRef.current = pct;
     if (volRafRef.current) cancelAnimationFrame(volRafRef.current);
     volRafRef.current = requestAnimationFrame(() => setVolume(pct));
@@ -342,7 +345,8 @@ export default function PlayerBar() {
                   onClick={() => { togglePlay(); hapticPlay(); }}
                   className="w-10 h-10 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
-                  title="Play/Pause"
+                  title={isPlaying ? "Пауза" : "Воспроизвести"}
+                  aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                 >
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#fff" }} />
                     : isPlaying ? <Pause className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
@@ -463,6 +467,7 @@ export default function PlayerBar() {
                 onClick={handleLike}
                 className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                 title="Нравится"
+                aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"}
               >
                 <Heart
                   className="w-4 h-4"
@@ -482,6 +487,7 @@ export default function PlayerBar() {
                 onClick={handleDislike}
                 className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
                 title="Не нравится"
+                aria-label={isDisliked ? "Убрать дизлайк" : "Не нравится"}
               >
                 <ThumbsDown
                   className="w-4 h-4"
@@ -503,6 +509,7 @@ export default function PlayerBar() {
                 disabled={wave.waveLoading}
                 className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 relative"
                 title={radioMode ? "Выключить волну" : "Радио от этого трека"}
+                aria-label={radioMode ? "Выключить волну" : "Радио от этого трека"}
               >
                 {wave.waveLoading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--mq-accent)" }} />
@@ -545,11 +552,16 @@ export default function PlayerBar() {
                   <div
                     ref={volFillRef}
                     className="absolute inset-y-0 left-0 rounded-full"
-                    style={{ width: `${volume}%`, backgroundColor: "var(--mq-accent)" }}
+                    style={{
+                      width: "100%",
+                      transform: `scaleX(${volume / 100})`,
+                      transformOrigin: "left center",
+                      backgroundColor: "var(--mq-accent)",
+                    }}
                   />
                   <div
                     ref={volThumbRef}
-                    className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full opacity-0 group-hover/vol:opacity-100 pointer-events-none"
+                    className="absolute left-0 top-1/2 w-2.5 h-2.5 rounded-full opacity-0 group-hover/vol:opacity-100 pointer-events-none"
                     style={{ left: `${volume}%`, backgroundColor: "#fff", boxShadow: "0 0 0 1.5px var(--mq-accent)", transition: "opacity 0.15s" }}
                   />
                 </div>
