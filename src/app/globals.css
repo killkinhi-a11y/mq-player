@@ -2471,52 +2471,26 @@ a:not([data-framer-motion-id]),
 
 /* ═══ MQ UI Animation Keyframes — CSS instead of Framer Motion for performance ═══ */
 
-/* Equalizer bars (playing indicator) — v2 redesign
-   5 independent keyframes, one per bar, each with its own organic pattern.
-   Old single mq-eq keyframe replaced — every bar used to look the same
-   except for delay/duration. Now each bar has a distinct rhythm that
-   resembles a real audio spectrum analyzer.
-   Paused state via .mq-eq-paused: all bars settle at 30% height. */
+/* ── NowPlayingEqualizer v4 — single shared keyframe ──
+   One bounce pattern with 4 stops. Per-bar variance comes from
+   animation-delay/duration set inline in the component (random at mount).
+   This replaces the old 5 separate keyframes (mq-eq-bar-1..5) — simpler,
+   less CSS, same visual result with organic randomness. */
+@keyframes mq-eq-bounce {
+  0%   { transform: scaleY(0.20); }
+  25%  { transform: scaleY(0.75); }
+  50%  { transform: scaleY(0.40); }
+  75%  { transform: scaleY(0.95); }
+  100% { transform: scaleY(0.30); }
+}
 
-@keyframes mq-eq-bar-1 {
-  0%, 100% { transform: scaleY(0.20); }
-  20% { transform: scaleY(0.55); }
-  40% { transform: scaleY(0.30); }
-  60% { transform: scaleY(0.85); }
-  80% { transform: scaleY(0.40); }
-}
-@keyframes mq-eq-bar-2 {
-  0%, 100% { transform: scaleY(0.45); }
-  25% { transform: scaleY(0.80); }
-  50% { transform: scaleY(0.25); }
-  75% { transform: scaleY(0.60); }
-}
-@keyframes mq-eq-bar-3 {
-  0%, 100% { transform: scaleY(0.65); }
-  20% { transform: scaleY(0.30); }
-  40% { transform: scaleY(1.00); }
-  60% { transform: scaleY(0.50); }
-  80% { transform: scaleY(0.85); }
-}
-@keyframes mq-eq-bar-4 {
-  0%, 100% { transform: scaleY(0.35); }
-  30% { transform: scaleY(0.70); }
-  60% { transform: scaleY(0.20); }
-  90% { transform: scaleY(0.55); }
-}
-@keyframes mq-eq-bar-5 {
-  0%, 100% { transform: scaleY(0.25); }
-  25% { transform: scaleY(0.45); }
-  50% { transform: scaleY(0.75); }
-  75% { transform: scaleY(0.30); }
-}
-/* Paused state: stop the animation (bars freeze at current keyframe position).
-   The NowPlayingEqualizer component also sets animation-play-state: paused
-   and opacity: 0.5 inline, but we keep this CSS rule as a fallback for
-   any other code that uses the .mq-eq-paused class without the component. */
-.mq-eq-paused span {
-  animation-play-state: paused;
-  opacity: 0.5;
+/* Reduced motion: static bars, no animation (WCAG 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  .mq-eq-paused span,
+  [style*="mq-eq-bounce"] {
+    animation: none !important;
+    transform: scaleY(0.6) !important;
+  }
 }
 
 /* Pulse border (FullTrackView cover) */

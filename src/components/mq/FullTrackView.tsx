@@ -648,7 +648,12 @@ export default function FullTrackView() {
                 src={currentTrack.cover}
                 alt=""
                 className="w-full h-full object-cover"
-                style={{ filter: "blur(80px) saturate(180%)", opacity: 0.25, transform: "scale(1.3)" }}
+                // P0 fix: blur(80px) → blur(40px) — half the GPU paint cost,
+                // same visual effect at 25% opacity. scale(1.2) instead of 1.3
+                // reduces repaint area. saturate(150%) instead of 180% —
+                // marginal difference, less GPU work.
+                style={{ filter: "blur(40px) saturate(150%)", opacity: 0.25, transform: "scale(1.2)" }}
+                loading="eager"
               />
               <div
                 className="absolute inset-0"
@@ -752,7 +757,7 @@ export default function FullTrackView() {
                           [seekFeedback.side]: "20%",
                           backgroundColor: "var(--mq-overlay-scrim)",
                           backdropFilter: "blur(10px)",
-                          color: "#fff",
+                          color: "var(--mq-text-on-accent, #fff)",
                           fontSize: 14,
                           fontWeight: 600,
                         } as React.CSSProperties}
@@ -859,7 +864,7 @@ export default function FullTrackView() {
                     <button onClick={() => { setShowSleepMenu(!showSleepMenu); setShowSpeedMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center relative" style={{ backgroundColor: sleepTimerActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }} title="Таймер сна">
                       <Timer className="w-4 h-4" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                       {sleepTimerActive && (
-                        <span className="absolute -bottom-0.5 -right-0.5 text-[8px] font-mono px-1 rounded-full" style={{ background: "var(--mq-accent)", color: "#fff" }}>{sleepRemainingMin}м</span>
+                        <span className="absolute -bottom-0.5 -right-0.5 text-[8px] font-mono px-1 rounded-full" style={{ background: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>{sleepRemainingMin}м</span>
                       )}
                     </button>
                   </div>
@@ -1092,21 +1097,46 @@ export default function FullTrackView() {
                   <div className="w-full mb-4">
                     <div
                       ref={progressBarRef}
-                      className="h-1.5 rounded-full cursor-pointer relative group mb-2"
+                      className="relative cursor-pointer group mb-2"
+                      style={{ height: "24px", display: "flex", alignItems: "center" }}
                       onMouseDown={handleProgressMouseDown}
                       onTouchStart={handleProgressTouchStart}
                       onMouseLeave={() => setHoveredTime(null)}
                       onMouseMove={handleProgressMouseMove}
+                      role="slider"
+                      aria-label="Прогресс воспроизведения"
+                      aria-valuemin={0}
+                      aria-valuemax={Math.round(duration || 0)}
+                      aria-valuenow={Math.round(progress || 0)}
+                      tabIndex={0}
                     >
-                      <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "var(--mq-glass-bg-hover)" }} />
-                      {hoveredPct > progressPct && (
-                        <div className="absolute inset-y-0 left-0 rounded-full opacity-0 group-hover:opacity-100" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-glass-bg-active)" }} />
-                      )}
-                      <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", willChange: "transform", transition: isDragging ? "none" : "transform 0.1s linear" }} />
-                      <div
-                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ left: `${isDragging ? progressPct : hoveredPct}%`, backgroundColor: "var(--mq-accent)", boxShadow: "0 0 12px color-mix(in srgb, var(--mq-accent) 50%, transparent)" }}
-                      />
+                      {/* Touch target overlay — 24px tall transparent area for easy touch drag.
+                          Visual bar stays 6px (h-1.5), but touch area is 24px (WCAG 2.5.8). */}
+                      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full">
+                        <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "var(--mq-glass-bg-hover)" }} />
+                        {hoveredPct > progressPct && (
+                          <div className="absolute inset-y-0 left-0 rounded-full opacity-0 group-hover:opacity-100" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-glass-bg-active)" }} />
+                        )}
+                        <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", transition: isDragging ? "none" : "transform 0.1s linear" }} />
+                        {/* Drag handle — visible on mobile (touch devices don't have hover) */}
+                        <div
+                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none transition-opacity"
+                          style={{
+                            left: `${isDragging ? progressPct : (hoveredPct || progressPct)}%`,
+                            backgroundColor: "var(--mq-accent)",
+                            boxShadow: "0 0 12px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
+                            opacity: isDragging ? 1 : (isMobile ? 0.7 : 0),
+                          }}
+                        />
+                        {/* Hover-only handle on desktop */}
+                        {!isMobile && (
+                          <div
+                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+                            style={{ left: `${hoveredPct}%`, backgroundColor: "var(--mq-accent)" }}
+                          />
+                        )}
+                      </div>
+                      {/* Hover tooltip — inside progressBarRef div for correct positioning */}
                       {hoveredTime !== null && !isDragging && (
                         <div
                           className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded text-[9px] font-mono pointer-events-none whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
@@ -1136,9 +1166,9 @@ export default function FullTrackView() {
                       style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 8px 32px color-mix(in srgb, var(--mq-accent) 40%, transparent)" }}
                       title="Play/Pause (Space)"
                     >
-                      {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "#fff" }} />
-                        : isPlaying ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="#fff" style={{ color: "#fff" }} />
-                        : <Play className="w-7 h-7 sm:w-8 sm:h-8 ml-1" fill="#fff" style={{ color: "#fff" }} />}
+                      {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                        : isPlaying ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                        : <Play className="w-7 h-7 sm:w-8 sm:h-8 ml-1" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />}
                       {/* Pulse ring when playing (CSS) */}
                       {isPlaying && (
                         <div

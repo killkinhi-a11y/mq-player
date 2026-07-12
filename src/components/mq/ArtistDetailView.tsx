@@ -56,35 +56,48 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
 
     (async () => {
       try {
-        // 1) Try artist-tracks API
-        const res = await fetch(`/api/music/artist-tracks?q=${encodeURIComponent(artist.name)}&limit=50`);
+        // 1) Try artist-tracks API — increased limit from 50 to 200
+        // so artists with large catalogs show all their tracks.
+        const res = await fetch(`/api/music/artist-tracks?q=${encodeURIComponent(artist.name)}&limit=200`);
         if (res.ok) {
           const data = await res.json();
-          if (!cancelled && data.tracks?.length > 0) {
-            setTracks(data.tracks.map((t: any) => normalizeTrack(t, artist.name)));
+          if (!cancelled) {
+            // Update artist info even if 0 tracks (new artist with metadata only)
             if (data.artist) {
               setInfo(prev => ({
                 ...prev,
                 avatar: data.artist.avatar || prev.avatar,
-                followers: data.artist.followers ?? prev.followers,
+                // Use !== undefined instead of ?? so 0 is not treated as null
+                followers: data.artist.followers !== undefined ? data.artist.followers : prev.followers,
                 genre: data.artist.genre || prev.genre,
-                trackCount: data.artist.trackCount ?? data.tracks.length,
+                trackCount: data.artist.trackCount !== undefined ? data.artist.trackCount : (data.tracks?.length || prev.trackCount),
               }));
             }
-            setLoading(false);
-            return;
+            if (data.tracks?.length > 0) {
+              setTracks(data.tracks.map((t: any) => normalizeTrack(t, artist.name)));
+              setLoading(false);
+              return;
+            }
           }
         }
 
-        // 2) Fallback: search
-        const sRes = await fetch(`/api/music/search?q=${encodeURIComponent(artist.name)}&limit=30`);
+        // 2) Fallback: search — stricter filter to avoid false matches
+        const sRes = await fetch(`/api/music/search?q=${encodeURIComponent(artist.name)}&limit=50`);
         if (sRes.ok && !cancelled) {
           const sData = await sRes.json();
-          const aName = artist.name.toLowerCase();
+          const aName = artist.name.toLowerCase().trim();
+          // Split artist name on common separators for feat./& collabs
+          const nameParts = aName.split(/[\s,/&]+|\bfeat\.?\b|\bft\.?\b/i).filter(Boolean);
           const filtered = (sData.tracks || [])
             .filter((t: any) => {
-              const tA = (t.artist || "").toLowerCase();
-              return tA === aName || tA.includes(aName) || aName.includes(tA);
+              const tA = (t.artist || "").toLowerCase().trim();
+              if (!tA) return false;
+              // Exact match wins
+              if (tA === aName) return true;
+              // Track artist contains our artist name (e.g. "Eminem feat. Rihanna")
+              if (tA.includes(aName)) return true;
+              // Check if any name part matches exactly (for "Jay Z" vs "Jay-Z")
+              return nameParts.length > 1 && nameParts.some(p => p.length > 2 && tA.includes(p));
             })
             .map((t: any) => normalizeTrack(t, artist.name));
           setTracks(filtered);
@@ -289,7 +302,8 @@ function normalizeTrack(t: any, fallbackArtist: string): Track {
     genre: t.genre || "",
     audioUrl: t.audioUrl || "",
     previewUrl: t.previewUrl || "",
-    source: "soundcloud" as const,
+    // Use source from data if available, fallback to soundcloud
+    source: (t.source as Track["source"]) || "soundcloud",
     scTrackId: t.scTrackId || null,
     scStreamPolicy: t.scStreamPolicy || "",
     scIsFull: t.scIsFull || false,

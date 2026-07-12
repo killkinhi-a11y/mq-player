@@ -225,13 +225,15 @@ export default function PlaylistView() {
         return;
       }
       // Convert to base64 data URL — store locally (no server upload needed)
+      // P0 fix: use functional setState to avoid race condition when multiple
+      // uploads happen in quick succession. Was: snapshot getState() then
+      // setState with stale data — second upload would overwrite first.
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
-        const current = useAppStore.getState().playlists;
-        setTimeout(() => useAppStore.setState({
-          playlists: current.map(p => p.id === playlistId ? { ...p, cover: dataUrl } : p),
-        }), 0);
+        useAppStore.setState(s => ({
+          playlists: s.playlists.map(p => p.id === playlistId ? { ...p, cover: dataUrl } : p),
+        }));
         toast({ title: "Обложка установлена" });
       };
       reader.onerror = () => {
@@ -246,10 +248,10 @@ export default function PlaylistView() {
   }, [toast]);
 
   const handleRemoveCover = useCallback((playlistId: string) => {
-    const current = useAppStore.getState().playlists;
-    setTimeout(() => useAppStore.setState({
-      playlists: current.map(p => p.id === playlistId ? { ...p, cover: "" } : p),
-    }), 0);
+    // P0 fix: functional setState to avoid race condition
+    useAppStore.setState(s => ({
+      playlists: s.playlists.map(p => p.id === playlistId ? { ...p, cover: "" } : p),
+    }));
   }, []);
 
   // Parse text like "Artist - Title" (one per line) and search them on SoundCloud.
@@ -1105,8 +1107,17 @@ function PlaylistTile({
       whileHover={{ y: -3 }}
       whileTap={{ scale: 0.98 }}
       onClick={onOpen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
       onContextMenu={handleTileContextMenu}
-      className="group relative rounded-2xl p-3 cursor-pointer"
+      role="button"
+      tabIndex={0}
+      aria-label={`Открыть плейлист ${pl.name}, ${pl.tracks.length} треков`}
+      className="group relative rounded-2xl p-3 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2"
       style={{
         backgroundColor: "var(--mq-card)",
         border: "1px solid var(--mq-border-hairline)",
