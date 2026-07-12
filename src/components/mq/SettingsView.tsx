@@ -345,13 +345,15 @@ export default function SettingsView() {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              <motion.button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.03 }}
                 className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-sm font-semibold whitespace-nowrap transition-all flex-shrink-0"
-                style={{ background: isActive ? "var(--mq-accent)" : "transparent", color: isActive ? "#fff" : "var(--mq-text-muted)", boxShadow: isActive ? "0 4px 12px color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "none" }}>
+                style={{ background: isActive ? "var(--mq-accent)" : "transparent", color: isActive ? "var(--mq-text-on-accent, #fff)" : "var(--mq-text-muted)", boxShadow: isActive ? "0 4px 12px color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "none" }}>
                 <Icon className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{tab.label}</span>
                 <span className="sm:hidden">{tab.labelShort}</span>
-              </button>
+              </motion.button>
             );
           })}
         </div>
@@ -411,22 +413,25 @@ export default function SettingsView() {
                     Вы уверены? Все данные будут удалены безвозвратно.
                   </p>
                   <div className="flex gap-2">
-                    <button
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
                       onClick={handleDeleteAccount}
                       disabled={deleting}
-                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
+                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
                       style={{ backgroundColor: "var(--mq-error, #ef4444)", color: "var(--mq-text-on-accent, #fff)" }}
                     >
                       {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                       Удалить навсегда
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      whileHover={{ scale: 1.02 }}
                       onClick={() => setDeleteConfirm(false)}
-                      className="px-4 py-2.5 rounded-xl text-sm font-medium"
+                      className="px-4 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
                       style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-thin)" }}
                     >
                       Отмена
-                    </button>
+                    </motion.button>
                   </div>
                 </div>
               )}

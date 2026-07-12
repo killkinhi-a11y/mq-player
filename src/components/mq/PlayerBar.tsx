@@ -342,15 +342,17 @@ export default function PlayerBar() {
             <div className="flex flex-col items-center gap-1.5 flex-1 max-w-md">
               {/* Control buttons */}
               <div className="flex items-center gap-3 relative">
-                <button onClick={toggleShuffle} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать" aria-label="Перемешать">
+                <button onClick={toggleShuffle} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать" aria-label="Перемешать">
                   <Shuffle className="w-3.5 h-3.5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                 </button>
 
-                <button onClick={() => { prevTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center" title="Предыдущий" aria-label="Предыдущий трек">
+                <motion.button whileTap={{ scale: 0.85 }} whileHover={{ scale: 1.1 }} onClick={() => { prevTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий" aria-label="Предыдущий трек">
                   <SkipBack className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                </button>
+                </motion.button>
 
-                <button
+                <motion.button
+                  whileTap={{ scale: 0.92 }}
+                  whileHover={{ scale: 1.06 }}
                   onClick={() => { togglePlay(); hapticPlay(); }}
                   className="w-10 h-10 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
@@ -360,7 +362,7 @@ export default function PlayerBar() {
                   {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
                     : isPlaying ? <Pause className="w-4 h-4" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
                     : <Play className="w-4 h-4 ml-0.5" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />}
-                </button>
+                </motion.button>
 
                 {/* SkipForward with hover-triggered Up Next preview.
                     150ms open delay prevents flicker when sweeping the mouse
@@ -377,9 +379,9 @@ export default function PlayerBar() {
                     setShowUpNext(false);
                   }}
                 >
-                  <button onClick={() => { nextTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center" title="Следующий" aria-label="Следующий трек">
+                  <motion.button whileTap={{ scale: 0.85 }} whileHover={{ scale: 1.1 }} onClick={() => { nextTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий" aria-label="Следующий трек">
                     <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                  </button>
+                  </motion.button>
 
                 {/* Up Next preview — shown on hover over the SkipForward area.
                     Positioned ABOVE the player bar (player bar is at the bottom
@@ -442,7 +444,7 @@ export default function PlayerBar() {
                 </AnimatePresence>
                 </div>
 
-                <button onClick={toggleRepeat} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors" style={{ backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Повтор" aria-label="Повтор">
+                <button onClick={toggleRepeat} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Повтор" aria-label="Повтор">
                   {repeat === "one" ? <Repeat1 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                     : <Repeat className="w-3.5 h-3.5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
                 </button>

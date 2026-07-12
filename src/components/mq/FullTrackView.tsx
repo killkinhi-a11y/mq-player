@@ -834,12 +834,12 @@ export default function FullTrackView() {
                   {/* Action buttons row */}
                   <div className={`flex items-center gap-2 mb-4 flex-wrap ${isMobile ? "justify-center" : "justify-start"}`}>
                     <div className="relative">
-                      <button onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }} title="Нравится (L)">
+                      <button onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }} title="Нравится (L)">
                         <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
                       </button>
                       <HeartBurst trigger={heartBurstTrigger} />
                     </div>
-                    <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "var(--mq-glass-bg)" }} title="Не нравится">
+                    <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "var(--mq-glass-bg)" }} title="Не нравится">
                       <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
                     </button>
                     <button
@@ -1240,10 +1240,10 @@ export default function FullTrackView() {
 
                   {/* ═══ MAIN CONTROLS ═══ */}
                   <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "" : "justify-start"}`}>
-                    <button onClick={toggleShuffle} aria-label="Перемешать" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать (S)">
+                    <button onClick={toggleShuffle} aria-label="Перемешать" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать (S)">
                       <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </button>
-                    <button onClick={prevTrack} aria-label="Предыдущий трек" className="w-12 h-12 rounded-full flex items-center justify-center" title="Предыдущий (P)">
+                    <button onClick={prevTrack} aria-label="Предыдущий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий (P)">
                       <SkipBack className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                     </button>
                     <button
@@ -1264,10 +1264,10 @@ export default function FullTrackView() {
                         />
                       )}
                     </button>
-                    <button onClick={nextTrack} aria-label="Следующий трек" className="w-12 h-12 rounded-full flex items-center justify-center" title="Следующий (N)">
+                    <button onClick={nextTrack} aria-label="Следующий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий (N)">
                       <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                     </button>
-                    <button onClick={toggleRepeat} aria-label="Повтор" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors" style={{ backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Повтор (R)">
+                    <button onClick={toggleRepeat} aria-label="Повтор" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Повтор (R)">
                       {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
                         : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
                     </button>
