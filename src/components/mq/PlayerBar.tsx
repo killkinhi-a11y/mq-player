@@ -111,7 +111,13 @@ export default function PlayerBar() {
   useEffect(() => {
     if (isVolDragging) return;
     if (volFillRef.current) volFillRef.current.style.transform = `scaleX(${volume / 100})`;
-    if (volThumbRef.current) volThumbRef.current.style.transform = `translateX(${volume}%) translateY(-50%)`;
+    // CRITICAL fix: translateX(-50%) centers thumb on the position,
+    // not translateX(${volume}%) which shifts by thumb's own width.
+    // left: ${volume}% positions the thumb, translateX(-50%) centers it.
+    if (volThumbRef.current) {
+      volThumbRef.current.style.left = `${volume}%`;
+      volThumbRef.current.style.transform = `translateX(-50%) translateY(-50%)`;
+    }
   }, [volume, isVolDragging]);
 
   const seekVolume = useCallback((clientX: number) => {
@@ -119,7 +125,10 @@ export default function PlayerBar() {
     const rect = volTrackRef.current.getBoundingClientRect();
     const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
     if (volFillRef.current) volFillRef.current.style.transform = `scaleX(${pct / 100})`;
-    if (volThumbRef.current) volThumbRef.current.style.transform = `translateX(${pct}%) translateY(-50%)`;
+    if (volThumbRef.current) {
+      volThumbRef.current.style.left = `${pct}%`;
+      volThumbRef.current.style.transform = `translateX(-50%) translateY(-50%)`;
+    }
     volRef.current = pct;
     if (volRafRef.current) cancelAnimationFrame(volRafRef.current);
     volRafRef.current = requestAnimationFrame(() => setVolume(pct));
@@ -333,7 +342,7 @@ export default function PlayerBar() {
             <div className="flex flex-col items-center gap-1.5 flex-1 max-w-md">
               {/* Control buttons */}
               <div className="flex items-center gap-3 relative">
-                <button onClick={toggleShuffle} className="w-7 h-7 rounded-full flex items-center justify-center" title="Перемешать" aria-label="Перемешать">
+                <button onClick={toggleShuffle} className="w-9 h-9 rounded-full flex items-center justify-center" title="Перемешать" aria-label="Перемешать">
                   <Shuffle className="w-3.5 h-3.5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                 </button>
 
@@ -433,7 +442,7 @@ export default function PlayerBar() {
                 </AnimatePresence>
                 </div>
 
-                <button onClick={toggleRepeat} className="w-7 h-7 rounded-full flex items-center justify-center" title="Повтор" aria-label="Повтор">
+                <button onClick={toggleRepeat} className="w-9 h-9 rounded-full flex items-center justify-center" title="Повтор" aria-label="Повтор">
                   {repeat === "one" ? <Repeat1 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                     : <Repeat className="w-3.5 h-3.5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
                 </button>
@@ -465,7 +474,7 @@ export default function PlayerBar() {
                 whileTap={{ scale: 0.7 }}
                 whileHover={{ scale: 1.1 }}
                 onClick={handleLike}
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
                 title="Нравится"
                 aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"}
               >
@@ -485,14 +494,14 @@ export default function PlayerBar() {
                 whileTap={{ scale: 0.7 }}
                 whileHover={{ scale: 1.1 }}
                 onClick={handleDislike}
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
                 title="Не нравится"
                 aria-label={isDisliked ? "Убрать дизлайк" : "Не нравится"}
               >
                 <ThumbsDown
                   className="w-4 h-4"
                   style={{
-                    color: isDisliked ? "#ef4444" : "var(--mq-text-muted)",
+                    color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)",
                     transition: "color 0.15s",
                   }}
                   fill={isDisliked ? "currentColor" : "none"}
@@ -507,7 +516,7 @@ export default function PlayerBar() {
                 whileHover={{ scale: 1.1 }}
                 onClick={handleStartRadio}
                 disabled={wave.waveLoading}
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 relative"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative"
                 title={radioMode ? "Выключить волну" : "Радио от этого трека"}
                 aria-label={radioMode ? "Выключить волну" : "Радио от этого трека"}
               >
@@ -540,7 +549,7 @@ export default function PlayerBar() {
 
               {/* Volume — compact custom slider */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <button onClick={handleVolMute} aria-label="Mute" className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
+                <button onClick={handleVolMute} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
                   <VolIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                 </button>
                 <div
@@ -575,7 +584,7 @@ export default function PlayerBar() {
                 whileTap={{ scale: 0.85 }}
                 whileHover={{ scale: 1.1 }}
                 onClick={() => setEqOpen(true)}
-                className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 relative"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative"
                 title="Эквалайзер"
                 aria-label="Эквалайзер"
               >
@@ -597,7 +606,7 @@ export default function PlayerBar() {
               </motion.button>
 
               {/* Queue */}
-              <button onClick={() => setShowQueue(true)} className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" title="Очередь" aria-label="Очередь воспроизведения">
+              <button onClick={() => setShowQueue(true)} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" title="Очередь" aria-label="Очередь воспроизведения">
                 <ListMusic className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
               </button>
             </div>

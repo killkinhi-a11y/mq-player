@@ -439,8 +439,8 @@ export default function SettingsView() {
             <Card>
               <CardTitle icon={Palette} title="Тема" />
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
-                <div className="grid grid-cols-4 gap-2">
-                  {Object.entries(themes).slice(0, 12).map(([key, theme]: [string, any]) => {
+                <div className="grid grid-cols-4 gap-2 max-h-[280px] overflow-y-auto">
+                  {Object.entries(themes).map(([key, theme]: [string, any]) => {
                     const isActive = currentTheme === key;
                     return (
                       <motion.button key={key} whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={() => setTheme(key)}
@@ -565,7 +565,7 @@ export default function SettingsView() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             <Card>
               <CardTitle icon={Info} title="О приложении" />
-              <SettingRow icon={Info} label="Версия" value="v1.3.0" />
+              <SettingRow icon={Info} label="Версия" value={typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_VERSION ? `v${process.env.NEXT_PUBLIC_APP_VERSION}` : "v1.3.0"} />
               <SettingRow icon={Cloud} label="Сервер" value={APP_URL.replace("https://", "")} />
             </Card>
 

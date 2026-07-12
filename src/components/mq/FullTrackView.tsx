@@ -674,7 +674,7 @@ export default function FullTrackView() {
                 <ChevronDown className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
               </button>
               <div className="text-center">
-                <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">{radioMode ? "Волна" : "Играет"}</p>
+                <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">{radioMode ? "Волна" : isPlaying ? "Играет" : "Пауза"}</p>
                 <p className="text-xs font-medium truncate max-w-[200px] sm:max-w-xs" style={{ color: "var(--mq-text-muted)" }}>
                   {currentTrack.album || currentTrack.artist}
                 </p>
@@ -811,7 +811,7 @@ export default function FullTrackView() {
                       <HeartBurst trigger={heartBurstTrigger} />
                     </div>
                     <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "var(--mq-glass-bg)" }} title="Не нравится">
-                      <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
+                      <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
                     </button>
                     <button
                       onClick={() => setShowPlaylistPicker(v => !v)}
@@ -914,7 +914,7 @@ export default function FullTrackView() {
                                   if (currentTrack) addToPlaylist(pl.id, currentTrack);
                                   setShowPlaylistPicker(false);
                                 }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+                                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
                               >
                                 <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
                                   {pl.cover ? (
@@ -1034,7 +1034,7 @@ export default function FullTrackView() {
                               <button
                                 key={track.id + "_" + i}
                                 onClick={() => { playTrack?.(track, queue); setActivePanel(null); }}
-                                className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-white/[0.04] transition-colors"
+                                className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-[var(--mq-overlay-hover)] transition-colors"
                               >
                                 <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
                                   {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
@@ -1074,7 +1074,7 @@ export default function FullTrackView() {
                               <button
                                 key={track.id + "_h_" + i}
                                 onClick={() => { playTrack?.(track, [track]); setActivePanel(null); }}
-                                className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-white/[0.04] transition-colors"
+                                className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-[var(--mq-overlay-hover)] transition-colors"
                               >
                                 <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
                                   {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
