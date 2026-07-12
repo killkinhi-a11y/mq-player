@@ -92,7 +92,7 @@ async function handler(request: NextRequest) {
   const query = searchParams.get("q");
   const similar = searchParams.get("similar");
   const limitParam = searchParams.get("limit");
-  const limit = Math.min(Math.max(parseInt(limitParam || "20", 10) || 20, 5), 50);
+  const limit = Math.min(Math.max(parseInt(limitParam || "20", 10) || 20, 5), 100);
 
   // Case 1: Direct artist search
   if (query && query.trim().length > 0) {

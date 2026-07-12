@@ -77,6 +77,24 @@ function ToastItem({ toast }: { toast: MQToast & { visible: boolean } }) {
         )}
       </div>
 
+      {/* Action button (optional) */}
+      {toast.action && (
+        <button
+          onClick={() => {
+            toast.action!.onClick();
+            useToastDismiss(toast.id);
+          }}
+          className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-80"
+          style={{
+            backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+            color: "var(--mq-accent)",
+            border: "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+          }}
+        >
+          {toast.action.label}
+        </button>
+      )}
+
       {/* Close button */}
       <button
         onClick={() => useToastDismiss(toast.id)}

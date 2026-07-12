@@ -180,9 +180,20 @@ export default function PlaylistView() {
 
   const handleDelete = useCallback((pl: UserPlaylist) => {
     setMenuOpenId(null);
-    if (!confirm(`Удалить плейлист «${pl.name}»?`)) return;
+    // Replace native confirm() with undo toast — premium UX, no blocking dialog
     setTimeout(() => deletePlaylist(pl.id), 0);
-    toast({ title: "Плейлист удалён", description: pl.name });
+    toast({
+      title: "Плейлист удалён",
+      description: `${pl.name} · ${pl.tracks.length} треков`,
+      action: {
+        label: "Отменить",
+        onClick: () => {
+          // Re-add the playlist
+          useAppStore.setState(s => ({ playlists: [...s.playlists, pl] }));
+          toast({ title: "Плейлист восстановлен" });
+        },
+      },
+    });
   }, [deletePlaylist, toast]);
 
   const handleTogglePin = useCallback((id: string) => {

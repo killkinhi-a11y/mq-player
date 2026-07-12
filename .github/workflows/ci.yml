@@ -16,7 +16,7 @@
 
 name: CI — Lint, Type-Check, Test & Build
 
-on:
+"on":
   push:
     branches: [main, master, develop]
   pull_request:

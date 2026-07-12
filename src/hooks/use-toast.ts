@@ -13,6 +13,10 @@ export interface MQToast {
   description?: string
   variant?: "default" | "success" | "destructive"
   duration?: number
+  action?: {
+    label: string
+    onClick: () => void
+  }
 }
 
 interface State {
@@ -40,8 +44,8 @@ function dispatch(toast: MQToast) {
   }
   listeners.forEach((l) => l(memoryState))
 
-  // Auto-dismiss after duration
-  const duration = toast.duration ?? DEFAULT_DURATION
+  // Auto-dismiss after duration — toasts with action get longer duration
+  const duration = toast.duration ?? (toast.action ? 5000 : DEFAULT_DURATION)
   setTimeout(() => {
     // First: set visible = false (triggers exit animation)
     memoryState = {

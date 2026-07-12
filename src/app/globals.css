@@ -2471,11 +2471,12 @@ a:not([data-framer-motion-id]),
 
 /* ═══ MQ UI Animation Keyframes — CSS instead of Framer Motion for performance ═══ */
 
-/* ── NowPlayingEqualizer v5 — CSS class + custom properties ──
-   v4 used inline animationName/Duration/Delay which Safari ignores.
-   v5 uses a CSS class .mq-eq-bar with animation shorthand (reliable
-   cross-browser) + per-bar variance via --eq-duration/--eq-delay
-   custom properties set inline. */
+/* ── NowPlayingEqualizer v6 — pure CSS, no filter on parent ──
+   v5 had filter: drop-shadow on parent which created stacking context
+   and broke transform: scaleY on children in some browsers.
+   v6: NO filter on parent, glow via box-shadow on each bar (sm+ only),
+   4 bars with static per-bar animation-delay/duration via :nth-child.
+   Most reliable cross-browser approach. */
 
 @keyframes mq-eq-bounce {
   0%   { transform: scaleY(0.20); }
@@ -2485,26 +2486,28 @@ a:not([data-framer-motion-id]),
   100% { transform: scaleY(0.30); }
 }
 
-/* Container — inline-flex, glow on parent (1 paint layer) */
 .mq-eq-container {
   display: inline-flex;
   align-items: flex-end;
   flex-shrink: 0;
-  filter: drop-shadow(0 0 2px var(--eq-glow, var(--mq-accent)));
   transition: opacity 0.3s ease-out;
 }
 .mq-eq-container.mq-eq-paused {
-  filter: none;
   opacity: 0.5;
 }
 
-/* Bar — animation via CSS class (not inline) for cross-browser reliability */
 .mq-eq-bar {
   display: block;
   transform-origin: bottom;
-  animation: mq-eq-bounce var(--eq-duration, 1s) cubic-bezier(0.45, 0, 0.55, 1) var(--eq-delay, 0s) infinite alternate;
+  animation: mq-eq-bounce 1s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
   transition: transform 0.3s ease-out;
 }
+
+/* Per-bar variance via :nth-child — static, reliable, no JS needed */
+.mq-eq-bar-1 { animation-duration: 0.85s; animation-delay: 0s; }
+.mq-eq-bar-2 { animation-duration: 1.10s; animation-delay: 0.15s; }
+.mq-eq-bar-3 { animation-duration: 0.70s; animation-delay: 0.05s; }
+.mq-eq-bar-4 { animation-duration: 1.20s; animation-delay: 0.25s; }
 
 /* Paused: freeze animation, static 60% height */
 .mq-eq-paused .mq-eq-bar {

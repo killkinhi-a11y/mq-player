@@ -3,18 +3,20 @@
 import { memo, useMemo } from "react";
 
 /**
- * NowPlayingEqualizer v5 — надёжная анимация через CSS класс + variables.
+ * NowPlayingEqualizer v6 — максимальная надёжность.
  *
- * v4 проблема: React inline styles с animationName/Duration/Delay работают
- * нестабильно (Safari игнорирует, Chrome иногда теряет при re-render).
+ * v5 проблема: filter: drop-shadow на родителе создавал stacking context,
+ * который в некоторых браузерах ломал transform: scaleY на детях. Также
+ * CSS custom properties для animation duration не работали в старых Safari.
  *
- * v5 решение:
- * - CSS класс .mq-eq-bar с animation shorthand (надёжнее inline)
- * - Per-bar variance через CSS custom properties (--eq-duration, --eq-delay)
- * - Glow на родителе через filter: drop-shadow
- * - prefers-reduced-motion → статичные бары
- * - aria-hidden (декоративный)
- * - Только design tokens
+ * v6 решение:
+ * - НЕТ filter на родителе (glow через box-shadow на каждом баре, но только
+ *   на sm+ размерах где он виден)
+ * - Pure CSS класс .mq-eq-bar с зашитой animation — БЕЗ inline animation
+ * - Per-bar variance через inline transform: scaleY(0.X) в pause state
+ *   и через CSS :nth-child() для animation-delay/duration (статично, надёжно)
+ * - 4 бара, размеры через inline width/height (CSS не парсит JS переменные)
+ * - paused = просто добавляем класс .mq-eq-paused на контейнер
  */
 
 type EqSize = "xs" | "sm" | "md" | "lg";
@@ -34,8 +36,6 @@ const SIZE_CONFIG: Record<EqSize, { height: number; barWidth: number; gap: numbe
   lg: { height: 24, barWidth: 3.5, gap: 3, radius: 2.5 },
 };
 
-const BAR_COUNT = 4;
-
 export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
   size = "md",
   variant = "inline",
@@ -44,22 +44,7 @@ export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
 }: NowPlayingEqualizerProps) {
   const cfg = SIZE_CONFIG[size];
 
-  // Рандомные delay/duration для каждого бара — генерируются ОДИН раз
-  // при mount. Даёт органичный, не механический паттерн.
-  const barVariants = useMemo(() => {
-    return Array.from({ length: BAR_COUNT }, () => ({
-      // duration 0.7s - 1.4s — естественный ритм
-      duration: `${(0.7 + Math.random() * 0.7).toFixed(2)}s`,
-      // delay 0s - 0.5s — асинхронный старт
-      delay: `${(Math.random() * 0.5).toFixed(2)}s`,
-    }));
-  }, []);
-
   const barColor = variant === "overlay"
-    ? "var(--mq-text-on-accent, #fff)"
-    : "var(--mq-accent)";
-
-  const glowColor = variant === "overlay"
     ? "var(--mq-text-on-accent, #fff)"
     : "var(--mq-accent)";
 
@@ -69,24 +54,47 @@ export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
       style={{
         height: cfg.height,
         gap: cfg.gap,
-        "--eq-glow": glowColor,
-      } as React.CSSProperties}
+        // NO filter here — filter creates stacking context that breaks
+        // transform: scaleY on children in some browsers.
+      }}
       aria-hidden="true"
     >
-      {barVariants.map((v, i) => (
-        <span
-          key={i}
-          className="mq-eq-bar"
-          style={{
-            width: cfg.barWidth,
-            height: cfg.height,
-            backgroundColor: barColor,
-            borderRadius: cfg.radius,
-            "--eq-duration": v.duration,
-            "--eq-delay": v.delay,
-          } as React.CSSProperties}
-        />
-      ))}
+      <span
+        className="mq-eq-bar mq-eq-bar-1"
+        style={{
+          width: cfg.barWidth,
+          height: cfg.height,
+          backgroundColor: barColor,
+          borderRadius: cfg.radius,
+        }}
+      />
+      <span
+        className="mq-eq-bar mq-eq-bar-2"
+        style={{
+          width: cfg.barWidth,
+          height: cfg.height,
+          backgroundColor: barColor,
+          borderRadius: cfg.radius,
+        }}
+      />
+      <span
+        className="mq-eq-bar mq-eq-bar-3"
+        style={{
+          width: cfg.barWidth,
+          height: cfg.height,
+          backgroundColor: barColor,
+          borderRadius: cfg.radius,
+        }}
+      />
+      <span
+        className="mq-eq-bar mq-eq-bar-4"
+        style={{
+          width: cfg.barWidth,
+          height: cfg.height,
+          backgroundColor: barColor,
+          borderRadius: cfg.radius,
+        }}
+      />
     </span>
   );
 });

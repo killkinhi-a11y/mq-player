@@ -1154,14 +1154,15 @@ export default function FullTrackView() {
 
                   {/* ═══ MAIN CONTROLS ═══ */}
                   <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "" : "justify-start"}`}>
-                    <button onClick={toggleShuffle} className="w-10 h-10 rounded-full flex items-center justify-center" title="Перемешать (S)">
+                    <button onClick={toggleShuffle} aria-label="Перемешать" className="w-10 h-10 rounded-full flex items-center justify-center" title="Перемешать (S)">
                       <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </button>
-                    <button onClick={prevTrack} className="w-12 h-12 rounded-full flex items-center justify-center" title="Предыдущий (P)">
+                    <button onClick={prevTrack} aria-label="Предыдущий трек" className="w-12 h-12 rounded-full flex items-center justify-center" title="Предыдущий (P)">
                       <SkipBack className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                     </button>
                     <button
                       onClick={togglePlay}
+                      aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                       className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
                       style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 8px 32px color-mix(in srgb, var(--mq-accent) 40%, transparent)" }}
                       title="Play/Pause (Space)"
@@ -1177,10 +1178,10 @@ export default function FullTrackView() {
                         />
                       )}
                     </button>
-                    <button onClick={nextTrack} className="w-12 h-12 rounded-full flex items-center justify-center" title="Следующий (N)">
+                    <button onClick={nextTrack} aria-label="Следующий трек" className="w-12 h-12 rounded-full flex items-center justify-center" title="Следующий (N)">
                       <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                     </button>
-                    <button onClick={toggleRepeat} className="w-10 h-10 rounded-full flex items-center justify-center" title="Повтор (R)">
+                    <button onClick={toggleRepeat} aria-label="Повтор" className="w-10 h-10 rounded-full flex items-center justify-center" title="Повтор (R)">
                       {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
                         : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
                     </button>
