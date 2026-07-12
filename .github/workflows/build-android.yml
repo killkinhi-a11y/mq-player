@@ -15,7 +15,7 @@ name: Build Android APK
 #   - ANDROID_KEY_PASSWORD
 #   - ANDROID_KEYSTORE_PASSWORD
 
-on:
+"on":
   push:
     branches:
       - main
