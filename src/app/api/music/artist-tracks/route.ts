@@ -36,7 +36,7 @@ async function handler(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
   const limitParam = searchParams.get("limit");
-  const limit = Math.min(Math.max(parseInt(limitParam || "20", 10) || 20, 5), 50);
+  const limit = Math.min(Math.max(parseInt(limitParam || "20", 10) || 20, 5), 200);
 
   if (!query || query.trim().length === 0) {
     return NextResponse.json({ tracks: [], artist: null });

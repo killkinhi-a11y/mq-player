@@ -50,13 +50,13 @@ async function handler(request: NextRequest) {
 
     if (source === "all" || source === "soundcloud") {
       searchPromises.push(
-        searchSCTracks(trimmed, 20).catch(() => [])
+        searchSCTracks(trimmed, 50).catch(() => [])
       );
     }
 
     if (source === "all" || source === "audius") {
       searchPromises.push(
-        searchAudiusTracks(trimmed, 20).catch(() => [])
+        searchAudiusTracks(trimmed, 30).catch(() => [])
       );
     }
 
@@ -68,7 +68,7 @@ async function handler(request: NextRequest) {
     }
 
     const responseData = {
-      tracks: allTracks.slice(0, 50),
+      tracks: allTracks.slice(0, 100),
     };
     setCache(cacheKey, responseData);
     return NextResponse.json(responseData);

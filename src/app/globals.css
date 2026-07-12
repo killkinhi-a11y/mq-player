@@ -2471,11 +2471,12 @@ a:not([data-framer-motion-id]),
 
 /* ═══ MQ UI Animation Keyframes — CSS instead of Framer Motion for performance ═══ */
 
-/* ── NowPlayingEqualizer v4 — single shared keyframe ──
-   One bounce pattern with 4 stops. Per-bar variance comes from
-   animation-delay/duration set inline in the component (random at mount).
-   This replaces the old 5 separate keyframes (mq-eq-bar-1..5) — simpler,
-   less CSS, same visual result with organic randomness. */
+/* ── NowPlayingEqualizer v5 — CSS class + custom properties ──
+   v4 used inline animationName/Duration/Delay which Safari ignores.
+   v5 uses a CSS class .mq-eq-bar with animation shorthand (reliable
+   cross-browser) + per-bar variance via --eq-duration/--eq-delay
+   custom properties set inline. */
+
 @keyframes mq-eq-bounce {
   0%   { transform: scaleY(0.20); }
   25%  { transform: scaleY(0.75); }
@@ -2484,10 +2485,36 @@ a:not([data-framer-motion-id]),
   100% { transform: scaleY(0.30); }
 }
 
+/* Container — inline-flex, glow on parent (1 paint layer) */
+.mq-eq-container {
+  display: inline-flex;
+  align-items: flex-end;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 2px var(--eq-glow, var(--mq-accent)));
+  transition: opacity 0.3s ease-out;
+}
+.mq-eq-container.mq-eq-paused {
+  filter: none;
+  opacity: 0.5;
+}
+
+/* Bar — animation via CSS class (not inline) for cross-browser reliability */
+.mq-eq-bar {
+  display: block;
+  transform-origin: bottom;
+  animation: mq-eq-bounce var(--eq-duration, 1s) cubic-bezier(0.45, 0, 0.55, 1) var(--eq-delay, 0s) infinite alternate;
+  transition: transform 0.3s ease-out;
+}
+
+/* Paused: freeze animation, static 60% height */
+.mq-eq-paused .mq-eq-bar {
+  animation: none;
+  transform: scaleY(0.6);
+}
+
 /* Reduced motion: static bars, no animation (WCAG 2.3.3) */
 @media (prefers-reduced-motion: reduce) {
-  .mq-eq-paused span,
-  [style*="mq-eq-bounce"] {
+  .mq-eq-bar {
     animation: none !important;
     transform: scaleY(0.6) !important;
   }

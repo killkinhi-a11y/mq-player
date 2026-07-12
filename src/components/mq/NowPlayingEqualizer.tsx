@@ -3,22 +3,18 @@
 import { memo, useMemo } from "react";
 
 /**
- * NowPlayingEqualizer v4 — полная переработка.
+ * NowPlayingEqualizer v5 — надёжная анимация через CSS класс + variables.
  *
- * Принципы v4:
- * - 4 бара вместо 5 (видно на 40px иконке без слияния)
- * - ОДИН общий @keyframes mq-eq-bounce + per-bar variance через
- *   animation-delay/duration (рандомные при mount, не статика)
- * - Glow на родителе (один filter: drop-shadow), не на каждом баре
- * - prefers-reduced-motion → статичные бары на 60% высоты
- * - aria-hidden (декоративный), label на родительском контейнере
- * - Только design tokens, никаких rgba(255,255,255,*) хардкодов
- * - GPU-only: transform: scaleY + opacity, no layout properties
+ * v4 проблема: React inline styles с animationName/Duration/Delay работают
+ * нестабильно (Safari игнорирует, Chrome иногда теряет при re-render).
  *
- * Используется:
- * - PlayerBar: overlay variant (на обложке трека, ~40px)
- * - TrackCard: inline variant (рядом с текстом, ~12px)
- * - MainView: inline variant (в карточке текущего трека, ~8px)
+ * v5 решение:
+ * - CSS класс .mq-eq-bar с animation shorthand (надёжнее inline)
+ * - Per-bar variance через CSS custom properties (--eq-duration, --eq-delay)
+ * - Glow на родителе через filter: drop-shadow
+ * - prefers-reduced-motion → статичные бары
+ * - aria-hidden (декоративный)
+ * - Только design tokens
  */
 
 type EqSize = "xs" | "sm" | "md" | "lg";
@@ -49,19 +45,16 @@ export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
   const cfg = SIZE_CONFIG[size];
 
   // Рандомные delay/duration для каждого бара — генерируются ОДИН раз
-  // при mount (useMemo с пустыми deps). Это даёт органичный, не механический
-  // паттерн: каждый бар «живёт» самостоятельно.
+  // при mount. Даёт органичный, не механический паттерн.
   const barVariants = useMemo(() => {
     return Array.from({ length: BAR_COUNT }, () => ({
       // duration 0.7s - 1.4s — естественный ритм
-      duration: `${0.7 + Math.random() * 0.7}s`,
+      duration: `${(0.7 + Math.random() * 0.7).toFixed(2)}s`,
       // delay 0s - 0.5s — асинхронный старт
-      delay: `${Math.random() * 0.5}s`,
+      delay: `${(Math.random() * 0.5).toFixed(2)}s`,
     }));
   }, []);
 
-  // overlay — белые полосы (через --mq-text-on-accent токен, не хардкод)
-  // inline — accent-цветные полосы
   const barColor = variant === "overlay"
     ? "var(--mq-text-on-accent, #fff)"
     : "var(--mq-accent)";
@@ -72,40 +65,26 @@ export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
 
   return (
     <span
-      className={`inline-flex items-end flex-shrink-0 ${className}`}
+      className={`mq-eq-container ${paused ? "mq-eq-paused" : ""} ${className}`}
       style={{
         height: cfg.height,
         gap: cfg.gap,
-        display: "inline-flex",
-        // Единый glow на родителе — один paint layer вместо 5 box-shadow
-        filter: paused ? "none" : `drop-shadow(0 0 2px ${glowColor})`,
-        // Reduced motion: static bars at 60% height
-        ...(paused ? { opacity: 0.5 } : {}),
-      }}
+        "--eq-glow": glowColor,
+      } as React.CSSProperties}
       aria-hidden="true"
     >
       {barVariants.map((v, i) => (
         <span
           key={i}
+          className="mq-eq-bar"
           style={{
-            display: "block",
             width: cfg.barWidth,
             height: cfg.height,
             backgroundColor: barColor,
             borderRadius: cfg.radius,
-            transformOrigin: "bottom",
-            // ОДИН общий keyframes + per-bar variance
-            animationName: paused ? "none" : "mq-eq-bounce",
-            animationDuration: v.duration,
-            animationTimingFunction: "cubic-bezier(0.45, 0, 0.55, 1)",
-            animationDelay: v.delay,
-            animationIterationCount: "infinite",
-            animationDirection: "alternate",
-            // Paused: static 60% height, no animation
-            transform: paused ? "scaleY(0.6)" : undefined,
-            // Smooth transition when pausing
-            transition: "transform 0.3s ease-out, opacity 0.3s ease-out",
-          }}
+            "--eq-duration": v.duration,
+            "--eq-delay": v.delay,
+          } as React.CSSProperties}
         />
       ))}
     </span>
