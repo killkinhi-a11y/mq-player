@@ -278,3 +278,43 @@ jobs:
                 body,
               });
             }
+
+  # ---------------------------------------------------------------------------
+  # 7. Production Deploy to Vercel (push to main only)
+  # ---------------------------------------------------------------------------
+  # Native Vercel GitHub integration was previously handling this, but the
+  # webhook got disconnected — deploys stopped triggering on push to main.
+  # This job is the fallback: uses Vercel CLI to deploy to production on
+  # every successful main build. Requires VERCEL_TOKEN, VERCEL_ORG_ID,
+  # VERCEL_PROJECT_ID secrets (already set for preview-deploy job).
+  # ---------------------------------------------------------------------------
+  production-deploy:
+    name: Production Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [build]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: ${{ steps.vercel-production.outputs.url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel (Production)
+        id: vercel-production
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: ./
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "🚀 Production deployment complete!"
+          echo "URL: ${{ steps.vercel-production.outputs.url }}"
+          echo "Deployment URL: ${{ steps.vercel-production.outputs.deployment-url }}"
+
