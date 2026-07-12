@@ -209,6 +209,7 @@ export default function FullTrackView() {
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showSleepMenu, setShowSleepMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [showDoubleTapHint, setShowDoubleTapHint] = useState(true);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
   const [showVolumePopup, setShowVolumePopup] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
@@ -781,10 +782,19 @@ export default function FullTrackView() {
                     )}
                   </AnimatePresence>
 
-                  {/* Hint text for double-tap */}
-                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] pointer-events-none" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
-                    ← двойной тап →
-                  </div>
+                  {/* Hint text for double-tap — auto-hides after 4 seconds */}
+                  {showDoubleTapHint && (
+                    <motion.div
+                      className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] pointer-events-none"
+                      style={{ color: "var(--mq-text-muted)" }}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: [0, 0.5, 0.5, 0] }}
+                      transition={{ duration: 4, times: [0, 0.1, 0.8, 1] }}
+                      onAnimationComplete={() => setShowDoubleTapHint(false)}
+                    >
+                      ← двойной тап →
+                    </motion.div>
+                  )}
                 </motion.div>
 
                 {/* ═══ RIGHT SIDE: info, controls, panels ═══ */}
@@ -1054,7 +1064,8 @@ export default function FullTrackView() {
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
-                        className="w-full mb-4 overflow-hidden"
+                        className="w-full mb-4 overflow-hidden rounded-2xl"
+                        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
                       >
                         <div className="flex items-center justify-end mb-2">
                           <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
@@ -1086,7 +1097,8 @@ export default function FullTrackView() {
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
-                        className="w-full mb-4 overflow-hidden"
+                        className="w-full mb-4 overflow-hidden rounded-2xl"
+                        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Далее в очереди</p>
@@ -1126,7 +1138,8 @@ export default function FullTrackView() {
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
-                        className="w-full mb-4 overflow-hidden"
+                        className="w-full mb-4 overflow-hidden rounded-2xl"
+                        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Недавно играло</p>

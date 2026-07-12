@@ -276,39 +276,39 @@ export default function PlayerBar() {
             {/* ═══ LEFT: Cover + info ═══ */}
             <button
               onClick={openFullPlayer}
+              aria-label="Открыть полный плеер"
               className="flex items-center gap-3 min-w-0 cursor-pointer"
               style={{ width: "calc(100% / 3 - 16px)" }}
             >
               <div
-                className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 relative"
+                className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 relative"
                 style={{ boxShadow: "var(--mq-shadow-premium-sm)" }}
               >
                 {currentTrack.cover ? (
                   <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                    <Music className="w-5 h-5" style={{ color: "rgba(255,255,255,0.7)" }} />
+                    <Music className="w-5 h-5" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
                   </div>
                 )}
-                {/* Playing indicator on cover — overlay variant
-                    (white bars, drop-shadow glow). When paused OR loading,
-                    animation freezes and bars dim to 50% opacity.
-                    Overlay opacity itself is reduced when paused so the
-                    cover art stays more visible in idle state. */}
-                <div
-                  className="absolute inset-0 flex items-end justify-center pb-1.5"
-                  style={{
-                    backgroundColor: "var(--mq-overlay-scrim)",
-                    opacity: isPlaying ? 1 : 0.65,
-                    transition: "opacity 0.25s ease-out",
-                  }}
-                >
-                  <NowPlayingEqualizer
-                    size="sm"
+                {/* Playing indicator — overlay only when playing.
+                    When paused, cover art is fully visible (no overlay). */}
+                {(isPlaying || isLoading) && (
+                  <div
+                    className="absolute inset-0 flex items-end justify-center pb-1.5"
+                    style={{
+                      backgroundColor: "var(--mq-overlay-scrim)",
+                      opacity: isPlaying ? 1 : 0.5,
+                      transition: "opacity 0.25s ease-out",
+                    }}
+                  >
+                    <NowPlayingEqualizer
+                      size="sm"
                     variant="overlay"
                     paused={!isPlaying || isLoading}
                   />
-                </div>
+                  </div>
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
@@ -342,7 +342,7 @@ export default function PlayerBar() {
             <div className="flex flex-col items-center gap-1.5 flex-1 max-w-md">
               {/* Control buttons */}
               <div className="flex items-center gap-3 relative">
-                <button onClick={toggleShuffle} className="w-9 h-9 rounded-full flex items-center justify-center" title="Перемешать" aria-label="Перемешать">
+                <button onClick={toggleShuffle} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать" aria-label="Перемешать">
                   <Shuffle className="w-3.5 h-3.5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                 </button>
 
@@ -442,7 +442,7 @@ export default function PlayerBar() {
                 </AnimatePresence>
                 </div>
 
-                <button onClick={toggleRepeat} className="w-9 h-9 rounded-full flex items-center justify-center" title="Повтор" aria-label="Повтор">
+                <button onClick={toggleRepeat} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors" style={{ backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Повтор" aria-label="Повтор">
                   {repeat === "one" ? <Repeat1 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                     : <Repeat className="w-3.5 h-3.5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
                 </button>
@@ -465,6 +465,15 @@ export default function PlayerBar() {
                 formatTime={formatDuration}
                 variant="playerbar"
               />
+              {/* Persistent timestamps — always visible (was hover-only) */}
+              <div className="flex justify-between w-full px-0.5">
+                <span className="text-[10px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
+                  {formatDuration(progress)}
+                </span>
+                <span className="text-[10px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
+                  {formatDuration(duration)}
+                </span>
+              </div>
             </div>
 
             {/* ═══ RIGHT: Like, Dislike, Radio, Volume, Queue ═══ */}
@@ -556,7 +565,7 @@ export default function PlayerBar() {
                   ref={volTrackRef}
                   onMouseDown={handleVolDown}
                   className="relative cursor-pointer rounded-full group/vol"
-                  style={{ width: 56, height: 4, backgroundColor: "var(--mq-glass-bg-hover)" }}
+                  style={{ width: 96, height: 4, backgroundColor: "var(--mq-glass-bg-hover)" }}
                 >
                   <div
                     ref={volFillRef}

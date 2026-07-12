@@ -10,7 +10,7 @@ import {
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
   RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
   Smartphone, Monitor, Apple, Info, ChevronRight, X, Check, Loader2,
-  AlertTriangle, Sliders, Gauge,
+  AlertTriangle, Sliders,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import VolumeSlider from "@/components/ui/volume-slider";
@@ -172,7 +172,6 @@ export default function SettingsView() {
   // ── Push ──
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
-  const [autoSkipShort, setAutoSkipShort] = useState(false);
 
   useEffect(() => {
     if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
@@ -439,7 +438,7 @@ export default function SettingsView() {
             <Card>
               <CardTitle icon={Palette} title="Тема" />
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
-                <div className="grid grid-cols-4 gap-2 max-h-[280px] overflow-y-auto">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-[280px] overflow-y-auto">
                   {Object.entries(themes).map(([key, theme]: [string, any]) => {
                     const isActive = currentTheme === key;
                     return (
@@ -512,7 +511,6 @@ export default function SettingsView() {
               />
               <SettingToggle icon={Headphones} label="Пространственное аудио" subtitle="3D-звучание" value={spatialAudioEnabled} onCheckedChange={setSpatialAudioEnabled} />
               <SettingToggle icon={Zap} label="Gapless" subtitle="Без пауз между треками" value={gaplessEnabled} onCheckedChange={setGaplessEnabled} />
-              <SettingToggle icon={Gauge} label="Авто-пропуск" subtitle="Пропускать треки <30с" value={autoSkipShort} onCheckedChange={setAutoSkipShort} />
             </Card>
 
             <Card>
