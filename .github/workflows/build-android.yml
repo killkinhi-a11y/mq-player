@@ -134,16 +134,13 @@ jobs:
       - name: Sync Capacitor (copy web assets + update native plugins)
         run: npx cap sync android
 
-      - name: Update version in build.gradle
-        run: |
-          sed -i "s/versionCode [0-9]*/versionCode ${{ steps.version.outputs.version_code }}/" android/app/build.gradle
-          sed -i "s/versionName \"[^\"]*\"/versionName \"${{ steps.version.outputs.version_name }}\"/" android/app/build.gradle
-          echo "✅ Version set to ${{ steps.version.outputs.version_name }} (${{ steps.version.outputs.version_code }})"
-          grep -E "versionCode|versionName" android/app/build.gradle
-
       - name: Build APK
         working-directory: android
+        env:
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
         run: |
+          echo "Building version $VERSION_NAME (code $VERSION_CODE)"
           if [ "${{ steps.config.outputs.build_type }}" = "release" ]; then
             ./gradlew assembleRelease -x lintVitalAnalyzeRelease
           else

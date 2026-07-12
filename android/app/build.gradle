@@ -1,9 +1,12 @@
 apply plugin: 'com.android.application'
 
-// Auto-increment versionCode from git commit count, versionName from commit count
-def gitCommitCount = "git rev-list --count HEAD".execute().text.trim() ?: "1"
-def versionCodeInt = gitCommitCount.toInteger()
-def gitVersionName = "1.0.${versionCodeInt}"
+// Version info from CI environment variables (set in .github/workflows/build-android.yml).
+// Fallbacks for local dev builds: use git commit count if available, else 1.
+def versionCodeInt = System.env.VERSION_CODE?.toInteger() ?: {
+    def count = "git rev-list --count HEAD".execute().text.trim()
+    return count ? count.toInteger() : 1
+}()
+def gitVersionName = System.env.VERSION_NAME ?: "1.0.${versionCodeInt}"
 
 android {
     namespace = "com.mq.player"
