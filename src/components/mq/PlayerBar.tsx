@@ -348,9 +348,9 @@ export default function PlayerBar() {
                   title={isPlaying ? "Пауза" : "Воспроизвести"}
                   aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                 >
-                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#fff" }} />
-                    : isPlaying ? <Pause className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
-                    : <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />}
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                    : isPlaying ? <Pause className="w-4 h-4" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+                    : <Play className="w-4 h-4 ml-0.5" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />}
                 </button>
 
                 {/* SkipForward with hover-triggered Up Next preview.
@@ -562,7 +562,7 @@ export default function PlayerBar() {
                   <div
                     ref={volThumbRef}
                     className="absolute left-0 top-1/2 w-2.5 h-2.5 rounded-full opacity-0 group-hover/vol:opacity-100 pointer-events-none"
-                    style={{ left: `${volume}%`, backgroundColor: "#fff", boxShadow: "0 0 0 1.5px var(--mq-accent)", transition: "opacity 0.15s" }}
+                    style={{ left: `${volume}%`, backgroundColor: "var(--mq-text-on-accent, #fff)", boxShadow: "0 0 0 1.5px var(--mq-accent)", transition: "opacity 0.15s" }}
                   />
                 </div>
               </div>

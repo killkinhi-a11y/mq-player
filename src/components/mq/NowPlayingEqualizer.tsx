@@ -1,22 +1,19 @@
 "use client";
 
-import { memo, useMemo } from "react";
+import { memo } from "react";
 
 /**
- * NowPlayingEqualizer v6 — максимальная надёжность.
+ * NowPlayingEqualizer v7 — inline SVG с SMIL анимацией.
  *
- * v5 проблема: filter: drop-shadow на родителе создавал stacking context,
- * который в некоторых браузерах ломал transform: scaleY на детях. Также
- * CSS custom properties для animation duration не работали в старых Safari.
+ * SVG SMIL animation работает в Chrome/Safari/Firefox с 2015 года,
+ * не зависит от CSS keyframes, не блокируется CSP.
  *
- * v6 решение:
- * - НЕТ filter на родителе (glow через box-shadow на каждом баре, но только
- *   на sm+ размерах где он виден)
- * - Pure CSS класс .mq-eq-bar с зашитой animation — БЕЗ inline animation
- * - Per-bar variance через inline transform: scaleY(0.X) в pause state
- *   и через CSS :nth-child() для animation-delay/duration (статично, надёжно)
- * - 4 бара, размеры через inline width/height (CSS не парсит JS переменные)
- * - paused = просто добавляем класс .mq-eq-paused на контейнер
+ * Принцип:
+ * - 4 <rect> баров, каждый в своей <g> с transform translate
+ * - <animateTransform> с type="scale" масштабирует по Y
+ * - transform-origin: bottom через translate Y offset
+ * - Different begin/dur per bar для organic pattern
+ * - Paused: freeze at 0.6 scale
  */
 
 type EqSize = "xs" | "sm" | "md" | "lg";
@@ -45,56 +42,70 @@ export const NowPlayingEqualizer = memo(function NowPlayingEqualizer({
   const cfg = SIZE_CONFIG[size];
 
   const barColor = variant === "overlay"
-    ? "var(--mq-text-on-accent, #fff)"
+    ? "white"
     : "var(--mq-accent)";
 
+  const totalWidth = 4 * cfg.barWidth + 3 * cfg.gap;
+
+  // Per-bar animation config — scale values for organic bounce
+  const bars = [
+    { dur: "0.85s", begin: "0s", values: "0.20;0.75;0.40;0.95;0.30;0.20" },
+    { dur: "1.10s", begin: "0.15s", values: "0.45;0.80;0.25;0.60;0.45;0.45" },
+    { dur: "0.70s", begin: "0.05s", values: "0.65;0.30;1.00;0.50;0.85;0.65" },
+    { dur: "1.20s", begin: "0.25s", values: "0.35;0.70;0.20;0.55;0.35;0.35" },
+  ];
+
   return (
-    <span
-      className={`mq-eq-container ${paused ? "mq-eq-paused" : ""} ${className}`}
-      style={{
-        height: cfg.height,
-        gap: cfg.gap,
-        // NO filter here — filter creates stacking context that breaks
-        // transform: scaleY on children in some browsers.
-      }}
+    <svg
+      width={totalWidth}
+      height={cfg.height}
+      viewBox={`0 0 ${totalWidth} ${cfg.height}`}
+      className={`mq-eq-svg ${className}`}
+      style={{ display: "block", flexShrink: 0, opacity: paused ? 0.5 : 1, transition: "opacity 0.3s" }}
       aria-hidden="true"
     >
-      <span
-        className="mq-eq-bar mq-eq-bar-1"
-        style={{
-          width: cfg.barWidth,
-          height: cfg.height,
-          backgroundColor: barColor,
-          borderRadius: cfg.radius,
-        }}
-      />
-      <span
-        className="mq-eq-bar mq-eq-bar-2"
-        style={{
-          width: cfg.barWidth,
-          height: cfg.height,
-          backgroundColor: barColor,
-          borderRadius: cfg.radius,
-        }}
-      />
-      <span
-        className="mq-eq-bar mq-eq-bar-3"
-        style={{
-          width: cfg.barWidth,
-          height: cfg.height,
-          backgroundColor: barColor,
-          borderRadius: cfg.radius,
-        }}
-      />
-      <span
-        className="mq-eq-bar mq-eq-bar-4"
-        style={{
-          width: cfg.barWidth,
-          height: cfg.height,
-          backgroundColor: barColor,
-          borderRadius: cfg.radius,
-        }}
-      />
-    </span>
+      {bars.map((bar, i) => {
+        const x = i * (cfg.barWidth + cfg.gap);
+        // Bar is positioned with bottom at cfg.height (bottom of SVG)
+        // We draw rect from (0,0) with width=barWidth, height=cfg.height
+        // then translate the group to (x, cfg.height) and scale Y from bottom
+        return (
+          <g key={i} transform={`translate(${x},${cfg.height})`}>
+            {/* The rect is drawn from y=-height to y=0 (bottom at 0) */}
+            <rect
+              x={0}
+              y={-cfg.height}
+              width={cfg.barWidth}
+              height={cfg.height}
+              rx={cfg.radius}
+              ry={cfg.radius}
+              fill={barColor}
+            >
+              {!paused && (
+                <animateTransform
+                  attributeName="transform"
+                  type="scale"
+                  values={`1,${bar.values}`}
+                  dur={bar.dur}
+                  begin={bar.begin}
+                  repeatCount="indefinite"
+                  calcMode="spline"
+                  keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1"
+                />
+              )}
+              {paused && (
+                <animateTransform
+                  attributeName="transform"
+                  type="scale"
+                  values="1,0.6"
+                  dur="0.01s"
+                  fill="freeze"
+                />
+              )}
+            </rect>
+          </g>
+        );
+      })}
+    </svg>
   );
 });

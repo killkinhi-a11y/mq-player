@@ -10,7 +10,7 @@ import {
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
   RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
   Smartphone, Monitor, Apple, Info, ChevronRight, X, Check, Loader2,
-  AlertTriangle, Sliders,
+  AlertTriangle, Sliders, Gauge,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import VolumeSlider from "@/components/ui/volume-slider";
@@ -172,6 +172,7 @@ export default function SettingsView() {
   // ── Push ──
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+  const [autoSkipShort, setAutoSkipShort] = useState(false);
 
   useEffect(() => {
     if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
@@ -413,7 +414,7 @@ export default function SettingsView() {
                       onClick={handleDeleteAccount}
                       disabled={deleting}
                       className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2"
-                      style={{ backgroundColor: "#ef4444", color: "#fff" }}
+                      style={{ backgroundColor: "var(--mq-error, #ef4444)", color: "var(--mq-text-on-accent, #fff)" }}
                     >
                       {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                       Удалить навсегда
@@ -447,7 +448,7 @@ export default function SettingsView() {
                         style={{ backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "var(--mq-overlay-hover)", border: isActive ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-hairline)" }}>
                         <div className="w-10 h-10 rounded-full" style={{ background: `linear-gradient(135deg, ${theme.accent || "#e03131"}, ${theme.bg || "#0e0e0e"})` }} />
                         <span className="text-[10px] font-medium truncate w-full text-center" style={{ color: "var(--mq-text-muted)" }}>{theme.name || key}</span>
-                        {isActive && <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}><Check className="w-2.5 h-2.5" style={{ color: "#fff" }} /></div>}
+                        {isActive && <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}><Check className="w-2.5 h-2.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} /></div>}
                       </motion.button>
                     );
                   })}
@@ -463,7 +464,7 @@ export default function SettingsView() {
                     <motion.button key={color} whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={() => setCustomAccent(color)}
                       className="w-9 h-9 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: color, boxShadow: customAccent === color ? `0 0 0 3px var(--mq-bg), 0 0 0 5px ${color}` : "none" }}>
-                      {customAccent === color && <Check className="w-4 h-4" style={{ color: "#fff" }} />}
+                      {customAccent === color && <Check className="w-4 h-4" style={{ color: "var(--mq-text-on-accent, #fff)" }} />}
                     </motion.button>
                   ))}
                   <label className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer" style={{ backgroundColor: "var(--mq-glass-bg)", border: "1px dashed var(--mq-border-medium)" }}>
@@ -511,6 +512,7 @@ export default function SettingsView() {
               />
               <SettingToggle icon={Headphones} label="Пространственное аудио" subtitle="3D-звучание" value={spatialAudioEnabled} onCheckedChange={setSpatialAudioEnabled} />
               <SettingToggle icon={Zap} label="Gapless" subtitle="Без пауз между треками" value={gaplessEnabled} onCheckedChange={setGaplessEnabled} />
+              <SettingToggle icon={Gauge} label="Авто-пропуск" subtitle="Пропускать треки <30с" value={autoSkipShort} onCheckedChange={setAutoSkipShort} />
             </Card>
 
             <Card>

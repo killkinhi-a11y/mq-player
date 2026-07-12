@@ -2471,55 +2471,15 @@ a:not([data-framer-motion-id]),
 
 /* ═══ MQ UI Animation Keyframes — CSS instead of Framer Motion for performance ═══ */
 
-/* ── NowPlayingEqualizer v6 — pure CSS, no filter on parent ──
-   v5 had filter: drop-shadow on parent which created stacking context
-   and broke transform: scaleY on children in some browsers.
-   v6: NO filter on parent, glow via box-shadow on each bar (sm+ only),
-   4 bars with static per-bar animation-delay/duration via :nth-child.
-   Most reliable cross-browser approach. */
+/* ── NowPlayingEqualizer v7 — inline SVG SMIL animation ──
+   No CSS classes needed. Animation is pure SVG <animateTransform>.
+   Most reliable cross-browser approach — works in Chrome, Safari,
+   Firefox, Edge, mobile WebViews since 2015. */
 
-@keyframes mq-eq-bounce {
-  0%   { transform: scaleY(0.20); }
-  25%  { transform: scaleY(0.75); }
-  50%  { transform: scaleY(0.40); }
-  75%  { transform: scaleY(0.95); }
-  100% { transform: scaleY(0.30); }
-}
-
-.mq-eq-container {
-  display: inline-flex;
-  align-items: flex-end;
-  flex-shrink: 0;
-  transition: opacity 0.3s ease-out;
-}
-.mq-eq-container.mq-eq-paused {
-  opacity: 0.5;
-}
-
-.mq-eq-bar {
-  display: block;
-  transform-origin: bottom;
-  animation: mq-eq-bounce 1s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
-  transition: transform 0.3s ease-out;
-}
-
-/* Per-bar variance via :nth-child — static, reliable, no JS needed */
-.mq-eq-bar-1 { animation-duration: 0.85s; animation-delay: 0s; }
-.mq-eq-bar-2 { animation-duration: 1.10s; animation-delay: 0.15s; }
-.mq-eq-bar-3 { animation-duration: 0.70s; animation-delay: 0.05s; }
-.mq-eq-bar-4 { animation-duration: 1.20s; animation-delay: 0.25s; }
-
-/* Paused: freeze animation, static 60% height */
-.mq-eq-paused .mq-eq-bar {
-  animation: none;
-  transform: scaleY(0.6);
-}
-
-/* Reduced motion: static bars, no animation (WCAG 2.3.3) */
+/* Reduced motion: hide SVG animations (WCAG 2.3.3) */
 @media (prefers-reduced-motion: reduce) {
-  .mq-eq-bar {
-    animation: none !important;
-    transform: scaleY(0.6) !important;
+  .mq-eq-svg animateTransform {
+    display: none !important;
   }
 }
 
