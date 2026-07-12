@@ -597,10 +597,25 @@ export default function SettingsView() {
                   </motion.a>
                   <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk" target="_blank" rel="noopener noreferrer" download
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "color-mix(in srgb, #3ddc84 10%, var(--mq-input-bg))", border: "1px solid color-mix(in srgb, #3ddc84 25%, transparent)" }}>
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer relative" style={{ backgroundColor: "color-mix(in srgb, #3ddc84 12%, var(--mq-input-bg))", border: "1px solid color-mix(in srgb, #3ddc84 35%, transparent)", boxShadow: "0 0 16px color-mix(in srgb, #3ddc84 12%, transparent)" }}>
                     <Smartphone className="w-5 h-5" style={{ color: "#3ddc84" }} />
-                    <span className="text-[10px] font-semibold" style={{ color: "#3ddc84" }}>Android</span>
+                    <span className="text-[10px] font-semibold" style={{ color: "#3ddc84" }}>Android APK</span>
+                    <span className="text-[8px] font-medium" style={{ color: "var(--mq-text-muted)" }}>последняя версия</span>
                   </motion.a>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
+                  <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                    APK обновляется автоматически при каждом релизе
+                  </p>
+                  <a
+                    href="https://github.com/killkinhi-a11y/mq-player/releases"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] font-medium underline"
+                    style={{ color: "var(--mq-accent)" }}
+                  >
+                    Все версии →
+                  </a>
                 </div>
               </div>
             </Card>
