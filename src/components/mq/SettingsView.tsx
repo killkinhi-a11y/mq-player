@@ -10,7 +10,7 @@ import {
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
   RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
   Smartphone, Monitor, Apple, Info, ChevronRight, X, Check, Loader2,
-  AlertTriangle, Sliders, Gauge,
+  AlertTriangle, Sliders, Gauge, Terminal,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import VolumeSlider from "@/components/ui/volume-slider";
@@ -369,7 +369,7 @@ export default function SettingsView() {
                   {avatar ? (
                     <img src={avatar} alt="" className="w-14 h-14 rounded-full object-cover relative z-10" style={{ border: "2.5px solid var(--mq-card)" }} />
                   ) : (
-                    <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold relative z-10" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold relative z-10" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>
                       {(username || "U").charAt(0).toUpperCase()}
                     </div>
                   )}
@@ -607,7 +607,7 @@ export default function SettingsView() {
                   <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer"
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
-                    <Monitor className="w-5 h-5" style={{ color: "#eab308" }} />
+                    <Terminal className="w-5 h-5" style={{ color: "#eab308" }} />
                     <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
                   </motion.a>
                   <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
@@ -615,7 +615,6 @@ export default function SettingsView() {
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer relative" style={{ backgroundColor: "color-mix(in srgb, #3ddc84 12%, var(--mq-input-bg))", border: "1px solid color-mix(in srgb, #3ddc84 35%, transparent)", boxShadow: "0 0 16px color-mix(in srgb, #3ddc84 12%, transparent)" }}>
                     <Smartphone className="w-5 h-5" style={{ color: "#3ddc84" }} />
                     <span className="text-[10px] font-semibold" style={{ color: "#3ddc84" }}>Android APK</span>
-                    <span className="text-[8px] font-medium" style={{ color: "var(--mq-text-muted)" }}>последняя версия</span>
                   </motion.a>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>

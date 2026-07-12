@@ -346,7 +346,7 @@ export default function PlayerBar() {
                   <Shuffle className="w-3.5 h-3.5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                 </button>
 
-                <button onClick={() => { prevTrack(); hapticSkip(); }} className="w-8 h-8 rounded-full flex items-center justify-center" title="Предыдущий" aria-label="Предыдущий трек">
+                <button onClick={() => { prevTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center" title="Предыдущий" aria-label="Предыдущий трек">
                   <SkipBack className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                 </button>
 
@@ -377,7 +377,7 @@ export default function PlayerBar() {
                     setShowUpNext(false);
                   }}
                 >
-                  <button onClick={() => { nextTrack(); hapticSkip(); }} className="w-8 h-8 rounded-full flex items-center justify-center" title="Следующий" aria-label="Следующий трек">
+                  <button onClick={() => { nextTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center" title="Следующий" aria-label="Следующий трек">
                     <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                   </button>
 
@@ -550,7 +550,7 @@ export default function PlayerBar() {
 
               {/* Volume — compact custom slider */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <button onClick={handleVolMute} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
+                <button onClick={handleVolMute} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
                   <VolIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                 </button>
                 <div
@@ -571,7 +571,7 @@ export default function PlayerBar() {
                   />
                   <div
                     ref={volThumbRef}
-                    className="absolute left-0 top-1/2 w-2.5 h-2.5 rounded-full opacity-0 group-hover/vol:opacity-100 pointer-events-none"
+                    className="absolute left-0 top-1/2 w-3.5 h-3.5 rounded-full opacity-0 group-hover/vol:opacity-100 pointer-events-none"
                     style={{ left: `${volume}%`, backgroundColor: "var(--mq-text-on-accent, #fff)", boxShadow: "0 0 0 1.5px var(--mq-accent)", transition: "opacity 0.15s" }}
                   />
                 </div>
@@ -608,8 +608,13 @@ export default function PlayerBar() {
               </motion.button>
 
               {/* Queue */}
-              <button onClick={() => setShowQueue(true)} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" title="Очередь" aria-label="Очередь воспроизведения">
+              <button onClick={() => setShowQueue(true)} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Очередь" aria-label="Очередь воспроизведения">
                 <ListMusic className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                {queue.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[9px] font-bold px-1" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>
+                    {queue.length > 99 ? "99" : queue.length}
+                  </span>
+                )}
               </button>
             </div>
           </div>

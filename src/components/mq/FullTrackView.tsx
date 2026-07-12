@@ -1073,7 +1073,7 @@ export default function FullTrackView() {
                         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
                       >
                         <div className="flex items-center justify-end mb-2">
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
                             <X className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
@@ -1107,7 +1107,7 @@ export default function FullTrackView() {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Далее в очереди</p>
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
                             <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
@@ -1148,7 +1148,7 @@ export default function FullTrackView() {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Недавно играло</p>
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
                             <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
@@ -1240,7 +1240,7 @@ export default function FullTrackView() {
 
                   {/* ═══ MAIN CONTROLS ═══ */}
                   <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "" : "justify-start"}`}>
-                    <button onClick={toggleShuffle} aria-label="Перемешать" className="w-10 h-10 rounded-full flex items-center justify-center" title="Перемешать (S)">
+                    <button onClick={toggleShuffle} aria-label="Перемешать" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать (S)">
                       <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </button>
                     <button onClick={prevTrack} aria-label="Предыдущий трек" className="w-12 h-12 rounded-full flex items-center justify-center" title="Предыдущий (P)">
@@ -1267,7 +1267,7 @@ export default function FullTrackView() {
                     <button onClick={nextTrack} aria-label="Следующий трек" className="w-12 h-12 rounded-full flex items-center justify-center" title="Следующий (N)">
                       <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                     </button>
-                    <button onClick={toggleRepeat} aria-label="Повтор" className="w-10 h-10 rounded-full flex items-center justify-center" title="Повтор (R)">
+                    <button onClick={toggleRepeat} aria-label="Повтор" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors" style={{ backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Повтор (R)">
                       {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
                         : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
                     </button>
