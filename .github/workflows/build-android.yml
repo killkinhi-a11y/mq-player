@@ -134,6 +134,18 @@ jobs:
       - name: Sync Capacitor (copy web assets + update native plugins)
         run: npx cap sync android
 
+      - name: Generate debug keystore (for release signing config fallback)
+        run: |
+          if [ ! -f android/app/debug.keystore ]; then
+            keytool -genkey -v -keystore android/app/debug.keystore \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+            echo "✓ Generated debug.keystore"
+          else
+            echo "✓ debug.keystore already exists"
+          fi
+
       - name: Build APK
         working-directory: android
         env:
