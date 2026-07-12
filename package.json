@@ -1,6 +1,6 @@
 {
   "name": "mq-player",
-  "version": "1.0.0",
+  "version": "1.0.50",
   "private": true,
   "description": "MQ Player — музыкальный плеер с мессенджером",
   "author": "MQ Player Team",

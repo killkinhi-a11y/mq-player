@@ -1,40 +1,78 @@
 name: Build Android APK
 
-# Build Android APK using Capacitor.
-#
-# Strategy: APK loads the deployed web app (mq1.vercel.app) in a WebView,
-# so we don't need to bundle the full Next.js build inside the APK —
-# just a minimal index.html fallback + native Capacitor shell.
+# Build Android APK using Capacitor 8.
 #
 # Triggers:
-#   - Push v* tag (e.g. v1.0.50) → builds APK + uploads to GitHub Release
-#   - workflow_dispatch → manual build from Actions tab
+#   - Push to main → build debug APK, upload as artifact (downloadable from Actions tab)
+#   - Push v* tag → build signed release APK, upload to GitHub Releases
+#   - workflow_dispatch → manual build (choice of debug/release)
 #
-# Secrets required for signed APK:
+# Capacitor 8 requires JDK 21 (not JDK 17 which was for Capacitor 7).
+#
+# Secrets for signed release (optional — falls back to debug if missing):
 #   - ANDROID_SIGNING_KEY (base64-encoded .keystore file)
 #   - ANDROID_ALIAS
 #   - ANDROID_KEY_PASSWORD
 #   - ANDROID_KEYSTORE_PASSWORD
-#
-# If secrets are missing, the workflow falls back to unsigned debug APK.
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - debug
 
 permissions:
   contents: write  # needed by softprops/action-gh-release
 
 jobs:
   build-android:
-    name: Build & Sign APK
+    name: Build APK
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Determine build type
+        id: config
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "build_type=release" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "build_type=debug" >> $GITHUB_OUTPUT
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "build_type=${{ inputs.build_type }}" >> $GITHUB_OUTPUT
+            echo "is_release=$( [[ '${{ inputs.build_type }}' == 'release' ]] && echo true || echo false )" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate version info
+        id: version
+        run: |
+          # versionName: from tag (v1.0.50 → 1.0.50) or from run number
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION_NAME="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION_NAME="1.0.${{ github.run_number }}"
+          fi
+          # versionCode: integer, must increment. Use run_number for uniqueness.
+          VERSION_CODE="${{ github.run_number }}"
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+          echo "📋 Building version $VERSION_NAME (code $VERSION_CODE)"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -42,19 +80,18 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      # capacitor-app-development skill reference/ci-cd.md:
-      # "Capacitor 7: JDK 17, Capacitor 8: JDK 21"
-      - name: Set up Java (JDK 17 for Capacitor 7)
+      # capacitor-app-development skill: Capacitor 8 requires JDK 21
+      - name: Set up Java (JDK 21 for Capacitor 8)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          sdk-platform: '34'
-          sdk-build-tools: '34.0.0'
+          sdk-platform: '35'
+          sdk-build-tools: '35.0.0'
 
       - name: Install dependencies
         run: npm ci
@@ -62,78 +99,60 @@ jobs:
       - name: Install Capacitor CLI (if not in package.json)
         run: |
           if ! npm ls @capacitor/cli >/dev/null 2>&1; then
-            npm install -D @capacitor/cli @capacitor/core @capacitor/android @capacitor/splash-screen
+            npm install -D @capacitor/cli @capacitor/core @capacitor/android @capacitor/app @capacitor/splash-screen @capgo/capacitor-media-session
           fi
 
-      # capacitor-app-development skill reference/cli.md:
-      # `npx cap add android` creates the native Android project.
-      # `|| true` because the platform may already exist on subsequent runs.
       - name: Add Android platform
         run: npx cap add android || true
 
-      # Generate minimal web assets (webDir = "out" in capacitor.config.json).
-      # The APK loads https://mq1.vercel.app at runtime via server.url,
-      # so this index.html is only the fallback when offline.
       - name: Generate web fallback (offline page)
         run: |
           mkdir -p out
-          cat > out/index.html << 'HTMLEOF'
+          # offline.html is referenced in capacitor.config.ts errorPath
+          # Only copy if not already present
+          if [ ! -f out/offline.html ]; then
+            cat > out/offline.html << 'HTMLEOF'
           <!DOCTYPE html>
-          <html lang="ru">
-          <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-            <meta name="theme-color" content="#0e0e0e">
-            <title>MQ Player</title>
-            <style>
-              * { margin: 0; padding: 0; box-sizing: border-box; }
-              body {
-                background: #0e0e0e; color: #fff;
-                font-family: system-ui, -apple-system, sans-serif;
-                min-height: 100vh; display: flex; align-items: center;
-                justify-content: center; padding: 24px;
-                -webkit-tap-highlight-color: transparent;
-              }
-              .container { text-align: center; max-width: 320px; }
-              .logo {
-                width: 64px; height: 64px; margin: 0 auto 24px;
-                border-radius: 16px; background: #e03131;
-                display: flex; align-items: center; justify-content: center;
-                font-size: 28px; font-weight: 800; letter-spacing: -0.02em;
-              }
-              h1 { font-size: 20px; margin-bottom: 8px; font-weight: 600; }
-              p { font-size: 14px; opacity: 0.7; line-height: 1.5; }
-              .retry {
-                margin-top: 24px; padding: 12px 24px;
-                background: #e03131; color: #fff; border: none;
-                border-radius: 9999px; font-size: 14px; font-weight: 500;
-                cursor: pointer; -webkit-appearance: none;
-              }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="logo">mq</div>
-              <h1>Нет соединения</h1>
-              <p>Проверьте интернет-подключение и попробуйте снова.</p>
-              <button class="retry" onclick="location.reload()">Повторить</button>
-            </div>
-          </body>
-          </html>
+          <html lang="ru"><head><meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+          <title>MQ Player</title>
+          <style>
+            * { margin:0; padding:0; box-sizing:border-box; }
+            body { background:#0e0e0e; color:#fff; font-family:system-ui,sans-serif;
+                   min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+            .c { text-align:center; max-width:320px; }
+            .r { margin-top:24px; padding:14px 32px; background:#e03131; color:#fff;
+                 border:none; border-radius:9999px; font-size:15px; font-weight:600; cursor:pointer; }
+          </style></head><body><div class="c">
+          <h1>Нет соединения</h1>
+          <p style="opacity:0.6;margin-top:8px;font-size:14px">Проверьте интернет-подключение</p>
+          <button class="r" onclick="location.reload()">Повторить</button>
+          </div></body></html>
           HTMLEOF
+          fi
 
-      # capacitor-app-development skill reference/cli.md:
-      # `npx cap sync android` copies web assets + updates native plugins.
-      - name: Sync Capacitor (copy web assets to native)
+      - name: Sync Capacitor (copy web assets + update native plugins)
         run: npx cap sync android
 
-      - name: Build release APK
-        working-directory: android
-        run: ./gradlew assembleRelease -x lintVitalAnalyzeRelease
+      - name: Update version in build.gradle
+        run: |
+          sed -i "s/versionCode [0-9]*/versionCode ${{ steps.version.outputs.version_code }}/" android/app/build.gradle
+          sed -i "s/versionName \"[^\"]*\"/versionName \"${{ steps.version.outputs.version_name }}\"/" android/app/build.gradle
+          echo "✅ Version set to ${{ steps.version.outputs.version_name }} (${{ steps.version.outputs.version_code }})"
+          grep -E "versionCode|versionName" android/app/build.gradle
 
-      - name: Sign APK (if signing secrets available)
+      - name: Build APK
+        working-directory: android
+        run: |
+          if [ "${{ steps.config.outputs.build_type }}" = "release" ]; then
+            ./gradlew assembleRelease -x lintVitalAnalyzeRelease
+          else
+            ./gradlew assembleDebug -x lintVitalAnalyzeRelease
+          fi
+
+      - name: Sign APK (release only, if secrets available)
         id: sign_apk
-        if: ${{ secrets.ANDROID_SIGNING_KEY != '' }}
+        if: steps.config.outputs.is_release == 'true' && secrets.ANDROID_SIGNING_KEY != ''
         uses: r0adkll/sign-android-release@v1
         with:
           releaseDirectory: android/app/build/outputs/apk/release
@@ -142,54 +161,56 @@ jobs:
           password: ${{ secrets.ANDROID_KEY_PASSWORD }}
           keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         env:
-          BUILD_TOOLS_VERSION: "34.0.0"
+          BUILD_TOOLS_VERSION: "35.0.0"
 
-      - name: Rename APK (signed or unsigned fallback)
+      - name: Collect APK files
         run: |
+          mkdir -p output
+          # Signed release
           if [ -f "${{ steps.sign_apk.outputs.signedReleaseFile }}" ]; then
-            cp "${{ steps.sign_apk.outputs.signedReleaseFile }}" mq-player.apk
-            echo "✓ Signed release APK ready"
+            cp "${{ steps.sign_apk.outputs.signedReleaseFile }}" output/mq-player-${{ steps.version.outputs.version_name }}.apk
+            echo "✓ Signed release APK"
+          # Unsigned release
+          elif [ "${{ steps.config.outputs.build_type }}" = "release" ]; then
+            cp android/app/build/outputs/apk/release/app-release-unsigned.apk output/mq-player-${{ steps.version.outputs.version_name }}-unsigned.apk 2>/dev/null || \
+            cp android/app/build/outputs/apk/release/app-release.apk output/mq-player-${{ steps.version.outputs.version_name }}.apk 2>/dev/null || true
+            echo "⚠ Unsigned release APK (no signing secrets)"
+          # Debug
           else
-            echo "⚠ No signing secrets — using unsigned release APK"
-            cp android/app/build/outputs/apk/release/app-release-unsigned.apk mq-player.apk 2>/dev/null || \
-            cp android/app/build/outputs/apk/release/app-release.apk mq-player.apk 2>/dev/null || true
+            cp android/app/build/outputs/apk/debug/app-debug.apk output/mq-player-${{ steps.version.outputs.version_name }}-debug.apk
+            echo "✓ Debug APK"
           fi
-          # Always include debug APK as fallback
-          cp android/app/build/outputs/apk/debug/app-debug.apk mq-player-debug.apk 2>/dev/null || true
-          ls -lh mq-player*.apk 2>/dev/null
+          ls -lh output/
 
-      - name: Upload APK to GitHub Release
+      - name: Upload APK as artifact (always)
+        uses: actions/upload-artifact@v4
+        with:
+          name: mq-player-apk-${{ steps.version.outputs.version_name }}
+          path: output/*.apk
+          retention-days: 30
+
+      - name: Upload to GitHub Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            mq-player.apk
-            mq-player-debug.apk
-          tag_name: ${{ github.ref_name || 'latest' }}
-          name: MQ Player ${{ github.ref_name || 'Latest' }}
+          files: output/*.apk
+          tag_name: ${{ github.ref_name }}
+          name: MQ Player ${{ github.ref_name }}
           body: |
-            ## MQ Player Android
+            ## MQ Player Android ${{ github.ref_name }}
 
             ### Установка
-            1. Скачайте `mq-player.apk` (signed) или `mq-player-debug.apk` (unsigned)
+            1. Скачайте `mq-player-${{ steps.version.outputs.version_name }}.apk`
             2. Откройте файл на телефоне
             3. Разрешите установку из неизвестных источников
             4. Установите и запустите
 
+            ### Что нового
+            [Commits с прошлого релиза](https://github.com/killkinhi-a11y/mq-player/commits/${{ github.ref_name }})
+
             ### PWA альтернатива
             Откройте https://mq1.vercel.app в Chrome → меню → «Установить приложение»
-
-            ### Что нового
-            Полный список изменений — в [commits](https://github.com/killkinhi-a11y/mq-player/commits/main)
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload APK as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mq-player-apk
-          path: |
-            mq-player.apk
-            mq-player-debug.apk
-          retention-days: 30

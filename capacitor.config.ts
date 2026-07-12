@@ -28,9 +28,29 @@ const config: CapacitorConfig = {
       androidScaleType: 'CENTER_CROP',
       splashFullScreen: true,
       splashImmersive: false,
+      // Use the custom splash icon generated from resources/icon.png
+      androidSplashResourceName: 'splash',
     },
     MediaSession: {
+      // Native media notification with playback controls
+      // Shows on lock screen + notification shade
       foregroundService: 'always',
+      // Small icon for status bar (white silhouette, generated as ic_stat_mq)
+      androidNotificationIcon: 'ic_stat_mq',
+      // Large icon for notification shade (app icon)
+      androidNotificationLargeIcon: 'ic_launcher',
+      // Notification channel name (Android 8+)
+      androidChannelName: 'MQ Player',
+      androidChannelDescription: 'Управление воспроизведением музыки',
+    },
+    StatusBar: {
+      // Style status bar to match app theme
+      style: 'DARK',
+      backgroundColor: '#0e0e0e',
+      overlaysWebView: false,
+    },
+    AppBar: {
+      style: 'DARK',
     },
   },
 };
