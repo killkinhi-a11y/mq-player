@@ -8,7 +8,7 @@ import {
   Shuffle, Repeat, Repeat1, Volume2, VolumeX, Volume1,
   Music, ListMusic, Share2, Loader2, Clock, Mic2,
   ThumbsDown, AirVent, Gauge, Timer,
-  History, Sparkles, X, ListPlus, Plus, Sliders,
+  History, Sparkles, X, ListPlus, Plus, Sliders, MoreHorizontal,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
@@ -208,6 +208,7 @@ export default function FullTrackView() {
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showSleepMenu, setShowSleepMenu] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
   const [showVolumePopup, setShowVolumePopup] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
@@ -616,6 +617,19 @@ export default function FullTrackView() {
     return () => window.removeEventListener("mousedown", onDown);
   }, [showVolumePopup]);
 
+  // Close More menu on outside click
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showMoreMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [showMoreMenu]);
+
   return (
     <AnimatePresence>
       {isOpen && currentTrack && (
@@ -846,27 +860,81 @@ export default function FullTrackView() {
                     >
                       <History className="w-4 h-4" style={{ color: activePanel === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </button>
-                    <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
-                    <button
-                      onClick={() => setEqOpen(true)}
-                      className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: eqEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
-                      title="Эквалайзер"
-                    >
-                      <Sliders className="w-4 h-4" style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                    </button>
-                    <button onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: spatialAudioEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }} title="Пространственное аудио">
-                      <AirVent className="w-4 h-4" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                    </button>
-                    <button onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowSleepMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: playbackRate !== 1 ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }} title="Скорость">
-                      <span className="text-[10px] font-bold" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span>
-                    </button>
-                    <button onClick={() => { setShowSleepMenu(!showSleepMenu); setShowSpeedMenu(false); }} className="w-10 h-10 rounded-full flex items-center justify-center relative" style={{ backgroundColor: sleepTimerActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }} title="Таймер сна">
-                      <Timer className="w-4 h-4" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                      {sleepTimerActive && (
-                        <span className="absolute -bottom-0.5 -right-0.5 text-[8px] font-mono px-1 rounded-full" style={{ background: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>{sleepRemainingMin}м</span>
-                      )}
-                    </button>
+                    {/* More button — replaces 4 secondary buttons (EQ, Spatial, Speed, Sleep) */}
+                    {/* Reduces action row from 11 buttons to 8 — cleaner UX */}
+                    <div className="relative" ref={moreMenuRef}>
+                      <button
+                        onClick={() => { setShowMoreMenu(!showMoreMenu); setShowSpeedMenu(false); setShowSleepMenu(false); }}
+                        aria-label="Дополнительные настройки"
+                        className="w-10 h-10 rounded-full flex items-center justify-center relative"
+                        style={{
+                          backgroundColor: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive)
+                            ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
+                            : "var(--mq-glass-bg)"
+                        }}
+                        title="Дополнительно"
+                      >
+                        <MoreHorizontal className="w-4 h-4" style={{ color: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive) ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                        {/* Active indicator dot */}
+                        {(eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive) && (
+                          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
+                        )}
+                      </button>
+                      <AnimatePresence>
+                        {showMoreMenu && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                            className="absolute top-full right-0 mt-2 z-50 rounded-2xl overflow-hidden min-w-[200px]"
+                            style={{
+                              backgroundColor: "color-mix(in srgb, var(--mq-card) 95%, transparent)",
+                              backdropFilter: "blur(20px)",
+                              WebkitBackdropFilter: "blur(20px)",
+                              border: "1px solid var(--mq-border-thin)",
+                              boxShadow: "var(--mq-shadow-elevated)",
+                            }}
+                          >
+                            <button
+                              onClick={() => { setEqOpen(true); setShowMoreMenu(false); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                            >
+                              <Sliders className="w-4 h-4" style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                              <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Эквалайзер</span>
+                              {eqEnabled && <span className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>ON</span>}
+                            </button>
+                            <button
+                              onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+                            >
+                              <AirVent className="w-4 h-4" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                              <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Пространственное аудио</span>
+                              {spatialAudioEnabled && <span className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>ON</span>}
+                            </button>
+                            <button
+                              onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowMoreMenu(false); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+                            >
+                              <Gauge className="w-4 h-4" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                              <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Скорость</span>
+                              <span className="text-xs font-mono" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span>
+                            </button>
+                            <button
+                              onClick={() => { setShowSleepMenu(!showSleepMenu); setShowMoreMenu(false); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+                            >
+                              <Timer className="w-4 h-4" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                              <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
+                              {sleepTimerActive && <span className="text-xs font-mono" style={{ color: "var(--mq-accent)" }}>{sleepRemainingMin}м</span>}
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
 
                   {/* Playlist picker — add current track to a playlist */}

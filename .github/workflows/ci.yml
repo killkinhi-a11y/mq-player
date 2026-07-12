@@ -282,20 +282,17 @@ jobs:
   # ---------------------------------------------------------------------------
   # 7. Production Deploy to Vercel (push to main only)
   # ---------------------------------------------------------------------------
-  # Native Vercel GitHub integration was previously handling this, but the
-  # webhook got disconnected — deploys stopped triggering on push to main.
-  # This job is the fallback: uses Vercel CLI to deploy to production on
-  # every successful main build. Requires VERCEL_TOKEN, VERCEL_ORG_ID,
-  # VERCEL_PROJECT_ID secrets (already set for preview-deploy job).
+  # DISABLED: VERCEL_TOKEN secret is not configured in repo settings.
+  # To enable: add VERCEL_TOKEN, VERCEL_ORG_ID, VERCEL_PROJECT_ID secrets at
+  # https://github.com/killkinhi-a11y/mq-player/settings/secrets/actions
+  # Then remove the 'if: false' line below.
   # ---------------------------------------------------------------------------
   production-deploy:
-    name: Production Deploy
+    name: Production Deploy (disabled — no VERCEL_TOKEN)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    # Note: no `needs:` dependency — we want to deploy even if lint/tests fail,
-    # so a flaky test or missing @capacitor/cli types doesn't block production.
-    # Build itself is verified by Vercel during deployment.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: false  # Disabled until VERCEL_TOKEN secret is added
+    # Original condition: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: production
       url: ${{ steps.vercel-production.outputs.url }}
