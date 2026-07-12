@@ -101,7 +101,11 @@ function SettingToggle({
   value: boolean; onCheckedChange: (v: boolean) => void;
 }) {
   return (
-    <div className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
+    <motion.div
+      whileHover={{ backgroundColor: "var(--mq-overlay-hover)" }}
+      className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5 transition-colors"
+      style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+    >
       <div
         className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{ backgroundColor: value ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
@@ -113,7 +117,7 @@ function SettingToggle({
         {subtitle && <p className="text-[11px] sm:text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{subtitle}</p>}
       </div>
       <Switch checked={value} onCheckedChange={onCheckedChange} />
-    </div>
+    </motion.div>
   );
 }
 
@@ -513,7 +517,7 @@ export default function SettingsView() {
                 icon={Sliders}
                 label="Эквалайзер"
                 subtitle={eqEnabled ? `Активен · ${eqPreset === "custom" ? "свои настройки" : eqPreset}` : "10-полосный с пресетами"}
-                value={eqEnabled ? "ON" : "OFF"}
+                value={eqEnabled ? "ВКЛ" : "ВЫКЛ"}
                 onClick={() => setEqOpen(true)}
               />
               <SettingToggle icon={Headphones} label="Пространственное аудио" subtitle="3D-звучание" value={spatialAudioEnabled} onCheckedChange={setSpatialAudioEnabled} />

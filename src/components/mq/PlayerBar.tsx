@@ -515,7 +515,7 @@ export default function PlayerBar() {
                   indicates wave is active; tooltip explains toggle behavior. */}
               <motion.button
                 whileTap={{ scale: 0.8 }}
-                whileHover={{ scale: 1.1 }}
+                whileHover={wave.waveLoading ? undefined : { scale: 1.1 }}
                 onClick={handleStartRadio}
                 disabled={wave.waveLoading}
                 className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
@@ -552,7 +552,7 @@ export default function PlayerBar() {
 
               {/* Volume — compact custom slider */}
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <button onClick={handleVolMute} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ border: "none", background: "transparent", cursor: "pointer", padding: 0 }}>
+                <button onClick={handleVolMute} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ border: "none", cursor: "pointer", padding: 0 }}>
                   <VolIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                 </button>
                 <div
@@ -610,9 +610,9 @@ export default function PlayerBar() {
               </motion.button>
 
               {/* Queue */}
-              <button onClick={() => setShowQueue(true)} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Очередь" aria-label="Очередь воспроизведения">
+              <motion.button whileTap={{ scale: 0.85 }} whileHover={{ scale: 1.1 }} onClick={() => setShowQueue(true)} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Очередь" aria-label="Очередь воспроизведения">
                 <ListMusic className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-              </button>
+              </motion.button>
             </div>
           </div>
         </div>

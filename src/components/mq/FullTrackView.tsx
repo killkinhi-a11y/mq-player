@@ -714,7 +714,7 @@ export default function FullTrackView() {
                   animate={{ scale: 1, opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                   ref={coverRef}
-                  className="relative mb-6 sm:mb-0 flex-shrink-0"
+                  className="relative mb-6 sm:mb-0 flex-shrink-0 cursor-pointer"
                   style={{
                     width: isMobile ? "min(75vw, 320px)" : "min(35vw, 380px)",
                     aspectRatio: "1 / 1",
@@ -1239,7 +1239,7 @@ export default function FullTrackView() {
                   </div>
 
                   {/* ═══ MAIN CONTROLS ═══ */}
-                  <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "" : "justify-start"}`}>
+                  <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "justify-center" : "justify-start"}`}>
                     <button onClick={toggleShuffle} aria-label="Перемешать" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать (S)">
                       <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                     </button>
@@ -1284,15 +1284,15 @@ export default function FullTrackView() {
                   {!isMobile && (
                     <div className="mt-4 flex items-center gap-3 flex-wrap text-[11px] opacity-70" style={{ color: "var(--mq-text-muted)" }}>
                       <span className="flex items-center gap-1">
-                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-glass-bg)" }}>Space</kbd>
+                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-glass-bg)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)", boxShadow: "0 1px 0 var(--mq-border-medium)" }}>Space</kbd>
                         play/pause
                       </span>
                       <span className="flex items-center gap-1">
-                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-glass-bg)" }}>←/→</kbd>
+                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-glass-bg)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)", boxShadow: "0 1px 0 var(--mq-border-medium)" }}>←/→</kbd>
                         seek
                       </span>
                       <span className="flex items-center gap-1">
-                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-glass-bg)" }}>Esc</kbd>
+                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-glass-bg)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)", boxShadow: "0 1px 0 var(--mq-border-medium)" }}>Esc</kbd>
                         close
                       </span>
                     </div>
