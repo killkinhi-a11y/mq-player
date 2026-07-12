@@ -465,15 +465,6 @@ export default function PlayerBar() {
                 formatTime={formatDuration}
                 variant="playerbar"
               />
-              {/* Persistent timestamps — always visible (was hover-only) */}
-              <div className="flex justify-between w-full px-0.5">
-                <span className="text-[10px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
-                  {formatDuration(progress)}
-                </span>
-                <span className="text-[10px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
-                  {formatDuration(duration)}
-                </span>
-              </div>
             </div>
 
             {/* ═══ RIGHT: Like, Dislike, Radio, Volume, Queue ═══ */}
@@ -525,7 +516,8 @@ export default function PlayerBar() {
                 whileHover={{ scale: 1.1 }}
                 onClick={handleStartRadio}
                 disabled={wave.waveLoading}
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
+                style={{ backgroundColor: radioMode ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }}
                 title={radioMode ? "Выключить волну" : "Радио от этого трека"}
                 aria-label={radioMode ? "Выключить волну" : "Радио от этого трека"}
               >
@@ -593,7 +585,8 @@ export default function PlayerBar() {
                 whileTap={{ scale: 0.85 }}
                 whileHover={{ scale: 1.1 }}
                 onClick={() => setEqOpen(true)}
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
+                style={{ backgroundColor: eqEnabled ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }}
                 title="Эквалайзер"
                 aria-label="Эквалайзер"
               >

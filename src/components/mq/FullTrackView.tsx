@@ -811,6 +811,11 @@ export default function FullTrackView() {
                     >
                       {currentTrack.artist}
                     </button>
+                    {currentTrack.album && currentTrack.album !== currentTrack.title && (
+                      <p className={`text-xs sm:text-sm mt-0.5 truncate w-full ${isMobile ? "text-center" : "text-left"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                        {currentTrack.album}
+                      </p>
+                    )}
                     <div className={`flex items-center gap-3 mt-2 text-[11px] ${isMobile ? "justify-center" : ""}`} style={{ color: "var(--mq-text-muted)" }}>
                       {duration > 0 && (
                         <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDuration(duration)}</span>

@@ -10,7 +10,7 @@ import {
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
   RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
   Smartphone, Monitor, Apple, Info, ChevronRight, X, Check, Loader2,
-  AlertTriangle, Sliders,
+  AlertTriangle, Sliders, Gauge,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import VolumeSlider from "@/components/ui/volume-slider";
@@ -150,6 +150,8 @@ export default function SettingsView() {
   const setCrossfadeDuration = useAppStore((s) => s.setCrossfadeDuration);
   const gaplessEnabled = useAppStore((s) => s.gaplessEnabled);
   const setGaplessEnabled = useAppStore((s) => s.setGaplessEnabled);
+  const playbackRate = useAppStore((s) => s.playbackRate);
+  const setPlaybackRate = useAppStore((s) => s.setPlaybackRate);
   const aiRecsHidden = useAppStore((s) => s.aiRecsHidden);
   const setAiRecsHidden = useAppStore((s) => s.setAiRecsHidden);
   const syncToServer = useAppStore((s) => s.syncToServer);
@@ -511,6 +513,19 @@ export default function SettingsView() {
               />
               <SettingToggle icon={Headphones} label="Пространственное аудио" subtitle="3D-звучание" value={spatialAudioEnabled} onCheckedChange={setSpatialAudioEnabled} />
               <SettingToggle icon={Zap} label="Gapless" subtitle="Без пауз между треками" value={gaplessEnabled} onCheckedChange={setGaplessEnabled} />
+              <SettingRow
+                icon={Gauge}
+                label="Скорость воспроизведения"
+                subtitle={playbackRate === 1 ? "Обычная" : `${playbackRate}×`}
+                value={`${playbackRate}×`}
+                onClick={() => {
+                  const rates = [0.75, 1, 1.25, 1.5, 2];
+                  const idx = rates.indexOf(playbackRate);
+                  const next = rates[(idx + 1) % rates.length];
+                  setPlaybackRate(next);
+                  toast({ title: `Скорость: ${next}×` });
+                }}
+              />
             </Card>
 
             <Card>
