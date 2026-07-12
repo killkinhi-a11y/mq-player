@@ -92,7 +92,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
     onShortPress: playAction,
   });
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
+  const handleClick = useCallback((_e?: React.MouseEvent) => {
     if (longPressWasActive()) return;
     playAction();
   }, [playAction, longPressWasActive]);
