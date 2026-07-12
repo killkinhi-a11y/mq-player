@@ -747,8 +747,8 @@ export default function FullTrackView() {
                       {/* Subtle playing indicator — pulsing border (CSS) */}
                       {isPlaying && (
                         <div
-                          className="absolute inset-0 rounded-3xl pointer-events-none mq-pulse-border"
-                          style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
+                          className="absolute inset-0 rounded-3xl pointer-events-none"
+                          style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-accent) 25%, transparent)" }}
                         />
                       )}
                     </div>
@@ -1255,7 +1255,7 @@ export default function FullTrackView() {
                     >
                       {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
                         : isPlaying ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-                        : <Play className="w-7 h-7 sm:w-8 sm:h-8 ml-1" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />}
+                        : <Play className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)", transform: "translateX(1px)" }} />}
                       {/* Pulse ring when playing (CSS) */}
                       {isPlaying && (
                         <div
@@ -1280,23 +1280,21 @@ export default function FullTrackView() {
                     </div>
                   )}
 
-                  {/* ═══ Keyboard shortcuts hint (desktop, small) ═══ */}
+                  {/* ═══ Keyboard shortcuts hint (desktop, top 3 only) ═══ */}
                   {!isMobile && (
-                    <div className="mt-4 flex items-center gap-2 flex-wrap text-[9px] opacity-50" style={{ color: "var(--mq-text-muted)" }}>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>Space</kbd>
-                      <span>play</span>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>←/→</kbd>
-                      <span>seek 5s</span>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>↑/↓</kbd>
-                      <span>vol</span>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>scroll</kbd>
-                      <span>vol</span>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>L</kbd>
-                      <span>like</span>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>F</kbd>
-                      <span>lyrics</span>
-                      <kbd className="px-1.5 py-0.5 rounded font-mono" style={{ backgroundColor: "var(--mq-glass-bg)" }}>Esc</kbd>
-                      <span>close</span>
+                    <div className="mt-4 flex items-center gap-3 flex-wrap text-[11px] opacity-70" style={{ color: "var(--mq-text-muted)" }}>
+                      <span className="flex items-center gap-1">
+                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-glass-bg)" }}>Space</kbd>
+                        play/pause
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-glass-bg)" }}>←/→</kbd>
+                        seek
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-glass-bg)" }}>Esc</kbd>
+                        close
+                      </span>
                     </div>
                   )}
                 </div>

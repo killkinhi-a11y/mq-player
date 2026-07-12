@@ -560,7 +560,7 @@ export default function SettingsView() {
               <SettingToggle icon={Bell} label="Уведомления" subtitle="Новые сообщения, обновления" value={pushEnabled} onCheckedChange={handlePushToggle} />
               {pushLoading && (
                 <div className="px-4 py-2 flex items-center gap-2" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
-                  <Loader2 className="w-3 h-3 animate-spin" style={{ color: "var(--mq-accent)" }} />
+                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} />
                   <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Обработка...</span>
                 </div>
               )}
@@ -596,25 +596,25 @@ export default function SettingsView() {
                     href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip" target="_blank" rel="noopener noreferrer"
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
                     <Monitor className="w-5 h-5" style={{ color: "#3b82f6" }} />
-                    <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
+                    <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
                   </motion.a>
                   <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer"
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
                     <Apple className="w-5 h-5" style={{ color: "#a855f7" }} />
-                    <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>macOS</span>
+                    <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>macOS</span>
                   </motion.a>
                   <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer"
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
                     <Terminal className="w-5 h-5" style={{ color: "#eab308" }} />
-                    <span className="text-[10px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
+                    <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
                   </motion.a>
                   <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk" target="_blank" rel="noopener noreferrer" download
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer relative" style={{ backgroundColor: "color-mix(in srgb, #3ddc84 12%, var(--mq-input-bg))", border: "1px solid color-mix(in srgb, #3ddc84 35%, transparent)", boxShadow: "0 0 16px color-mix(in srgb, #3ddc84 12%, transparent)" }}>
                     <Smartphone className="w-5 h-5" style={{ color: "#3ddc84" }} />
-                    <span className="text-[10px] font-semibold" style={{ color: "#3ddc84" }}>Android APK</span>
+                    <span className="text-[11px] font-semibold" style={{ color: "color-mix(in srgb, #3ddc84 80%, var(--mq-text))" }}>Android APK</span>
                   </motion.a>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>

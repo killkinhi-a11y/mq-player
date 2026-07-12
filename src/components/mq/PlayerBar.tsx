@@ -311,7 +311,7 @@ export default function PlayerBar() {
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 min-w-0">
                   {/* UX Core #5 (Эффект контекста): показываем индикатор
                       "Волна" когда radio mode активен — единый контекст
                       "откуда играет трек". Без этого пользователь не
@@ -335,7 +335,7 @@ export default function PlayerBar() {
                 </div>
                 <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
               </div>
-              <ChevronUp className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+              <ChevronUp className="w-4 h-4 flex-shrink-0 hidden sm:block" style={{ color: "var(--mq-text-muted)" }} />
             </button>
 
             {/* ═══ CENTER: Controls + progress ═══ */}
@@ -602,7 +602,7 @@ export default function PlayerBar() {
                     className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
                     style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 0 6px var(--mq-accent)" }}
                     animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
-                    transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                    transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
                   />
                 )}
               </motion.button>
@@ -610,11 +610,6 @@ export default function PlayerBar() {
               {/* Queue */}
               <button onClick={() => setShowQueue(true)} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Очередь" aria-label="Очередь воспроизведения">
                 <ListMusic className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                {queue.length > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full flex items-center justify-center text-[9px] font-bold px-1" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>
-                    {queue.length > 99 ? "99" : queue.length}
-                  </span>
-                )}
               </button>
             </div>
           </div>
