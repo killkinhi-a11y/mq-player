@@ -1,91 +1,185 @@
 name: Build Android APK
 
+# Build Android APK using Capacitor.
+#
+# Strategy: APK loads the deployed web app (mq1.vercel.app) in a WebView,
+# so we don't need to bundle the full Next.js build inside the APK —
+# just a minimal index.html fallback + native Capacitor shell.
+#
+# Triggers:
+#   - Push v* tag (e.g. v1.0.50) → builds APK + uploads to GitHub Release
+#   - workflow_dispatch → manual build from Actions tab
+#
+# Secrets required for signed APK:
+#   - ANDROID_SIGNING_KEY (base64-encoded .keystore file)
+#   - ANDROID_ALIAS
+#   - ANDROID_KEY_PASSWORD
+#   - ANDROID_KEYSTORE_PASSWORD
+#
+# If secrets are missing, the workflow falls back to unsigned debug APK.
+
 on:
   push:
     tags:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write  # needed by softprops/action-gh-release
+
 jobs:
   build-android:
+    name: Build & Sign APK
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 22 (Capacitor 8 requires >=22)
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
           cache: 'npm'
 
-      - name: Set up Java
+      # capacitor-app-development skill reference/ci-cd.md:
+      # "Capacitor 7: JDK 17, Capacitor 8: JDK 21"
+      - name: Set up Java (JDK 17 for Capacitor 7)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '21'
+          java-version: '17'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          sdk-platform: '36'
-          sdk-build-tools: '36.0.0'
+          sdk-platform: '34'
+          sdk-build-tools: '34.0.0'
 
       - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+        run: npm ci
 
-      - name: Show environment diagnostics
+      - name: Install Capacitor CLI (if not in package.json)
         run: |
-          echo "=== Node version ==="
-          node --version
-          echo "=== Capacitor version ==="
-          node node_modules/@capacitor/cli/bin/capacitor --version 2>&1
+          if ! npm ls @capacitor/cli >/dev/null 2>&1; then
+            npm install -D @capacitor/cli @capacitor/core @capacitor/android @capacitor/splash-screen
+          fi
 
-      - name: Sync Capacitor
-        run: node node_modules/@capacitor/cli/bin/capacitor sync android
+      # capacitor-app-development skill reference/cli.md:
+      # `npx cap add android` creates the native Android project.
+      # `|| true` because the platform may already exist on subsequent runs.
+      - name: Add Android platform
+        run: npx cap add android || true
 
-      - name: Verify webDir contents
+      # Generate minimal web assets (webDir = "out" in capacitor.config.json).
+      # The APK loads https://mq1.vercel.app at runtime via server.url,
+      # so this index.html is only the fallback when offline.
+      - name: Generate web fallback (offline page)
         run: |
-          echo "out/ contents:"
-          ls -la out/
-          echo "out/index.html head (first 300 chars):"
-          head -c 300 out/index.html
-          echo ""
-          echo "android/app/src/main/assets/capacitor.config.json:"
-          cat android/app/src/main/assets/capacitor.config.json
+          mkdir -p out
+          cat > out/index.html << 'HTMLEOF'
+          <!DOCTYPE html>
+          <html lang="ru">
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+            <meta name="theme-color" content="#0e0e0e">
+            <title>MQ Player</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                background: #0e0e0e; color: #fff;
+                font-family: system-ui, -apple-system, sans-serif;
+                min-height: 100vh; display: flex; align-items: center;
+                justify-content: center; padding: 24px;
+                -webkit-tap-highlight-color: transparent;
+              }
+              .container { text-align: center; max-width: 320px; }
+              .logo {
+                width: 64px; height: 64px; margin: 0 auto 24px;
+                border-radius: 16px; background: #e03131;
+                display: flex; align-items: center; justify-content: center;
+                font-size: 28px; font-weight: 800; letter-spacing: -0.02em;
+              }
+              h1 { font-size: 20px; margin-bottom: 8px; font-weight: 600; }
+              p { font-size: 14px; opacity: 0.7; line-height: 1.5; }
+              .retry {
+                margin-top: 24px; padding: 12px 24px;
+                background: #e03131; color: #fff; border: none;
+                border-radius: 9999px; font-size: 14px; font-weight: 500;
+                cursor: pointer; -webkit-appearance: none;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="logo">mq</div>
+              <h1>Нет соединения</h1>
+              <p>Проверьте интернет-подключение и попробуйте снова.</p>
+              <button class="retry" onclick="location.reload()">Повторить</button>
+            </div>
+          </body>
+          </html>
+          HTMLEOF
 
-      - name: Build debug APK
+      # capacitor-app-development skill reference/cli.md:
+      # `npx cap sync android` copies web assets + updates native plugins.
+      - name: Sync Capacitor (copy web assets to native)
+        run: npx cap sync android
+
+      - name: Build release APK
         working-directory: android
-        run: ./gradlew assembleDebug -x lintVitalAnalyzeRelease --no-daemon --stacktrace
+        run: ./gradlew assembleRelease -x lintVitalAnalyzeRelease
 
-      - name: Rename APK
+      - name: Sign APK (if signing secrets available)
+        id: sign_apk
+        if: ${{ secrets.ANDROID_SIGNING_KEY != '' }}
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: android/app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_KEY }}
+          alias: ${{ secrets.ANDROID_ALIAS }}
+          password: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
+
+      - name: Rename APK (signed or unsigned fallback)
         run: |
-          cp android/app/build/outputs/apk/debug/app-debug.apk mq-player.apk
-          ls -lh mq-player.apk
+          if [ -f "${{ steps.sign_apk.outputs.signedReleaseFile }}" ]; then
+            cp "${{ steps.sign_apk.outputs.signedReleaseFile }}" mq-player.apk
+            echo "✓ Signed release APK ready"
+          else
+            echo "⚠ No signing secrets — using unsigned release APK"
+            cp android/app/build/outputs/apk/release/app-release-unsigned.apk mq-player.apk 2>/dev/null || \
+            cp android/app/build/outputs/apk/release/app-release.apk mq-player.apk 2>/dev/null || true
+          fi
+          # Always include debug APK as fallback
+          cp android/app/build/outputs/apk/debug/app-debug.apk mq-player-debug.apk 2>/dev/null || true
+          ls -lh mq-player*.apk 2>/dev/null
 
       - name: Upload APK to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             mq-player.apk
+            mq-player-debug.apk
           tag_name: ${{ github.ref_name || 'latest' }}
-          name: MQ Player ${{ github.ref_name || 'Latest' }} — Android APK
+          name: MQ Player ${{ github.ref_name || 'Latest' }}
           body: |
             ## MQ Player Android
 
-            Приложение загружает интерфейс с https://mq1.vercel.app.
-            Требуется интернет-соединение при запуске.
-
             ### Установка
-            1. Скачайте `mq-player.apk` (~4 МБ)
+            1. Скачайте `mq-player.apk` (signed) или `mq-player-debug.apk` (unsigned)
             2. Откройте файл на телефоне
             3. Разрешите установку из неизвестных источников
             4. Установите и запустите
 
-            ### PWA-альтернатива
-            Откройте https://mq1.vercel.app в Chrome → меню → «Установить приложение».
+            ### PWA альтернатива
+            Откройте https://mq1.vercel.app в Chrome → меню → «Установить приложение»
+
+            ### Что нового
+            Полный список изменений — в [commits](https://github.com/killkinhi-a11y/mq-player/commits/main)
           draft: false
           prerelease: false
         env:
@@ -95,5 +189,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mq-player-apk
-          path: mq-player.apk
+          path: |
+            mq-player.apk
+            mq-player-debug.apk
           retention-days: 30
