@@ -150,9 +150,20 @@ jobs:
             ./gradlew assembleDebug -x lintVitalAnalyzeRelease
           fi
 
-      - name: Sign APK (release only, if secrets available)
+      - name: Check signing secrets
+        id: check_secrets
+        run: |
+          if [ -n "${{ secrets.ANDROID_SIGNING_KEY }}" ]; then
+            echo "has_secrets=true" >> $GITHUB_OUTPUT
+            echo "✓ Signing secrets available"
+          else
+            echo "has_secrets=false" >> $GITHUB_OUTPUT
+            echo "⚠ No signing secrets — will use unsigned APK"
+          fi
+
+      - name: Sign APK (release + secrets available)
         id: sign_apk
-        if: steps.config.outputs.is_release == 'true' && secrets.ANDROID_SIGNING_KEY != ''
+        if: steps.config.outputs.is_release == 'true' && steps.check_secrets.outputs.has_secrets == 'true'
         uses: r0adkll/sign-android-release@v1
         with:
           releaseDirectory: android/app/build/outputs/apk/release
@@ -162,6 +173,7 @@ jobs:
           keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         env:
           BUILD_TOOLS_VERSION: "35.0.0"
+        continue-on-error: true
 
       - name: Collect APK files
         run: |
