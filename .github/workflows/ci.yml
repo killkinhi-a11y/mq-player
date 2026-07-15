@@ -288,11 +288,10 @@ jobs:
   # Then remove the 'if: false' line below.
   # ---------------------------------------------------------------------------
   production-deploy:
-    name: Production Deploy (disabled — no VERCEL_TOKEN)
+    name: Production Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: false  # Disabled until VERCEL_TOKEN secret is added
-    # Original condition: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment:
       name: production
       url: ${{ steps.vercel-production.outputs.url }}
