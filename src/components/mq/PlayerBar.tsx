@@ -281,8 +281,13 @@ export default function PlayerBar() {
               style={{ width: "calc(100% / 3 - 16px)" }}
             >
               <div
-                className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 relative"
-                style={{ boxShadow: "var(--mq-shadow-premium-sm)" }}
+                className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 relative transition-shadow"
+                style={{
+                  boxShadow: isPlaying
+                    ? "var(--mq-shadow-premium-sm), 0 0 20px color-mix(in srgb, var(--mq-accent) 20%, transparent)"
+                    : "var(--mq-shadow-premium-sm)",
+                  transition: "box-shadow 0.4s ease-out",
+                }}
               >
                 {currentTrack.cover ? (
                   <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="eager" />

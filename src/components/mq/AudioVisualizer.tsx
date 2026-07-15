@@ -1,28 +1,19 @@
 "use client";
 
 import { useEffect, useRef, memo } from "react";
+import { getAnalyser } from "@/lib/audioEngine";
 
 /**
- * AudioVisualizer — лёгкий WebGL-стиль визуализатор на Canvas 2D.
+ * AudioVisualizer — 3D particle sphere с реальным Web Audio API analyser.
  *
- * Идея из видео "WebGL: как сделать сайт с интерактивной 3D-графикой"
- * (Digital-агентство Мэйк). Адаптировано для музыкального плеера:
+ * Inspirado en: "WebGL: как сделать сайт с интерактивной 3D-графикой"
  *
- * - Вращающаяся сфера из частиц (Fibonacci sphere distribution)
- * - Частицы пульсируют в ритм музыки (симулируется через isPlaying)
- * - Accent-цвет частиц синхронизирован с темой
+ * - 150 частиц на Fibonacci sphere
+ * - Реальные frequency data от AnalyserNode (если доступен)
+ * - Fallback: симуляция пульсации когда analyser недоступен (CORS stream)
+ * - Accent-цвет синхронизирован с темой
  * - 60fps через requestAnimationFrame
- * - Pause → частицы замирают на минимальной амплитуде
- * - Респонсивный canvas (ResizeObserver)
- * - GPU-accelerated: только transform и opacity
- *
- * Размер: ~3KB (vs 500KB+ для Three.js). Без зависимостей.
- *
- * Производительность:
- * - 150 частиц (баланс visual / perf)
- * - Canvas 2D с globalCompositeOperation = 'lighter' для glow
- * - devicePixelRatio для retina
- * - auto-pause когда tab hidden (Page Visibility API)
+ * - Page Visibility API: pause когда tab hidden
  */
 
 interface AudioVisualizerProps {
@@ -31,7 +22,6 @@ interface AudioVisualizerProps {
 }
 
 const PARTICLE_COUNT = 150;
-const SPHERE_RADIUS = 120;
 
 export const AudioVisualizer = memo(function AudioVisualizer({
   isPlaying,
@@ -41,6 +31,7 @@ export const AudioVisualizer = memo(function AudioVisualizer({
   const rafRef = useRef<number>(0);
   const rotationRef = useRef({ x: 0, y: 0 });
   const pulseRef = useRef(0);
+  const freqDataRef = useRef<Uint8Array | null>(null);
   const isPlayingRef = useRef(isPlaying);
 
   useEffect(() => {
@@ -71,7 +62,7 @@ export const AudioVisualizer = memo(function AudioVisualizer({
     const ro = new ResizeObserver(resize);
     ro.observe(canvas);
 
-    // Fibonacci sphere — равномерное распределение частиц по сфере
+    // Fibonacci sphere
     const particles = Array.from({ length: PARTICLE_COUNT }, (_, i) => {
       const phi = Math.acos(1 - (2 * (i + 0.5)) / PARTICLE_COUNT);
       const theta = Math.PI * (1 + Math.sqrt(5)) * i;
@@ -80,10 +71,11 @@ export const AudioVisualizer = memo(function AudioVisualizer({
         y: Math.sin(phi) * Math.sin(theta),
         z: Math.cos(phi),
         size: 1 + Math.random() * 2,
+        // Map particle to frequency band (0-1)
+        freqIndex: Math.floor((i / PARTICLE_COUNT) * 128),
       };
     });
 
-    // Get accent color from CSS variable
     const getAccent = () => {
       const style = getComputedStyle(document.documentElement);
       return style.getPropertyValue("--mq-accent").trim() || "#e03131";
@@ -94,7 +86,6 @@ export const AudioVisualizer = memo(function AudioVisualizer({
       accentColor = getAccent();
     }, 2000);
 
-    // Page Visibility — pause when tab hidden
     const onVisibility = () => {
       if (document.hidden) {
         cancelAnimationFrame(rafRef.current);
@@ -107,24 +98,49 @@ export const AudioVisualizer = memo(function AudioVisualizer({
     const animate = () => {
       rafRef.current = requestAnimationFrame(animate);
 
-      // Smooth pulse transition
-      const targetPulse = isPlayingRef.current ? 1 : 0.1;
-      pulseRef.current += (targetPulse - pulseRef.current) * 0.05;
+      // Try to get real frequency data from Web Audio API analyser
+      const analyser = getAnalyser();
+      let freqData: Uint8Array | null = null;
+      if (analyser && isPlayingRef.current) {
+        if (!freqDataRef.current || freqDataRef.current.length !== analyser.frequencyBinCount) {
+          freqDataRef.current = new Uint8Array(analyser.frequencyBinCount);
+        }
+        analyser.getByteFrequencyData(freqDataRef.current);
+        freqData = freqDataRef.current;
+      }
 
-      // Rotation speed depends on playing state
-      const rotSpeed = isPlayingRef.current ? 0.003 : 0.0005;
+      // Smooth pulse: real data if available, simulated otherwise
+      let targetPulse = 0;
+      if (isPlayingRef.current) {
+        if (freqData && freqData.length > 0) {
+          // Calculate average energy from low-mid frequencies (bass + beat)
+          let sum = 0;
+          const sampleCount = Math.min(32, freqData.length);
+          for (let i = 0; i < sampleCount; i++) {
+            sum += freqData[i];
+          }
+          targetPulse = (sum / sampleCount) / 255; // 0 to 1
+        } else {
+          // Fallback: simulated pulse when analyser not available (CORS)
+          targetPulse = 0.5 + 0.3 * Math.sin(Date.now() * 0.004);
+        }
+      } else {
+        targetPulse = 0.05;
+      }
+      pulseRef.current += (targetPulse - pulseRef.current) * 0.1;
+
+      const rotSpeed = isPlayingRef.current ? 0.003 + pulseRef.current * 0.004 : 0.0005;
       rotationRef.current.y += rotSpeed;
       rotationRef.current.x += rotSpeed * 0.5;
 
-      // Clear with fade trail effect
+      // Fade trail
       ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
       ctx.fillRect(0, 0, w, h);
 
       const cx = w / 2;
       const cy = h / 2;
-      const radius = Math.min(w, h) * 0.35;
+      const baseRadius = Math.min(w, h) * 0.3;
 
-      // Project 3D particles to 2D
       const cosX = Math.cos(rotationRef.current.x);
       const sinX = Math.sin(rotationRef.current.x);
       const cosY = Math.cos(rotationRef.current.y);
@@ -133,40 +149,42 @@ export const AudioVisualizer = memo(function AudioVisualizer({
       ctx.globalCompositeOperation = "lighter";
 
       for (const p of particles) {
-        // Rotate around Y axis
+        // Rotate around Y
         const x1 = p.x * cosY - p.z * sinY;
         const z1 = p.x * sinY + p.z * cosY;
-        // Rotate around X axis
+        // Rotate around X
         const y2 = p.y * cosX - z1 * sinX;
         const z2 = p.y * sinX + z1 * cosX;
 
-        // Pulsing radius
-        const pulse = 1 + pulseRef.current * 0.3 * Math.sin(Date.now() * 0.003 + p.x * 5);
-        const r = radius * pulse;
+        // Per-particle pulse from real frequency data
+        let particlePulse = pulseRef.current;
+        if (freqData && freqData.length > p.freqIndex) {
+          particlePulse = (freqData[p.freqIndex] / 255) * 0.8 + 0.2;
+        }
 
-        // Perspective projection
+        const pulseMul = 1 + particlePulse * 0.5 * Math.sin(Date.now() * 0.003 + p.x * 5);
+        const r = baseRadius * pulseMul;
+
         const perspective = 1 / (1.5 - z2 * 0.5);
         const px = cx + x1 * r * perspective;
         const py = cy + y2 * r * perspective;
 
-        // Depth-based opacity and size
-        const depth = (z2 + 1) / 2; // 0 to 1
-        const size = p.size * perspective * (0.5 + depth * 0.5) * (0.5 + pulseRef.current * 0.5);
-        const opacity = (0.2 + depth * 0.6) * (0.3 + pulseRef.current * 0.7);
+        const depth = (z2 + 1) / 2;
+        const size = p.size * perspective * (0.5 + depth * 0.5) * (0.3 + particlePulse * 0.7);
+        const opacity = (0.2 + depth * 0.6) * (0.3 + particlePulse * 0.7);
 
-        // Draw particle with glow
         ctx.beginPath();
-        ctx.arc(px, py, size, 0, Math.PI * 2);
+        ctx.arc(px, py, Math.max(0.5, size), 0, Math.PI * 2);
         ctx.fillStyle = accentColor;
         ctx.globalAlpha = opacity;
         ctx.fill();
 
-        // Glow for larger particles
-        if (size > 1.5) {
+        // Glow for bright particles
+        if (particlePulse > 0.4 && size > 1) {
           ctx.beginPath();
-          ctx.arc(px, py, size * 2.5, 0, Math.PI * 2);
+          ctx.arc(px, py, Math.max(0.5, size * 3), 0, Math.PI * 2);
           ctx.fillStyle = accentColor;
-          ctx.globalAlpha = opacity * 0.15;
+          ctx.globalAlpha = opacity * 0.1;
           ctx.fill();
         }
       }
