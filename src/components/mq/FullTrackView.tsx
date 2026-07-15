@@ -8,7 +8,7 @@ import {
   Shuffle, Repeat, Repeat1, Volume2, VolumeX, Volume1,
   Music, ListMusic, Share2, Loader2, Clock, Mic2,
   ThumbsDown, AirVent, Gauge, Timer,
-  History, Sparkles, X, ListPlus, Plus, Sliders, MoreHorizontal,
+  History, Sparkles, X, ListPlus, Plus, Sliders, MoreHorizontal, Disc3,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
@@ -19,6 +19,7 @@ import VolumeSlider from "@/components/ui/volume-slider";
 import { fetchLyrics } from "@/lib/lyrics-client";
 import { LyricsView, type LyricLine } from "./LyricsView";
 import { AudioVisualizer } from "./AudioVisualizer";
+import { VinylCover } from "./VinylCover";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
@@ -212,6 +213,7 @@ export default function FullTrackView() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(true);
   const [showVisualizer, setShowVisualizer] = useState(false);
+  const [showVinyl, setShowVinyl] = useState(false);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
   const [showVolumePopup, setShowVolumePopup] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
@@ -739,18 +741,31 @@ export default function FullTrackView() {
                         boxShadow: "var(--mq-shadow-dramatic), var(--mq-shadow-inner-glow)",
                       }}
                     >
-                      {currentTrack.cover ? (
-                        <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="eager" />
+                      {showVinyl ? (
+                        /* 3D Vinyl mode — cover transforms into spinning vinyl record */
+                        <div className="w-full h-full flex items-center justify-center" style={{ background: "var(--mq-bg)" }}>
+                          <VinylCover
+                            cover={currentTrack.cover || ""}
+                            isPlaying={isPlaying}
+                            size={isMobile ? 240 : 320}
+                          />
+                        </div>
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                          <Music className="w-16 h-16" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
-                        </div>
-                      )}
-                      {/* Audio Visualizer overlay — WebGL-style particle sphere */}
-                      {showVisualizer && (
-                        <div className="absolute inset-0 rounded-3xl overflow-hidden" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-                          <AudioVisualizer isPlaying={isPlaying} />
-                        </div>
+                        <>
+                          {currentTrack.cover ? (
+                            <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="eager" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+                              <Music className="w-16 h-16" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
+                            </div>
+                          )}
+                          {/* Audio Visualizer overlay — WebGL-style particle sphere */}
+                          {showVisualizer && (
+                            <div className="absolute inset-0 rounded-3xl overflow-hidden" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+                              <AudioVisualizer isPlaying={isPlaying} />
+                            </div>
+                          )}
+                        </>
                       )}
                       {/* Subtle playing indicator — pulsing border (CSS) */}
                       {isPlaying && (
@@ -967,6 +982,15 @@ export default function FullTrackView() {
                               <Sparkles className="w-4 h-4" style={{ color: showVisualizer ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                               <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Визуализатор</span>
                               {showVisualizer && <span className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>ВКЛ</span>}
+                            </button>
+                            <button
+                              onClick={() => { setShowVinyl(!showVinyl); setShowMoreMenu(false); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+                            >
+                              <Disc3 className="w-4 h-4" style={{ color: showVinyl ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                              <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Винил</span>
+                              {showVinyl && <span className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>ВКЛ</span>}
                             </button>
                           </motion.div>
                         )}

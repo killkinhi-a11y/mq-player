@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import QueueView from "./QueueView";
 import { ProgressBar } from "./ProgressBar";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
+import { useMagnetic } from "@/hooks/useMagnetic";
 
 // ═════════════════════════════════════════════════════════════════════════
 // PLAYER BAR — desktop mini player
@@ -73,6 +74,7 @@ export default function PlayerBar() {
   }, []);
 
   const isMobile = useIsMobile();
+  const playMagnetic = useMagnetic({ strength: 0.25, radius: 60 });
   const [isDragging, setIsDragging] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
 
@@ -359,6 +361,9 @@ export default function PlayerBar() {
                   whileTap={{ scale: 0.92 }}
                   whileHover={{ scale: 1.06 }}
                   onClick={() => { togglePlay(); hapticPlay(); }}
+                  ref={playMagnetic.ref as React.RefObject<HTMLButtonElement>}
+                  onMouseMove={playMagnetic.onMouseMove}
+                  onMouseLeave={playMagnetic.onMouseLeave}
                   className="w-10 h-10 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
                   title={isPlaying ? "Пауза" : "Воспроизвести"}
