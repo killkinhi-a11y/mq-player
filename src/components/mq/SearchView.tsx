@@ -918,16 +918,24 @@ export default function SearchView() {
             </div>
           </div>
 
-          {/* Track list */}
-          <div className="space-y-1">
+          {/* Track list with 3D scroll-reveal stagger */}
+          <div className="space-y-1" style={{ perspective: "1000px" }}>
             {processedTracks.map((track, i) => (
-              <SearchTrackRow
+              <motion.div
                 key={track.id + "_" + i}
-                track={track}
-                index={i}
-                queue={processedTracks}
-                onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
-              />
+                initial={{ opacity: 0, z: -30, rotateX: 5 }}
+                whileInView={{ opacity: 1, z: 0, rotateX: 0 }}
+                viewport={{ once: true, amount: 0.1 }}
+                transition={{ duration: 0.3, delay: Math.min(i * 0.02, 0.3), ease: [0.16, 1, 0.3, 1] }}
+                style={{ transformStyle: "preserve-3d" }}
+              >
+                <SearchTrackRow
+                  track={track}
+                  index={i}
+                  queue={processedTracks}
+                  onArtistClick={(name, cover) => setSelectedArtist({ name, avatar: cover })}
+                />
+              </motion.div>
             ))}
           </div>
         </div>

@@ -20,6 +20,7 @@ import ArtistDetailView from "./ArtistDetailView";
 import PlaylistArtwork from "./PlaylistArtwork";
 import ContextMenu from "./ContextMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
+import { useMagnetic } from "@/hooks/useMagnetic";
 import { useLongPress } from "@/hooks/useLongPress";
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -1681,9 +1682,13 @@ function WaveCard({
   isLiked: boolean;
   topGenres: string[];
 }) {
+  const waveMagnetic = useMagnetic({ strength: 0.08, radius: 120 });
   return (
     <div
       className={isMobile ? "relative mb-8 rounded-3xl overflow-hidden" : "mq-hero-card relative mb-8"}
+      ref={waveMagnetic.ref as React.RefObject<HTMLDivElement>}
+      onMouseMove={waveMagnetic.onMouseMove}
+      onMouseLeave={waveMagnetic.onMouseLeave}
       style={{
         background: isMobile
           ? (currentTrack?.cover
@@ -1692,6 +1697,7 @@ function WaveCard({
           : getWaveGradient(),
         minHeight: isMobile ? 140 : 160,
         boxShadow: "var(--mq-shadow-float)",
+        transition: "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >
       {/* Tip 4 (Depth & texture from video): subtle noise overlay on the
