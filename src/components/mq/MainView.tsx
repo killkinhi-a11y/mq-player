@@ -407,11 +407,14 @@ function MainView() {
           <h1
             className="text-3xl sm:text-4xl lg:text-5xl"
             style={{
-              color: "var(--mq-text)",
               fontFamily: "var(--mq-font-serif)",
               fontWeight: 600,
               letterSpacing: "-0.02em",
               lineHeight: 1.15,
+              background: "linear-gradient(135deg, var(--mq-text) 0%, var(--mq-text) 40%, color-mix(in srgb, var(--mq-accent) 60%, var(--mq-text)) 100%)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
             }}
           >
             {greeting()}
@@ -1876,14 +1879,23 @@ function WaveCard({
                 </div>
                 <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
                   onClick={onPauseWave}
-                  className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "var(--mq-shadow-card-hover)" }}>
+                  className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 relative"
+                  style={{ background: "var(--mq-text-on-accent, #fff)", color: "var(--mq-bg)", boxShadow: "var(--mq-shadow-card-hover)" }}>
                   {isPlaying ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6 ml-0.5" fill="currentColor" />}
+                  {/* Animated expanding ring when playing */}
+                  {isPlaying && (
+                    <motion.span
+                      className="absolute inset-0 rounded-full pointer-events-none"
+                      style={{ border: "2px solid var(--mq-text-on-accent, #fff)" }}
+                      animate={{ scale: [1, 1.4], opacity: [0.6, 0] }}
+                      transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }}
+                    />
+                  )}
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
                   onClick={onSkip}
                   className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)" }}>
+                  style={{ background: "var(--mq-glass-bg-active)", color: "var(--mq-text-on-accent, rgba(255,255,255,0.8))" }}>
                   <SkipForward className="w-5 h-5" fill="currentColor" />
                 </motion.button>
                 {/* Like/Dislike/Stop removed from Wave Card per user request.

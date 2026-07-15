@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
   // Bumping this triggers a targeted store-version bump (see useAppStore.ts)
   // instead of the destructive localStorage.clear() we used before.
   generateBuildId: async () => {
-    return process.env.BUILD_ID || 'mq-build-v57';
+    return process.env.BUILD_ID || 'mq-build-v58';
   },
   serverExternalPackages: ['@opennextjs/cloudflare'],
   experimental: {
