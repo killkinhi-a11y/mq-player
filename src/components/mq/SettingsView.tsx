@@ -453,11 +453,26 @@ export default function SettingsView() {
                   {Object.entries(themes).map(([key, theme]: [string, any]) => {
                     const isActive = currentTheme === key;
                     return (
-                      <motion.button key={key} whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.03 }} onClick={() => setTheme(key)}
+                      <motion.button
+                        key={key}
+                        whileTap={{ scale: 0.95, rotateY: 180 }}
+                        whileHover={{ scale: 1.03 }}
+                        onClick={() => setTheme(key)}
                         className="relative p-2 rounded-xl flex flex-col items-center gap-1.5"
-                        style={{ backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "var(--mq-overlay-hover)", border: isActive ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-hairline)" }}>
-                        <div className="w-10 h-10 rounded-full" style={{ background: `linear-gradient(135deg, ${theme.accent || "#e03131"}, ${theme.bg || "#0e0e0e"})` }} />
-                        <span className="text-[10px] font-medium truncate w-full text-center" style={{ color: "var(--mq-text-muted)" }}>{theme.name || key}</span>
+                        style={{
+                          backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "var(--mq-overlay-hover)",
+                          border: isActive ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-hairline)",
+                          transformStyle: "preserve-3d",
+                          perspective: "500px",
+                        }}
+                      >
+                        <motion.div
+                          className="w-10 h-10 rounded-full"
+                          style={{ background: `linear-gradient(135deg, ${theme.accent || "#e03131"}, ${theme.bg || "#0e0e0e"})` }}
+                          animate={{ rotateY: isActive ? 360 : 0 }}
+                          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        />
+                        <span className="text-[11px] font-medium truncate w-full text-center" style={{ color: "var(--mq-text-muted)" }}>{theme.name || key}</span>
                         {isActive && <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}><Check className="w-2.5 h-2.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} /></div>}
                       </motion.button>
                     );

@@ -5,6 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import { Play, Clock } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useTilt3D } from "@/hooks/useTilt3D";
 
 interface PlaylistCardProps {
   playlist: {
@@ -22,6 +23,7 @@ export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps)
   const playTrack = useAppStore((s) => s.playTrack);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const isMobile = useIsMobile();
+  const tilt = useTilt3D({ max: 8, scale: 1.04 });
 
   const handlePlay = () => {
     if (playlist.tracks.length > 0) {
@@ -69,7 +71,14 @@ export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps)
         style={{ borderRadius: radius }}
       />
 
-      <div className="relative aspect-square overflow-hidden">
+      <div
+        className="relative aspect-square overflow-hidden"
+        ref={tilt.ref as React.RefObject<HTMLDivElement>}
+        onMouseMove={tilt.onMouseMove}
+        onMouseEnter={tilt.onMouseEnter}
+        onMouseLeave={tilt.onMouseLeave}
+        style={{ transformStyle: "preserve-3d" }}
+      >
         <img
           src={playlist.cover}
           alt={playlist.name}
