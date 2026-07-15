@@ -85,7 +85,7 @@ function MobileDockInner() {
           position: relative;
           height: 2px;
           background: var(--mq-glass-bg);
-          cursor: pointer;
+          cursor: default;
         }
         .mq-dock-progress-fill {
           position: absolute;
@@ -124,7 +124,7 @@ function MobileDockInner() {
                 <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)", lineHeight: "1.2", marginTop: "1px" }}>{currentTrack!.artist}</p>
               </div>
             </button>
-            <button onClick={onLike} aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
+            <button onClick={onLike} aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: isLiked ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "var(--mq-glass-bg)", border: "none", cursor: "pointer", padding: 0 }}>
               <Heart className="w-[18px] h-[18px]" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
             </button>
             <button onClick={onPlay} aria-label={isPlaying ? "Пауза" : "Воспроизвести"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
@@ -155,7 +155,7 @@ function MobileDockInner() {
                   {badge > 0 && <span className="absolute -top-1 -right-2 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[9px] font-bold px-1"
                     style={{ background: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>{badge > 99 ? "99" : badge}</span>}
                 </div>
-                <span className="text-[10px] leading-none" style={{ opacity: active ? 1 : 0.6 }}>{item.label}</span>
+                <span className="text-[11px] leading-none" style={{ opacity: active ? 1 : 0.8 }}>{item.label}</span>
               </button>
             );
           })}

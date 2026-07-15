@@ -407,16 +407,17 @@ export default function SearchView() {
           transition={{ delay: 0.08, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
         >
           <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-            <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Быстрый доступ</h2>
+            <Sparkles className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+            <h2 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Быстрый доступ</h2>
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setQuickPicksSeed(s => s + 1)}
-              className="ml-auto p-1 rounded-lg transition-colors hover:bg-white/5"
+              className="ml-auto p-2.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)] flex-shrink-0"
               style={{ color: "var(--mq-text-muted)" }}
               title="Обновить"
+              aria-label="Обновить"
             >
-              <RefreshCw className="w-3 h-3" />
+              <RefreshCw className="w-4 h-4" />
             </motion.button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">

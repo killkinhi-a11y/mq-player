@@ -398,8 +398,8 @@ function MainView() {
           className="mb-6"
         >
           <p
-            className="mq-text-eyebrow mb-1.5 text-[10px] sm:text-[11px] uppercase tracking-widest"
-            style={{ color: "var(--mq-text)", opacity: "var(--mq-emphasis-low)" }}
+            className="mq-text-eyebrow mb-1.5 text-xs uppercase tracking-widest"
+            style={{ color: "var(--mq-text-muted)" }}
           >
             {currentDate()}
           </p>
@@ -410,7 +410,7 @@ function MainView() {
               fontFamily: "var(--mq-font-serif)",
               fontWeight: 600,
               letterSpacing: "-0.02em",
-              lineHeight: 1.1,
+              lineHeight: 1.15,
             }}
           >
             {greeting()}
@@ -1727,9 +1727,6 @@ function WaveCard({
         animate={{ opacity: isMobile ? [0.3, 0.6, 0.3] : [0.4, 0.8, 0.4] }}
         transition={{ duration: isMobile ? 5 : 4, repeat: Infinity, ease: "easeInOut" }}
       />
-
-      {/* Subtle noise texture overlay */}
-      <div className="absolute inset-0 pointer-events-none" style={{ opacity: isMobile ? 0.04 : 0.08, backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")", backgroundRepeat: "repeat", backgroundSize: "128px 128px" }} />
 
       {/* Animated multi-layer wave background when playing */}
       {radioMode && currentTrack && (
