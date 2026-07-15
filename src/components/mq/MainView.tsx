@@ -853,12 +853,12 @@ function QuickStat({
   return (
     <motion.button
       whileTap={{ scale: 0.97 }}
-      whileHover={{ y: -2 }}
+      whileHover={{ y: -3, boxShadow: `0 8px 24px color-mix(in srgb, ${accent} 15%, transparent)` }}
       onClick={onClick}
-      className="rounded-xl p-2.5 sm:p-3 flex items-center gap-2.5 cursor-pointer transition-colors"
+      className="rounded-xl p-2.5 sm:p-3 flex items-center gap-2.5 cursor-pointer transition-all"
       style={{
-        backgroundColor: "color-mix(in srgb, var(--mq-card) 60%, transparent)",
-        border: "1px solid var(--mq-border-hairline)",
+        background: `linear-gradient(135deg, color-mix(in srgb, ${accent} 8%, var(--mq-card)) 0%, var(--mq-card) 100%)`,
+        border: "1px solid color-mix(in srgb, ${accent} 20%, var(--mq-border-hairline))",
       }}
     >
       <div

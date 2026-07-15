@@ -59,11 +59,11 @@ const LibraryView = React.memo(function LibraryView() {
         transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
         className="mb-4"
       >
-        <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
+        <h1 className="text-2xl font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em", fontFamily: "var(--mq-font-serif)" }}>
           Библиотека
         </h1>
         <p className="text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>
-          Ваша музыка в одном месте
+          {likedTrackIds.length + playlists.length + history.length} элементов в коллекции
         </p>
       </motion.div>
 

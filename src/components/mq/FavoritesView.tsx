@@ -339,7 +339,7 @@ export default function FavoritesView() {
             )}
           </motion.div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
+            <h1 className="text-lg font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em", fontFamily: "var(--mq-font-serif)" }}>
               Избранное
             </h1>
             <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
