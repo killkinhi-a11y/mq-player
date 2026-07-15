@@ -1682,7 +1682,7 @@ function WaveCard({
   isLiked: boolean;
   topGenres: string[];
 }) {
-  const waveMagnetic = useMagnetic({ strength: 0.15, radius: 150 });
+  const waveMagnetic = useMagnetic({ strength: 1, padding: 60 });
   return (
     <div
       className={isMobile ? "relative mb-8 rounded-3xl overflow-hidden" : "mq-hero-card relative mb-8"}
@@ -1697,7 +1697,7 @@ function WaveCard({
           : getWaveGradient(),
         minHeight: isMobile ? 140 : 160,
         boxShadow: "var(--mq-shadow-float)",
-        transition: "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+        willChange: "transform",
       }}
     >
       {/* Tip 4 (Depth & texture from video): subtle noise overlay on the

@@ -74,7 +74,7 @@ export default function PlayerBar() {
   }, []);
 
   const isMobile = useIsMobile();
-  const playMagnetic = useMagnetic({ strength: 0.25, radius: 60 });
+  const playMagnetic = useMagnetic({ strength: 0.5, padding: 30 });
   const [isDragging, setIsDragging] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
 
