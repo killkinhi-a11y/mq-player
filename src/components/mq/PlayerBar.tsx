@@ -285,7 +285,7 @@ export default function PlayerBar() {
                 style={{ boxShadow: "var(--mq-shadow-premium-sm)" }}
               >
                 {currentTrack.cover ? (
-                  <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
+                  <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="eager" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
                     <Music className="w-5 h-5" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />

@@ -798,7 +798,12 @@ export default function FullTrackView() {
                 </motion.div>
 
                 {/* ═══ RIGHT SIDE: info, controls, panels ═══ */}
-                <div className={`flex-1 ${isMobile ? "w-full" : "min-w-0"} flex flex-col ${isMobile ? "items-center" : "items-start"}`}>
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.4, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+                  className={`flex-1 ${isMobile ? "w-full" : "min-w-0"} flex flex-col ${isMobile ? "items-center" : "items-start"}`}
+                >
                   {/* Track info */}
                   <div className={`w-full ${isMobile ? "text-center" : "text-left"} mb-4`}>
                     <h1 className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1.5 truncate w-full" style={{ color: "var(--mq-text)" }}>
@@ -1297,7 +1302,7 @@ export default function FullTrackView() {
                       </span>
                     </div>
                   )}
-                </div>
+                </motion.div>
               </div>
             </div>
           </div>

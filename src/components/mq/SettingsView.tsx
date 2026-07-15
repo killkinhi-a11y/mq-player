@@ -366,7 +366,7 @@ export default function SettingsView() {
       <div className="space-y-4">
         {/* ════ ACCOUNT ════ */}
         {activeTab === "account" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="space-y-4">
             <Card>
               <CardTitle icon={User} title="Профиль" />
               <div className="px-3 sm:px-4 py-3 sm:py-4 flex items-center gap-3 sm:gap-4" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
@@ -445,7 +445,7 @@ export default function SettingsView() {
 
         {/* ════ APPEARANCE ════ */}
         {activeTab === "appearance" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="space-y-4">
             <Card>
               <CardTitle icon={Palette} title="Тема" />
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
@@ -503,7 +503,7 @@ export default function SettingsView() {
 
         {/* ════ PLAYBACK ════ */}
         {activeTab === "playback" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="space-y-4">
             <Card>
               <CardTitle icon={Volume2} title="Громкость" />
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
@@ -563,7 +563,7 @@ export default function SettingsView() {
 
         {/* ════ NOTIFICATIONS ════ */}
         {activeTab === "notifications" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="space-y-4">
             <Card>
               <CardTitle icon={Bell} title="Push-уведомления" />
               <SettingToggle icon={Bell} label="Уведомления" subtitle="Новые сообщения, обновления" value={pushEnabled} onCheckedChange={handlePushToggle} />
@@ -584,7 +584,7 @@ export default function SettingsView() {
 
         {/* ════ MORE ════ */}
         {activeTab === "more" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="space-y-4">
             <Card>
               <CardTitle icon={Info} title="О приложении" />
               <SettingRow icon={Info} label="Версия" value={typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_VERSION ? `v${process.env.NEXT_PUBLIC_APP_VERSION}` : "v1.3.0"} />

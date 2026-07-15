@@ -102,7 +102,17 @@
   --mq-shadow-accent: 0 4px 16px color-mix(in srgb, var(--mq-accent) 25%, rgba(0,0,0,0.3));
   --mq-shadow-accent-hover: 0 6px 24px color-mix(in srgb, var(--mq-accent) 35%, rgba(0,0,0,0.35));
 
-  /* Z-index scale */
+  /* Z-index scale (tasteskill rule 6.F — document z-index scale)
+     Usage in codebase:
+     - z-10: content above background (avatar over gradient)
+     - z-30: sticky tab bar (SettingsView)
+     - z-50: tooltips, popovers, More menu
+     - z-[55]: PlayerBar (fixed bottom)
+     - z-[100]: FullTrackView modal overlay
+     - z-[200]: Equalizer modal
+     - z-[300]: SplashScreen
+     - z-[500]: skip-to-content link
+     Never use arbitrary z-index outside this scale. */
   --mq-z-base: 0;
   --mq-z-dropdown: 10;
   --mq-z-sticky: 20;
