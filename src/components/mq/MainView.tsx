@@ -1682,7 +1682,7 @@ function WaveCard({
   isLiked: boolean;
   topGenres: string[];
 }) {
-  const waveMagnetic = useMagnetic({ strength: 0.08, radius: 120 });
+  const waveMagnetic = useMagnetic({ strength: 0.15, radius: 150 });
   return (
     <div
       className={isMobile ? "relative mb-8 rounded-3xl overflow-hidden" : "mq-hero-card relative mb-8"}

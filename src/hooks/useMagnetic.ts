@@ -1,28 +1,16 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect, useState } from "react";
 
 /**
- * useMagnetic — магнитный эффект для кнопок.
+ * useMagnetic — магнитный эффект для элементов.
  *
- * Кнопка притягивается к курсору когда тот рядом.
- * Создаёт premium «живой» эффект как на Awwwards-сайтах.
- *
- * Использование:
- *   const magnetic = useMagnetic({ strength: 0.3, radius: 80 });
- *   <button {...magnetic}>Click me</button>
- *
- * Производительность:
- * - RAF batched (через ref, без useState)
- * - GPU-only: transform translate
- * - Auto-disable на touch + reduced-motion
- * - Возвращается в 0 при уходе курсора
+ * Элемент притягивается к курсору когда тот рядом.
+ * RAF batched, auto-disable на touch + reduced-motion.
  */
 
 interface MagneticOptions {
-  /** Сила притяжения 0-1 (default: 0.3) */
   strength?: number;
-  /** Радиус действия в px (default: 80) */
   radius?: number;
 }
 
@@ -34,6 +22,15 @@ export function useMagnetic({
   const rafRef = useRef<number>(0);
   const targetRef = useRef({ x: 0, y: 0 });
   const currentRef = useRef({ x: 0, y: 0 });
+  const [enabled, setEnabled] = useState(false);
+
+  // Check capabilities AFTER hydration (SSR-safe)
+  useEffect(() => {
+    const canMagnetic =
+      window.matchMedia("(hover: hover)").matches &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setEnabled(canMagnetic);
+  }, []);
 
   const update = useCallback(() => {
     rafRef.current = requestAnimationFrame(update);
@@ -42,9 +39,8 @@ export function useMagnetic({
     c.x += (t.x - c.x) * 0.15;
     c.y += (t.y - c.y) * 0.15;
     if (ref.current) {
-      ref.current.style.transform = `translate(${c.x}px, ${c.y}px)`;
+      ref.current.style.transform = `translate(${c.x.toFixed(2)}px, ${c.y.toFixed(2)}px)`;
     }
-    // Stop when settled
     if (Math.abs(t.x - c.x) < 0.1 && Math.abs(t.y - c.y) < 0.1 && t.x === 0 && t.y === 0) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = 0;
@@ -56,6 +52,7 @@ export function useMagnetic({
 
   const handleMove = useCallback(
     (e: React.MouseEvent) => {
+      if (!enabled) return;
       const el = ref.current;
       if (!el) return;
       const rect = el.getBoundingClientRect();
@@ -78,23 +75,20 @@ export function useMagnetic({
         rafRef.current = requestAnimationFrame(update);
       }
     },
-    [radius, strength, update]
+    [enabled, radius, strength, update]
   );
 
   const handleLeave = useCallback(() => {
+    if (!enabled) return;
     targetRef.current = { x: 0, y: 0 };
     if (!rafRef.current) {
       rafRef.current = requestAnimationFrame(update);
     }
-  }, [update]);
-
-  const canMagnetic = typeof window !== "undefined"
-    && window.matchMedia("(hover: hover)").matches
-    && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }, [enabled, update]);
 
   return {
     ref,
-    onMouseMove: canMagnetic ? handleMove : undefined,
-    onMouseLeave: canMagnetic ? handleLeave : undefined,
+    onMouseMove: enabled ? handleMove : undefined,
+    onMouseLeave: enabled ? handleLeave : undefined,
   };
 }
