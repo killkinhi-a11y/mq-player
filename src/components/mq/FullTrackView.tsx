@@ -18,6 +18,7 @@ import { toast } from "@/hooks/use-toast";
 import VolumeSlider from "@/components/ui/volume-slider";
 import { fetchLyrics } from "@/lib/lyrics-client";
 import { LyricsView, type LyricLine } from "./LyricsView";
+import { AudioVisualizer } from "./AudioVisualizer";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
@@ -210,6 +211,7 @@ export default function FullTrackView() {
   const [showSleepMenu, setShowSleepMenu] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(true);
+  const [showVisualizer, setShowVisualizer] = useState(false);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
   const [showVolumePopup, setShowVolumePopup] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
@@ -738,10 +740,16 @@ export default function FullTrackView() {
                       }}
                     >
                       {currentTrack.cover ? (
-                        <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
+                        <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="eager" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
                           <Music className="w-16 h-16" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
+                        </div>
+                      )}
+                      {/* Audio Visualizer overlay — WebGL-style particle sphere */}
+                      {showVisualizer && (
+                        <div className="absolute inset-0 rounded-3xl overflow-hidden" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+                          <AudioVisualizer isPlaying={isPlaying} />
                         </div>
                       )}
                       {/* Subtle playing indicator — pulsing border (CSS) */}
@@ -888,15 +896,15 @@ export default function FullTrackView() {
                         aria-label="Дополнительные настройки"
                         className="w-10 h-10 rounded-full flex items-center justify-center relative"
                         style={{
-                          backgroundColor: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive)
+                          backgroundColor: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer)
                             ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
                             : "var(--mq-glass-bg)"
                         }}
                         title="Дополнительно"
                       >
-                        <MoreHorizontal className="w-4 h-4" style={{ color: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive) ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                        <MoreHorizontal className="w-4 h-4" style={{ color: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer) ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                         {/* Active indicator dot */}
-                        {(eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive) && (
+                        {(eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer) && (
                           <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
                         )}
                       </button>
@@ -950,6 +958,15 @@ export default function FullTrackView() {
                               <Timer className="w-4 h-4" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                               <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
                               {sleepTimerActive && <span className="text-xs font-mono" style={{ color: "var(--mq-accent)" }}>{sleepRemainingMin}м</span>}
+                            </button>
+                            <button
+                              onClick={() => { setShowVisualizer(!showVisualizer); setShowMoreMenu(false); }}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+                            >
+                              <Sparkles className="w-4 h-4" style={{ color: showVisualizer ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                              <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Визуализатор</span>
+                              {showVisualizer && <span className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>ВКЛ</span>}
                             </button>
                           </motion.div>
                         )}
