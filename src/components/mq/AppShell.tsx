@@ -547,7 +547,7 @@ export default function AppShell() {
 
   return (
     <div
-      className={`min-h-screen ${showMiniPlayerSpacer ? 'mq-has-player' : ''}`}
+      className={`min-h-[100dvh] ${showMiniPlayerSpacer ? 'mq-has-player' : ''}`}
       style={{
         backgroundColor: "var(--mq-bg)",
       }}

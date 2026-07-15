@@ -262,6 +262,13 @@ input, textarea, select {
   }
 }
 
+/* ── Tactile Feedback (tasteskill rule 4.5) ──
+   On :active, buttons simulate a physical push via translateY(-1px).
+   Only applies to plain <button> (motion.button handles its own whileTap). */
+button:not(:disabled):active {
+  transform: translateY(-1px);
+}
+
 /* ── Focus System — unified, premium ──
    One system for all elements. No more 3 competing focus styles.
    Absolutely NO outline anywhere — ever. Outline is always square. */
