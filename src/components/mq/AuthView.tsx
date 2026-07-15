@@ -566,7 +566,7 @@ export default function AuthView() {
                     {usernameStatus === 'taken' && usernameError && (
                       <motion.p key="tg-taken" initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
                         className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#60a5fa" }}>
-                        <Lock className="w-3 h-3" /> Аккаунт с таким именем уже существует — нажмите кнопку ниже для входа
+                        <Lock className="w-3 h-3" /> Аккаунт с таким именем уже существует. Нажмите кнопку ниже для входа
                       </motion.p>
                     )}
                     {usernameStatus === 'invalid' && usernameError && (

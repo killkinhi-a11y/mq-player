@@ -649,7 +649,7 @@ export default function FullTrackView() {
           // as modal dialog so screen readers trap focus and announce it.
           role="dialog"
           aria-modal="true"
-          aria-label={`Полноэкранный плеер: ${currentTrack.title} — ${currentTrack.artist}`}
+          aria-label={`Полноэкранный плеер: ${currentTrack.title} - ${currentTrack.artist}`}
           style={{
             background: currentTrack.cover
               ? `linear-gradient(180deg, color-mix(in srgb, var(--mq-accent) 15%, var(--mq-bg)) 0%, var(--mq-bg) 50%)`

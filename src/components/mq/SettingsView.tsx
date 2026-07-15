@@ -325,7 +325,7 @@ export default function SettingsView() {
         }
         toast({ title: "Данные импортированы" });
       } catch {
-        toast({ title: "Ошибка импорта — неверный файл", variant: "destructive" });
+        toast({ title: "Ошибка импорта: неверный файл", variant: "destructive" });
       }
     };
     input.click();
@@ -382,7 +382,7 @@ export default function SettingsView() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-base font-bold truncate" style={{ color: "var(--mq-text)" }}>{username || "User"}</p>
-                  <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{email || "—"}</p>
+                  <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{email || "нет"}</p>
                 </div>
                 <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.05 }} onClick={() => setView("profile")}
                   className="px-3 py-2 rounded-xl text-xs font-semibold" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}>
