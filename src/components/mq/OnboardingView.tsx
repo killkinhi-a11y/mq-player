@@ -212,7 +212,7 @@ export default function OnboardingView() {
                   }}>
                   <Music className="w-7 h-7" style={{ color: "var(--mq-accent)" }} />
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
+                <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em", fontFamily: "var(--mq-font-serif)" }}>
                   Какую музыку слушаете?
                 </h1>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
@@ -316,7 +316,7 @@ export default function OnboardingView() {
                   }}>
                   <Sparkles className="w-7 h-7" style={{ color: "var(--mq-accent)" }} />
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>
+                <h1 className="text-2xl sm:text-3xl font-bold mb-2" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em", fontFamily: "var(--mq-font-serif)" }}>
                   Любимые артисты
                 </h1>
                 <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>

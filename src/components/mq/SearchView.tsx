@@ -792,11 +792,11 @@ export default function SearchView() {
           {Array.from({ length: 5 }).map((_, i) => (
             <motion.div
               key={i}
-              initial={animationsEnabled ? { opacity: 0, x: -8 } : undefined}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05, duration: 0.25 }}
+              initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.06, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
               className="flex items-center gap-3 p-3 rounded-2xl"
-              style={{ backgroundColor: "rgba(255,255,255,0.02)" }}
+              style={{ backgroundColor: "var(--mq-glass-bg)" }}
             >
               <Skeleton className="w-11 h-11 rounded-lg flex-shrink-0" />
               <div className="flex-1 space-y-2"><Skeleton className="h-3.5 w-3/4" /><Skeleton className="h-3 w-1/2" /></div>

@@ -85,6 +85,7 @@ const FullTrackViewMobile = dynamic(() => import("@/components/mq/FullTrackViewM
 const KeyboardShortcutsHelp = dynamic(() => import("@/components/mq/KeyboardShortcutsHelp").then(m => ({ default: m.KeyboardShortcutsHelp })), { ssr: false });
 const NavBar = dynamic(() => import("@/components/mq/NavBar"), { ssr: false });
 const MobileNav = dynamic(() => import("@/components/mq/MobileNav"), { ssr: false });
+const ScrollProgressBar = dynamic(() => import("@/components/mq/ScrollProgressBar"), { ssr: false });
 const MobileDock = dynamic(() => import("@/components/mq/MobileDock"), { ssr: false });
 const NotificationPanel = dynamic(() => import("@/components/mq/NotificationPanel"), { ssr: false });
 const SeasonalEffects = dynamic(() => import("@/components/mq/SeasonalEffects"), { ssr: false });
@@ -575,6 +576,14 @@ export default function AppShell() {
         </nav>
       }>
         {showNav && !hideUiForFullscreen && <NavBar />}
+        {/* Scroll progress bar — thin accent line at top showing scroll position */}
+        {showNav && !hideUiForFullscreen && (
+          <Suspense fallback={null}>
+            <div className="fixed top-0 left-0 right-0 z-[60] pointer-events-none" style={{ height: "2px" }}>
+              <ScrollProgressBar />
+            </div>
+          </Suspense>
+        )}
       </Suspense>
 
       <main id="main-content" className={showNav && !hideUiForFullscreen ? "lg:pt-16" : ""} data-view={currentView}>
