@@ -18,6 +18,7 @@ import QueueView from "./QueueView";
 import { ProgressBar } from "./ProgressBar";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import { useMagnetic } from "@/hooks/useMagnetic";
+import { LikeBurst } from "./LikeBurst";
 
 // ═════════════════════════════════════════════════════════════════════════
 // PLAYER BAR — desktop mini player
@@ -169,7 +170,10 @@ export default function PlayerBar() {
   }, [setVolume]);
 
   // ── Actions (with haptic feedback + toast notifications) ──
-  const handleLike = useCallback(() => {
+  const [likeBurst, setLikeBurst] = useState(0);
+  const [likeBurstPos, setLikeBurstPos] = useState<{ x: number; y: number } | null>(null);
+
+  const handleLike = useCallback((e?: React.MouseEvent) => {
     if (currentTrack) {
       const wasLiked = likedTrackIds.includes(currentTrack.id);
       toggleLike(currentTrack.id, currentTrack);
@@ -178,6 +182,11 @@ export default function PlayerBar() {
         title: wasLiked ? "Убрано из избранного" : "Добавлено в избранное",
         duration: 2000,
       });
+      // Trigger heart burst at click position
+      if (!wasLiked && e) {
+        setLikeBurstPos({ x: e.clientX, y: e.clientY });
+        setLikeBurst(b => b + 1);
+      }
     }
   }, [currentTrack, toggleLike, likedTrackIds, toast]);
 
@@ -485,7 +494,7 @@ export default function PlayerBar() {
               <motion.button
                 whileTap={{ scale: 0.7 }}
                 whileHover={{ scale: 1.1 }}
-                onClick={handleLike}
+                onClick={(e) => handleLike(e)}
                 className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
                 title="Нравится"
                 aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"}
@@ -628,6 +637,10 @@ export default function PlayerBar() {
         </div>
       </motion.div>
       <QueueView isOpen={showQueue} onClose={() => setShowQueue(false)} />
+      {/* Heart particle burst on like */}
+      {likeBurst > 0 && likeBurstPos && (
+        <LikeBurst trigger={likeBurst} x={likeBurstPos.x} y={likeBurstPos.y} />
+      )}
     </>
   );
 }

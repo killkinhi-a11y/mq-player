@@ -86,6 +86,8 @@ const KeyboardShortcutsHelp = dynamic(() => import("@/components/mq/KeyboardShor
 const NavBar = dynamic(() => import("@/components/mq/NavBar"), { ssr: false });
 const MobileNav = dynamic(() => import("@/components/mq/MobileNav"), { ssr: false });
 const ScrollProgressBar = dynamic(() => import("@/components/mq/ScrollProgressBar"), { ssr: false });
+const CursorParticleField = dynamic(() => import("@/components/mq/CursorParticleField").then(m => ({ default: m.CursorParticleField })), { ssr: false });
+const AnimatedGradientBg = dynamic(() => import("@/components/mq/AnimatedGradientBg").then(m => ({ default: m.AnimatedGradientBg })), { ssr: false });
 const MobileDock = dynamic(() => import("@/components/mq/MobileDock"), { ssr: false });
 const NotificationPanel = dynamic(() => import("@/components/mq/NotificationPanel"), { ssr: false });
 const SeasonalEffects = dynamic(() => import("@/components/mq/SeasonalEffects"), { ssr: false });
@@ -566,6 +568,14 @@ export default function AppShell() {
         Перейти к содержимому
       </a>
       <Suspense fallback={null}><CinematicAtmosphere /></Suspense>
+      {/* Animated gradient background — subtle floating accent blobs */}
+      {showNav && !hideUiForFullscreen && (
+        <Suspense fallback={null}><AnimatedGradientBg /></Suspense>
+      )}
+      {/* Cursor particle trail — particles follow mouse on desktop */}
+      {showNav && !hideUiForFullscreen && (
+        <Suspense fallback={null}><CursorParticleField /></Suspense>
+      )}
       <Suspense fallback={null}><MaintenanceBanner /></Suspense>
       <OfflineBanner />
 
