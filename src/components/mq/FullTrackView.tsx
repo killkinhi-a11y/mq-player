@@ -19,6 +19,7 @@ import VolumeSlider from "@/components/ui/volume-slider";
 import { fetchLyrics } from "@/lib/lyrics-client";
 import { LyricsView, type LyricLine } from "./LyricsView";
 import { AudioVisualizer } from "./AudioVisualizer";
+import { ShareSheet } from "./ShareSheet";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
@@ -212,6 +213,7 @@ export default function FullTrackView() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(true);
   const [showVisualizer, setShowVisualizer] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
   const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
   const [showVolumePopup, setShowVolumePopup] = useState(false);
   const [lastTapTime, setLastTapTime] = useState(0);
@@ -363,15 +365,10 @@ export default function FullTrackView() {
     }
   }, [currentTrack, toggleDislike]);
 
-  const handleShare = useCallback(async () => {
+  const handleShare = useCallback(() => {
     if (!currentTrack) return;
-    const url = `${window.location.origin}/track/${currentTrack.scTrackId || currentTrack.id}`;
-    if (navigator.share) {
-      try { await navigator.share({ title: currentTrack.title, url }); } catch {}
-    } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(url).then(() => toast({ title: "Ссылка скопирована" }));
-    }
-  }, [currentTrack, toast]);
+    setShowShareSheet(true);
+  }, [currentTrack]);
 
   const handleArtistClick = useCallback(() => {
     if (currentTrack?.artist) {
@@ -634,6 +631,7 @@ export default function FullTrackView() {
   }, [showMoreMenu]);
 
   return (
+    <>
     <AnimatePresence>
       {isOpen && currentTrack && (
         <motion.div
@@ -1326,5 +1324,14 @@ export default function FullTrackView() {
         </motion.div>
       )}
     </AnimatePresence>
+    <ShareSheet
+      isOpen={showShareSheet}
+      onClose={() => setShowShareSheet(false)}
+      url={typeof window !== "undefined" && currentTrack ? `${window.location.origin}/track/${currentTrack.scTrackId || currentTrack.id}` : ""}
+      title={currentTrack?.title || ""}
+      subtitle={currentTrack?.artist}
+      cover={currentTrack?.cover}
+    />
+    </>
   );
 }

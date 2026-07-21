@@ -331,7 +331,11 @@ export default function SettingsView() {
     input.click();
   }, []);
 
-  const accentPresets = ["#e03131", "#8b5cf6", "#4ade80", "#f59e0b", "#ec4899", "#06b6d4", "#f97316"];
+  const accentPresets = [
+    "#e03131", "#8b5cf6", "#4ade80", "#f59e0b",
+    "#ec4899", "#06b6d4", "#f97316", "#3b82f6",
+    "#a855f7", "#10b981", "#ef4444", "#eab308",
+  ];
 
   return (
     <div className="p-3 sm:p-4 lg:p-6 max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-24" data-active-tab={activeTab}>
