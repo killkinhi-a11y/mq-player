@@ -263,9 +263,11 @@ input, textarea, select {
 }
 
 /* ── Tactile Feedback (tasteskill rule 4.5) ──
-   On :active, buttons simulate a physical push via translateY(-1px).
-   Only applies to plain <button> (motion.button handles its own whileTap). */
-button:not(:disabled):active {
+   On :active, buttons with .mq-tactile class simulate a physical push.
+   Only apply to plain <button> WITHOUT inline transform (motion.button
+   handles its own whileTap). Global selector removed — was conflicting
+   with inline transforms causing button jump. */
+.mq-tactile:not(:disabled):active {
   transform: translateY(-1px);
 }
 

@@ -97,10 +97,20 @@ export const CursorParticleField = memo(function CursorParticleField({
       void speed;
     };
 
+    let firstMove = true;
+
     const onMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
       mouseRef.current.x = e.clientX - rect.left;
       mouseRef.current.y = e.clientY - rect.top;
+
+      // First mousemove: just init prevX/prevY, don't spawn (prevents huge dx/dy)
+      if (firstMove) {
+        mouseRef.current.prevX = mouseRef.current.x;
+        mouseRef.current.prevY = mouseRef.current.y;
+        firstMove = false;
+        return;
+      }
 
       const dx = mouseRef.current.x - mouseRef.current.prevX;
       const dy = mouseRef.current.y - mouseRef.current.prevY;

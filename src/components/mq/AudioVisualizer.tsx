@@ -133,9 +133,8 @@ export const AudioVisualizer = memo(function AudioVisualizer({
       rotationRef.current.y += rotSpeed;
       rotationRef.current.x += rotSpeed * 0.5;
 
-      // Fade trail
-      ctx.fillStyle = "rgba(0, 0, 0, 0.15)";
-      ctx.fillRect(0, 0, w, h);
+      // Clear canvas (fix: was fillRect with black → canvas turned black over time)
+      ctx.clearRect(0, 0, w, h);
 
       const cx = w / 2;
       const cy = h / 2;

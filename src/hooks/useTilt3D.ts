@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 
 /**
  * useTilt3D — 3D параллакс tilt эффект для карточек.
@@ -91,16 +91,20 @@ export function useTilt3D({
 
   const handleLeave = useCallback(() => {
     targetRef.current = { rx: 0, ry: 0, sc: 1 };
-    // Stop RAF after animation settles
-    setTimeout(() => {
-      if (rafRef.current && Math.abs(targetRef.current.rx - currentRef.current.rx) < 0.1) {
+    // update() will self-cancel when settled (target === current === 0)
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(update);
+    }
+  }, [update]);
+
+  // CRITICAL: cleanup RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
         rafRef.current = 0;
-        if (ref.current) {
-          ref.current.style.transform = "";
-        }
       }
-    }, 500);
+    };
   }, []);
 
   // Check for reduced motion / touch device

@@ -34,6 +34,13 @@ export function useMagnetic({
       window.matchMedia("(hover: hover)").matches &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setEnabled(can);
+    // CRITICAL: cleanup RAF on unmount to prevent infinite loop
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
+    };
   }, []);
 
   const update = useCallback(() => {

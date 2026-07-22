@@ -43,6 +43,8 @@ export const ShareSheet = memo(function ShareSheet({
       setCopied(true);
       toast({ title: "Ссылка скопирована" });
       setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      toast({ title: "Не удалось скопировать", variant: "destructive" });
     });
   }, [url, toast]);
 
