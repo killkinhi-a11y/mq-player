@@ -310,9 +310,11 @@ export default function AppShell() {
     if (!cap?.isNativePlatform?.()) return;
 
     let listener: any;
+    let cancelled = false;
     (async () => {
       try {
         const { App } = await import("@capacitor/app");
+        if (cancelled) return;
         listener = await App.addListener("backButton", () => {
           const state = useAppStore.getState();
 
@@ -346,6 +348,7 @@ export default function AppShell() {
     })();
 
     return () => {
+      cancelled = true;
       listener?.remove?.();
     };
   }, []);

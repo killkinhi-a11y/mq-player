@@ -84,7 +84,6 @@ export const CursorParticleField = memo(function CursorParticleField({
       if (particles.length >= MAX_PARTICLES) {
         particles.shift();
       }
-      const speed = Math.sqrt(dx * dx + dy * dy);
       particles.push({
         x,
         y,
@@ -94,7 +93,9 @@ export const CursorParticleField = memo(function CursorParticleField({
         maxLife: 40 + Math.random() * 20,
         size: 1.5 + Math.random() * 2.5,
       });
-      void speed;
+      if (!rafRef.current) {
+        rafRef.current = requestAnimationFrame(animate);
+      }
     };
 
     let firstMove = true;
@@ -195,19 +196,11 @@ export const CursorParticleField = memo(function CursorParticleField({
       }
     };
 
-    // Start animation when mouse moves
-    const startCheck = setInterval(() => {
-      if (particlesRef.current.length > 0 && !rafRef.current) {
-        rafRef.current = requestAnimationFrame(animate);
-      }
-    }, 100);
-
     return () => {
       cancelAnimationFrame(rafRef.current);
       window.removeEventListener("mousemove", onMouseMove);
       document.removeEventListener("visibilitychange", onVisibility);
       clearInterval(colorInterval);
-      clearInterval(startCheck);
       ro.disconnect();
     };
   }, []);

@@ -173,6 +173,13 @@ export default function PlayerBar() {
   const [likeBurst, setLikeBurst] = useState(0);
   const [likeBurstPos, setLikeBurstPos] = useState<{ x: number; y: number } | null>(null);
 
+  useEffect(() => {
+    if (likeBurst > 0) {
+      const t = setTimeout(() => { setLikeBurst(0); setLikeBurstPos(null); }, 1500);
+      return () => clearTimeout(t);
+    }
+  }, [likeBurst]);
+
   const handleLike = useCallback((e?: React.MouseEvent) => {
     if (currentTrack) {
       const wasLiked = likedTrackIds.includes(currentTrack.id);

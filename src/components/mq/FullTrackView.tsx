@@ -256,6 +256,7 @@ export default function FullTrackView() {
   }, [seekTo]);
 
   const hoverRafRef = useRef(0);
+  useEffect(() => () => { if (hoverRafRef.current) cancelAnimationFrame(hoverRafRef.current); }, []);
   const handleProgressMouseMove = useCallback((e: React.MouseEvent) => {
     if (isDragging) return;
     const x = e.clientX;
@@ -352,11 +353,11 @@ export default function FullTrackView() {
   // ── Actions ─────────────────────────────────────────────────────────────
   const handleLike = useCallback(() => {
     if (currentTrack) {
+      const wasLiked = useAppStore.getState().likedTrackIds.includes(currentTrack.id);
       toggleLike(currentTrack.id, currentTrack);
-      const isLikedNow = likedTrackIds.includes(currentTrack.id);
-      if (!isLikedNow) setHeartBurstTrigger(t => t + 1);
+      if (!wasLiked) setHeartBurstTrigger(t => t + 1);
     }
-  }, [currentTrack, toggleLike, likedTrackIds]);
+  }, [currentTrack, toggleLike]);
 
   const handleDislike = useCallback(() => {
     if (currentTrack) {

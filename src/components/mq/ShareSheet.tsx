@@ -39,7 +39,11 @@ export const ShareSheet = memo(function ShareSheet({
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
-    navigator.clipboard?.writeText(url).then(() => {
+    if (!navigator.clipboard) {
+      toast({ title: "Браузер не поддерживает копирование", variant: "destructive" });
+      return;
+    }
+    navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       toast({ title: "Ссылка скопирована" });
       setTimeout(() => setCopied(false), 2000);
