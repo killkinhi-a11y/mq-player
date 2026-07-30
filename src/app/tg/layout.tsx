@@ -1,5 +1,3 @@
-import Script from "next/script";
-
 export const metadata = {
   title: "mq — Telegram Mini App",
   description: "Музыкальный плеер mq прямо в Telegram",
@@ -18,17 +16,10 @@ export const viewport = {
 export const dynamic = "force-dynamic";
 
 export default function TgLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      {/* Telegram WebApp SDK — must load BEFORE React hydrates so that
-          window.Telegram.WebApp.initData is available in useEffect.
-          next/script with beforeInteractive guarantees this.
-          Regular <script async> or <script defer> does NOT. */}
-      <Script
-        src="https://telegram.org/js/telegram-web-app.js"
-        strategy="beforeInteractive"
-      />
-      {children}
-    </>
-  );
+  // SDK is loaded dynamically by ensureTelegramSDK() in page.tsx.
+  // We don't use next/script here because beforeInteractive only works
+  // in the root layout, and afterInteractive loads too late for our
+  // useEffect. Dynamic injection with async=false is the most reliable
+  // approach across mobile/desktop Telegram WebView.
+  return <>{children}</>;
 }

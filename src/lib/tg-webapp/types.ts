@@ -124,6 +124,56 @@ export function getTelegramWebApp(): TelegramWebApp | null {
 }
 
 /**
+ * Ensure the Telegram WebApp SDK is loaded.
+ *
+ * In Telegram's mobile WebView, window.Telegram.WebApp is injected by
+ * Telegram itself BEFORE page scripts run. In Telegram Desktop and in
+ * browser testing, the external script from telegram.org is needed.
+ *
+ * This function:
+ *   1. Checks if window.Telegram.WebApp already exists (mobile case)
+ *   2. If not, dynamically injects the script tag (synchronous execution)
+ *   3. Polls until the SDK is ready (up to 10 seconds)
+ *
+ * Returns the WebApp instance on success, null on timeout.
+ */
+export async function ensureTelegramSDK(timeoutMs = 10000): Promise<TelegramWebApp | null> {
+  if (typeof window === "undefined") return null;
+
+  // Already loaded?
+  if (window.Telegram?.WebApp) {
+    return window.Telegram.WebApp;
+  }
+
+  // Inject the script if not already present
+  const existing = document.getElementById("telegram-web-app-script");
+  if (!existing) {
+    const script = document.createElement("script");
+    script.id = "telegram-web-app-script";
+    script.src = "https://telegram.org/js/telegram-web-app.js";
+    script.async = false; // synchronous execution
+    document.head.appendChild(script);
+  }
+
+  // Poll until ready
+  const start = Date.now();
+  return new Promise((resolve) => {
+    const check = () => {
+      if (window.Telegram?.WebApp) {
+        resolve(window.Telegram.WebApp);
+        return;
+      }
+      if (Date.now() - start > timeoutMs) {
+        resolve(null);
+        return;
+      }
+      setTimeout(check, 100);
+    };
+    check();
+  });
+}
+
+/**
  * Check if we're running inside Telegram Mini App.
  */
 export function isTelegramWebApp(): boolean {
