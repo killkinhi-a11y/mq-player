@@ -64,87 +64,115 @@ export default function TgWebAppPage() {
     applyTelegramTheme();
   }, []);
 
-  // Authenticate via initData
-  // Telegram's web-app.js SDK should set window.Telegram.WebApp before React
-  // hydrates (script is synchronous in layout.tsx), but on slow connections
-  // or in some Telegram desktop clients it may be delayed. We poll for up to
-  // 3 seconds before giving up and showing the "open via bot" error.
+  // Authenticate via initData OR existing session cookie.
+  //
+  // Strategy (in order):
+  //   1. Check /api/auth/me — if session cookie is valid (user already logged
+  //      in via website or previous Telegram auth), use it immediately.
+  //      This handles the case where Telegram's initData is empty (e.g. user
+  //      opened /tg via URL, or Telegram desktop didn't inject it).
+  //   2. If no existing session, poll for window.Telegram.WebApp.initData
+  //      for up to 5 seconds (SDK may load late on slow connections).
+  //   3. If initData found → call /api/telegram/webapp-auth to validate it
+  //      and create/link a session.
+  //   4. If neither works → show error with option to open regular site.
   useEffect(() => {
     let cancelled = false;
-    let attempts = 0;
-    const MAX_ATTEMPTS = 30; // 30 × 100ms = 3s
 
-    const tryAuth = (initData: string) => {
-      (async () => {
-        try {
-          const res = await fetch("/api/telegram/webapp-auth", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ initData }),
-          });
-          const data = await res.json();
-          if (cancelled) return;
-
-          if (data.ok && data.userId) {
-            setAuth({
-              status: "authed",
-              user: {
-                userId: data.userId,
-                username: data.username,
-                avatar: data.avatar,
-              },
-            });
-          } else if (data.isNewUser && data.telegramUser) {
-            setAuth({
-              status: "new_user",
-              telegramUser: data.telegramUser,
-            });
-          } else {
-            setAuth({ status: "error", error: data.error || "Auth failed" });
-          }
-        } catch (err: any) {
-          if (!cancelled) {
-            setAuth({ status: "error", error: err?.message || "Network error" });
-          }
-        }
-      })();
+    const finishAuth = (data: any) => {
+      if (cancelled) return;
+      if (data.userId || data.ok) {
+        setAuth({
+          status: "authed",
+          user: {
+            userId: data.userId,
+            username: data.username,
+            avatar: data.avatar,
+          },
+        });
+      } else if (data.isNewUser && data.telegramUser) {
+        setAuth({
+          status: "new_user",
+          telegramUser: data.telegramUser,
+        });
+      } else {
+        setAuth({ status: "error", error: data.error || "Auth failed" });
+      }
     };
 
-    // Try immediately — most common case (SDK already loaded)
-    const immediate = getTelegramInitData();
-    if (immediate) {
-      tryAuth(immediate);
-      return () => { cancelled = true; };
-    }
+    const tryInitDataAuth = async (initData: string) => {
+      try {
+        const res = await fetch("/api/telegram/webapp-auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ initData }),
+        });
+        const data = await res.json();
+        finishAuth(data);
+      } catch (err: any) {
+        if (!cancelled) {
+          setAuth({ status: "error", error: err?.message || "Network error" });
+        }
+      }
+    };
 
-    // SDK not ready yet — poll every 100ms
-    const interval = setInterval(() => {
-      attempts++;
-      const initData = getTelegramInitData();
-      if (initData) {
-        clearInterval(interval);
-        tryAuth(initData);
+    const giveUp = () => {
+      if (cancelled) return;
+      const wa = getTelegramWebApp();
+      const sdkLoaded = !!wa;
+      const msg = sdkLoaded
+        ? "Telegram SDK загрузился, но initData пустой. Возможно, страница открыта не через кнопку «🎧 Открыть плеер». Закройте это окно и нажмите кнопку в боте."
+        : "Не удалось загрузить Telegram SDK. Если вы открыли эту страницу в браузере — она работает только внутри Telegram. Откройте бота и нажмите «🎧 Открыть плеер».";
+      setAuth({ status: "error", error: msg });
+    };
+
+    (async () => {
+      // ── Step 1: try existing session cookie ──────────────────────────
+      try {
+        const meRes = await fetch("/api/auth/me");
+        if (meRes.ok) {
+          const meData = await meRes.json();
+          if (meData.userId) {
+            finishAuth(meData);
+            return;
+          }
+        }
+      } catch {}
+
+      if (cancelled) return;
+
+      // ── Step 2: poll for Telegram initData ───────────────────────────
+      const MAX_ATTEMPTS = 50; // 50 × 100ms = 5s
+      let attempts = 0;
+
+      // Try immediately
+      const immediate = getTelegramInitData();
+      if (immediate) {
+        tryInitDataAuth(immediate);
         return;
       }
-      if (attempts >= MAX_ATTEMPTS) {
-        clearInterval(interval);
-        if (!cancelled) {
-          // Also check if window.Telegram exists at all — if it does but
-          // initData is empty, the page was likely opened outside a Mini App
-          // context (regular browser, or Telegram preview without web_app).
-          const wa = getTelegramWebApp();
-          const msg = wa
-            ? "Telegram SDK загрузился, но initData пустой. Откройте Mini App через кнопку «🎧 Открыть плеер» в боте."
-            : "Эта страница доступна только внутри Telegram. Откройте бота mq и нажмите кнопку «🎧 Открыть плеер».";
-          setAuth({ status: "error", error: msg });
-        }
-      }
-    }, 100);
 
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
+      // Poll every 100ms
+      const interval = setInterval(() => {
+        attempts++;
+        if (cancelled) {
+          clearInterval(interval);
+          return;
+        }
+        const initData = getTelegramInitData();
+        if (initData) {
+          clearInterval(interval);
+          tryInitDataAuth(initData);
+          return;
+        }
+        if (attempts >= MAX_ATTEMPTS) {
+          clearInterval(interval);
+          giveUp();
+        }
+      }, 100);
+    })();
+
+    return () => { cancelled = true; };
   }, []);
 
   // ── Loading ────────────────────────────────────────────────────────

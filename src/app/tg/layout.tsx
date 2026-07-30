@@ -1,3 +1,5 @@
+import Script from "next/script";
+
 export const metadata = {
   title: "mq — Telegram Mini App",
   description: "Музыкальный плеер mq прямо в Telegram",
@@ -18,11 +20,14 @@ export const dynamic = "force-dynamic";
 export default function TgLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      {/* Telegram WebApp SDK — MUST be synchronous (no async/defer) so it
-          loads and sets window.Telegram.WebApp BEFORE React hydrates.
-          With async, the SDK may not be ready when our useEffect runs,
-          causing initData to be empty and showing the "open via bot" error. */}
-      <script src="https://telegram.org/js/telegram-web-app.js" />
+      {/* Telegram WebApp SDK — must load BEFORE React hydrates so that
+          window.Telegram.WebApp.initData is available in useEffect.
+          next/script with beforeInteractive guarantees this.
+          Regular <script async> or <script defer> does NOT. */}
+      <Script
+        src="https://telegram.org/js/telegram-web-app.js"
+        strategy="beforeInteractive"
+      />
       {children}
     </>
   );
