@@ -347,6 +347,7 @@ export async function setMyCommands(): Promise<boolean> {
       body: JSON.stringify({
         commands: [
           { command: "menu", description: "Главное меню" },
+          { command: "app", description: "🎧 Открыть плеер в Telegram" },
           { command: "recs", description: "✨ Рекомендации для вас" },
           { command: "search", description: "Поиск треков" },
           { command: "likes", description: "❤️ Мои лайки" },
@@ -370,22 +371,29 @@ export async function setMyCommands(): Promise<boolean> {
 
 /**
  * Set the bot's menu button (shown next to the input field).
+ * If webAppUrl is provided, sets a WebApp button that opens the Mini App
+ * directly inside Telegram (no browser redirect).
  */
-export async function setChatMenuButton(): Promise<boolean> {
+export async function setChatMenuButton(webAppUrl?: string): Promise<boolean> {
   if (!TELEGRAM_API_URL) return false;
 
   try {
+    const menuButton = webAppUrl
+      ? {
+          type: "web_app",
+          text: "🎧 Открыть mq",
+          web_app: { url: webAppUrl },
+        }
+      : { type: "commands" };
+
     const res = await fetch(`${TELEGRAM_API_URL}/setChatMenuButton`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        menu_button: {
-          type: "commands",
-        },
-      }),
+      body: JSON.stringify({ menu_button: menuButton }),
       signal: AbortSignal.timeout(TG_TIMEOUT_SETUP),
     });
     const data = await res.json();
+    if (!data.ok) console.error("[TELEGRAM] setChatMenuButton failed:", data.description);
     return data.ok;
   } catch {
     return false;

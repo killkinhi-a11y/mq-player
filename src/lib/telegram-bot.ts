@@ -57,9 +57,11 @@ function ensureSchemaOnce(): Promise<void> {
 let _botSetupDone = false;
 async function setupBotOnce(): Promise<void> {
   if (_botSetupDone) return;
+  const origin = getSiteOrigin();
+  const webappUrl = `${origin}/tg`;
   await Promise.all([
     setMyCommands().catch(() => {}),
-    setChatMenuButton().catch(() => {}),
+    setChatMenuButton(webappUrl).catch(() => {}),
   ]);
   _botSetupDone = true;
 }
@@ -1045,17 +1047,20 @@ function buildRecommendationsKeyboard(
 
 const HELP_TEXT = `🎵 <b>mq — музыкальный бот</b>
 
+<b>🎧 Mini App (веб-плеер внутри Telegram):</b>
+/app — открыть полноценный плеер прямо в Telegram
+Или нажмите кнопку «🎧 Открыть плеер» в /menu
+Авторизация автоматическая по вашему Telegram-аккаунту.
+
 <b>Рекомендации:</b>
 /recs — персональные рекомендации на основе ваших лайков и истории
-Алгоритм как на сайте: похожее на лайкнутое + открытия по жанрам
 
 <b>Поиск и сохранение:</b>
 /search — найти треки на SoundCloud
 В результатах: ▶ прослушать, + добавить в плейлист, 🤍 лайкнуть
 
 <b>Лайки:</b>
-/likes — ваши любимые треки (общие с сайтом)
-Можно лайкнуть из поиска, рекомендаций или плейлиста
+/likes — ваши любимые треки (общие с сайтом и Mini App)
 
 <b>Плейлисты:</b>
 /playlists — открыть плейлист → смотреть треки, переименовать, удалить, поделиться
@@ -1064,7 +1069,6 @@ const HELP_TEXT = `🎵 <b>mq — музыкальный бот</b>
 💡 <b>Без подтверждений:</b>
 • Аудио сразу летит в плейлист — без кнопок и выбора
 • Кнопка «+» в поиске/реках тоже добавляет сразу
-• Тarget = открытый плейлист → последний использованный → «Избранное»
 • Чтобы сменить плейлист — откройте нужный через /playlists
 
 <b>История:</b>
@@ -1074,17 +1078,18 @@ const HELP_TEXT = `🎵 <b>mq — музыкальный бот</b>
 /stats — сколько треков, лайков и плейлистов
 
 <b>Сайт:</b>
-/link — открыть веб-версию плеера
+/link — открыть веб-версию плеера в браузере
 
 <b>Команды:</b>
 /menu — это меню
 /help — помощь
 /code — получить код входа на сайт
 
-Все данные синхронизируются между ботом и сайтом.`;
+Все данные синхронизируются между ботом, Mini App и сайтом.`;
 
-const MENU_KEYBOARD = {
+const MENU_KEYBOARD: { inline_keyboard: any[][] } = {
   inline_keyboard: [
+    [{ text: "🎧 Открыть плеер", web_app: { url: "${WEBAPP_URL_PLACEHOLDER}" } }],
     [{ text: "✨ Рекомендации", callback_data: "cmd_recs" }],
     [{ text: "🔍 Поиск треков", callback_data: "cmd_search" }],
     [
@@ -1101,6 +1106,23 @@ const MENU_KEYBOARD = {
     ],
   ],
 };
+
+/**
+ * Build the MENU_KEYBOARD with the actual site origin injected.
+ * Telegram web_app buttons require an absolute https URL — we substitute
+ * the placeholder at runtime so the menu always points to the current deployment.
+ */
+function buildMenuKeyboard(): typeof MENU_KEYBOARD {
+  const origin = getSiteOrigin();
+  const webappUrl = `${origin}/tg`;
+  // Deep-clone + replace placeholder
+  const cloned: typeof MENU_KEYBOARD = JSON.parse(JSON.stringify(MENU_KEYBOARD));
+  const firstRow = cloned.inline_keyboard[0]?.[0];
+  if (firstRow && firstRow.web_app) {
+    firstRow.web_app.url = webappUrl;
+  }
+  return cloned;
+}
 
 /* ================================================================== */
 /*  Handle incoming Telegram message                                   */
@@ -1134,9 +1156,15 @@ export async function handleTelegramMessage(body: Record<string, any>) {
     // Default welcome
     await sendTelegramMessage(chatId,
       `🎵 <b>Добро пожаловать в mq!</b>\n\n` +
-      `Введите <b>любое сообщение</b> (или /code), чтобы получить код входа.\n\n` +
-      `После авторизации используйте /menu для доступа к функциям плеера.`,
-      { parseMode: "HTML" }
+      `Нажмите <b>🎧 Открыть плеер</b> в меню ниже — запустится полноценный плеер прямо в Telegram.\n\n` +
+      `Или используйте команды:\n` +
+      `• /app — открыть Mini App\n` +
+      `• /code — получить код входа на сайт\n` +
+      `• /menu — все команды`,
+      {
+        parseMode: "HTML",
+        replyMarkup: buildMenuKeyboard(),
+      }
     );
     return;
   }
@@ -1151,8 +1179,21 @@ export async function handleTelegramMessage(body: Record<string, any>) {
   if (text === "/menu") {
     await sendTelegramMessage(chatId, "🎵 <b>Главное меню mq</b>\n\nВыберите действие:", {
       parseMode: "HTML",
-      replyMarkup: MENU_KEYBOARD,
+      replyMarkup: buildMenuKeyboard(),
     });
+    return;
+  }
+
+  // ---- /app or /open — open the Mini App
+  if (text === "/app" || text === "/open" || text === "/webapp") {
+    const origin = getSiteOrigin();
+    await sendTelegramMessage(chatId,
+      `🎧 <b>Открыть плеер в Telegram</b>\n\n` +
+      `<a href="${origin}/tg">Запустить Mini App</a>\n\n` +
+      `Mini App — это полноценный плеер внутри Telegram: поиск, рекомендации, лайки, плейлисты. ` +
+      `Авторизация проходит автоматически по вашему Telegram-аккаунту.`,
+      { parseMode: "HTML" }
+    );
     return;
   }
 
