@@ -65,53 +65,86 @@ export default function TgWebAppPage() {
   }, []);
 
   // Authenticate via initData
+  // Telegram's web-app.js SDK should set window.Telegram.WebApp before React
+  // hydrates (script is synchronous in layout.tsx), but on slow connections
+  // or in some Telegram desktop clients it may be delayed. We poll for up to
+  // 3 seconds before giving up and showing the "open via bot" error.
   useEffect(() => {
-    const initData = getTelegramInitData();
-    if (!initData) {
-      // Not in Telegram — show standalone mode
-      setAuth({
-        status: "error",
-        error: "Откройте эту страницу через кнопку в Telegram-боте @mq_player_bot",
-      });
-      return;
+    let cancelled = false;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 30; // 30 × 100ms = 3s
+
+    const tryAuth = (initData: string) => {
+      (async () => {
+        try {
+          const res = await fetch("/api/telegram/webapp-auth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ initData }),
+          });
+          const data = await res.json();
+          if (cancelled) return;
+
+          if (data.ok && data.userId) {
+            setAuth({
+              status: "authed",
+              user: {
+                userId: data.userId,
+                username: data.username,
+                avatar: data.avatar,
+              },
+            });
+          } else if (data.isNewUser && data.telegramUser) {
+            setAuth({
+              status: "new_user",
+              telegramUser: data.telegramUser,
+            });
+          } else {
+            setAuth({ status: "error", error: data.error || "Auth failed" });
+          }
+        } catch (err: any) {
+          if (!cancelled) {
+            setAuth({ status: "error", error: err?.message || "Network error" });
+          }
+        }
+      })();
+    };
+
+    // Try immediately — most common case (SDK already loaded)
+    const immediate = getTelegramInitData();
+    if (immediate) {
+      tryAuth(immediate);
+      return () => { cancelled = true; };
     }
 
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/telegram/webapp-auth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ initData }),
-        });
-        const data = await res.json();
-        if (cancelled) return;
-
-        if (data.ok && data.userId) {
-          setAuth({
-            status: "authed",
-            user: {
-              userId: data.userId,
-              username: data.username,
-              avatar: data.avatar,
-            },
-          });
-        } else if (data.isNewUser && data.telegramUser) {
-          setAuth({
-            status: "new_user",
-            telegramUser: data.telegramUser,
-          });
-        } else {
-          setAuth({ status: "error", error: data.error || "Auth failed" });
-        }
-      } catch (err: any) {
+    // SDK not ready yet — poll every 100ms
+    const interval = setInterval(() => {
+      attempts++;
+      const initData = getTelegramInitData();
+      if (initData) {
+        clearInterval(interval);
+        tryAuth(initData);
+        return;
+      }
+      if (attempts >= MAX_ATTEMPTS) {
+        clearInterval(interval);
         if (!cancelled) {
-          setAuth({ status: "error", error: err?.message || "Network error" });
+          // Also check if window.Telegram exists at all — if it does but
+          // initData is empty, the page was likely opened outside a Mini App
+          // context (regular browser, or Telegram preview without web_app).
+          const wa = getTelegramWebApp();
+          const msg = wa
+            ? "Telegram SDK загрузился, но initData пустой. Откройте Mini App через кнопку «🎧 Открыть плеер» в боте."
+            : "Эта страница доступна только внутри Telegram. Откройте бота mq и нажмите кнопку «🎧 Открыть плеер».";
+          setAuth({ status: "error", error: msg });
         }
       }
-    })();
+    }, 100);
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, []);
 
   // ── Loading ────────────────────────────────────────────────────────

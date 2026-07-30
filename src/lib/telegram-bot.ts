@@ -627,6 +627,9 @@ interface LikeEntry {
   scTrackId?: number | null;
   source?: string;
   audioUrl?: string;
+  /** Telegram file_id — present for tracks imported via the bot.
+   *  Used to send audio directly via sendAudio without proxying. */
+  telegramFileId?: string;
   likedAt?: string;
 }
 
@@ -2860,14 +2863,15 @@ async function handlePlayPlaylistTrack(chatId: string, messageId: number, playli
     return;
   }
 
-  // Try to send audio
-  if (track.audioUrl) {
+  // Try to send audio (fileId preferred for telegram-imported tracks)
+  if (track.audioUrl || track.telegramFileId) {
     await editMessageText(chatId, messageId, `▶ Воспроизвожу: <b>${track.title}</b> — ${track.artist}`, { parseMode: "HTML" });
-    const result = await sendTelegramAudio(chatId, track.audioUrl, {
+    const result = await sendTelegramAudio(chatId, track.audioUrl || "", {
       title: track.title,
       performer: track.artist,
       duration: track.duration,
       caption: `🎵 ${track.title} — ${track.artist}`,
+      fileId: track.telegramFileId,
     });
     if (result.ok) return;
   }
@@ -2907,6 +2911,7 @@ async function handleLikePlaylistTrack(chatId: string, messageId: number, playli
     scTrackId: track.scTrackId || null,
     source: track.source || "playlist",
     audioUrl: track.audioUrl,
+    telegramFileId: track.telegramFileId,
   });
 
   await editMessageText(chatId, messageId,
@@ -3084,14 +3089,15 @@ async function handlePlayLikedTrack(chatId: string, messageId: number, idx: numb
   const track = sorted[idx];
   if (!track) return;
 
-  // Try to send audio
-  if (track.audioUrl) {
+  // Try to send audio (fileId preferred for telegram-imported tracks)
+  if (track.audioUrl || track.telegramFileId) {
     await editMessageText(chatId, messageId, `▶ Воспроизвожу: <b>${track.title}</b> — ${track.artist}`, { parseMode: "HTML" });
-    const result = await sendTelegramAudio(chatId, track.audioUrl, {
+    const result = await sendTelegramAudio(chatId, track.audioUrl || "", {
       title: track.title,
       performer: track.artist,
       duration: track.duration,
       caption: `🎵 ${track.title} — ${track.artist}`,
+      fileId: track.telegramFileId,
     });
     if (result.ok) return;
   }
@@ -3131,13 +3137,14 @@ async function handlePlayHistoryTrack(chatId: string, messageId: number, idx: nu
   const track = tracks[idx];
   if (!track) return;
 
-  if (track.audioUrl) {
+  if (track.audioUrl || track.telegramFileId) {
     await editMessageText(chatId, messageId, `▶ Воспроизвожу: <b>${track.title}</b> — ${track.artist}`, { parseMode: "HTML" });
-    const result = await sendTelegramAudio(chatId, track.audioUrl, {
+    const result = await sendTelegramAudio(chatId, track.audioUrl || "", {
       title: track.title,
       performer: track.artist,
       duration: track.duration,
       caption: `🎵 ${track.title} — ${track.artist}`,
+      fileId: track.telegramFileId,
     });
     if (result.ok) return;
   }
@@ -3181,6 +3188,7 @@ async function handleLikeHistoryTrack(chatId: string, messageId: number, idx: nu
     scTrackId: track.scTrackId || null,
     source: track.source || "history",
     audioUrl: track.audioUrl,
+    telegramFileId: (track as any).telegramFileId,
   });
 
   await editMessageText(chatId, messageId,

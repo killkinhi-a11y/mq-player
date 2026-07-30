@@ -134,6 +134,14 @@ export function verifyTelegramWebhook(
  */
 /**
  * Send an audio message to a Telegram chat.
+ *
+ * `audioUrl` can be:
+ *   - An absolute HTTPS URL to an mp3 file (e.g. SoundCloud stream URL)
+ *   - A Telegram file_id (preferred for tracks imported via bot — avoids
+ *     proxying through our audio-proxy endpoint, which Telegram's sendAudio
+ *     cannot read from)
+ *
+ * Pass `options.fileId` as a shortcut to send by file_id.
  */
 export async function sendTelegramAudio(
   chatId: string | number,
@@ -144,11 +152,19 @@ export async function sendTelegramAudio(
     caption?: string;
     duration?: number;
     replyMarkup?: any;
+    /** If provided, sends by Telegram file_id instead of audioUrl.
+     *  Required for tracks imported via the bot (their audioUrl is a
+     *  relative /api/telegram/audio-proxy URL which sendAudio can't fetch). */
+    fileId?: string;
   }
 ): Promise<{ ok: boolean; description?: string }> {
   if (!TELEGRAM_API_URL) {
     return { ok: false, description: "Bot not configured" };
   }
+
+  // Prefer file_id when available — Telegram resolves it instantly without
+  // making an HTTP request to fetch the audio.
+  const audioField = options?.fileId || audioUrl;
 
   try {
     const res = await fetch(`${TELEGRAM_API_URL}/sendAudio`, {
@@ -156,7 +172,7 @@ export async function sendTelegramAudio(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         chat_id: chatId,
-        audio: audioUrl,
+        audio: audioField,
         title: options?.title,
         performer: options?.performer,
         caption: options?.caption || "",
