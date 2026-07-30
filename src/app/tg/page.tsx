@@ -251,6 +251,28 @@ export default function TgWebAppPage() {
     setDebugInfo((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
   }, []);
 
+  // Read pre-React diagnostic data captured by the inline script in layout
+  useEffect(() => {
+    const diag = (window as any).__TG_DIAG__;
+    if (diag) {
+      addDebug(`[pre-React] UA: ${diag.ua?.slice(0, 80)}`);
+      addDebug(`[pre-React] URL: ${diag.url}`);
+      addDebug(`[pre-React] window.Telegram: ${diag.hasTelegram}`);
+      addDebug(`[pre-React] window.Telegram.WebApp: ${diag.hasWebApp}`);
+      addDebug(`[pre-React] initData: ${diag.initData ? `${diag.initData.length} chars` : "empty"}`);
+      if (diag.errors && diag.errors.length > 0) {
+        addDebug(`[pre-React] ⚠️ ${diag.errors.length} early errors:`);
+        for (const e of diag.errors.slice(0, 5)) {
+          addDebug(`  +${e.time}ms ${e.type}: ${e.message}`);
+        }
+      }
+    } else {
+      addDebug("[pre-React] ❌ window.__TG_DIAG__ not found — inline script failed");
+      const fallback = (window as any).__TG_DIAG_FALLBACK__;
+      if (fallback) addDebug(`[pre-React] fallback error: ${fallback}`);
+    }
+  }, [addDebug]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -376,7 +398,7 @@ export default function TgWebAppPage() {
 
   if (auth.status === "loading") {
     return (
-      <div className="tg-loading">
+      <div className="tg-loading" data-tg-app="true">
         <div className="tg-loading-logo">mq</div>
         <div className="tg-spinner" />
         <p>Загрузка...</p>
@@ -395,7 +417,7 @@ export default function TgWebAppPage() {
 
   if (auth.status === "error") {
     return (
-      <div className="tg-error">
+      <div className="tg-error" data-tg-app="true">
         <div className="tg-error-icon">😕</div>
         <p className="tg-error-text">{auth.error}</p>
         <a href="/" className="tg-btn-primary" style={{ maxWidth: 280, marginTop: 16 }}>
@@ -427,12 +449,12 @@ export default function TgWebAppPage() {
   }
 
   if (auth.status === "new_user") {
-    return <RegistrationView telegramUser={auth.telegramUser!} onAuthed={(u) => setAuth({ status: "authed", user: u })} showToast={showToast} />;
+    return <div data-tg-app="true"><RegistrationView telegramUser={auth.telegramUser!} onAuthed={(u) => setAuth({ status: "authed", user: u })} showToast={showToast} /></div>;
   }
 
   return (
     <PlayerContext.Provider value={player}>
-      <div className="tg-app">
+      <div className="tg-app" data-tg-app="true">
         <header className="tg-header">
           <div className="tg-header-logo">mq</div>
           <div className="tg-header-user">{auth.user?.username}</div>
