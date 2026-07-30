@@ -237,6 +237,7 @@ export default function TgWebAppPage() {
   const [tab, setTab] = useState<"recs" | "search" | "likes" | "playlists">("recs");
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [playlistSheet, setPlaylistSheet] = useState<{ track: Track } | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string[]>([]);
   const player = useAudioPlayer();
 
   const showToast = useCallback((text: string, type: Toast["type"] = "info") => {
@@ -245,52 +246,129 @@ export default function TgWebAppPage() {
     setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2500);
   }, []);
 
+  const addDebug = useCallback((msg: string) => {
+    console.log("[tg-mini-app]", msg);
+    setDebugInfo((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
+
     (async () => {
-      // 1. Existing session
+      addDebug("Start auth flow");
+      addDebug(`User agent: ${navigator.userAgent.slice(0, 80)}`);
+      addDebug(`Location: ${window.location.href}`);
+
+      // ── Step 1: Check existing session cookie ────────────────────────
+      addDebug("Step 1: Checking /api/auth/me...");
       try {
         const meRes = await fetch("/api/auth/me");
+        addDebug(`  /api/auth/me → ${meRes.status}`);
         if (meRes.ok) {
           const meData = await meRes.json();
+          addDebug(`  response: userId=${meData.userId}, username=${meData.username}`);
           if (meData.userId && !cancelled) {
             setAuth({ status: "authed", user: { userId: meData.userId, username: meData.username, avatar: meData.avatar } });
+            addDebug("✓ Authed via existing session");
             return;
           }
         }
-      } catch {}
+      } catch (e: any) {
+        addDebug(`  /api/auth/me error: ${e?.message}`);
+      }
+
       if (cancelled) return;
 
-      // 2. Load SDK (mobile injects automatically; desktop needs script)
-      await ensureTelegramSDK(10000);
+      // ── Step 2: Check if we're in Telegram at all ───────────────────
+      addDebug("Step 2: Checking window.Telegram...");
+      addDebug(`  window.Telegram exists: ${!!window.Telegram}`);
+      addDebug(`  window.Telegram.WebApp exists: ${!!window.Telegram?.WebApp}`);
+
+      // Try immediate read (mobile injects SDK before page scripts)
+      let initData = getTelegramInitData();
+      addDebug(`  initData (immediate): ${initData ? `${initData.length} chars` : "empty"}`);
+
+      if (!initData) {
+        // Try loading SDK dynamically
+        addDebug("Step 3: Loading SDK via ensureTelegramSDK()...");
+        const wa = await ensureTelegramSDK(10000);
+        addDebug(`  ensureTelegramSDK returned: ${wa ? "WebApp instance" : "null"}`);
+        if (cancelled) return;
+
+        initData = getTelegramInitData();
+        addDebug(`  initData (after SDK): ${initData ? `${initData.length} chars` : "empty"}`);
+      }
+
       if (cancelled) return;
 
-      const initData = getTelegramInitData();
+      // ── Step 3: If we have initData, validate it ────────────────────
       if (initData) {
+        addDebug("Step 4: Validating initData via /api/telegram/webapp-auth...");
+
+        // First, run a debug check (no session creation)
+        try {
+          const debugRes = await fetch("/api/telegram/webapp-debug", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ initData }),
+          });
+          const debugData = await debugRes.json();
+          addDebug(`  debug: ok=${debugData.ok}, step=${debugData.step}`);
+          if (debugData.details) {
+            addDebug(`    hashMatch=${debugData.details.hashMatch}, fresh=${debugData.details.fresh}, age=${debugData.details.ageSeconds}s`);
+            if (debugData.details.user) {
+              addDebug(`    user: id=${debugData.details.user.id}, username=${debugData.details.user.username}`);
+            }
+          }
+          if (debugData.error) {
+            addDebug(`    error: ${debugData.error}`);
+          }
+        } catch (e: any) {
+          addDebug(`  debug endpoint error: ${e?.message}`);
+        }
+
+        // Now the real auth
         try {
           const res = await fetch("/api/telegram/webapp-auth", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ initData }),
           });
+          addDebug(`  /api/telegram/webapp-auth → ${res.status}`);
           const data = await res.json();
+          addDebug(`  response: ${JSON.stringify({ ok: data.ok, userId: data.userId, isNewUser: data.isNewUser, error: data.error })}`);
+
           if (cancelled) return;
+
           if (data.userId || data.ok) {
             setAuth({ status: "authed", user: { userId: data.userId, username: data.username, avatar: data.avatar } });
+            addDebug("✓ Authed via initData");
           } else if (data.isNewUser && data.telegramUser) {
             setAuth({ status: "new_user", telegramUser: data.telegramUser });
+            addDebug("✓ New user registration needed");
           } else {
             setAuth({ status: "error", error: data.error || "Auth failed" });
+            addDebug(`✗ Auth failed: ${data.error}`);
           }
-        } catch {
-          if (!cancelled) setAuth({ status: "error", error: "Network error" });
+        } catch (e: any) {
+          if (!cancelled) {
+            setAuth({ status: "error", error: `Network error: ${e?.message}` });
+            addDebug(`✗ Network error: ${e?.message}`);
+          }
         }
       } else {
-        setAuth({ status: "error", error: "Откройте через кнопку «🎧 Открыть плеер» в боте." });
+        // No initData anywhere
+        const inTelegram = !!window.Telegram?.WebApp;
+        const msg = inTelegram
+          ? "Telegram SDK загрузился, но initData пустой. Возможно, вы открыли Mini App не через кнопку в боте."
+          : "Не удалось загрузить Telegram SDK. Откройте Mini App через кнопку «🎧 Открыть плеер» в боте.";
+        setAuth({ status: "error", error: msg });
+        addDebug(`✗ No initData. window.Telegram.WebApp=${inTelegram}`);
       }
     })();
+
     return () => { cancelled = true; };
-  }, []);
+  }, [addDebug]);
 
   useEffect(() => {
     if (auth.status === "authed") applyTelegramTheme();
@@ -302,6 +380,15 @@ export default function TgWebAppPage() {
         <div className="tg-loading-logo">mq</div>
         <div className="tg-spinner" />
         <p>Загрузка...</p>
+        {/* Show debug progress even during loading */}
+        {debugInfo.length > 0 && (
+          <details className="tg-debug" style={{ marginTop: 16, maxWidth: 400, width: "100%" }}>
+            <summary>Ход загрузки ({debugInfo.length})</summary>
+            <pre className="tg-debug-log">
+              {debugInfo.join("\n")}
+            </pre>
+          </details>
+        )}
       </div>
     );
   }
@@ -314,6 +401,27 @@ export default function TgWebAppPage() {
         <a href="/" className="tg-btn-primary" style={{ maxWidth: 280, marginTop: 16 }}>
           Открыть обычную версию
         </a>
+        {/* Debug info — always visible on error so user can report */}
+        {debugInfo.length > 0 && (
+          <details className="tg-debug" style={{ marginTop: 16, maxWidth: 400, width: "100%" }}>
+            <summary>Отладка ({debugInfo.length} событий)</summary>
+            <pre className="tg-debug-log">
+              {debugInfo.join("\n")}
+            </pre>
+          </details>
+        )}
+        <button
+          className="tg-btn-primary"
+          style={{ maxWidth: 280, marginTop: 8, background: "transparent", color: "var(--mq-text-muted)", fontSize: 14 }}
+          onClick={() => {
+            // Copy debug to clipboard
+            navigator.clipboard?.writeText(debugInfo.join("\n")).then(() => {
+              showToast("Скопировано в буфер", "success");
+            }).catch(() => {});
+          }}
+        >
+          📋 Скопировать лог
+        </button>
       </div>
     );
   }
