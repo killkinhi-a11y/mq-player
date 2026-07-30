@@ -124,7 +124,8 @@ type BotState =
   | "awaiting_new_playlist"
   | "awaiting_add_to_playlist"
   | "awaiting_preview_choice"
-  | "collecting_audios";
+  | "collecting_audios"
+  | "awaiting_rename_playlist";
 
 interface PendingImport {
   fileId?: string;
@@ -148,6 +149,10 @@ interface ChatState {
   searchResults?: any[];
   audioBatch?: AudioBatchItem[];
   collectingMessageId?: number;
+  /** ID of the playlist currently being viewed/edited (for rename, view tracks, etc.) */
+  activePlaylistId?: string;
+  /** Pagination cursor for likes/playlist-tracks views */
+  viewPage?: number;
 }
 
 /* ------------------------------------------------------------------ */
@@ -164,12 +169,20 @@ async function getChatState(chatId: string): Promise<ChatState | null> {
       await database.deleteTelegramBotState(chatId);
       return null;
     }
+    const parsed = JSON.parse(row.data || "{}");
     return {
       state: (row.state as BotState) || "idle",
-      data: JSON.parse(row.data || "{}"),
+      data: {
+        fileUrl: null,
+        fileDuration: 0,
+        originalFilename: "",
+        ...parsed,
+      },
       searchResults: JSON.parse(row.results || "[]"),
       audioBatch: JSON.parse(row.audioBatch || "[]"),
       collectingMessageId: row.collectingMessageId || undefined,
+      activePlaylistId: parsed?.activePlaylistId || undefined,
+      viewPage: parsed?.viewPage || 0,
     };
   } catch {
     return null;
@@ -183,11 +196,13 @@ async function setChatState(
   searchResults?: any[],
   audioBatch?: AudioBatchItem[],
   collectingMessageId?: number,
+  extra?: { activePlaylistId?: string; viewPage?: number },
 ): Promise<void> {
+  const payload = { ...data, ...(extra || {}) };
   await database.upsertTelegramBotState({
     chatId,
     state,
-    data: JSON.stringify(data),
+    data: JSON.stringify(payload),
     results: JSON.stringify(searchResults || []),
     audioBatch: JSON.stringify(audioBatch || []),
     collectingMessageId: collectingMessageId || null,
@@ -468,6 +483,105 @@ async function getUserPlaylistsOrCreate(chatId: string): Promise<{ userId: strin
 }
 
 /* ------------------------------------------------------------------ */
+/*  UserSync-backed data (shared with web app)                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Get a JSON-blob from UserSync by key, parsed as object.
+ * Used for: likedTracks (string[]), likedTracksData (Track[]), history (Track[]).
+ */
+async function getUserSyncData<T = any>(userId: string, key: string): Promise<T | null> {
+  try {
+    const rows = await database.findUserSyncData(userId);
+    const row = rows.find((r) => r.key === key);
+    if (!row) return null;
+    return JSON.parse(row.data || "null") as T;
+  } catch {
+    return null;
+  }
+}
+
+async function setUserSyncData(userId: string, key: string, data: unknown): Promise<void> {
+  await database.upsertUserSync(userId, key, JSON.stringify(data ?? null));
+}
+
+interface LikeEntry {
+  id: string;
+  title: string;
+  artist: string;
+  duration?: number;
+  cover?: string;
+  scTrackId?: number | null;
+  source?: string;
+  audioUrl?: string;
+  likedAt?: string;
+}
+
+/**
+ * Read the user's liked tracks (full data + IDs).
+ * Mirrors the format the web app stores in UserSync.
+ */
+async function getUserLikes(userId: string): Promise<{ ids: string[]; tracks: LikeEntry[] }> {
+  const [ids, tracks] = await Promise.all([
+    getUserSyncData<string[]>(userId, "likedTracks"),
+    getUserSyncData<LikeEntry[]>(userId, "likedTracksData"),
+  ]);
+  return {
+    ids: Array.isArray(ids) ? ids : [],
+    tracks: Array.isArray(tracks) ? tracks : [],
+  };
+}
+
+/**
+ * Add a track to the user's liked list (idempotent).
+ * Writes BOTH likedTracks (IDs) and likedTracksData (full Track objects),
+ * so the like is visible in the web app on next sync.
+ */
+async function addUserLike(userId: string, track: LikeEntry): Promise<{ added: boolean; total: number }> {
+  const { ids, tracks } = await getUserLikes(userId);
+  if (ids.includes(track.id)) {
+    return { added: false, total: ids.length };
+  }
+  const newTrack: LikeEntry = { ...track, likedAt: new Date().toISOString() };
+  const newIds = [...ids, track.id];
+  const newTracks = [...tracks, newTrack];
+  // Cap at 200 likes to avoid unbounded growth (matches web app's MAX_LIKED_TRACKS pattern)
+  const MAX = 200;
+  const trimmedIds = newIds.slice(-MAX);
+  const trimmedTracks = newTracks.slice(-MAX);
+  await Promise.all([
+    setUserSyncData(userId, "likedTracks", trimmedIds),
+    setUserSyncData(userId, "likedTracksData", trimmedTracks),
+  ]);
+  return { added: true, total: trimmedIds.length };
+}
+
+/** Remove a track from likes by ID. */
+async function removeUserLike(userId: string, trackId: string): Promise<{ removed: boolean; total: number }> {
+  const { ids, tracks } = await getUserLikes(userId);
+  if (!ids.includes(trackId)) {
+    return { removed: false, total: ids.length };
+  }
+  const newIds = ids.filter((id) => id !== trackId);
+  const newTracks = tracks.filter((t) => t.id !== trackId);
+  await Promise.all([
+    setUserSyncData(userId, "likedTracks", newIds),
+    setUserSyncData(userId, "likedTracksData", newTracks),
+  ]);
+  return { removed: true, total: newIds.length };
+}
+
+/**
+ * Read the user's recent listening history (mirror of web app's history key).
+ * Returns tracks newest-last.
+ */
+async function getUserHistory(userId: string, limit = 20): Promise<LikeEntry[]> {
+  const history = await getUserSyncData<LikeEntry[]>(userId, "history");
+  if (!Array.isArray(history)) return [];
+  return history.slice(-limit).reverse();
+}
+
+/* ------------------------------------------------------------------ */
 /*  Inline Keyboard builders                                          */
 /* ------------------------------------------------------------------ */
 
@@ -500,16 +614,142 @@ function buildSearchResultsKeyboard(tracks: any[], page: number = 0) {
   return { inline_keyboard: rows };
 }
 
-function buildPreviewKeyboard(trackIndex: number) {
+function buildPreviewKeyboard(trackIndex: number, isLiked: boolean = false) {
+  const likeText = isLiked ? "❤️ В лайках" : "🤍 Лайк";
+  const likeCb = isLiked ? `unlike_idx:${trackIndex}` : `like_idx:${trackIndex}`;
   return {
     inline_keyboard: [
       [
-        { text: "Прослушать", callback_data: `preview:${trackIndex}` },
-        { text: "Добавить в плейлист", callback_data: `add_search:${trackIndex}` },
+        { text: "▶ Прослушать", callback_data: `preview:${trackIndex}` },
+        { text: "+ В плейлист", callback_data: `add_search:${trackIndex}` },
       ],
-      [{ text: "Отмена", callback_data: "cancel" }],
+      [
+        { text: likeText, callback_data: likeCb },
+        { text: "📂 Открыть на сайте", callback_data: `open_track:${trackIndex}` },
+      ],
+      [{ text: "✖ Закрыть", callback_data: "cancel" }],
     ],
   };
+}
+
+/**
+ * Build the playlist-list keyboard with rich per-playlist actions.
+ * Each row: [Open] [Rename] [Delete] for one playlist.
+ * Plus footer: "New playlist", "Back to menu".
+ */
+function buildPlaylistListKeyboard(playlists: PlaylistSummary[]) {
+  const rows: Array<Array<{ text: string; callback_data: string }>> = [];
+  for (const pl of playlists.slice(0, 8)) {
+    rows.push([
+      { text: `📂 ${pl.name} (${pl.trackCount})`, callback_data: `view_playlist:${pl.id}` },
+      { text: "✏️", callback_data: `rename_playlist:${pl.id}` },
+      { text: "🗑", callback_data: `delete_playlist:${pl.id}` },
+    ]);
+  }
+  rows.push([{ text: "+ Новый плейлист", callback_data: "cmd_newplaylist" }]);
+  rows.push([{ text: "✖ Закрыть", callback_data: "cancel" }]);
+  return { inline_keyboard: rows };
+}
+
+/**
+ * Build the tracks-in-a-playlist keyboard.
+ * Each track row: [Title — Artist] [▶ open] [❤ like] [✖ remove]
+ * Plus nav + footer.
+ */
+function buildPlaylistTracksKeyboard(
+  playlist: PlaylistRow,
+  page: number,
+  pageSize = 5,
+) {
+  let tracks: any[] = [];
+  try { tracks = JSON.parse(playlist.tracksJson || "[]"); } catch { tracks = []; }
+  const start = page * pageSize;
+  const end = start + pageSize;
+  const items = tracks.slice(start, end);
+
+  const rows: Array<Array<{ text: string; callback_data: string }>> = [];
+  for (let i = 0; i < items.length; i++) {
+    const t = items[i];
+    const trackIdx = start + i;
+    const title = String(t.title || "Без названия").slice(0, 40);
+    const artist = String(t.artist || "").slice(0, 25);
+    rows.push([
+      { text: `${title} — ${artist}`, callback_data: `track_info:${playlist.id}:${trackIdx}` },
+    ]);
+    rows.push([
+      { text: "▶ Слушать", callback_data: `play_pl_track:${playlist.id}:${trackIdx}` },
+      { text: "🤍 Лайк", callback_data: `like_pl_track:${playlist.id}:${trackIdx}` },
+      { text: "🗑 Убрать", callback_data: `remove_pl_track:${playlist.id}:${trackIdx}` },
+    ]);
+  }
+
+  const navRow: Array<{ text: string; callback_data: string }> = [];
+  if (page > 0) navRow.push({ text: "< Назад", callback_data: `pl_tracks_page:${playlist.id}:${page - 1}` });
+  if (end < tracks.length) navRow.push({ text: "Далее >", callback_data: `pl_tracks_page:${playlist.id}:${page + 1}` });
+  if (navRow.length > 0) rows.push(navRow);
+
+  rows.push([
+    { text: "✏️ Переименовать", callback_data: `rename_playlist:${playlist.id}` },
+    { text: playlist.isPublic ? "🔒 Сделать приватным" : "🌐 Опубликовать", callback_data: `toggle_public:${playlist.id}` },
+  ]);
+  rows.push([{ text: "🔗 Поделиться", callback_data: `share_playlist:${playlist.id}` }]);
+  rows.push([{ text: "« К плейлистам", callback_data: "cmd_playlists" }]);
+  return { inline_keyboard: rows };
+}
+
+/**
+ * Build the likes-list keyboard with pagination + per-track actions.
+ */
+function buildLikesKeyboard(tracks: LikeEntry[], page: number, pageSize = 5) {
+  const start = page * pageSize;
+  const end = start + pageSize;
+  const items = tracks.slice(start, end);
+
+  const rows: Array<Array<{ text: string; callback_data: string }>> = [];
+  for (let i = 0; i < items.length; i++) {
+    const t = items[i];
+    const trackIdx = start + i;
+    const title = String(t.title || "Без названия").slice(0, 40);
+    const artist = String(t.artist || "").slice(0, 25);
+    rows.push([{ text: `❤ ${title} — ${artist}`, callback_data: `track_info_like:${trackIdx}` }]);
+    rows.push([
+      { text: "▶ Слушать", callback_data: `play_like_track:${trackIdx}` },
+      { text: "🗑 Убрать", callback_data: `unlike:${trackIdx}` },
+    ]);
+  }
+
+  const navRow: Array<{ text: string; callback_data: string }> = [];
+  if (page > 0) navRow.push({ text: "< Назад", callback_data: `likes_page:${page - 1}` });
+  if (end < tracks.length) navRow.push({ text: "Далее >", callback_data: `likes_page:${page + 1}` });
+  if (navRow.length > 0) rows.push(navRow);
+  rows.push([{ text: "✖ Закрыть", callback_data: "cancel" }]);
+  return { inline_keyboard: rows };
+}
+
+function buildHistoryKeyboard(tracks: LikeEntry[], page: number, pageSize = 5) {
+  const start = page * pageSize;
+  const end = start + pageSize;
+  const items = tracks.slice(start, end);
+
+  const rows: Array<Array<{ text: string; callback_data: string }>> = [];
+  for (let i = 0; i < items.length; i++) {
+    const t = items[i];
+    const trackIdx = start + i;
+    const title = String(t.title || "Без названия").slice(0, 40);
+    const artist = String(t.artist || "").slice(0, 25);
+    rows.push([{ text: `▶ ${title} — ${artist}`, callback_data: `hist_play:${trackIdx}` }]);
+    rows.push([
+      { text: "+ В плейлист", callback_data: `hist_to_pl:${trackIdx}` },
+      { text: "🤍 Лайк", callback_data: `hist_like:${trackIdx}` },
+    ]);
+  }
+
+  const navRow: Array<{ text: string; callback_data: string }> = [];
+  if (page > 0) navRow.push({ text: "< Назад", callback_data: `hist_page:${page - 1}` });
+  if (end < tracks.length) navRow.push({ text: "Далее >", callback_data: `hist_page:${page + 1}` });
+  if (navRow.length > 0) rows.push(navRow);
+  rows.push([{ text: "✖ Закрыть", callback_data: "cancel" }]);
+  return { inline_keyboard: rows };
 }
 
 /* ------------------------------------------------------------------ */
@@ -518,26 +758,52 @@ function buildPreviewKeyboard(trackIndex: number) {
 
 const HELP_TEXT = `🎵 <b>mq — музыкальный бот</b>
 
-<b>Команды:</b>
-/menu — главное меню
-/search — поиск треков на SoundCloud
-/playlists — мои плейлисты
-/newplaylist — создать плейлист
-/help — помощь
+<b>Поиск и сохранение:</b>
+/search — найти треки на SoundCloud
+В результатах: ▶ прослушать, + в плейлист, 🤍 лайкнуть
+
+<b>Лайки:</b>
+/likes — ваши любимые треки (общие с сайтом)
+Можно лайкнуть из поиска или из плейлиста
+
+<b>Плейлисты:</b>
+/playlists — открыть любой плейлист → смотреть треки, переименовать, удалить, поделиться
+/newplaylist — создать новый
+
+<b>История:</b>
+/recent — недавние прослушивания (зеркало сайта)
+
+<b>Статистика:</b>
+/stats — сколько треков, лайков и плейлистов
+
+<b>Сайт:</b>
+/link — открыть веб-версию плеера
 
 <b>Импорт треков:</b>
-Отправьте аудио или голосовое сообщение боту, чтобы импортировать его в выбранный плейлист.
+Отправьте аудио или голосовое сообщение боту — он предложит добавить в плейлист. Можно отправить сразу несколько.
 
-<b>Быстрый поиск:</b>
-/search текст — найдёт треки и предложит добавить в плейлист`;
+<b>Команды:</b>
+/menu — это меню
+/help — помощь
+/code — получить код входа на сайт
+
+Все данные синхронизируются между ботом и сайтом.`;
 
 const MENU_KEYBOARD = {
   inline_keyboard: [
-    [{ text: "Импортировать трек", callback_data: "cmd_import" }],
-    [{ text: "Поиск треков", callback_data: "cmd_search" }],
-    [{ text: "Мои плейлисты", callback_data: "cmd_playlists" }],
-    [{ text: "Новый плейлист", callback_data: "cmd_newplaylist" }],
-    [{ text: "Справка", callback_data: "cmd_help" }],
+    [{ text: "🔍 Поиск треков", callback_data: "cmd_search" }],
+    [
+      { text: "❤️ Лайки", callback_data: "cmd_likes" },
+      { text: "🎵 Плейлисты", callback_data: "cmd_playlists" },
+    ],
+    [
+      { text: "🕑 Недавнее", callback_data: "cmd_recent" },
+      { text: "📊 Статистика", callback_data: "cmd_stats" },
+    ],
+    [
+      { text: "📂 Открыть сайт", callback_data: "cmd_link" },
+      { text: "❓ Справка", callback_data: "cmd_help" },
+    ],
   ],
 };
 
@@ -607,12 +873,57 @@ export async function handleTelegramMessage(body: Record<string, any>) {
     return;
   }
 
+  // ---- /likes — show user's liked tracks
+  if (text === "/likes") {
+    await handleLikes(chatId);
+    return;
+  }
+
+  // ---- /recent — show recently played history
+  if (text === "/recent") {
+    await handleRecent(chatId);
+    return;
+  }
+
+  // ---- /stats — show user stats
+  if (text === "/stats") {
+    await handleStats(chatId);
+    return;
+  }
+
+  // ---- /link — get webapp link
+  if (text === "/link") {
+    const origin = getSiteOrigin();
+    await sendTelegramMessage(chatId,
+      `📂 <b>Открыть mq в браузере</b>\n\n` +
+      `<a href="${origin}">${origin}</a>\n\n` +
+      `Все ваши плейлисты, лайки и история доступны и на сайте.`,
+      { parseMode: "HTML" }
+    );
+    return;
+  }
+
   // ---- /newplaylist ----
   if (text === "/newplaylist") {
     const user = await findUserByChatId(chatId);
     if (!user) { await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code"); return; }
     await setChatState(chatId, "awaiting_new_playlist");
     await sendTelegramMessage(chatId, "Введите название нового плейлиста:");
+    return;
+  }
+
+  // ---- /rename <playlistId> — internal use, also reachable via button
+  if (text.startsWith("/rename ")) {
+    const user = await findUserByChatId(chatId);
+    if (!user) { await sendTelegramMessage(chatId, "Сначала авторизуйтесь — отправьте /code"); return; }
+    const playlistId = text.slice(8).trim();
+    const pl = await findPlaylistById(playlistId);
+    if (!pl || pl.userId !== user.id) {
+      await sendTelegramMessage(chatId, "Плейлист не найден.");
+      return;
+    }
+    await setChatState(chatId, "awaiting_rename_playlist", { fileUrl: null, fileDuration: 0, originalFilename: "" }, undefined, undefined, undefined, { activePlaylistId: playlistId });
+    await sendTelegramMessage(chatId, `Текущее название: <b>${pl.name}</b>\n\nВведите новое название:`, { parseMode: "HTML" });
     return;
   }
 
@@ -700,6 +1011,18 @@ export async function handleTelegramMessage(body: Record<string, any>) {
     await handleImportWithTitle(chatId, text, chatState.data);
     return;
   }
+
+  // Awaiting rename playlist — user typed new name
+  if (chatState.state === "awaiting_rename_playlist" && text) {
+    const playlistId = chatState.activePlaylistId;
+    await clearChatState(chatId);
+    if (!playlistId) {
+      await sendTelegramMessage(chatId, "Сессия истекла. Используйте /playlists.");
+      return;
+    }
+    await handleRenamePlaylist(chatId, playlistId, text);
+    return;
+  }
 }
 
 /* ================================================================== */
@@ -764,6 +1087,26 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     await editMessageText(chatId, messageId, "Введите название нового плейлиста:");
     return;
   }
+  if (data === "cmd_likes") {
+    await handleLikes(chatId, messageId);
+    return;
+  }
+  if (data === "cmd_recent") {
+    await handleRecent(chatId, messageId);
+    return;
+  }
+  if (data === "cmd_stats") {
+    await handleStats(chatId, messageId);
+    return;
+  }
+  if (data === "cmd_link") {
+    const origin = getSiteOrigin();
+    await editMessageText(chatId, messageId,
+      `📂 <b>Открыть mq в браузере</b>\n\n<a href="${origin}">${origin}</a>`,
+      { parseMode: "HTML" }
+    );
+    return;
+  }
 
   // ---- State-dependent callbacks ----
   const state = await getChatState(chatId);
@@ -788,7 +1131,15 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     const track = state.searchResults[index];
     if (!track) return;
 
-    const keyboard = buildPreviewKeyboard(index);
+    // Check like state from DB
+    const user = await findUserByChatId(chatId);
+    let isLiked = false;
+    if (user) {
+      const likes = await getUserLikes(user.id);
+      const trackId = String(track.scTrackId ? `sc_${track.scTrackId}` : `tg_${track.id || ""}`);
+      isLiked = likes.ids.includes(trackId);
+    }
+    const keyboard = buildPreviewKeyboard(index, isLiked);
 
     // Send "searching audio..." message
     await editMessageText(chatId, messageId,
@@ -950,6 +1301,207 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     }
     await deletePlaylist(playlistId);
     await editMessageText(chatId, messageId, `Плейлист "${existing.name}" удалён.`);
+    return;
+  }
+
+  // ─── View playlist tracks ────────────────────────────────────────────
+  if (data.startsWith("view_playlist:")) {
+    const playlistId = data.slice("view_playlist:".length);
+    await handleViewPlaylist(chatId, messageId, playlistId, 0);
+    return;
+  }
+  if (data.startsWith("pl_tracks_page:")) {
+    const parts = data.slice("pl_tracks_page:".length).split(":");
+    const playlistId = parts[0];
+    const page = parseInt(parts[1] || "0", 10);
+    await handleViewPlaylist(chatId, messageId, playlistId, page);
+    return;
+  }
+
+  // ─── Rename playlist ────────────────────────────────────────────────
+  if (data.startsWith("rename_playlist:")) {
+    const playlistId = data.slice("rename_playlist:".length);
+    const user = await findUserByChatId(chatId);
+    if (!user) { await editMessageText(chatId, messageId, "Сначала авторизуйтесь — /code"); return; }
+    const pl = await findPlaylistById(playlistId);
+    if (!pl || pl.userId !== user.id) {
+      await editMessageText(chatId, messageId, "Плейлист не найден.");
+      return;
+    }
+    await setChatState(chatId, "awaiting_rename_playlist", { fileUrl: null, fileDuration: 0, originalFilename: "" }, undefined, undefined, undefined, { activePlaylistId: playlistId });
+    await editMessageText(chatId, messageId,
+      `Переименование плейлиста.\nТекущее название: <b>${pl.name}</b>\n\nВведите новое название:`,
+      { parseMode: "HTML" }
+    );
+    return;
+  }
+
+  // ─── Toggle public/private ───────────────────────────────────────────
+  if (data.startsWith("toggle_public:")) {
+    const playlistId = data.slice("toggle_public:".length);
+    const user = await findUserByChatId(chatId);
+    if (!user) return;
+    const pl = await findPlaylistById(playlistId);
+    if (!pl || pl.userId !== user.id) {
+      await editMessageText(chatId, messageId, "Плейлист не найден.");
+      return;
+    }
+    await togglePlaylistPublic(playlistId, !pl.isPublic);
+    await handleViewPlaylist(chatId, messageId, playlistId, 0);
+    return;
+  }
+
+  // ─── Share playlist ──────────────────────────────────────────────────
+  if (data.startsWith("share_playlist:")) {
+    const playlistId = data.slice("share_playlist:".length);
+    const user = await findUserByChatId(chatId);
+    if (!user) return;
+    const pl = await findPlaylistById(playlistId);
+    if (!pl || pl.userId !== user.id) {
+      await editMessageText(chatId, messageId, "Плейлист не найден.");
+      return;
+    }
+    if (!pl.isPublic) {
+      await editMessageText(chatId, messageId,
+        `Плейлист <b>${pl.name}</b> сейчас приватный.\n\nСначала сделайте его публичным, чтобы поделиться.`,
+        { parseMode: "HTML" }
+      );
+      return;
+    }
+    const origin = getSiteOrigin();
+    const shareUrl = `${origin}/?playlist=${encodeURIComponent(playlistId)}`;
+    const trackCount = trackCountFromJson(pl.tracksJson);
+    await editMessageText(chatId, messageId,
+      `🔗 <b>Ссылка на плейлист</b>\n\n<b>${pl.name}</b>\n${trackCount > 0 ? `Треков: ${trackCount}\n` : ""}\n` +
+      `<a href="${shareUrl}">${shareUrl}</a>\n\n` +
+      `Эту ссылку можно отправить друзьям — они смогут слушать ваш плейлист.`,
+      { parseMode: "HTML", disablePreview: true }
+    );
+    return;
+  }
+
+  // ─── Remove track from playlist ─────────────────────────────────────
+  if (data.startsWith("remove_pl_track:")) {
+    const parts = data.slice("remove_pl_track:".length).split(":");
+    const playlistId = parts[0];
+    const trackIdx = parseInt(parts[1] || "0", 10);
+    await handleRemoveTrackFromPlaylist(chatId, messageId, playlistId, trackIdx);
+    return;
+  }
+
+  // ─── Play track from playlist (open in webapp) ──────────────────────
+  if (data.startsWith("play_pl_track:")) {
+    const parts = data.slice("play_pl_track:".length).split(":");
+    const playlistId = parts[0];
+    const trackIdx = parseInt(parts[1] || "0", 10);
+    await handlePlayPlaylistTrack(chatId, messageId, playlistId, trackIdx);
+    return;
+  }
+
+  // ─── Like track from playlist ───────────────────────────────────────
+  if (data.startsWith("like_pl_track:")) {
+    const parts = data.slice("like_pl_track:".length).split(":");
+    const playlistId = parts[0];
+    const trackIdx = parseInt(parts[1] || "0", 10);
+    await handleLikePlaylistTrack(chatId, messageId, playlistId, trackIdx);
+    return;
+  }
+  // ─── Unlike track from playlist track-info view ─────────────────────
+  if (data.startsWith("unlike_pl:")) {
+    const parts = data.slice("unlike_pl:".length).split(":");
+    const playlistId = parts[0];
+    const trackIdx = parseInt(parts[1] || "0", 10);
+    await handleUnlikePlaylistTrack(chatId, messageId, playlistId, trackIdx);
+    return;
+  }
+
+  // ─── Track info (from playlist) ─────────────────────────────────────
+  if (data.startsWith("track_info:")) {
+    const parts = data.slice("track_info:".length).split(":");
+    const playlistId = parts[0];
+    const trackIdx = parseInt(parts[1] || "0", 10);
+    await handleTrackInfoFromPlaylist(chatId, messageId, playlistId, trackIdx);
+    return;
+  }
+
+  // ─── Likes pagination ───────────────────────────────────────────────
+  if (data.startsWith("likes_page:")) {
+    const page = parseInt(data.slice("likes_page:".length), 10);
+    await handleLikes(chatId, messageId, page);
+    return;
+  }
+  if (data.startsWith("unlike:")) {
+    const idx = parseInt(data.slice("unlike:".length), 10);
+    await handleUnlikeByIndex(chatId, messageId, idx);
+    return;
+  }
+  if (data.startsWith("track_info_like:")) {
+    const idx = parseInt(data.slice("track_info_like:".length), 10);
+    await handleTrackInfoFromLikes(chatId, messageId, idx);
+    return;
+  }
+  if (data.startsWith("play_like_track:")) {
+    const idx = parseInt(data.slice("play_like_track:".length), 10);
+    await handlePlayLikedTrack(chatId, messageId, idx);
+    return;
+  }
+
+  // ─── Like / unlike from search preview ──────────────────────────────
+  if (data.startsWith("like_idx:") || data.startsWith("unlike_idx:")) {
+    const isUnlike = data.startsWith("unlike_idx:");
+    const idx = parseInt(data.slice(isUnlike ? "unlike_idx:".length : "like_idx:".length), 10);
+    await handleLikeSearchTrack(chatId, messageId, idx, isUnlike);
+    return;
+  }
+
+  // ─── Open track on website (from search) ────────────────────────────
+  if (data.startsWith("open_track:")) {
+    const idx = parseInt(data.slice("open_track:".length), 10);
+    if (!state?.searchResults?.length) return;
+    const track = state.searchResults[idx];
+    if (!track) return;
+    const origin = getSiteOrigin();
+    const url = track.scTrackId ? `${origin}/?track=sc_${track.scTrackId}` : origin;
+    await editMessageText(chatId, messageId,
+      `📂 <b>Открыть трек</b>\n\n${track.title} — ${track.artist}\n\n<a href="${url}">${url}</a>`,
+      { parseMode: "HTML", disablePreview: true }
+    );
+    return;
+  }
+
+  // ─── History pagination + actions ───────────────────────────────────
+  if (data.startsWith("hist_page:")) {
+    const page = parseInt(data.slice("hist_page:".length), 10);
+    await handleRecent(chatId, messageId, page);
+    return;
+  }
+  if (data.startsWith("hist_play:")) {
+    const idx = parseInt(data.slice("hist_play:".length), 10);
+    await handlePlayHistoryTrack(chatId, messageId, idx);
+    return;
+  }
+  if (data.startsWith("hist_like:")) {
+    const idx = parseInt(data.slice("hist_like:".length), 10);
+    await handleLikeHistoryTrack(chatId, messageId, idx);
+    return;
+  }
+  if (data.startsWith("hist_to_pl:")) {
+    const idx = parseInt(data.slice("hist_to_pl:".length), 10);
+    await handleAddHistoryToPlaylist(chatId, messageId, idx);
+    return;
+  }
+
+  // ─── Like / play a track that was just added to a playlist ──────────
+  if (data.startsWith("like_added:")) {
+    const trackId = data.slice("like_added:".length);
+    await handleLikeAddedTrack(chatId, messageId, trackId);
+    return;
+  }
+  if (data.startsWith("play_added:")) {
+    const parts = data.slice("play_added:".length).split(":");
+    const playlistId = parts[0];
+    const trackIdx = parseInt(parts[1] || "0", 10);
+    await handlePlayPlaylistTrack(chatId, messageId, playlistId, trackIdx);
     return;
   }
 }
@@ -1390,9 +1942,28 @@ async function handleAddSearchTrackToPlaylist(chatId: string, playlistId: string
   tracks.push(scTrack);
   await updatePlaylistTracks(playlistId, JSON.stringify(tracks));
 
+  // Persist the track ID so the Like button (if pressed) can find it.
+  // The track object stored in the playlist uses its own id field; we keep
+  // a reference by storing it in chat state under scData.
+  const trackId = String(scTrack.id || (scTrack.scTrackId ? `sc_${scTrack.scTrackId}` : `pl_${playlistId}_${tracks.length - 1}`));
+
+  // Ensure scTrack has an id so handleLikePlaylistTrack can find it later
+  if (!scTrack.id) scTrack.id = trackId;
+  await updatePlaylistTracks(playlistId, JSON.stringify(tracks));
+
+  const likeKeyboard = {
+    inline_keyboard: [
+      [
+        { text: "🤍 Лайкнуть", callback_data: `like_added:${trackId}` },
+        { text: "▶ Слушать", callback_data: `play_added:${playlistId}:${tracks.length - 1}` },
+      ],
+      [{ text: "К плейлисту", callback_data: `view_playlist:${playlistId}` }],
+    ],
+  };
+
   await sendTelegramMessage(chatId,
-    `Трек добавлен в <b>${playlist.name}</b>:\n${scTrack.title} — ${scTrack.artist}\n\nВсего треков: ${tracks.length}\nТрек доступен для воспроизведения на сайте.`,
-    { parseMode: "HTML" }
+    `✅ Трек добавлен в <b>${playlist.name}</b>:\n${scTrack.title} — ${scTrack.artist}\n\nВсего треков: ${tracks.length}`,
+    { parseMode: "HTML", replyMarkup: likeKeyboard }
   );
 }
 
@@ -1426,16 +1997,10 @@ async function handlePlaylists(chatId: string, messageId?: number) {
     return `<b>${i + 1}.</b> ${pl.name} — ${pl.trackCount} треков`;
   });
 
-  const deleteButtons = playlists.slice(0, 6).map((pl) => ({
-    text: `🗑 ${pl.name}`,
-    callback_data: `delete_playlist:${pl.id}`,
-  }));
-  const rows: Array<Array<{ text: string; callback_data: string }>> = [];
-  for (let i = 0; i < deleteButtons.length; i += 2) rows.push(deleteButtons.slice(i, i + 2));
-  rows.push([{ text: "Создать новый", callback_data: "cmd_newplaylist" }]);
+  const markup = buildPlaylistListKeyboard(playlists);
 
-  const text = `♫ <b>Ваши плейлисты</b> (${playlists.length}):\n\n${lines.join("\n")}\n\nЭти плейлисты также доступны на сайте в вашем аккаунте.`;
-  const markup = playlists.length <= 6 ? { inline_keyboard: rows } : undefined;
+  const text = `♫ <b>Ваши плейлисты</b> (${playlists.length}):\n\n${lines.join("\n")}\n\n` +
+    `Нажмите на плейлист, чтобы открыть его треки.\n✏ — переименовать · 🗑 — удалить`;
 
   // Edit existing message (from button press) or send new (from /playlists command)
   if (messageId) {
@@ -1487,4 +2052,742 @@ function getTrackWord(count: number): string {
   if (count === 1) return "трек";
   if (count >= 2 && count <= 4) return "трека";
   return "треков";
+}
+
+/* ================================================================== */
+/*  Likes view — /likes                                               */
+/* ================================================================== */
+
+async function handleLikes(chatId: string, messageId?: number, page: number = 0) {
+  const user = await findUserByChatId(chatId);
+  if (!user) {
+    const txt = "Сначала авторизуйтесь — отправьте /code";
+    if (messageId) await editMessageText(chatId, messageId, txt);
+    else await sendTelegramMessage(chatId, txt);
+    return;
+  }
+
+  const { tracks } = await getUserLikes(user.id);
+  if (tracks.length === 0) {
+    const txt = "❤️ <b>У вас пока нет лайкнутых треков.</b>\n\n" +
+      "Чтобы лайкнуть трек:\n" +
+      "• Используйте /search и нажмите 🤍 в результатах\n" +
+      "• Откройте плейлист и нажмите 🤍 у любого трека\n\n" +
+      "Лайки синхронизируются с сайтом — появятся в разделе «Избранное».";
+    if (messageId) await editMessageText(chatId, messageId, txt, { parseMode: "HTML" });
+    else await sendTelegramMessage(chatId, txt, { parseMode: "HTML" });
+    return;
+  }
+
+  const pageSize = 5;
+  const totalPages = Math.ceil(tracks.length / pageSize);
+  const safePage = Math.min(Math.max(0, page), totalPages - 1);
+
+  // Newest first for likes
+  const sortedTracks = [...tracks].reverse();
+  const markup = buildLikesKeyboard(sortedTracks, safePage, pageSize);
+
+  const start = safePage * pageSize;
+  const end = start + pageSize;
+  const items = sortedTracks.slice(start, end);
+
+  const lines = items.map((t, i) => {
+    const dur = t.duration ? ` (${formatDuration(t.duration)})` : "";
+    return `<b>${start + i + 1}.</b> ${t.title} — ${t.artist}${dur}`;
+  }).join("\n");
+
+  const txt = `❤️ <b>Ваши лайки</b> (${tracks.length}):\n\n${lines}` +
+    (totalPages > 1 ? `\n\nСтраница ${safePage + 1} из ${totalPages}` : "");
+
+  if (messageId) await editMessageText(chatId, messageId, txt, { parseMode: "HTML", replyMarkup: markup });
+  else await sendTelegramMessage(chatId, txt, { parseMode: "HTML", replyMarkup: markup });
+}
+
+/* ================================================================== */
+/*  Recent history — /recent                                          */
+/* ================================================================== */
+
+async function handleRecent(chatId: string, messageId?: number, page: number = 0) {
+  const user = await findUserByChatId(chatId);
+  if (!user) {
+    const txt = "Сначала авторизуйтесь — отправьте /code";
+    if (messageId) await editMessageText(chatId, messageId, txt);
+    else await sendTelegramMessage(chatId, txt);
+    return;
+  }
+
+  const tracks = await getUserHistory(user.id, 50);
+  if (tracks.length === 0) {
+    const txt = "🕑 <b>История пуста.</b>\n\n" +
+      "Слушайте треки на сайте или через бота — они появятся здесь.\n" +
+      "История синхронизируется с сайтом.";
+    if (messageId) await editMessageText(chatId, messageId, txt, { parseMode: "HTML" });
+    else await sendTelegramMessage(chatId, txt, { parseMode: "HTML" });
+    return;
+  }
+
+  const pageSize = 5;
+  const totalPages = Math.ceil(tracks.length / pageSize);
+  const safePage = Math.min(Math.max(0, page), totalPages - 1);
+
+  const markup = buildHistoryKeyboard(tracks, safePage, pageSize);
+
+  const start = safePage * pageSize;
+  const end = start + pageSize;
+  const items = tracks.slice(start, end);
+
+  const lines = items.map((t, i) => {
+    const dur = t.duration ? ` (${formatDuration(t.duration)})` : "";
+    return `<b>${start + i + 1}.</b> ${t.title} — ${t.artist}${dur}`;
+  }).join("\n");
+
+  const txt = `🕑 <b>Недавние треки</b> (последние ${tracks.length}):\n\n${lines}` +
+    (totalPages > 1 ? `\n\nСтраница ${safePage + 1} из ${totalPages}` : "");
+
+  if (messageId) await editMessageText(chatId, messageId, txt, { parseMode: "HTML", replyMarkup: markup });
+  else await sendTelegramMessage(chatId, txt, { parseMode: "HTML", replyMarkup: markup });
+}
+
+/* ================================================================== */
+/*  Stats view — /stats                                               */
+/* ================================================================== */
+
+async function handleStats(chatId: string, messageId?: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) {
+    const txt = "Сначала авторизуйтесь — отправьте /code";
+    if (messageId) await editMessageText(chatId, messageId, txt);
+    else await sendTelegramMessage(chatId, txt);
+    return;
+  }
+
+  // Parallel data fetch
+  const [playlists, likes, history] = await Promise.all([
+    getUserPlaylists(user.id),
+    getUserLikes(user.id),
+    getUserHistory(user.id, 100),
+  ]);
+
+  const totalTracks = playlists.reduce((sum, pl) => sum + pl.trackCount, 0);
+  const totalLikes = likes.ids.length;
+  const totalHistory = history.length;
+  const totalPlaylists = playlists.length;
+
+  // Find most-listened artist from history
+  const artistCount = new Map<string, number>();
+  for (const t of history) {
+    if (!t.artist) continue;
+    artistCount.set(t.artist, (artistCount.get(t.artist) || 0) + 1);
+  }
+  const topArtists = [...artistCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3);
+
+  let txt = `📊 <b>Ваша статистика mq</b>\n\n` +
+    `📂 Плейлистов: <b>${totalPlaylists}</b>\n` +
+    `🎵 Треков в плейлистах: <b>${totalTracks}</b>\n` +
+    `❤️ Лайкнутых треков: <b>${totalLikes}</b>\n` +
+    `🕑 Прослушано за всё время: <b>${totalHistory}</b>\n`;
+
+  if (topArtists.length > 0) {
+    txt += `\n<b>Топ исполнители:</b>\n`;
+    topArtists.forEach(([artist, count], i) => {
+      txt += `${i + 1}. ${artist} — ${count} ${getTrackWord(count)}\n`;
+    });
+  }
+
+  if (playlists.length > 0) {
+    const biggest = [...playlists].sort((a, b) => b.trackCount - a.trackCount)[0];
+    txt += `\n📦 Самый большой плейлист: <b>${biggest.name}</b> (${biggest.trackCount} ${getTrackWord(biggest.trackCount)})\n`;
+  }
+
+  txt += `\n📂 <a href="${getSiteOrigin()}">Открыть на сайте</a>`;
+
+  if (messageId) await editMessageText(chatId, messageId, txt, { parseMode: "HTML" });
+  else await sendTelegramMessage(chatId, txt, { parseMode: "HTML" });
+}
+
+/* ================================================================== */
+/*  View playlist tracks (with pagination)                            */
+/* ================================================================== */
+
+async function handleViewPlaylist(chatId: string, messageId: number, playlistId: string, page: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) { await editMessageText(chatId, messageId, "Сначала авторизуйтесь — /code"); return; }
+  const pl = await findPlaylistById(playlistId);
+  if (!pl || pl.userId !== user.id) {
+    await editMessageText(chatId, messageId, "Плейлист не найден.");
+    return;
+  }
+
+  let tracks: any[] = [];
+  try { tracks = JSON.parse(pl.tracksJson || "[]"); } catch { tracks = []; }
+
+  const pageSize = 5;
+  const totalPages = Math.max(1, Math.ceil(tracks.length / pageSize));
+  const safePage = Math.min(Math.max(0, page), totalPages - 1);
+
+  const markup = buildPlaylistTracksKeyboard(pl, safePage, pageSize);
+  const start = safePage * pageSize;
+  const end = start + pageSize;
+  const items = tracks.slice(start, end);
+
+  const lines = items.map((t: any, i: number) => {
+    const dur = t.duration ? ` (${formatDuration(t.duration)})` : "";
+    return `<b>${start + i + 1}.</b> ${t.title || "Без названия"} — ${t.artist || "Неизвестный"}${dur}`;
+  }).join("\n");
+
+  const visibility = pl.isPublic ? "🌐 публичный" : "🔒 приватный";
+
+  const txt = `📂 <b>${pl.name}</b>\n` +
+    `${tracks.length} ${getTrackWord(tracks.length)} · ${visibility}` +
+    (totalPages > 1 ? ` · стр. ${safePage + 1}/${totalPages}` : "") +
+    `\n\n${lines || "<i>В плейлисте нет треков</i>"}`;
+
+  await editMessageText(chatId, messageId, txt, { parseMode: "HTML", replyMarkup: markup });
+}
+
+/* ================================================================== */
+/*  Toggle playlist public/private                                    */
+/* ================================================================== */
+
+async function togglePlaylistPublic(playlistId: string, isPublic: boolean): Promise<void> {
+  if (isTurso()) {
+    const t = getTursoClient();
+    await t.execute({
+      sql: "UPDATE Playlist SET isPublic = ?, updatedAt = ? WHERE id = ?",
+      args: [isPublic ? 1 : 0, new Date().toISOString(), playlistId],
+    });
+    return;
+  }
+  const { db } = await import("@/lib/db");
+  await db.playlist.update({ where: { id: playlistId }, data: { isPublic } });
+}
+
+/* ================================================================== */
+/*  Rename playlist                                                   */
+/* ================================================================== */
+
+async function handleRenamePlaylist(chatId: string, playlistId: string, newName: string) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const pl = await findPlaylistById(playlistId);
+  if (!pl || pl.userId !== user.id) {
+    await sendTelegramMessage(chatId, "Плейлист не найден.");
+    return;
+  }
+
+  const trimmed = newName.trim();
+  if (trimmed.length === 0 || trimmed.length > 200) {
+    await sendTelegramMessage(chatId, "Название должно быть 1–200 символов.");
+    return;
+  }
+  if (trimmed === pl.name) {
+    await sendTelegramMessage(chatId, "Название не изменилось.");
+    return;
+  }
+  // Check name conflict
+  const conflict = await findPlaylistByUserAndName(user.id, trimmed);
+  if (conflict && conflict.id !== playlistId) {
+    await sendTelegramMessage(chatId, `У вас уже есть плейлист с названием "${trimmed}".`);
+    return;
+  }
+
+  if (isTurso()) {
+    const t = getTursoClient();
+    await t.execute({
+      sql: "UPDATE Playlist SET name = ?, updatedAt = ? WHERE id = ?",
+      args: [trimmed, new Date().toISOString(), playlistId],
+    });
+  } else {
+    const { db } = await import("@/lib/db");
+    await db.playlist.update({ where: { id: playlistId }, data: { name: trimmed } });
+  }
+
+  await sendTelegramMessage(chatId,
+    `Плейлист переименован:\n<b>${pl.name}</b> → <b>${trimmed}</b>`,
+    { parseMode: "HTML" }
+  );
+}
+
+/* ================================================================== */
+/*  Remove track from playlist                                        */
+/* ================================================================== */
+
+async function handleRemoveTrackFromPlaylist(chatId: string, messageId: number, playlistId: string, trackIdx: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const pl = await findPlaylistById(playlistId);
+  if (!pl || pl.userId !== user.id) {
+    await editMessageText(chatId, messageId, "Плейлист не найден.");
+    return;
+  }
+
+  let tracks: any[] = [];
+  try { tracks = JSON.parse(pl.tracksJson || "[]"); } catch { tracks = []; }
+
+  if (trackIdx < 0 || trackIdx >= tracks.length) {
+    await editMessageText(chatId, messageId, "Трек не найден.");
+    return;
+  }
+
+  const removed = tracks[trackIdx];
+  tracks.splice(trackIdx, 1);
+  await updatePlaylistTracks(playlistId, JSON.stringify(tracks));
+
+  // Re-fetch updated playlist for the keyboard
+  const updated = await findPlaylistById(playlistId);
+  if (updated) {
+    // Adjust page if we removed the last item on a non-first page
+    const pageSize = 5;
+    const newTotalPages = Math.max(1, Math.ceil(tracks.length / pageSize));
+    const currentPage = Math.min(Math.floor(trackIdx / pageSize), newTotalPages - 1);
+    await handleViewPlaylist(chatId, messageId, playlistId, currentPage);
+  } else {
+    await editMessageText(chatId, messageId, `Трек "${removed?.title}" удалён из плейлиста.`);
+  }
+
+  // Notify via separate message
+  await sendTelegramMessage(chatId,
+    `Трек <b>${removed?.title || ""}</b> удалён из плейлиста.`,
+    { parseMode: "HTML" }
+  ).catch(() => {});
+}
+
+/* ================================================================== */
+/*  Play track from playlist (send audio or open webapp link)         */
+/* ================================================================== */
+
+async function handlePlayPlaylistTrack(chatId: string, messageId: number, playlistId: string, trackIdx: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const pl = await findPlaylistById(playlistId);
+  if (!pl || pl.userId !== user.id) {
+    await editMessageText(chatId, messageId, "Плейлист не найден.");
+    return;
+  }
+
+  let tracks: any[] = [];
+  try { tracks = JSON.parse(pl.tracksJson || "[]"); } catch { tracks = []; }
+  const track = tracks[trackIdx];
+  if (!track) {
+    await editMessageText(chatId, messageId, "Трек не найден.");
+    return;
+  }
+
+  // Try to send audio
+  if (track.audioUrl) {
+    await editMessageText(chatId, messageId, `▶ Воспроизвожу: <b>${track.title}</b> — ${track.artist}`, { parseMode: "HTML" });
+    const result = await sendTelegramAudio(chatId, track.audioUrl, {
+      title: track.title,
+      performer: track.artist,
+      duration: track.duration,
+      caption: `🎵 ${track.title} — ${track.artist}`,
+    });
+    if (result.ok) return;
+  }
+
+  // Fallback: webapp link
+  const origin = getSiteOrigin();
+  const trackParam = track.scTrackId ? `sc_${track.scTrackId}` : (track.id || "");
+  const url = `${origin}/?track=${encodeURIComponent(trackParam)}`;
+  await editMessageText(chatId, messageId,
+    `▶ <b>${track.title}</b> — ${track.artist}\n\nНе удалось отправить аудио напрямую.\n<a href="${url}">Открыть на сайте</a>`,
+    { parseMode: "HTML", disablePreview: true }
+  );
+}
+
+/* ================================================================== */
+/*  Like track from playlist                                          */
+/* ================================================================== */
+
+async function handleLikePlaylistTrack(chatId: string, messageId: number, playlistId: string, trackIdx: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const pl = await findPlaylistById(playlistId);
+  if (!pl || pl.userId !== user.id) return;
+
+  let tracks: any[] = [];
+  try { tracks = JSON.parse(pl.tracksJson || "[]"); } catch { tracks = []; }
+  const track = tracks[trackIdx];
+  if (!track) return;
+
+  const trackId = String(track.id || `pl_${playlistId}_${trackIdx}`);
+  const result = await addUserLike(user.id, {
+    id: trackId,
+    title: track.title || "Без названия",
+    artist: track.artist || "Неизвестный",
+    duration: track.duration,
+    cover: track.cover,
+    scTrackId: track.scTrackId || null,
+    source: track.source || "playlist",
+    audioUrl: track.audioUrl,
+  });
+
+  await editMessageText(chatId, messageId,
+    result.added
+      ? `❤️ <b>Добавлено в лайки!</b>\n\n${track.title} — ${track.artist}\n\nВсего лайков: ${result.total}`
+      : `Уже в лайках: ${track.title} — ${track.artist}\n\nВсего лайков: ${result.total}`,
+    { parseMode: "HTML" }
+  );
+}
+
+/**
+ * Unlike a track from the playlist track-info view.
+ * Re-renders the track-info view with updated like state.
+ */
+async function handleUnlikePlaylistTrack(chatId: string, messageId: number, playlistId: string, trackIdx: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const pl = await findPlaylistById(playlistId);
+  if (!pl || pl.userId !== user.id) return;
+
+  let tracks: any[] = [];
+  try { tracks = JSON.parse(pl.tracksJson || "[]"); } catch { tracks = []; }
+  const track = tracks[trackIdx];
+  if (!track) return;
+
+  const trackId = String(track.id || `pl_${playlistId}_${trackIdx}`);
+  const res = await removeUserLike(user.id, trackId);
+
+  await editMessageText(chatId, messageId,
+    `💔 <b>Убран из лайков.</b>\n\n${track.title} — ${track.artist}\n\nВсего лайков: ${res.total}`,
+    { parseMode: "HTML" }
+  );
+}
+
+/* ================================================================== */
+/*  Track info from playlist (show details + actions)                 */
+/* ================================================================== */
+
+async function handleTrackInfoFromPlaylist(chatId: string, messageId: number, playlistId: string, trackIdx: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const pl = await findPlaylistById(playlistId);
+  if (!pl || pl.userId !== user.id) return;
+
+  let tracks: any[] = [];
+  try { tracks = JSON.parse(pl.tracksJson || "[]"); } catch { tracks = []; }
+  const track = tracks[trackIdx];
+  if (!track) return;
+
+  // Check like state
+  const likes = await getUserLikes(user.id);
+  const trackId = String(track.id || `pl_${playlistId}_${trackIdx}`);
+  const isLiked = likes.ids.includes(trackId);
+
+  const dur = track.duration ? `${formatDuration(track.duration)}` : "—";
+  const txt = `🎵 <b>${track.title || "Без названия"}</b>\n` +
+    `Исполнитель: ${track.artist || "Неизвестный"}\n` +
+    `Длительность: ${dur}\n` +
+    `Источник: ${track.source || "—"}\n` +
+    `Статус: ${isLiked ? "❤️ в лайках" : "🤍 не лайкнут"}`;
+
+  const markup = {
+    inline_keyboard: [
+      [
+        { text: "▶ Слушать", callback_data: `play_pl_track:${playlistId}:${trackIdx}` },
+        { text: isLiked ? "💔 Убрать лайк" : "🤍 Лайк", callback_data: isLiked ? `unlike_pl:${playlistId}:${trackIdx}` : `like_pl_track:${playlistId}:${trackIdx}` },
+      ],
+      [{ text: "🗑 Убрать из плейлиста", callback_data: `remove_pl_track:${playlistId}:${trackIdx}` }],
+      [{ text: "« Назад к плейлисту", callback_data: `view_playlist:${playlistId}` }],
+    ],
+  };
+
+  await editMessageText(chatId, messageId, txt, { parseMode: "HTML", replyMarkup: markup });
+}
+
+/* ================================================================== */
+/*  Like/unlike track from search results                             */
+/* ================================================================== */
+
+async function handleLikeSearchTrack(chatId: string, messageId: number, idx: number, isUnlike: boolean) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const state = await getChatState(chatId);
+  if (!state?.searchResults?.length) {
+    await editMessageText(chatId, messageId, "Сессия истекла. Используйте /search заново.");
+    return;
+  }
+  const track = state.searchResults[idx];
+  if (!track) return;
+
+  const trackId = String(track.scTrackId ? `sc_${track.scTrackId}` : `tg_${track.id || idx}`);
+
+  if (isUnlike) {
+    const res = await removeUserLike(user.id, trackId);
+    await editMessageText(chatId, messageId,
+      `💔 Убран из лайков: ${track.title} — ${track.artist}\n\nВсего лайков: ${res.total}`,
+      { parseMode: "HTML", replyMarkup: buildPreviewKeyboard(idx, false) }
+    );
+    return;
+  }
+
+  const result = await addUserLike(user.id, {
+    id: trackId,
+    title: track.title,
+    artist: track.artist,
+    duration: track.duration,
+    cover: track.cover,
+    scTrackId: track.scTrackId || null,
+    source: "soundcloud",
+  });
+
+  await editMessageText(chatId, messageId,
+    result.added
+      ? `❤️ <b>Добавлено в лайки!</b>\n\n${track.title} — ${track.artist}\n\nВсего лайков: ${result.total}`
+      : `Уже в лайках: ${track.title} — ${track.artist}\n\nВсего лайков: ${result.total}`,
+    { parseMode: "HTML", replyMarkup: buildPreviewKeyboard(idx, true) }
+  );
+}
+
+/* ================================================================== */
+/*  Likes actions: unlike by index, track info, play                  */
+/* ================================================================== */
+
+async function handleUnlikeByIndex(chatId: string, messageId: number, idx: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const { tracks } = await getUserLikes(user.id);
+  const sorted = [...tracks].reverse();
+  const track = sorted[idx];
+  if (!track) return;
+
+  const res = await removeUserLike(user.id, track.id);
+  // Show updated likes view (previous page if we removed the last item on a page)
+  const pageSize = 5;
+  const newTotalPages = Math.max(1, Math.ceil(res.total / pageSize));
+  const currentPage = Math.min(Math.floor(idx / pageSize), newTotalPages - 1);
+  await handleLikes(chatId, messageId, currentPage);
+}
+
+async function handleTrackInfoFromLikes(chatId: string, messageId: number, idx: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const { tracks } = await getUserLikes(user.id);
+  const sorted = [...tracks].reverse();
+  const track = sorted[idx];
+  if (!track) return;
+
+  const dur = track.duration ? formatDuration(track.duration) : "—";
+  const likedAt = track.likedAt ? new Date(track.likedAt).toLocaleString("ru-RU") : "—";
+
+  const txt = `❤️ <b>${track.title}</b>\n` +
+    `Исполнитель: ${track.artist}\n` +
+    `Длительность: ${dur}\n` +
+    `Источник: ${track.source || "—"}\n` +
+    `Лайкнут: ${likedAt}`;
+
+  const markup = {
+    inline_keyboard: [
+      [
+        { text: "▶ Слушать", callback_data: `play_like_track:${idx}` },
+        { text: "💔 Убрать лайк", callback_data: `unlike:${idx}` },
+      ],
+      [{ text: "« Назад к лайкам", callback_data: "cmd_likes" }],
+    ],
+  };
+
+  await editMessageText(chatId, messageId, txt, { parseMode: "HTML", replyMarkup: markup });
+}
+
+async function handlePlayLikedTrack(chatId: string, messageId: number, idx: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const { tracks } = await getUserLikes(user.id);
+  const sorted = [...tracks].reverse();
+  const track = sorted[idx];
+  if (!track) return;
+
+  // Try to send audio
+  if (track.audioUrl) {
+    await editMessageText(chatId, messageId, `▶ Воспроизвожу: <b>${track.title}</b> — ${track.artist}`, { parseMode: "HTML" });
+    const result = await sendTelegramAudio(chatId, track.audioUrl, {
+      title: track.title,
+      performer: track.artist,
+      duration: track.duration,
+      caption: `🎵 ${track.title} — ${track.artist}`,
+    });
+    if (result.ok) return;
+  }
+
+  // Try SoundCloud resolution if we have scTrackId
+  if (track.scTrackId) {
+    const audioUrl = await resolveSCStreamUrl(track.scTrackId);
+    if (audioUrl) {
+      await editMessageText(chatId, messageId, `▶ Воспроизвожу: <b>${track.title}</b> — ${track.artist}`, { parseMode: "HTML" });
+      const result = await sendTelegramAudio(chatId, audioUrl, {
+        title: track.title,
+        performer: track.artist,
+        duration: track.duration,
+        caption: `🎵 ${track.title} — ${track.artist}`,
+      });
+      if (result.ok) return;
+    }
+  }
+
+  // Fallback: webapp link
+  const origin = getSiteOrigin();
+  const url = track.scTrackId ? `${origin}/?track=sc_${track.scTrackId}` : origin;
+  await editMessageText(chatId, messageId,
+    `▶ <b>${track.title}</b> — ${track.artist}\n\nНе удалось отправить аудио.\n<a href="${url}">Открыть на сайте</a>`,
+    { parseMode: "HTML", disablePreview: true }
+  );
+}
+
+/* ================================================================== */
+/*  History actions: play, like, add to playlist                      */
+/* ================================================================== */
+
+async function handlePlayHistoryTrack(chatId: string, messageId: number, idx: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const tracks = await getUserHistory(user.id, 50);
+  const track = tracks[idx];
+  if (!track) return;
+
+  if (track.audioUrl) {
+    await editMessageText(chatId, messageId, `▶ Воспроизвожу: <b>${track.title}</b> — ${track.artist}`, { parseMode: "HTML" });
+    const result = await sendTelegramAudio(chatId, track.audioUrl, {
+      title: track.title,
+      performer: track.artist,
+      duration: track.duration,
+      caption: `🎵 ${track.title} — ${track.artist}`,
+    });
+    if (result.ok) return;
+  }
+
+  if (track.scTrackId) {
+    const audioUrl = await resolveSCStreamUrl(track.scTrackId);
+    if (audioUrl) {
+      await editMessageText(chatId, messageId, `▶ Воспроизвожу: <b>${track.title}</b> — ${track.artist}`, { parseMode: "HTML" });
+      const result = await sendTelegramAudio(chatId, audioUrl, {
+        title: track.title,
+        performer: track.artist,
+        duration: track.duration,
+        caption: `🎵 ${track.title} — ${track.artist}`,
+      });
+      if (result.ok) return;
+    }
+  }
+
+  const origin = getSiteOrigin();
+  const url = track.scTrackId ? `${origin}/?track=sc_${track.scTrackId}` : origin;
+  await editMessageText(chatId, messageId,
+    `▶ <b>${track.title}</b> — ${track.artist}\n\nНе удалось отправить аудио.\n<a href="${url}">Открыть на сайте</a>`,
+    { parseMode: "HTML", disablePreview: true }
+  );
+}
+
+async function handleLikeHistoryTrack(chatId: string, messageId: number, idx: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const tracks = await getUserHistory(user.id, 50);
+  const track = tracks[idx];
+  if (!track) return;
+
+  const trackId = String(track.id || `hist_${idx}`);
+  const result = await addUserLike(user.id, {
+    id: trackId,
+    title: track.title,
+    artist: track.artist,
+    duration: track.duration,
+    cover: track.cover,
+    scTrackId: track.scTrackId || null,
+    source: track.source || "history",
+    audioUrl: track.audioUrl,
+  });
+
+  await editMessageText(chatId, messageId,
+    result.added
+      ? `❤️ <b>Добавлено в лайки!</b>\n\n${track.title} — ${track.artist}\n\nВсего лайков: ${result.total}`
+      : `Уже в лайках: ${track.title} — ${track.artist}\n\nВсего лайков: ${result.total}`,
+    { parseMode: "HTML" }
+  );
+}
+
+async function handleAddHistoryToPlaylist(chatId: string, messageId: number, idx: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+  const tracks = await getUserHistory(user.id, 50);
+  const track = tracks[idx];
+  if (!track) return;
+
+  const result = await getUserPlaylistsOrCreate(chatId);
+  if (!result) return;
+
+  // Set up state so that the playlist picker callback can complete the add
+  const trackId = String(track.id || `hist_${idx}`);
+  await setChatState(chatId, "awaiting_add_to_playlist", {
+    fileUrl: null,
+    fileDuration: track.duration || 0,
+    originalFilename: `${track.title} — ${track.artist}`,
+    scTrackId: track.scTrackId || undefined,
+    scData: {
+      id: trackId,
+      title: track.title,
+      artist: track.artist,
+      duration: track.duration,
+      cover: track.cover || "",
+      scTrackId: track.scTrackId || null,
+      source: track.source || "history",
+      audioUrl: track.audioUrl || "",
+    } as any,
+  });
+
+  await editMessageText(chatId, messageId,
+    `Выбран трек: <b>${track.title}</b> — ${track.artist}\n\nВ какой плейлист добавить?`,
+    { parseMode: "HTML", replyMarkup: buildPlaylistKeyboard(result.playlists, "add_search_pl") }
+  );
+}
+
+/* ================================================================== */
+/*  Like a track that was just added to a playlist                    */
+/* ================================================================== */
+
+/**
+ * Handle "Like" press from the post-add confirmation message.
+ * We only have a trackId — find the track in any of the user's playlists
+ * (it should be in the most recently updated one).
+ */
+async function handleLikeAddedTrack(chatId: string, messageId: number, trackId: string) {
+  const user = await findUserByChatId(chatId);
+  if (!user) return;
+
+  // Find the track in any playlist (newest-first)
+  const playlists = await getUserPlaylists(user.id);
+  let foundTrack: LikeEntry | null = null;
+  for (const pl of playlists) {
+    const full = await findPlaylistById(pl.id);
+    if (!full) continue;
+    let tracks: any[] = [];
+    try { tracks = JSON.parse(full.tracksJson || "[]"); } catch { tracks = []; }
+    const match = tracks.find((t: any) => String(t.id || (t.scTrackId ? `sc_${t.scTrackId}` : "")) === trackId);
+    if (match) {
+      foundTrack = {
+        id: trackId,
+        title: match.title || "Без названия",
+        artist: match.artist || "Неизвестный",
+        duration: match.duration,
+        cover: match.cover,
+        scTrackId: match.scTrackId || null,
+        source: match.source || "playlist",
+        audioUrl: match.audioUrl,
+      };
+      break;
+    }
+  }
+
+  if (!foundTrack) {
+    await editMessageText(chatId, messageId, "Трек не найден. Возможно, он был удалён из плейлиста.");
+    return;
+  }
+
+  const result = await addUserLike(user.id, foundTrack);
+  await editMessageText(chatId, messageId,
+    result.added
+      ? `❤️ <b>В лайках!</b>\n\n${foundTrack.title} — ${foundTrack.artist}\n\nВсего лайков: ${result.total}`
+      : `Уже в лайках: ${foundTrack.title} — ${foundTrack.artist}\n\nВсего лайков: ${result.total}`,
+    { parseMode: "HTML" }
+  );
 }
