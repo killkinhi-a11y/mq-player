@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
+import dynamic from "next/dynamic";
 import {
   ensureTelegramSDK,
   getTelegramInitData,
@@ -232,7 +233,7 @@ const usePlayer = () => {
 /*  Main page                                                          */
 /* ------------------------------------------------------------------ */
 
-export default function TgWebAppPage() {
+function TgWebAppPageInner() {
   const [auth, setAuth] = useState<AuthState>({ status: "loading" });
   const [tab, setTab] = useState<"recs" | "search" | "likes" | "playlists">("recs");
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -920,3 +921,26 @@ async function unlikeTrack(trackId: string): Promise<void> {
     await fetch("/api/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ data: { likedTracks: ids.filter((id) => id !== trackId), likedTracksData: tracks.filter((t) => t.id !== trackId) } }) });
   } catch {}
 }
+
+/* ------------------------------------------------------------------ */
+/*  Default export — dynamic import with ssr: false                   */
+/*                                                                     */
+/*  The Mini App is a pure client-side app. Rendering it on the server */
+/*  causes hydration mismatches because window.Telegram is undefined   */
+/*  on server but defined on client. By wrapping the inner component   */
+/*  in next/dynamic with ssr: false, the server sends a minimal        */
+/*  loading shell and the client renders the full app after mount.     */
+/* ------------------------------------------------------------------ */
+
+const TgWebAppPage = dynamic(() => Promise.resolve(TgWebAppPageInner), {
+  ssr: false,
+  loading: () => (
+    <div className="tg-loading">
+      <div className="tg-loading-logo">mq</div>
+      <div className="tg-spinner" />
+      <p>Загрузка...</p>
+    </div>
+  ),
+});
+
+export default TgWebAppPage;
