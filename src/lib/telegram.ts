@@ -347,6 +347,7 @@ export async function setMyCommands(): Promise<boolean> {
       body: JSON.stringify({
         commands: [
           { command: "menu", description: "Главное меню" },
+          { command: "recs", description: "✨ Рекомендации для вас" },
           { command: "search", description: "Поиск треков" },
           { command: "likes", description: "❤️ Мои лайки" },
           { command: "playlists", description: "📂 Мои плейлисты" },

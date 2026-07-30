@@ -582,6 +582,142 @@ async function getUserHistory(userId: string, limit = 20): Promise<LikeEntry[]> 
 }
 
 /* ------------------------------------------------------------------ */
+/*  Recommendations (calls internal /api/music/recommendations)        */
+/* ------------------------------------------------------------------ */
+
+interface RecTrack {
+  id: string;
+  title: string;
+  artist: string;
+  album?: string;
+  duration?: number;
+  cover?: string;
+  genre?: string;
+  audioUrl?: string;
+  previewUrl?: string;
+  source?: string;
+  scTrackId?: number | null;
+  scStreamPolicy?: string;
+  scIsFull?: boolean;
+}
+
+interface RecCategory {
+  id: string;
+  title: string;
+  icon: string;
+  tracks: RecTrack[];
+}
+
+interface RecResponse {
+  tracks: RecTrack[];
+  categories: RecCategory[];
+  _meta?: {
+    seedCount?: number;
+    totalCandidates?: number;
+    afterDedup?: number;
+    forYouCount?: number;
+    discoveryCount?: number;
+  };
+}
+
+/**
+ * Fetch personalized recommendations for the user.
+ * Mirrors what the web app does — uses the user's likes + history as seeds.
+ *
+ * Hits our own /api/music/recommendations endpoint (same Vercel function).
+ * Falls back gracefully if any step fails.
+ */
+async function fetchRecommendations(
+  userId: string,
+  options: { limit?: number; category?: string } = {},
+): Promise<{ tracks: RecTrack[]; category?: RecCategory; meta?: RecResponse["_meta"] }> {
+  const limit = options.limit || 15;
+  const origin = getSiteOrigin();
+
+  // Build seeds from likes + history (parallel)
+  const [likes, history] = await Promise.all([
+    getUserLikes(userId),
+    getUserHistory(userId, 50),
+  ]);
+
+  // Extract SoundCloud IDs (only valid numbers)
+  const likedScIds = likes.tracks
+    .map((t) => Number(t.scTrackId))
+    .filter((n) => !isNaN(n) && n > 0)
+    .slice(0, 10);
+  const historyScIds = history
+    .map((t) => Number(t.scTrackId))
+    .filter((n) => !isNaN(n) && n > 0)
+    .slice(0, 10);
+
+  // Extract top artists from history (most-listened)
+  const artistCount = new Map<string, number>();
+  for (const t of history) {
+    if (!t.artist) continue;
+    artistCount.set(t.artist, (artistCount.get(t.artist) || 0) + 1);
+  }
+  const topArtists = [...artistCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([name]) => name);
+
+  // Extract top genres from history + likes
+  const genreCount = new Map<string, number>();
+  for (const t of [...history, ...likes.tracks]) {
+    const g = (t as any).genre || "";
+    if (!g || typeof g !== "string") continue;
+    genreCount.set(g, (genreCount.get(g) || 0) + 1);
+  }
+  const topGenres = [...genreCount.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([g]) => g);
+
+  // No seeds at all — can't personalize
+  if (likedScIds.length === 0 && historyScIds.length === 0 && topArtists.length === 0) {
+    return { tracks: [] };
+  }
+
+  const params = new URLSearchParams();
+  if (likedScIds.length) params.set("likedScIds", likedScIds.join(","));
+  if (historyScIds.length) params.set("historyScIds", historyScIds.join(","));
+  if (topArtists.length) params.set("artists", topArtists.join(","));
+  if (topGenres.length) params.set("genres", topGenres.join(","));
+
+  try {
+    const res = await fetch(`${origin}/api/music/recommendations?${params.toString()}`, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(15000),
+      // Same-instance fetch — no need for external auth
+    });
+    if (!res.ok) return { tracks: [] };
+    const data = (await res.json()) as RecResponse;
+    if (!data || !Array.isArray(data.tracks)) return { tracks: [] };
+
+    // Pick a category if user asked for one, otherwise prefer "Для вас"
+    const cats = data.categories || [];
+    let chosenCat: RecCategory | undefined;
+    if (options.category) {
+      chosenCat = cats.find((c) => c.id === options.category);
+    }
+    if (!chosenCat) {
+      chosenCat = cats.find((c) => c.id === "for_you") || cats[0];
+    }
+
+    // Source tracks: prefer chosen category, fallback to flat list
+    const sourceTracks = chosenCat?.tracks?.length ? chosenCat.tracks : data.tracks;
+    return {
+      tracks: sourceTracks.slice(0, limit),
+      category: chosenCat,
+      meta: data._meta,
+    };
+  } catch (err) {
+    console.error("[telegram-bot] fetchRecommendations error:", err);
+    return { tracks: [] };
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Inline Keyboard builders                                          */
 /* ------------------------------------------------------------------ */
 
@@ -752,11 +888,55 @@ function buildHistoryKeyboard(tracks: LikeEntry[], page: number, pageSize = 5) {
   return { inline_keyboard: rows };
 }
 
+/**
+ * Recommendations keyboard — reuses search_results state machine.
+ * Each track row: [▶ preview] [+ add to playlist] [🤍 like]
+ * If user has an active playlist open, the "+ Add" button adds directly there.
+ */
+function buildRecommendationsKeyboard(
+  tracks: RecTrack[],
+  page: number,
+  hasActivePlaylist: boolean,
+) {
+  const perPage = 5;
+  const start = page * perPage;
+  const end = start + perPage;
+  const items = tracks.slice(start, end);
+
+  const rows: Array<Array<{ text: string; callback_data: string }>> = [];
+  for (let i = 0; i < items.length; i++) {
+    const t = items[i];
+    const idx = start + i;
+    const title = String(t.title || "Без названия").slice(0, 40);
+    const artist = String(t.artist || "").slice(0, 25);
+    rows.push([
+      { text: `▶ ${title} — ${artist}`, callback_data: `preview:${idx}` },
+      { text: hasActivePlaylist ? "+ Сюда" : "+ Добавить", callback_data: `add_search:${idx}` },
+    ]);
+    rows.push([
+      { text: "🤍 Лайк", callback_data: `like_idx:${idx}` },
+      { text: "📂 Открыть", callback_data: `open_track:${idx}` },
+    ]);
+  }
+
+  const navRow: Array<{ text: string; callback_data: string }> = [];
+  if (page > 0) navRow.push({ text: "< Назад", callback_data: `search_page:${page - 1}` });
+  if (end < tracks.length) navRow.push({ text: "Далее >", callback_data: `search_page:${page + 1}` });
+  if (navRow.length > 0) rows.push(navRow);
+  rows.push([{ text: "🔄 Обновить", callback_data: "cmd_recs" }]);
+  rows.push([{ text: "✖ Закрыть", callback_data: "cancel" }]);
+  return { inline_keyboard: rows };
+}
+
 /* ------------------------------------------------------------------ */
 /*  Menu / Help text                                                   */
 /* ------------------------------------------------------------------ */
 
 const HELP_TEXT = `🎵 <b>mq — музыкальный бот</b>
+
+<b>Рекомендации:</b>
+/recs — персональные рекомендации на основе ваших лайков и истории
+Алгоритм как на сайте: похожее на лайкнутое + открытия по жанрам
 
 <b>Поиск и сохранение:</b>
 /search — найти треки на SoundCloud
@@ -764,11 +944,14 @@ const HELP_TEXT = `🎵 <b>mq — музыкальный бот</b>
 
 <b>Лайки:</b>
 /likes — ваши любимые треки (общие с сайтом)
-Можно лайкнуть из поиска или из плейлиста
+Можно лайкнуть из поиска, рекомендаций или плейлиста
 
 <b>Плейлисты:</b>
-/playlists — открыть любой плейлист → смотреть треки, переименовать, удалить, поделиться
+/playlists — открыть плейлист → смотреть треки, переименовать, удалить, поделиться
 /newplaylist — создать новый
+
+💡 <b>Хитрость:</b> если открыт плейлист и вы скидываете аудио —
+оно автоматически добавится в этот плейлист, без выбора.
 
 <b>История:</b>
 /recent — недавние прослушивания (зеркало сайта)
@@ -791,6 +974,7 @@ const HELP_TEXT = `🎵 <b>mq — музыкальный бот</b>
 
 const MENU_KEYBOARD = {
   inline_keyboard: [
+    [{ text: "✨ Рекомендации", callback_data: "cmd_recs" }],
     [{ text: "🔍 Поиск треков", callback_data: "cmd_search" }],
     [
       { text: "❤️ Лайки", callback_data: "cmd_likes" },
@@ -900,6 +1084,12 @@ export async function handleTelegramMessage(body: Record<string, any>) {
       `Все ваши плейлисты, лайки и история доступны и на сайте.`,
       { parseMode: "HTML" }
     );
+    return;
+  }
+
+  // ---- /recs или /recommendations — персональные рекомендации
+  if (text === "/recs" || text === "/recommendations" || text.startsWith("/recs ") || text.startsWith("/recommendations ")) {
+    await handleRecommendations(chatId);
     return;
   }
 
@@ -1107,6 +1297,10 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     );
     return;
   }
+  if (data === "cmd_recs") {
+    await handleRecommendations(chatId, messageId);
+    return;
+  }
 
   // ---- State-dependent callbacks ----
   const state = await getChatState(chatId);
@@ -1118,6 +1312,27 @@ export async function handleCallbackQuery(body: Record<string, any>) {
       return;
     }
     await handleFinishBatchCollection(chatId, state);
+    return;
+  }
+
+  // User wants to switch target playlist during batch collection
+  if (data === "batch_pick_playlist") {
+    if (!state || state.state !== "collecting_audios") {
+      await editMessageText(chatId, messageId, "Сессия истекла. Отправьте аудио заново.");
+      return;
+    }
+    // Clear the active target so handleFinishBatchCollection shows the picker
+    await setChatState(
+      chatId,
+      "collecting_audios",
+      state.data,
+      state.searchResults,
+      state.audioBatch,
+      state.collectingMessageId,
+      { activePlaylistId: undefined, viewPage: undefined },
+    );
+    const updatedState: ChatState = { ...state, activePlaylistId: undefined };
+    await handleFinishBatchCollection(chatId, updatedState);
     return;
   }
 
@@ -1216,6 +1431,26 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     // Check if user has playlists, auto-create if needed
     const user = await findUserByChatId(chatId);
     if (!user) { await editMessageText(chatId, messageId, "Ошибка авторизации."); return; }
+
+    // If a playlist is currently "open", add directly there — skip the picker.
+    // This makes the "+ Сюда" button on recs / search results work as expected.
+    const targetPlaylistId = state.activePlaylistId;
+    if (targetPlaylistId) {
+      const pl = await findPlaylistById(targetPlaylistId);
+      if (pl && pl.userId === user.id) {
+        // Ensure track has stable id
+        const trackId = String(track.id || (track.scTrackId ? `sc_${track.scTrackId}` : `sc_${index}`));
+        if (!track.id) track.id = trackId;
+        // Add directly
+        await handleAddSearchTrackToPlaylist(chatId, targetPlaylistId, {
+          ...state.data,
+          scTrackId: track.scTrackId,
+          scData: track,
+        });
+        return;
+      }
+    }
+
     const playlists = await getUserPlaylists(user.id);
     if (playlists.length === 0) {
       // Auto-create "Избранное" and try again
@@ -1223,7 +1458,10 @@ export async function handleCallbackQuery(body: Record<string, any>) {
       const newPlaylists = await getUserPlaylists(user.id);
       await setChatState(chatId, "awaiting_add_to_playlist",
         { ...state.data, scTrackId: track.scTrackId, scData: track },
-        state.searchResults
+        state.searchResults,
+        undefined,
+        undefined,
+        { activePlaylistId: state.activePlaylistId, viewPage: state.viewPage },
       );
       await editMessageText(chatId, messageId,
         `Выбран трек: <b>${track.title}</b> — ${track.artist}\n\n` +
@@ -1236,7 +1474,10 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     // Show playlist picker directly (user already decided to add)
     await setChatState(chatId, "awaiting_add_to_playlist",
       { ...state.data, scTrackId: track.scTrackId, scData: track },
-      state.searchResults
+      state.searchResults,
+      undefined,
+      undefined,
+      { activePlaylistId: state.activePlaylistId, viewPage: state.viewPage },
     );
     await editMessageText(chatId, messageId,
       `Выбран трек: <b>${track.title}</b> — ${track.artist}\n\nВ какой плейлист добавить?`,
@@ -1264,6 +1505,7 @@ export async function handleCallbackQuery(body: Record<string, any>) {
       await editMessageText(chatId, messageId, "Сессия истекла. Используйте /search заново.");
       return;
     }
+    const hasActivePl = !!state.activePlaylistId;
     // Build enhanced keyboard with preview + add buttons per track
     const perPage = 5;
     const start = page * perPage;
@@ -1273,7 +1515,7 @@ export async function handleCallbackQuery(body: Record<string, any>) {
       const idx = start + i;
       return [
         { text: `▶ ${t.title} — ${t.artist}`, callback_data: `preview:${idx}` },
-        { text: `+ Добавить`, callback_data: `add_search:${idx}` },
+        { text: hasActivePl ? "+ Сюда" : "+ Добавить", callback_data: `add_search:${idx}` },
       ];
     });
     const navRow: Array<{ text: string; callback_data: string }> = [];
@@ -1283,7 +1525,9 @@ export async function handleCallbackQuery(body: Record<string, any>) {
     rows.push([{ text: "Отмена", callback_data: "cancel" }]);
 
     await editMessageText(chatId, messageId,
-      `Найдено ${state.searchResults.length} треков:\n\nНажмите ▶ для прослушивания, или + для добавления в плейлист.`,
+      `Найдено ${state.searchResults.length} треков:\n\n` +
+      (hasActivePl ? `💡 Активный плейлист — кнопка «+ Сюда» добавит сразу туда.\n\n` : "") +
+      `Нажмите ▶ для прослушивания, или + для добавления в плейлист.`,
       { parseMode: "HTML", replyMarkup: { inline_keyboard: rows } }
     );
     return;
@@ -1592,34 +1836,72 @@ async function handleAudioMessage(chatId: string, message: Record<string, any>) 
   // Start batch collection mode
   const pendingData: PendingImport = { fileId, fileUrl: null, fileDuration: duration, originalFilename: importTitle };
 
-  // Auto-create playlist if user has none
-  const result = await getUserPlaylistsOrCreate(chatId);
-  if (!result) return;
+  // Check if a playlist is currently "open" — if so, target it directly
+  // so subsequent audio uploads land in that playlist without a picker.
+  const existingState = await getChatState(chatId);
+  const targetPlaylistId = existingState?.activePlaylistId;
+  let targetPlaylistName = "";
+  if (targetPlaylistId) {
+    const user0 = await findUserByChatId(chatId);
+    if (user0) {
+      const pl = await findPlaylistById(targetPlaylistId);
+      if (pl && pl.userId === user0.id) targetPlaylistName = pl.name;
+    }
+  }
 
-  // Set state to collecting_audios with the first item
-  await setChatState(chatId, "collecting_audios", pendingData, undefined, [batchItem]);
+  // Auto-create playlist if user has none AND no target
+  if (!targetPlaylistId) {
+    const result = await getUserPlaylistsOrCreate(chatId);
+    if (!result) return;
+  }
 
-  const playlists = result.playlists;
-  const wasAutoCreated = playlists.length === 1 && playlists[0].name === "Избранное";
+  // Set state to collecting_audios with the first item, preserving target
+  await setChatState(
+    chatId,
+    "collecting_audios",
+    pendingData,
+    undefined,
+    [batchItem],
+    undefined,
+    { activePlaylistId: targetPlaylistId, viewPage: existingState?.viewPage },
+  );
 
-  const collectingKeyboard = {
-    inline_keyboard: [
-      [{ text: `Добавить 1 трек в плейлист`, callback_data: "batch_add" }],
-      [{ text: "Отмена", callback_data: "cancel" }],
-    ],
-  };
+  const collectingKeyboard = targetPlaylistId
+    ? {
+        inline_keyboard: [
+          [{ text: `➕ Добавить 1 трек в «${targetPlaylistName}»`, callback_data: "batch_add" }],
+          [{ text: "📂 Выбрать другой плейлист", callback_data: "batch_pick_playlist" }],
+          [{ text: "Отмена", callback_data: "cancel" }],
+        ],
+      }
+    : {
+        inline_keyboard: [
+          [{ text: `Добавить 1 трек в плейлист`, callback_data: "batch_add" }],
+          [{ text: "Отмена", callback_data: "cancel" }],
+        ],
+      };
 
   const sentMsg = await sendTelegramMessage(chatId,
     `Аудио получено: <b>${importTitle}</b> (${formatDuration(duration)})\n\n` +
     `Отправьте ещё аудио или нажмите кнопку, чтобы добавить.\n` +
-    (wasAutoCreated ? `Плейлист <b>Избранное</b> создан автоматически.\n\n` : ""),
+    (targetPlaylistId
+      ? `Целевой плейлист: <b>${targetPlaylistName}</b>\n`
+      : ""),
     { parseMode: "HTML", replyMarkup: collectingKeyboard }
   );
 
-  // Store the message ID for later editing
+  // Store the message ID for later editing (preserve target)
   const sentMsgId = sentMsg?.result?.message_id || sentMsg?.message_id;
   if (sentMsgId) {
-    await setChatState(chatId, "collecting_audios", pendingData, undefined, [batchItem], sentMsgId);
+    await setChatState(
+      chatId,
+      "collecting_audios",
+      pendingData,
+      undefined,
+      [batchItem],
+      sentMsgId,
+      { activePlaylistId: targetPlaylistId, viewPage: existingState?.viewPage },
+    );
   }
 }
 
@@ -1646,25 +1928,51 @@ async function addToAudioBatch(chatId: string, message: Record<string, any>, exi
   const batch = [...(existingState.audioBatch || []), batchItem];
   const count = batch.length;
 
+  // Preserve the target playlist across batch additions
+  const targetPlaylistId = existingState.activePlaylistId;
+  let targetPlaylistName = "";
+  if (targetPlaylistId) {
+    const user = await findUserByChatId(chatId);
+    if (user) {
+      const pl = await findPlaylistById(targetPlaylistId);
+      if (pl && pl.userId === user.id) targetPlaylistName = pl.name;
+    }
+  }
+
   // Update state with new batch
-  await setChatState(chatId, "collecting_audios", existingState.data, undefined, batch, existingState.collectingMessageId);
+  await setChatState(
+    chatId,
+    "collecting_audios",
+    existingState.data,
+    undefined,
+    batch,
+    existingState.collectingMessageId,
+    { activePlaylistId: targetPlaylistId, viewPage: existingState.viewPage },
+  );
 
   // Update the collecting message
-  const collectingKeyboard = {
-    inline_keyboard: [
-      [{ text: `Добавить ${count} ${getTrackWord(count)} в плейлист`, callback_data: "batch_add" }],
-      [{ text: "Отмена", callback_data: "cancel" }],
-    ],
-  };
+  const collectingKeyboard = targetPlaylistId
+    ? {
+        inline_keyboard: [
+          [{ text: `➕ Добавить ${count} ${getTrackWord(count)} в «${targetPlaylistName}»`, callback_data: "batch_add" }],
+          [{ text: "📂 Выбрать другой плейлист", callback_data: "batch_pick_playlist" }],
+          [{ text: "Отмена", callback_data: "cancel" }],
+        ],
+      }
+    : {
+        inline_keyboard: [
+          [{ text: `Добавить ${count} ${getTrackWord(count)} в плейлист`, callback_data: "batch_add" }],
+          [{ text: "Отмена", callback_data: "cancel" }],
+        ],
+      };
 
   if (existingState.collectingMessageId) {
-    const trackList = batch.slice(-5).map((t, i) => `${batch.length - 4 + i > 0 ? (i === 0 && batch.length > 5 ? "...\\n" : "") : ""}${count - Math.min(batch.length - 1, 4) + i}. ${t.originalFilename} (${formatDuration(t.fileDuration)})`).join("\\n");
     const lastTracks = batch.slice(-3).map((t) => `  - ${t.originalFilename}`).join("\n");
 
     await editMessageText(chatId, existingState.collectingMessageId,
-      `Получено <b>${count}</b> ${getTrackWord(count)}.\n\n` +
-      `Последние:\n${lastTracks}\n\n` +
-      `Отправьте ещё или нажмите кнопку, чтобы добавить.`,
+      `Получено <b>${count}</b> ${getTrackWord(count)}.` +
+      (targetPlaylistId ? ` → <b>${targetPlaylistName}</b>` : "") +
+      `\n\nПоследние:\n${lastTracks}\n\nОтправьте ещё или нажмите кнопку, чтобы добавить.`,
       { parseMode: "HTML", replyMarkup: collectingKeyboard }
     );
   } else {
@@ -1683,6 +1991,40 @@ async function handleFinishBatchCollection(chatId: string, chatState: ChatState)
     return;
   }
 
+  // If a target playlist is active (e.g. user has it open), import directly
+  // there — skip the picker entirely.
+  const targetPlaylistId = chatState.activePlaylistId;
+  if (targetPlaylistId) {
+    const user = await findUserByChatId(chatId);
+    if (user) {
+      const pl = await findPlaylistById(targetPlaylistId);
+      if (pl && pl.userId === user.id) {
+        // Edit the collecting message to "Adding..." before importing
+        if (chatState.collectingMessageId) {
+          try {
+            await editMessageText(chatId, chatState.collectingMessageId,
+              `Добавляю ${batch.length} ${getTrackWord(batch.length)} в <b>${pl.name}</b>...`,
+              { parseMode: "HTML" }
+            );
+          } catch {}
+        }
+        // Preserve activePlaylistId so user can keep adding more after import
+        await setChatState(
+          chatId,
+          "idle",
+          { fileUrl: null, fileDuration: 0, originalFilename: "" },
+          undefined,
+          undefined,
+          undefined,
+          { activePlaylistId: targetPlaylistId, viewPage: chatState.viewPage },
+        );
+        await handleBatchImportToPlaylist(chatId, chatState.collectingMessageId || 0, targetPlaylistId, batch);
+        return;
+      }
+    }
+    // Target invalid — fall through to picker
+  }
+
   const result = await getUserPlaylistsOrCreate(chatId);
   if (!result) {
     await clearChatState(chatId);
@@ -1692,13 +2034,15 @@ async function handleFinishBatchCollection(chatId: string, chatState: ChatState)
   const count = batch.length;
   const totalDuration = batch.reduce((s, t) => s + t.fileDuration, 0);
 
-  // Transition to awaiting_import_playlist with batch data
+  // Transition to awaiting_import_playlist with batch data (preserve target if any)
   await setChatState(
     chatId,
     "awaiting_import_playlist",
     chatState.data,
     undefined,
     batch,
+    undefined,
+    { activePlaylistId: targetPlaylistId, viewPage: chatState.viewPage },
   );
 
   // Send fresh message with playlist picker (since we can't reliably edit with new keyboard type)
@@ -1889,15 +2233,27 @@ async function handleSearch(chatId: string, query: string) {
       return;
     }
 
+    // Preserve activePlaylistId so "+ Сюда" button works if user has a playlist open
+    const existingState = await getChatState(chatId);
+    const activePlaylistId = existingState?.activePlaylistId;
+
     // Store search results in DB state
-    await setChatState(chatId, "idle", { fileUrl: null, fileDuration: 0, originalFilename: "" }, results);
+    await setChatState(
+      chatId,
+      "idle",
+      { fileUrl: null, fileDuration: 0, originalFilename: "" },
+      results,
+      undefined,
+      undefined,
+      { activePlaylistId, viewPage: 0 },
+    );
 
     // Build keyboard with preview + add buttons per track
     const perPage = 5;
     const items = results.slice(0, perPage);
     const rows: Array<Array<{ text: string; callback_data: string }>> = items.map((t: any, i: number) => [
       { text: `▶ ${t.title} — ${t.artist}`, callback_data: `preview:${i}` },
-      { text: `+ Добавить`, callback_data: `add_search:${i}` },
+      { text: activePlaylistId ? "+ Сюда" : "+ Добавить", callback_data: `add_search:${i}` },
     ]);
     const navRow: Array<{ text: string; callback_data: string }> = [];
     if (results.length > perPage) navRow.push({ text: "Далее >", callback_data: "search_page:1" });
@@ -1905,7 +2261,9 @@ async function handleSearch(chatId: string, query: string) {
     rows.push([{ text: "Отмена", callback_data: "cancel" }]);
 
     await sendTelegramMessage(chatId,
-      `Найдено ${results.length} треков по запросу "${query}":\n\nНажмите ▶ для прослушивания, или + для добавления в плейлист.`,
+      `Найдено ${results.length} треков по запросу "${query}":\n\n` +
+      (activePlaylistId ? `💡 Активный плейлист — кнопка «+ Сюда» добавит сразу туда.\n\n` : "") +
+      `Нажмите ▶ для прослушивания, или + для добавления в плейлист.`,
       { parseMode: "HTML", replyMarkup: { inline_keyboard: rows } }
     );
   } finally {
@@ -2220,6 +2578,18 @@ async function handleViewPlaylist(chatId: string, messageId: number, playlistId:
     return;
   }
 
+  // Persist the "open playlist" so subsequent audio uploads land here automatically.
+  // State is auto-expired after 15 min of inactivity (see getChatState).
+  await setChatState(
+    chatId,
+    "idle",
+    { fileUrl: null, fileDuration: 0, originalFilename: "" },
+    undefined,
+    undefined,
+    undefined,
+    { activePlaylistId: playlistId, viewPage: page },
+  );
+
   let tracks: any[] = [];
   try { tracks = JSON.parse(pl.tracksJson || "[]"); } catch { tracks = []; }
 
@@ -2242,7 +2612,8 @@ async function handleViewPlaylist(chatId: string, messageId: number, playlistId:
   const txt = `📂 <b>${pl.name}</b>\n` +
     `${tracks.length} ${getTrackWord(tracks.length)} · ${visibility}` +
     (totalPages > 1 ? ` · стр. ${safePage + 1}/${totalPages}` : "") +
-    `\n\n${lines || "<i>В плейлисте нет треков</i>"}`;
+    `\n\n${lines || "<i>В плейлисте нет треков</i>"}` +
+    `\n\n<i>💡 Отправьте аудио — оно добавится в этот плейлист.</i>`;
 
   await editMessageText(chatId, messageId, txt, { parseMode: "HTML", replyMarkup: markup });
 }
@@ -2790,4 +3161,114 @@ async function handleLikeAddedTrack(chatId: string, messageId: number, trackId: 
       : `Уже в лайках: ${foundTrack.title} — ${foundTrack.artist}\n\nВсего лайков: ${result.total}`,
     { parseMode: "HTML" }
   );
+}
+
+/* ================================================================== */
+/*  Recommendations — /recs                                           */
+/* ================================================================== */
+
+async function handleRecommendations(chatId: string, messageId?: number) {
+  const user = await findUserByChatId(chatId);
+  if (!user) {
+    const txt = "Сначала авторизуйтесь — отправьте /code";
+    if (messageId) await editMessageText(chatId, messageId, txt);
+    else await sendTelegramMessage(chatId, txt);
+    return;
+  }
+
+  // "Loading..." placeholder so user gets feedback within 1s
+  if (messageId) {
+    await editMessageText(chatId, messageId, "✨ <b>Готовлю рекомендации...</b>\n\nАнализирую ваши лайки и историю.", { parseMode: "HTML" });
+  } else {
+    await sendTelegramMessage(chatId, "✨ <b>Готовлю рекомендации...</b>\n\nАнализирую ваши лайки и историю.", { parseMode: "HTML" });
+  }
+
+  // Fetch recommendations
+  const { tracks, category, meta } = await fetchRecommendations(user.id, { limit: 15 });
+
+  if (tracks.length === 0) {
+    // No seeds — user has no likes/history yet
+    const { ids: likeIds } = await getUserLikes(user.id);
+    const history = await getUserHistory(user.id, 5);
+    const isFreshAccount = likeIds.length === 0 && history.length === 0;
+
+    const txt = isFreshAccount
+      ? "✨ <b>Пока нечего рекомендовать</b>\n\n" +
+        "Чтобы получить персональные рекомендации:\n\n" +
+        "1. Откройте /search и найдите любимых артистов\n" +
+        "2. Нажмите 🤍 на треках, которые вам нравятся\n" +
+        "3. Послушайте пару треков на сайте или через бота\n\n" +
+        "После этого /recs предложит похожее на ваше вкусы."
+      : "✨ <b>Не удалось получить рекомендации.</b>\n\n" +
+        "Попробуйте позже или используйте /search для поиска треков.";
+
+    if (messageId) await editMessageText(chatId, messageId, txt, { parseMode: "HTML" });
+    else await sendTelegramMessage(chatId, txt, { parseMode: "HTML" });
+    return;
+  }
+
+  // Save recs as search results so existing search_page/preview/add_search/like_idx handlers work
+  // Convert RecTrack → search-result shape (they are already compatible)
+  const searchShapedTracks = tracks.map((t) => ({
+    id: t.id,
+    title: t.title,
+    artist: t.artist,
+    album: t.album || "",
+    duration: t.duration || 0,
+    cover: t.cover || "",
+    genre: t.genre || "",
+    audioUrl: t.audioUrl || "",
+    previewUrl: t.previewUrl || "",
+    source: t.source || "soundcloud",
+    scTrackId: t.scTrackId || null,
+    scStreamPolicy: t.scStreamPolicy || "ALLOW",
+    scIsFull: t.scIsFull ?? true,
+    permalinkUrl: t.scTrackId ? `https://soundcloud.com/tracks/${t.scTrackId}` : "",
+  }));
+
+  // Preserve activePlaylistId if user has a playlist open — so "+ Сюда" works
+  const existingState = await getChatState(chatId);
+  const activePlaylistId = existingState?.activePlaylistId;
+
+  await setChatState(
+    chatId,
+    "idle",
+    { fileUrl: null, fileDuration: 0, originalFilename: "" },
+    searchShapedTracks,
+    undefined,
+    undefined,
+    { activePlaylistId, viewPage: 0 },
+  );
+
+  // Build keyboard (page 0)
+  const markup = buildRecommendationsKeyboard(searchShapedTracks, 0, !!activePlaylistId);
+
+  // Build text
+  const catTitle = category?.title || "Для вас";
+  const lines = tracks.slice(0, 5).map((t, i) => {
+    const dur = t.duration ? ` (${formatDuration(t.duration)})` : "";
+    return `<b>${i + 1}.</b> ${t.title} — ${t.artist}${dur}`;
+  }).join("\n");
+
+  let metaLine = "";
+  if (meta) {
+    const parts: string[] = [];
+    if (meta.seedCount) parts.push(`seeds: ${meta.seedCount}`);
+    if (meta.afterDedup) parts.push(`кандидатов: ${meta.afterDedup}`);
+    if (parts.length) metaLine = `\n\n<i>${parts.join(" · ")}</i>`;
+  }
+
+  const txt = `✨ <b>${catTitle}</b>\n` +
+    `Найдено ${tracks.length} ${getTrackWord(tracks.length)}` +
+    (activePlaylistId ? ` · целевой плейлист активен (кнопка «+ Сюда»)` : "") +
+    `\n\n${lines}` +
+    (tracks.length > 5 ? `\n\n... и ещё ${tracks.length - 5}` : "") +
+    metaLine +
+    `\n\n▶ — прослушать · + — в плейлист · 🤍 — лайк`;
+
+  if (messageId) {
+    await editMessageText(chatId, messageId, txt, { parseMode: "HTML", replyMarkup: markup });
+  } else {
+    await sendTelegramMessage(chatId, txt, { parseMode: "HTML", replyMarkup: markup });
+  }
 }
