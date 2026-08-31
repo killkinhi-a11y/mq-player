@@ -82,7 +82,7 @@ function ToastItem({ toast }: { toast: MQToast & { visible: boolean } }) {
         <button
           onClick={() => {
             toast.action!.onClick();
-            useToastDismiss(toast.id);
+            dismissToast(toast.id);
           }}
           className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-80"
           style={{
@@ -97,7 +97,7 @@ function ToastItem({ toast }: { toast: MQToast & { visible: boolean } }) {
 
       {/* Close button */}
       <button
-        onClick={() => useToastDismiss(toast.id)}
+        onClick={() => dismissToast(toast.id)}
         className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center transition-opacity hover:opacity-70"
         style={{ color: "var(--mq-text-muted)" }}
       >
@@ -108,7 +108,7 @@ function ToastItem({ toast }: { toast: MQToast & { visible: boolean } }) {
 }
 
 // Inline dismiss to avoid circular import
-function useToastDismiss(id: string) {
+function dismissToast(id: string) {
   // This is a placeholder — the actual dismiss is handled by the hook
   // We need to dispatch dismiss from here
   if (typeof window !== "undefined") {
