@@ -1233,3 +1233,42 @@ Work Log:
 
 Build: tsc clean, next build ✓ Compiled successfully in 23.6s
 Pushed to origin/main (merge conflicts resolved)
+
+---
+
+## 2026-08-31 — EMERGENCY: production "site not opening" — TDZ root cause fixed
+
+Task ID: 3-emergency
+Agent: main (Super Z)
+
+Симптом: пользователь сообщил «сайт не открывается». Сервер при этом отвечал
+200 (6/6 проб, 0.3–0.9s), деплой READY, алиас цел — но в чистом браузере
+первый UI появлялся только через 5.4s: чёрный экран с красным спиннером.
+
+Root cause (по stack trace в dev-режиме): ReferenceError
+"Cannot access 'useAppStore' before initialization" — persist-миддлварь
+вызывает onRehydrateStorage СИНХРОННО внутри create(), когда module-level
+const ещё в TDZ. Каждый useAppStore.setState()/getState() в колбэке падал,
+_hasHydrated не выставлялся, UI ждал 3s аварийного таймаута AppShell.
+На медленных устройствах/сетях 10–15s+ спиннера = «сайт не открывается».
+
+Fix (296bb36, хирургический, 26 строк, без UI-изменений): тело колбэка
+отложено на один microtask (Promise.resolve().then(...)), create() успевает
+присвоить binding; last-resort .catch() форсирует _hasHydrated, чтобы
+гидратация никогда не оставляла loader. React монтируется сильно позже —
+риска flash нет.
+
+Результат: первый UI 5.4s → 0.99–1.09s; предупреждения rehydration /
+hydration-timeout исчезли; play/pause/next, поиск (79 треков), Волна,
+очередь, mobile 390px, возвращающийся пользователь — всё зелёное.
+
+Развертывание: (a) CLI-деплой mq1-p17ll47ky с фиксом; (b) затем GitHub
+sync (134ced0 → 296bb36, fast-forward) вызвал git-деплой mq1-7prtvm6u8,
+который успешно собрался и забрал алиас mq1.vercel.app. Оба проверены.
+
+Восстановление доступности подтверждено: чистый браузер, 0 ошибок
+гидратации, playback реально идёт (прогресс 0.134 → 0.224 за 4s).
+
+Остаток (не аварийный, не трогалось): MEDIA_ERR blip демо-треков
+(восстанавливается ретраем), 401-polling в демо-режиме без backoff,
+CobaltTurnstile init debug, lint-долг 139, Prisma-direct в social-роутах.
