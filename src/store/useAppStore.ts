@@ -2793,6 +2793,19 @@ export const useAppStore = create<AppState>()(
       },
       onRehydrateStorage: () => {
         return (state, error) => {
+          // ── CRITICAL FIX (TDZ / "site not opening" root cause) ──────────────
+          // The persist middleware invokes this callback SYNCHRONOUSLY during
+          // `create()` — i.e. while the module-level `const useAppStore` is
+          // still in its Temporal Dead Zone. Every useAppStore.setState() /
+          // .getState() call below then throws
+          // "Cannot access 'useAppStore' before initialization",
+          // `_hasHydrated` is never set, and the UI stays stuck on the
+          // loading screen until the 3s emergency timeout in AppShell fires
+          // (5+ seconds of black screen — perceived as "site not opening").
+          // Deferring the body by ONE microtask lets `create()` finish
+          // assigning the binding first; this still runs long before React
+          // hydrates, so there is no UI-flash risk.
+          const runRehydrate = () => {
           if (error) {
             // Distinguish REAL corruption from transient failures (TDZ during
             // HMR, storage races). The old code wiped localStorage on ANY
@@ -3028,6 +3041,19 @@ export const useAppStore = create<AppState>()(
               }
             }, 60000);
           }
+          }; // ── end of runRehydrate ──────────────────────────────────────────
+
+          // TDZ guard: run the body one microtask later, after `create()` has
+          // assigned the `useAppStore` binding. The .catch() is the last-resort
+          // safety net so hydration NEVER leaves the UI stuck on the loader.
+          Promise.resolve().then(runRehydrate).catch((e: unknown) => {
+            console.warn("[MQ Store] rehydration deferred run failed:", e instanceof Error ? e.message : e);
+            try {
+              useAppStore.setState({ _hasHydrated: true });
+            } catch {
+              // Binding still uninitialized — AppShell's 3s timeout is the fallback.
+            }
+          });
         };
       },
     }
