@@ -70,23 +70,113 @@ export function invalidateClientId(): void {
 }
 
 /**
- * Live-extract a client_id from soundcloud.com by fetching the homepage
- * and parsing the bundled JS for the `client_id` literal.
+ * Live-extract a client_id from SoundCloud's public web assets.
  *
- * This is the same approach yt-dlp uses. We keep it lightweight:
- *   1. Fetch `https://soundcloud.com/` (small HTML, ~50KB).
- *   2. Find script URLs that look like webpack chunks.
- *   3. Fetch the first 3 chunks (limited to 1MB each) and regex-scan
- *      for `client_id:"<32-char-hex>"` or `client_id: "<32-char-hex>"`.
+ * Two paths, in order of reliability:
+ *   1. WIDGET BUNDLE (primary): the w.soundcloud.com/player iframe page
+ *      always references the current widget.sndcdn.com/widget-N-<hash>.js
+ *      bundle, which embeds a live `client_id` literal. This is the same
+ *      bundle every embedded SoundCloud player uses — it is always present
+ *      and always carries a working ID (validated 2026-09).
+ *   2. HOMEPAGE SCRIPTS (fallback): the classic yt-dlp approach — scan
+ *      webpack chunks of soundcloud.com.
+ *
+ * Every candidate is validated against api-v2 before being accepted, so a
+ * garbage regex match can never poison the pool.
  *
  * Returns null on any failure — never throws.
  */
+const SC_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
+
+const CLIENT_ID_RE =
+  /client_id\s*[:=]\s*(?:[a-zA-Z_$][\w$]*\s*\?\s*)?["']([a-zA-Z0-9]{32})["']/;
+
+async function fetchScriptText(
+  url: string,
+  timeoutMs = 8000,
+  maxBytes = 3 * 1024 * 1024,
+): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": SC_UA, Accept: "*/*" },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) return null;
+    const reader = res.body?.getReader();
+    if (!reader) return res.text();
+    let buf = "";
+    let totalRead = 0;
+    const decoder = new TextDecoder();
+    while (totalRead < maxBytes) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      buf += decoder.decode(value, { stream: true });
+      totalRead += value.byteLength;
+    }
+    return buf;
+  } catch {
+    return null;
+  }
+}
+
+async function extractFromWidgetBundle(): Promise<string | null> {
+  try {
+    // The player page may answer 404 for the demo URL but still ships the
+    // full HTML shell with the widget script tags — status is irrelevant,
+    // only the script references matter.
+    const htmlRes = await fetch(
+      "https://w.soundcloud.com/player/?url=https%3A%2F%2Fapi.soundcloud.com%2Ftracks%2F193893205",
+      { headers: { "User-Agent": SC_UA }, signal: AbortSignal.timeout(6000) },
+    );
+    if (!htmlRes.body) return null;
+    const html = await htmlRes.text();
+    const widgetUrls = Array.from(
+      html.matchAll(/https:\/\/widget\.sndcdn\.com\/widget-[^"'\s<>]+\.js/g),
+      (m) => m[0],
+    );
+    if (widgetUrls.length === 0) return null;
+    for (const url of widgetUrls.slice(0, 2)) {
+      const js = await fetchScriptText(url, 12000);
+      if (!js) continue;
+      const m = js.match(CLIENT_ID_RE);
+      if (m?.[1]) return m[1];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function validateClientId(clientId: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://api-v2.soundcloud.com/tracks/193893205?client_id=${clientId}`,
+      {
+        headers: { "User-Agent": SC_UA, Accept: "application/json" },
+        signal: AbortSignal.timeout(5000),
+      },
+    );
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function extractClientIdFromWebsite(): Promise<string | null> {
+  // ── Path 1: widget bundle (primary) ──
+  const fromWidget = await extractFromWidgetBundle();
+  if (fromWidget && (await validateClientId(fromWidget))) {
+    return fromWidget;
+  }
+
+  // ── Path 2: homepage webpack chunks (fallback) ──
   try {
     // Bypass via a CORS proxy is NOT needed server-side — this code runs
     // in the Next.js API route, not the browser.
     const homeRes = await fetch("https://soundcloud.com/", {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; MQPlayer/1.0)" },
+      headers: { "User-Agent": SC_UA },
       // 5s timeout — we don't want to block the request chain
       signal: AbortSignal.timeout(5000),
     });
@@ -102,38 +192,11 @@ async function extractClientIdFromWebsite(): Promise<string | null> {
     // Try up to 5 scripts
     for (const url of scriptUrls.slice(0, 5)) {
       const fullUrl = url.startsWith("/") ? `https://soundcloud.com${url}` : url;
-      try {
-        const scriptRes = await fetch(fullUrl, {
-          headers: { "User-Agent": "Mozilla/5.0 (compatible; MQPlayer/1.0)" },
-          signal: AbortSignal.timeout(5000),
-        });
-        if (!scriptRes.ok) continue;
-        // Read at most 2MB to avoid OOM
-        const reader = scriptRes.body?.getReader();
-        if (!reader) continue;
-        let buf = "";
-        let totalRead = 0;
-        const MAX = 2 * 1024 * 1024;
-        let found: string | null = null;
-        while (totalRead < MAX) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (!value) continue;
-          buf += new TextDecoder().decode(value, { stream: true });
-          totalRead += value.byteLength;
-          // Match `client_id:"<32 chars>"` or with a space
-          const m = buf.match(/client_id:\s*["']([a-zA-Z0-9]{32})["']/);
-          if (m) {
-            found = m[1];
-            break;
-          }
-          // Trim buffer to last 1KB to keep memory bounded while allowing
-          // matches that span chunks
-          if (buf.length > 1024 * 1024) buf = buf.slice(-1024);
-        }
-        if (found) return found;
-      } catch {
-        // Continue to next script
+      const js = await fetchScriptText(fullUrl, 5000, 2 * 1024 * 1024);
+      if (!js) continue;
+      const m = js.match(CLIENT_ID_RE);
+      if (m?.[1] && (await validateClientId(m[1]))) {
+        return m[1];
       }
     }
     return null;
@@ -290,10 +353,8 @@ export async function searchSCArtists(
  * Tries progressive (MP3) transcodings first for Telegram compatibility.
  */
 export async function resolveSCStreamUrl(scTrackId: number): Promise<string | null> {
-  const CLIENT_IDS_STREAM = [
-    "O7atZypwLvuWSY9hWnnQ3vrLTHH7wqMe", // 2025-07 — freshly extracted
-    "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // backup
-  ];
+  // Single source of truth — shared, env-overridable pool from config.ts.
+  const CLIENT_IDS_STREAM = SOUNDCLOUD_CLIENT_IDS;
 
   for (const clientId of CLIENT_IDS_STREAM) {
     try {

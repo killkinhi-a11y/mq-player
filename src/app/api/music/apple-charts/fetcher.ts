@@ -14,6 +14,14 @@ import type { Track } from "@/lib/musicApi";
 const cache = new Map<string, { data: Track[]; expiry: number }>();
 const CACHE_TTL = 30 * 60 * 1000; // 30 min
 
+// ── Negative cache ──
+// When Apple RSS is unreachable/timeout (e.g. cold start, upstream outage)
+// the route used to re-probe on EVERY request — each burning the full 10s
+// timeout. Cache the failure for 5 min so a dead upstream degrades fast
+// instead of hanging the home page's trending request.
+const failedCache = new Map<string, number>();
+const FAILED_TTL = 5 * 60 * 1000; // 5 min
+
 interface ChartEntry {
   title: string;
   artist: string;
@@ -90,7 +98,24 @@ export async function fetchAppleTop(country: string): Promise<Track[]> {
     return cached.data;
   }
 
-  const chart = await fetchAppleChart(country);
+  // Fast-path a recently failed probe (see negative cache note above).
+  const failedAt = failedCache.get(cacheKey);
+  if (failedAt && Date.now() - failedAt < FAILED_TTL) {
+    return [];
+  }
+
+  let chart: ChartEntry[];
+  try {
+    chart = await fetchAppleChart(country);
+  } catch (err) {
+    failedCache.set(cacheKey, Date.now());
+    // Surface the upstream error to logs but keep the route non-throwing —
+    // the UI treats "no tracks" as "section hidden", which is the graceful
+    // degradation we want (charts are optional content, not a blocker).
+    console.warn(`[apple-charts] RSS fetch failed for ${country}:`,
+      err instanceof Error ? err.message : err);
+    return [];
+  }
   if (chart.length === 0) return [];
 
   // Search each chart entry on SoundCloud in batches of 5

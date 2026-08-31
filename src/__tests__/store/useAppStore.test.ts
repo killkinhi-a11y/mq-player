@@ -416,8 +416,8 @@ describe("Equalizer", () => {
   it("should set EQ preset", () => {
     useAppStore.getState().setEqPreset("bass-boost");
     expect(useAppStore.getState().eqPreset).toBe("bass-boost");
-    // bass-boost preset should set bands to [6, 3, 0, 0, 0]
-    expect(useAppStore.getState().eqBands).toEqual([6, 3, 0, 0, 0]);
+    // bass-boost preset is 10-band (see EQ_PRESETS in lib/eq.ts)
+    expect(useAppStore.getState().eqBands).toEqual([6, 5, 3, 1, 0, 0, 0, 0, 0, 0]);
   });
 });
 

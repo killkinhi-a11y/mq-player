@@ -31,7 +31,7 @@ export const AudioVisualizer = memo(function AudioVisualizer({
   const rafRef = useRef<number>(0);
   const rotationRef = useRef({ x: 0, y: 0 });
   const pulseRef = useRef(0);
-  const freqDataRef = useRef<Uint8Array | null>(null);
+  const freqDataRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
   const isPlayingRef = useRef(isPlaying);
 
   useEffect(() => {
@@ -103,7 +103,7 @@ export const AudioVisualizer = memo(function AudioVisualizer({
       let freqData: Uint8Array | null = null;
       if (analyser && isPlayingRef.current) {
         if (!freqDataRef.current || freqDataRef.current.length !== analyser.frequencyBinCount) {
-          freqDataRef.current = new Uint8Array(analyser.frequencyBinCount);
+          freqDataRef.current = new Uint8Array(new ArrayBuffer(analyser.frequencyBinCount));
         }
         analyser.getByteFrequencyData(freqDataRef.current);
         freqData = freqDataRef.current;

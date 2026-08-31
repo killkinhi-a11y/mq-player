@@ -1,14 +1,4 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-  recommendedConfig: null,
-});
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 
 // ── no-prisma-direct-in-api ─────────────────────────────────────────────────
 // Custom rule (M2): forbid `import { db } from "@/lib/db"` (or relative
@@ -106,6 +96,13 @@ const eslintConfig = [
       "scripts/**",
     ],
   },
+  // Base: eslint-config-next 16 ships a FLAT config array natively (it
+  // registers react / @typescript-eslint plugins itself). Wrapping it in
+  // FlatCompat crashed under ESLint 10; before that, plugin rules were
+  // referenced without registering the plugin at all — either way
+  // `npm run lint` could never actually run.
+  // Requires typescript-eslint >= 8.69 for ESLint 10 peer support.
+  ...nextCoreWebVitals,
   {
     files: ["**/*.{ts,tsx,js,jsx}"],
     plugins: {

@@ -50,7 +50,12 @@ describe("JWT signToken / verifyToken", () => {
     const original = process.env.JWT_SECRET;
     delete process.env.JWT_SECRET;
 
-    await expect(signToken({ userId: "1" })).rejects.toThrow("JWT_SECRET");
+    // auth.ts caches the encoded secret at module level, so a plain env
+    // delete would still find the cached value. Re-import a fresh module
+    // instance to exercise the "secret missing" path.
+    vi.resetModules();
+    const { signToken: signTokenFresh } = await import("@/lib/auth");
+    await expect(signTokenFresh({ userId: "1" })).rejects.toThrow("JWT_SECRET");
 
     process.env.JWT_SECRET = original;
   });
@@ -78,10 +83,14 @@ describe("JWT signToken / verifyToken", () => {
     const payload = { userId: "user-1" };
     const token = await signToken(payload);
 
-    // Change secret and try to verify
+    // Change secret and verify through a fresh module instance — the
+    // statically imported auth module caches the encoded secret, so env
+    // changes alone wouldn't affect it.
     const original = process.env.JWT_SECRET;
     process.env.JWT_SECRET = "different-secret-key-for-test-32ch";
-    const result = await verifyToken(token);
+    vi.resetModules();
+    const { verifyToken: verifyTokenFresh } = await import("@/lib/auth");
+    const result = await verifyTokenFresh(token);
     expect(result).toBeNull();
 
     process.env.JWT_SECRET = original;

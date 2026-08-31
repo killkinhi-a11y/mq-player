@@ -24,8 +24,21 @@ export function isCapacitor(): boolean {
 /** Whether we're in production. */
 export const IS_PROD: boolean = process.env.NODE_ENV === "production";
 
-/** SoundCloud client IDs — comma-separated in env, falls back to hardcoded. */
+/**
+ * SoundCloud client IDs — comma-separated in env, falls back to hardcoded pool.
+ *
+ * The pool is ordered: first entry is the currently working ID. SoundCloud
+ * rotates IDs roughly quarterly; when the pool exhausts (all 401), the
+ * extractor in `soundcloud.ts` fetches a fresh ID from the public SoundCloud
+ * widget bundle (w.soundcloud.com → widget.sndcdn.com) — the same source
+ * every browser visitor uses.
+ *
+ * Pool history:
+ * - 2026-09: nIjtjiYnjkOhMyh5xrbqEW12DxeJVnic (widget-9 bundle, validated)
+ * - 2025-07: O7atZypwLvuWSY9hWnnQ3vrLTHH7wqMe (dead 401 as of 2026-09)
+ * - 2025-07: i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0 (dead 401 as of 2026-09)
+ */
 export const SOUNDCLOUD_CLIENT_IDS: string[] = (
   process.env.SOUNDCLOUD_CLIENT_IDS ||
-  "O7atZypwLvuWSY9hWnnQ3vrLTHH7wqMe,i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0"
+  "nIjtjiYnjkOhMyh5xrbqEW12DxeJVnic,O7atZypwLvuWSY9hWnnQ3vrLTHH7wqMe,i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0"
 ).split(",");

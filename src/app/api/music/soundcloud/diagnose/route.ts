@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SOUNDCLOUD_CLIENT_IDS } from "@/lib/config";
 
 /**
  * Diagnostic endpoint — tests the full SoundCloud stream resolution chain.
@@ -14,10 +15,8 @@ import { NextRequest, NextResponse } from "next/server";
  */
 export const runtime = "edge";
 
-const CLIENT_IDS = [
-  "O7atZypwLvuWSY9hWnnQ3vrLTHH7wqMe", // 2025-07 — freshly extracted
-  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // backup
-];
+// Single source of truth: src/lib/config.ts (env-overridable, ordered pool).
+const CLIENT_IDS = SOUNDCLOUD_CLIENT_IDS;
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

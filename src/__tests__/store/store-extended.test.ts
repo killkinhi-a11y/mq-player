@@ -392,7 +392,7 @@ describe("Store Persistence", () => {
     useAppStore.getState().setTheme("neon");
 
     // The persist middleware should write to localStorage
-    const stored = localStorage.getItem("mq-store-v7");
+    const stored = localStorage.getItem("mq-store-v8");
     expect(stored).not.toBeNull();
 
     if (stored) {
@@ -405,7 +405,7 @@ describe("Store Persistence", () => {
   it("should include version number in persisted data", () => {
     useAppStore.getState().setVolume(50);
 
-    const stored = localStorage.getItem("mq-store-v7");
+    const stored = localStorage.getItem("mq-store-v8");
     if (stored) {
       const parsed = JSON.parse(stored);
       expect(parsed.version).toBeDefined();
@@ -419,7 +419,7 @@ describe("Store Persistence", () => {
     useAppStore.getState().setTheme("minimal");
 
     // Read what was persisted
-    const stored = localStorage.getItem("mq-store-v7");
+    const stored = localStorage.getItem("mq-store-v8");
     expect(stored).not.toBeNull();
 
     if (stored) {
@@ -448,7 +448,7 @@ describe("Store Quota Management", () => {
     }
 
     // The in-memory store may have more, but the persisted store should trim
-    const stored = localStorage.getItem("mq-store-v7");
+    const stored = localStorage.getItem("mq-store-v8");
     if (stored) {
       const parsed = JSON.parse(stored);
       expect(parsed.state.history.length).toBeLessThanOrEqual(200);
@@ -465,7 +465,7 @@ describe("Store Quota Management", () => {
       }));
     }
 
-    const stored = localStorage.getItem("mq-store-v7");
+    const stored = localStorage.getItem("mq-store-v8");
     if (stored) {
       const parsed = JSON.parse(stored);
       // Persisted messages should be trimmed to 500

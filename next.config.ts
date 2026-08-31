@@ -14,7 +14,6 @@ const nextConfig: NextConfig = {
   ...(isVercel ? {} : { output: 'standalone' }),
   reactStrictMode: true,
   typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
   // Single source of truth for build ID. layout.tsx reads this via
   // __NEXT_DATA__.buildId — do NOT hardcode a separate BUILD_ID there.
   // Bumping this triggers a targeted store-version bump (see useAppStore.ts)

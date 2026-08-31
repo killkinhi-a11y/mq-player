@@ -43,7 +43,16 @@ interface RecCategory {
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
 function getWaveGradient(): string {
-  return "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 35%, var(--mq-bg)), color-mix(in srgb, var(--mq-accent) 18%, var(--mq-bg)))";
+  // Layered composition instead of a single flat diagonal:
+  //   1. radial "light pool" top-left — the card reads as lit from a corner,
+  //      giving depth without any asset or extra request;
+  //   2. softer diagonal base wash;
+  //   3. deep vignette toward bottom-right so content stays high-contrast.
+  // (VLM audit: the previous single linear gradient looked "flat/cheap".)
+  return [
+    `radial-gradient(120% 150% at 16% 6%, color-mix(in srgb, var(--mq-accent) 36%, var(--mq-bg)) 0%, color-mix(in srgb, var(--mq-accent) 22%, var(--mq-bg)) 36%, transparent 64%)`,
+    `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 20%, var(--mq-bg)) 0%, color-mix(in srgb, var(--mq-accent) 10%, var(--mq-bg)) 52%, var(--mq-bg) 100%)`,
+  ].join(", ");
 }
 
 function greeting(): string {
@@ -173,17 +182,25 @@ function MainView() {
         // Detect user country via timezone
         const userCountry = detectUserCountry();
 
-        const [recRes, trendingRes, appleRes, spotifyRes] = await Promise.all([
-          fetch(`/api/music/recommendations?${params}`),
-          fetch(`/api/music/trending?limit=50`),
-          fetch(`/api/music/apple-charts?country=${userCountry}`),
-          fetch(`/api/music/spotify-charts?country=${userCountry}`),
-        ]);
+        // allSettled instead of all: a single rejected fetch (offline flake,
+        // one dead upstream) must not discard the other three responses —
+        // partial content beats an error state.
+        const [recSettled, trendingSettled, appleSettled, spotifySettled] =
+          await Promise.allSettled([
+            fetch(`/api/music/recommendations?${params}`),
+            fetch(`/api/music/trending?limit=50`),
+            fetch(`/api/music/apple-charts?country=${userCountry}`),
+            fetch(`/api/music/spotify-charts?country=${userCountry}`),
+          ]);
+        const recRes = recSettled.status === "fulfilled" ? recSettled.value : null;
+        const trendingRes = trendingSettled.status === "fulfilled" ? trendingSettled.value : null;
+        const appleRes = appleSettled.status === "fulfilled" ? appleSettled.value : null;
+        const spotifyRes = spotifySettled.status === "fulfilled" ? spotifySettled.value : null;
 
         const cats: RecCategory[] = [];
 
         // Add Spotify Top as first category ("Топ Spotify")
-        if (spotifyRes.ok) {
+        if (spotifyRes?.ok) {
           try {
             const spotifyData = await spotifyRes.json();
             const spotifyTracks = (spotifyData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
@@ -199,7 +216,7 @@ function MainView() {
         }
 
         // Add Apple Music Top 100 as second category
-        if (appleRes.ok) {
+        if (appleRes?.ok) {
           try {
             const appleData = await appleRes.json();
             const appleTracks = (appleData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
@@ -216,7 +233,7 @@ function MainView() {
         }
 
         // Add trending as third category ("Популярное сейчас")
-        if (trendingRes.ok) {
+        if (trendingRes?.ok) {
           const tData = await trendingRes.json();
           const trendingTracks = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
           if (trendingTracks.length > 0) {
@@ -230,7 +247,7 @@ function MainView() {
         }
 
         // Add recommendation categories
-        if (recRes.ok) {
+        if (recRes?.ok) {
           const data = await recRes.json();
           const recCats = (data.categories || []).map((cat: any) => ({
             id: cat.id || `cat_${Date.now()}_${Math.random()}`,
@@ -242,7 +259,7 @@ function MainView() {
         }
 
         // If no categories at all, create a fallback from trending
-        if (cats.length === 0 && trendingRes.ok) {
+        if (cats.length === 0 && trendingRes?.ok) {
           const tData = await trendingRes.json();
           const fallback = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
           if (fallback.length > 0) {
@@ -252,7 +269,14 @@ function MainView() {
 
         if (!cancelled) {
           setRecCategories(cats);
-          setRecError(cats.length === 0 ? "empty" : null);
+          if (cats.length > 0) {
+            setRecError(null);
+          } else {
+            // Distinguish total network failure (all fetches rejected) from
+            // "providers answered but returned nothing" for accurate messaging.
+            const anyResponded = !!(recRes || trendingRes || appleRes || spotifyRes);
+            setRecError(anyResponded ? "empty" : "offline");
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -316,21 +340,13 @@ function MainView() {
     setSelectedArtist({ name: artist });
   }, [setSelectedArtist]);
 
-  // ── Artist detail ──
-  if (selectedArtist) {
-    return (
-      <ArtistDetailView
-        artist={selectedArtist}
-        onBack={() => setSelectedArtist(null)}
-        compactMode={compactMode}
-        animationsEnabled={animationsEnabled}
-      />
-    );
-  }
-
   // ── Pull-to-refresh (mobile only) ──
   // Touch-based: user pulls down at scrollTop=0 → triggers handleRetryRecs.
   // Desktop scrolling doesn't engage (uses touch events only).
+  // NOTE: these hooks MUST stay ABOVE the `if (selectedArtist) return …`
+  // early return below — calling hooks after a conditional return breaks
+  // the hooks invariant (React "Rendered fewer hooks than expected" crash
+  // when navigating back from the artist detail view).
   const pullStartY = useRef<number | null>(null);
   const [pullDistance, setPullDistance] = useState(0);
   const PULL_THRESHOLD = 70; // px — must pull this far to trigger
@@ -359,6 +375,18 @@ function MainView() {
     setPullDistance(0);
     pullStartY.current = null;
   }, [pullDistance, handleRetryRecs]);
+
+  // ── Artist detail (early return AFTER all hooks — see note above) ──
+  if (selectedArtist) {
+    return (
+      <ArtistDetailView
+        artist={selectedArtist}
+        onBack={() => setSelectedArtist(null)}
+        compactMode={compactMode}
+        animationsEnabled={animationsEnabled}
+      />
+    );
+  }
 
   return (
     <div
@@ -613,7 +641,7 @@ function MainView() {
                       {f.isPlaying && (
                         <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
                       )}
-                      <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                      <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                         {f.isPlaying ? "сейчас" : "на паузе"}
                       </span>
                     </div>
@@ -633,7 +661,7 @@ function MainView() {
                     <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>
                       {f.trackTitle}
                     </p>
-                    <p className="text-[10px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                    <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
                       {f.trackArtist}
                     </p>
                   </div>
@@ -881,8 +909,16 @@ function QuickStat({
         />
       </div>
       <div className="min-w-0">
-        <p className="text-sm sm:text-base font-bold leading-none" style={{ color: "var(--mq-text)" }}>{value}</p>
-        <p className="text-[10px] sm:text-[11px] mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>{label}</p>
+        {/* Empty-library state: a bare "0" reads like a broken counter to
+            first-time users (VLM audit). An em-dash + reduced opacity reads
+            as "nothing here yet" while keeping the chip useful navigation. */}
+        <p
+          className="text-sm sm:text-base font-bold leading-none"
+          style={{ color: "var(--mq-text)", opacity: value > 0 ? 1 : 0.5 }}
+        >
+          {value > 0 ? value : "—"}
+        </p>
+        <p className="text-[11px] mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>{label}</p>
       </div>
     </motion.button>
   );
@@ -962,7 +998,7 @@ function TrackCard({
         {/* Current badge */}
         {isCurrent && (
           <div
-            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-md flex items-center gap-1"
+            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold backdrop-blur-md flex items-center gap-1"
             style={{
               backgroundColor: "rgba(0,0,0,0.6)",
               color: "var(--mq-accent)",
@@ -1068,7 +1104,7 @@ function PlaylistCard({
         {/* Current badge */}
         {isCurrent && (
           <div
-            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-md flex items-center gap-1"
+            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold backdrop-blur-md flex items-center gap-1"
             style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", border: "1px solid var(--mq-border-accent)" }}
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
@@ -1185,7 +1221,7 @@ function RecHero({
               <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
             </motion.span>
             <span
-              className="text-[10px] sm:text-[11px] font-bold uppercase tracking-widest"
+              className="text-[11px] font-bold uppercase tracking-widest"
               style={{ color: "var(--mq-accent)" }}
             >
               Рекомендация для вас
@@ -1214,7 +1250,7 @@ function RecHero({
               }}
             >
               <span
-                className="text-[10px] sm:text-[11px] font-medium"
+                className="text-[11px] font-medium"
                 style={{ color: "var(--mq-accent)" }}
               >
                 {reason}
@@ -1288,7 +1324,7 @@ function RecStrip({
       <div className="flex items-center gap-2 mb-3">
         <Icon className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
         <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>{title}</h3>
-        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "var(--mq-border-thin)", color: "var(--mq-text-muted)" }}>
+        <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "var(--mq-border-thin)", color: "var(--mq-text-muted)" }}>
           {tracks.length}
         </span>
       </div>
@@ -1367,7 +1403,7 @@ function RecCard({
           )}
         </div>
         {isCurrent && (
-          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-md flex items-center gap-1" style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}>
+          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold backdrop-blur-md flex items-center gap-1" style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}>
             {/* Animated equalizer bars when playing, static dot when paused */}
             {isPlaying ? (
               <NowPlayingEqualizer size="xs" variant="inline" />
@@ -1386,7 +1422,7 @@ function RecCard({
         {track.artist}
       </button>
       {reason && (
-        <p className="text-[10px] truncate mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+        <p className="text-[11px] truncate mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
           {reason}
         </p>
       )}
@@ -1589,7 +1625,7 @@ function ArtistCircleCard({
       </div>
       <p className="text-xs sm:text-sm font-semibold truncate w-full text-center" style={{ color: "var(--mq-text)" }}>{artist.username}</p>
       {artist.trackCount !== undefined && (
-        <p className="text-[10px] truncate w-full text-center" style={{ color: "var(--mq-text-muted)" }}>
+        <p className="text-[11px] truncate w-full text-center" style={{ color: "var(--mq-text-muted)" }}>
           {artist.trackCount} {pluralRu(artist.trackCount, "трек", "трека", "треков")}
         </p>
       )}
@@ -1638,7 +1674,7 @@ function CuratedPlaylistCard({
       <div className="p-3">
         <p className="text-[13px] sm:text-sm font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>{pl.name}</p>
         <p className="text-[11px] sm:text-xs mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>{pl.subtitle}</p>
-        <p className="text-[10px] mt-1.5 uppercase tracking-wider font-semibold" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+        <p className="text-[11px] mt-1.5 uppercase tracking-wider font-semibold" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
           {pl.tracks.length} {pluralRu(pl.tracks.length, "трек", "трека", "треков")}
         </p>
       </div>
@@ -1690,7 +1726,11 @@ function WaveCard({
     <div
       className={isMobile ? "relative mb-8 rounded-3xl overflow-hidden" : "mq-hero-card relative mb-8"}
       ref={waveMagnetic.ref as React.RefObject<HTMLDivElement>}
+      // react-hooks/refs false positive: useMagnetic handlers only read the
+      // ref inside event callbacks — never during render.
+      // eslint-disable-next-line react-hooks/refs
       onMouseMove={waveMagnetic.onMouseMove}
+      // eslint-disable-next-line react-hooks/refs
       onMouseLeave={waveMagnetic.onMouseLeave}
       style={{
         background: isMobile

@@ -708,6 +708,13 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   const retryCountRef = useRef(0);
   const maxRetries = 3;
   const retryingRef = useRef(false);
+  // Consecutive broken-track circuit breaker. When the stream API is down
+  // (or a provider returns garbage), the skip-on-error path used to walk the
+  // ENTIRE queue — one track every 1.5s, with a toast per track. Five
+  // consecutive failures means the problem is systemic, not track-specific:
+  // stop auto-skipping and surface a clear error instead of burning requests.
+  const consecutiveFailuresRef = useRef(0);
+  const MAX_CONSECUTIVE_FAILURES = 5;
   const loadGenerationRef = useRef(0);
   const fallbackStreamsRef = useRef<StreamResult['fallbackStreams']>(null);
   const currentStreamEmeRef = useRef<{ isEncrypted: boolean; protocol: string; licenseUrl: string } | null>(null);
@@ -772,9 +779,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             targetEl = prepareEncryptedElement(inactive);
             const origXhrSetup = hlsConfig.xhrSetup;
             const manifestInterceptor = createManifestInterceptor(targetEl);
-            hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+            hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
               manifestInterceptor(xhr, url);
-              if (origXhrSetup) origXhrSetup(xhr, url);
+              if (origXhrSetup) origXhrSetup(xhr, url, context);
             };
           } else {
             ensureWebAudioConnected(inactive);
@@ -981,6 +988,20 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         }
         retryingRef.current = false;
         prevTrackIdForCrossfade.current = null;
+        consecutiveFailuresRef.current++;
+        if (consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES) {
+          // Circuit breaker: stop auto-advancing — this is a systemic failure
+          // (API down / network offline), not a broken track. Continuing
+          // would spam toasts and requests for every remaining queue entry.
+          try {
+            toast({
+              title: "Воспроизведение недоступно",
+              description: "Несколько треков подряд не загрузились. Проверьте соединение и попробуйте ещё раз.",
+            });
+          } catch (e) { console.warn("[Player] toast failed:", e); }
+          console.error(`[Player] ${consecutiveFailuresRef.current} consecutive failures — stopping auto-skip`);
+          return;
+        }
         try {
           toast({
             title: "Трек недоступен",
@@ -1024,9 +1045,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   a = prepareEncryptedElement(a);
                   const origXhrSetup = hlsConfig.xhrSetup;
                   const manifestInterceptor = createManifestInterceptor(a);
-                  hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+                  hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
                     manifestInterceptor(xhr, url);
-                    if (origXhrSetup) origXhrSetup(xhr, url);
+                    if (origXhrSetup) origXhrSetup(xhr, url, context);
                   };
                 } else {
                   ensureWebAudioConnected(a);
@@ -1142,6 +1163,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       setIsLoadingTrack(false);
       setPlayError(false);
       retryCountRef.current = 0;
+      consecutiveFailuresRef.current = 0; // stream is healthy again — reset the breaker
       if (loadingTimeoutId) { clearTimeout(loadingTimeoutId); loadingTimeoutId = null; }
       if (stallTimeoutId) { clearTimeout(stallTimeoutId); stallTimeoutId = null; }
       const lastUnfixed = [...PlayerErrorLogger.getUnfixed()].reverse()[0];
@@ -1218,9 +1240,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                     activeEl = prepareEncryptedElement(activeEl);
                     const origXhrSetup = hlsConfig.xhrSetup;
                     const manifestInterceptor = createManifestInterceptor(activeEl);
-                    hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+                    hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
                       manifestInterceptor(xhr, url);
-                      if (origXhrSetup) origXhrSetup(xhr, url);
+                      if (origXhrSetup) origXhrSetup(xhr, url, context);
                     };
                   } else {
                     ensureWebAudioConnected(activeEl);
@@ -1300,9 +1322,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                     activeEl = prepareEncryptedElement(activeEl);
                     const origXhrSetup = hlsConfig.xhrSetup;
                     const manifestInterceptor = createManifestInterceptor(activeEl);
-                    hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+                    hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
                       manifestInterceptor(xhr, url);
-                      if (origXhrSetup) origXhrSetup(xhr, url);
+                      if (origXhrSetup) origXhrSetup(xhr, url, context);
                     };
                   } else {
                     ensureWebAudioConnected(activeEl);
@@ -1479,9 +1501,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           activeEl = prepareEncryptedElement(activeEl);
           const origXhrSetup = hlsConfig.xhrSetup;
           const manifestInterceptor = createManifestInterceptor(activeEl);
-          hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+          hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
             manifestInterceptor(xhr, url);
-            if (origXhrSetup) origXhrSetup(xhr, url);
+            if (origXhrSetup) origXhrSetup(xhr, url, context);
           };
         } else {
           ensureWebAudioConnected(activeEl);
@@ -1721,9 +1743,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
                 const origXhrSetup = hlsConfig.xhrSetup;
                 const manifestInterceptor = createManifestInterceptor(audioEl);
-                hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+                hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
                   manifestInterceptor(xhr, url);
-                  if (origXhrSetup) origXhrSetup(xhr, url);
+                  if (origXhrSetup) origXhrSetup(xhr, url, context);
                 };
               } else {
                 ensureWebAudioConnected(audioEl);
@@ -1839,9 +1861,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                           activeEl = prepareEncryptedElement(activeEl);
                           const origXhrSetup = fbConfig.xhrSetup;
                           const manifestInterceptor = createManifestInterceptor(activeEl);
-                          fbConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
+                          fbConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
                             manifestInterceptor(xhr, url);
-                            if (origXhrSetup) origXhrSetup(xhr, url);
+                            if (origXhrSetup) origXhrSetup(xhr, url, context);
                           };
                         } else {
                           ensureWebAudioConnected(activeEl);
@@ -1974,6 +1996,18 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             prevTrackIdForCrossfade.current = null;
             const isDrm = stream?.drmRestricted;
             PlayerErrorLogger.log(currentTrack.title || "unknown", isDrm ? "DRM restricted (no playable stream)" : "No stream URL", "skip");
+            consecutiveFailuresRef.current++;
+            if (consecutiveFailuresRef.current >= MAX_CONSECUTIVE_FAILURES) {
+              // Same circuit breaker as skipToNextWithError — see comment there.
+              try {
+                toast({
+                  title: "Воспроизведение недоступно",
+                  description: "Несколько треков подряд не загрузились. Проверьте соединение и попробуйте ещё раз.",
+                });
+              } catch {}
+              console.error(`[Player] ${consecutiveFailuresRef.current} consecutive no-stream failures — stopping auto-skip`);
+              return;
+            }
             try {
               toast({
                 title: "Трек недоступен",

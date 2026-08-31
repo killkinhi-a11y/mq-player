@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
+import { Geist, Geist_Mono, Space_Grotesk, Manrope } from "next/font/google";
 import { Outfit, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
@@ -8,13 +8,23 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
 const spaceGrotesk = Space_Grotesk({ variable: "--font-space-grotesk", subsets: ["latin"], weight: ["400", "500", "600", "700"] });
+// Cyrillic companion: Geist / Outfit / Space Grotesk are latin-only, so
+// Russian text used to fall through to a system font (looked "standard"
+// and off-brand). Manrope is a variable font with full Cyrillic coverage
+// and a matching geometric voice — chained AFTER the latin fonts it fills
+// every Cyrillic glyph while latin UI stays pixel-identical.
+const manrope = Manrope({
+  variable: "--font-manrope",
+  subsets: ["latin", "cyrillic"],
+  display: "swap",
+});
 // Tip 1 (Typography — anchor font from video): Playfair Display as the
 // editorial serif anchor for hero headlines. Pairs with Geist Sans body
 // for high contrast (condensed serif vs geometric sans), exactly the
 // "Instrument Serif + Geist Sans" pairing the video recommends.
 const playfairDisplay = Playfair_Display({
   variable: "--font-playfair-display",
-  subsets: ["latin"],
+  subsets: ["latin", "cyrillic"],
   weight: ["500", "600", "700", "800", "900"],
   style: ["normal", "italic"],
 });
@@ -256,8 +266,8 @@ export default function RootLayout({
       />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} ${spaceGrotesk.variable} ${playfairDisplay.variable} antialiased`}
-        style={{ backgroundColor: "var(--mq-bg, #0e0e0e)", fontFamily: "var(--font-geist-sans), system-ui, sans-serif" }}
+        className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} ${spaceGrotesk.variable} ${playfairDisplay.variable} ${manrope.variable} antialiased`}
+        style={{ backgroundColor: "var(--mq-bg, #0e0e0e)", fontFamily: "var(--font-geist-sans), var(--font-manrope), system-ui, sans-serif" }}
         suppressHydrationWarning
       >
         {/* Skip-to-content link for keyboard / screen-reader users (M4.3 a11y).

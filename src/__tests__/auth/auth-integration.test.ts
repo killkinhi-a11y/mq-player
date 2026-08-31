@@ -193,10 +193,13 @@ describe("Token Expiry", () => {
   it("should return null for tokens with invalid signature", async () => {
     const token = await signToken({ userId: "user-1" });
 
-    // Verify with different secret
+    // Verify with different secret — through a fresh module instance, since
+    // the statically imported auth module caches the encoded secret.
     const original = process.env.JWT_SECRET;
     process.env.JWT_SECRET = "different-secret-key-for-test-32ch-long!!";
-    const result = await verifyToken(token);
+    vi.resetModules();
+    const { verifyToken: verifyTokenFresh } = await import("@/lib/auth");
+    const result = await verifyTokenFresh(token);
     expect(result).toBeNull();
 
     process.env.JWT_SECRET = original;

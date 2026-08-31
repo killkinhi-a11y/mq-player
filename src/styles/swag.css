@@ -57,7 +57,7 @@
 [data-style="swag"] div,
 [data-style="swag"] a,
 [data-style="swag"] label {
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, -apple-system, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, -apple-system, sans-serif !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
   font-weight: 400 !important;
@@ -100,7 +100,7 @@
   font-weight: 500 !important;
   letter-spacing: 0.06em !important;
   text-transform: none !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   -webkit-text-fill-color: initial !important;
   background: none !important;
   filter: none !important;
@@ -188,7 +188,7 @@
 /* Nav buttons */
 [data-style="swag"] header nav button {
   color: #6b6b78 !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   font-size: 13px !important;
   font-weight: 500 !important;
   letter-spacing: 0.02em !important;
@@ -216,7 +216,7 @@
 
 /* Logo — bright silver, Space Grotesk bold */
 [data-style="swag"] header div[class*="gap-2"][class*="cursor-pointer"] span {
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   font-weight: 700 !important;
   font-size: 20px !important;
   letter-spacing: -0.03em !important;
@@ -242,7 +242,7 @@
 
 [data-style="swag"] header button[class*="rounded-xl"] span {
   color: #f0f0f2 !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   font-weight: 500 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -308,7 +308,7 @@
 [data-style="swag"] button[data-track-card] span[class*="text-xs"][class*="w-"],
 [data-style="swag"] div[data-track-card] span[class*="text-xs"][class*="w-"] {
   color: #6b6b78 !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   text-transform: none !important;
   font-weight: 500 !important;
   -webkit-text-fill-color: #6b6b78 !important;
@@ -326,7 +326,7 @@
 /* Track title */
 [data-style="swag"] div[class*="fixed"][class*="z-40"] p[class*="font-medium"] {
   color: #f0f0f2 !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: -0.01em !important;
@@ -368,7 +368,7 @@
 /* Time labels */
 [data-style="swag"] div[class*="fixed"][class*="z-40"] div[style*="color: var(--mq-text-muted)"] {
   color: #6b6b78 !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   text-transform: none !important;
   letter-spacing: 0.04em !important;
   font-weight: 400 !important;
@@ -438,7 +438,7 @@
 
 [data-style="swag"] nav[class*="fixed"][class*="bottom"] button span {
   color: inherit !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
   font-size: 10px !important;
@@ -484,7 +484,7 @@
   border-radius: 10px !important;
   color: #07070a !important;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -504,7 +504,7 @@
   border-radius: 10px !important;
   color: #07070a !important;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -522,7 +522,7 @@
   border: 1px solid #222229 !important;
   background: #0f0f13 !important;
   color: #f0f0f2 !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
 }
 
 [data-style="swag"] input[type="text"]:focus,
@@ -605,7 +605,7 @@
 [data-style="swag"] span[class*="rounded-full"][style*="background: #ef4444"] {
   background: #b0b0b8 !important;
   color: #07070a !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   font-weight: 600 !important;
   text-transform: none !important;
   box-shadow: none !important;
@@ -690,7 +690,7 @@
   background: #222229 !important;
   border-radius: 6px !important;
   color: #f0f0f2 !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   text-transform: none !important;
   font-weight: 500 !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
@@ -716,7 +716,7 @@
 [data-style="swag"] div[class*="fixed"][class*="z-100"] h2,
 [data-style="swag"] div[class*="fixed"][class*="z-50"] h2 {
   color: #e8e8ec !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   font-weight: 700 !important;
   text-transform: none !important;
   letter-spacing: -0.025em !important;
@@ -729,7 +729,7 @@
   color: #6b6b78 !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   font-weight: 400 !important;
   -webkit-text-fill-color: #6b6b78 !important;
   background: none !important;
@@ -785,7 +785,7 @@
   background: #16161b !important;
   border: 1px solid #222229 !important;
   color: #6b6b78 !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   font-weight: 500 !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
@@ -829,7 +829,7 @@
 
 [data-style="swag"] div[class*="fixed"][class*="z-100"] div[style*="color: var(--mq-text-muted)"] {
   color: #6b6b78 !important;
-  font-family: var(--font-space-grotesk), 'Space Grotesk', system-ui, sans-serif !important;
+  font-family: var(--font-space-grotesk), var(--font-manrope), 'Space Grotesk', system-ui, sans-serif !important;
   text-transform: none !important;
   letter-spacing: 0.04em !important;
   font-weight: 400 !important;

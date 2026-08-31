@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SOUNDCLOUD_CLIENT_IDS } from "@/lib/config";
 
 /**
  * Resolve SoundCloud stream URL for a track.
@@ -27,12 +28,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 
-const CLIENT_IDS = [
-  "O7atZypwLvuWSY9hWnnQ3vrLTHH7wqMe", // 2025-07 — freshly extracted
-  "i53MAi5VcJrq7u38ZL1SOZtDi17ds1A0", // backup (may be stale)
-  // NOTE: Previous IDs all returned 401 as of 2025-06:
-  // 1Gbi6DBGBMULQH8MuhNvI1HzL9AiX2Pa, qYUIEFbSZdXPABQbuHA2Tv8C9ndesHim, S3TPtG5i3yzBs1BPd50h1N5TW2kNTo5k
-];
+// Single source of truth: src/lib/config.ts (env-overridable, ordered pool).
+// This edge route races the pool in parallel, so stale entries just lose
+// the race harmlessly.
+const CLIENT_IDS = SOUNDCLOUD_CLIENT_IDS;
 
 // ── In-memory stream resolution cache ──
 // Vercel Edge reuses isolates across requests within a region, so this cache

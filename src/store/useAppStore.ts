@@ -2794,9 +2794,24 @@ export const useAppStore = create<AppState>()(
       onRehydrateStorage: () => {
         return (state, error) => {
           if (error) {
-            // TDZ errors during HMR are common — silently clear and continue
-            console.debug("[MQ Store] rehydration error — clearing localStorage and continuing");
-            try { localStorage.removeItem(STORAGE_KEY); } catch (e) { console.warn("[store]", e); }
+            // Distinguish REAL corruption from transient failures (TDZ during
+            // HMR, storage races). The old code wiped localStorage on ANY
+            // rehydrate error — a transient error would silently destroy all
+            // user data (likes, history, playlists). Now we only remove the
+            // persisted blob when it is genuinely unparseable; otherwise the
+            // data stays and gets rewritten by the next successful save.
+            let corrupted = false;
+            try {
+              const raw = localStorage.getItem(STORAGE_KEY);
+              if (raw !== null) JSON.parse(raw);
+            } catch {
+              corrupted = true;
+              try { localStorage.removeItem(STORAGE_KEY); } catch (e) { console.warn("[store]", e); }
+            }
+            console.warn(
+              `[MQ Store] rehydration ${corrupted ? "failed (corrupted payload — cleared)" : "error (data preserved)"}:`,
+              error instanceof Error ? error.message : error
+            );
             // CRITICAL: Even on rehydration error, mark hydration as complete.
             // Otherwise the UI stays stuck on the "mq" loading screen forever.
             useAppStore.setState({ _hasHydrated: true });
