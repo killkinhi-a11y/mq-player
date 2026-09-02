@@ -1272,3 +1272,53 @@ sync (134ced0 → 296bb36, fast-forward) вызвал git-деплой mq1-7prtv
 Остаток (не аварийный, не трогалось): MEDIA_ERR blip демо-треков
 (восстанавливается ретраем), 401-polling в демо-режиме без backoff,
 CobaltTurnstile init debug, lint-долг 139, Prisma-direct в social-роутах.
+
+---
+
+Task ID: phase2b-ui-redesign
+Agent: main (Super Z)
+Task: Phase 2B — FULL UI/UX REDESIGN (LESS EFFECTS, MORE HIERARCHY, MORE CLARITY, MORE PRODUCT FEEL)
+
+Work Log:
+- OBSERVE: BEFORE screenshots production (8 шт: home/auth/playing/fullplayer/
+  mobile) → download/screens/phase2b-before/
+- Код-аудит: AppShell (5 декоративных слоёв), PlayerBar (14 контролов,
+  blur(40px), ambient glow, magnetic, LikeBurst, pulse-точки), FullTrackView
+  (HeartBurst/tilt/glow/pulse-ring/glass-кнопки), MainView (gradient greeting,
+  4 цветные QuickStat, RecHero blur(48px), WaveCard noise+pulse+3 SVG-волны),
+  QueueView (без Escape/dialog), PlaylistArtwork (keyframes в accessible names)
+- REMOVE: AnimatedGradientBg, CursorParticleField, CinematicAtmosphere,
+  ScrollProgressBar, SeasonalEffects из AppShell; HeartBurst (×2), 3D tilt,
+  cover glow, mq-pulse-ring из FullTrackView; noise/pulse-glow/магнит/
+  3 анимированные волны из WaveCard; gradient text из greeting
+- RESTRUCTURE: PlayerBar → docked surface 72px, 3 зоны (LEFT artwork+identity /
+  CENTER playback+progress / RIGHT like+wave+volume+queue+More); EQ+dislike+
+  share → More menu (⋯); Home порядок: greeting→Wave→quiet links→RECS→RECENTLY→
+  PLAYLISTS→FRIENDS→ARTISTS→CURATED
+- SYSTEM: --mq-glass-blur 40→16px, heavy 60→24px; mq-hero-card — спокойная
+  поверхность; ProgressBar компактный вариант; Lyrics — акцент через
+  weight+size+bar без glow
+- A11Y: QueueView role=dialog+aria-modal+Escape+focus-trap/return;
+  FullTrackViewMobile role=dialog+Escape; PlaylistArtwork <style> → conditional
+- VERIFICATION: tsc 0 ошибок; lint 0 регрессий (PlayerBar 5→0); build ✓ 30.7s
+  93/93 страниц; тесты 168 passed (rate-limit.test.ts падает на transform —
+  pre-existing, нет @upstash/redis в node_modules)
+- Browser QA: play/pause/next/prev/seek (1:53 точный клик)/volume/queue+Escape+
+  focus return/lyrics/search/more-menu/mobile 390×844 (full player + Escape)
+- VLM REVIEW: home/playerbar/fullplayer/mobile ДО vs ПОСЛЕ — noise↓, hierarchy✓,
+  artwork доминирует✓, product feel✓; dev-бейдж Next.js «1 Issue» перекрывал
+  PlayerBar на dev-скриншотах (в production отсутствует) — скриншоты пересняты
+- DEPLOY: git push origin main 4ab8a56→a398a0a → Vercel git-deploy →
+  mq1.vercel.app: новый PlayerBar (More menu) live, playback 0:07→0:11,
+  0 console errors, mobile dock+mini ✓
+
+Stage Summary:
+- 13 файлов, +477/−717 строк (net −240 — редизайн через удаление)
+- PlayerBar: 14 контролов → 9 видимых + More menu; floating glass pill →
+  docked control surface 72px; blur 40→16px
+- Home: 4 competing accent colors → 1; hero greeting 5xl gradient → 2xl solid;
+  QUICK-статы → тихие текстовые ссылки
+- A11y: Escape работает в Queue (был сломан), focus return, dialog semantics
+  в Queue и мобильном Full Player
+- Production: https://mq1.vercel.app — a398a0a live, проверен e2e
+- Скриншоты ДО/ПОСЛЕ: download/screens/phase2b-{before,after}/
