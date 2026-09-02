@@ -5,6 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import {
   getAudioElement, initAudioEngine, getInactiveAudio, resumeAudioContext,
   resetCorsState, crossfadeTo, cancelCrossfade, replaceAudioElement,
+  PLAYER_MAX_RETRIES, PLAYER_MAX_CONSECUTIVE_FAILURES, isTeardownMediaError,
   connectElementToAudioGraph, onAudioElementReplaced, getGaplessPreloadedTrackId,
   setGaplessPreloadedTrackId, clearGaplessPreload, crossfadeToGapless,
   preloadTrack, isGaplessEnabled, setAudioPlaybackRate,
@@ -706,7 +707,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   const lastSocialUpdateRef = useRef<number | null>(null);
 
   const retryCountRef = useRef(0);
-  const maxRetries = 3;
+  const maxRetries = PLAYER_MAX_RETRIES;
   const retryingRef = useRef(false);
   // Consecutive broken-track circuit breaker. When the stream API is down
   // (or a provider returns garbage), the skip-on-error path used to walk the
@@ -714,7 +715,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   // consecutive failures means the problem is systemic, not track-specific:
   // stop auto-skipping and surface a clear error instead of burning requests.
   const consecutiveFailuresRef = useRef(0);
-  const MAX_CONSECUTIVE_FAILURES = 5;
+  const MAX_CONSECUTIVE_FAILURES = PLAYER_MAX_CONSECUTIVE_FAILURES;
   const loadGenerationRef = useRef(0);
   const fallbackStreamsRef = useRef<StreamResult['fallbackStreams']>(null);
   const currentStreamEmeRef = useRef<{ isEncrypted: boolean; protocol: string; licenseUrl: string } | null>(null);
@@ -958,6 +959,12 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       const audioEl = getActive();
       const st = useAppStore.getState();
       const isSCTrack = !!st.currentTrack?.scTrackId;
+
+      // PHASE 2C: teardown-artifact guard (see isTeardownMediaError docs —
+      // root cause of the historical MEDIA_ERR blip on reload).
+      if (isTeardownMediaError(audioEl, !!st.currentTrack)) {
+        return;
+      }
 
       const trackTitle = st.currentTrack?.title || "unknown";
 
@@ -1441,8 +1448,22 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       destroyHls(audio);
       if (secondary) destroyHls(secondary);
       audio.pause();
-      audio.src = "";
-      if (secondary) { secondary.pause(); secondary.src = ""; }
+      // PHASE 2C FIX (root cause of the demo-track MEDIA_ERR blip):
+      // Previously `audio.src = ""`. Assigning an EMPTY STRING makes the
+      // media element resolve "" against the document base → it starts
+      // fetching THE PAGE URL (HTML) as audio → MEDIA_ERR_SRC_NOT_SUPPORTED
+      // fires while the page is still alive → the onError handler logged a
+      // bogus "track error" and kicked the retry path on every reload with
+      // an active track. removeAttribute("src") detaches the resource with
+      // NO load attempt — the page is dying anyway, there is nothing to
+      // finish — so no synthetic error event is ever generated.
+      audio.removeAttribute("src");
+      try { audio.load(); } catch {}
+      if (secondary) {
+        secondary.pause();
+        secondary.removeAttribute("src");
+        try { secondary.load(); } catch {}
+      }
     };
     window.addEventListener("beforeunload", handleUnload);
     return () => window.removeEventListener("beforeunload", handleUnload);

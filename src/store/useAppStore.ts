@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage, type StateStorage } from "zustand/middleware";
 import { type Track, type Message as ChatMessage } from "@/lib/musicApi";
 import { themes, applyThemeToDOM } from "@/lib/themes";
+import { resetPollingSuspension, canPollProtected } from "@/lib/authGate";
 import { enableEQ as engineEnableEQ, disableEQ as engineDisableEQ, setEQBand as engineSetEQBand, setAllEQBands as engineSetAllEQBands, resetEQBands as engineResetEQBands, setAudioPlaybackRate as engineSetAudioPlaybackRate, getAudioElement, resumeAudioContext, getInactiveAudio, setCrossfadeEnabled as engineSetCrossfadeEnabled } from "@/lib/audioEngine";
 import { EQ_PRESETS } from "@/lib/eq";
 // NOTE: PlaybackEngine + usePlaybackEngine were deleted in M3 (dead code —
@@ -838,8 +839,19 @@ export const useAppStore = create<AppState>()(
       setAuth: (userId, username, email, role, avatar, telegramUsername) => {
         // Capture a generation counter to prevent stale async writes after logout
         const authGeneration = Date.now();
+        // Fresh auth generation → polling gets a clean slate (Phase 2C:
+        // login resumes protected polling after a 401 suspension).
+        resetPollingSuspension();
+        const isDemoLogin = userId === "demo-user-id";
         // isPlaying: false — never auto-play on login, even if persisted state had it
         set({ isAuthenticated: true, userId, username, email, telegramUsername: telegramUsername || null, userRole: role || "user", avatar: avatar || null, currentView: "main", _authGeneration: authGeneration, isPlaying: false, playbackState: 'idle', isBuffering: false });
+
+        // Phase 2C: demo sessions are local-only — skip ALL server round-trips
+        // (theme fetch + sync would 401: demo has no session cookie).
+        if (isDemoLogin) {
+          set({ onboardingComplete: true });
+          return;
+        }
 
         // Load saved theme from account — check generation before writing
         fetch('/api/user/theme')
@@ -856,16 +868,10 @@ export const useAppStore = create<AppState>()(
           })
           .catch(() => {});
         // Sync data from server after a short delay (let localStorage hydrate first)
-        const isDemo = userId === "demo-user-id";
         const syncTimer = setTimeout(() => {
           if (get()._authGeneration !== authGeneration) return; // Stale after logout
           get().syncFromServer();
           // Load favorite artists and check onboarding
-          // Demo users skip onboarding — they already have demo content
-          if (isDemo) {
-            set({ onboardingComplete: true });
-            return;
-          }
           get().loadFavoriteArtistsFromServer().then(() => {
             if (get()._authGeneration !== authGeneration) return; // Stale after logout
             const state = useAppStore.getState();
@@ -879,6 +885,9 @@ export const useAppStore = create<AppState>()(
       },
 
       logout: () => {
+        // Phase 2C: logout stops all protected polling (fresh slate for
+        // the next login; also mirrors the login-side reset).
+        resetPollingSuspension();
         // Clear any pending sync timer
         const timerRef = (get() as any)._syncTimer;
         if (timerRef) clearTimeout(timerRef);
@@ -2156,6 +2165,8 @@ export const useAppStore = create<AppState>()(
         const st = get();
         if (st.feedbackBatch.pendingCount === 0) return;
         if (Date.now() - st.feedbackBatch.lastSync < 30000) return; // 30s debounce
+        // Phase 2C: only real authenticated sessions sync feedback.
+        if (!canPollProtected(st.userId, st.isAuthenticated)) return;
 
         try {
           let anonId = '';
@@ -2255,6 +2266,9 @@ export const useAppStore = create<AppState>()(
 
       syncToServer: async () => {
         const state = get();
+        // Phase 2C: demo/unauthenticated sessions are local-only — server
+        // sync would 401 (demo has no session cookie).
+        if (!canPollProtected(state.userId, state.isAuthenticated)) return;
         if (!state.userId) return;
         set({ isSyncing: true, syncError: null });
         try {

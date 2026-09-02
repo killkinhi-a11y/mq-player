@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
+import { canPollProtected, controlled401Recovery } from "@/lib/authGate";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Search, UserPlus, UserCheck, UserX, Loader2, MessageCircle, Check, X,
@@ -103,10 +104,18 @@ export default function FriendsView() {
 
   // Fetch friends
   const fetchFriends = useCallback(async () => {
+    // Phase 2C: demo/unauthenticated sessions never hit protected routes
+    // (one-shot on mount, but it 401'd on every Friends-view open in demo).
+    const st = useAppStore.getState();
+    if (!canPollProtected(st.userId, st.isAuthenticated)) return;
     if (!userId) return;
     setIsLoading(true);
     try {
       const res = await fetch(`/api/friends?userId=${userId}`);
+      if (res.status === 401) {
+        controlled401Recovery("friends");
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setFriends(data.friends || []);
@@ -126,11 +135,19 @@ export default function FriendsView() {
   // Fetch online statuses — batch request with individual fallback
   useEffect(() => {
     if (!userId || friends.length === 0) return;
+    // Phase 2C: statuses poll every 10s — gated for demo/unauth sessions.
+    const gate = () => canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated);
+    if (!gate()) return;
     const fetchStatuses = async () => {
       const statuses: Record<string, { online: boolean; lastSeen: string | null }> = {};
       try {
         const ids = friends.map(f => f.id).join(',');
         const res = await fetch(`/api/users/status?ids=${ids}`);
+        if (res.status === 401) {
+          // Controlled recovery — stop the 10s polling loop on auth loss.
+          controlled401Recovery("users/status");
+          return;
+        }
         if (res.ok) {
           const data = await res.json();
           for (const f of friends) {
@@ -159,6 +176,7 @@ export default function FriendsView() {
     // P1-fix: pause polling when tab is hidden to save battery
     const interval = setInterval(() => {
       if (document.hidden) return;
+      if (!gate()) { clearInterval(interval); return; }
       fetchStatuses();
     }, 10000);
     // Refetch when tab becomes visible again

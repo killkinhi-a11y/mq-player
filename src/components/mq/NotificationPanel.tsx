@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, X, Check, Trash2, MessageCircle, UserPlus, UserCheck, Music } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
+import { canPollProtected, controlled401Recovery } from "@/lib/authGate";
 
 interface Notification {
   id: string;
@@ -55,10 +56,18 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchNotifications = useCallback(async () => {
-    if (!userId) return;
+    // Gate: real authenticated sessions only — demo mode must not poll
+    // (Phase 2C: this poller fired 401s every cycle in demo mode).
+    const st = useAppStore.getState();
+    if (!canPollProtected(st.userId, st.isAuthenticated)) return;
     setIsLoading(true);
     try {
       const res = await fetch(`/api/notifications?userId=${userId}`);
+      if (res.status === 401) {
+        // Controlled recovery — suspends polling until next login.
+        controlled401Recovery("notifications");
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setNotifications(data.notifications || []);
@@ -73,10 +82,18 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
     if (isOpen) fetchNotifications();
   }, [isOpen, fetchNotifications]);
 
-  // Poll for new notifications every 15s (always when authenticated)
+  // Poll for new notifications every 15s — real authenticated sessions only
+  // (demo users skip: their userId is set but the session is local-only).
   useEffect(() => {
     if (!userId) return;
-    const interval = setInterval(fetchNotifications, 15000);
+    if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return;
+    const interval = setInterval(() => {
+      if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) {
+        clearInterval(interval);
+        return;
+      }
+      fetchNotifications();
+    }, 15000);
     return () => clearInterval(interval);
   }, [userId, fetchNotifications]);
 

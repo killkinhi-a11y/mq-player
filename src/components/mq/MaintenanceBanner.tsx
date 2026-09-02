@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AlertTriangle, X, Clock } from "lucide-react";
+import { canPollProtected, controlled401Recovery } from "@/lib/authGate";
+import { useAppStore } from "@/store/useAppStore";
 
 interface MaintenanceInfo {
   maintenance: boolean;
@@ -20,8 +22,17 @@ export default function MaintenanceBanner({
   useEffect(() => {
     let cancelled = false;
     const check = async () => {
+      // Phase 2C: /api/maintenance is session-protected — poll it ONLY for
+      // real authenticated sessions. It used to 401 every 15s for anonymous
+      // and demo users on every page (the banner was already dead for them:
+      // 401 → error → renders null — only the wasted requests remained).
+      if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return;
       try {
         const res = await fetch("/api/maintenance");
+        if (res.status === 401) {
+          controlled401Recovery("maintenance");
+          return;
+        }
         if (!res.ok) {
           if (!cancelled) setError(true);
           return;

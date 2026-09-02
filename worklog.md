@@ -1322,3 +1322,71 @@ Stage Summary:
   в Queue и мобильном Full Player
 - Production: https://mq1.vercel.app — a398a0a live, проверен e2e
 - Скриншоты ДО/ПОСЛЕ: download/screens/phase2b-{before,after}/
+
+---
+
+Task ID: phase2c-reliability
+Agent: main (Super Z)
+Task: Phase 2C — PLAYBACK RELIABILITY + NETWORK CLEANUP (401 polling, demo MEDIA_ERR, retry bounds, perf)
+
+Work Log:
+- AUDIT 401: все источники polling по protected-роутам: useGlobalNotifications
+  (unread-count 30s), useFriendsListening (now-listening 30s + update-status 10s),
+  useLiveSessions (sessions 15s), useRecUpdates (rec-updates 30s), NotificationPanel
+  (15s), useListenSessionSync (5s guest/host), AppShell syncToServer (interval +
+  visibility + beforeunload), MaintenanceBanner (api/maintenance 15s — session-
+  protected!), FriendsView (friends + users/status 10s), MessengerView (friends,
+  statuses 30s, SSE reconnect 2s!, group-chats 8s, DM load), ProfileView (profile).
+- ROOT CAUSE 401-шторма: demo-логин ставит isAuthenticated:true + userId=
+  "demo-user-id" (локальная сессия БЕЗ cookie). Все pollers гейтятся только по
+  этим двум флагам → demo опрашивает protected-роуты → каждый запрос 401 →
+  hooks молча глотали и повторяли. ~650 wasted-запросов за 2.5 мин на production.
+- FIX: src/lib/authGate.ts — центральный гейт: canPollProtected(userId, isAuth)
+  (real session + не demo + не suspended), suspendPolling/controlled401Recovery
+  (single-flight probe /api/auth/me — живая сессия → resume, мёртвая → suspend
+  до следующего логина), resetPollingSuspension на login/logout (setAuth/logout).
+  Все 13 pollers переведены на гейт + 401 → controlled recovery (без retry-цикла).
+- FIX store: setAuth — demo-логин полностью локальный (нет theme/sync round-trips);
+  syncToServer/syncFeedbackToServer — гейт.
+- FIX lint-инфраструктуры: eslint.config.mjs + eslint-config-next/typescript
+  (core-web-vitals flat export не регистрирует @typescript-eslint → npm run lint
+  физически не мог запускаться). lint теперь работает: 160 pre-existing errors,
+  0 новых от Phase 2C (проверено пофайловым diff).
+- ROOT CAUSE demo MEDIA_ERR (production blip): audio.src = "" на beforeunload →
+  пустая строка резолвится против document base → элемент грузит СТРАНИЦУ (HTML)
+  как аудио → синтетический MEDIA_ERR_SRC_NOT_SUPPORTED при живом приложении →
+  onError误 принимал его за битый трек → retry path на каждой перезагрузке с
+  активным треком. FIX: removeAttribute("src") + load() (без load-попытки) в
+  useAudioEngine unload, track/[id] preview, MessageBubble VoicePlayer;
+  isTeardownMediaError() guard в onError (no currentTrack / no src+no hls /
+  src==page URL → игнор).
+- Доказательства demo-asset здоровья: curl /demo/song1-4.mp3 → 206 audio/mpeg
+  Range OK; bare <audio> в браузере → полный буфер 0-45s (rs=4, ns=1), файлы
+  валидные MPEG ADTS layer III. Локальные MEDIA_ERR при next-path — прослежены
+  до sandbox-убийства dev-сервера между tool-calls (монитор curl: 000 в момент
+  ошибок; connection refused → code 4) — артефакт окружения, не баг приложения.
+- Retry/circuit breaker: PLAYER_MAX_RETRIES=3 / PLAYER_MAX_CONSECUTIVE_FAILURES=5
+  вынесены в audioEngine.ts (экспорт для тестов); поведение проверено в браузере:
+  retry 1/3 → 2/3 → 3/3 → "Max retries reached, skipping" → circuit breaker.
+- Тесты: +23 (polling-auth-gate 9: unauth/demo/real gate, store no-op для demo,
+  401 suspend, single-flight probe, transient-resume, login resume, logout stop;
+  playback-reliability 14: teardown-artifact матрица, retry bound, circuit
+  breaker bounded walk, queue consistency next/prev/end/demo). Итого 191/191
+  зелёные (rate-limit.test.ts — pre-existing transform-фейл, нет @upstash/redis).
+- VERIFY: tsc 0; eslint 0 новых; build OK 93/93 (67s); standalone-сервер
+  (output:standalone) для локальной проверки.
+- PERF (demo idle, localhost): FCP 360ms / DCL 303ms; 60s idle → 0 запросов
+  (BEFORE ~260 за то же окно на production); hidden-tab 10s → 0 fetch; 10s idle →
+  0 DOM-мутаций на всём документе (нет лишних rerender); аудио-слоты A/B = 2.
+
+Stage Summary:
+- Сетевой шум demo/anonymous: ~4.3 req/min → 0 (гейт на всех 13 pollers + SSE
+  reconnect + store sync). 401 → один probe → стоп (до логина).
+- Demo MEDIA_ERR: root cause = src="" teardown-артефакт (исправлен + guard);
+  ассеты/сервер/MIME/Range здоровы; retry/skip ограничены по дизайну.
+- 0 изменений UI/design system (Phase 2B не тронута). SoundCloud provider,
+  Audius fallback, Wave, persistence, auth-архитектура — не изменены.
+- CHANGELOG файлов: authGate.ts (new), 12 gate-фиксов, audioEngine/useAudioEngine/
+  page/MessageBubble teardown-фиксы, eslint.config.mjs, 2 тест-файла.
+- Next: git push → Vercel deploy → production verify (/, /play, search, network
+  30-60s demo, console 0 errors).

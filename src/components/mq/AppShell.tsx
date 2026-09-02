@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState, useMemo, useCallback } from "rea
 import { AnimatePresence, motion } from "framer-motion";
 import { useAppStore, type ViewType } from "@/store/useAppStore";
 import { themes, applyThemeToDOM } from "@/lib/themes";
+import { canPollProtected } from "@/lib/authGate";
 import { useGlobalNotifications } from "@/hooks/useGlobalNotifications";
 import { useListenSessionSync } from "@/hooks/useListenSessionSync";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
@@ -124,6 +125,7 @@ export default function AppShell() {
   const reduceMotion = useAppStore((s) => s.reduceMotion);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const isAuthenticated = useAppStore((s) => s.isAuthenticated);
+  const userId = useAppStore((s) => s.userId);
   const setView = useAppStore((s) => s.setView);
   const searchQuery = useAppStore((s) => s.searchQuery);
   const setSearchQuery = useAppStore((s) => s.setSearchQuery);
@@ -393,11 +395,18 @@ export default function AppShell() {
   }, [reduceMotion]);
 
   // ── Auto-sync to server periodically + on tab close ──
+  // Phase 2C: gated via authGate — demo sessions never sync (their
+  // isAuthenticated flag is a local-only construct; every sync attempt
+  // returned 401 and the visibility handler amplified it into bursts).
   useEffect(() => {
     const store = useAppStore.getState();
-    if (!store.isAuthenticated || !store.userId) return;
+    if (!canPollProtected(store.userId, store.isAuthenticated)) return;
 
     const interval = setInterval(() => {
+      if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) {
+        clearInterval(interval);
+        return;
+      }
       const s = useAppStore.getState();
       if (s.isAuthenticated && s.userId) {
         s.syncToServer();
@@ -407,7 +416,7 @@ export default function AppShell() {
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
         const s = useAppStore.getState();
-        if (s.isAuthenticated && s.userId) {
+        if (canPollProtected(s.userId, s.isAuthenticated)) {
           s.syncToServer();
         }
       }
@@ -415,7 +424,7 @@ export default function AppShell() {
 
     const handleUnload = () => {
       const s = useAppStore.getState();
-      if (s.isAuthenticated && s.userId) {
+      if (canPollProtected(s.userId, s.isAuthenticated)) {
         const payload = {
           userId: s.userId,
           data: {
@@ -451,7 +460,9 @@ export default function AppShell() {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("beforeunload", handleUnload);
     };
-  }, [isAuthenticated]);
+    // userId in deps: demo → real login keeps isAuthenticated true but
+    // changes userId, and the sync loop must (re)start for real sessions.
+  }, [isAuthenticated, userId]);
 
   // NOTE: PlaybackEngine sync block was deleted in M3 — PlaybackEngine +
   // usePlaybackEngine were dead code (only useAudioEngine is active).

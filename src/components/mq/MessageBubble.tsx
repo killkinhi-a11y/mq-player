@@ -137,7 +137,10 @@ function VoicePlayer({
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("ended", onEnded);
       audio.pause();
-      audio.src = "";
+      // Phase 2C: src="" resolves to the page URL and fires a synthetic
+      // MEDIA_ERR_SRC_NOT_SUPPORTED — detach the resource instead.
+      audio.removeAttribute("src");
+      try { audio.load(); } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceUrl]);

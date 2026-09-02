@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
+import { canPollProtected } from "@/lib/authGate";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   User, Camera, Edit3, Check, X, LogOut, Heart, MessageCircle, Music,
@@ -284,7 +285,9 @@ const ProfileView = React.memo(function ProfileView() {
   // Fetch account creation date from server
   const [accountCreated, setAccountCreated] = useState<string | null>(null);
   useEffect(() => {
+    // Phase 2C: gated — demo profile is local-only (no 401 on view open).
     if (!userId) return;
+    if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return;
     fetch("/api/user/profile")
       .then(r => r.ok ? r.json() : null)
       .then(data => {

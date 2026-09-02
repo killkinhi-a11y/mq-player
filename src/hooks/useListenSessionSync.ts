@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { type Track } from "@/lib/musicApi";
+import { canPollProtected, controlled401Recovery } from "@/lib/authGate";
 
 /**
  * Hook that syncs a collaborative listening session via polling.
@@ -14,33 +15,33 @@ import { type Track } from "@/lib/musicApi";
  * - Reduced from 3 concurrent intervals (3s/3s/5s) to 2 intervals (5s/5s)
  * - Stops polling when no active session
  * - Pauses when document is hidden (tab switch)
+ *
+ * Phase 2C: all requests gated via authGate — demo/unauthenticated sessions
+ * make no requests (the mount-time session check used to 401 in demo mode).
  */
 export function useListenSessionSync() {
   const guestIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hostIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const isAuthenticatedRef = useRef(false);
-
-  // Track auth state
-  useEffect(() => {
-    const unsub = useAppStore.subscribe((state) => {
-      isAuthenticatedRef.current = state.isAuthenticated;
-    });
-    isAuthenticatedRef.current = useAppStore.getState().isAuthenticated;
-    return unsub;
-  }, []);
 
   // ── Guest: poll and sync from host ──
   useEffect(() => {
     const poll = async () => {
-      // Don't poll when tab is hidden or not authenticated
-      if (document.hidden || !isAuthenticatedRef.current) return;
-
+      // Don't poll when tab is hidden or not a real authenticated session
+      if (document.hidden) return;
       const state = useAppStore.getState();
+      if (!canPollProtected(state.userId, state.isAuthenticated)) return;
+
       const session = state.listenSession;
       if (!session || session.isHost) return;
 
       try {
         const res = await fetch("/api/listen-session");
+        if (res.status === 401) {
+          // Phase 2C: expired session cookie — controlled recovery stops
+          // the 5s poll loop (no 401 → retry → 401 forever).
+          controlled401Recovery("listen-session(guest)");
+          return;
+        }
         if (!res.ok) return;
         const data = await res.json();
 
@@ -125,10 +126,11 @@ export function useListenSessionSync() {
   // ── Host: POST progress/isPlaying + check session existence every 5s ──
   useEffect(() => {
     const hostTick = async () => {
-      // Don't poll when tab is hidden or not authenticated
-      if (document.hidden || !isAuthenticatedRef.current) return;
-
+      // Don't poll when tab is hidden or not a real authenticated session
+      if (document.hidden) return;
       const state = useAppStore.getState();
+      if (!canPollProtected(state.userId, state.isAuthenticated)) return;
+
       const session = state.listenSession;
       if (!session || !session.isHost) return;
       if (!state.currentTrack) return;
@@ -158,6 +160,12 @@ export function useListenSessionSync() {
         // If session was deleted (guest left), stop polling
         if (postRes.status === 404 || postRes.status === 410) {
           useAppStore.getState().clearListenSession();
+          return;
+        }
+
+        // Phase 2C: auth loss — suspend the 5s host loop (controlled).
+        if (postRes.status === 401 || getRes.status === 401) {
+          controlled401Recovery("listen-session(host)");
           return;
         }
 
@@ -201,7 +209,8 @@ export function useListenSessionSync() {
   // ── Initialize: check for existing session on mount ──
   useEffect(() => {
     const init = async () => {
-      if (!isAuthenticatedRef.current) return;
+      const st = useAppStore.getState();
+      if (!canPollProtected(st.userId, st.isAuthenticated)) return;
 
       try {
         const res = await fetch("/api/listen-session");

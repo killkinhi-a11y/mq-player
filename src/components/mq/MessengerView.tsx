@@ -7,6 +7,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
+import { canPollProtected, controlled401Recovery } from "@/lib/authGate";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageCircle, Search, Send, ArrowLeft, X, Plus, Loader2, UserPlus, Mic,
@@ -313,10 +314,17 @@ export default function MessengerView() {
 
   // ── Fetch friends (with auto-retry) ──
   const fetchFriends = useCallback(async (retryCount = 0) => {
+    // Phase 2C: gated — demo sessions use local friends, no 401 + retry.
+    if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return;
     if (!userId) return;
     setIsLoadingFriends(true);
     try {
       const res = await fetch(`/api/friends?userId=${userId}`);
+      if (res.status === 401) {
+        // Auth loss: no auto-retry (that would be the 401→retry→401 loop).
+        controlled401Recovery("messenger/friends");
+        return;
+      }
       if (!res.ok) throw new Error("bad");
       const data = await res.json();
       setFriends(Array.isArray(data.friends) ? data.friends : []);
@@ -337,9 +345,12 @@ export default function MessengerView() {
 
   // ── Fetch group chats ──
   const fetchGroupChats = useCallback(async () => {
+    // Phase 2C: gated — demo sessions have no server-side group chats.
+    if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return;
     if (!userId) return;
     try {
       const res = await fetch(`/api/group-chats?userId=${userId}`);
+      if (res.status === 401) { controlled401Recovery("group-chats"); return; }
       if (!res.ok) return;
       const data = await res.json();
       const list = Array.isArray(data.groupChats) ? data.groupChats : Array.isArray(data) ? data : [];
@@ -357,12 +368,20 @@ export default function MessengerView() {
   // ── Fetch online statuses (poll every 30s) ──
   useEffect(() => {
     if (!userId || safeFriends.length === 0) return;
+    // Phase 2C: gated — demo/unauthenticated sessions never poll.
+    const gate = () => canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated);
+    if (!gate()) return;
     let cancelled = false;
     const fetchStatuses = async () => {
+      if (!gate()) return;
       const statuses: Record<string, OnlineStatus> = {};
       await Promise.all(safeFriends.map(async (f) => {
         try {
           const res = await fetch(`/api/user/${f.id}/status`);
+          if (res.status === 401) {
+            controlled401Recovery("user/status");
+            return;
+          }
           if (res.ok) {
             const data = await res.json();
             statuses[f.id] = { online: !!data.online, lastSeen: data.lastSeen ?? null };
@@ -374,7 +393,10 @@ export default function MessengerView() {
       if (!cancelled) setOnlineStatuses(statuses);
     };
     fetchStatuses();
-    const interval = setInterval(fetchStatuses, 30000);
+    const interval = setInterval(() => {
+      if (!gate()) { clearInterval(interval); return; }
+      fetchStatuses();
+    }, 30000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [userId, safeFriends]);
 
@@ -382,6 +404,12 @@ export default function MessengerView() {
   useEffect(() => {
     if (!userId) return;
     let destroyed = false;
+
+    // Phase 2C: SSE reconnect loop gate. Demo sessions never connect; a
+    // 401-controlled suspension stops the 2s reconnect loop (the SSE
+    // endpoint is session-protected — every reconnect was another 401).
+    const gate = () => canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated);
+    if (!gate()) return;
 
     const processIncoming = (m: any) => {
       if (!m || !m.id || !m.senderId) return;
@@ -438,7 +466,10 @@ export default function MessengerView() {
         es.onerror = () => {
           try { es.close(); } catch {}
           sseRef.current = null;
-          if (!destroyed) setTimeout(connect, 2000);
+          // Reconnect only while a real authenticated session is active.
+          // The gate stays closed after a 401 until the next login —
+          // no reconnect storm, no 401 loop.
+          if (!destroyed && gate()) setTimeout(connect, 2000);
         };
       } catch {}
     };
@@ -492,10 +523,13 @@ export default function MessengerView() {
   // ── Load DM messages when contact selected ──
   useEffect(() => {
     if (!userId || !selectedContactId) return;
+    // Phase 2C: gated — demo DMs are local-only, no 401 round-trip.
+    if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) return;
     let cancelled = false;
     const load = async () => {
       try {
         const res = await fetch(`/api/messages?senderId=${userId}&receiverId=${selectedContactId}`);
+        if (res.status === 401) { controlled401Recovery("messages"); return; }
         if (!res.ok || cancelled) return;
         const data = await res.json();
         const serverMsgs: ChatMessage[] = (Array.isArray(data.messages) ? data.messages : []).map(
@@ -523,6 +557,12 @@ export default function MessengerView() {
     const load = async () => {
       try {
         const res = await fetch(`/api/group-chats/${selectedGroupId}/messages?userId=${userId}`);
+        if (res.status === 401) {
+          // Phase 2C: stop the 8s poll on auth loss (controlled recovery).
+          controlled401Recovery("group-chats/messages");
+          clearInterval(interval);
+          return;
+        }
         if (!res.ok || cancelled) return;
         const data = await res.json();
         const msgs: ChatMessage[] = (Array.isArray(data.messages) ? data.messages : []).map(
@@ -538,7 +578,14 @@ export default function MessengerView() {
       } catch {}
     };
     load();
-    const interval = setInterval(load, 8000);
+    // Phase 2C: gate the 8s group-message polling (demo/unauth skip).
+    const interval = setInterval(() => {
+      if (!canPollProtected(useAppStore.getState().userId, useAppStore.getState().isAuthenticated)) {
+        clearInterval(interval);
+        return;
+      }
+      load();
+    }, 8000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [userId, selectedGroupId]);
 

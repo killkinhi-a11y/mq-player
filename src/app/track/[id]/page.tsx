@@ -160,7 +160,10 @@ export default function ShareTrackPage() {
       audio.removeEventListener("ended", handleEnded);
       audio.removeEventListener("error", handleError);
       audio.pause();
-      audio.src = "";
+      // Phase 2C: src="" resolves to the page URL and fires a synthetic
+      // MEDIA_ERR_SRC_NOT_SUPPORTED — detach the resource instead.
+      audio.removeAttribute("src");
+      try { audio.load(); } catch {}
       audioRef.current = null;
     };
   }, [track?.streamUrl]);

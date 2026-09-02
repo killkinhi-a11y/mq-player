@@ -1,4 +1,5 @@
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
 
 // ── no-prisma-direct-in-api ─────────────────────────────────────────────────
 // Custom rule (M2): forbid `import { db } from "@/lib/db"` (or relative
@@ -96,13 +97,15 @@ const eslintConfig = [
       "scripts/**",
     ],
   },
-  // Base: eslint-config-next 16 ships a FLAT config array natively (it
-  // registers react / @typescript-eslint plugins itself). Wrapping it in
-  // FlatCompat crashed under ESLint 10; before that, plugin rules were
-  // referenced without registering the plugin at all — either way
-  // `npm run lint` could never actually run.
-  // Requires typescript-eslint >= 8.69 for ESLint 10 peer support.
+  // Base: eslint-config-next 16 ships a FLAT config array natively.
+  // NOTE (Phase 2C): `core-web-vitals` alone registers only the JS/react/
+  // next plugins — the @typescript-eslint plugin comes from the separate
+  // `eslint-config-next/typescript` export. Without it, any
+  // "@typescript-eslint/*" rule below crashed ESLint with
+  // "could not find plugin @typescript-eslint" — `npm run lint` could
+  // never actually run in this repo.
   ...nextCoreWebVitals,
+  ...nextTypescript,
   {
     files: ["**/*.{ts,tsx,js,jsx}"],
     plugins: {

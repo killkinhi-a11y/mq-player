@@ -637,6 +637,49 @@ export function resetCorsState(): void {
   _isCorsBlocked = true;
 }
 
+// ── Phase 2C: playback reliability contracts (exported for tests) ──
+
+/** Max automatic retries for a failing track before skipping to next. */
+export const PLAYER_MAX_RETRIES = 3;
+
+/**
+ * Consecutive broken-track circuit breaker threshold. When this many
+ * tracks fail in a row, auto-advance stops (systemic failure — API down
+ * or network offline — not track-specific).
+ */
+export const PLAYER_MAX_CONSECUTIVE_FAILURES = 5;
+
+/**
+ * Phase 2C: detect teardown-artifact media errors.
+ *
+ * Root cause of the historical "MEDIA_ERR blip": the page-unload path used
+ * to clear audio with `src = ""` — the empty string resolves against the
+ * document base, so the element started loading THE PAGE (HTML) as audio
+ * and fired MEDIA_ERR_SRC_NOT_SUPPORTED while the app was still alive.
+ * The onError handler mistook that synthetic event for a real track
+ * failure and ran the retry/skip path.
+ *
+ * An error event is a teardown artifact (not a real track failure) when:
+ *  - there is no current track (auth reset / teardown), or
+ *  - the element has no src attribute and no attached HLS instance, or
+ *  - the element's resolved src IS the page URL (the `src = ""` legacy bug).
+ *
+ * Pure function — exported for unit tests.
+ */
+export function isTeardownMediaError(
+  el: HTMLAudioElement | null | undefined,
+  hasCurrentTrack: boolean,
+): boolean {
+  if (!el) return true;
+  if (!hasCurrentTrack) return true;
+  const elSrcAttr = el.getAttribute("src");
+  const hasHlsInstance = !!(el as unknown as Record<string, unknown>)._hlsInstance;
+  if (!elSrcAttr && !hasHlsInstance) return true;
+  const resolved = el.currentSrc || el.src || "";
+  if (typeof window !== "undefined" && resolved && resolved === window.location.href) return true;
+  return false;
+}
+
 // ── EQ Audio Graph Management ──
 
 /** Get the pre-created EQ filter nodes (5 BiquadFilters) */

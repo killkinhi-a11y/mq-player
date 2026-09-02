@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { type Track } from "@/lib/musicApi";
+import { canPollProtected, controlled401Recovery } from "@/lib/authGate";
 
 /**
  * useLiveSessions — manages live listening sessions (group synchronized playback).
@@ -13,6 +14,10 @@ import { type Track } from "@/lib/musicApi";
  * - syncSession(id): polls session state every 2s (for guests to sync with host)
  * - updateSession(id, isPlaying, progress): host-only — updates playback state
  * - leaveSession(id): leaves/deletes session
+ *
+ * Phase 2C: the 15s session list polling is gated via authGate — demo and
+ * unauthenticated sessions never poll /api/social/sessions (used to 401
+ * forever in demo mode).
  */
 
 export interface LiveSessionInfo {
@@ -49,9 +54,15 @@ export function useLiveSessions() {
 
   // List active sessions (15s polling)
   const listSessions = useCallback(async () => {
-    if (!isAuthenticated) return;
+    // Gate: real authenticated sessions only.
+    const st = useAppStore.getState();
+    if (!canPollProtected(st.userId, st.isAuthenticated)) return;
     try {
       const res = await fetch("/api/social/sessions");
+      if (res.status === 401) {
+        controlled401Recovery("social/sessions");
+        return;
+      }
       if (!res.ok) return;
       const data = await res.json();
       setSessions(data.sessions || []);
@@ -60,10 +71,16 @@ export function useLiveSessions() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
+      setSessions([]);
+      setLoading(false);
+      return;
+    }
+    // Demo user (isAuthenticated=true, userId=demo-user-id) — no polling.
+    if (!canPollProtected(useAppStore.getState().userId, isAuthenticated)) {
       setSessions([]);
       setLoading(false);
       return;
