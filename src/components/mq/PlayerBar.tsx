@@ -5,8 +5,9 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward,
-  Repeat, Repeat1, Shuffle, Music, Heart, ListMusic, ChevronUp,
-  Loader2, ThumbsDown, Volume2, VolumeX, Volume1, Radio, Sliders, Waves,
+  Repeat, Repeat1, Shuffle, Music, Heart, ListMusic,
+  Loader2, ThumbsDown, Volume2, VolumeX, Volume1, Sliders, Waves,
+  Share2, MoreHorizontal,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
 import { formatDuration } from "@/lib/musicApi";
@@ -17,16 +18,23 @@ import { useToast } from "@/hooks/use-toast";
 import QueueView from "./QueueView";
 import { ProgressBar } from "./ProgressBar";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
-import { useMagnetic } from "@/hooks/useMagnetic";
-import { LikeBurst } from "./LikeBurst";
 
 // ═════════════════════════════════════════════════════════════════════════
-// PLAYER BAR — desktop mini player
-// Features:
-//  - Ambient cover glow + playing equalizer on cover
-//  - Progress bar with hover-preview fill + thumb + timestamp tooltip
-//  - Dislike → auto-skip
-//  - Quick access to Queue panel
+// PLAYER BAR — desktop mini player (Phase 2B redesign)
+//
+// Design goals — "music control surface, not a toolbar":
+//   NOW PLAYING  → LEFT: artwork + track identity (click → full player)
+//   PLAYBACK     → CENTER: shuffle / prev / play / next / repeat + progress
+//   SECONDARY    → RIGHT: like, wave, volume, queue, more (⋯)
+//   ADVANCED     → More menu: EQ, dislike, share — NOT on the play level
+//
+// Removed in Phase 2B (visual noise):
+//   - ambient cover glow layer inside the bar
+//   - 40px backdrop blur + inner glow shadow → 16px blur + 1 top border
+//   - floating glass pill → docked full-width surface
+//   - magnetic play button, LikeBurst heart particles
+//   - infinite pulsing dots on wave/EQ buttons → static accent state
+//   - scale hover on every button → CSS hover tint only
 // ═════════════════════════════════════════════════════════════════════════
 
 export default function PlayerBar() {
@@ -75,9 +83,29 @@ export default function PlayerBar() {
   }, []);
 
   const isMobile = useIsMobile();
-  const playMagnetic = useMagnetic({ strength: 0.5, padding: 30 });
   const [isDragging, setIsDragging] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
+
+  // ── More menu: close on outside click / Escape ──
+  useEffect(() => {
+    if (!showMoreMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
+        setShowMoreMenu(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowMoreMenu(false);
+    };
+    window.addEventListener("mousedown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [showMoreMenu]);
 
   // ── Progress bar callbacks (memoized to prevent ProgressBar's drag
   // useEffect from re-running on every render — inline arrow functions
@@ -170,17 +198,7 @@ export default function PlayerBar() {
   }, [setVolume]);
 
   // ── Actions (with haptic feedback + toast notifications) ──
-  const [likeBurst, setLikeBurst] = useState(0);
-  const [likeBurstPos, setLikeBurstPos] = useState<{ x: number; y: number } | null>(null);
-
-  useEffect(() => {
-    if (likeBurst > 0) {
-      const t = setTimeout(() => { setLikeBurst(0); setLikeBurstPos(null); }, 1500);
-      return () => clearTimeout(t);
-    }
-  }, [likeBurst]);
-
-  const handleLike = useCallback((e?: React.MouseEvent) => {
+  const handleLike = useCallback(() => {
     if (currentTrack) {
       const wasLiked = likedTrackIds.includes(currentTrack.id);
       toggleLike(currentTrack.id, currentTrack);
@@ -189,11 +207,6 @@ export default function PlayerBar() {
         title: wasLiked ? "Убрано из избранного" : "Добавлено в избранное",
         duration: 2000,
       });
-      // Trigger heart burst at click position
-      if (!wasLiked && e) {
-        setLikeBurstPos({ x: e.clientX, y: e.clientY });
-        setLikeBurst(b => b + 1);
-      }
     }
   }, [currentTrack, toggleLike, likedTrackIds, toast]);
 
@@ -207,6 +220,7 @@ export default function PlayerBar() {
         duration: 2000,
       });
     }
+    setShowMoreMenu(false);
   }, [currentTrack, toggleDislike, toast]);
 
   const handleShare = useCallback(async () => {
@@ -216,8 +230,10 @@ export default function PlayerBar() {
       try { await navigator.share({ title: currentTrack.title, url }); } catch {}
     } else if (navigator.clipboard) {
       navigator.clipboard.writeText(url);
+      toast({ title: "Ссылка скопирована", duration: 2000 });
     }
-  }, [currentTrack]);
+    setShowMoreMenu(false);
+  }, [currentTrack, toast]);
 
   const openFullPlayer = useCallback(() => {
     if (currentTrack) setFullTrackViewOpen(true);
@@ -228,6 +244,7 @@ export default function PlayerBar() {
   const isDisliked = currentTrack ? dislikedTrackIds.includes(currentTrack.id) : false;
   const isLoading = playbackState === "loading" || playbackState === "buffering";
   const VolIcon = volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
+  const anyAdvancedActive = eqEnabled || isDisliked;
 
   // ── Next track preview (Up Next) ──
   // Show preview when there is a next track in queue OR an upNext entry.
@@ -240,10 +257,7 @@ export default function PlayerBar() {
 
   // ── "Радио от трека" — start wave seeded by current track ──
   // Radio button acts as TOGGLE: first press starts wave from current
-  // track, second press stops wave entirely. Previously the button only
-  // started the wave and was a no-op when wave was already active — user
-  // had no way to turn it off from the player bar (Stop button was on
-  // Wave Card, now removed). Now toggle behavior is the single control.
+  // track, second press stops wave entirely.
   const handleStartRadio = useCallback(() => {
     if (radioMode) {
       // Wave is active → stop it
@@ -265,47 +279,30 @@ export default function PlayerBar() {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 100, opacity: 0 }}
         transition={{ type: "spring", stiffness: 350, damping: 30 }}
-        className="fixed z-[55] left-4 right-4"
-        style={{ bottom: "12px" }}
+        className="fixed z-[55] left-0 right-0 bottom-0"
       >
+        {/* Docked control surface — solid player background, one hairline
+            top border, single elevation shadow. No glass pill, no glow. */}
         <div
-          className="rounded-2xl relative"
           style={{
-            backgroundColor: "color-mix(in srgb, var(--mq-player-bg) 75%, transparent)",
-            backdropFilter: "blur(40px) saturate(200%)",
-            WebkitBackdropFilter: "blur(40px) saturate(200%)",
-            border: "1px solid var(--mq-border-thin)",
-            boxShadow: "var(--mq-shadow-float), var(--mq-shadow-inner-glow)",
+            backgroundColor: "color-mix(in srgb, var(--mq-player-bg) 92%, transparent)",
+            backdropFilter: "blur(16px) saturate(140%)",
+            WebkitBackdropFilter: "blur(16px) saturate(140%)",
+            borderTop: "1px solid var(--mq-border-thin)",
+            boxShadow: "0 -6px 24px rgba(0,0,0,0.35)",
           }}
         >
-          {/* Ambient cover glow */}
-          {currentTrack.cover && (
-            <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-2xl">
-              <img
-                src={currentTrack.cover}
-                alt=""
-                className="w-full h-full object-cover"
-                style={{ filter: "blur(40px) saturate(180%)", opacity: 0.06 }}
-              />
-            </div>
-          )}
-
-          <div className="relative flex items-center gap-4 p-3">
-            {/* ═══ LEFT: Cover + info ═══ */}
+          <div className="relative flex items-center gap-4 px-4 py-2">
+            {/* ═══ LEFT: Cover + info (NOW PLAYING) ═══ */}
             <button
               onClick={openFullPlayer}
               aria-label="Открыть полный плеер"
-              className="flex items-center gap-3 min-w-0 cursor-pointer"
+              className="flex items-center gap-3 min-w-0 cursor-pointer text-left"
               style={{ width: "calc(100% / 3 - 16px)" }}
             >
               <div
-                className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 relative transition-shadow"
-                style={{
-                  boxShadow: isPlaying
-                    ? "var(--mq-shadow-premium-sm), 0 0 20px color-mix(in srgb, var(--mq-accent) 20%, transparent)"
-                    : "var(--mq-shadow-premium-sm)",
-                  transition: "box-shadow 0.4s ease-out",
-                }}
+                className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 relative"
+                style={{ boxShadow: "var(--mq-shadow-card)" }}
               >
                 {currentTrack.cover ? (
                   <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="eager" />
@@ -318,7 +315,7 @@ export default function PlayerBar() {
                     When paused, cover art is fully visible (no overlay). */}
                 {(isPlaying || isLoading) && (
                   <div
-                    className="absolute inset-0 flex items-end justify-center pb-1.5"
+                    className="absolute inset-0 flex items-end justify-center pb-1"
                     style={{
                       backgroundColor: "var(--mq-overlay-scrim)",
                       opacity: isPlaying ? 1 : 0.5,
@@ -327,9 +324,9 @@ export default function PlayerBar() {
                   >
                     <NowPlayingEqualizer
                       size="sm"
-                    variant="overlay"
-                    paused={!isPlaying || isLoading}
-                  />
+                      variant="overlay"
+                      paused={!isPlaying || isLoading}
+                    />
                   </div>
                 )}
               </div>
@@ -337,11 +334,10 @@ export default function PlayerBar() {
                 <div className="flex items-center gap-1.5 min-w-0">
                   {/* UX Core #5 (Эффект контекста): показываем индикатор
                       "Волна" когда radio mode активен — единый контекст
-                      "откуда играет трек". Без этого пользователь не
-                      понимает что трек из волны а не из плейлиста/поиска. */}
+                      "откуда играет трек". Статичный бейдж, без анимации. */}
                   {radioMode && (
                     <span
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider flex-shrink-0"
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider flex-shrink-0"
                       style={{
                         color: "var(--mq-accent)",
                         backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
@@ -358,30 +354,26 @@ export default function PlayerBar() {
                 </div>
                 <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
               </div>
-              <ChevronUp className="w-4 h-4 flex-shrink-0 hidden sm:block" style={{ color: "var(--mq-text-muted)" }} />
             </button>
 
-            {/* ═══ CENTER: Controls + progress ═══ */}
-            <div className="flex flex-col items-center gap-1.5 flex-1 max-w-md">
-              {/* Control buttons */}
-              <div className="flex items-center gap-3 relative">
-                <button onClick={toggleShuffle} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать" aria-label="Перемешать">
+            {/* ═══ CENTER: Controls + progress (PRIMARY PLAYBACK) ═══ */}
+            <div className="flex flex-col items-center gap-1 flex-1 max-w-md">
+              {/* Control buttons — one clear hierarchy:
+                  shuffle/repeat quiet (32px), prev/next (36px), play (44px accent) */}
+              <div className="flex items-center gap-2 relative">
+                <button onClick={toggleShuffle} className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать" aria-label="Перемешать" aria-pressed={shuffle}>
                   <Shuffle className="w-3.5 h-3.5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                 </button>
 
-                <motion.button whileTap={{ scale: 0.85 }} whileHover={{ scale: 1.1 }} onClick={() => { prevTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий" aria-label="Предыдущий трек">
+                <button onClick={() => { prevTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий" aria-label="Предыдущий трек">
                   <SkipBack className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                </motion.button>
+                </button>
 
                 <motion.button
                   whileTap={{ scale: 0.92 }}
-                  whileHover={{ scale: 1.06 }}
                   onClick={() => { togglePlay(); hapticPlay(); }}
-                  ref={playMagnetic.ref as React.RefObject<HTMLButtonElement>}
-                  onMouseMove={playMagnetic.onMouseMove}
-                  onMouseLeave={playMagnetic.onMouseLeave}
                   className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
+                  style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 2px 12px color-mix(in srgb, var(--mq-accent) 25%, transparent)" }}
                   title={isPlaying ? "Пауза" : "Воспроизвести"}
                   aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                 >
@@ -405,9 +397,9 @@ export default function PlayerBar() {
                     setShowUpNext(false);
                   }}
                 >
-                  <motion.button whileTap={{ scale: 0.85 }} whileHover={{ scale: 1.1 }} onClick={() => { nextTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий" aria-label="Следующий трек">
+                  <button onClick={() => { nextTrack(); hapticSkip(); }} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий" aria-label="Следующий трек">
                     <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                  </motion.button>
+                  </button>
 
                 {/* Up Next preview — shown on hover over the SkipForward area.
                     Positioned ABOVE the player bar (player bar is at the bottom
@@ -426,9 +418,7 @@ export default function PlayerBar() {
                       <div
                         className="rounded-xl overflow-hidden flex items-center gap-2.5 p-2"
                         style={{
-                          backgroundColor: "color-mix(in srgb, var(--mq-player-bg) 92%, #000)",
-                          backdropFilter: "blur(24px) saturate(180%)",
-                          WebkitBackdropFilter: "blur(24px) saturate(180%)",
+                          backgroundColor: "var(--mq-card)",
                           border: "1px solid var(--mq-border-thin)",
                           boxShadow: "var(--mq-shadow-lg)",
                         }}
@@ -443,7 +433,7 @@ export default function PlayerBar() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>
+                          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>
                             Далее
                           </p>
                           <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>
@@ -455,7 +445,7 @@ export default function PlayerBar() {
                         </div>
                         {nextTrackPreview.duration > 0 && (
                           <span
-                            className="text-[10px] font-medium flex-shrink-0 self-center px-1.5 py-0.5 rounded-md"
+                            className="text-[11px] font-medium flex-shrink-0 self-center px-1.5 py-0.5 rounded-md"
                             style={{
                               color: "var(--mq-text-muted)",
                               backgroundColor: "color-mix(in srgb, var(--mq-text-muted) 10%, transparent)",
@@ -470,13 +460,13 @@ export default function PlayerBar() {
                 </AnimatePresence>
                 </div>
 
-                <button onClick={toggleRepeat} className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Повтор" aria-label="Повтор">
+                <button onClick={toggleRepeat} className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Повтор" aria-label="Повтор" aria-pressed={repeat !== "off"}>
                   {repeat === "one" ? <Repeat1 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                     : <Repeat className="w-3.5 h-3.5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
                 </button>
               </div>
 
-              {/* Progress bar — premium redesign.
+              {/* Progress bar — the single time-keeping surface.
                   Memoized callbacks (handleProgressSeek/DragStart/DragEnd)
                   prevent ProgressBar's drag useEffect from re-running on
                   every render — inline arrows would create new function
@@ -495,16 +485,15 @@ export default function PlayerBar() {
               />
             </div>
 
-            {/* ═══ RIGHT: Like, Dislike, Radio, Volume, Queue ═══ */}
-            <div className="flex items-center gap-1 justify-end min-w-0" style={{ width: "calc(100% / 3 - 16px)" }}>
-              {/* Like — bounce animation on tap */}
-              <motion.button
-                whileTap={{ scale: 0.7 }}
-                whileHover={{ scale: 1.1 }}
-                onClick={(e) => handleLike(e)}
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+            {/* ═══ RIGHT: Like, Wave, Volume, Queue, More (SECONDARY) ═══ */}
+            <div className="flex items-center gap-0.5 justify-end min-w-0" style={{ width: "calc(100% / 3 - 16px)" }}>
+              {/* Like */}
+              <button
+                onClick={() => handleLike()}
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)]"
                 title="Нравится"
                 aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"}
+                aria-pressed={isLiked}
               >
                 <Heart
                   className="w-4 h-4"
@@ -515,46 +504,22 @@ export default function PlayerBar() {
                   }}
                   fill={isLiked ? "currentColor" : "none"}
                 />
-              </motion.button>
+              </button>
 
-              {/* Dislike — bounce on tap */}
-              <motion.button
-                whileTap={{ scale: 0.7 }}
-                whileHover={{ scale: 1.1 }}
-                onClick={handleDislike}
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-                title="Не нравится"
-                aria-label={isDisliked ? "Убрать дизлайк" : "Не нравится"}
-              >
-                <ThumbsDown
-                  className="w-4 h-4"
-                  style={{
-                    color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)",
-                    transition: "color 0.15s",
-                  }}
-                  fill={isDisliked ? "currentColor" : "none"}
-                />
-              </motion.button>
-
-              {/* Radio toggle button — starts Wave from current track on
-                  first press, stops Wave on second press. The pulsing dot
-                  indicates wave is active; tooltip explains toggle behavior. */}
-              <motion.button
-                whileTap={{ scale: 0.8 }}
-                whileHover={wave.waveLoading ? undefined : { scale: 1.1 }}
+              {/* Wave toggle — static accent state when active (no pulse dot).
+                  Tooltip explains toggle behavior. */}
+              <button
                 onClick={handleStartRadio}
                 disabled={wave.waveLoading}
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors hover:bg-[var(--mq-overlay-hover)]"
                 style={{ backgroundColor: radioMode ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }}
                 title={radioMode ? "Выключить волну" : "Радио от этого трека"}
                 aria-label={radioMode ? "Выключить волну" : "Радио от этого трека"}
+                aria-pressed={radioMode}
               >
                 {wave.waveLoading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "var(--mq-accent)" }} />
                 ) : (
-                  /* Tip 3 (Visual rhyming from video): use Waves icon instead
-                     of Radio — repeats the wave motif from Wave Card so the
-                     whole app feels like it's from the same universe. */
                   <Waves
                     className="w-4 h-4"
                     style={{
@@ -563,21 +528,10 @@ export default function PlayerBar() {
                     }}
                   />
                 )}
-                {radioMode && !wave.waveLoading && (
-                  <motion.span
-                    className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
-                    style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 0 6px var(--mq-accent)" }}
-                    animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
-                    transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                )}
-              </motion.button>
-
-              {/* Divider */}
-              <div className="w-px h-5 mx-0.5 flex-shrink-0" style={{ backgroundColor: "var(--mq-border-thin)" }} />
+              </button>
 
               {/* Volume — compact custom slider */}
-              <div className="flex items-center gap-1.5 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0 ml-1">
                 <button onClick={handleVolMute} aria-label={volume === 0 ? "Включить звук" : "Выключить звук"} className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ border: "none", cursor: "pointer", padding: 0 }}>
                   <VolIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                 </button>
@@ -585,7 +539,7 @@ export default function PlayerBar() {
                   ref={volTrackRef}
                   onMouseDown={handleVolDown}
                   className="relative cursor-pointer rounded-full group/vol"
-                  style={{ width: 96, height: 4, backgroundColor: "var(--mq-glass-bg-hover)" }}
+                  style={{ width: 88, height: 4, backgroundColor: "var(--mq-glass-bg-hover)" }}
                 >
                   <div
                     ref={volFillRef}
@@ -605,49 +559,81 @@ export default function PlayerBar() {
                 </div>
               </div>
 
-              {/* Divider */}
-              <div className="w-px h-5 mx-0.5 flex-shrink-0" style={{ backgroundColor: "var(--mq-border-thin)" }} />
-
-              {/* Equalizer */}
-              <motion.button
-                whileTap={{ scale: 0.85 }}
-                whileHover={{ scale: 1.1 }}
-                onClick={() => setEqOpen(true)}
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors"
-                style={{ backgroundColor: eqEnabled ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }}
-                title="Эквалайзер"
-                aria-label="Эквалайзер"
-              >
-                <Sliders
-                  className="w-4 h-4"
-                  style={{
-                    color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
-                    transition: "color 150ms",
-                  }}
-                />
-                {eqEnabled && (
-                  <motion.span
-                    className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full"
-                    style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 0 6px var(--mq-accent)" }}
-                    animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
-                    transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                )}
-              </motion.button>
-
               {/* Queue */}
-              <motion.button whileTap={{ scale: 0.85 }} whileHover={{ scale: 1.1 }} onClick={() => setShowQueue(true)} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Очередь" aria-label="Очередь воспроизведения">
+              <button onClick={() => setShowQueue(true)} className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Очередь" aria-label="Очередь воспроизведения">
                 <ListMusic className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-              </motion.button>
+              </button>
+
+              {/* More — advanced controls live here, not on the play level:
+                  EQ, dislike, share. Static accent dot when something is on. */}
+              <div className="relative flex-shrink-0" ref={moreMenuRef}>
+                <button
+                  onClick={() => setShowMoreMenu(v => !v)}
+                  className="w-9 h-9 rounded-full flex items-center justify-center relative transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                  style={{ backgroundColor: showMoreMenu ? "var(--mq-overlay-hover)" : "transparent" }}
+                  title="Дополнительно"
+                  aria-label="Дополнительные действия"
+                  aria-haspopup="menu"
+                  aria-expanded={showMoreMenu}
+                >
+                  <MoreHorizontal className="w-4 h-4" style={{ color: anyAdvancedActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                  {anyAdvancedActive && (
+                    <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
+                  )}
+                </button>
+                <AnimatePresence>
+                  {showMoreMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                      transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+                      role="menu"
+                      aria-label="Дополнительные действия"
+                      className="absolute bottom-full right-0 mb-2 z-50 rounded-xl overflow-hidden min-w-[210px] py-1"
+                      style={{
+                        backgroundColor: "var(--mq-card)",
+                        border: "1px solid var(--mq-border-thin)",
+                        boxShadow: "var(--mq-shadow-lg)",
+                      }}
+                    >
+                      <button
+                        role="menuitem"
+                        onClick={() => { setEqOpen(true); setShowMoreMenu(false); }}
+                        className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm transition-colors hover:bg-[var(--mq-overlay-hover)] text-left"
+                        style={{ color: "var(--mq-text)" }}
+                      >
+                        <Sliders className="w-4 h-4 flex-shrink-0" style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                        Эквалайзер
+                        {eqEnabled && <span className="ml-auto text-[11px] font-bold" style={{ color: "var(--mq-accent)" }}>ВКЛ</span>}
+                      </button>
+                      <button
+                        role="menuitem"
+                        onClick={handleDislike}
+                        className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm transition-colors hover:bg-[var(--mq-overlay-hover)] text-left"
+                        style={{ color: "var(--mq-text)" }}
+                      >
+                        <ThumbsDown className="w-4 h-4 flex-shrink-0" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
+                        Не нравится
+                      </button>
+                      <button
+                        role="menuitem"
+                        onClick={handleShare}
+                        className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm transition-colors hover:bg-[var(--mq-overlay-hover)] text-left"
+                        style={{ color: "var(--mq-text)" }}
+                      >
+                        <Share2 className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+                        Поделиться
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </div>
           </div>
         </div>
       </motion.div>
       <QueueView isOpen={showQueue} onClose={() => setShowQueue(false)} />
-      {/* Heart particle burst on like */}
-      {likeBurst > 0 && likeBurstPos && (
-        <LikeBurst trigger={likeBurst} x={likeBurstPos.x} y={likeBurstPos.y} />
-      )}
     </>
   );
 }

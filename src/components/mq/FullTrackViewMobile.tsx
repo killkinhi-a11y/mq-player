@@ -77,6 +77,19 @@ function SyncedLyrics({ lines, onSeek }: { lines: SyncedLine[]; onSeek: (t: numb
   );
 }
 
+// ── Phase 2B: Escape key handler (a11y parity with desktop full player) ──
+function EscapeHandler({ active, onEscape }: { active: boolean; onEscape: () => void }) {
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onEscape();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active, onEscape]);
+  return null;
+}
+
 function FullTrackViewMobileInner() {
   const isOpen = useAppStore((s) => s.isFullTrackViewOpen);
   const currentTrack = useAppStore((s) => s.currentTrack);
@@ -269,13 +282,22 @@ function FullTrackViewMobileInner() {
 
   if (!isOpen || !currentTrack) return null;
 
+  // Phase 2B a11y: Escape closes the mobile full player too (matches the
+  // desktop FullTrackView behavior; helps tablet + keyboard users).
+  // Rendered as an effect via a dedicated component so hooks stay unconditional.
+
   const iconBtn: React.CSSProperties = { width: 36, height: 36, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "transparent", border: "none", cursor: "pointer", padding: 0 };
 
   return (
-    <div className="fixed inset-0 z-[100]" style={{
-      background: currentTrack.cover
-        ? `linear-gradient(180deg, color-mix(in srgb, var(--mq-accent) 12%, var(--mq-bg)) 0%, var(--mq-bg) 60%)`
-        : "var(--mq-bg)",
+    <>
+    <EscapeHandler active={isOpen} onEscape={() => setOpen(false)} />
+    <div
+      className="fixed inset-0 z-[100]"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Полноэкранный плеер: ${currentTrack.title} - ${currentTrack.artist}`}
+      style={{
+      background: "var(--mq-bg)",
       // Open animation: translateY only (GPU-composited, no layout)
       animation: "mqFtSlideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1)",
     }}>
@@ -654,6 +676,7 @@ function FullTrackViewMobileInner() {
         )}
       </div>
     </div>
+    </>
   );
 }
 

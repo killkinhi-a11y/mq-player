@@ -148,8 +148,11 @@ function ProgressBarBase({
   }, [onDragEnd]);
 
   // ── Styling based on variant ──
+  // playerbar: compact vertical padding (8px hit area) so the docked bar
+  // stays at ~72px total height (var(--mq-player-height-desktop)).
   const trackHeight = variant === "fulltrack" ? 6 : 4;
   const thumbSize = variant === "fulltrack" ? 14 : 12;
+  const hitPadding = variant === "playerbar" ? 8 : 12;
   const showThumbOnMobile = variant === "mobile" || variant === "fulltrack";
 
   const displayPct = isDragging ? progressPct : (hoveredPct ?? progressPct);
@@ -169,7 +172,7 @@ function ProgressBarBase({
         ref={trackRef}
         className="flex-1 relative cursor-pointer group"
         style={{
-          height: trackHeight + 12,
+          height: trackHeight + hitPadding,
           display: "flex",
           alignItems: "center",
           touchAction: "none",
@@ -207,18 +210,13 @@ function ProgressBarBase({
           )}
         </AnimatePresence>
 
-        {/* Progress fill — gradient with glow */}
+        {/* Progress fill — solid accent, no glow */}
         <div
           className="absolute left-0 rounded-full pointer-events-none"
           style={{
             height: isDragging ? trackHeight + 2 : trackHeight,
             width: `${progressPct}%`,
-            background: `linear-gradient(90deg,
-              color-mix(in srgb, var(--mq-accent) 70%, transparent) 0%,
-              var(--mq-accent) 100%)`,
-            boxShadow: isPlaying
-              ? `0 0 6px color-mix(in srgb, var(--mq-accent) 40%, transparent)`
-              : "none",
+            backgroundColor: "var(--mq-accent)",
             transition: isDragging ? "none" : "width 0.1s linear, height 0.15s ease",
           }}
         />

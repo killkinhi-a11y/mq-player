@@ -20,7 +20,6 @@ import ArtistDetailView from "./ArtistDetailView";
 import PlaylistArtwork from "./PlaylistArtwork";
 import ContextMenu from "./ContextMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
-import { useMagnetic } from "@/hooks/useMagnetic";
 import { useLongPress } from "@/hooks/useLongPress";
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -417,32 +416,30 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* HERO GREETING */}
+      {/* HERO GREETING — Phase 2B: compact, solid color, no gradient text.
+          The greeting is context, not decoration — Wave answers "what's playing". */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <ScrollReveal direction="up" delay={0}>
         <motion.div
           initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-6"
+          className="mb-5"
         >
           <p
-            className="mq-text-eyebrow mb-1.5 text-xs uppercase tracking-widest"
+            className="mq-text-eyebrow mb-1 text-[11px] uppercase tracking-widest"
             style={{ color: "var(--mq-text-muted)" }}
           >
             {currentDate()}
           </p>
           <h1
-            className="text-3xl sm:text-4xl lg:text-5xl"
+            className="text-2xl sm:text-3xl"
             style={{
               fontFamily: "var(--mq-font-serif)",
               fontWeight: 600,
-              letterSpacing: "-0.02em",
+              letterSpacing: "-0.01em",
               lineHeight: 1.15,
-              background: "linear-gradient(135deg, var(--mq-text) 0%, var(--mq-text) 40%, color-mix(in srgb, var(--mq-accent) 60%, var(--mq-text)) 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
+              color: "var(--mq-text)",
             }}
           >
             {greeting()}
@@ -475,43 +472,135 @@ function MainView() {
       </ScrollReveal>
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* QUICK STATS — 2x2 on mobile, 4 on desktop */}
+      {/* QUICK LINKS — Phase 2B: quiet text row, not 4 colored stat cards.
+          Content-first navigation: icon + label + count. No competing accents,
+          no card containers — the Wave card stays the visual anchor. */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <ScrollReveal direction="up" delay={0.05}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mb-8">
-          <QuickStat
+        <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-8">
+          <QuickLink
             icon={Heart}
             label="Избранное"
             value={likedTrackIds.length}
             onClick={() => setView("favorites")}
-            accent="#ef4444"
-            cover={likedTracksData[0]?.cover}
           />
-          <QuickStat
+          <QuickLink
             icon={Clock}
             label="История"
             value={history.length}
             onClick={() => setView("history")}
-            accent="var(--mq-accent)"
-            cover={history[0]?.track?.cover}
           />
-          <QuickStat
+          <QuickLink
             icon={ListMusic}
             label="Плейлисты"
             value={playlists.length}
             onClick={() => setView("playlists")}
-            accent="#8b5cf6"
-            cover={playlists[0]?.tracks?.[0]?.cover}
           />
-          <QuickStat
+          <QuickLink
             icon={MessageCircle}
             label="Чаты"
             value={contacts.length}
             onClick={() => setView("messenger")}
-            accent="#06b6d4"
           />
         </div>
       </ScrollReveal>
+
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* RECOMMENDATIONS — clean card-strip layout (rewritten from scratch) */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {recCategories.length > 0 && (
+        <Section title="Для вас" icon={Sparkles}>
+          {/* Featured hero track — picks the playing track if it's in recs,
+              otherwise the first track of the first category. */}
+          {(() => {
+            const heroTrack =
+              (currentTrack && allRecTracks.some((t) => t.id === currentTrack.id)
+                ? currentTrack
+                : null) || recCategories[0]?.tracks[0] || null;
+            if (!heroTrack) return null;
+            const heroCategory = recCategories.find((c) =>
+              c.tracks.some((t) => t.id === heroTrack.id)
+            );
+            const heroReason = heroCategory ? reasonForRec(heroCategory.id) : "Подобрано для вас";
+            return (
+              <RecHero
+                track={heroTrack}
+                reason={heroReason}
+                isCurrent={currentTrack?.id === heroTrack.id}
+                isPlaying={isPlaying && currentTrack?.id === heroTrack.id}
+                onPlay={() => handlePlayRec(heroTrack)}
+                onArtistClick={() => handleNavigateToArtist(heroTrack.artist)}
+                animationsEnabled={animationsEnabled}
+              />
+            );
+          })()}
+
+          {/* Each category = a horizontal scroll strip of track cards */}
+          <div className="space-y-6 mt-5">
+            {recCategories.map((cat) => (
+              <RecStrip
+                key={cat.id}
+                title={cat.title}
+                icon={iconForRec(cat.id)}
+                tracks={cat.tracks}
+                reason={reasonForRec(cat.id)}
+                currentTrack={currentTrack}
+                isPlaying={isPlaying}
+                onPlay={handlePlayRec}
+                onArtistClick={handleNavigateToArtist}
+                animationsEnabled={animationsEnabled}
+              />
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* Recommendations loading skeleton (initial load only) */}
+      {recLoading && recCategories.length === 0 && (
+        <Section title="Для вас" icon={Sparkles}>
+          <RecsSkeleton />
+        </Section>
+      )}
+
+      {/* Recommendations empty state (initial load finished, no categories) */}
+      {!recLoading && recCategories.length === 0 && (
+        <Section title="Для вас" icon={Sparkles}>
+          <RecsEmptyState onRetry={handleRetryRecs} errorType={recError} />
+        </Section>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* RECENTLY PLAYED */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {recentTracks.length > 0 && (
+        <Section
+          title="Недавно"
+          icon={Clock}
+          action={
+            <button onClick={() => setView("history")} className="text-xs font-semibold" style={{ color: "var(--mq-accent)" }}>
+              Все
+            </button>
+          }
+        >
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
+            {recentTracks.slice(0, 5).map((track, i) => (
+              <TrackCard
+                key={track.id + "_" + i}
+                track={track}
+                index={i}
+                isCurrent={currentTrack?.id === track.id}
+                isPlaying={isPlaying && currentTrack?.id === track.id}
+                onPlay={() => {
+                  if (currentTrack?.id === track.id) { togglePlay(); return; }
+                  playTrack(track, recentTracks);
+                }}
+                onArtistClick={() => handleNavigateToArtist(track.artist)}
+                animationsEnabled={animationsEnabled}
+              />
+            ))}
+          </div>
+        </Section>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* PLAYLISTS — user's playlists grid */}
@@ -673,103 +762,6 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* RECOMMENDATIONS — clean card-strip layout (rewritten from scratch) */}
-      {/* ════════════════════════════════════════════════════════════════ */}
-      {recCategories.length > 0 && (
-        <Section title="Для вас" icon={Sparkles}>
-          {/* Featured hero track — picks the playing track if it's in recs,
-              otherwise the first track of the first category. */}
-          {(() => {
-            const heroTrack =
-              (currentTrack && allRecTracks.some((t) => t.id === currentTrack.id)
-                ? currentTrack
-                : null) || recCategories[0]?.tracks[0] || null;
-            if (!heroTrack) return null;
-            const heroCategory = recCategories.find((c) =>
-              c.tracks.some((t) => t.id === heroTrack.id)
-            );
-            const heroReason = heroCategory ? reasonForRec(heroCategory.id) : "Подобрано для вас";
-            return (
-              <RecHero
-                track={heroTrack}
-                reason={heroReason}
-                isCurrent={currentTrack?.id === heroTrack.id}
-                isPlaying={isPlaying && currentTrack?.id === heroTrack.id}
-                onPlay={() => handlePlayRec(heroTrack)}
-                onArtistClick={() => handleNavigateToArtist(heroTrack.artist)}
-                animationsEnabled={animationsEnabled}
-              />
-            );
-          })()}
-
-          {/* Each category = a horizontal scroll strip of track cards */}
-          <div className="space-y-6 mt-5">
-            {recCategories.map((cat) => (
-              <RecStrip
-                key={cat.id}
-                title={cat.title}
-                icon={iconForRec(cat.id)}
-                tracks={cat.tracks}
-                reason={reasonForRec(cat.id)}
-                currentTrack={currentTrack}
-                isPlaying={isPlaying}
-                onPlay={handlePlayRec}
-                onArtistClick={handleNavigateToArtist}
-                animationsEnabled={animationsEnabled}
-              />
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {/* Recommendations loading skeleton (initial load only) */}
-      {recLoading && recCategories.length === 0 && (
-        <Section title="Для вас" icon={Sparkles}>
-          <RecsSkeleton />
-        </Section>
-      )}
-
-      {/* Recommendations empty state (initial load finished, no categories) */}
-      {!recLoading && recCategories.length === 0 && (
-        <Section title="Для вас" icon={Sparkles}>
-          <RecsEmptyState onRetry={handleRetryRecs} errorType={recError} />
-        </Section>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════ */}
-      {/* RECENTLY PLAYED */}
-      {/* ════════════════════════════════════════════════════════════════ */}
-      {recentTracks.length > 0 && (
-        <Section
-          title="Недавно"
-          icon={Clock}
-          action={
-            <button onClick={() => setView("history")} className="text-xs font-semibold" style={{ color: "var(--mq-accent)" }}>
-              Все
-            </button>
-          }
-        >
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
-            {recentTracks.slice(0, 5).map((track, i) => (
-              <TrackCard
-                key={track.id + "_" + i}
-                track={track}
-                index={i}
-                isCurrent={currentTrack?.id === track.id}
-                isPlaying={isPlaying && currentTrack?.id === track.id}
-                onPlay={() => {
-                  if (currentTrack?.id === track.id) { togglePlay(); return; }
-                  playTrack(track, recentTracks);
-                }}
-                onArtistClick={() => handleNavigateToArtist(track.artist)}
-                animationsEnabled={animationsEnabled}
-              />
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════ */}
       {/* FAVORITE ARTISTS */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {favoriteArtists.length > 0 && (
@@ -832,18 +824,12 @@ function Section({
   return (
     <ScrollReveal direction="up" delay={0.05}>
       <section className="mb-7 sm:mb-8">
+        {/* Phase 2B: plain section header — inline icon + title, no tinted
+            icon-box. Sections are differentiated by content, not chrome. */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center"
-              style={{
-                backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
-                boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--mq-accent) 18%, transparent)",
-              }}
-            >
-              <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={{ color: "var(--mq-accent)" }} />
-            </div>
-            <h2 className="mq-text-headline text-base sm:text-lg lg:text-xl" style={{ color: "var(--mq-text)" }}>
+          <div className="flex items-center gap-2 min-w-0">
+            {Icon && <Icon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />}
+            <h2 className="mq-text-headline text-base sm:text-lg lg:text-xl truncate" style={{ color: "var(--mq-text)" }}>
               {title}
             </h2>
           </div>
@@ -856,71 +842,40 @@ function Section({
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// QUICK STAT
+// QUICK LINK — Phase 2B: quiet navigation link (icon + label + count).
+// Replaces QuickStat: no per-category colors, no gradient cards, no accent
+// dots, no hover glow. One muted surface for all four — the Wave card stays
+// the single visual anchor of the first viewport.
 // ═════════════════════════════════════════════════════════════════════════
 
-function QuickStat({
+function QuickLink({
   icon: Icon,
   label,
   value,
   onClick,
-  accent,
-  cover,
 }: {
   icon: React.ElementType;
   label: string;
   value: number;
   onClick: () => void;
-  accent: string;
-  cover?: string;
 }) {
-  // UX Core #1 (Эффект Ресторфф): Quick Stats приглушены чтобы Wave Card
-  // визуально доминировала как единственный главный CTA на экране.
-  // UX Core #14 (Эффект превосходства картинки): мини-обложка слева
-  // запоминается лучше чем иконка + число.
   return (
-    <motion.button
-      whileTap={{ scale: 0.97 }}
-      whileHover={{ y: -3, boxShadow: `0 8px 24px color-mix(in srgb, ${accent} 15%, transparent)` }}
+    <button
       onClick={onClick}
-      className="rounded-xl p-2.5 sm:p-3 flex items-center gap-2.5 cursor-pointer transition-all"
-      style={{
-        background: `linear-gradient(135deg, color-mix(in srgb, ${accent} 8%, var(--mq-card)) 0%, var(--mq-card) 100%)`,
-        border: "1px solid color-mix(in srgb, ${accent} 20%, var(--mq-border-hairline))",
-      }}
+      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors hover:bg-[var(--mq-overlay-hover)] text-left min-w-0"
+      aria-label={`${label}: ${value}`}
     >
-      <div
-        className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg overflow-hidden flex-shrink-0 relative"
-        style={{
-          backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`,
-        }}
-      >
-        {cover ? (
-          <img src={cover} alt="" className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Icon className="w-4 h-4 sm:w-5 h-5" style={{ color: accent }} />
-          </div>
-        )}
-        {/* Accent dot — subtle indicator of category color */}
-        <span
-          className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full"
-          style={{ backgroundColor: accent, boxShadow: `0 0 4px ${accent}` }}
-        />
-      </div>
-      <div className="min-w-0">
+      <Icon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+      <p className="min-w-0 text-[13px] sm:text-sm leading-none truncate">
         {/* Empty-library state: a bare "0" reads like a broken counter to
-            first-time users (VLM audit). An em-dash + reduced opacity reads
-            as "nothing here yet" while keeping the chip useful navigation. */}
-        <p
-          className="text-sm sm:text-base font-bold leading-none"
-          style={{ color: "var(--mq-text)", opacity: value > 0 ? 1 : 0.5 }}
-        >
+            first-time users. An em-dash + reduced opacity reads as "nothing
+            here yet" while keeping the link useful navigation. */}
+        <span className="font-semibold" style={{ color: "var(--mq-text)", opacity: value > 0 ? 1 : 0.45 }}>
           {value > 0 ? value : "—"}
-        </p>
-        <p className="text-[11px] mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>{label}</p>
-      </div>
-    </motion.button>
+        </span>{" "}
+        <span style={{ color: "var(--mq-text-muted)" }}>{label}</span>
+      </p>
+    </button>
   );
 }
 
@@ -950,17 +905,16 @@ function TrackCard({
       initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.3), duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -4 }}
-      whileTap={{ scale: 0.97 }}
+      whileTap={{ scale: 0.98 }}
       onClick={onPlay}
       className="text-left cursor-pointer group w-full"
     >
       <div
-        className="relative aspect-square rounded-2xl overflow-hidden mb-2"
+        className="relative aspect-square rounded-xl overflow-hidden mb-2"
         style={{
           boxShadow: isCurrent
-            ? "0 0 0 2px var(--mq-accent), 0 8px 24px color-mix(in srgb, var(--mq-accent) 30%, transparent)"
-            : "var(--mq-shadow-premium-md)",
+            ? "0 0 0 2px var(--mq-accent)"
+            : "var(--mq-shadow-premium-sm)",
           transition: "box-shadow 0.3s var(--mq-ease-premium)",
         }}
       >
@@ -968,7 +922,7 @@ function TrackCard({
           <img
             src={track.cover}
             alt=""
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+            className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-300"
             loading="lazy"
           />
         ) : (
@@ -980,13 +934,12 @@ function TrackCard({
           </div>
         )}
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300" />
-        {/* Play button */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200" />
+        {/* Play button — flat accent circle, no drop-shadow */}
         <div
-          className="absolute bottom-2 right-2 w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:scale-90 sm:group-hover:scale-100 sm:translate-y-2 sm:group-hover:translate-y-0"
+          className="absolute bottom-2 right-2 w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 sm:scale-90 sm:group-hover:scale-100 sm:translate-y-2 sm:group-hover:translate-y-0"
           style={{
             backgroundColor: "var(--mq-accent)",
-            boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
           }}
         >
           {isCurrent && isPlaying ? (
@@ -995,14 +948,13 @@ function TrackCard({
             <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
           )}
         </div>
-        {/* Current badge */}
+        {/* Current badge — flat, readable */}
         {isCurrent && (
           <div
-            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold backdrop-blur-md flex items-center gap-1"
+            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1"
             style={{
-              backgroundColor: "rgba(0,0,0,0.6)",
+              backgroundColor: "rgba(0,0,0,0.65)",
               color: "var(--mq-accent)",
-              border: "1px solid var(--mq-border-accent)",
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
@@ -1149,42 +1101,22 @@ function RecHero({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       onClick={onPlay}
-      className="relative rounded-3xl overflow-hidden mb-1 cursor-pointer group"
-      style={{ boxShadow: "var(--mq-shadow-float)" }}
+      className="relative rounded-2xl overflow-hidden mb-1 cursor-pointer group"
+      style={{
+        backgroundColor: "var(--mq-card)",
+        border: "1px solid var(--mq-border-hairline)",
+        boxShadow: "var(--mq-shadow-premium-md)",
+      }}
     >
-      {/* Blurred cover background */}
-      {track.cover ? (
-        <div className="absolute inset-0">
-          <img
-            src={track.cover}
-            alt=""
-            className="w-full h-full object-cover"
-            style={{ filter: "blur(48px) saturate(180%)", transform: "scale(1.4)" }}
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(135deg, color-mix(in srgb, var(--mq-bg) 55%, transparent), color-mix(in srgb, var(--mq-bg) 35%, transparent))",
-            }}
-          />
-        </div>
-      ) : (
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 30%, var(--mq-bg)), var(--mq-bg))",
-          }}
-        />
-      )}
+      {/* Phase 2B: solid card replaces the blur(48px) cover backdrop —
+          the cover itself carries the color, the card stays calm. */}
 
       {/* Content */}
       <div className="relative z-10 p-3 sm:p-5 flex items-center gap-3 sm:gap-5">
         {/* Cover */}
         <div
-          className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-2xl overflow-hidden flex-shrink-0"
-          style={{ boxShadow: "var(--mq-shadow-elevated)" }}
+          className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-xl overflow-hidden flex-shrink-0"
+          style={{ boxShadow: "var(--mq-shadow-card)" }}
         >
           {track.cover ? (
             <img src={track.cover} alt="" className="w-full h-full object-cover" />
@@ -1213,13 +1145,7 @@ function RecHero({
         {/* Meta */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 mb-1.5">
-            <motion.span
-              animate={{ opacity: [0.6, 1, 0.6], scale: [0.95, 1, 0.95] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-              className="inline-flex"
-            >
-              <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-            </motion.span>
+            <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
             <span
               className="text-[11px] font-bold uppercase tracking-widest"
               style={{ color: "var(--mq-accent)" }}
@@ -1242,34 +1168,21 @@ function RecHero({
             {track.artist}
           </button>
           {reason && (
-            <div
-              className="hidden sm:inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full"
-              style={{
-                backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
-                border: "1px solid color-mix(in srgb, var(--mq-accent) 24%, transparent)",
-              }}
-            >
-              <span
-                className="text-[11px] font-medium"
-                style={{ color: "var(--mq-accent)" }}
-              >
-                {reason}
-              </span>
-            </div>
+            <p className="hidden sm:block text-[11px] mt-2.5" style={{ color: "var(--mq-text-muted)" }}>
+              {reason}
+            </p>
           )}
         </div>
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
-          <motion.button
-            whileTap={{ scale: 0.93 }}
-            whileHover={{ scale: 1.05 }}
+          <button
             onClick={(e) => { e.stopPropagation(); onPlay(); }}
             className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center"
             style={{
               backgroundColor: "var(--mq-accent)",
-              color: "#fff",
-              boxShadow: "var(--mq-shadow-accent)",
+              color: "var(--mq-text-on-accent, #fff)",
+              boxShadow: "var(--mq-shadow-button)",
             }}
             aria-label={isCurrent && isPlaying ? "Пауза" : "Слушать"}
           >
@@ -1278,10 +1191,8 @@ function RecHero({
             ) : (
               <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5" fill="currentColor" />
             )}
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.93 }}
-            whileHover={{ scale: 1.05 }}
+          </button>
+          <button
             onClick={(e) => { e.stopPropagation(); toggleLike(track.id, track); }}
             className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center"
             style={{
@@ -1292,7 +1203,7 @@ function RecHero({
             aria-label={liked ? "Убрать из избранного" : "В избранное"}
           >
             <Heart className="w-4 h-4 sm:w-5 sm:h-5" fill={liked ? "currentColor" : "none"} />
-          </motion.button>
+          </button>
         </div>
       </div>
     </motion.div>
@@ -1721,17 +1632,9 @@ function WaveCard({
   isLiked: boolean;
   topGenres: string[];
 }) {
-  const waveMagnetic = useMagnetic({ strength: 1, padding: 60 });
   return (
     <div
-      className={isMobile ? "relative mb-8 rounded-3xl overflow-hidden" : "mq-hero-card relative mb-8"}
-      ref={waveMagnetic.ref as React.RefObject<HTMLDivElement>}
-      // react-hooks/refs false positive: useMagnetic handlers only read the
-      // ref inside event callbacks — never during render.
-      // eslint-disable-next-line react-hooks/refs
-      onMouseMove={waveMagnetic.onMouseMove}
-      // eslint-disable-next-line react-hooks/refs
-      onMouseLeave={waveMagnetic.onMouseLeave}
+      className={isMobile ? "relative mb-8 rounded-2xl overflow-hidden" : "mq-hero-card relative mb-8"}
       style={{
         background: isMobile
           ? (currentTrack?.cover
@@ -1739,84 +1642,25 @@ function WaveCard({
             : getWaveGradient())
           : getWaveGradient(),
         minHeight: isMobile ? 140 : 160,
-        boxShadow: "var(--mq-shadow-float)",
-        willChange: "transform",
+        boxShadow: "var(--mq-shadow-premium-lg)",
       }}
     >
-      {/* Tip 4 (Depth & texture from video): subtle noise overlay on the
-          star element. Pure CSS via SVG turbulence filter — no image asset,
-          no extra request. 4% opacity keeps it from competing with content. */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          opacity: 0.04,
-          mixBlendMode: "overlay",
-          backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>\")",
-          backgroundSize: "120px 120px",
-        }}
-      />
       {/* Blurred album art background (mobile only) */}
       {isMobile && currentTrack?.cover && (
         <div className="absolute inset-0 pointer-events-none">
-          <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" style={{ filter: "blur(60px) saturate(180%)", opacity: 0.3, transform: "scale(1.3)" }} />
+          <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" style={{ filter: "blur(32px) saturate(140%)", opacity: 0.22, transform: "scale(1.2)" }} />
           <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-bg) 70%, transparent), color-mix(in srgb, var(--mq-bg) 50%, transparent))" }} />
         </div>
       )}
 
-      {/* Glass overlay (mobile only) */}
-      {isMobile && (
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "color-mix(in srgb, var(--mq-bg) 40%, transparent)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }} />
-      )}
-
-      {/* Pulsing glow animation */}
-      <motion.div
-        className="absolute inset-0 rounded-[inherit] pointer-events-none"
-        style={{ boxShadow: `0 0 ${isMobile ? 80 : 60}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 15 : 18}%, transparent)` }}
-        animate={{ opacity: isMobile ? [0.3, 0.6, 0.3] : [0.4, 0.8, 0.4] }}
-        transition={{ duration: isMobile ? 5 : 4, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      {/* Animated multi-layer wave background when playing */}
+      {/* Static wave silhouette when wave mode is active — a state
+          indicator, not a motion decoration (Phase 2B). */}
       {radioMode && currentTrack && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {/* Back wave — slowest, dimmest */}
-          <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: isMobile ? 60 : 80, opacity: isMobile ? 0.08 : 0.10 }}>
-            <motion.path
-              d="M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z"
-              fill="white"
-              animate={{ d: [
-                "M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z",
-                "M0,55 C150,70 300,25 450,50 C600,70 750,25 900,55 C1050,70 1200,25 1200,50 L1200,80 L0,80 Z",
-                "M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z",
-              ] }}
-              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </svg>
-          {/* Mid wave — medium speed, medium opacity */}
-          <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: isMobile ? 40 : 55, opacity: isMobile ? 0.10 : 0.14 }}>
-            <motion.path
+          <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: isMobile ? 40 : 56, opacity: 0.12 }}>
+            <path
               d="M0,50 C200,25 400,65 600,40 C800,15 1000,65 1200,40 L1200,80 L0,80 Z"
               fill="white"
-              animate={{ d: [
-                "M0,50 C200,25 400,65 600,40 C800,15 1000,65 1200,40 L1200,80 L0,80 Z",
-                "M0,30 C200,55 400,15 600,45 C800,65 1000,20 1200,50 L1200,80 L0,80 Z",
-                "M0,50 C200,25 400,65 600,40 C800,15 1000,65 1200,40 L1200,80 L0,80 Z",
-              ] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </svg>
-          {/* Front wave — fastest, most opaque */}
-          <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: isMobile ? 22 : 32, opacity: isMobile ? 0.14 : 0.18 }}>
-            <motion.path
-              d="M0,60 C150,40 300,70 450,55 C600,40 750,70 900,55 C1050,40 1200,65 1200,55 L1200,80 L0,80 Z"
-              fill="white"
-              animate={{ d: [
-                "M0,60 C150,40 300,70 450,55 C600,40 750,70 900,55 C1050,40 1200,65 1200,55 L1200,80 L0,80 Z",
-                "M0,45 C150,65 300,30 450,50 C600,65 750,30 900,50 C1050,65 1200,30 1200,50 L1200,80 L0,80 Z",
-                "M0,60 C150,40 300,70 450,55 C600,40 750,70 900,55 C1050,40 1200,65 1200,55 L1200,80 L0,80 Z",
-              ] }}
-              transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
             />
           </svg>
         </div>
@@ -1917,20 +1761,11 @@ function WaveCard({
                       transition={isPlaying ? { duration: 0.5 + i * 0.08, repeat: Infinity, ease: "easeInOut", delay: i * 0.06 } : { duration: 0.2 }} />
                   ))}
                 </div>
-                <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
+                <motion.button whileTap={{ scale: 0.94 }}
                   onClick={onPauseWave}
                   className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 relative"
-                  style={{ background: "var(--mq-text-on-accent, #fff)", color: "var(--mq-bg)", boxShadow: "var(--mq-shadow-card-hover)" }}>
+                  style={{ background: "var(--mq-text-on-accent, #fff)", color: "var(--mq-bg)", boxShadow: "var(--mq-shadow-card)" }}>
                   {isPlaying ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6 ml-0.5" fill="currentColor" />}
-                  {/* Animated expanding ring when playing */}
-                  {isPlaying && (
-                    <motion.span
-                      className="absolute inset-0 rounded-full pointer-events-none"
-                      style={{ border: "2px solid var(--mq-text-on-accent, #fff)" }}
-                      animate={{ scale: [1, 1.4], opacity: [0.6, 0] }}
-                      transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }}
-                    />
-                  )}
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
                   onClick={onSkip}

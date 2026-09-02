@@ -137,7 +137,11 @@ export default function PlaylistArtwork({ playlistId, size, rounded = "rounded-2
         background: vis.bg,
       }}
     >
-      {/* CSS keyframes */}
+      {/* CSS keyframes — only emitted when animation is requested.
+          Phase 2B: a permanently-rendered <style> inside the artwork leaked
+          "@keyframes mq-orb-float { …" into the accessible name of every
+          parent playlist card button (screen readers read CSS text). */}
+      {animated && (
       <style>{`
         @keyframes mq-orb-float {
           0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.85; }
@@ -158,6 +162,7 @@ export default function PlaylistArtwork({ playlistId, size, rounded = "rounded-2
           0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.85; }
         }
       `}</style>
+      )}
 
       {vis.orbs.map((orb, i) => {
         const anim = ORB_ANIMATIONS[i % ORB_ANIMATIONS.length];

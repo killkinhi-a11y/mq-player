@@ -380,7 +380,7 @@ export default function SearchView() {
       {uploadProgress && (
         <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
           className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[90vw] max-w-md">
-          <div className="rounded-2xl p-4 shadow-2xl" style={{ backgroundColor: "rgba(24,24,27,0.97)", backdropFilter: "blur(24px)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}>
+          <div className="rounded-2xl p-4 shadow-2xl" style={{ backgroundColor: "rgba(24,24,27,0.97)", backdropFilter: "blur(12px)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}>
             <div className="flex items-center gap-3 mb-2">
               {uploadProgress.status === "uploading" && <Loader2 className="w-5 h-5 flex-shrink-0 animate-spin" style={{ color: "var(--mq-accent)" }} />}
               {uploadProgress.status === "done" && <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: "#4ade80" }} />}
@@ -628,7 +628,7 @@ export default function SearchView() {
                     backgroundColor: !selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
                     color: !selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
                     border: !selectedGenre ? "1.5px solid var(--mq-border-accent-strong)" : "1px solid var(--mq-border-thin)",
-                    boxShadow: !selectedGenre ? "0 4px 16px color-mix(in srgb, var(--mq-accent) 20%, transparent)" : "none",
+                    boxShadow: !selectedGenre ? "0 1px 4px color-mix(in srgb, var(--mq-accent) 18%, transparent)" : "none",
                   }}
                 >
                   <ListMusic className="w-3.5 h-3.5" />

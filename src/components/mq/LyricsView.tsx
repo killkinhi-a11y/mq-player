@@ -156,18 +156,15 @@ function SyncedLyrics({ lines, currentTime, onSeek }: {
               fontWeight: isEffectivelyActive ? 700 : 400,
               fontSize: isEffectivelyActive ? "1.1rem" : "0.95rem",
               background: isEffectivelyActive
-                ? "linear-gradient(90deg, color-mix(in srgb, var(--mq-accent) 15%, transparent), color-mix(in srgb, var(--mq-accent) 5%, transparent))"
+                ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)"
                 : "transparent",
-              boxShadow: isEffectivelyActive
-                ? "0 0 24px color-mix(in srgb, var(--mq-accent) 20%, transparent)"
-                : "none",
               borderLeft: isEffectivelyActive ? "3px solid var(--mq-accent)" : "3px solid transparent",
             }}
           >
-            {/* Active line gets a glow text shadow */}
+            {/* Phase 2B: active line emphasis = weight + size + accent bar.
+                Removed glow shadow + text glow — emphasis through hierarchy. */}
             <span style={{
-              textShadow: isEffectivelyActive ? "0 0 12px color-mix(in srgb, var(--mq-accent) 40%, transparent)" : "none",
-              transition: "text-shadow 0.3s ease",
+              transition: "color 0.3s ease",
             }}>
               {line.text || "♪"}
             </span>

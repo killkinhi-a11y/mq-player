@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { formatDuration, type Track } from "@/lib/musicApi";
@@ -40,6 +40,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 interface QueueViewProps {
   isOpen: boolean;
@@ -60,6 +61,24 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const history = useAppStore((s) => s.history);
   const likedTrackIds = useAppStore((s) => s.likedTrackIds);
+
+  // ── Phase 2B a11y: proper dialog semantics + Escape close + focus trap ──
+  // Previously the queue could only be closed via backdrop click / X —
+  // Escape did nothing and focus was neither trapped nor restored.
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(panelRef, isOpen);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
 
   // ── Context menu state ──
   const [contextMenu, setContextMenu] = useState<{ track: Track; x: number; y: number; show: boolean }>({
@@ -187,9 +206,15 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
             onClick={onClose}
           />
 
-          {/* Panel — smoother animation */}
+          {/* Panel — smoother animation.
+              Phase 2B: role=dialog + aria-modal so screen readers announce
+              the queue and trap focus; Escape closes (see effect above). */}
           <motion.div
             key="queue-panel"
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Очередь воспроизведения"
             initial={animationsEnabled ? { y: "100%" } : undefined}
             animate={{ y: 0 }}
             exit={animationsEnabled ? { y: "100%" } : undefined}
@@ -259,7 +284,8 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                 )}
                 <button
                   onClick={onClose}
-                  className="p-2 rounded-full transition-colors"
+                  aria-label="Закрыть очередь"
+                  className="p-2 rounded-full transition-colors hover:bg-[var(--mq-overlay-hover)]"
                   style={{
                     color: "var(--mq-text-muted)",
                   }}

@@ -99,8 +99,8 @@ function MobileDockInner() {
       `}</style>
       <div style={{
         background: "color-mix(in srgb, var(--mq-bg) 92%, transparent)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
         borderTop: "1px solid var(--mq-border-hairline)",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}>
@@ -124,7 +124,7 @@ function MobileDockInner() {
                 <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)", lineHeight: "1.2", marginTop: "1px" }}>{currentTrack!.artist}</p>
               </div>
             </button>
-            <button onClick={onLike} aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: isLiked ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "var(--mq-glass-bg)", border: "none", cursor: "pointer", padding: 0 }}>
+            <button onClick={onLike} aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: isLiked ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "transparent", border: "none", cursor: "pointer", padding: 0 }}>
               <Heart className="w-[18px] h-[18px]" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
             </button>
             <button onClick={onPlay} aria-label={isPlaying ? "Пауза" : "Воспроизвести"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"

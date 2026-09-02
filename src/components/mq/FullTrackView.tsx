@@ -113,43 +113,8 @@ function SyncedLyrics({
   );
 }
 
-// ── Heart particle burst on like ─────────────────────────────────────────
-function HeartBurst({ trigger }: { trigger: number }) {
-  const [particles, setParticles] = useState<{ id: number; x: number; y: number; r: number; delay: number }[]>([]);
-  useEffect(() => {
-    if (trigger === 0) return;
-    const count = 8;
-    const newParts = Array.from({ length: count }, (_, i) => ({
-      id: trigger * 100 + i,
-      x: (Math.random() - 0.5) * 80,
-      y: -30 - Math.random() * 60,
-      r: (Math.random() - 0.5) * 60,
-      delay: Math.random() * 0.1,
-    }));
-    setParticles(newParts);
-    const t = setTimeout(() => setParticles([]), 1000);
-    return () => clearTimeout(t);
-  }, [trigger]);
-
-  return (
-    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-      <AnimatePresence>
-        {particles.map(p => (
-          <motion.div
-            key={p.id}
-            initial={{ opacity: 0, x: 0, y: 0, scale: 0 }}
-            animate={{ opacity: [0, 1, 0], x: p.x, y: p.y, scale: [0, 1, 0.4], rotate: p.r }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, delay: p.delay, ease: "easeOut" }}
-            className="absolute"
-          >
-            <Heart className="w-4 h-4" style={{ color: "var(--mq-accent)", fill: "var(--mq-accent)" }} />
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-}
+// ── Heart particle burst on like ── REMOVED in Phase 2B (decorative).
+// Toast + heart state change is sufficient feedback for a like action.
 
 // ═════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -219,9 +184,6 @@ export default function FullTrackView() {
   const [lastTapTime, setLastTapTime] = useState(0);
   const [lastTapSide, setLastTapSide] = useState<"left" | "right" | null>(null);
   const [seekFeedback, setSeekFeedback] = useState<{ side: "left" | "right"; amount: number } | null>(null);
-  const [heartBurstTrigger, setHeartBurstTrigger] = useState(0);
-  // Cover parallax tilt — ref-based, NO re-render on mousemove
-  const tiltRef = useRef<HTMLDivElement>(null);
   // Pull-down-to-close state (mobile)
   const [pullDownY, setPullDownY] = useState(0);
 
@@ -291,20 +253,8 @@ export default function FullTrackView() {
     };
   }, [isDragging, seekTo]);
 
-  // ── Cover parallax tilt (desktop hover) — ref-based, NO React re-render ──
-  const handleCoverMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!coverRef.current || isMobile || !tiltRef.current) return;
-    const rect = coverRef.current.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const dx = (e.clientX - cx) / (rect.width / 2);
-    const dy = (e.clientY - cy) / (rect.height / 2);
-    tiltRef.current.style.transform = `rotateX(${-dy * 8}deg) rotateY(${dx * 8}deg)`;
-  }, [isMobile]);
-
-  const handleCoverMouseLeave = useCallback(() => {
-    if (tiltRef.current) tiltRef.current.style.transform = "rotateX(0) rotateY(0)";
-  }, []);
+  // ── Cover 3D parallax tilt — REMOVED in Phase 2B (decorative motion).
+  // The artwork stays static and calm; tap/double-tap/swipe remain.
 
   // ── Volume wheel (anywhere in FullTrackView) ──────────────────────────
   const handleWheel = useCallback((e: WheelEvent) => {
@@ -353,9 +303,7 @@ export default function FullTrackView() {
   // ── Actions ─────────────────────────────────────────────────────────────
   const handleLike = useCallback(() => {
     if (currentTrack) {
-      const wasLiked = useAppStore.getState().likedTrackIds.includes(currentTrack.id);
       toggleLike(currentTrack.id, currentTrack);
-      if (!wasLiked) setHeartBurstTrigger(t => t + 1);
     }
   }, [currentTrack, toggleLike]);
 
@@ -653,27 +601,25 @@ export default function FullTrackView() {
           aria-label={`Полноэкранный плеер: ${currentTrack.title} - ${currentTrack.artist}`}
           style={{
             background: currentTrack.cover
-              ? `linear-gradient(180deg, color-mix(in srgb, var(--mq-accent) 15%, var(--mq-bg)) 0%, var(--mq-bg) 50%)`
+              ? "var(--mq-bg)"
               : "var(--mq-bg)",
           }}
         >
-          {/* Blurred cover background */}
+          {/* Blurred cover background — the single ambient layer that makes
+              the full player feel like the album. Phase 2B: blur 40→28px,
+              opacity 0.25→0.2, accent tint removed (neutral, calmer). */}
           {currentTrack.cover && (
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               <img
                 src={currentTrack.cover}
                 alt=""
                 className="w-full h-full object-cover"
-                // P0 fix: blur(80px) → blur(40px) — half the GPU paint cost,
-                // same visual effect at 25% opacity. scale(1.2) instead of 1.3
-                // reduces repaint area. saturate(150%) instead of 180% —
-                // marginal difference, less GPU work.
-                style={{ filter: "blur(40px) saturate(150%)", opacity: 0.25, transform: "scale(1.2)" }}
+                style={{ filter: "blur(28px) saturate(130%)", opacity: 0.2, transform: "scale(1.15)" }}
                 loading="eager"
               />
               <div
                 className="absolute inset-0"
-                style={{ background: "linear-gradient(180deg, transparent 0%, var(--mq-bg) 60%)" }}
+                style={{ background: "linear-gradient(180deg, transparent 0%, var(--mq-bg) 55%)" }}
               />
             </div>
           )}
@@ -683,8 +629,8 @@ export default function FullTrackView() {
             <div className="flex items-center justify-between p-4 sm:p-6">
               <button
                 onClick={() => setOpen(false)}
-                className="w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: "var(--mq-glass-bg)" }}
+                className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                style={{ backgroundColor: "transparent" }}
                 aria-label="Закрыть"
               >
                 <ChevronDown className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
@@ -697,8 +643,8 @@ export default function FullTrackView() {
               </div>
               <button
                 onClick={handleShare}
-                className="w-10 h-10 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: "var(--mq-glass-bg)" }}
+                className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                style={{ backgroundColor: "transparent" }}
                 aria-label="Поделиться"
               >
                 <Share2 className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
@@ -719,25 +665,19 @@ export default function FullTrackView() {
                   style={{
                     width: isMobile ? "min(75vw, 320px)" : "min(35vw, 380px)",
                     aspectRatio: "1 / 1",
-                    perspective: "1000px",
                   }}
-                  onMouseMove={handleCoverMouseMove}
-                  onMouseLeave={handleCoverMouseLeave}
                   onClick={handleCoverAreaTap}
                   onTouchStart={handleCoverTouchStart}
                   onTouchEnd={handleCoverTouchEnd}
                 >
+                  {/* Phase 2B: 3D tilt wrapper removed — artwork stays flat.
+                      One premium shadow instead of dramatic + inner-glow. */}
                   <div
-                    ref={tiltRef}
-                    className="w-full h-full"
-                    style={{ transformStyle: "preserve-3d", transition: "transform 0.2s ease-out" }}
+                    className="w-full h-full rounded-3xl overflow-hidden relative"
+                    style={{
+                      boxShadow: "var(--mq-shadow-premium-lg)",
+                    }}
                   >
-                    <div
-                      className="w-full h-full rounded-3xl overflow-hidden relative"
-                      style={{
-                        boxShadow: "var(--mq-shadow-dramatic), var(--mq-shadow-inner-glow)",
-                      }}
-                    >
                       {currentTrack.cover ? (
                         <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="eager" />
                       ) : (
@@ -751,21 +691,16 @@ export default function FullTrackView() {
                           <AudioVisualizer isPlaying={isPlaying} />
                         </div>
                       )}
-                      {/* Subtle playing indicator — pulsing border (CSS) */}
+                      {/* Subtle playing indicator — static accent ring (CSS) */}
                       {isPlaying && (
                         <div
                           className="absolute inset-0 rounded-3xl pointer-events-none"
-                          style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-accent) 25%, transparent)" }}
+                          style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}
                         />
                       )}
                     </div>
-                  </div>
 
-                  {/* Glow */}
-                  <div
-                    className="absolute -inset-4 rounded-3xl pointer-events-none -z-10"
-                    style={{ background: currentTrack.cover ? `url(${currentTrack.cover}) center/cover` : "var(--mq-accent)", filter: "blur(40px)", opacity: 0.3 }}
-                  />
+                  {/* Glow — REMOVED in Phase 2B (decorative bloom behind artwork) */}
 
                   {/* Double-tap seek feedback */}
                   <AnimatePresence>
@@ -845,19 +780,16 @@ export default function FullTrackView() {
 
                   {/* Action buttons row */}
                   <div className={`flex items-center gap-2 mb-4 flex-wrap ${isMobile ? "justify-center" : "justify-start"}`}>
-                    <div className="relative">
-                      <button onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }} title="Нравится (L)">
-                        <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
-                      </button>
-                      <HeartBurst trigger={heartBurstTrigger} />
-                    </div>
-                    <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "var(--mq-glass-bg)" }} title="Не нравится">
+                    <button onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }} title="Нравится (L)">
+                      <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
+                    </button>
+                    <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "transparent" }} title="Не нравится">
                       <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
                     </button>
                     <button
                       onClick={() => setShowPlaylistPicker(v => !v)}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: showPlaylistPicker ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
+                      style={{ backgroundColor: showPlaylistPicker ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
                       title="Добавить в плейлист"
                     >
                       <ListPlus className="w-4 h-4" style={{ color: showPlaylistPicker ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -866,7 +798,7 @@ export default function FullTrackView() {
                     <button
                       onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: activePanel === "queue" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
+                      style={{ backgroundColor: activePanel === "queue" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
                       title="Очередь (Q)"
                     >
                       <ListMusic className="w-4 h-4" style={{ color: activePanel === "queue" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -874,7 +806,7 @@ export default function FullTrackView() {
                     <button
                       onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: activePanel === "lyrics" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
+                      style={{ backgroundColor: activePanel === "lyrics" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
                       title="Текст песни (F)"
                     >
                       <Mic2 className="w-4 h-4" style={{ color: activePanel === "lyrics" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -882,7 +814,7 @@ export default function FullTrackView() {
                     <button
                       onClick={() => setActivePanel(p => p === "history" ? null : "history")}
                       className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: activePanel === "history" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
+                      style={{ backgroundColor: activePanel === "history" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
                       title="История (H)"
                     >
                       <History className="w-4 h-4" style={{ color: activePanel === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -897,7 +829,7 @@ export default function FullTrackView() {
                         style={{
                           backgroundColor: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer)
                             ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
-                            : "var(--mq-glass-bg)"
+                            : "transparent"
                         }}
                         title="Дополнительно"
                       >
@@ -1094,7 +1026,7 @@ export default function FullTrackView() {
                         style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
                       >
                         <div className="flex items-center justify-end mb-2">
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
                             <X className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
@@ -1128,7 +1060,7 @@ export default function FullTrackView() {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Далее в очереди</p>
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
                             <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
@@ -1169,7 +1101,7 @@ export default function FullTrackView() {
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Недавно играло</p>
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
+                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
                             <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
                           </button>
                         </div>
@@ -1231,8 +1163,7 @@ export default function FullTrackView() {
                           style={{
                             left: `${isDragging ? progressPct : (hoveredPct || progressPct)}%`,
                             backgroundColor: "var(--mq-accent)",
-                            boxShadow: "0 0 12px color-mix(in srgb, var(--mq-accent) 50%, transparent)",
-                            opacity: isDragging ? 1 : (isMobile ? 0.7 : 0),
+                                                        opacity: isDragging ? 1 : (isMobile ? 0.7 : 0),
                           }}
                         />
                         {/* Hover-only handle on desktop */}
@@ -1271,19 +1202,12 @@ export default function FullTrackView() {
                       onClick={togglePlay}
                       aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                       className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
-                      style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 8px 32px color-mix(in srgb, var(--mq-accent) 40%, transparent)" }}
+                      style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 6px 20px color-mix(in srgb, var(--mq-accent) 25%, transparent)" }}
                       title="Play/Pause (Space)"
                     >
                       {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
                         : isPlaying ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
                         : <Play className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)", transform: "translateX(1px)" }} />}
-                      {/* Pulse ring when playing (CSS) */}
-                      {isPlaying && (
-                        <div
-                          className="absolute inset-0 rounded-full pointer-events-none mq-pulse-ring"
-                          style={{ border: "2px solid var(--mq-accent)" }}
-                        />
-                      )}
                     </button>
                     <button onClick={nextTrack} aria-label="Следующий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий (N)">
                       <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
@@ -1305,15 +1229,15 @@ export default function FullTrackView() {
                   {!isMobile && (
                     <div className="mt-4 flex items-center gap-3 flex-wrap text-[11px] opacity-70" style={{ color: "var(--mq-text-muted)" }}>
                       <span className="flex items-center gap-1">
-                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-glass-bg)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)", boxShadow: "0 1px 0 var(--mq-border-medium)" }}>Space</kbd>
+                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>Space</kbd>
                         play/pause
                       </span>
                       <span className="flex items-center gap-1">
-                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-glass-bg)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)", boxShadow: "0 1px 0 var(--mq-border-medium)" }}>←/→</kbd>
+                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>←/→</kbd>
                         seek
                       </span>
                       <span className="flex items-center gap-1">
-                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-glass-bg)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)", boxShadow: "0 1px 0 var(--mq-border-medium)" }}>Esc</kbd>
+                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>Esc</kbd>
                         close
                       </span>
                     </div>

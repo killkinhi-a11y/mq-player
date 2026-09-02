@@ -85,13 +85,8 @@ const FullTrackViewMobile = dynamic(() => import("@/components/mq/FullTrackViewM
 const KeyboardShortcutsHelp = dynamic(() => import("@/components/mq/KeyboardShortcutsHelp").then(m => ({ default: m.KeyboardShortcutsHelp })), { ssr: false });
 const NavBar = dynamic(() => import("@/components/mq/NavBar"), { ssr: false });
 const MobileNav = dynamic(() => import("@/components/mq/MobileNav"), { ssr: false });
-const ScrollProgressBar = dynamic(() => import("@/components/mq/ScrollProgressBar"), { ssr: false });
-const CursorParticleField = dynamic(() => import("@/components/mq/CursorParticleField").then(m => ({ default: m.CursorParticleField })), { ssr: false });
-const AnimatedGradientBg = dynamic(() => import("@/components/mq/AnimatedGradientBg").then(m => ({ default: m.AnimatedGradientBg })), { ssr: false });
 const MobileDock = dynamic(() => import("@/components/mq/MobileDock"), { ssr: false });
 const NotificationPanel = dynamic(() => import("@/components/mq/NotificationPanel"), { ssr: false });
-const SeasonalEffects = dynamic(() => import("@/components/mq/SeasonalEffects"), { ssr: false });
-const CinematicAtmosphere = dynamic(() => import("@/components/mq/CinematicAtmosphere"), { ssr: false });
 const MaintenanceBanner = dynamic(() => import("@/components/mq/MaintenanceBanner"), { ssr: false });
 const OnboardingTour = dynamic(() => import("@/components/mq/OnboardingTour"), { ssr: false });
 const CommandPalette = dynamic(() => import("@/components/mq/CommandPalette"), { ssr: false });
@@ -174,8 +169,10 @@ export default function AppShell() {
     return () => clearTimeout(timer);
   }, [_hasHydrated]);
 
-  // ── Seasonal theme auto-detection from admin flags ──
-  const [seasonalTheme, setSeasonalTheme] = useState<string | null>(null);
+  // ── Seasonal theme auto-detection from admin flags ─
+  // Phase 2B: only the COLOR THEME is applied. The floating particle layer
+  // (SeasonalEffects) was removed — constant background motion.
+  const seasonalThemeRef = useRef<string | null>(null);
 
   // ── All refs declared before effects ──
   const prevViewRef = useRef(currentView);
@@ -205,8 +202,8 @@ export default function AppShell() {
         const data = await res.json();
         if (!cancelled && data.activeTheme) {
           const themeKey = data.activeTheme;
-          if (themes[themeKey]) {
-            setSeasonalTheme(themeKey);
+          if (themes[themeKey] && themeKey !== seasonalThemeRef.current) {
+            seasonalThemeRef.current = themeKey;
             setTheme(themeKey);
           }
         }
@@ -570,16 +567,7 @@ export default function AppShell() {
       >
         Перейти к содержимому
       </a>
-      <Suspense fallback={null}><CinematicAtmosphere /></Suspense>
-      {/* Animated gradient background — subtle floating accent blobs */}
-      {showNav && !hideUiForFullscreen && (
-        <Suspense fallback={null}><AnimatedGradientBg /></Suspense>
-      )}
-      {/* Cursor particle trail — particles follow mouse on desktop */}
-      {showNav && !hideUiForFullscreen && (
-        <Suspense fallback={null}><CursorParticleField /></Suspense>
-      )}
-      <Suspense fallback={null}><MaintenanceBanner /></Suspense>
+      <MaintenanceBanner />
       <OfflineBanner />
 
       <Suspense fallback={
@@ -589,14 +577,6 @@ export default function AppShell() {
         </nav>
       }>
         {showNav && !hideUiForFullscreen && <NavBar />}
-        {/* Scroll progress bar — thin accent line at top showing scroll position */}
-        {showNav && !hideUiForFullscreen && (
-          <Suspense fallback={null}>
-            <div className="fixed top-0 left-0 right-0 z-[60] pointer-events-none" style={{ height: "2px" }}>
-              <ScrollProgressBar />
-            </div>
-          </Suspense>
-        )}
       </Suspense>
 
       <main id="main-content" className={showNav && !hideUiForFullscreen ? "lg:pt-16" : ""} data-view={currentView}>
@@ -687,11 +667,6 @@ export default function AppShell() {
       {/* Desktop: separate nav bar (PlayerBar already rendered above) */}
       <Suspense fallback={null}>{showNav && !hideUiForFullscreen && <MobileNav />}</Suspense>
       <Suspense fallback={null}>{isAuthenticated && <NotificationPanel isOpen={notifPanelOpen} onClose={() => setNotifPanelOpen(false)} />}</Suspense>
-      <Suspense fallback={null}>{
-        seasonalTheme && isAuthenticated ? (
-          <SeasonalEffects theme={seasonalTheme as any} />
-        ) : null
-      }</Suspense>
       <Suspense fallback={null}>{isAuthenticated && <OnboardingTour />}</Suspense>
     </div>
   );
