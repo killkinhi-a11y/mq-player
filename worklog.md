@@ -1569,3 +1569,13 @@ Stage Summary:
   per-commit build id + full update UX.
 - Next: production verification (version.json header, banner, update flow,
   two-deploy real update test) + final report.
+
+## 2026-09-03 — PHASE M production verification (in progress)
+
+- Deployment e9bbb7c (v56, buildId mq-build-e9bbb7c5) live: /version.json 200
+  + Cache-Control no-store ✓, HTML BUILD_ID inline == version.json ✓,
+  SW v4 + SKIP_WAITING ✓, audio-engine manifest 200 ✓.
+- Deployment 5c4c8ef auto-followed (worklog push) — page loaded on B,
+  no banner (correct: page build == deployed build).
+- Demo mode: SoundCloud progressive stream resolves + «ИГРАЕТ» — playback
+  works on the merged build (Phase M + WASM engine).
