@@ -58,3 +58,51 @@ SideVisuals, ArtistCard, AnimatedGradientBg, LikeBurst, CinematicAtmosphere, Cur
 - Console: 0 NEW runtime errors (19 pre-existing React key/nested-button warnings, unchanged)
 - VLM production verdict: "highly polished, mature product... intentional and sophisticated... cohesive and premium"
 - VLM nitpick applied in 37aa6c0: Wave hero play button 56→48px + quieter white; second deploy verified live
+
+---
+
+# Phase WASM — Rust/WASM Audio Engine (Task 5)
+
+## What shipped (commit 51c937b)
+
+Full production WASM playback pipeline per AUDIO_ENGINE_ARCHITECTURE.md:
+
+```
+HTMLMediaElement path (unchanged, fallback)      WasmAudioBackend (new)
+  HLS → hls.js → MSE → EME (DRM)                  progressive non-DRM:
+  progressive → /api proxy → element                 fetch(Range) → codec_wasm (Symphonia)
+                                                     → MessagePort PCM → audio_wasm (DSP)
+                                                     → AudioWorklet → destination
+```
+
+- **Rust**: 7-crate workspace, 66 tests, flat C-ABI (mq_*/mq_dec_*), SIMD128, panic=abort, LTO
+- **JS**: worklet (in-scope wasm compile, ring, credits, stats, JS timing) + worker (Range fetch, decode, backpressure)
+- **TS**: src/lib/wasm-audio — manifest bootstrap, decision gate, backend, diagnostics (window.__mqWasmAudio)
+- **App**: wasm-first for SC-progressive/Audius/demo; HLS/DRM/rate≠1 stay element; automatic fallback on ANY failure; settings toggle; seek routed everywhere
+- **Versioning**: 4-artifact content-hash tag → immutable URLs; version.json always network; runtime ABI check (WASM_VERSION_MISMATCH)
+
+## Production verification (mq1.vercel.app, tag 5f6658-53a483-a5c7f2)
+
+- audio_wasm.wasm 200 application/wasm immutable; codec 200; worklet/worker 200; version.json 200 must-revalidate; Range 206
+- Real SC track: backend=wasm, frames 33986, underruns 0, overruns 0, simd=1, 44100/44100
+- avg DSP ~53µs/block (headless Date.now coarse; prod browsers get µs via performance.now)
+- seek/pause/resume/next/prev/progress all green; console 100% clean
+- gzip: core 150KB, codec 345KB
+
+## Bugs found & fixed (root causes)
+
+1. WebAssembly.Module: not transferable (worker postMessage transfer list) → clone; not cloneable to AudioWorklet ports → raw bytes + in-worklet compile
+2. Tag didn't hash worklet/worker JS → immutable cache served stale JS under same URL → tag = hash of all 4 artifacts
+3. instantiate(bytes) returns {module, instance} — destructure
+4. onNodeMessage missing 'ready' case → init timeout
+5. dec handle 0 is falsy — !dec guard killed the pump (dec === null check now)
+6. performance undefined in (headless) worklet scope → Date.now fallback
+7. Rust: pause drained ring (audio kept playing ≤ring); pop_pcm didn't re-trigger decode (tail loss); Vec alloc in process hot path
+
+## v1 limitations (honest)
+
+- Seek = CBR byte estimate (±1-2s VBR); ~100ms refetch gap
+- No crossfade/gapless on the wasm path (element path only)
+- playbackRate ≠ 1 → element path (no time-stretch)
+- Insert-mode DSP for HLS non-DRM = future work
+- COOP/COEP not needed (MessagePort + Transferable baseline)
