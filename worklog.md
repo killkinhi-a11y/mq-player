@@ -1603,3 +1603,13 @@ Also verified in production:
 - Zero page errors; demo-mode playback (SoundCloud resolve + ИГРАЕТ)
 - 1440×900 + 390×844 QA screenshots (download/screens/phase-m-*)
 - 258 unit tests pass; tsc 0 errors; lint runs (remote toolchain fix kept)
+
+## Round 3 (deployment E, mobile 390×844 + dismiss path)
+
+- Banner appeared on mobile viewport after focus revalidation (page D vs
+  deploy E) — safe-area top placement, away from player/nav.
+- «Позже» clicked → banner gone; refocus re-check ran → banner did NOT
+  re-show (session dismissal of the same buildId). #32 verified.
+- Round 2 note: after «Обновить» the demo-mode auth view reappears (demo
+  session is in-memory — same as a plain F5; real Telegram auth persists).
+  Player state (track/queue/position) still restored on the auth view.
