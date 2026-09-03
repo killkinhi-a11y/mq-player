@@ -50,3 +50,11 @@ SideVisuals, ArtistCard, AnimatedGradientBg, LikeBurst, CinematicAtmosphere, Cur
 - eslint on modified files: 0 new errors (net −8 problems vs baseline)
 - npm run build: success
 - Browser smoke: play→pause→seek→fullplayer→queue panel→search (78 rows)→library→bell — all green; console shows only pre-existing key/nested-button warnings
+
+## Deploy + production verification
+- Commit c48aec3 pushed to GitHub main → Vercel auto-deploy READY
+- Production CSS bundle verified: mq-card-track/mq-t-display/mq-surface-1/mq-row/mq-empty/mq-play-overlay present; mqBreathe/mqPulseTint absent (keyframes deleted)
+- Production smoke (mq1.vercel.app): NavBar 8 buttons incl. bell · track card click → resolveStream progressive (real CDN) · pause→play toggle · full player opens · queue panel opens (current track accented) · search "daft punk" 79 rows · bell/notifications, profile, settings, messenger all reachable
+- Console: 0 NEW runtime errors (19 pre-existing React key/nested-button warnings, unchanged)
+- VLM production verdict: "highly polished, mature product... intentional and sophisticated... cohesive and premium"
+- VLM nitpick applied in 37aa6c0: Wave hero play button 56→48px + quieter white; second deploy verified live
