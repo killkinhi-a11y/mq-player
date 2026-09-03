@@ -1,6 +1,7 @@
 "use client";
 
 import { Component, ReactNode } from "react";
+import { useAppStore } from "@/store/useAppStore";
 
 interface Props {
   children: ReactNode;
@@ -89,7 +90,6 @@ export class ViewErrorBoundary extends Component<Props, State> {
               onClick={() => {
                 // Navigate to main view
                 try {
-                  const { useAppStore } = require("@/store/useAppStore");
                   useAppStore.getState().setView("main");
                 } catch {
                   window.location.href = "/play";

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
-import { db } from "@/lib/db";
+import { database } from "@/lib/database";
 
 /**
  * POST /api/social/update-status
@@ -10,6 +10,9 @@ import { db } from "@/lib/db";
  * Body: { trackId, trackTitle, trackArtist, trackCover, scTrackId?, isPlaying, progress, duration, source }
  *
  * Response: { ok: true }
+ *
+ * Phase 3: migrated from Prisma-direct to the unified database adapter
+ * (src/lib/database.ts) — works on both Turso (production) and Prisma (local).
  */
 
 async function handler(request: NextRequest) {
@@ -29,31 +32,16 @@ async function handler(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    await db.listeningStatus.upsert({
-      where: { userId: session.userId },
-      create: {
-        userId: session.userId,
-        trackId,
-        trackTitle,
-        trackArtist,
-        trackCover: trackCover || "",
-        scTrackId: scTrackId || null,
-        isPlaying: isPlaying ?? true,
-        progress: progress || 0,
-        duration: duration || 0,
-        source: source || "soundcloud",
-      },
-      update: {
-        trackId,
-        trackTitle,
-        trackArtist,
-        trackCover: trackCover || "",
-        scTrackId: scTrackId || null,
-        isPlaying: isPlaying ?? true,
-        progress: progress || 0,
-        duration: duration || 0,
-        source: source || "soundcloud",
-      },
+    await database.upsertListeningStatus(session.userId, {
+      trackId,
+      trackTitle,
+      trackArtist,
+      trackCover: trackCover || "",
+      scTrackId: scTrackId ?? null,
+      isPlaying: isPlaying ?? true,
+      progress: progress || 0,
+      duration: duration || 0,
+      source: source || "soundcloud",
     });
 
     return NextResponse.json({ ok: true });

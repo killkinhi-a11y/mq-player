@@ -259,6 +259,76 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
+  // ── Social: now-listening / live group sessions ────────────────────────────
+  // Mirrors Prisma models ListeningStatus / LiveSession / LiveSessionMember.
+  // Phase 3: social routes migrated to the database adapter — these tables
+  // must exist in Turso (production) as well, not only in Prisma/Neon.
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS ListeningStatus (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL UNIQUE REFERENCES User(id) ON DELETE CASCADE,
+      trackId TEXT NOT NULL,
+      trackTitle TEXT NOT NULL,
+      trackArtist TEXT NOT NULL,
+      trackCover TEXT DEFAULT '',
+      scTrackId INTEGER,
+      isPlaying INTEGER DEFAULT 1,
+      progress REAL DEFAULT 0,
+      duration REAL DEFAULT 0,
+      source TEXT DEFAULT 'soundcloud',
+      updatedAt TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS idx_listeningstatus_updated ON ListeningStatus(updatedAt);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS LiveSession (
+      id TEXT PRIMARY KEY,
+      hostId TEXT NOT NULL REFERENCES User(id) ON DELETE CASCADE,
+      code TEXT NOT NULL UNIQUE,
+      trackId TEXT NOT NULL,
+      trackTitle TEXT NOT NULL,
+      trackArtist TEXT NOT NULL,
+      trackCover TEXT DEFAULT '',
+      scTrackId INTEGER,
+      audioUrl TEXT DEFAULT '',
+      source TEXT DEFAULT 'soundcloud',
+      progress REAL DEFAULT 0,
+      isPlaying INTEGER DEFAULT 1,
+      guestCount INTEGER DEFAULT 0,
+      createdAt TEXT DEFAULT (datetime('now')),
+      updatedAt TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS idx_livesession_host ON LiveSession(hostId);
+  `);
+
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS idx_livesession_code ON LiveSession(code);
+  `);
+
+  await client.execute(`
+    CREATE TABLE IF NOT EXISTS LiveSessionMember (
+      id TEXT PRIMARY KEY,
+      sessionId TEXT NOT NULL REFERENCES LiveSession(id) ON DELETE CASCADE,
+      userId TEXT NOT NULL,
+      username TEXT NOT NULL,
+      avatar TEXT DEFAULT '',
+      joinedAt TEXT DEFAULT (datetime('now')),
+      lastSyncAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(sessionId, userId)
+    );
+  `);
+
+  await client.execute(`
+    CREATE INDEX IF NOT EXISTS idx_livesessionmember_session ON LiveSessionMember(sessionId);
+  `);
+
   await client.execute(`
     CREATE INDEX IF NOT EXISTS idx_notification_user_read ON Notification(userId, read);
   `);

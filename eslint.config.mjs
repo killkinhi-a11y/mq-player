@@ -95,6 +95,9 @@ const eslintConfig = [
       "public/**",
       "*.config.*",
       "scripts/**",
+      // Vendored skill tooling (pdf/ppt build scripts) — not application code,
+      // never imported by the app, and uses its own CJS/module conventions.
+      "skills/**",
     ],
   },
   // Base: eslint-config-next 16 ships a FLAT config array natively.
@@ -120,6 +123,14 @@ const eslintConfig = [
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "mq-internal/no-prisma-direct-in-api": "error",
       "mq-internal/no-sub-11px-text": "error",
+    },
+  },
+  {
+    // Electron main/preload are CommonJS by design (electron's runtime contract
+    // for the main process) — require() is the intended pattern there.
+    files: ["electron/**/*.js"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
     },
   },
 ];

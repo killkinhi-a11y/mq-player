@@ -421,6 +421,8 @@ function TgWebAppPageInner() {
       <div className="tg-error" data-tg-app="true">
         <div className="tg-error-icon">😕</div>
         <p className="tg-error-text">{auth.error}</p>
+        {/* Intentional <a>: leaving the Telegram Mini App must hard-navigate to the full site. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a href="/" className="tg-btn-primary" style={{ maxWidth: 280, marginTop: 16 }}>
           Открыть обычную версию
         </a>

@@ -41,21 +41,38 @@ export function useTilt3D({
   const rafRef = useRef<number>(0);
   const targetRef = useRef({ rx: 0, ry: 0, sc: 1 });
   const currentRef = useRef({ rx: 0, ry: 0, sc: 1 });
+  // Start handle for the RAF loop — installed by the effect below, so the
+  // handlers never reference a loop closure during its own initialization
+  // (react-hooks/immutability TDZ).
+  const startRef = useRef<() => void>(() => {});
 
-  const update = useCallback(() => {
-    rafRef.current = requestAnimationFrame(update);
+  useEffect(() => {
+    const loop = () => {
+      rafRef.current = requestAnimationFrame(loop);
 
-    const t = targetRef.current;
-    const c = currentRef.current;
+      const t = targetRef.current;
+      const c = currentRef.current;
 
-    // Lerp toward target
-    c.rx += (t.rx - c.rx) * reverseSpeed;
-    c.ry += (t.ry - c.ry) * reverseSpeed;
-    c.sc += (t.sc - c.sc) * reverseSpeed;
+      // Lerp toward target
+      c.rx += (t.rx - c.rx) * reverseSpeed;
+      c.ry += (t.ry - c.ry) * reverseSpeed;
+      c.sc += (t.sc - c.sc) * reverseSpeed;
 
-    if (ref.current) {
-      ref.current.style.transform = `perspective(800px) rotateX(${c.rx}deg) rotateY(${c.ry}deg) scale(${c.sc})`;
-    }
+      if (ref.current) {
+        ref.current.style.transform = `perspective(800px) rotateX(${c.rx}deg) rotateY(${c.ry}deg) scale(${c.sc})`;
+      }
+    };
+    startRef.current = () => {
+      if (!rafRef.current) rafRef.current = requestAnimationFrame(loop);
+    };
+
+    // CRITICAL: cleanup RAF on unmount
+    return () => {
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+      }
+    };
   }, [reverseSpeed]);
 
   const handleMove = useCallback(
@@ -75,36 +92,20 @@ export function useTilt3D({
 
       targetRef.current = { rx, ry, sc: scale };
 
-      if (!rafRef.current) {
-        rafRef.current = requestAnimationFrame(update);
-      }
+      startRef.current();
     },
-    [max, scale, update]
+    [max, scale]
   );
 
   const handleEnter = useCallback(() => {
     targetRef.current.sc = scale;
-    if (!rafRef.current) {
-      rafRef.current = requestAnimationFrame(update);
-    }
-  }, [scale, update]);
+    startRef.current();
+  }, [scale]);
 
   const handleLeave = useCallback(() => {
     targetRef.current = { rx: 0, ry: 0, sc: 1 };
-    // update() will self-cancel when settled (target === current === 0)
-    if (!rafRef.current) {
-      rafRef.current = requestAnimationFrame(update);
-    }
-  }, [update]);
-
-  // CRITICAL: cleanup RAF on unmount
-  useEffect(() => {
-    return () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = 0;
-      }
-    };
+    // loop will keep running until unmount (same as before) — it lerps back to neutral
+    startRef.current();
   }, []);
 
   // Check for reduced motion / touch device

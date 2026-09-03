@@ -78,10 +78,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(
-      `[cobalt-session] JWT obtained successfully, length=${jwt.length}`,
-    );
-
     return NextResponse.json({
       token: jwt,
       // Include expiry info if available

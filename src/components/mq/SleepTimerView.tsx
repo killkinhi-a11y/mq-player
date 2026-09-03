@@ -227,6 +227,19 @@ function CurrentTimeDisplay() {
 }
 
 // ── Main View ──
+// Seeded PRNG (mulberry32) — module scope, pure factory: the same seed
+// always yields the same starfield on server AND client (no hydration
+// mismatch, no Math.random() during render).
+function mulberry32(seed: number): () => number {
+  let s = seed | 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 export default function SleepTimerView() {
   const sleepTimerActive = useAppStore((s) => s.sleepTimerActive);
   const sleepTimerRemaining = useAppStore((s) => s.sleepTimerRemaining);
@@ -241,7 +254,18 @@ export default function SleepTimerView() {
 
   const [selectedMinutes, setSelectedMinutes] = useState(30);
 
-  const stars = useMemo(() => Array.from({ length: 12 }, (_, i) => ({ id: i, x: Math.random() * 100, y: Math.random() * 100, size: Math.random() * 1.5 + 0.5, delay: Math.random() * 4 })), []);
+  // Deterministic starfield — same values on server and client (Math.random()
+  // in render caused hydration mismatches + unstable renders).
+  const stars = useMemo(() => {
+    const rand = mulberry32(0x9e3779b9);
+    return Array.from({ length: 12 }, (_, i) => ({
+      id: i,
+      x: rand() * 100,
+      y: rand() * 100,
+      size: rand() * 1.5 + 0.5,
+      delay: rand() * 4,
+    }));
+  }, []);
 
   useEffect(() => { if (!sleepTimerActive) return; const i = setInterval(updateSleepTimer, 1000); return () => clearInterval(i); }, [sleepTimerActive, updateSleepTimer]);
 

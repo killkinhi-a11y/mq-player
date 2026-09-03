@@ -92,6 +92,8 @@ export default function TgError({
       >
         🔄 Перезагрузить
       </button>
+      {/* Intentional <a>: full page reload is the recovery path on the error screen. */}
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
       <a
         href="/"
         style={{

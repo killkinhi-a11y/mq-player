@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { Play, Pause, Loader2, Music, ExternalLink } from "lucide-react";
 
@@ -33,6 +34,9 @@ export default function ShareTrackPage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isBuffering, setIsBuffering] = useState(false);
+  // Real <audio> duration, mirrored into state (never read refs during render).
+  // Falls back to track metadata until the media element reports a real value.
+  const [audioDuration, setAudioDuration] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
@@ -120,7 +124,14 @@ export default function ShareTrackPage() {
     const handleTimeUpdate = () => {
       if (!isDragging.current) {
         setCurrentTime(audio.currentTime);
+        const dur = audio.duration;
+        if (dur && Number.isFinite(dur)) setAudioDuration(dur);
       }
+    };
+
+    const handleLoadedMetadata = () => {
+      const dur = audio.duration;
+      if (dur && Number.isFinite(dur)) setAudioDuration(dur);
     };
 
     const handleLoadedData = () => {
@@ -145,6 +156,7 @@ export default function ShareTrackPage() {
       setIsPlaying(false);
     };
 
+    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
     audio.addEventListener("timeupdate", handleTimeUpdate);
     audio.addEventListener("loadeddata", handleLoadedData);
     audio.addEventListener("canplay", handleCanPlay);
@@ -153,6 +165,7 @@ export default function ShareTrackPage() {
     audio.addEventListener("error", handleError);
 
     return () => {
+      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
       audio.removeEventListener("timeupdate", handleTimeUpdate);
       audio.removeEventListener("loadeddata", handleLoadedData);
       audio.removeEventListener("canplay", handleCanPlay);
@@ -229,8 +242,8 @@ export default function ShareTrackPage() {
     document.addEventListener("touchend", onEnd);
   }, [seekTo]);
 
-  const audioDuration = audioRef.current?.duration || track?.duration || 0;
-  const progressPct = audioDuration > 0 ? (currentTime / audioDuration) * 100 : 0;
+  const resolvedDuration = audioDuration ?? track?.duration ?? 0;
+  const progressPct = resolvedDuration > 0 ? (currentTime / resolvedDuration) * 100 : 0;
 
   // Loading state
   if (isLoading) {
@@ -253,13 +266,13 @@ export default function ShareTrackPage() {
           <p className="text-lg font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>
             {error || "Трек не найден"}
           </p>
-          <a
+          <Link
             href="/"
             className="text-sm px-5 py-2 rounded-lg transition-colors"
             style={{ background: "#e03131", color: "#fff" }}
           >
             Открыть mq
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -398,7 +411,7 @@ export default function ShareTrackPage() {
               </button>
 
               <span className="text-[11px] tabular-nums" style={{ color: "rgba(255,255,255,0.35)" }}>
-                {formatDuration(audioDuration)}
+                {formatDuration(resolvedDuration)}
               </span>
             </div>
           </div>

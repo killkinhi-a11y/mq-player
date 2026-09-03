@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Play, Pause, Music2, Headphones, BookOpen, Loader2, Check, CheckCheck, ChevronDown, Smile, Reply } from "lucide-react";
@@ -45,13 +45,17 @@ interface MessageBubbleProps {
 
 function FakeWaveform({ playing, isMine, progress, onSeek }: { playing: boolean; isMine: boolean; progress: number; onSeek?: (pct: number) => void }) {
   const bars = 36;
-  // Deterministic heights via sine — looks organic but stable across renders
-  const heights = useRef(
-    Array.from({ length: bars }, (_, i) => {
-      const base = 8 + Math.sin(i * 0.35) * 12 + Math.cos(i * 0.7) * 6;
-      const variation = ((i * 7 + 13) % 11) / 11 * 8;
-      return Math.max(4, Math.min(30, base + variation));
-    })
+  // Deterministic heights via sine — looks organic but stable across renders.
+  // useMemo (not useRef): these values ARE needed for rendering, so they must
+  // be plain render-scope data, never read off a ref during render.
+  const heights = useMemo(
+    () =>
+      Array.from({ length: bars }, (_, i) => {
+        const base = 8 + Math.sin(i * 0.35) * 12 + Math.cos(i * 0.7) * 6;
+        const variation = ((i * 7 + 13) % 11) / 11 * 8;
+        return Math.max(4, Math.min(30, base + variation));
+      }),
+    []
   );
   const waveRef = useRef<HTMLDivElement>(null);
 
@@ -74,7 +78,7 @@ function FakeWaveform({ playing, isMine, progress, onSeek }: { playing: boolean;
       aria-valuenow={Math.round(progress)}
       tabIndex={0}
     >
-      {heights.current.map((h, i) => {
+      {heights.map((h, i) => {
         const isPlayed = (i / bars) * 100 < progress;
         return (
           <div

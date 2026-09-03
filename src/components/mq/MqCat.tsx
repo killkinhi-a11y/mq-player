@@ -946,12 +946,17 @@ function useFrameSequencer(
     prevMood: "chill" as string,
   });
 
+  // Latest-value refs — kept in sync in an effect (never written during render,
+  // which breaks React Compiler / concurrent rendering guarantees).
+  // The RAF loop only reads them after paint, so a one-frame lag is invisible.
   const isBlinkingRef = useRef(isBlinking);
-  isBlinkingRef.current = isBlinking;
   const isWalkingRef = useRef(isWalking);
-  isWalkingRef.current = isWalking;
   const walkDirRef = useRef(walkDirection);
-  walkDirRef.current = walkDirection;
+  useEffect(() => {
+    isBlinkingRef.current = isBlinking;
+    isWalkingRef.current = isWalking;
+    walkDirRef.current = walkDirection;
+  }, [isBlinking, isWalking, walkDirection]);
 
   useEffect(() => {
     const st = stateRef.current;
@@ -1030,7 +1035,9 @@ function CanvasMascot({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef<number>(0);
   const phaseRef = useRef(0);
-  const lastTimeRef = useRef(performance.now());
+  // Initialized in the effect below before the first frame (performance.now()
+  // during render is impure — values would differ between server and client).
+  const lastTimeRef = useRef(0);
   const hpProgressRef = useRef(0);
   const updateFrame = useFrameSequencer(mood, isPetting, isBlinking, isWalking, walkDirection);
 

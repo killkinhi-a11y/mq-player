@@ -184,6 +184,49 @@ export interface ListenSessionRow {
   updatedAt: string;
 }
 
+export interface ListeningStatusRow {
+  id: string;
+  userId: string;
+  trackId: string;
+  trackTitle: string;
+  trackArtist: string;
+  trackCover: string;
+  scTrackId: number | null;
+  isPlaying: boolean;
+  progress: number;
+  duration: number;
+  source: string;
+  updatedAt: string;
+}
+
+export interface LiveSessionRow {
+  id: string;
+  hostId: string;
+  code: string;
+  trackId: string;
+  trackTitle: string;
+  trackArtist: string;
+  trackCover: string;
+  scTrackId: number | null;
+  audioUrl: string;
+  source: string;
+  progress: number;
+  isPlaying: boolean;
+  guestCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LiveSessionMemberRow {
+  id: string;
+  sessionId: string;
+  userId: string;
+  username: string;
+  avatar: string;
+  joinedAt: string;
+  lastSyncAt: string;
+}
+
 export interface TypingEventRow {
   id: string;
   userId: string;
@@ -447,6 +490,55 @@ function parseUserSyncRow(row: Record<string, unknown>): UserSyncRow {
     key: toString(row.key),
     data: toString(row.data),
     updatedAt: toString(row.updatedAt),
+  };
+}
+
+function parseListeningStatusRow(row: Record<string, unknown>): ListeningStatusRow {
+  return {
+    id: toString(row.id),
+    userId: toString(row.userId),
+    trackId: toString(row.trackId),
+    trackTitle: toString(row.trackTitle),
+    trackArtist: toString(row.trackArtist),
+    trackCover: toString(row.trackCover),
+    scTrackId: toNullableNumber(row.scTrackId),
+    isPlaying: toBool(row.isPlaying),
+    progress: toNumber(row.progress),
+    duration: toNumber(row.duration),
+    source: toString(row.source),
+    updatedAt: toString(row.updatedAt),
+  };
+}
+
+function parseLiveSessionRow(row: Record<string, unknown>): LiveSessionRow {
+  return {
+    id: toString(row.id),
+    hostId: toString(row.hostId),
+    code: toString(row.code),
+    trackId: toString(row.trackId),
+    trackTitle: toString(row.trackTitle),
+    trackArtist: toString(row.trackArtist),
+    trackCover: toString(row.trackCover),
+    scTrackId: toNullableNumber(row.scTrackId),
+    audioUrl: toString(row.audioUrl),
+    source: toString(row.source),
+    progress: toNumber(row.progress),
+    isPlaying: toBool(row.isPlaying),
+    guestCount: toNumber(row.guestCount),
+    createdAt: toString(row.createdAt),
+    updatedAt: toString(row.updatedAt),
+  };
+}
+
+function parseLiveSessionMemberRow(row: Record<string, unknown>): LiveSessionMemberRow {
+  return {
+    id: toString(row.id),
+    sessionId: toString(row.sessionId),
+    userId: toString(row.userId),
+    username: toString(row.username),
+    avatar: toString(row.avatar),
+    joinedAt: toString(row.joinedAt),
+    lastSyncAt: toString(row.lastSyncAt),
   };
 }
 
@@ -1636,6 +1728,572 @@ export const database = {
     });
   },
 
+  async findUserSyncDataByKeys(userId: string, keys: string[]): Promise<UserSyncRow[]> {
+    if (keys.length === 0) return [];
+    if (isTurso()) {
+      const placeholders = keys.map(() => "?").join(",");
+      const result = await getTurso().execute({
+        sql: `SELECT * FROM UserSync WHERE userId = ? AND key IN (${placeholders})`,
+        args: [userId, ...keys],
+      });
+      return result.rows.map((r) => parseUserSyncRow(r as Record<string, unknown>));
+    }
+    const rows = await db.userSync.findMany({
+      where: { userId, key: { in: keys } },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      userId: r.userId,
+      key: r.key,
+      data: r.data,
+      updatedAt: r.updatedAt.toISOString(),
+    }));
+  },
+
+  // ─── Social: now-listening / live sessions (Phase 3 — unified with adapter) ──
+  // Previously these lived only in Prisma-direct API routes, which silently
+  // targeted PostgreSQL/Neon while production runs on Turso — a split-brain
+  // database bug. The methods below keep the exact API behavior of the old
+  // routes while working on both backends.
+
+  /** Accepted friend ids in both directions (requester or addressee). */
+  async findAcceptedFriendIds(userId: string): Promise<string[]> {
+    if (isTurso()) {
+      const result = await tursoQuery(() =>
+        getTurso().execute({
+          sql: "SELECT requesterId, addresseeId FROM Friend WHERE status = 'accepted' AND (requesterId = ? OR addresseeId = ?)",
+          args: [userId, userId],
+        })
+      );
+      return result.rows.map((r) => {
+        const row = r as Record<string, unknown>;
+        const requesterId = toString(row.requesterId);
+        return requesterId === userId ? toString(row.addresseeId) : requesterId;
+      });
+    }
+    const sent = await db.friend.findMany({
+      where: { requesterId: userId, status: "accepted" },
+      select: { addresseeId: true },
+    });
+    const received = await db.friend.findMany({
+      where: { addresseeId: userId, status: "accepted" },
+      select: { requesterId: true },
+    });
+    return [...sent.map((f) => f.addresseeId), ...received.map((f) => f.requesterId)];
+  },
+
+  /** Listening statuses of the given users, updated after `sinceMs`, newest first. */
+  async findActiveListeningStatuses(
+    userIds: string[],
+    sinceMs: number
+  ): Promise<Array<ListeningStatusRow & { user: { id: string; username: string; avatar: string } }>> {
+    if (userIds.length === 0) return [];
+    const since = new Date(sinceMs).toISOString();
+    if (isTurso()) {
+      return await tursoQuery(async () => {
+        const placeholders = userIds.map(() => "?").join(",");
+        const result = await getTurso().execute({
+          sql: `SELECT ls.id, ls.userId, ls.trackId, ls.trackTitle, ls.trackArtist, ls.trackCover,
+                    ls.scTrackId, ls.isPlaying, ls.progress, ls.duration, ls.source, ls.updatedAt,
+                    u.id AS u_id, u.username AS u_username, u.avatar AS u_avatar
+                FROM ListeningStatus ls
+                JOIN User u ON ls.userId = u.id
+                WHERE ls.userId IN (${placeholders}) AND ls.updatedAt >= ?
+                ORDER BY ls.updatedAt DESC`,
+          args: [...userIds, since],
+        });
+        return result.rows.map((r) => {
+          const row = r as Record<string, unknown>;
+          return {
+            ...parseListeningStatusRow(row),
+            user: {
+              id: toString(row.u_id),
+              username: toString(row.u_username),
+              avatar: toString(row.u_avatar),
+            },
+          };
+        });
+      });
+    }
+    const statuses = await db.listeningStatus.findMany({
+      where: { userId: { in: userIds }, updatedAt: { gte: new Date(sinceMs) } },
+      include: { user: { select: { id: true, username: true, avatar: true } } },
+      orderBy: { updatedAt: "desc" },
+    });
+    return statuses.map((s) => ({
+      id: s.id,
+      userId: s.userId,
+      trackId: s.trackId,
+      trackTitle: s.trackTitle,
+      trackArtist: s.trackArtist,
+      trackCover: s.trackCover,
+      scTrackId: s.scTrackId,
+      isPlaying: s.isPlaying,
+      progress: s.progress,
+      duration: s.duration,
+      source: s.source,
+      updatedAt: s.updatedAt.toISOString(),
+      user: s.user,
+    }));
+  },
+
+  /** Upsert the user's listening status (one row per user). */
+  async upsertListeningStatus(
+    userId: string,
+    data: {
+      trackId: string;
+      trackTitle: string;
+      trackArtist: string;
+      trackCover: string;
+      scTrackId: number | null;
+      isPlaying: boolean;
+      progress: number;
+      duration: number;
+      source: string;
+    }
+  ): Promise<void> {
+    if (isTurso()) {
+      const now = new Date().toISOString();
+      const existing = await getTurso().execute({
+        sql: "SELECT id FROM ListeningStatus WHERE userId = ?",
+        args: [userId],
+      });
+      if (existing.rows.length > 0) {
+        await getTurso().execute({
+          sql: `UPDATE ListeningStatus SET trackId = ?, trackTitle = ?, trackArtist = ?, trackCover = ?,
+                  scTrackId = ?, isPlaying = ?, progress = ?, duration = ?, source = ?, updatedAt = ?
+                WHERE userId = ?`,
+          args: [
+            data.trackId, data.trackTitle, data.trackArtist, data.trackCover,
+            data.scTrackId, data.isPlaying ? 1 : 0, data.progress, data.duration,
+            data.source, now, userId,
+          ],
+        });
+      } else {
+        const id = createId();
+        await getTurso().execute({
+          sql: `INSERT INTO ListeningStatus (id, userId, trackId, trackTitle, trackArtist, trackCover,
+                  scTrackId, isPlaying, progress, duration, source, updatedAt)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          args: [
+            id, userId, data.trackId, data.trackTitle, data.trackArtist, data.trackCover,
+            data.scTrackId, data.isPlaying ? 1 : 0, data.progress, data.duration,
+            data.source, now,
+          ],
+        });
+      }
+      return;
+    }
+    const payload = {
+      trackId: data.trackId,
+      trackTitle: data.trackTitle,
+      trackArtist: data.trackArtist,
+      trackCover: data.trackCover,
+      scTrackId: data.scTrackId,
+      isPlaying: data.isPlaying,
+      progress: data.progress,
+      duration: data.duration,
+      source: data.source,
+    };
+    await db.listeningStatus.upsert({
+      where: { userId },
+      create: { userId, ...payload },
+      update: payload,
+    });
+  },
+
+  /** Active live sessions hosted by any of hostIds, updated after sinceMs, newest first. */
+  async findActiveLiveSessions(
+    hostIds: string[],
+    sinceMs: number,
+    limit = 20
+  ): Promise<Array<LiveSessionRow & { host: { id: string; username: string; avatar: string } }>> {
+    if (hostIds.length === 0) return [];
+    const since = new Date(sinceMs).toISOString();
+    if (isTurso()) {
+      return await tursoQuery(async () => {
+        const placeholders = hostIds.map(() => "?").join(",");
+        const result = await getTurso().execute({
+          sql: `SELECT s.id, s.hostId, s.code, s.trackId, s.trackTitle, s.trackArtist, s.trackCover,
+                    s.scTrackId, s.audioUrl, s.source, s.progress, s.isPlaying, s.guestCount,
+                    s.createdAt, s.updatedAt,
+                    u.id AS u_id, u.username AS u_username, u.avatar AS u_avatar
+                FROM LiveSession s
+                JOIN User u ON s.hostId = u.id
+                WHERE s.hostId IN (${placeholders}) AND s.updatedAt >= ?
+                ORDER BY s.updatedAt DESC
+                LIMIT ?`,
+          args: [...hostIds, since, limit],
+        });
+        return result.rows.map((r) => {
+          const row = r as Record<string, unknown>;
+          return {
+            ...parseLiveSessionRow(row),
+            host: {
+              id: toString(row.u_id),
+              username: toString(row.u_username),
+              avatar: toString(row.u_avatar),
+            },
+          };
+        });
+      });
+    }
+    const sessions = await db.liveSession.findMany({
+      where: { hostId: { in: hostIds }, updatedAt: { gte: new Date(sinceMs) } },
+      include: { host: { select: { id: true, username: true, avatar: true } } },
+      orderBy: { updatedAt: "desc" },
+      take: limit,
+    });
+    return sessions.map((s) => ({
+      id: s.id,
+      hostId: s.hostId,
+      code: s.code,
+      trackId: s.trackId,
+      trackTitle: s.trackTitle,
+      trackArtist: s.trackArtist,
+      trackCover: s.trackCover,
+      scTrackId: s.scTrackId,
+      audioUrl: s.audioUrl,
+      source: s.source,
+      progress: s.progress,
+      isPlaying: s.isPlaying,
+      guestCount: s.guestCount,
+      createdAt: s.createdAt.toISOString(),
+      updatedAt: s.updatedAt.toISOString(),
+      host: s.host,
+    }));
+  },
+
+  /** Single live session by id (no relations). */
+  async findLiveSessionById(id: string): Promise<LiveSessionRow | null> {
+    if (isTurso()) {
+      const result = await tursoQuery(() =>
+        getTurso().execute({ sql: "SELECT * FROM LiveSession WHERE id = ?", args: [id] })
+      );
+      if (result.rows.length === 0) return null;
+      return parseLiveSessionRow(result.rows[0] as Record<string, unknown>);
+    }
+    const s = await db.liveSession.findUnique({ where: { id } });
+    if (!s) return null;
+    return {
+      id: s.id,
+      hostId: s.hostId,
+      code: s.code,
+      trackId: s.trackId,
+      trackTitle: s.trackTitle,
+      trackArtist: s.trackArtist,
+      trackCover: s.trackCover,
+      scTrackId: s.scTrackId,
+      audioUrl: s.audioUrl,
+      source: s.source,
+      progress: s.progress,
+      isPlaying: s.isPlaying,
+      guestCount: s.guestCount,
+      createdAt: s.createdAt.toISOString(),
+      updatedAt: s.updatedAt.toISOString(),
+    };
+  },
+
+  /** Live session id by join code (collision check). */
+  async findLiveSessionIdByCode(code: string): Promise<string | null> {
+    if (isTurso()) {
+      const result = await tursoQuery(() =>
+        getTurso().execute({ sql: "SELECT id FROM LiveSession WHERE code = ?", args: [code] })
+      );
+      if (result.rows.length === 0) return null;
+      return toString((result.rows[0] as Record<string, unknown>).id);
+    }
+    const s = await db.liveSession.findUnique({ where: { code }, select: { id: true } });
+    return s?.id ?? null;
+  },
+
+  /** Members of a live session, in join order. */
+  async findLiveSessionMembers(sessionId: string): Promise<LiveSessionMemberRow[]> {
+    if (isTurso()) {
+      const result = await tursoQuery(() =>
+        getTurso().execute({
+          sql: "SELECT * FROM LiveSessionMember WHERE sessionId = ? ORDER BY joinedAt ASC",
+          args: [sessionId],
+        })
+      );
+      return result.rows.map((r) => parseLiveSessionMemberRow(r as Record<string, unknown>));
+    }
+    const members = await db.liveSessionMember.findMany({
+      where: { sessionId },
+      orderBy: { joinedAt: "asc" },
+    });
+    return members.map((m) => ({
+      id: m.id,
+      sessionId: m.sessionId,
+      userId: m.userId,
+      username: m.username,
+      avatar: m.avatar,
+      joinedAt: m.joinedAt.toISOString(),
+      lastSyncAt: m.lastSyncAt.toISOString(),
+    }));
+  },
+
+  /**
+   * Create a live session + its first member (the host) atomically.
+   * guestCount starts at 1, matching the original route behavior.
+   */
+  async createLiveSession(
+    data: {
+      hostId: string;
+      code: string;
+      trackId: string;
+      trackTitle: string;
+      trackArtist: string;
+      trackCover: string;
+      scTrackId: number | null;
+      audioUrl: string;
+      source: string;
+    },
+    host: { username: string; avatar: string }
+  ): Promise<LiveSessionRow> {
+    const id = createId();
+    if (isTurso()) {
+      const now = new Date().toISOString();
+      await tursoQuery(async () => {
+        const memberId = createId();
+        await getTurso().batch(
+          [
+            {
+              sql: `INSERT INTO LiveSession (id, hostId, code, trackId, trackTitle, trackArtist, trackCover,
+                      scTrackId, audioUrl, source, progress, isPlaying, guestCount, createdAt, updatedAt)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, 1, ?, ?)`,
+              args: [
+                id, data.hostId, data.code, data.trackId, data.trackTitle, data.trackArtist,
+                data.trackCover, data.scTrackId, data.audioUrl, data.source, now, now,
+              ],
+            },
+            {
+              sql: `INSERT INTO LiveSessionMember (id, sessionId, userId, username, avatar, joinedAt, lastSyncAt)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              args: [memberId, id, data.hostId, host.username, host.avatar, now, now],
+            },
+          ],
+          "write"
+        );
+      });
+      return {
+        id,
+        hostId: data.hostId,
+        code: data.code,
+        trackId: data.trackId,
+        trackTitle: data.trackTitle,
+        trackArtist: data.trackArtist,
+        trackCover: data.trackCover,
+        scTrackId: data.scTrackId,
+        audioUrl: data.audioUrl,
+        source: data.source,
+        progress: 0,
+        isPlaying: true,
+        guestCount: 1,
+        createdAt: now,
+        updatedAt: now,
+      };
+    }
+    const s = await db.liveSession.create({
+      data: {
+        hostId: data.hostId,
+        code: data.code,
+        trackId: data.trackId,
+        trackTitle: data.trackTitle,
+        trackArtist: data.trackArtist,
+        trackCover: data.trackCover,
+        scTrackId: data.scTrackId,
+        audioUrl: data.audioUrl,
+        source: data.source,
+        isPlaying: true,
+        progress: 0,
+        guestCount: 1,
+        members: {
+          create: {
+            userId: data.hostId,
+            username: host.username,
+            avatar: host.avatar,
+          },
+        },
+      },
+    });
+    return {
+      id: s.id,
+      hostId: s.hostId,
+      code: s.code,
+      trackId: s.trackId,
+      trackTitle: s.trackTitle,
+      trackArtist: s.trackArtist,
+      trackCover: s.trackCover,
+      scTrackId: s.scTrackId,
+      audioUrl: s.audioUrl,
+      source: s.source,
+      progress: s.progress,
+      isPlaying: s.isPlaying,
+      guestCount: s.guestCount,
+      createdAt: s.createdAt.toISOString(),
+      updatedAt: s.updatedAt.toISOString(),
+    };
+  },
+
+  /** Partial update of a live session (playback state / track change). */
+  async updateLiveSession(
+    id: string,
+    data: Partial<{
+      trackId: string;
+      trackTitle: string;
+      trackArtist: string;
+      trackCover: string;
+      scTrackId: number | null;
+      audioUrl: string;
+      source: string;
+      isPlaying: boolean;
+      progress: number;
+    }>
+  ): Promise<LiveSessionRow | null> {
+    const entries = Object.entries(data).filter(([, v]) => v !== undefined);
+    if (isTurso()) {
+      if (entries.length > 0) {
+        const now = new Date().toISOString();
+        const sets = entries.map(([k]) => `${k} = ?`).join(", ");
+        const values = entries.map(([k, v]) =>
+          k === "isPlaying" ? (v ? 1 : 0) : (v as string | number | null)
+        );
+        await tursoQuery(() =>
+          getTurso().execute({
+            sql: `UPDATE LiveSession SET ${sets}, updatedAt = ? WHERE id = ?`,
+            args: [...values, now, id],
+          })
+        );
+      }
+      return await this.findLiveSessionById(id);
+    }
+    const update: Record<string, unknown> = {};
+    for (const [k, v] of entries) update[k] = v;
+    if (Object.keys(update).length === 0) {
+      return await this.findLiveSessionById(id);
+    }
+    try {
+      const s = await db.liveSession.update({ where: { id }, data: update });
+      return {
+        id: s.id,
+        hostId: s.hostId,
+        code: s.code,
+        trackId: s.trackId,
+        trackTitle: s.trackTitle,
+        trackArtist: s.trackArtist,
+        trackCover: s.trackCover,
+        scTrackId: s.scTrackId,
+        audioUrl: s.audioUrl,
+        source: s.source,
+        progress: s.progress,
+        isPlaying: s.isPlaying,
+        guestCount: s.guestCount,
+        createdAt: s.createdAt.toISOString(),
+        updatedAt: s.updatedAt.toISOString(),
+      };
+    } catch {
+      // Prisma update throws P2025 when the row vanished between read and write
+      return null;
+    }
+  },
+
+  /** Delete a live session (host leaving). Members cascade. */
+  async deleteLiveSession(id: string): Promise<void> {
+    if (isTurso()) {
+      await tursoQuery(async () => {
+        // libSQL has no FK cascade for this table pair on older instances —
+        // delete members explicitly in the same write batch.
+        await getTurso().batch(
+          [
+            { sql: "DELETE FROM LiveSessionMember WHERE sessionId = ?", args: [id] },
+            { sql: "DELETE FROM LiveSession WHERE id = ?", args: [id] },
+          ],
+          "write"
+        );
+      });
+      return;
+    }
+    await db.liveSession.delete({ where: { id } });
+  },
+
+  /**
+   * Add a member to a live session and bump guestCount (atomic).
+   * No-op if the user is already a member.
+   */
+  async addLiveSessionMember(
+    sessionId: string,
+    userId: string,
+    username: string,
+    avatar: string
+  ): Promise<void> {
+    if (isTurso()) {
+      await tursoQuery(async () => {
+        const now = new Date().toISOString();
+        await getTurso().batch(
+          [
+            {
+              sql: `INSERT INTO LiveSessionMember (id, sessionId, userId, username, avatar, joinedAt, lastSyncAt)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              args: [createId(), sessionId, userId, username, avatar, now, now],
+            },
+            {
+              sql: "UPDATE LiveSession SET guestCount = guestCount + 1, updatedAt = ? WHERE id = ?",
+              args: [now, sessionId],
+            },
+          ],
+          "write"
+        );
+      });
+      return;
+    }
+    await db.$transaction([
+      db.liveSessionMember.create({
+        data: { sessionId, userId, username, avatar },
+      }),
+      db.liveSession.update({
+        where: { id: sessionId },
+        data: { guestCount: { increment: 1 } },
+      }),
+    ]);
+  },
+
+  /**
+   * Remove a member from a live session and decrement guestCount.
+   * Returns true when a member row was actually removed; false when the user
+   * was not a member (in which case guestCount is untouched — the old route
+   * decremented unconditionally and could drive the count negative).
+   */
+  async removeLiveSessionMember(sessionId: string, userId: string): Promise<boolean> {
+    if (isTurso()) {
+      return await tursoQuery(async () => {
+        const now = new Date().toISOString();
+        const deleted = await getTurso().execute({
+          sql: "DELETE FROM LiveSessionMember WHERE sessionId = ? AND userId = ?",
+          args: [sessionId, userId],
+        });
+        const removed = (deleted.rowsAffected ?? 0) > 0;
+        if (removed) {
+          await getTurso().execute({
+            sql: "UPDATE LiveSession SET guestCount = MAX(guestCount - 1, 0), updatedAt = ? WHERE id = ?",
+            args: [now, sessionId],
+          });
+        }
+        return removed;
+      });
+    }
+    const result = await db.liveSessionMember.deleteMany({
+      where: { sessionId, userId },
+    });
+    if (result.count > 0) {
+      await db.liveSession.update({
+        where: { id: sessionId },
+        data: { guestCount: { decrement: 1 } },
+      });
+    }
+    return result.count > 0;
+  },
+
   // ─── Message operations ───────────────────────────────────────────────────
 
   async findMessageById(id: string): Promise<MessageRow | null> {
@@ -2176,7 +2834,6 @@ export const database = {
       }
       return results;
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return db.$transaction(operations.map((op) => op()) as any) as Promise<T[]>;
   },
 

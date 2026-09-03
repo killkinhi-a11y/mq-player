@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, memo } from "react";
+import React, { useCallback, useEffect, useId, useRef, memo } from "react";
 
 // ═════════════════════════════════════════════════════════════════════════
 // RangeSlider — generic smooth slider using native input[type=range]
@@ -57,7 +57,10 @@ function RangeSliderBase({
 
   const pct = ((value - min) / (max - min)) * 100;
   const accent = "var(--mq-accent)";
-  const sliderId = useRef(`mq-range-${Math.random().toString(36).slice(2, 9)}`).current;
+  // useId() — SSR-stable unique id (Math.random() during render broke
+  // hydration determinism). Colons stripped because they are invalid in
+  // the generated CSS class selectors below.
+  const sliderId = useId().replace(/[^a-zA-Z0-9]/g, "");
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>

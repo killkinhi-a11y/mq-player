@@ -4,6 +4,7 @@ import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/store/useAppStore";
 import { sanitizeGenre } from "@/lib/tasteProfile";
+import { toast } from "@/hooks/use-toast";
 import {
   Zap,
   Coffee,
@@ -335,10 +336,7 @@ export default function TasteProfileView() {
       setCustomGenreInput("");
     } else if (!sanitized) {
       // Show error toast instead of silently failing
-      try {
-        const { toast } = require("@/hooks/use-toast");
-        toast({ title: "Неверный жанр", description: "Жанр должен быть 2-24 символа, только буквы, без цифр и символов", variant: "destructive" });
-      } catch {}
+      toast({ title: "Неверный жанр", description: "Жанр должен быть 2-24 символа, только буквы, без цифр и символов", variant: "destructive" });
     }
   }, [customGenreInput, allGenres, setTasteGenre]);
 

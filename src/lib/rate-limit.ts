@@ -57,7 +57,7 @@ let _upstashPromise: Promise<any> | null = null;
 
 function loadUpstash(): Promise<any> {
   if (!_upstashPromise) {
-    // @ts-ignore — optional dependency, may not be installed
+    // @ts-expect-error — optional dependency @upstash/redis is intentionally not in package.json; when absent the dynamic import type-errors and the catch falls back to the in-memory limiter
     _upstashPromise = import(/* webpackIgnore: true */ "@upstash/redis").catch(() => null);
   }
   return _upstashPromise;

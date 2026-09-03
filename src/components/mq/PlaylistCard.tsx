@@ -23,7 +23,10 @@ export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps)
   const playTrack = useAppStore((s) => s.playTrack);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const isMobile = useIsMobile();
-  const tilt = useTilt3D({ max: 8, scale: 1.04 });
+  // Destructured: member access on the hook's return object (which also
+  // carries the ref) is treated as ref access during render by
+  // react-hooks/refs — plain destructured values pass cleanly.
+  const { ref: tiltRef, onMouseMove, onMouseEnter, onMouseLeave } = useTilt3D({ max: 8, scale: 1.04 });
 
   const handlePlay = () => {
     if (playlist.tracks.length > 0) {
@@ -73,10 +76,10 @@ export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps)
 
       <div
         className="relative aspect-square overflow-hidden"
-        ref={tilt.ref as React.RefObject<HTMLDivElement>}
-        onMouseMove={tilt.onMouseMove}
-        onMouseEnter={tilt.onMouseEnter}
-        onMouseLeave={tilt.onMouseLeave}
+        ref={tiltRef as React.RefObject<HTMLDivElement>}
+        onMouseMove={onMouseMove}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
         style={{ transformStyle: "preserve-3d" }}
       >
         <img

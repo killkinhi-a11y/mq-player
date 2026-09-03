@@ -86,66 +86,10 @@ export default function SynthVisualizerView({ show, onClose }: SynthVisualizerVi
   }, []);
 
   // ── Main visualization loop ──
-  useEffect(() => {
-    if (!show) return;
-
-    const canvas = mainCanvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d", { alpha: false });
-    if (!ctx) return;
-
-    const analyser = getAnalyser();
-    const binCount = analyser?.frequencyBinCount || 1024;
-    const freqArray = new Uint8Array(binCount);
-    const timeArray = new Uint8Array(binCount);
-
-    // Initialize spectrogram offscreen canvas
-    if (!spectrogramRef.current.offscreen) {
-      spectrogramRef.current.offscreen = document.createElement("canvas");
-      spectrogramRef.current.offscreen.width = canvasSize.w;
-      spectrogramRef.current.offscreen.height = canvasSize.h;
-      spectrogramRef.current.x = 0;
-    }
-
-    const draw = (timestamp: number) => {
-      recordFrameTime(timestamp);
-      updateCssCache();
-
-      const width = canvas.width;
-      const height = canvas.height;
-      const accentRgb = cssCacheRef.current.accentRgb;
-
-      // Clear
-      ctx.fillStyle = "#0a0a0f";
-      ctx.fillRect(0, 0, width, height);
-
-      // Get audio data
-      if (analyser) {
-        getFrequencyData(freqArray);
-        getTimeDomainData(timeArray);
-      }
-
-      if (activeTab === "oscilloscope") {
-        drawOscilloscope(ctx, timeArray, freqArray, width, height, accentRgb);
-      } else if (activeTab === "spectrum") {
-        drawSpectrum(ctx, freqArray, binCount, width, height, accentRgb);
-      } else if (activeTab === "spectrogram") {
-        drawSpectrogram(ctx, freqArray, binCount, width, height, accentRgb);
-      }
-
-      // Info overlay
-      drawInfoOverlay(ctx, width, height, accentRgb);
-
-      animFrameRef.current = requestAnimationFrame(draw);
-    };
-
-    animFrameRef.current = requestAnimationFrame(draw);
-
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [show, activeTab, canvasSize, updateCssCache]);
+  // NOTE: declared AFTER the draw* functions below on purpose — the effect
+  // closes over them, and declaring consumers before producers trips
+  // react-hooks/immutability (TDZ for the React Compiler).
+  const mainLoopEffectDeps = [show, activeTab, canvasSize, updateCssCache];
 
   // ── Oscilloscope: real-time waveform + harmonic series overlay ──
   const drawOscilloscope = (
@@ -527,6 +471,69 @@ export default function SynthVisualizerView({ show, onClose }: SynthVisualizerVi
 
     ctx.restore();
   };
+
+  // ── Main visualization loop (defined after the draw* closures above) ──
+  useEffect(() => {
+    if (!show) return;
+
+    const canvas = mainCanvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) return;
+
+    const analyser = getAnalyser();
+    const binCount = analyser?.frequencyBinCount || 1024;
+    const freqArray = new Uint8Array(binCount);
+    const timeArray = new Uint8Array(binCount);
+
+    // Initialize spectrogram offscreen canvas
+    if (!spectrogramRef.current.offscreen) {
+      spectrogramRef.current.offscreen = document.createElement("canvas");
+      spectrogramRef.current.offscreen.width = canvasSize.w;
+      spectrogramRef.current.offscreen.height = canvasSize.h;
+      spectrogramRef.current.x = 0;
+    }
+
+    const draw = (timestamp: number) => {
+      recordFrameTime(timestamp);
+      updateCssCache();
+
+      const width = canvas.width;
+      const height = canvas.height;
+      const accentRgb = cssCacheRef.current.accentRgb;
+
+      // Clear
+      ctx.fillStyle = "#0a0a0f";
+      ctx.fillRect(0, 0, width, height);
+
+      // Get audio data
+      if (analyser) {
+        getFrequencyData(freqArray);
+        getTimeDomainData(timeArray);
+      }
+
+      if (activeTab === "oscilloscope") {
+        drawOscilloscope(ctx, timeArray, freqArray, width, height, accentRgb);
+      } else if (activeTab === "spectrum") {
+        drawSpectrum(ctx, freqArray, binCount, width, height, accentRgb);
+      } else if (activeTab === "spectrogram") {
+        drawSpectrogram(ctx, freqArray, binCount, width, height, accentRgb);
+      }
+
+      // Info overlay
+      drawInfoOverlay(ctx, width, height, accentRgb);
+
+      animFrameRef.current = requestAnimationFrame(draw);
+    };
+
+    animFrameRef.current = requestAnimationFrame(draw);
+
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- draw* closures are re-created per render; the loop must re-run only on these structural inputs (pre-existing behavior, kept identical)
+  }, mainLoopEffectDeps);
 
   const tabs: { id: VisTab; label: string; icon: typeof Activity }[] = [
     { id: "oscilloscope", label: "Осциллограф", icon: Activity },

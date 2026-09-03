@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
-import { db } from "@/lib/db";
+import { database } from "@/lib/database";
 
 /**
  * GET /api/social/sessions
@@ -11,6 +11,9 @@ import { db } from "@/lib/db";
  *   Creates a new live listening session. Host becomes the first member.
  *   Body: { trackId, trackTitle, trackArtist, trackCover, scTrackId?, audioUrl, source }
  *   Returns: { session: { id, code, ... } }
+ *
+ * Phase 3: migrated from Prisma-direct to the unified database adapter
+ * (src/lib/database.ts) — works on both Turso (production) and Prisma (local).
  */
 
 function generateCode(): string {
@@ -26,33 +29,12 @@ async function getHandler() {
   if (!session) return NextResponse.json({ sessions: [] }, { status: 401 });
 
   try {
-    const sentFriends = await db.friend.findMany({
-      where: { requesterId: session.userId, status: "accepted" },
-      select: { addresseeId: true },
-    });
-    const receivedFriends = await db.friend.findMany({
-      where: { addresseeId: session.userId, status: "accepted" },
-      select: { requesterId: true },
-    });
-    const friendIds = [
-      ...sentFriends.map((f) => f.addresseeId),
-      ...receivedFriends.map((f) => f.requesterId),
-      session.userId, // include own sessions
-    ];
+    const friendIds = await database.findAcceptedFriendIds(session.userId);
+    const hostIds = [...friendIds, session.userId]; // include own sessions
 
     // Active = updated in last 10 min
-    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
-    const sessions = await db.liveSession.findMany({
-      where: {
-        hostId: { in: friendIds },
-        updatedAt: { gte: tenMinAgo },
-      },
-      include: {
-        host: { select: { id: true, username: true, avatar: true } },
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 20,
-    });
+    const tenMinAgo = Date.now() - 10 * 60 * 1000;
+    const sessions = await database.findActiveLiveSessions(hostIds, tenMinAgo, 20);
 
     return NextResponse.json({
       sessions: sessions.map((s) => ({
@@ -88,44 +70,31 @@ async function postHandler(request: NextRequest) {
     }
 
     // Get user info for member record
-    const user = await db.user.findUnique({
-      where: { id: session.userId },
-      select: { username: true, avatar: true },
-    });
+    const user = await database.findUserById(session.userId);
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     // Generate unique code (retry on collision)
     let code = generateCode();
     for (let i = 0; i < 5; i++) {
-      const exists = await db.liveSession.findUnique({ where: { code }, select: { id: true } });
+      const exists = await database.findLiveSessionIdByCode(code);
       if (!exists) break;
       code = generateCode();
     }
 
-    const liveSession = await db.liveSession.create({
-      data: {
+    const liveSession = await database.createLiveSession(
+      {
         hostId: session.userId,
         code,
         trackId,
         trackTitle,
         trackArtist,
         trackCover: trackCover || "",
-        scTrackId: scTrackId || null,
+        scTrackId: scTrackId ?? null,
         audioUrl: audioUrl || "",
         source: source || "soundcloud",
-        isPlaying: true,
-        progress: 0,
-        guestCount: 1,
-        members: {
-          create: {
-            userId: session.userId,
-            username: user.username,
-            avatar: user.avatar,
-          },
-        },
       },
-      include: { members: true },
-    });
+      { username: user.username, avatar: user.avatar }
+    );
 
     return NextResponse.json({
       session: {

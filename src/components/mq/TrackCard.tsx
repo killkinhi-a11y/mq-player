@@ -32,7 +32,10 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
   const toggleDislike = useAppStore((s) => s.toggleDislike);
   const compactMode = useAppStore((s) => s.compactMode);
   const isMobile = useIsMobile();
-  const tilt = useTilt3D({ max: 6, scale: 1.03 });
+  // Destructured: member access on the hook's return object (which also
+  // carries the ref) is treated as ref access during render by
+  // react-hooks/refs — plain destructured values pass cleanly.
+  const { ref: tiltRef, onMouseMove, onMouseEnter, onMouseLeave } = useTilt3D({ max: 6, scale: 1.03 });
 
   // B1 fix: use design tokens (--mq-radius-xl=16px, --mq-radius-lg=12px)
   // instead of hardcoded px literals — keeps 1500+ card instances consistent.
@@ -242,10 +245,10 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
             transition-transform duration-300 ease-out
             group-hover:scale-[1.05]
           `}
-          ref={tilt.ref as React.RefObject<HTMLDivElement>}
-          onMouseMove={tilt.onMouseMove}
-          onMouseEnter={tilt.onMouseEnter}
-          onMouseLeave={tilt.onMouseLeave}
+          ref={tiltRef as React.RefObject<HTMLDivElement>}
+          onMouseMove={onMouseMove}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
           style={{
             boxShadow: isActive
               ? `0 2px ${isMobile ? 8 : 12}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 15 : 25}%, transparent)`

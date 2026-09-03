@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac } from "crypto";
+import { createHmac, randomUUID } from "crypto";
+import bcrypt from "bcryptjs";
 import { database } from "@/lib/database";
 import { signToken, SESSION_COOKIE_OPTIONS } from "@/lib/auth";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
@@ -166,8 +167,7 @@ async function handler(req: NextRequest) {
 
       // Generate placeholder email + random password (Telegram users don't need real ones)
       const placeholderEmail = `tg_${chatId}@mqplayer.telegram`;
-      const randomPassword = require("crypto").randomUUID().replace(/-/g, "");
-      const bcrypt = require("bcryptjs");
+      const randomPassword = randomUUID().replace(/-/g, "");
       const hashedPassword = await bcrypt.hash(randomPassword, 10);
 
       const user = await database.createUser({

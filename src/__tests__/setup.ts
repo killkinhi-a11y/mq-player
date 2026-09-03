@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { TextEncoder, TextDecoder } from "util";
+import { webcrypto } from "crypto";
 
 // Polyfill TextEncoder/TextDecoder for jose library
 if (typeof globalThis.TextEncoder === "undefined") {
@@ -12,7 +13,6 @@ if (typeof globalThis.TextDecoder === "undefined") {
 // Mock Web Crypto API for jose library (required for JWT sign/verify in test env)
 if (!globalThis.crypto?.subtle) {
   try {
-    const { webcrypto } = require("crypto");
     globalThis.crypto = webcrypto as any;
   } catch {}
 }

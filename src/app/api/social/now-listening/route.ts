@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
-import { db } from "@/lib/db";
+import { database } from "@/lib/database";
 
 /**
  * GET /api/social/now-listening
@@ -10,6 +10,9 @@ import { db } from "@/lib/db";
  * Polled by client every ~15s. Only returns statuses updated in the last 5 min.
  *
  * Response: { friends: Array<{ userId, username, avatar, trackTitle, trackArtist, trackCover, isPlaying, progress, duration }> }
+ *
+ * Phase 3: migrated from Prisma-direct to the unified database adapter
+ * (src/lib/database.ts) — works on both Turso (production) and Prisma (local).
  */
 
 async function handler() {
@@ -19,38 +22,15 @@ async function handler() {
   }
 
   try {
-    // Get accepted friends (both directions)
-    const sentFriends = await db.friend.findMany({
-      where: { requesterId: session.userId, status: "accepted" },
-      select: { addresseeId: true },
-    });
-    const receivedFriends = await db.friend.findMany({
-      where: { addresseeId: session.userId, status: "accepted" },
-      select: { requesterId: true },
-    });
-    const friendIds = [
-      ...sentFriends.map((f) => f.addresseeId),
-      ...receivedFriends.map((f) => f.requesterId),
-    ];
+    const friendIds = await database.findAcceptedFriendIds(session.userId);
 
     if (friendIds.length === 0) {
       return NextResponse.json({ friends: [] });
     }
 
     // Get listening statuses updated in the last 5 minutes
-    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
-    const statuses = await db.listeningStatus.findMany({
-      where: {
-        userId: { in: friendIds },
-        updatedAt: { gte: fiveMinAgo },
-      },
-      include: {
-        user: {
-          select: { id: true, username: true, avatar: true },
-        },
-      },
-      orderBy: { updatedAt: "desc" },
-    });
+    const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+    const statuses = await database.findActiveListeningStatuses(friendIds, fiveMinAgo);
 
     const friends = statuses.map((s) => ({
       userId: s.user.id,

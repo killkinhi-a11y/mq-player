@@ -28,12 +28,40 @@ export function useMagnetic({
   const targetRef = useRef({ x: 0, y: 0 });
   const currentRef = useRef({ x: 0, y: 0 });
   const [enabled, setEnabled] = useState(false);
+  // Start handle for the RAF loop — installed by the effect below.
+  // (Declared as a ref so handlers never touch RAF ids themselves.)
+  const startRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const can =
       window.matchMedia("(hover: hover)").matches &&
       !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     setEnabled(can);
+
+    // RAF loop lives inside the effect — no self-referencing initializer
+    // (which trips react-hooks/immutability TDZ analysis) and guaranteed cleanup.
+    const loop = () => {
+      rafRef.current = requestAnimationFrame(loop);
+      const t = targetRef.current;
+      const c = currentRef.current;
+      c.x += (t.x - c.x) * 0.12;
+      c.y += (t.y - c.y) * 0.12;
+      if (ref.current) {
+        ref.current.style.transform = `translate3d(${c.x.toFixed(2)}px, ${c.y.toFixed(2)}px, 0)`;
+      }
+      // Stop when settled at center
+      if (Math.abs(t.x - c.x) < 0.05 && Math.abs(t.y - c.y) < 0.05 && t.x === 0 && t.y === 0) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+        if (ref.current) {
+          ref.current.style.transform = "";
+        }
+      }
+    };
+    startRef.current = () => {
+      if (!rafRef.current) rafRef.current = requestAnimationFrame(loop);
+    };
+
     // CRITICAL: cleanup RAF on unmount to prevent infinite loop
     return () => {
       if (rafRef.current) {
@@ -41,25 +69,6 @@ export function useMagnetic({
         rafRef.current = 0;
       }
     };
-  }, []);
-
-  const update = useCallback(() => {
-    rafRef.current = requestAnimationFrame(update);
-    const t = targetRef.current;
-    const c = currentRef.current;
-    c.x += (t.x - c.x) * 0.12;
-    c.y += (t.y - c.y) * 0.12;
-    if (ref.current) {
-      ref.current.style.transform = `translate3d(${c.x.toFixed(2)}px, ${c.y.toFixed(2)}px, 0)`;
-    }
-    // Stop when settled at center
-    if (Math.abs(t.x - c.x) < 0.05 && Math.abs(t.y - c.y) < 0.05 && t.x === 0 && t.y === 0) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = 0;
-      if (ref.current) {
-        ref.current.style.transform = "";
-      }
-    }
   }, []);
 
   const handleMove = useCallback(
@@ -84,20 +93,16 @@ export function useMagnetic({
         x: nx * maxShift * strength,
         y: ny * maxShift * strength,
       };
-      if (!rafRef.current) {
-        rafRef.current = requestAnimationFrame(update);
-      }
+      startRef.current();
     },
-    [enabled, padding, strength, update]
+    [enabled, padding, strength]
   );
 
   const handleLeave = useCallback(() => {
     if (!enabled) return;
     targetRef.current = { x: 0, y: 0 };
-    if (!rafRef.current) {
-      rafRef.current = requestAnimationFrame(update);
-    }
-  }, [enabled, update]);
+    startRef.current();
+  }, [enabled]);
 
   return {
     ref,

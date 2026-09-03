@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getSession } from "@/lib/get-session";
-import { db } from "@/lib/db";
+import { database } from "@/lib/database";
 
 /**
  * GET /api/social/rec-updates
@@ -14,6 +14,9 @@ import { db } from "@/lib/db";
  * Polled every ~30s. Designed to be cheap (DB count queries only).
  *
  * Response: { hash: string, likes: number, dislikes: number, history: number, ts: number }
+ *
+ * Phase 3: migrated from Prisma-direct to the unified database adapter
+ * (src/lib/database.ts) — works on both Turso (production) and Prisma (local).
  */
 
 async function handler() {
@@ -23,10 +26,11 @@ async function handler() {
   try {
     // Count likes, dislikes, history for this user
     // likedTrackIds and dislikedTrackIds are stored as JSON arrays in UserSync
-    const syncData = await db.userSync.findMany({
-      where: { userId: session.userId, key: { in: ["likedTrackIds", "dislikedTrackIds", "history"] } },
-      select: { key: true, data: true, updatedAt: true },
-    });
+    const syncData = await database.findUserSyncDataByKeys(session.userId, [
+      "likedTrackIds",
+      "dislikedTrackIds",
+      "history",
+    ]);
 
     let likes = 0, dislikes = 0, history = 0;
     let latestUpdate = 0;
@@ -40,7 +44,7 @@ async function handler() {
           if (row.key === "history") history = parsed.length;
         }
       } catch {}
-      const ts = row.updatedAt?.getTime() || 0;
+      const ts = new Date(row.updatedAt).getTime() || 0;
       if (ts > latestUpdate) latestUpdate = ts;
     }
 
