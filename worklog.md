@@ -1460,3 +1460,59 @@ Stage Summary:
 - tsc = 0 сохранён; 191→226 тестов; build зелёный.
 - Next: production verify (/, /play, search, playback, Wave, queue, auth,
   social endpoints), worklog push.
+
+---
+Task ID: phase3-verify-deploy
+Agent: main (Super Z)
+Task: Phase 3 — deploy verification + critical production DB fix discovered during verify
+
+Work Log:
+- DEPLOY 1 (10d4750): git push → Vercel. /play 200; /api/db-test показал
+  PRE-EXISTING schemaInit SQL_PARSE_ERROR «near LIMIT, None» — тот же вывод
+  был ДО деплоя (11:47), т.е. не мой регресс.
+- ROOT CAUSE №2 (найден при верификации): initTursoSchema последним блоком
+  склеивал CronJob+SmartPlaylist+index в ОДИН execute():
+  (a) libSQL file-mode исполняет только ПЕРВОЕ statement (остальные молча
+  отбрасываются — доказано локальным probe: M1 создана, M2 нет);
+  (b) Hrana (production) падает парсингом всей строки: unquoted «limit» —
+  SQLite keyword как имя колонки → SQL_PARSE_ERROR.
+  → ensureTursoSchema() кидал на каждом cold start → SmartPlaylist/CronJob
+  НИКОГДА не существовали в production Turso → smart-playlists 500 для
+  авторизованных + tursoQuery auto-init был мёртв (Phase 3 social-таблицы
+  не создались бы сами). Verified: production db-test schemaInit:error.
+- FIX (f3e86f8): блок разбит на 3 одиночных execute() (NOTE: one statement
+  per call = libSQL contract); колонка закавычена «limit»; закавычены все
+  SmartPlaylist SQL (INSERT / UPDATE SET / SELECT в 3 роутах). JS row.limit
+  доступы не менялись (имя колонки в результате то же). Данных в Turso для
+  этих таблиц не было (блок всегда падал) — миграция без потерь; Prisma-схема
+  не тронута.
+- Локальная верификация (file-backed libsql, ИМЕННО repo-файл): все таблицы
+  создаются (ListeningStatus/LiveSession/LiveSessionMember/SmartPlaylist/
+  CronJob/User/Friend), quoted-limit INSERT+SELECT round-trip OK.
+- DEPLOY 2 (f3e86f8): /play 200 (1.18s); /api/db-test → schemaInit:"ok",
+  backend turso, userCount 1 — ВСЕ таблицы (вкл. social) созданы.
+- PRODUCTION VERIFY (agent-browser, чистая сессия):
+  / 307→/play 200; UI монтируется; поиск API 200 (треки); регистрация
+  через адаптер → Turso OK (userId создан);
+  playback: play (реальный SoundCloud progressive stream, прогресс
+  0:25→0:30 за 5s), pause→resume, next (очередь сместилась), очередь
+  (146 треков, СЕЙЧАС ИГРАЕТ / НЕДАВНО / ДАЛЬШЕ / ИЗ ОЧЕРЕДИ);
+  Wave открывается (2 карточки);
+  social endpoints: 401 unauth с идентичными телами (friends:[], hash:"",
+  sessions:[]), update-status 405 на GET (POST-only — корректно);
+  smart-playlists: 401 unauth (роут жив, таблица теперь существует);
+  console: 0 errors / 0 uncaught (логи resolveStream — информационные,
+  pre-existing);
+  401-storm регрессия 2C: НЕТ (единственный разовый db-sync ping, polling-
+  циклов в demo 0);
+  /tg 200, /track/[id] 200, robots 200.
+- Артефакт: тестовый юзер phase3_verify (unconfirmed, без кода подтверждения
+  удалить нельзя — email не читаем) — безвреден, отмечен в отчёте.
+
+Stage Summary:
+- Production Turso: schema init зелёный (был красным месяцами), все таблицы
+  существуют, social-роуты работают через единый адаптер.
+- Commits: 10d4750 (миграция+lint+tests), fb08d41 (worklog), f3e86f8 (schema
+  init fix) — все через GitHub → Vercel pipeline.
+- Все проверки Phase 3 закрыты: PRISMA DIRECT / LINT / SECURITY / TESTS /
+  BUILD / PRODUCTION / GIT.
