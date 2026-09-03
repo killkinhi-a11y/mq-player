@@ -13,6 +13,7 @@
 
 import { useAppStore } from "@/store/useAppStore";
 import type { Track } from "@/lib/musicApi";
+import { seekPlayback, currentPlaybackPosition } from "@/lib/wasm-audio";
 
 const SNAPSHOT_KEY = "mq-update-snapshot-v1";
 
@@ -119,8 +120,10 @@ export function restoreUpdateSnapshot(
       volume: Number.isFinite(snap.volume) ? snap.volume : 80,
     });
 
-    // 2. Seek to the saved position once the audio element has the source.
-    seekWhenLoaded(getAudioElement, position, Math.round(track.duration || 0));
+    // 2. Seek to the saved position once the engine has the stream loaded.
+    //    seekPlayback routes to the WASM backend (AudioWorklet) OR the
+    //    <audio> element — covers both playback paths (§35.22).
+    seekWhenLoaded(position, getAudioElement);
 
     // 3. One-shot — remove BEFORE the resume attempt so a failed resume can
     //    never trigger a second restore on the next boot.
@@ -135,10 +138,10 @@ export function restoreUpdateSnapshot(
         // Honesty fallback: if autoplay is blocked (NotAllowedError path keeps
         // isPlaying=true while audio stays silent), settle to paused after 5s.
         setTimeout(() => {
-          const a = getAudioElement();
           const st = useAppStore.getState();
-          if (st.isPlaying && a && a.paused && a.currentTime === 0 && st.progress === position) {
-            // Not a seek failure — engine never managed to start. Paused, but
+          const pos = currentPlaybackPosition();
+          if (st.isPlaying && pos === 0 && st.progress === position) {
+            // Engine never managed to start (autoplay blocked). Paused, but
             // track/position/queue are intact: the user presses play once.
             useAppStore.setState({ isPlaying: false });
           }
@@ -156,26 +159,33 @@ export function restoreUpdateSnapshot(
   }
 }
 
-/** Seek when the restored track is loaded (polls readyState, bounded ~10s). */
-function seekWhenLoaded(
-  getAudioElement: () => HTMLAudioElement | null,
-  position: number,
-  duration: number
-): void {
+/** Seek when the engine has the restored stream loaded (bounded ~10s).
+ *  Retries because the WASM backend / <audio> element attach asynchronously
+ *  after the store restore; seekPlayback is a no-op until then. */
+function seekWhenLoaded(position: number, getAudioElement?: () => HTMLAudioElement | null): void {
   const started = Date.now();
   const tick = () => {
-    const a = getAudioElement();
-    if (a && a.src && a.readyState >= 1) {
-      try {
-        a.currentTime = position;
-        useAppStore.setState({ progress: position, duration: a.duration || duration || 0 });
-      } catch {
-        // Seek before metadata — retry on next tick
+    // Engine-ready signals: WASM/element position advancing, already at the
+    // target, or the <audio> element loaded (paused restore case: pos stays 0).
+    const pos = currentPlaybackPosition();
+    let elementReady = false;
+    try {
+      const a = getAudioElement?.();
+      elementReady = !!a && !!a.src && a.readyState >= 1;
+    } catch {}
+    if (pos > 0 || pos === position || elementReady) {
+      if (pos !== position) {
+        try {
+          seekPlayback(position);
+          useAppStore.setState({ progress: position });
+        } catch {
+          // Seek unsupported on this path — restart at 0 is acceptable.
+        }
       }
       return;
     }
-    if (Date.now() - started > 10_000) return; // give up quietly — paused at 0 is acceptable
-    setTimeout(tick, 250);
+    if (Date.now() - started > 10_000) return; // give up quietly
+    setTimeout(tick, 400);
   };
-  setTimeout(tick, 200);
+  setTimeout(tick, 300);
 }
