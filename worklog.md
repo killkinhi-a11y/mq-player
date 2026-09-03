@@ -1390,3 +1390,73 @@ Stage Summary:
   page/MessageBubble teardown-фиксы, eslint.config.mjs, 2 тест-файла.
 - Next: git push → Vercel deploy → production verify (/, /play, search, network
   30-60s demo, console 0 errors).
+
+---
+Task ID: phase3-arch-hardening
+Agent: main (Super Z)
+Task: Phase 3 — ARCHITECTURE HARDENING + LINT DEBT + SOCIAL DATABASE MIGRATION
+
+Work Log:
+- Синхронизировал origin/main (0e1ed2c Phase 2C): git pull, 33 файла.
+- AUDIT DB: production = Turso (GET /api/db-test → usingTurso:true, backend
+  "turso", userCount 1). Prisma-direct роуты: 5 social (now-listening,
+  update-status, sessions, sessions/[id], rec-updates) + db-sync (админ-
+  миграционная утилита PostgreSQL, by design, в prismaAllowList).
+  ROOT CAUSE: social-роуты писали в Prisma/Neon, весь остальной проект — в
+  Turso → split-brain баз + отсутствие таблиц ListeningStatus/LiveSession/
+  LiveSessionMember в Turso → social-функции в production молча возвращали
+  пустоту/500. Server/client boundaries: getSession (cookie) → route → БД.
+- FIX (миграция на существующую абстракцию, новой абстракции не создано):
+  turso.ts initTursoSchema +3 таблицы (CREATE TABLE IF NOT EXISTS, non-
+  destructive); database.ts +13 dual-path методов (findAcceptedFriendIds,
+  findActiveListeningStatuses, upsertListeningStatus, findActiveLiveSessions,
+  findLiveSessionById/IdByCode, findLiveSessionMembers, createLiveSession,
+  updateLiveSession, deleteLiveSession, add/removeLiveSessionMember,
+  findUserSyncDataByKeys) с batch-транзакциями libSQL; 5 роутов переписаны
+  на адаптер с идентичными response shapes/status codes. Prisma-схема не
+  менялась. Поведенческий фикс: guarded decrement guestCount (раньше
+  уходил в минус при повторном leave).
+- LINT (npm run lint): 160 → 95 errors. Классификация A/B/C/D/E:
+  A(реальные баги, все исправлены): TasteProfileView require() в браузере —
+  toast «Неверный жанр» никогда не показывался; ViewErrorBoundary require()
+  → hard-reload вместо SPA-навигации; track/[id] refs-during-render ×6 +
+  <a href="/">→Link; MqCat запись ref во время render ×3 + performance.now;
+  SleepTimerView Math.random ×4 в render (hydration) → mulberry32 seeded;
+  range-slider Math.random id → useId; MessageBubble heights useRef→useMemo.
+  B(исправлены): webapp-auth require()×2 → static imports; SynthVisual-
+  izerView TDZ ×4 → reorder; useTilt3D/useMagnetic RAF self-reference →
+  loop внутри useEffect + startRef; PlaylistCard/TrackCard деструктуризация
+  хука (rule member-access); setup.ts require→import; @ts-ignore→
+  @ts-expect-error; scope: skills/** в ignores (16), electron CJS override
+  (3). tg ссылки ×2 — документированные disable (hard-reload = интент).
+  Осталось 95 (документировано, НЕ чинилось осознанно): 75 sub-11px (E —
+  долг дизайна, UI заморожен), 17 set-state-in-effect (C/D — легитимный
+  external-sync на mount), 3 Date.now time-ago (C), 1 scroll ref (C).
+- CobaltTurnstile: убран success console.log в /api/cobalt/session (шум);
+  warn-ы при ошибках оставлены; Turnstile flow не тронут; в компоненте
+  debug уже был закомментирован (Phase 2C), остался gated console.debug.
+- Тесты: +35 (social-db-adapter 15: Turso-path SQL/args/mapping, Prisma-
+  path parity, guarded decrement, failure propagation, schema-guard;
+  social-routes 20: 401/403/404/auth parity, DB-failure fallback, response
+  shape byte-parity, import boundary fs-guard). Итого 226/226 зелёные.
+- Регрессии Phase 2C: polling-auth-gate 9 тестов зелёные (demo/anonymous
+  не поллят protected; 401 → suspend; login/logout транзишены). Playback:
+  playback-reliability 14 зелёные; UI не менялся (кроме +1px-независимых
+  lint-фиксов; визуальных изменений нет: seeded stars, useId, деструкту-
+  ризация — рендер-эквивалентны).
+- VERIFY: tsc 0; eslint 0 новых (160→95, −65); build ✓ 93/93 (31s);
+  vitest 226/226; локальный smoke (dev, agent-browser): /play монтируется,
+  demo-режим, messenger/settings/sleep-timer — 0 console errors.
+- DEPLOY: git push 10d4750 → GitHub → Vercel auto-deploy (обычный
+  pipeline, disconnected deployment НЕ использовался).
+
+Stage Summary:
+- Split-brain баз устранён: social-данные теперь в Turso (production) как
+  весь остальной проект; 3 таблицы создаются автоматически при первом
+  запросе (tursoQuery auto-init).
+- Lint: −65 errors (все A/B классификации), 95 remainder задокументированы
+  с обоснованием каждой категории; 0 новых suppressions кроме 2 строковых
+  disable с обоснованием + 2 scoped config-блоков (skills, electron).
+- tsc = 0 сохранён; 191→226 тестов; build зелёный.
+- Next: production verify (/, /play, search, playback, Wave, queue, auth,
+  social endpoints), worklog push.
