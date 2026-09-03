@@ -533,6 +533,10 @@ export async function initTursoSchema(): Promise<void> {
     );
   `);
 
+  // NOTE (Phase 3): each execute() must contain exactly ONE statement — libSQL
+  // silently drops everything after the first semicolon in local file mode and
+  // hard-fails parsing multi-statement strings over Hrana (production).
+  // "limit" is a SQLite keyword and MUST stay quoted as a column name.
   await client.execute(`
     CREATE TABLE IF NOT EXISTS CronJob (
       id TEXT PRIMARY KEY,
@@ -544,17 +548,22 @@ export async function initTursoSchema(): Promise<void> {
       log TEXT,
       createdAt TEXT DEFAULT (datetime('now'))
     );
+  `);
 
+  await client.execute(`
     CREATE TABLE IF NOT EXISTS SmartPlaylist (
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL,
       name TEXT NOT NULL,
       rules TEXT NOT NULL DEFAULT '[]',
-      limit INTEGER DEFAULT 100,
+      "limit" INTEGER DEFAULT 100,
       sortBy TEXT DEFAULT 'createdAt',
       createdAt TEXT DEFAULT (datetime('now')),
       updatedAt TEXT DEFAULT (datetime('now'))
     );
+  `);
+
+  await client.execute(`
     CREATE INDEX IF NOT EXISTS idx_smartplaylist_userId ON SmartPlaylist(userId);
   `);
 

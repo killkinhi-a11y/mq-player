@@ -28,7 +28,7 @@ async function handler(
     if (isTurso()) {
       const t = getTursoClient();
       const result = await t.execute({
-        sql: "SELECT rules, limit, sortBy FROM SmartPlaylist WHERE id = ? AND userId = ?",
+        sql: 'SELECT rules, "limit", sortBy FROM SmartPlaylist WHERE id = ? AND userId = ?',
         args: [id, ctx.userId],
       });
       if (result.rows.length === 0) {

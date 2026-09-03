@@ -89,7 +89,7 @@ async function postHandler(
       const t = getTursoClient();
       const id = `c${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
       await t.execute({
-        sql: "INSERT INTO SmartPlaylist (id, userId, name, rules, limit, sortBy, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        sql: 'INSERT INTO SmartPlaylist (id, userId, name, rules, "limit", sortBy, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
         args: [id, ctx.userId, name.trim(), rulesJson, limitVal, sortByVal, now, now],
       });
       return NextResponse.json({

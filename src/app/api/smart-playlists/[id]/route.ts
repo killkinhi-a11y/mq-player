@@ -39,7 +39,7 @@ async function patchHandler(
       const args: (string | number)[] = [];
       if (name !== undefined) { sets.push("name = ?"); args.push(String(name).trim()); }
       if (rules !== undefined) { sets.push("rules = ?"); args.push(JSON.stringify(rules)); }
-      if (limit !== undefined) { sets.push("limit = ?"); args.push(Math.min(Math.max(1, Number(limit) || 100), 500)); }
+      if (limit !== undefined) { sets.push('"limit" = ?'); args.push(Math.min(Math.max(1, Number(limit) || 100), 500)); }
       if (sortBy !== undefined) { sets.push("sortBy = ?"); args.push(String(sortBy)); }
       if (sets.length === 0) return NextResponse.json({ error: "Нет данных" }, { status: 400 });
       sets.push("updatedAt = ?");
