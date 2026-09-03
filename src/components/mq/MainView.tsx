@@ -1693,12 +1693,12 @@ function WaveCard({
               </div>
               <motion.button whileTap={{ scale: 0.94 }}
                 onClick={onStartWave} disabled={waveLoading}
-                className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "var(--mq-shadow-card-hover)" }}>
+                className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(255,255,255,0.92)", color: "#1a1a2e" }}>
                 {waveLoading ? (
-                  <div className="mq-spin w-6 h-6 border-2 rounded-full" style={{ borderColor: "#1a1a2e", borderTopColor: "transparent" }} />
+                  <div className="mq-spin w-5 h-5 border-2 rounded-full" style={{ borderColor: "#1a1a2e", borderTopColor: "transparent" }} />
                 ) : (
-                  <Play className="w-6 h-6 ml-0.5" fill="currentColor" />
+                  <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
                 )}
               </motion.button>
             </div>
