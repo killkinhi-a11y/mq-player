@@ -95,6 +95,27 @@ const nextConfig: NextConfig = {
           ...securityHeaders,
         ],
       },
+      // WASM audio engine (LAST — later rules override the catch-all's
+      // Cache-Control on next start; on Vercel either immutable or
+      // must-revalidate applies, both safe: tagged URLs are content-hashed).
+      // WASM audio engine — manifest must never be cached (stale JS↔WASM
+      // pairing guard, §35.10); tagged artifacts are content-hashed →
+      // immutable. NOTE: /audio-engine/version.json does NOT match the
+      // :tag/:file* pattern (single path segment) — no rule overlap.
+      {
+        source: "/audio-engine/:tag/:file*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+          ...securityHeaders,
+        ],
+      },
+      {
+        source: "/audio-engine/version.json",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+          ...securityHeaders,
+        ],
+      },
     ];
   },
 };

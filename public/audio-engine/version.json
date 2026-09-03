@@ -1,0 +1,11 @@
+{
+  "tag": "5f6658-53a483-a5c7f2",
+  "core": "audio_wasm.wasm",
+  "codec": "codec_wasm.wasm",
+  "worklet": "mq-audio-worklet.js",
+  "worker": "mq-decode-worker.js",
+  "coreBytes": 400472,
+  "codecBytes": 736030,
+  "builtAt": "2026-09-03T18:33:02Z",
+  "simd": true
+}

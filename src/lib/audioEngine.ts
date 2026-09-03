@@ -14,6 +14,10 @@ let _audioCtx: AudioContext | null = null;
 let _analyser: AnalyserNode | null = null;
 let _isCorsBlocked = true; // assume blocked until we know otherwise
 
+// WASM path override: while the Rust/WASM backend plays, visualizers read
+// the WASM graph's analyser instead of the media-element analyser.
+let _activeAnalyserOverride: AnalyserNode | null = null;
+
 // Dual audio elements for crossfade
 let _audioA: HTMLAudioElement | null = null;
 let _audioB: HTMLAudioElement | null = null;
@@ -84,7 +88,15 @@ export function getInactiveAudio(): HTMLAudioElement | null {
 }
 
 export function getAnalyser(): AnalyserNode | null {
-  return _analyser;
+  return _activeAnalyserOverride || _analyser;
+}
+
+/**
+ * Swap the analyser visualizers read (WASM backend activate/deactivate).
+ * Pass null to return to the media-element analyser.
+ */
+export function setActiveAnalyser(analyser: AnalyserNode | null): void {
+  _activeAnalyserOverride = analyser;
 }
 
 export function getAudioContext(): AudioContext | null {

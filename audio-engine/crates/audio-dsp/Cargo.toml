@@ -1,0 +1,9 @@
+[package]
+name = "audio-dsp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+audio-memory = { path = "../audio-memory" }
+audio-analysis = { path = "../audio-analysis" }

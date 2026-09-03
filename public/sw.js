@@ -174,6 +174,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // ── WASM audio engine assets ──
+  // version.json: ALWAYS network (a stale manifest would pair old JS with
+  // new WASM or vice versa — §35.10 version consistency).
+  if (url.pathname === '/audio-engine/version.json') {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+  // Content-hashed immutable engine artifacts (wasm/worklet/worker) —
+  // cache-first: the URL encodes the content hash, so a new deployment
+  // means new URLs; old entries age out with the cache.
+  if (url.pathname.startsWith('/audio-engine/')) {
+    event.respondWith(cacheFirst(event.request, STATIC_CACHE));
+    return;
+  }
+
   // Audio streams — cache first with LRU eviction (only non-HLS progressive audio)
   if (
     url.pathname.endsWith('.mp3') ||

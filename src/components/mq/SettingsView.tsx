@@ -10,7 +10,7 @@ import {
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
   RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
   Smartphone, Monitor, Apple, Info, ChevronRight, X, Check, Loader2,
-  AlertTriangle, Sliders, Gauge, Terminal,
+  AlertTriangle, Sliders, Gauge, Terminal, Cpu,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import VolumeSlider from "@/components/ui/volume-slider";
@@ -148,6 +148,8 @@ export default function SettingsView() {
   const setCrossfadeDuration = useAppStore((s) => s.setCrossfadeDuration);
   const gaplessEnabled = useAppStore((s) => s.gaplessEnabled);
   const setGaplessEnabled = useAppStore((s) => s.setGaplessEnabled);
+  const wasmEngineEnabled = useAppStore((s) => s.wasmEngineEnabled);
+  const setWasmEngineEnabled = useAppStore((s) => s.setWasmEngineEnabled);
   const playbackRate = useAppStore((s) => s.playbackRate);
   const setPlaybackRate = useAppStore((s) => s.setPlaybackRate);
   const aiRecsHidden = useAppStore((s) => s.aiRecsHidden);
@@ -532,6 +534,7 @@ export default function SettingsView() {
               />
               <SettingToggle icon={Headphones} label="Пространственное аудио" subtitle="3D-звучание" value={spatialAudioEnabled} onCheckedChange={setSpatialAudioEnabled} />
               <SettingToggle icon={Zap} label="Gapless" subtitle="Без пауз между треками" value={gaplessEnabled} onCheckedChange={setGaplessEnabled} />
+              <SettingToggle icon={Cpu} label="WASM-движок" subtitle={wasmEngineEnabled ? "Rust-декодер + DSP (прогрессивные треки)" : "Стандартный браузерный декодер"} value={wasmEngineEnabled} onCheckedChange={setWasmEngineEnabled} />
               <SettingRow
                 icon={Gauge}
                 label="Скорость воспроизведения"

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { resumeAudioContext, getAudioElement } from "@/lib/audioEngine";
+import { seekPlayback } from "@/lib/wasm-audio";
 import { APP_URL, isCapacitor } from "@/lib/config";
 import type { Track } from "@/lib/musicApi";
 
@@ -76,8 +77,7 @@ export function useMediaSession({ currentTrack, isPlaying, progress, duration, p
     setAction("previoustrack", () => {
       const st = useAppStore.getState();
       if (st.progress > 3) {
-        const audio = getAudioElement();
-        if (audio && audio.src) audio.currentTime = 0;
+        seekPlayback(0);
         st.setProgress(0);
       } else {
         st.prevTrack();

@@ -3,6 +3,7 @@
 import { useEffect, useCallback, useRef } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { getAudioElement } from "@/lib/audioEngine";
+import { seekPlayback, currentPlaybackPosition } from "@/lib/wasm-audio";
 
 /**
  * Global keyboard shortcuts for music playback.
@@ -89,9 +90,9 @@ export function useKeyboardShortcuts() {
       case "ArrowRight": {
         e.preventDefault();
         const audio = getAudioElement();
-        if (audio && duration > 0) {
-          const newTime = Math.min(audio.currentTime + 10, duration);
-          audio.currentTime = newTime;
+        if ((audio || currentPlaybackPosition() > 0) && duration > 0) {
+          const newTime = Math.min(currentPlaybackPosition() + 10, duration);
+          seekPlayback(newTime);
           setProgress(newTime);
         }
         break;
@@ -101,9 +102,9 @@ export function useKeyboardShortcuts() {
       case "ArrowLeft": {
         e.preventDefault();
         const audio = getAudioElement();
-        if (audio && duration > 0) {
-          const newTime = Math.max(audio.currentTime - 10, 0);
-          audio.currentTime = newTime;
+        if ((audio || currentPlaybackPosition() > 0) && duration > 0) {
+          const newTime = Math.max(currentPlaybackPosition() - 10, 0);
+          seekPlayback(newTime);
           setProgress(newTime);
         }
         break;

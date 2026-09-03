@@ -10,6 +10,7 @@ import {
   Share2, MoreHorizontal,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
+import { seekPlayback } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
@@ -113,8 +114,7 @@ export default function PlayerBar() {
   // and re-add window listeners mid-drag, which loses mouseup events
   // and leaves the bar "stuck" in dragging state) ──
   const handleProgressSeek = useCallback((time: number) => {
-    const audio = getAudioElement();
-    if (audio && audio.src) audio.currentTime = time;
+    seekPlayback(time);
     setProgress(time);
   }, [setProgress]);
 

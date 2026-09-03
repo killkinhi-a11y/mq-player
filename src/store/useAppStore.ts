@@ -223,6 +223,10 @@ interface AppState {
   // Gapless playback
   gaplessEnabled: boolean;
 
+  // Rust/WASM audio engine (progressive non-DRM tracks; falls back to the
+  // element path automatically on any failure — see src/lib/wasm-audio)
+  wasmEngineEnabled: boolean;
+
   // ReplayGain (M5.1) — normalizes perceived loudness across tracks
   replayGainEnabled: boolean;
 
@@ -442,6 +446,7 @@ interface AppState {
 
   // Gapless playback actions
   setGaplessEnabled: (enabled: boolean) => void;
+  setWasmEngineEnabled: (enabled: boolean) => void;
   setCobaltJwt: (jwt: string | null, expiry: number | null) => void;
   getCobaltJwt: () => string | null;
   peekNextTrack: () => Track | null;
@@ -624,6 +629,7 @@ const initialState = {
 
   // Gapless playback
   gaplessEnabled: true as boolean,
+  wasmEngineEnabled: true as boolean,
   replayGainEnabled: false as boolean,
 
   // Cobalt SNIP bypass
@@ -2024,6 +2030,7 @@ export const useAppStore = create<AppState>()(
 
       // ── Gapless playback actions ──
       setGaplessEnabled: (enabled) => set({ gaplessEnabled: enabled }),
+      setWasmEngineEnabled: (enabled) => set({ wasmEngineEnabled: enabled }),
       setCobaltJwt: (jwt, expiry) => set({ _cobaltJwt: jwt, _cobaltJwtExpiry: expiry }),
       getCobaltJwt: () => {
         const s = get();
@@ -2668,6 +2675,7 @@ export const useAppStore = create<AppState>()(
           // Audio settings — persist user preferences
           crossfadeEnabled: persistent.crossfadeEnabled,
           crossfadeDuration: persistent.crossfadeDuration,
+          wasmEngineEnabled: persistent.wasmEngineEnabled,
           replayGainEnabled: persistent.replayGainEnabled,
           // Auth flag — persisted so rehydration can detect demo users
           isAuthenticated: persistent.isAuthenticated,
@@ -2751,6 +2759,7 @@ export const useAppStore = create<AppState>()(
             crossfadeEnabled: old?.crossfadeEnabled ?? initialState.crossfadeEnabled,
             crossfadeDuration: old?.crossfadeDuration ?? initialState.crossfadeDuration,
             gaplessEnabled: old?.gaplessEnabled ?? initialState.gaplessEnabled,
+            wasmEngineEnabled: old?.wasmEngineEnabled ?? initialState.wasmEngineEnabled,
             replayGainEnabled: old?.replayGainEnabled ?? initialState.replayGainEnabled,
             eqEnabled: old?.eqEnabled ?? initialState.eqEnabled,
             eqBands: old?.eqBands ?? initialState.eqBands,

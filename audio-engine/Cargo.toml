@@ -1,0 +1,26 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/audio-core",
+    "crates/audio-dsp",
+    "crates/audio-memory",
+    "crates/audio-analysis",
+    "crates/audio-codec",
+    "crates/audio-wasm",
+    "crates/codec-wasm",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+rustfft = { version = "6.2", default-features = false }
+symphonia = { version = "0.5.4", default-features = false, features = ["mp3", "flac", "wav", "aac", "isomp4", "pcm"] }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

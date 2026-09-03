@@ -11,6 +11,7 @@ import {
   History, Sparkles, X, ListPlus, Plus, Sliders, MoreHorizontal,
 } from "lucide-react";
 import { getAudioElement } from "@/lib/audioEngine";
+import { seekPlayback, currentPlaybackPosition, isWasmActive } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
 import type { Track } from "@/lib/musicApi";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -193,14 +194,12 @@ export default function FullTrackView() {
     const rect = progressBarRef.current.getBoundingClientRect();
     const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
     const time = (pct / 100) * duration;
-    const audio = getAudioElement();
-    if (audio && audio.src) audio.currentTime = time;
+    seekPlayback(time);
     setProgress(time);
   }, [duration, setProgress]);
 
   const seekToTime = useCallback((time: number) => {
-    const audio = getAudioElement();
-    if (audio && audio.src) audio.currentTime = time;
+    seekPlayback(time);
     setProgress(time);
   }, [setProgress]);
 
@@ -337,9 +336,10 @@ export default function FullTrackView() {
     if (now - lastTapTime < 300 && lastTapSide === tapSide) {
       const seekAmount = isLeft ? -10 : 10;
       const audio = getAudioElement();
-      if (audio && audio.src) {
-        audio.currentTime = Math.max(0, Math.min(duration, audio.currentTime + seekAmount));
-        setProgress(Math.max(0, Math.min(duration, progress + seekAmount)));
+      if ((audio && audio.src) || isWasmActive()) {
+        const target = Math.max(0, Math.min(duration, currentPlaybackPosition() + seekAmount));
+        seekPlayback(target);
+        setProgress(target);
       }
       setSeekFeedback({ side: isLeft ? "left" : "right", amount: seekAmount });
       setTimeout(() => setSeekFeedback(null), 600);
@@ -398,9 +398,10 @@ export default function FullTrackView() {
           if (e.shiftKey) nextTrack();
           else {
             const audio = getAudioElement();
-            if (audio && audio.src) {
-              audio.currentTime = Math.min(duration, audio.currentTime + 5);
-              setProgress(audio.currentTime);
+            if ((audio && audio.src) || isWasmActive()) {
+              const target = Math.min(duration, currentPlaybackPosition() + 5);
+              seekPlayback(target);
+              setProgress(target);
             }
           }
           break;
@@ -409,9 +410,10 @@ export default function FullTrackView() {
           if (e.shiftKey) prevTrack();
           else {
             const audio = getAudioElement();
-            if (audio && audio.src) {
-              audio.currentTime = Math.max(0, audio.currentTime - 5);
-              setProgress(audio.currentTime);
+            if ((audio && audio.src) || isWasmActive()) {
+              const target = Math.max(0, currentPlaybackPosition() - 5);
+              seekPlayback(target);
+              setProgress(target);
             }
           }
           break;

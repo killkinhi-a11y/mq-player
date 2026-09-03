@@ -3,6 +3,7 @@
 import React, { useState, useRef, useCallback, useEffect, memo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { getAudioElement } from "@/lib/audioEngine";
+import { seekPlayback } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
 import type { Track } from "@/lib/musicApi";
 import { toast } from "@/hooks/use-toast";
@@ -189,15 +190,15 @@ function FullTrackViewMobileInner() {
     isDraggingRef.current = false;
     e.currentTarget.style.setProperty('--mq-seek-pct', `${v}%`);
     const audio = getAudioElement();
-    if (audio && audio.src && audio.duration) {
-      audio.currentTime = (v / 100) * audio.duration;
-      setProgress(audio.currentTime);
+    const dur = audio?.duration && isFinite(audio.duration) ? audio.duration : (duration || 0);
+    if (dur > 0) {
+      seekPlayback((v / 100) * dur);
+      setProgress((v / 100) * dur);
     }
-  }, [setProgress]);
+  }, [setProgress, duration]);
 
   const seekToTime = useCallback((time: number) => {
-    const audio = getAudioElement();
-    if (audio && audio.src) audio.currentTime = time;
+    seekPlayback(time);
     setProgress(time);
   }, [setProgress]);
 

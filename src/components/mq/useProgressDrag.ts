@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { getAudioElement } from "@/lib/audioEngine";
+import { seekPlayback } from "@/lib/wasm-audio";
 import { formatDuration } from "@/lib/musicApi";
 
 interface UseProgressDragParams {
@@ -58,8 +59,7 @@ export function useProgressDrag({ progressRef, duration }: UseProgressDragParams
     const pct = Math.max(0, Math.min(100, (x / barWidth) * 100));
     const time = (pct / 100) * duration;
 
-    const audio = getAudioElement();
-    if (audio && audio.src) audio.currentTime = time;
+    seekPlayback(time);
     useAppStore.getState().setProgress(time);
     updateProgressDOM(pct);
   }, [duration, progressRef, updateProgressDOM]);

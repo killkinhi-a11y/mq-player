@@ -1,0 +1,20 @@
+[package]
+name = "audio-wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+audio-core = { path = "../audio-core" }
+audio-dsp = { path = "../audio-dsp" }
+audio-memory = { path = "../audio-memory" }
+audio-analysis = { path = "../audio-analysis" }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"

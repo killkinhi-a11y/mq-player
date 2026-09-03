@@ -16,6 +16,10 @@ import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
 import { updateMyListeningStatus } from "@/hooks/useFriendsListening";
 import { enableSpatialAudio, initSpatialAudio, setMoodPreset, detectMoodFromTrack } from "@/lib/spatialAudio";
+import {
+  createWasmBackend, isWasmUnsupported, probeWasmCapabilities, shouldUseWasmBackend,
+  type WasmAudioBackend,
+} from "@/lib/wasm-audio";
 import Hls from "hls.js";
 import type { HlsConfig } from "hls.js";
 import type { Track } from "@/lib/musicApi";
@@ -639,11 +643,21 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     if (isRAFRunning.current) return;
     isRAFRunning.current = true;
     const tick = () => {
-      const a = getAudioElement();
-      if (a && !a.paused && a.duration && isFinite(a.duration)) {
-        const ct = a.currentTime;
-        const dur = a.duration;
-        progressRAFCallbacks.current.forEach(cb => { try { cb(ct, dur); } catch {} });
+      // WASM path: position from engine stats (playhead frames / rate)
+      const wasm = wasmBackendRef.current;
+      if (wasm && wasm.active && wasm.stats && wasm.ctx) {
+        const pos = wasm.stats.playheadFrames / wasm.ctx.sampleRate;
+        const dur = wasm.currentDuration;
+        if (isFinite(pos) && isFinite(dur) && dur > 0 && wasm.playing) {
+          progressRAFCallbacks.current.forEach(cb => { try { cb(pos, dur); } catch {} });
+        }
+      } else {
+        const a = getAudioElement();
+        if (a && !a.paused && a.duration && isFinite(a.duration)) {
+          const ct = a.currentTime;
+          const dur = a.duration;
+          progressRAFCallbacks.current.forEach(cb => { try { cb(ct, dur); } catch {} });
+        }
       }
       if (isRAFRunning.current) {
         rafIdRef.current = requestAnimationFrame(tick);
@@ -663,6 +677,11 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   const prevTrackIdForCrossfade = useRef<string | null>(null);
   const startLoadingTimeoutRef = useRef<((generation: number) => void) | null>(null);
   const clearLoadingTimeoutRef = useRef<(() => void) | null>(null);
+
+  // ── Rust/WASM backend (progressive non-DRM tracks) ──
+  // Mirrors the element path's transport surface; falls back to the element
+  // path on ANY failure (§35.22 — the player never dies).
+  const wasmBackendRef = useRef<WasmAudioBackend | null>(null);
 
   const gaplessPreloadStartedRef = useRef(false);
   const gaplessPreloadedTrackRef = useRef<Track | null>(null);
@@ -1439,6 +1458,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   // ── Page unload cleanup: release audio resources when tab closes ──
   useEffect(() => {
     const handleUnload = () => {
+      // WASM backend: worker abort + worklet destroy
+      try { wasmBackendRef.current?.dispose(); } catch {}
       const audio = getAudioElement();
       const secondary = getInactiveAudio();
       const destroyHls = (el: HTMLAudioElement) => {
@@ -1584,8 +1605,142 @@ export function useAudioEngine(params: UseAudioEngineParams) {
       return true;
     };
 
+    // ── Rust/WASM backend attempt (progressive non-DRM only) ──
+    // Returns true when the wasm pipeline owns playback; false → the caller
+    // continues on the element path unchanged. Mirrors the element path's
+    // transport surface (progress/ended/AB-repeat/social/MediaSession).
+    const tryWasmLoad = async (
+      url: string,
+      track: Track,
+      streamFlags: { isHls: boolean; isEncrypted: boolean }
+    ): Promise<boolean> => {
+      if (typeof window === "undefined") return false;
+      const st = useAppStore.getState();
+      const caps = probeWasmCapabilities();
+      const source = track.source || (track.scTrackId ? "soundcloud" : "demo");
+      if (!shouldUseWasmBackend({
+        enabled: st.wasmEngineEnabled !== false,
+        isHls: streamFlags.isHls,
+        isEncrypted: streamFlags.isEncrypted,
+        source,
+        playbackRate: st.playbackRate || 1,
+        ...caps,
+      })) return false;
+      if (isWasmUnsupported()) return false;
+
+      const backend = createWasmBackend({
+        onProgress: (pos, dur) => {
+          // A-B repeat (mirrors onTimeUpdate)
+          const ab = useAppStore.getState().abRepeat;
+          if (ab.active && ab.pointB !== null && ab.pointA !== null && pos >= ab.pointB) {
+            backend.seek(ab.pointA);
+            return;
+          }
+          if (!isDraggingRef.current) {
+            const s2 = useAppStore.getState();
+            if (Math.abs(pos - s2.progress) >= 1 || pos === 0) setProgressRef.current(pos);
+          }
+          if ("mediaSession" in navigator && navigator.mediaSession && dur && isFinite(dur)) {
+            try { navigator.mediaSession.setPositionState({ duration: dur, playbackRate: 1, position: pos }); } catch {}
+          }
+          // Social listening status (10s throttle — same as onTimeUpdate)
+          const now = Date.now();
+          if (!lastSocialUpdateRef.current || now - lastSocialUpdateRef.current > 10000) {
+            lastSocialUpdateRef.current = now;
+            const ct = useAppStore.getState().currentTrack;
+            if (ct) updateMyListeningStatus(ct, backend.playing, pos, dur || ct.duration || 0);
+          }
+        },
+        onPlaying: () => {
+          setIsLoadingTrack(false);
+          setPlayError(false);
+          retryCountRef.current = 0;
+          consecutiveFailuresRef.current = 0;
+          const lastUnfixed = [...PlayerErrorLogger.getUnfixed()].reverse()[0];
+          if (lastUnfixed) {
+            PlayerErrorLogger.markFixed(lastUnfixed.time);
+            console.log(`%c[MQ-Player] Playing (wasm): %c${lastUnfixed.track}`, "color:#22c55e;font-weight:bold", "color:#94a3b8");
+          }
+          setTimeout(() => useAppStore.setState({ playbackState: "playing", isBuffering: false }), 0);
+        },
+        onEnded: () => {
+          setPlayError(false);
+          crossfadeRef.current = false;
+          const st2 = useAppStore.getState();
+          const currentTrackId = st2.currentTrack?.id;
+          if (currentTrackId && st2.progress > 0) {
+            st2.recordComplete(currentTrackId, st2.progress);
+          }
+          if (st2.repeat === "one") {
+            backend.seek(0);
+            backend.play();
+            setProgressRef.current(0);
+          } else {
+            nextTrackRef.current();
+          }
+        },
+        onFatal: (reason, positionSec) => {
+          console.warn("[WasmAudio] fatal — falling back to element path:", reason);
+          if (wasmBackendRef.current === backend) wasmBackendRef.current = null;
+          // Mid-playback recovery (§35.22): reload through the element path
+          // at the last known position — the player must never die.
+          const st3 = useAppStore.getState();
+          const trackId3 = st3.currentTrack?.id;
+          const pos = positionSec ?? st3.progress ?? 0;
+          setTimeout(() => {
+            if (useAppStore.getState().currentTrack?.id !== trackId3) return;
+            const el = getAudioElement();
+            if (!el || !url) return;
+            try {
+              const prevHls2 = (el as any)._hlsInstance;
+              if (prevHls2) { try { prevHls2.destroy(); } catch {} delete (el as any)._hlsInstance; }
+              el.crossOrigin = "anonymous";
+              el.src = url;
+              el.volume = Math.pow(useAppStore.getState().volume / 100, 2);
+              el.load();
+              if (useAppStore.getState().isPlaying) {
+                el.play().then(() => {
+                  if (pos > 1 && isFinite(pos)) el.currentTime = pos;
+                }).catch(() => {});
+              }
+            } catch {}
+          }, 0);
+        },
+      }, Math.pow(st.volume / 100, 2));
+
+      try {
+        await backend.load({
+          url,
+          durationSec: track.duration || 0,
+          autoplay: st.isPlaying,
+          trackId: track.id,
+        });
+        if (cancelled) { backend.dispose(); return false; }
+        wasmBackendRef.current = backend;
+        // Element path on standby: paused, no src — its handlers no-op.
+        const el = getAudioElement();
+        if (el) { try { el.pause(); el.removeAttribute("src"); } catch {} }
+        const secondary = getInactiveAudio();
+        if (secondary) { try { secondary.pause(); secondary.removeAttribute("src"); } catch {} }
+        prevTrackIdForCrossfade.current = currentTrack.id;
+        setIsLoadingTrack(false);
+        return true;
+      } catch (e) {
+        backend.dispose();
+        // Initial-load failure: quiet fallback — the caller continues on the
+        // element path naturally. One warn line for diagnosis, nothing user-facing.
+        console.warn("[WasmAudio] load failed — using element path:", e instanceof Error ? e.message : e);
+        return false;
+      }
+    };
+
     const loadTrack = async () => {
       try {
+        // New track: tear down any WASM backend from the previous track.
+        if (wasmBackendRef.current) {
+          try { wasmBackendRef.current.dispose(); } catch {}
+          wasmBackendRef.current = null;
+        }
         setIsLoadingTrack(true);
         setPlayError(false);
         retryCountRef.current = 0;
@@ -1662,6 +1817,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         if (cancelled) return;
 
         if (currentTrack.source === "demo" && currentTrack.audioUrl) {
+          // WASM path first (same-origin /demo files: Range + no CORS issues)
+          if (await tryWasmLoad(currentTrack.audioUrl, currentTrack, { isHls: false, isEncrypted: false })) return;
           setPlaybackMode("soundcloud");
           resetCorsState();
           ensureWebAudioConnected(audioEl);
@@ -1685,6 +1842,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           const audiusUrl = await getAudiusStream(currentTrack.id);
           if (cancelled) return;
           if (audiusUrl) {
+            // WASM path first (Audius progressive mp3)
+            if (await tryWasmLoad(audiusUrl, currentTrack, { isHls: false, isEncrypted: false })) return;
             ensureWebAudioConnected(audioEl);
             audioEl.crossOrigin = "anonymous";
             audioEl.src = audiusUrl;
@@ -1723,6 +1882,8 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               if (cancelled) return;
               if (audiusUrl) {
                 console.log("[Player] Audius alternative found — using full stream");
+                // WASM path first (Audius progressive mp3)
+                if (await tryWasmLoad(audiusUrl, currentTrack, { isHls: false, isEncrypted: false })) return;
                 audioEl.crossOrigin = "anonymous";
                 audioEl.src = audiusUrl;
                 audioEl.volume = Math.pow(useAppStore.getState().volume / 100, 2);
@@ -1751,6 +1912,13 @@ export function useAudioEngine(params: UseAudioEngineParams) {
               ? { isEncrypted: stream.isEncrypted, protocol: stream.protocol || '', licenseUrl: stream.licenseUrl }
               : null;
             const isHlsStream = stream.isHls && Hls.isSupported();
+
+            // WASM path: progressive non-DRM only (HLS/DRM stay on the
+            // hls.js/element path — see AUDIO_ENGINE_ARCHITECTURE.md §1.4).
+            if (!isHlsStream && !stream.isEncrypted) {
+              const wasmUrl = proxyStreamUrl(stream.url);
+              if (await tryWasmLoad(wasmUrl, currentTrack, { isHls: false, isEncrypted: false })) return;
+            }
 
             if (isHlsStream) {
               audioEl.crossOrigin = "anonymous";
@@ -2144,6 +2312,22 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     const audio = getAudioElement();
     const secondary = getInactiveAudio();
 
+    // ── WASM path: transport routes to the backend, element stays paused ──
+    const wasm = wasmBackendRef.current;
+    if (wasm && wasm.active) {
+      if (isPlaying) {
+        wasm.play();
+      } else {
+        wasm.pause();
+        if (audio.src) audio.pause();
+        if (secondary && secondary.src) secondary.pause();
+      }
+      setTimeout(() => {
+        useAppStore.setState({ playbackState: isPlaying ? "playing" : "paused", isBuffering: false });
+      }, 0);
+      return;
+    }
+
     if (isPlaying) {
       resumeAudioContext();
 
@@ -2210,6 +2394,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     if (audio) audio.volume = vol;
     const secondary = getInactiveAudio();
     if (secondary) secondary.volume = vol;
+    wasmBackendRef.current?.setVolume(vol);
   }, [volume, currentTrack?.id]);
 
   // ── Spatial audio effect ──
