@@ -1516,3 +1516,56 @@ Stage Summary:
   init fix) — все через GitHub → Vercel pipeline.
 - Все проверки Phase 3 закрыты: PRISMA DIRECT / LINT / SECURITY / TESTS /
   BUILD / PRODUCTION / GIT.
+
+---
+Task ID: phase-m-design-update-ux
+Agent: main (Super Z)
+Task: PHASE M — Premium Design Evolution + Smart Deployment Update UX (50-section spec)
+
+Work Log:
+- Repo state verified: local clone was STALE (4ab8a56) vs origin/main
+  (3a04d7b — Phase 2B/3/4B + Rust/WASM engine pushed from other sessions).
+  Discovered on push; Phase M rebased onto the real base e9bbb7c.
+- UPDATE SYSTEM (new): scripts/generate-version.mjs (prebuild) writes
+  public/version.json + .mq-build-id — per-commit buildId mq-build-<sha8>;
+  next.config reads it for generateBuildId AND NEXT_PUBLIC_MQ_BUILD_ID env
+  (inlined into client bundle — verified empirically: App Router HTML has
+  NO __NEXT_DATA__.buildId, the old detection premise was broken; root
+  cause why updates were never detectable: all deploys shared mq-build-v58).
+- /version.json: Cache-Control no-store (rule AFTER catch-all — verified
+  empirically: later rules win on next start); sw.js: pass-through +
+  SKIP_WAITING message + caches v3→v4; audio-engine manifest rules kept.
+- src/lib/updateManager.ts: state machine current|checking|available|updating|
+  updated|failed; checks at startup 12s / 10min interval / visibility+focus
+  (2min throttle); stale-chunk error patterns → immediate check;
+  BroadcastChannel('mq-update') multi-tab (receive-only — no re-broadcast);
+  NO auto-reload (#47) — reload only from «Обновить»; recovery ≤3 attempts
+  (sessionStorage), then visible «Не удалось»; dev-server guard.
+- src/lib/updateSnapshot.ts: queue/track/position/volume/isPlaying survive
+  update reload (key mq-update-snapshot-v1, one-shot, paused stays paused,
+  honest autoplay-blocked fallback to paused after 5s).
+- UpdateBanner.tsx: role=status + aria-live=polite, mq-t-display serif title,
+  mq-t-num version chip, safe-area mobile top, opacity+translateY 220ms,
+  prefers-reduced-motion off, 44px targets, states for all 6 phases.
+  Mapped to Phase 4B token system (--mq-surface-3, mq-t-*, mq-text-eyebrow)
+  — my duplicate token block REMOVED after merge (extend, not duplicate).
+- AppShell: UpdateBanner wired + snapshot restore after hydration;
+  remote Phase 4B already removed ambient decorations (kept).
+- ProgressBar: keyboard seek (role=slider, Arrows ±5s, Shift ±1s, Home/End,
+  aria-valuetext) — remote had no keyboard seek.
+- Settings: «Система и обновления» card — honest engine row + manual
+  «Проверить обновления» + collapsed diagnostics (build id, deploy time).
+- Tests: 12 updateManager + 5 updateSnapshot (no-update/detect/accept/
+  dismiss/fail/multi-tab-no-loop/recovery-bounds/stale-chunk) — 258 total
+  pass. ESLint toolchain: remote already fixed via eslint-config-next/
+  typescript; my redundant plugin registration dropped; my files 0 errors.
+- Rebase conflicts resolved: design files → remote Phase 4B versions;
+  sw/next-config/layout → both sides merged; my xhrSetup 2-arg fixes kept
+  (tsc clean after merge — was 5 pre-existing errors).
+
+Stage Summary:
+- Commit e9bbb7c pushed → Vercel deploying.
+- Deploy: mq-build-e9bbb7c (version 56) — the FIRST deployment with
+  per-commit build id + full update UX.
+- Next: production verification (version.json header, banner, update flow,
+  two-deploy real update test) + final report.
