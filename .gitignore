@@ -99,3 +99,4 @@ bun.lockb
 /android/
 /out/
 /capacitor.config.json
+.mq-build-id

@@ -16,6 +16,8 @@ import { Switch } from "@/components/ui/switch";
 import VolumeSlider from "@/components/ui/volume-slider";
 import RangeSlider from "@/components/ui/range-slider";
 import { toast } from "@/hooks/use-toast";
+import { useUpdateManager } from "@/hooks/useUpdateManager";
+import { getUpdateManager } from "@/lib/updateManager";
 
 // ─── Tab ──────────────────────────────────────────────────────────────────
 
@@ -53,6 +55,99 @@ function CardTitle({ icon: Icon, title }: { icon: React.ElementType; title: stri
         {title}
       </span>
     </div>
+  );
+}
+
+/** Phase M #14/#16 — honest system + deployment diagnostics.
+ *  Shows ONLY real runtime data (audio engine actually in use, current build,
+ *  deployment version). Advanced, collapsed by default. */
+function SystemDiagnosticsCard() {
+  const { state, info, checkNow, applyUpdate } = useUpdateManager();
+  const [open, setOpen] = useState(false);
+  const [checking, setChecking] = useState(false);
+
+  // Same source of truth as the UpdateManager (inlined NEXT_PUBLIC_MQ_BUILD_ID)
+  const buildId =
+    typeof window !== "undefined"
+      ? getUpdateManager().getCurrentBuildId()
+      : null;
+
+  const handleCheck = async () => {
+    setChecking(true);
+    // Wait for the fetch + state settle, then read FRESH manager state
+    // (the hook-closure `info` would be stale immediately after checkNow()).
+    await new Promise((r) => setTimeout(r, 700));
+    setChecking(false);
+    const fresh = getUpdateManager().getState();
+    const page = getUpdateManager().getCurrentBuildId();
+    if (fresh.info && page && fresh.info.buildId !== page) {
+      toast({ title: "Доступна новая версия", description: `v${fresh.info.version} уже онлайн` });
+    } else {
+      toast({ title: "У вас последняя версия", description: fresh.info ? `v${fresh.info.version}` : "Версия проверена" });
+    }
+  };
+
+  return (
+    <Card>
+      <CardTitle icon={Terminal} title="Система и обновления" />
+      <SettingRow
+        icon={Info}
+        label="Версия сборки"
+        subtitle={buildId ? buildId.replace("mq-build-", "v") : "—"}
+        value={info ? `v${info.version}` : "—"}
+        onClick={() => setOpen((v) => !v)}
+      />
+      {state === "available" && (
+        <SettingRow
+          icon={Cloud}
+          label="Доступно обновление"
+          subtitle={info ? `Новая версия v${info.version} уже онлайн` : undefined}
+          value="Обновить"
+          onClick={applyUpdate}
+        />
+      )}
+      {open && (
+        <div
+          className="px-3 sm:px-4 py-3 space-y-1.5"
+          style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+        >
+          <div className="flex justify-between items-center">
+            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+              АУДИОДВИЖОК
+            </span>
+            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-secondary, var(--mq-text-muted))" }}>
+              HTML5 Audio + WebAudio
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+              ПОСЛЕДНИЙ ДЕПЛОЙ
+            </span>
+            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-secondary, var(--mq-text-muted))" }}>
+              {info?.releasedAt ? new Date(info.releasedAt).toLocaleString("ru-RU") : "—"}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+              BUILD ID
+            </span>
+            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-secondary, var(--mq-text-muted))" }}>
+              {buildId || "—"}
+            </span>
+          </div>
+        </div>
+      )}
+      <SettingRow
+        icon={RefreshCw}
+        label="Проверить обновления"
+        subtitle="Проверка версии deployment на сервере"
+        value={checking ? "…" : "Проверить"}
+        onClick={() => {
+          checkNow();
+          void handleCheck();
+        }}
+      />
+    </Card>
   );
 }
 
@@ -571,6 +666,12 @@ export default function SettingsView() {
                 </div>
               )}
             </Card>
+
+            {/* Phase M #14/#16: honest audio-system + deployment diagnostics.
+                Only real data — no invented WASM/codec/SIMD fields (the audio
+                engine in this repo is HTML5 MediaElement + WebAudio; see
+                docs/design-phase-m.md G1 and the final report's NOT VERIFIED). */}
+            <SystemDiagnosticsCard />
           </motion.div>
         )}
 
@@ -640,14 +741,14 @@ export default function SettingsView() {
                   </motion.a>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
-                  <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
                     APK обновляется автоматически при каждом релизе
                   </p>
                   <a
                     href="https://github.com/killkinhi-a11y/mq-player/releases"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[10px] font-medium underline"
+                    className="text-[11px] font-medium underline"
                     style={{ color: "var(--mq-accent)" }}
                   >
                     Все версии →

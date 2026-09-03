@@ -1,10 +1,26 @@
 import type { NextConfig } from "next";
 import withBundleAnalyzer from "@next/bundle-analyzer";
 import { withSentryConfig } from "@sentry/nextjs";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 // Vercel auto-detects Next.js — don't use 'standalone' output on Vercel
 // (standalone is for Docker/self-hosted; Vercel has its own build system)
 const isVercel = !!process.env.VERCEL;
+
+// ── Phase M: per-commit build identity (read ONCE at config evaluation) ──
+// scripts/generate-version.mjs (prebuild) writes .mq-build-id; the SAME value
+// goes into: (a) generateBuildId below, (b) NEXT_PUBLIC_MQ_BUILD_ID env —
+// inlined into the CLIENT BUNDLE at build time (App Router has no
+// window.__NEXT_DATA__.buildId — that's Pages Router only), (c) public/version.json.
+// (a)===(c) is what UpdateManager compares to detect new deployments.
+const MQ_BUILD_ID = (() => {
+  try {
+    const id = readFileSync(join(process.cwd(), ".mq-build-id"), "utf8").trim();
+    if (id) return id;
+  } catch {}
+  return null; // dev without prebuild / fresh clone — fall back to legacy id
+})();
 
 const withAnalyzer = withBundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -14,12 +30,14 @@ const nextConfig: NextConfig = {
   ...(isVercel ? {} : { output: 'standalone' }),
   reactStrictMode: true,
   typescript: { ignoreBuildErrors: true },
-  // Single source of truth for build ID. layout.tsx reads this via
-  // __NEXT_DATA__.buildId — do NOT hardcode a separate BUILD_ID there.
+  // Baked into the client bundle — the page's own build identity (#20).
+  ...(MQ_BUILD_ID ? { env: { NEXT_PUBLIC_MQ_BUILD_ID: MQ_BUILD_ID } } : {}),
+  // Single source of truth for build ID. layout.tsx's boot script reads the
+  // NEXT_PUBLIC_MQ_BUILD_ID inline value — same id, same build.
   // Bumping this triggers a targeted store-version bump (see useAppStore.ts)
   // instead of the destructive localStorage.clear() we used before.
   generateBuildId: async () => {
-    return process.env.BUILD_ID || 'mq-build-v58';
+    return MQ_BUILD_ID || process.env.BUILD_ID || "mq-build-v58";
   },
   serverExternalPackages: ['@opennextjs/cloudflare'],
   experimental: {
@@ -113,6 +131,17 @@ const nextConfig: NextConfig = {
         source: "/audio-engine/version.json",
         headers: [
           { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+          ...securityHeaders,
+        ],
+      },
+      // Phase M root /version.json — whole-app deployment version metadata
+      // (distinct from the WASM asset manifest above). MUST always revalidate
+      // (never cached by CDN/browser/SW) or update detection breaks (#38).
+      // NOTE: defined AFTER the catch-all so its Cache-Control wins for this path.
+      {
+        source: "/version.json",
+        headers: [
+          { key: "Cache-Control", value: "no-store, must-revalidate" },
           ...securityHeaders,
         ],
       },

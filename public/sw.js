@@ -1,7 +1,9 @@
 // Cache names — bump version to force old cache cleanup
-const STATIC_CACHE = 'mq-static-v3';
-const API_CACHE = 'mq-api-v3';
-const AUDIO_CACHE = 'mq-audio-v3';
+// v4 (Phase M): bumped so the new fetch handler (version.json pass-through)
+// + update flow deploy cleanly over v3 clients on activate.
+const STATIC_CACHE = 'mq-static-v4';
+const API_CACHE = 'mq-api-v4';
+const AUDIO_CACHE = 'mq-audio-v4';
 
 const STATIC_ASSETS = [
   '/',
@@ -138,12 +140,27 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Phase M: message channel for the UpdateManager (same SW, no second worker).
+// SKIP_WAITING is also called on install, but the message path lets the
+// UpdateManager drive activation deterministically right before its
+// safe reload — e.g. when the browser didn't check for a SW update yet.
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 // Fetch: different strategies for different resource types
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   // SSE streams — never cache
   if (url.pathname.endsWith('/sse')) return;
+
+  // version.json — deployment version metadata. NEVER serve from cache:
+  // it must always revalidate so open tabs can detect new deployments.
+  // (Header Cache-Control: no-store is set in next.config.ts as well.)
+  if (url.pathname === '/version.json') return;
 
   // HLS fragments & segments — NEVER cache (session-scoped signed URLs expire quickly)
   if (isHlsFragment(event.request.url)) return;

@@ -325,6 +325,20 @@ input, textarea, select {
   --mq-border-default: rgba(255,255,255,0.1);
 }
 
+/* ── Update banner motion (Phase M #36): opacity/translate only; reduced-motion off ── */
+[data-update-banner] {
+  will-change: opacity, transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-update-banner] {
+    transition: none !important;
+    animation: none !important;
+  }
+  [data-update-banner] * {
+    animation-duration: 0.01ms !important;
+  }
+}
+
 /* Mobile performance & touch optimizations */
 @media (max-width: 640px) {
   * {

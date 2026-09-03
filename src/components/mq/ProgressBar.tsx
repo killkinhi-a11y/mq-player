@@ -136,6 +136,36 @@ function ProgressBarBase({
     if (e.touches[0]) onSeek(clientXToTime(e.touches[0].clientX));
   }, [clientXToTime, onSeek, onDragStart]);
 
+  // ── Keyboard seek (Phase M #8/#42): slider semantics + arrow seeking ──
+  // Arrow ±5s, Shift+Arrow ±1s (precise), Home/End = track bounds.
+  // The container keeps its 16px height — mobile touch targets untouched.
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!duration) return;
+      let target: number | null = null;
+      const step = e.shiftKey ? 1 : 5;
+      switch (e.key) {
+        case "ArrowRight":
+          target = progress + step; break;
+        case "ArrowLeft":
+          target = progress - step; break;
+        case "Home":
+          target = 0; break;
+        case "End":
+          target = duration; break;
+        default:
+          return; // not our key — let it bubble
+      }
+      e.preventDefault();
+      e.stopPropagation();
+      const clamped = Math.max(0, Math.min(duration, target));
+      setHoveredPct(null);
+      setHoveredTime(null);
+      onSeek(clamped);
+    },
+    [duration, progress, onSeek]
+  );
+
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     e.stopPropagation();
     if (e.touches[0]) onSeek(clientXToTime(e.touches[0].clientX));
@@ -161,22 +191,31 @@ function ProgressBarBase({
     <div className="flex items-center gap-2 w-full select-none">
       {/* Current time */}
       <span
-        className="text-[10px] font-mono tabular-nums text-right flex-shrink-0"
+        className="mq-t-num text-[11px] text-right flex-shrink-0"
         style={{ color: "var(--mq-text-muted)", width: 36 }}
       >
         {formatDuration(progress)}
       </span>
 
-      {/* Track container */}
+      {/* Track container — slider semantics for keyboard users */}
       <div
         ref={trackRef}
-        className="flex-1 relative cursor-pointer group"
+        className="flex-1 relative cursor-pointer group focus-visible:outline-2 focus-visible:outline-offset-4 rounded-full"
         style={{
           height: trackHeight + hitPadding,
           display: "flex",
           alignItems: "center",
           touchAction: "none",
         }}
+        role="slider"
+        tabIndex={0}
+        aria-label="Позиция воспроизведения"
+        aria-valuemin={0}
+        aria-valuemax={Math.round(duration) || 0}
+        aria-valuenow={Math.round(progress) || 0}
+        aria-valuetext={`${formatDuration(progress)} из ${formatDuration(duration)}`}
+        aria-orientation="horizontal"
+        onKeyDown={handleKeyDown}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
@@ -230,7 +269,7 @@ function ProgressBarBase({
             width: thumbSize,
             height: thumbSize,
             backgroundColor: "#fff",
-            boxShadow: `0 0 0 2px var(--mq-accent), 0 2px 6px rgba(0,0,0,0.4)`,
+            border: `1px solid var(--mq-accent)`,
             opacity: isDragging ? 1 : (hoveredPct !== null ? 1 : (showThumbOnMobile ? 0.7 : 0)),
             transform: isDragging ? "scale(1.2)" : "scale(1)",
             transition: "opacity 0.15s ease, transform 0.15s ease",
@@ -245,7 +284,7 @@ function ProgressBarBase({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 4 }}
               transition={{ duration: 0.1 }}
-              className="absolute pointer-events-none z-10 px-2 py-1 rounded-md text-[10px] font-mono tabular-nums whitespace-nowrap"
+              className="absolute pointer-events-none z-10 px-2 py-1 rounded-md text-[11px] font-mono tabular-nums whitespace-nowrap"
               style={{
                 left: `${Math.max(8, Math.min(92, hoveredPct ?? 0))}%`,
                 transform: "translateX(-50%)",
@@ -265,7 +304,7 @@ function ProgressBarBase({
 
       {/* Duration */}
       <span
-        className="text-[10px] font-mono tabular-nums flex-shrink-0"
+        className="mq-t-num text-[11px] flex-shrink-0"
         style={{ color: "var(--mq-text-muted)", width: 36 }}
       >
         {formatDuration(duration)}

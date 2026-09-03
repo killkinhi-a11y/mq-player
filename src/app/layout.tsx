@@ -142,9 +142,12 @@ export default function RootLayout({
               // history and messenger cache on EVERY build. Now we just record the new
               // build ID; the Zustand persist layer handles its own migration via
               // STORE_VERSION in useAppStore.ts.
+              //
+              // Phase M: BUILD_ID is now server-inlined (NEXT_PUBLIC_MQ_BUILD_ID —
+              // App Router has no window.__NEXT_DATA__.buildId). Unique per commit,
+              // matching /version.json on the server.
               try{
-                var BUILD_ID = (window.__NEXT_DATA__ && window.__NEXT_DATA__.buildId)
-                  || 'mq-build-v54';
+                var BUILD_ID = ${JSON.stringify(process.env.NEXT_PUBLIC_MQ_BUILD_ID || "mq-build-v58")};
                 var prevBuild = localStorage.getItem('mq-build-id');
                 if(prevBuild && prevBuild !== BUILD_ID){
                   // Build changed — record it but DO NOT wipe user data.

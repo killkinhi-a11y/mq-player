@@ -91,12 +91,16 @@ const NotificationPanel = dynamic(() => import("@/components/mq/NotificationPane
 const MaintenanceBanner = dynamic(() => import("@/components/mq/MaintenanceBanner"), { ssr: false });
 const OnboardingTour = dynamic(() => import("@/components/mq/OnboardingTour"), { ssr: false });
 const CommandPalette = dynamic(() => import("@/components/mq/CommandPalette"), { ssr: false });
+// Phase M: Smart Deployment Update banner (version check + «Обновить»)
+const UpdateBanner = dynamic(() => import("@/components/mq/UpdateBanner").then(m => ({ default: m.UpdateBanner })), { ssr: false });
 
 // P2-#300/#310: Error boundary per view — catches React errors without crashing the whole app
 import { ViewErrorBoundary } from "@/components/mq/ViewErrorBoundary";
 import { ViewTransition } from "@/components/mq/ViewTransition";
 import { useAudioEngine } from "@/components/mq/useAudioEngine";
 import { useMediaSession } from "@/components/mq/useMediaSession";
+import { restoreUpdateSnapshot } from "@/lib/updateSnapshot";
+import { getAudioElement } from "@/lib/audioEngine";
 
 // Views tracked by the visited-Set pattern — mounted once and kept alive
 // with display:none so state is preserved when switching back.
@@ -147,13 +151,41 @@ export default function AppShell() {
   // ── Visited views tracking: must be BEFORE any conditional returns (Rules of Hooks) ──
   const [visitedViews, setVisitedViews] = useState<Set<string>>(new Set(["main"]));
   useEffect(() => {
-    setVisitedViews(prev => {
-      if (prev.has(currentView)) return prev;
-      const next = new Set(prev);
-      next.add(currentView);
-      return next;
-    });
+    // React-Compiler rule: setState directly in an effect body can cascade
+    // renders — defer to a microtask (same pattern as the TDZ store fix).
+    let cancelled = false;
+    Promise.resolve().then(() => {
+      if (cancelled) return;
+      setVisitedViews(prev => {
+        if (prev.has(currentView)) return prev;
+        const next = new Set(prev);
+        next.add(currentView);
+        return next;
+      });
+    }).catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [currentView]);
+
+  // ── Phase M: restore playback state after an update reload (#25/#26) ──
+  // One-shot: consumes mq-update-snapshot-v1 written right before the update
+  // reload. Paused stays paused; playing tries to resume (honest fallback to
+  // paused if autoplay is blocked). Runs once after Zustand hydration.
+  useEffect(() => {
+    if (!_hasHydrated) return;
+    try {
+      restoreUpdateSnapshot(() => {
+        try {
+          return getAudioElement();
+        } catch {
+          return null;
+        }
+      });
+    } catch {
+      // Restore is best-effort — never block boot.
+    }
+  }, [_hasHydrated]);
 
   // ── Hydration timeout safety net ──
   // If Zustand hydration doesn't complete within 5 seconds (e.g. due to
@@ -580,6 +612,8 @@ export default function AppShell() {
       </a>
       <MaintenanceBanner />
       <OfflineBanner />
+      {/* Phase M: deployment update banner — user-controlled, never interrupts playback */}
+      <Suspense fallback={null}><UpdateBanner /></Suspense>
 
       <Suspense fallback={
         <nav className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center border-b"

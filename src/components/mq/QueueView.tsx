@@ -324,10 +324,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                 <div className="px-5 pt-2 pb-1">
                   <div className="flex items-center gap-1.5 mb-2">
                     <History className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                    <p
-                      className="text-[11px] font-semibold uppercase tracking-wider"
-                      style={{ color: "var(--mq-text-muted)" }}
-                    >
+                    <p className="mq-text-eyebrow">
                       Недавно играло
                     </p>
                   </div>
@@ -351,14 +348,14 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
               <div className="px-5 pt-2 pb-1">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <p
-                      className="text-[11px] font-semibold uppercase tracking-wider"
-                      style={{ color: "var(--mq-text-muted)" }}
-                    >
+                    <p className="mq-text-eyebrow">
                       Слушать дальше
                     </p>
                     {upNext.length > 0 && (
-                      <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                      <span
+                        className="mq-t-num text-[11px] px-1.5 py-0.5 rounded-full"
+                        style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}
+                      >
                         {upNext.length}
                       </span>
                     )}
@@ -440,13 +437,13 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                 <div className="px-5 pt-1 pb-6">
                   <div className="flex items-center gap-1.5 mb-2">
                     <Clock className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                    <p
-                      className="text-[11px] font-semibold uppercase tracking-wider"
-                      style={{ color: "var(--mq-text-muted)" }}
-                    >
+                    <p className="mq-text-eyebrow">
                       Из очереди
                     </p>
-                    <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                    <span
+                      className="mq-t-num text-[11px] px-1.5 py-0.5 rounded-full"
+                      style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}
+                    >
                       {remainingQueue.length}
                     </span>
                   </div>

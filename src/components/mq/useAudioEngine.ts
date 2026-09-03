@@ -799,9 +799,10 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             targetEl = prepareEncryptedElement(inactive);
             const origXhrSetup = hlsConfig.xhrSetup;
             const manifestInterceptor = createManifestInterceptor(targetEl);
-            hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
+            // hls.js 1.6 types xhrSetup as (xhr, url) — no context param.
+            hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
               manifestInterceptor(xhr, url);
-              if (origXhrSetup) origXhrSetup(xhr, url, context);
+              if (origXhrSetup) origXhrSetup(xhr, url);
             };
           } else {
             ensureWebAudioConnected(inactive);
@@ -1071,9 +1072,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   a = prepareEncryptedElement(a);
                   const origXhrSetup = hlsConfig.xhrSetup;
                   const manifestInterceptor = createManifestInterceptor(a);
-                  hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
+                  hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                     manifestInterceptor(xhr, url);
-                    if (origXhrSetup) origXhrSetup(xhr, url, context);
+                    if (origXhrSetup) origXhrSetup(xhr, url);
                   };
                 } else {
                   ensureWebAudioConnected(a);
@@ -1266,9 +1267,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                     activeEl = prepareEncryptedElement(activeEl);
                     const origXhrSetup = hlsConfig.xhrSetup;
                     const manifestInterceptor = createManifestInterceptor(activeEl);
-                    hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
+                    hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                       manifestInterceptor(xhr, url);
-                      if (origXhrSetup) origXhrSetup(xhr, url, context);
+                      if (origXhrSetup) origXhrSetup(xhr, url);
                     };
                   } else {
                     ensureWebAudioConnected(activeEl);
@@ -1348,9 +1349,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                     activeEl = prepareEncryptedElement(activeEl);
                     const origXhrSetup = hlsConfig.xhrSetup;
                     const manifestInterceptor = createManifestInterceptor(activeEl);
-                    hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
+                    hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                       manifestInterceptor(xhr, url);
-                      if (origXhrSetup) origXhrSetup(xhr, url, context);
+                      if (origXhrSetup) origXhrSetup(xhr, url);
                     };
                   } else {
                     ensureWebAudioConnected(activeEl);
@@ -1543,9 +1544,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
           activeEl = prepareEncryptedElement(activeEl);
           const origXhrSetup = hlsConfig.xhrSetup;
           const manifestInterceptor = createManifestInterceptor(activeEl);
-          hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
+          hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
             manifestInterceptor(xhr, url);
-            if (origXhrSetup) origXhrSetup(xhr, url, context);
+            if (origXhrSetup) origXhrSetup(xhr, url);
           };
         } else {
           ensureWebAudioConnected(activeEl);
@@ -1932,9 +1933,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
                 const origXhrSetup = hlsConfig.xhrSetup;
                 const manifestInterceptor = createManifestInterceptor(audioEl);
-                hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
+                hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                   manifestInterceptor(xhr, url);
-                  if (origXhrSetup) origXhrSetup(xhr, url, context);
+                  if (origXhrSetup) origXhrSetup(xhr, url);
                 };
               } else {
                 ensureWebAudioConnected(audioEl);
@@ -2050,9 +2051,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                           activeEl = prepareEncryptedElement(activeEl);
                           const origXhrSetup = fbConfig.xhrSetup;
                           const manifestInterceptor = createManifestInterceptor(activeEl);
-                          fbConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string, context) {
+                          fbConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                             manifestInterceptor(xhr, url);
-                            if (origXhrSetup) origXhrSetup(xhr, url, context);
+                            if (origXhrSetup) origXhrSetup(xhr, url);
                           };
                         } else {
                           ensureWebAudioConnected(activeEl);

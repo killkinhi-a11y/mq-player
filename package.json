@@ -5,6 +5,7 @@
   "description": "MQ Player — музыкальный плеер с мессенджером",
   "author": "MQ Player Team",
   "scripts": {
+    "prebuild": "node scripts/generate-version.mjs",
     "build": "prisma generate && next build",
     "dev": "next dev",
     "start": "next start",
@@ -90,6 +91,7 @@
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.5",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.69.0",
     "vitest": "^4.1.7",
     "wrangler": "^4.84.0"
   },
