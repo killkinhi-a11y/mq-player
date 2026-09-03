@@ -50,18 +50,6 @@ const genreIcons: Record<string, React.ReactNode> = {
   "Indie": <Radio className="w-3.5 h-3.5" />,
 };
 
-// ── Unique opacity per genre (dark monochrome badges) ──
-const genreOpacities: Record<string, number> = {
-  "Pop": 0.10,
-  "Rock": 0.15,
-  "Electronic": 0.12,
-  "Hip-Hop": 0.20,
-  "Jazz": 0.10,
-  "Classical": 0.08,
-  "R&B": 0.15,
-  "Indie": 0.12,
-};
-
 // ── Genre accent text colors (muted via accent var) ──
 const genreAccentColors: Record<string, string> = {
   "Pop": "var(--mq-accent)",
@@ -380,7 +368,7 @@ export default function SearchView() {
       {uploadProgress && (
         <motion.div initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
           className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-[90vw] max-w-md">
-          <div className="rounded-2xl p-4 shadow-2xl" style={{ backgroundColor: "rgba(24,24,27,0.97)", backdropFilter: "blur(12px)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}>
+          <div className="rounded-[var(--mq-r-card)] p-4" style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", boxShadow: "var(--mq-elev-dialog)", color: "var(--mq-text)" }}>
             <div className="flex items-center gap-3 mb-2">
               {uploadProgress.status === "uploading" && <Loader2 className="w-5 h-5 flex-shrink-0 animate-spin" style={{ color: "var(--mq-accent)" }} />}
               {uploadProgress.status === "done" && <CheckCircle2 className="w-5 h-5 flex-shrink-0" style={{ color: "#4ade80" }} />}
@@ -399,6 +387,12 @@ export default function SearchView() {
         </motion.div>
       )}
 
+      {/* ── Page header — editorial voice: display serif + meta hint ── */}
+      <div className="flex items-baseline justify-between mb-1">
+        <h1 className="mq-t-display text-[26px] sm:text-[30px]" style={{ color: "var(--mq-text)" }}>Поиск</h1>
+        <p className="mq-t-meta text-xs hidden sm:block">Треки · артисты · жанры · свои файлы</p>
+      </div>
+
       {/* ── Quick Picks — 4 random liked tracks ── */}
       {!searchQuery.trim() && !selectedGenre && quickPicks.length > 0 && (
         <motion.div
@@ -406,19 +400,18 @@ export default function SearchView() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
         >
-          <div className="flex items-center gap-2 mb-3">
-            <Sparkles className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-            <h2 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Быстрый доступ</h2>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
+          <div className="flex items-center gap-2.5 mb-3">
+            <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
+            <h2 className="mq-t-title text-[15px]" style={{ color: "var(--mq-text)" }}>Быстрый доступ</h2>
+            <button
               onClick={() => setQuickPicksSeed(s => s + 1)}
-              className="ml-auto p-2.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)] flex-shrink-0"
+              className="ml-auto p-2.5 rounded-lg transition-colors hover:bg-white/5 flex-shrink-0"
               style={{ color: "var(--mq-text-muted)" }}
               title="Обновить"
               aria-label="Обновить"
             >
               <RefreshCw className="w-4 h-4" />
-            </motion.button>
+            </button>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             {quickPicks.map((track, i) => (
@@ -426,25 +419,24 @@ export default function SearchView() {
                 key={track.id}
                 initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 + i * 0.04, duration: 0.3 }}
-                whileHover={{ scale: 1.02, backgroundColor: "var(--mq-card-hover)" }}
-                whileTap={{ scale: 0.97 }}
+                transition={{ delay: 0.08 + i * 0.03, duration: 0.3 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => playTrack(track, quickPicks)}
-                className="flex items-center gap-2.5 p-2.5 rounded-2xl text-left cursor-pointer group transition-all duration-200"
-                style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
+                className="flex items-center gap-2.5 p-2.5 rounded-[var(--mq-r-card)] text-left cursor-pointer group transition-colors duration-150"
+                style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
               >
-                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ boxShadow: "var(--mq-shadow-xs)" }}>
+                <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
                   {track.cover ? (
                     <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" draggable={false} />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
-                      <Music className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+                    <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)" }}>
+                      <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
                     </div>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold truncate" style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}>{track.title}</p>
-                  <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+                  <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                  <p className="text-[11px] truncate mq-t-meta">{track.artist}</p>
                 </div>
               </motion.button>
             ))}
@@ -490,14 +482,12 @@ export default function SearchView() {
             }}
             className="pl-11 pr-11 min-h-[48px] text-[15px] font-medium"
             style={{
-              backgroundColor: "var(--mq-card)",
-              borderRadius: "16px",
-              border: isFocused ? "1.5px solid var(--mq-accent)" : "1px solid var(--mq-border-thin)",
+              backgroundColor: "var(--mq-surface-1)",
+              borderRadius: 14,
+              border: isFocused ? "1.5px solid var(--mq-accent)" : "1px solid var(--mq-edge)",
               color: "var(--mq-text)",
-              boxShadow: isFocused
-                ? "0 0 0 3px color-mix(in srgb, var(--mq-accent) 15%, transparent), 0 4px 16px rgba(0,0,0,0.12)"
-                : "0 2px 8px rgba(0,0,0,0.06)",
-              transition: "border-color 0.25s ease, box-shadow 0.25s ease",
+              boxShadow: isFocused ? "0 0 0 3px color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "none",
+              transition: "border-color 0.2s ease, box-shadow 0.2s ease",
               outline: "none",
             }}
           />
@@ -531,34 +521,34 @@ export default function SearchView() {
           )}
         </div>
 
-        {/* Filter toggle */}
-        <motion.button
-          whileTap={{ scale: 0.92 }}
+        {/* Filter toggle — quiet icon button, accent when active */}
+        <button
           onClick={() => setShowFilters(!showFilters)}
-          className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 mt-[1px]"
+          className="w-11 h-11 rounded-[14px] flex items-center justify-center transition-colors duration-150 mt-[1px]"
           style={{
-            backgroundColor: showFilters || selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
-            color: showFilters || selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
-            border: showFilters || selectedGenre ? "none" : "1px solid var(--mq-border-thin)",
-            boxShadow: showFilters || selectedGenre ? "0 2px 12px color-mix(in srgb, var(--mq-accent) 250%, transparent)" : "none",
+            backgroundColor: showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "var(--mq-surface-1)",
+            color: showFilters || selectedGenre ? "var(--mq-accent)" : "var(--mq-text-muted)",
+            border: "1px solid " + (showFilters || selectedGenre ? "color-mix(in srgb, var(--mq-accent) 30%, transparent)" : "var(--mq-edge)"),
           }}
+          aria-label="Фильтры"
+          aria-expanded={showFilters}
         >
           <SlidersHorizontal className="w-4 h-4" />
-        </motion.button>
+        </button>
 
         {/* Upload button */}
-        <motion.button
-          whileTap={{ scale: 0.92 }}
+        <button
           onClick={() => fileInputRef.current?.click()}
-          className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 mt-[1px]"
+          className="w-11 h-11 rounded-[14px] flex items-center justify-center transition-colors duration-150 mt-[1px]"
           style={{
-            backgroundColor: "var(--mq-card)",
+            backgroundColor: "var(--mq-surface-1)",
             color: isUploading ? "var(--mq-accent)" : "var(--mq-text-muted)",
-            border: "1px solid var(--mq-border-thin)",
+            border: "1px solid var(--mq-edge)",
           }}
+          aria-label="Загрузить файлы"
         >
           <Upload className={`w-4 h-4 ${isUploading ? "animate-pulse" : ""}`} />
-        </motion.button>
+        </button>
         <input ref={fileInputRef} type="file" accept="audio/*" multiple onChange={handleFileUpload} className="hidden" />
       </motion.div>
 
@@ -619,43 +609,36 @@ export default function SearchView() {
                 }}
               >
                 {/* All genres button */}
-                <motion.button
-                  whileTap={{ scale: 0.93 }}
-                  whileHover={{ scale: 1.04 }}
+                <button
                   onClick={() => setSelectedGenre("")}
-                  className="px-4 py-2.5 rounded-lg text-xs font-semibold transition-all duration-200 flex-shrink-0 flex items-center gap-2"
+                  className="px-4 py-2.5 rounded-full text-xs font-semibold transition-colors duration-150 flex-shrink-0 flex items-center gap-2"
                   style={{
-                    backgroundColor: !selectedGenre ? "var(--mq-accent)" : "var(--mq-card)",
-                    color: !selectedGenre ? "var(--mq-text)" : "var(--mq-text-muted)",
-                    border: !selectedGenre ? "1.5px solid var(--mq-border-accent-strong)" : "1px solid var(--mq-border-thin)",
-                    boxShadow: !selectedGenre ? "0 1px 4px color-mix(in srgb, var(--mq-accent) 18%, transparent)" : "none",
+                    backgroundColor: !selectedGenre ? "var(--mq-accent)" : "var(--mq-surface-1)",
+                    color: !selectedGenre ? "#fff" : "var(--mq-text-muted)",
+                    border: "1px solid " + (!selectedGenre ? "var(--mq-accent)" : "var(--mq-edge)"),
                   }}
                 >
                   <ListMusic className="w-3.5 h-3.5" />
                   Все
-                </motion.button>
-                {genresList.map((g, i) => {
+                </button>
+                {genresList.map((g) => {
                   const isSelected = selectedGenre === g;
-                  const opacity = genreOpacities[g] || 0.10;
                   return (
-                    <motion.button
+                    <button
                       key={g}
-                      whileTap={{ scale: 0.93 }}
-                      whileHover={{ scale: 1.04 }}
                       onClick={() => setSelectedGenre(isSelected ? "" : g)}
-                      className="px-4 py-2.5 rounded-lg text-xs font-semibold transition-all duration-250 flex-shrink-0 flex items-center gap-2"
+                      className="px-4 py-2.5 rounded-full text-xs font-semibold transition-colors duration-150 flex-shrink-0 flex items-center gap-2"
                       style={{
-                        backgroundColor: isSelected ? "var(--mq-accent)" : `color-mix(in srgb, var(--mq-accent) ${opacity * 100}%, transparent)`,
-                        color: isSelected ? "var(--mq-text)" : "var(--mq-text-muted)",
-                        border: isSelected ? "1.5px solid var(--mq-border-accent-strong)" : "1px solid var(--mq-border-thin)",
-                        boxShadow: isSelected ? "0 2px 8px color-mix(in srgb, var(--mq-accent) 150%, transparent)" : "none",
+                        backgroundColor: isSelected ? "var(--mq-accent)" : "var(--mq-surface-1)",
+                        color: isSelected ? "#fff" : "var(--mq-text-muted)",
+                        border: "1px solid " + (isSelected ? "var(--mq-accent)" : "var(--mq-edge)"),
                       }}
                     >
-                      <span style={{ color: isSelected ? "var(--mq-text)" : "var(--mq-accent)", opacity: isSelected ? 1 : 0.7 }}>
+                      <span style={{ color: isSelected ? "#fff" : "var(--mq-accent)", opacity: isSelected ? 1 : 0.75 }}>
                         {genreIcons[g] || <Music className="w-3.5 h-3.5" />}
                       </span>
                       {genreLabels[g] || g}
-                    </motion.button>
+                    </button>
                   );
                 })}
               </div>
@@ -738,138 +721,79 @@ export default function SearchView() {
         </ScrollReveal>
       )}
 
-      {/* ── Results header ── */}
+      {/* ── Results header — real section head: serif title, count meta, one action ── */}
       <AnimatePresence>
         {activeHasSearched && !activeLoading && activeTracks.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.25 }}
-            className="flex items-center justify-between"
+            transition={{ duration: 0.2 }}
+            className="mq-section-head"
           >
-            <div className="flex items-center gap-2.5">
-              <h3 className="text-xs font-semibold" style={{ color: "var(--mq-text-muted)" }}>
-                {activeTracks.length} {activeTracks.length === 1 ? "трек" : activeTracks.length < 5 ? "трека" : "треков"}
+            <div className="flex items-baseline gap-2.5 min-w-0">
+              <h3 className="mq-section-title" style={{ fontFamily: "var(--mq-font-serif)" }}>
+                {selectedGenre ? (genreLabels[selectedGenre] || selectedGenre) : "Результаты"}
               </h3>
-              {selectedGenre && (
-                <motion.span
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="text-[11px] px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
-                  style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}
-                >
-                  {genreIcons[selectedGenre] && <span className="inline-flex" style={{ opacity: 0.7 }}>{genreIcons[selectedGenre]}</span>}
-                  {genreLabels[selectedGenre] || selectedGenre}
-                </motion.span>
-              )}
+              <span className="mq-t-num text-[13px]" style={{ color: "var(--mq-text-muted)" }}>
+                {activeTracks.length} {activeTracks.length === 1 ? "трек" : activeTracks.length < 5 ? "трека" : "треков"}
+              </span>
             </div>
-            <motion.button
-              whileTap={{ scale: 0.93 }}
-              whileHover={{ scale: 1.04 }}
+            <button
               onClick={handlePlayAll}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all duration-200"
-              style={{
-                backgroundColor: "var(--mq-accent)",
-                color: "var(--mq-text)",
-                boxShadow: "var(--mq-shadow-accent)",
-              }}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors duration-150"
+              style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
             >
               <Play className="w-3 h-3" fill="currentColor" />
               Играть все
-            </motion.button>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Loading skeletons ── */}
+      {/* ── Loading skeletons — unified row geometry ── */}
       {activeLoading && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="space-y-1.5"
-        >
+        <div className="space-y-1.5">
           {Array.from({ length: 5 }).map((_, i) => (
-            <motion.div
+            <div
               key={i}
-              initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="flex items-center gap-3 p-3 rounded-2xl"
-              style={{ backgroundColor: "var(--mq-glass-bg)" }}
+              className="flex items-center gap-3 p-3 rounded-[var(--mq-r-card)]"
+              style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
             >
-              <Skeleton className="w-11 h-11 rounded-lg flex-shrink-0" />
+              <Skeleton className="w-11 h-11 rounded-[var(--mq-r-art)] flex-shrink-0" />
               <div className="flex-1 space-y-2"><Skeleton className="h-3.5 w-3/4" /><Skeleton className="h-3 w-1/2" /></div>
               <Skeleton className="h-3 w-10" />
-            </motion.div>
+            </div>
           ))}
-        </motion.div>
+        </div>
       )}
 
-      {/* ── Empty state: no results ── */}
+      {/* ── Empty state: no results — quiet editorial pattern ── */}
       {!activeLoading && activeHasSearched && activeTracks.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-          className="flex flex-col items-center justify-center py-16"
+          transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1] }}
+          className="mq-empty"
         >
-          <motion.div
-            initial={animationsEnabled ? { scale: 0.8, rotate: -5 } : undefined}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 200, damping: 18, delay: 0.05 }}
-            className="mb-5 relative"
-            style={{
-              width: 88,
-              height: 88,
-              borderRadius: 28,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 15%, transparent), color-mix(in srgb, var(--mq-accent) 6%, transparent))",
-              border: "1px solid color-mix(in srgb, var(--mq-accent) 10%, transparent)",
-              boxShadow: "var(--mq-shadow-accent)",
-            }}
-          >
-            <Search className="w-9 h-9" style={{ color: "var(--mq-accent)", opacity: 0.45 }} />
-            {/* Floating dots around the icon */}
-            <motion.div
-              animate={animationsEnabled ? { y: [-2, 2, -2], opacity: [0.3, 0.6, 0.3] } : {}}
-              transition={{ repeat: Infinity, duration: 2.5, ease: "easeInOut" }}
-              className="absolute -top-1.5 -right-1.5 w-2 h-2 rounded-full"
-              style={{ backgroundColor: "var(--mq-accent)" }}
-            />
-            <motion.div
-              animate={animationsEnabled ? { y: [2, -2, 2], opacity: [0.4, 0.7, 0.4] } : {}}
-              transition={{ repeat: Infinity, duration: 3, ease: "easeInOut", delay: 0.5 }}
-              className="absolute -bottom-1 -left-2 w-1.5 h-1.5 rounded-full"
-              style={{ backgroundColor: "var(--mq-accent)" }}
-            />
-          </motion.div>
-          <p className="text-lg font-bold mb-1.5" style={{ color: "var(--mq-text)", letterSpacing: "-0.01em" }}>Ничего не найдено</p>
-          <p className="text-sm text-center max-w-[280px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
-            Попробуйте изменить запрос или выбрать другой жанр
-          </p>
+          <Search className="w-7 h-7" style={{ color: "var(--mq-text-muted)" }} />
+          <p className="mq-empty-title">Ничего не найдено</p>
+          <p className="mq-empty-hint">Попробуйте изменить запрос или выбрать другой жанр</p>
           {/* Quick retry suggestions */}
-          <div className="flex flex-wrap gap-2 mt-6 justify-center">
-            {TRENDING_SEARCHES.slice(0, 4).map((term, i) => (
-              <motion.button
+          <div className="flex flex-wrap gap-2 mt-2 justify-center">
+            {TRENDING_SEARCHES.slice(0, 4).map((term) => (
+              <button
                 key={term}
-                initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 + i * 0.05, duration: 0.25 }}
-                whileTap={{ scale: 0.93 }}
-                whileHover={{ scale: 1.03, backgroundColor: "var(--mq-card-hover)" }}
                 onClick={() => handleTrendingClick(term)}
-                className="px-4 py-2 rounded-2xl text-xs font-medium transition-all duration-200 cursor-pointer"
+                className="px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors duration-150 cursor-pointer"
                 style={{
-                  backgroundColor: "var(--mq-card)",
+                  backgroundColor: "var(--mq-surface-2)",
                   color: "var(--mq-text-muted)",
-                  border: "1px solid var(--mq-border-thin)",
+                  border: "1px solid var(--mq-edge)",
                 }}
               >
                 {term}
-              </motion.button>
+              </button>
             ))}
           </div>
         </motion.div>
@@ -1120,13 +1044,20 @@ const SearchTrackRow = memo(function SearchTrackRow({
         {...longPressHandlers}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        className="group flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors"
-        style={{
-          backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "transparent",
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleClick();
+          }
         }}
+        aria-label={`Слушать ${track.title} — ${track.artist}${isActive ? " (играет сейчас)" : ""}`}
+        className="mq-row group"
+        data-active={isActive || undefined}
       >
-        {/* Cover */}
-        <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 relative" style={{ backgroundColor: "var(--mq-card)" }}>
+        {/* Cover — artwork carries the color */}
+        <div className="w-12 h-12 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 relative mq-art">
           {track.cover ? (
             <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
           ) : (
@@ -1149,8 +1080,6 @@ const SearchTrackRow = memo(function SearchTrackRow({
         {/* Title + artist + meta */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
-            {/* Show equalizer inline when track is active — animated when
-                playing, paused state when active but not playing. */}
             {isActive && (
               <NowPlayingEqualizer
                 size="sm"
@@ -1158,7 +1087,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
                 paused={!isPlaying}
               />
             )}
-            <p className="text-sm font-medium truncate" style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text)" }}>
+            <p className="text-sm font-semibold truncate" style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text)" }}>
               {track.title}
             </p>
           </div>
@@ -1173,7 +1102,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
             {track.duration > 0 && (
               <>
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
-                <span className="text-[11px] tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                <span className="mq-t-num text-[11px]" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
                   {formatDuration(track.duration)}
                 </span>
               </>
@@ -1264,13 +1193,11 @@ function SearchSuggestions({
 
   return (
     <div
-      className="mt-1 rounded-2xl overflow-hidden"
+      className="mt-1 rounded-[var(--mq-r-card)] overflow-hidden"
       style={{
-        backgroundColor: "color-mix(in srgb, var(--mq-card) 95%, transparent)",
-        backdropFilter: "blur(20px) saturate(180%)",
-        WebkitBackdropFilter: "blur(20px) saturate(180%)",
-        border: "1px solid var(--mq-border-thin)",
-        boxShadow: "0 8px 24px rgba(0,0,0,0.3)",
+        backgroundColor: "var(--mq-surface-1)",
+        border: "1px solid var(--mq-edge-strong)",
+        boxShadow: "var(--mq-elev-dialog)",
       }}
     >
       {/* Direct search for current query */}

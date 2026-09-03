@@ -677,7 +677,7 @@ export default function FriendsView() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}
+            style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
             onClick={() => setShowAddDialog(false)}
           >
             <motion.div
@@ -848,7 +848,7 @@ function FriendCard({
         <AvatarImg src={friend.avatar} alt={friend.username} size="md" />
         {isOnline && (
           <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2"
-            style={{ backgroundColor: "#22c55e", borderColor: "var(--mq-card)", boxShadow: "0 0 8px rgba(34,197,94,0.5)" }}>
+            style={{ backgroundColor: "#22c55e", borderColor: "var(--mq-surface-1)" }}>
             <div className="w-full h-full rounded-full" style={{ animation: "mq-pulse-online 2s ease-in-out infinite" }} />
           </div>
         )}

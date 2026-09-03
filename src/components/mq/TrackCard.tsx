@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, memo } from "react";
 import { type Track } from "@/lib/musicApi";
 import { useAppStore } from "@/store/useAppStore";
 import { Play, Pause, Heart, ThumbsDown, MoreHorizontal, Music } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import Image from "next/image";
 import ContextMenu from "./ContextMenu";
 import { formatDuration } from "@/lib/musicApi";
@@ -19,7 +19,14 @@ interface TrackCardProps {
 }
 
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
-import { useTilt3D } from "@/hooks/useTilt3D";
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PHASE 4B — TrackCard, unified card language.
+   Rest: transparent (list context) — content sits directly on the page.
+   Hover: surface-1 + hairline edge (no lift, no glow).
+   Active: accent tint 6% + static 2px accent bar + accent title + eq.
+   Play affordance: solid accent circle. No tilt, no blur, no pulse.
+   ══════════════════════════════════════════════════════════════════════════ */
 
 const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistClick }: TrackCardProps) {
   // Use Zustand selectors to minimize re-renders — only subscribe to needed slices
@@ -32,21 +39,11 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
   const toggleDislike = useAppStore((s) => s.toggleDislike);
   const compactMode = useAppStore((s) => s.compactMode);
   const isMobile = useIsMobile();
-  // Destructured: member access on the hook's return object (which also
-  // carries the ref) is treated as ref access during render by
-  // react-hooks/refs — plain destructured values pass cleanly.
-  const { ref: tiltRef, onMouseMove, onMouseEnter, onMouseLeave } = useTilt3D({ max: 6, scale: 1.03 });
 
-  // B1 fix: use design tokens (--mq-radius-xl=16px, --mq-radius-lg=12px)
-  // instead of hardcoded px literals — keeps 1500+ card instances consistent.
-  const cardRadius = isMobile ? "var(--mq-radius-xl)" : "var(--mq-radius-lg)";
-
+  const isActive = currentTrackId === track.id;
   // P4.3: Subscribe to likedTrackIds array reference (not .includes() per render).
   // The selector returns a boolean — Zustand only re-renders when the boolean
   // changes (liked → unliked or vice versa), NOT on every store update.
-  const isActive = currentTrackId === track.id;
-  // The .includes() still runs, but only when likedTrackIds array identity
-  // changes (which happens only on like/unlike, not on progress ticks etc).
   const isLiked = useAppStore((s) =>
     Array.isArray(s.likedTrackIds) && s.likedTrackIds.includes(track.id)
   );
@@ -54,7 +51,6 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
     Array.isArray(s.dislikedTrackIds) && s.dislikedTrackIds.includes(track.id)
   );
 
-  // Track like/dislike animation state
   const [likePulse, setLikePulse] = useState(false);
   const [dislikeShake, setDislikeShake] = useState(false);
 
@@ -129,6 +125,8 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
 
   const closeContextMenu = useCallback(() => setContextMenu((prev) => ({ ...prev, show: false })), []);
 
+  const cardRadius = isMobile ? "var(--mq-r-card-lg)" : "var(--mq-r-card)";
+
   return (
     <>
       <motion.div
@@ -154,106 +152,16 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
         onTouchStart={longPressHandlers.onTouchStart}
         onTouchEnd={longPressHandlers.onTouchEnd}
         onTouchMove={longPressHandlers.onTouchMove}
-        className={`
-          group flex items-center
-          ${compactMode ? "gap-2.5 px-2.5 py-1.5" : "gap-3 sm:gap-3.5 px-3 py-2 sm:px-3.5 sm:py-2.5"}
-          cursor-pointer relative overflow-hidden
-          transition-[background-color] duration-300 ease-out
-          select-none
-          focus-visible:outline-2 focus-visible:outline-offset-2
-        `}
-        style={{
-          borderRadius: cardRadius,
-          backgroundColor: isActive
-            ? `color-mix(in srgb, var(--mq-accent) ${isMobile ? 6 : 8}%, transparent)`
-            : "transparent",
-          boxShadow: isActive
-            ? `0 0 ${isMobile ? 12 : 16}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 6 : 10}%, transparent)${isMobile ? "" : ", inset 0 1px 0 rgba(255,255,255,0.04)"}`
-            : isMobile ? "none" : "inset 0 1px 0 rgba(255,255,255,0.04)",
-        }}
-        whileHover={{
-          y: isMobile ? -1 : -2,
-          boxShadow: isActive
-            ? `0 0 ${isMobile ? 20 : 24}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 10 : 15}%, transparent), 0 ${isMobile ? 2 : 4}px ${isMobile ? 12 : 16}px rgba(0,0,0,0.15)`
-            : `0 ${isMobile ? 2 : 4}px ${isMobile ? 12 : 16}px rgba(0,0,0,0.1), 0 0 ${isMobile ? 16 : 20}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 4 : 6}%, transparent)`,
-          transition: { duration: 0.25, ease: [0.25, 0.1, 0.25, 1] },
-        }}
-        whileTap={{ scale: 0.995 }}
+        className="mq-card-track group"
+        data-active={isActive || undefined}
+        style={{ borderRadius: cardRadius }}
       >
-        {/* Ambient glow layer — accent color on hover */}
-        <div
-          className="absolute inset-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-500 pointer-events-none -z-10"
-          style={{
-            borderRadius: cardRadius,
-            boxShadow: `0 0 ${isMobile ? 16 : 20}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 8 : 15}%, transparent)`,
-            filter: `blur(${isMobile ? 16 : 20}px)`,
-          }}
-        />
-
-        {/* Border glow ring — appears on hover */}
-        <div
-          className={`
-            absolute inset-0 pointer-events-none
-            border transition-colors duration-300
-            ${isActive
-              ? `border-[color-mix(in_srgb,var(--mq-accent)_${isMobile ? 18 : 25}%,transparent)]`
-              : `border-transparent group-hover:border-[color-mix(in_srgb,var(--mq-accent)_${isMobile ? 10 : 15}%,transparent)]`
-            }
-          `}
-        />
-
-        {/* Active track left accent bar */}
-        {isActive && (
-          <div className={`absolute left-0 ${isMobile ? "top-3 bottom-3 w-[2px]" : "top-2 bottom-2 w-[3px]"} rounded-full overflow-visible`}>
-            <div
-              className="absolute inset-0 rounded-full"
-              style={{ backgroundColor: "var(--mq-accent)", opacity: isMobile ? 0.7 : 1 }}
-            />
-            <div
-              className="absolute inset-0 rounded-full"
-              style={{
-                backgroundColor: "var(--mq-accent)",
-                boxShadow: isMobile
-                  ? "0 0 6px var(--mq-accent)"
-                  : "0 0 8px var(--mq-accent), 0 0 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
-                animation: "mqBreathe 2s ease-in-out infinite",
-                opacity: isMobile ? 0.5 : 1,
-              }}
-            />
-          </div>
-        )}
-
-        {/* Pulsing background tint when active */}
-        {isActive && (
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              borderRadius: cardRadius,
-              backgroundColor: "var(--mq-accent)",
-              animation: "mqPulseTint 2.5s ease-in-out infinite",
-              opacity: isMobile ? 0.03 : undefined,
-            }}
-          />
-        )}
-
-        {/* ── Cover art ── */}
+        {/* ── Cover art — artwork is the loud element ── */}
         <div
           className={`
             ${compactMode ? "w-9 h-9" : "w-11 h-11 sm:w-12 sm:h-12"}
-            rounded-lg overflow-hidden flex-shrink-0 relative
-            mq-cover-shadow
-            transition-transform duration-300 ease-out
-            group-hover:scale-[1.05]
+            rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 relative mq-art
           `}
-          ref={tiltRef as React.RefObject<HTMLDivElement>}
-          onMouseMove={onMouseMove}
-          onMouseEnter={onMouseEnter}
-          onMouseLeave={onMouseLeave}
-          style={{
-            boxShadow: isActive
-              ? `0 2px ${isMobile ? 8 : 12}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 15 : 25}%, transparent)`
-              : undefined,
-          }}
         >
           {track.cover ? (
             <Image
@@ -267,43 +175,25 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               unoptimized
             />
           ) : (
-            <div
-              className="w-full h-full flex items-center justify-center"
-              style={{
-                background: isActive
-                  ? "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 30%, transparent), color-mix(in srgb, var(--mq-accent) 12%, transparent))"
-                  : "linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
-              }}
-            >
-              <Music className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`} style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)", opacity: isActive ? 0.7 : 0.4 }} />
+            <div className="w-full h-full flex items-center justify-center">
+              <Music
+                className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`}
+                style={{ color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)", opacity: isActive ? 0.8 : 0.45 }}
+              />
             </div>
           )}
 
-          {/* Hover / active overlay */}
-          <div
-            className="absolute inset-0 flex items-center justify-center
-              bg-black/0 group-hover:bg-black/45
-              transition-colors duration-200 ease-out"
-          >
-            {/* Play / pause circle button — glass background with spring animation */}
-            <motion.div
-              initial={{ scale: 0.5, opacity: 0 }}
+          {/* Hover play overlay — solid accent, appears on hover (desktop) */}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/45 transition-colors duration-200">
+            <div
               className={`
-                flex items-center justify-center
-                rounded-full
+                flex items-center justify-center rounded-full
                 ${compactMode ? "w-7 h-7" : "w-8 h-8"}
                 sm:opacity-0 sm:group-hover:opacity-100
                 transition-opacity duration-200 ease-out
                 ${isActive && isPlaying ? "!opacity-100" : ""}
               `}
-              style={{
-                backgroundColor: "rgba(0,0,0,0.45)",
-                backdropFilter: "blur(12px) saturate(180%)",
-                WebkitBackdropFilter: "blur(12px) saturate(180%)",
-                border: "1px solid var(--mq-border-medium)",
-              }}
-              whileHover={{ scale: 1.05 }}
-              transition={{ type: "spring", stiffness: 400, damping: 25 }}
+              style={{ backgroundColor: "var(--mq-accent)" }}
             >
               {isActive && isPlaying ? (
                 <Pause
@@ -318,27 +208,18 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
                   fill="#fff"
                 />
               )}
-            </motion.div>
+            </div>
           </div>
 
-          {/* Mini equalizer bars on cover (when playing) — with subtle glow */}
+          {/* Mini equalizer bars on cover (when playing) — flat white, no glow */}
           {isActive && isPlaying && (
-            <div className="absolute bottom-1 left-1 right-1 flex items-end justify-center gap-[1.5px] h-3.5">
-              {/* Glow layer behind eq bars */}
-              <div
-                className="absolute inset-0 rounded-sm"
-                style={{
-                  background: "radial-gradient(ellipse at center, color-mix(in srgb, var(--mq-accent) 30%, transparent), transparent 70%)",
-                  filter: "blur(4px)",
-                }}
-              />
+            <div className="absolute bottom-1 left-1 right-1 flex items-end justify-center gap-[1.5px] h-3.5 z-10 pointer-events-none">
               {[0, 1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="mq-cover-eq w-[1.5px] rounded-full origin-bottom relative z-10"
+                  className="mq-cover-eq w-[1.5px] rounded-full origin-bottom"
                   style={{
                     backgroundColor: "#fff",
-                    boxShadow: "0 0 4px rgba(255,255,255,0.5), 0 0 8px color-mix(in srgb, var(--mq-accent) 30%, transparent)",
                     animationName: `coverEq${i}`,
                     animationDuration: "0.45s",
                     animationDelay: `${i * 0.06}s`,
@@ -361,7 +242,6 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               style={{
                 color: isActive ? "var(--mq-accent)" : "var(--mq-text)",
                 letterSpacing: "-0.01em",
-                textShadow: isActive ? "0 0 12px color-mix(in srgb, var(--mq-accent) 25%, transparent)" : "none",
               }}
             >
               <span title={`${track.title} — ${track.artist}`}>{track.title}</span>
@@ -370,9 +250,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
             <span
               className="absolute right-8 top-0 bottom-0 w-8 pointer-events-none"
               style={{
-                background: isActive
-                  ? "linear-gradient(to right, transparent, color-mix(in srgb, var(--mq-accent) 8%, transparent))"
-                  : "linear-gradient(to right, transparent, var(--mq-bg, #0e0e0e))",
+                background: "linear-gradient(to right, transparent, var(--mq-bg, #0e0e0e))",
               }}
             />
             {/* Now-playing equalizer next to title — shown when active,
@@ -406,14 +284,14 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
 
         {/* ── Actions ── */}
         <div className="flex items-center gap-0 flex-shrink-0">
-          {/* Duration — visible on all screen sizes */}
+          {/* Duration — mono numerals, right-aligned */}
           {track.duration > 0 && (
             <span
               className={`
-                text-[11px] tabular-nums text-right font-medium
+                mq-t-num text-[11px] text-right
                 ${compactMode ? "w-8 mr-0.5" : "w-10 mr-0.5"}
               `}
-              style={{ color: isActive ? "color-mix(in srgb, var(--mq-accent) 60%, var(--mq-text-muted))" : "var(--mq-text-muted)", opacity: 0.7 }}
+              style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}
             >
               {formatDuration(track.duration)}
             </span>
@@ -460,7 +338,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
             <ThumbsDown className="w-3.5 h-3.5" style={isDisliked ? { fill: "#ef4444" } : {}} />
           </motion.button>
 
-          {/* More button — rotate 90deg on hover */}
+          {/* More button */}
           <motion.button
             onClick={handleMoreClick}
             className={`
@@ -472,8 +350,6 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               transition-colors duration-150
             `}
             style={{ color: "var(--mq-text-muted)" }}
-            whileHover={{ rotate: 90 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
           >
             <MoreHorizontal className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`} />
           </motion.button>

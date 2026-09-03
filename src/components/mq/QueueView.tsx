@@ -224,14 +224,17 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
               stiffness: 300,
               mass: 0.8,
             }}
-            className="fixed inset-x-0 bottom-0 z-[410] flex flex-col rounded-t-3xl overflow-hidden"
+            className="fixed inset-x-0 bottom-0 z-[410] flex flex-col rounded-t-[20px] overflow-hidden"
             style={{
-              backgroundColor: "var(--mq-player-bg, var(--mq-bg))",
+              backgroundColor: "var(--mq-surface-1)",
               maxHeight: "80vh",
               maxWidth: "32rem",
               margin: "0 auto",
               paddingBottom: "env(safe-area-inset-bottom, 0px)",
-              boxShadow: "0 -8px 40px rgba(0,0,0,0.4), 0 -2px 12px rgba(0,0,0,0.2)",
+              borderTop: "1px solid var(--mq-edge-strong)",
+              borderLeft: "1px solid var(--mq-edge-strong)",
+              borderRight: "1px solid var(--mq-edge-strong)",
+              boxShadow: "var(--mq-elev-dialog)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -243,23 +246,20 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
               />
             </div>
 
-            {/* Header */}
+            {/* Header — serif title, mono count, meta actions */}
             <div
-              className="flex items-center justify-between px-5 pb-3 flex-shrink-0"
-              style={{ borderBottom: "1px solid var(--mq-border)" }}
+              className="flex items-center justify-between px-5 pt-4 pb-3 flex-shrink-0"
+              style={{ borderBottom: "1px solid var(--mq-edge)" }}
             >
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}>
-                  <ListMusic className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-                </div>
+              <div className="flex items-baseline gap-2.5">
                 <h2
-                  className="text-lg font-bold"
+                  className="mq-t-display text-[19px]"
                   style={{ color: "var(--mq-text)" }}
                 >
                   Очередь
                 </h2>
                 {upNext.length + remainingQueue.length > 0 && (
-                  <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                  <span className="mq-t-num text-[12px]" style={{ color: "var(--mq-text-muted)" }}>
                     {upNext.length + remainingQueue.length}
                   </span>
                 )}
@@ -274,8 +274,8 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                         playTrack(currentTrack, [currentTrack]);
                       }
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:opacity-80"
-                    style={{ color: "#ef4444", backgroundColor: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.12)" }}
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[rgba(239,68,68,0.1)]"
+                    style={{ color: "#ef4444" }}
                     title="Очистить всю очередь"
                   >
                     <Trash2 className="w-3 h-3" />
@@ -285,12 +285,12 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                 <button
                   onClick={onClose}
                   aria-label="Закрыть очередь"
-                  className="p-2 rounded-full transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                  className="p-2 rounded-full transition-colors hover:bg-white/5"
                   style={{
                     color: "var(--mq-text-muted)",
                   }}
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-[18px] h-[18px]" />
                 </button>
               </div>
             </div>
@@ -305,9 +305,9 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
             >
               {/* Current track / Now playing — enhanced */}
               {currentTrack && (
-                <div className="px-5 pt-3 pb-2">
+                <div className="px-4 pt-3 pb-2">
                   <p
-                    className="text-[11px] font-semibold uppercase tracking-wider mb-2"
+                    className="mq-text-eyebrow mb-2"
                     style={{ color: "var(--mq-accent)" }}
                   >
                     Сейчас играет
@@ -495,26 +495,12 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                 </div>
               )}
 
-              {/* Empty state — better illustration and suggestion */}
+              {/* Empty state — quiet editorial */}
               {!currentTrack && !hasContent && (
-                <div className="flex flex-col items-center justify-center py-20 gap-4">
-                  <div className="w-20 h-20 rounded-2xl flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}>
-                    <ListMusic
-                      className="w-10 h-10"
-                      style={{ color: "var(--mq-accent)", opacity: 0.25 }}
-                    />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
-                      Очередь пуста
-                    </p>
-                    <p
-                      className="text-xs mt-1.5 max-w-[240px] mx-auto leading-relaxed"
-                      style={{ color: "var(--mq-text-muted)" }}
-                    >
-                      Найдите трек и добавьте его в очередь, чтобы начать слушать
-                    </p>
-                  </div>
+                <div className="mq-empty mx-4 my-6">
+                  <ListMusic className="w-7 h-7" style={{ color: "var(--mq-text-muted)" }} />
+                  <p className="mq-empty-title">Очередь пуста</p>
+                  <p className="mq-empty-hint">Найдите трек и добавьте его в очередь, чтобы начать слушать</p>
                 </div>
               )}
             </div>
@@ -545,20 +531,13 @@ function NowPlayingCard({
   isPlaying: boolean;
 }) {
   return (
-    <motion.div
-      className="flex items-center gap-3 p-3 rounded-xl"
-      style={{
-        backgroundColor: "var(--mq-card)",
-        border: "1px solid var(--mq-border)",
-        boxShadow: "0 0 0 1px color-mix(in srgb, var(--mq-accent) 10%, transparent)",
-      }}
+    <div
+      className="mq-card-track"
+      data-active="true"
     >
       {/* Cover — larger for now playing */}
       <div
-        className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center"
-        style={{
-          backgroundColor: track.cover ? "transparent" : "var(--mq-accent)",
-        }}
+        className="w-12 h-12 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 flex items-center justify-center mq-art"
       >
         {track.cover ? (
           <img
@@ -567,7 +546,7 @@ function NowPlayingCard({
             className="w-full h-full object-cover"
           />
         ) : (
-          <Music className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
+          <Music className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
         )}
       </div>
 
@@ -579,66 +558,42 @@ function NowPlayingCard({
         >
           {track.title}
         </p>
-        <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+        <p className="text-xs truncate mq-t-meta">
           {track.artist}
         </p>
       </div>
 
       {/* Duration */}
       <span
-        className="text-xs tabular-nums flex-shrink-0"
+        className="mq-t-num text-xs flex-shrink-0"
         style={{ color: "var(--mq-text-muted)" }}
       >
         {formatDuration(track.duration)}
       </span>
 
-      {/* Playing indicator */}
-      <div className="flex items-center gap-0.5 flex-shrink-0">
-        <div
-          className="flex items-end gap-[2px] h-4"
-          style={{ color: "var(--mq-accent)" }}
-        >
-          {isPlaying ? (
-            <>
-              <motion.span
-                className="w-[3px] rounded-full"
-                style={{ backgroundColor: "var(--mq-accent)", height: "100%", transformOrigin: "bottom", willChange: "transform" }}
-                animate={{ scaleY: [0.3, 1, 0.5, 0.8, 0.3] }}
-                transition={{
-                  duration: 1.2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
+      {/* Playing indicator — flat accent eq bars, no glow */}
+      <div className="flex items-end gap-[2px] h-4 flex-shrink-0" aria-hidden="true">
+        {isPlaying ? (
+          <>
+            {[0, 1, 2].map((i) => (
+              <span
+                key={i}
+                className="mq-cover-eq w-[3px] rounded-full"
+                style={{
+                  backgroundColor: "var(--mq-accent)",
+                  height: "100%",
+                  animationName: `coverEq${i}`,
+                  animationDuration: "0.8s",
+                  animationDelay: `${i * 0.12}s`,
                 }}
               />
-              <motion.span
-                className="w-[3px] rounded-full"
-                style={{ backgroundColor: "var(--mq-accent)", height: "100%", transformOrigin: "bottom", willChange: "transform" }}
-                animate={{ scaleY: [0.6, 0.3, 0.8, 0.4, 0.6] }}
-                transition={{
-                  duration: 1.2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: 0.15,
-                }}
-              />
-              <motion.span
-                className="w-[3px] rounded-full"
-                style={{ backgroundColor: "var(--mq-accent)", height: "100%", transformOrigin: "bottom", willChange: "transform" }}
-                animate={{ scaleY: [0.8, 0.5, 0.3, 0.9, 0.8] }}
-                transition={{
-                  duration: 1.2,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: 0.3,
-                }}
-              />
-            </>
-          ) : (
-            <Pause className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-          )}
-        </div>
+            ))}
+          </>
+        ) : (
+          <Pause className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+        )}
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -691,7 +646,7 @@ function HistoryTrackItem({
       onTouchStart={longPressHandlers.onTouchStart}
       onTouchEnd={longPressHandlers.onTouchEnd}
       onTouchMove={longPressHandlers.onTouchMove}
-      className="group w-full flex items-center gap-2.5 p-2 rounded-xl transition-all text-left select-none opacity-60 hover:opacity-100 hover:bg-white/[0.03]"
+      className="group mq-row !min-h-[48px] !py-1.5 text-left select-none opacity-70 hover:opacity-100"
     >
       {/* Cover thumbnail */}
       <div
@@ -1110,13 +1065,12 @@ function DragOverlayCard({ track }: { track: Track }) {
     <motion.div
       initial={{ scale: 1 }}
       animate={{ scale: 1.03 }}
-      className="flex items-center gap-2 p-2.5 rounded-xl select-none"
+      className="mq-card-track select-none"
+      data-active="true"
       style={{
-        backgroundColor: "var(--mq-card)",
-        border: "1.5px solid var(--mq-border-accent-strong)",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 16px color-mix(in srgb, var(--mq-accent) 20%, transparent)",
         maxWidth: "32rem",
         cursor: "grabbing",
+        opacity: 0.95,
       }}
     >
       {/* Grip */}

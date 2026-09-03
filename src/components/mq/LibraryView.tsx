@@ -115,7 +115,6 @@ const LibraryView = React.memo(function LibraryView() {
                     className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full"
                     style={{
                       backgroundColor: "var(--mq-accent)",
-                      boxShadow: "0 0 8px var(--mq-glow)",
                     }}
                     transition={{ type: "spring", stiffness: 350, damping: 30 }}
                   />

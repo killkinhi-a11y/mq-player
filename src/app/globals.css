@@ -1344,17 +1344,8 @@ html.blood-theme body::before {
   animation-direction: alternate;
 }
 
-/* TrackCard breathing glow — active accent bar pulsing */
-@keyframes mqBreathe {
-  0%, 100% { opacity: 0.6; transform: scaleX(1); }
-  50% { opacity: 1; transform: scaleX(1.3); }
-}
-
-/* TrackCard pulsing background tint — subtle active indicator */
-@keyframes mqPulseTint {
-  0%, 100% { opacity: 0; }
-  50% { opacity: 0.03; }
-}
+/* Phase 4B removed: mqBreathe / mqPulseTint (infinite pulsing on active
+   cards) — active state is now static: tint + accent bar + eq bars. */
 
 @keyframes vol-shimmer {
   0% { transform: translateX(-100%); }
@@ -3701,4 +3692,310 @@ a,
   padding: 8px;
   background: color-mix(in srgb, var(--mq-bg) 50%, transparent);
   border-radius: 8px;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   PHASE 4B — MQ VISUAL LANGUAGE: «Тихая редакция» (Quiet Editorial)
+   Foundation layer: type scale, surface steps, unified list row, section
+   header rhythm, artwork treatment. Depth = border + spacing + typography
+   (NOT blur, NOT glow, NOT pulse). One accent used semantically:
+   active / playing / primary action.
+   ═════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Surface ladder — three quiet steps above the page background */
+  --mq-surface-1: #151517;
+  --mq-surface-2: #1b1b1e;
+  /* Radius scale — one card radius, one artwork radius, one pill */
+  --mq-r-card: 12px;
+  --mq-r-card-lg: 16px;
+  --mq-r-art: 10px;
+  /* Hairline edge for every card (replaces glow-based depth) */
+  --mq-edge: rgba(255, 255, 255, 0.07);
+  --mq-edge-strong: rgba(255, 255, 255, 0.12);
+  /* Resting vs hover edge */
+  --mq-edge-hover: rgba(255, 255, 255, 0.14);
+  /* Elevation for genuinely floating surfaces only (dialogs, player) */
+  --mq-elev-dialog: 0 24px 64px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4);
+  --mq-elev-bar: 0 -1px 0 rgba(255, 255, 255, 0.06), 0 8px 32px rgba(0, 0, 0, 0.45);
+  /* Artwork depth — inner hairline, no bloom */
+  --mq-art-edge: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --mq-art-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Type scale ────────────────────────────────────────────────────────── */
+/* Display voice = Playfair serif (Cyrillic-ready, already loaded) — used
+   for greetings, hero moments and empty-state headlines. The sans body
+   stays geometric (Manrope/Outfit). Mono for numerals/timestamps. */
+
+.mq-t-display {
+  font-family: var(--font-playfair-display), Georgia, "Times New Roman", serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.12;
+}
+
+.mq-t-title {
+  font-family: var(--font-manrope), var(--font-outfit), system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.mq-t-meta {
+  font-family: var(--font-manrope), var(--font-outfit), system-ui, sans-serif;
+  font-weight: 500;
+  color: var(--mq-text-muted);
+}
+
+.mq-t-num {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* (mq-t-eyebrow folded into existing .mq-text-eyebrow — one eyebrow voice) */
+
+/* ── Surfaces ───────────────────────────────────────────────────────────── */
+/* Every card sits on surface-1 with a hairline edge. Hover = edge lights
+   up one step + surface lifts to surface-2. No translateY jumps on
+   list contexts; grids may rise 2px max. */
+
+.mq-surface {
+  background: var(--mq-surface-1);
+  border: 1px solid var(--mq-edge);
+  border-radius: var(--mq-r-card);
+}
+
+.mq-surface-quiet {
+  background: color-mix(in srgb, var(--mq-surface-1) 60%, transparent);
+  border: 1px solid var(--mq-edge);
+  border-radius: var(--mq-r-card);
+}
+
+/* ── Unified interactive list row (Queue / Search / History / Playlist) ── */
+/* One row pattern everywhere: art 44px · title 14px/600 · artist 13px meta
+   · duration mono right · hover surface · active = accent bar + accent
+   title + mini equalizer. Row height breathes at 56px desktop / 60px touch. */
+
+.mq-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 8px 12px 8px 14px;
+  min-height: 56px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.18s ease, border-color  0.18s ease;
+  border: 1px solid transparent;
+  text-align: left;
+}
+
+.mq-row:hover {
+  background: var(--mq-surface-1);
+  border-color: var(--mq-edge);
+}
+
+.mq-row:active {
+  background: var(--mq-surface-2);
+}
+
+.mq-row[data-active="true"] {
+  background: color-mix(in srgb, var(--mq-accent) 7%, transparent);
+}
+
+.mq-row[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 12px;
+  bottom: 12px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--mq-accent);
+}
+
+.mq-row:focus-visible {
+  outline: 2px solid var(--mq-accent);
+  outline-offset: -2px;
+}
+
+/* ── TrackCard (unified interactive card row, ~1500 instances) ────────── */
+/* Rest: transparent — list rows sit directly on the page, no chrome.
+   Hover: surface-1 + hairline edge. Active: accent tint + left bar.
+   No lift, no glow, no pulse, no tilt. Same geometry as .mq-row so
+   lists and cards feel like ONE system. */
+
+.mq-card-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  min-height: 56px;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background-color 0.18s ease, border-color 0.18s ease;
+  text-align: left;
+}
+
+.mq-card-track:hover {
+  background: var(--mq-surface-1);
+  border-color: var(--mq-edge);
+}
+
+.mq-card-track:active {
+  background: var(--mq-surface-2);
+}
+
+.mq-card-track[data-active="true"] {
+  background: color-mix(in srgb, var(--mq-accent) 6%, transparent);
+  border-color: color-mix(in srgb, var(--mq-accent) 14%, transparent);
+}
+
+.mq-card-track[data-active="true"]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--mq-accent);
+}
+
+.mq-card-track:focus-visible {
+  outline: 2px solid var(--mq-accent);
+  outline-offset: -2px;
+}
+
+/* ── Section header rhythm ──────────────────────────────────────────────── */
+/* Home + all views: eyebrow over title, one spacing rhythm (mb-4/24px),
+   action right-aligned at 13px/600. */
+
+.mq-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mq-section-head .mq-section-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--mq-text);
+}
+
+.mq-section-head .mq-section-action {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mq-text-muted);
+  transition: color 0.15s ease;
+}
+
+.mq-section-head .mq-section-action:hover {
+  color: var(--mq-text);
+}
+
+/* ── Artwork treatment ──────────────────────────────────────────────────── */
+/* Artwork is the only loud element: inner hairline + grounded shadow.
+   Hover on interactive grids: scale 1.03 (subtle, 400ms). */
+
+.mq-art {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--mq-r-art);
+  background: var(--mq-surface-2);
+  box-shadow: var(--mq-art-edge);
+}
+
+.mq-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ── Play affordance (unified) ─────────────────────────────────────────── */
+/* One play button language: solid accent circle, 40px in overlays,
+   44-48px in hero contexts. Appears on hover over artwork (desktop),
+   persistent in hero/featured contexts. */
+
+.mq-play-overlay {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mq-accent);
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.group:hover .mq-play-overlay,
+.mq-play-overlay[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (hover: none) {
+  .mq-play-overlay {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Compact empty state (Library / Messenger / Queue) ─────────────────── */
+/* Empty = one quiet card, not a void: icon 28px, display-serif headline,
+   one line of meta, one action. Max height ~180px. */
+
+.mq-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 24px;
+  text-align: center;
+  background: color-mix(in srgb, var(--mq-surface-1) 55%, transparent);
+  border: 1px dashed var(--mq-edge);
+  border-radius: var(--mq-r-card);
+}
+
+.mq-empty .mq-empty-title {
+  font-family: var(--font-playfair-display), Georgia, serif;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--mq-text);
+}
+
+.mq-empty .mq-empty-hint {
+  font-size: 13px;
+  color: var(--mq-text-muted);
+  max-width: 42ch;
+  line-height: 1.5;
+}
+
+/* ── Reduced motion ─────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .mq-play-overlay,
+  .mq-row,
+  .mq-surface,
+  .mq-art img {
+    transition: none !important;
+  }
 }

@@ -670,12 +670,12 @@ export default function FullTrackView() {
                   onTouchStart={handleCoverTouchStart}
                   onTouchEnd={handleCoverTouchEnd}
                 >
-                  {/* Phase 2B: 3D tilt wrapper removed — artwork stays flat.
-                      One premium shadow instead of dramatic + inner-glow. */}
+                  {/* Phase 4B: artwork depth = grounded shadow + inner hairline.
+                      No premium shadow stack. */}
                   <div
                     className="w-full h-full rounded-3xl overflow-hidden relative"
                     style={{
-                      boxShadow: "var(--mq-shadow-premium-lg)",
+                      boxShadow: "var(--mq-art-shadow), var(--mq-art-edge)",
                     }}
                   >
                       {currentTrack.cover ? (
@@ -712,9 +712,8 @@ export default function FullTrackView() {
                         className="absolute top-1/2 -translate-y-1/2 px-4 py-2 rounded-2xl pointer-events-none"
                         style={{
                           [seekFeedback.side]: "20%",
-                          backgroundColor: "var(--mq-overlay-scrim)",
-                          backdropFilter: "blur(10px)",
-                          color: "var(--mq-text-on-accent, #fff)",
+                          backgroundColor: "rgba(10,10,12,0.85)",
+                          color: "#fff",
                           fontSize: 14,
                           fontWeight: 600,
                         } as React.CSSProperties}
@@ -846,13 +845,11 @@ export default function FullTrackView() {
                             animate={{ opacity: 1, y: 0, scale: 1 }}
                             exit={{ opacity: 0, y: -8, scale: 0.95 }}
                             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                            className="absolute top-full right-0 mt-2 z-50 rounded-2xl overflow-hidden min-w-[200px]"
+                            className="absolute top-full right-0 mt-2 z-50 rounded-[var(--mq-r-card)] overflow-hidden min-w-[200px]"
                             style={{
-                              backgroundColor: "color-mix(in srgb, var(--mq-card) 95%, transparent)",
-                              backdropFilter: "blur(20px)",
-                              WebkitBackdropFilter: "blur(20px)",
-                              border: "1px solid var(--mq-border-thin)",
-                              boxShadow: "var(--mq-shadow-elevated)",
+                              backgroundColor: "var(--mq-surface-1)",
+                              border: "1px solid var(--mq-edge-strong)",
+                              boxShadow: "var(--mq-elev-dialog)",
                             }}
                           >
                             <button
@@ -1022,8 +1019,8 @@ export default function FullTrackView() {
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
-                        className="w-full mb-4 overflow-hidden rounded-2xl"
-                        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
+                        className="w-full mb-4 overflow-hidden rounded-[var(--mq-r-card-lg)]"
+                        style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
                       >
                         <div className="flex items-center justify-end mb-2">
                           <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
@@ -1055,8 +1052,8 @@ export default function FullTrackView() {
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
-                        className="w-full mb-4 overflow-hidden rounded-2xl"
-                        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
+                        className="w-full mb-4 overflow-hidden rounded-[var(--mq-r-card-lg)]"
+                        style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Далее в очереди</p>
@@ -1072,11 +1069,11 @@ export default function FullTrackView() {
                               <button
                                 key={track.id + "_" + i}
                                 onClick={() => { playTrack?.(track, queue); setActivePanel(null); }}
-                                className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-[var(--mq-overlay-hover)] transition-colors"
+                                className="mq-row !min-h-[52px] w-full text-left"
                               >
-                                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                                <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
                                   {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
-                                    : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} /></div>}
+                                    : <div className="w-full h-full flex items-center justify-center"><Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /></div>}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
@@ -1096,8 +1093,8 @@ export default function FullTrackView() {
                         initial={{ opacity: 0, y: -8 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -8 }}
-                        className="w-full mb-4 overflow-hidden rounded-2xl"
-                        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
+                        className="w-full mb-4 overflow-hidden rounded-[var(--mq-r-card-lg)]"
+                        style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Недавно играло</p>
@@ -1113,11 +1110,11 @@ export default function FullTrackView() {
                               <button
                                 key={track.id + "_h_" + i}
                                 onClick={() => { playTrack?.(track, [track]); setActivePanel(null); }}
-                                className="w-full flex items-center gap-3 p-2 rounded-xl text-left hover:bg-[var(--mq-overlay-hover)] transition-colors"
+                                className="mq-row !min-h-[52px] w-full text-left"
                               >
-                                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+                                <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
                                   {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
-                                    : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} /></div>}
+                                    : <div className="w-full h-full flex items-center justify-center"><Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /></div>}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
@@ -1202,7 +1199,7 @@ export default function FullTrackView() {
                       onClick={togglePlay}
                       aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                       className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
-                      style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 6px 20px color-mix(in srgb, var(--mq-accent) 25%, transparent)" }}
+                      style={{ backgroundColor: "var(--mq-accent)" }}
                       title="Play/Pause (Space)"
                     >
                       {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />

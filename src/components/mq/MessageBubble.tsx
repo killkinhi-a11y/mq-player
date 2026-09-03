@@ -874,11 +874,9 @@ export default function MessageBubble({
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 className={`absolute z-50 ${isMine ? "right-0" : "left-0"} -top-12 flex gap-0.5 p-1.5 rounded-full`}
                 style={{
-                  backgroundColor: "color-mix(in srgb, var(--mq-card) 95%, transparent)",
-                  backdropFilter: "blur(16px) saturate(180%)",
-                  WebkitBackdropFilter: "blur(16px) saturate(180%)",
-                  border: "1px solid var(--mq-glass-border)",
-                  boxShadow: "var(--mq-shadow-card-hover)",
+                  backgroundColor: "var(--mq-surface-1)",
+                  border: "1px solid var(--mq-edge-strong)",
+                  boxShadow: "var(--mq-elev-dialog)",
                 }}
                 onMouseLeave={() => setShowReactions(false)}
               >

@@ -285,11 +285,9 @@ export default function PlayerBar() {
             top border, single elevation shadow. No glass pill, no glow. */}
         <div
           style={{
-            backgroundColor: "color-mix(in srgb, var(--mq-player-bg) 92%, transparent)",
-            backdropFilter: "blur(16px) saturate(140%)",
-            WebkitBackdropFilter: "blur(16px) saturate(140%)",
-            borderTop: "1px solid var(--mq-border-thin)",
-            boxShadow: "0 -6px 24px rgba(0,0,0,0.35)",
+            backgroundColor: "var(--mq-player-bg, var(--mq-surface-1))",
+            borderTop: "1px solid var(--mq-edge-strong)",
+            boxShadow: "var(--mq-elev-bar)",
           }}
         >
           <div className="relative flex items-center gap-4 px-4 py-2">
@@ -301,13 +299,12 @@ export default function PlayerBar() {
               style={{ width: "calc(100% / 3 - 16px)" }}
             >
               <div
-                className="w-11 h-11 rounded-lg overflow-hidden flex-shrink-0 relative"
-                style={{ boxShadow: "var(--mq-shadow-card)" }}
+                className="w-11 h-11 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 relative mq-art"
               >
                 {currentTrack.cover ? (
                   <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="eager" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+                  <div className="w-full h-full flex items-center justify-center" style={{ background: "var(--mq-surface-2)" }}>
                     <Music className="w-5 h-5" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
                   </div>
                 )}
@@ -373,7 +370,7 @@ export default function PlayerBar() {
                   whileTap={{ scale: 0.92 }}
                   onClick={() => { togglePlay(); hapticPlay(); }}
                   className="w-10 h-10 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 2px 12px color-mix(in srgb, var(--mq-accent) 25%, transparent)" }}
+                  style={{ backgroundColor: "var(--mq-accent)" }}
                   title={isPlaying ? "Пауза" : "Воспроизвести"}
                   aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                 >
@@ -418,9 +415,9 @@ export default function PlayerBar() {
                       <div
                         className="rounded-xl overflow-hidden flex items-center gap-2.5 p-2"
                         style={{
-                          backgroundColor: "var(--mq-card)",
-                          border: "1px solid var(--mq-border-thin)",
-                          boxShadow: "var(--mq-shadow-lg)",
+                          backgroundColor: "var(--mq-surface-1)",
+                          border: "1px solid var(--mq-edge-strong)",
+                          boxShadow: "var(--mq-elev-dialog)",
                         }}
                       >
                         <div className="w-9 h-9 rounded-md overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-card)" }}>
@@ -592,9 +589,9 @@ export default function PlayerBar() {
                       aria-label="Дополнительные действия"
                       className="absolute bottom-full right-0 mb-2 z-50 rounded-xl overflow-hidden min-w-[210px] py-1"
                       style={{
-                        backgroundColor: "var(--mq-card)",
-                        border: "1px solid var(--mq-border-thin)",
-                        boxShadow: "var(--mq-shadow-lg)",
+                        backgroundColor: "var(--mq-surface-1)",
+                        border: "1px solid var(--mq-edge-strong)",
+                        boxShadow: "var(--mq-elev-dialog)",
                       }}
                     >
                       <button

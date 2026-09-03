@@ -482,14 +482,10 @@ export default function HistoryView() {
                   <div
                     className="sticky top-0 z-10 -mx-1 px-1 py-2.5 flex items-center gap-2"
                     style={{
-                      backdropFilter: "blur(16px) saturate(180%)",
-                      WebkitBackdropFilter: "blur(16px) saturate(180%)",
-                      backgroundColor: "color-mix(in srgb, var(--mq-bg) 85%, transparent)",
+                      backgroundColor: "var(--mq-bg)",
                     }}
                   >
-                    <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}>
-                    <GroupIcon className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
-                    </div>
+                    <GroupIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
                     <span
                       className="text-sm font-bold tracking-wide"
                       style={{ color: "var(--mq-text)" }}

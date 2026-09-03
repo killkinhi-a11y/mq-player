@@ -408,7 +408,7 @@ function FullTrackViewMobileInner() {
               maxWidth: "300px",
               maxHeight: "300px",
               aspectRatio: "1 / 1",
-              boxShadow: "var(--mq-shadow-elevated)",
+              boxShadow: "var(--mq-art-shadow), var(--mq-art-edge)",
             }}
             onTouchStart={handleCoverTouchStart}
             onTouchEnd={handleCoverTouchEnd}
@@ -426,7 +426,7 @@ function FullTrackViewMobileInner() {
         {/* ── Title + like + dislike ── */}
         <div className="flex items-start justify-between gap-3 px-5 mb-3" style={{ flexShrink: 0 }}>
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
+            <h1 className="mq-text-display text-[22px] truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
             <button onClick={handleArtist} className="text-sm hover:underline mt-0.5 block truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</button>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -450,7 +450,7 @@ function FullTrackViewMobileInner() {
         {/* Playlist picker sheet */}
         {showPlaylistPicker && currentTrack && (
           <div className="px-5 mb-3">
-            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}>
+            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}>
               <div className="px-4 py-2.5" style={{ borderBottom: "1px solid var(--mq-border-thin)" }}>
                 <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
                   Добавить в плейлист
@@ -523,7 +523,7 @@ function FullTrackViewMobileInner() {
         <div className="flex items-center justify-between px-5 mb-4" style={{ flexShrink: 0 }}>
           <button onClick={toggleShuffle} aria-label="Перемешать" className="mq-ft-btn" style={{ ...iconBtn, width: 40, height: 40 }}><Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} /></button>
           <button onClick={prevTrack} aria-label="Предыдущий" className="mq-ft-btn" style={{ ...iconBtn, width: 48, height: 48 }}><SkipBack className="w-7 h-7" style={{ color: "var(--mq-text)" }} fill="currentColor" /></button>
-          <button onClick={togglePlay} aria-label="Play/Pause" className="mq-ft-btn" style={{ width: 68, height: 68, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#fff", border: "none", cursor: "pointer", padding: 0, boxShadow: "var(--mq-shadow-button-hover)" }}>
+          <button onClick={togglePlay} aria-label="Play/Pause" className="mq-ft-btn" style={{ width: 68, height: 68, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "#fff", border: "none", cursor: "pointer", padding: 0 }}>
             {isLoading ? <Loader2 className="w-7 h-7 animate-spin" style={{ color: "#000" }} /> : isPlaying ? <Pause className="w-7 h-7" fill="#000" style={{ color: "#000" }} /> : <Play className="w-7 h-7 ml-1" fill="#000" style={{ color: "#000" }} />}
           </button>
           <button onClick={nextTrack} aria-label="Следующий" className="mq-ft-btn" style={{ ...iconBtn, width: 48, height: 48 }}><SkipForward className="w-7 h-7" style={{ color: "var(--mq-text)" }} fill="currentColor" /></button>
@@ -584,7 +584,7 @@ function FullTrackViewMobileInner() {
         {showMore && (
           <>
             <div className="absolute inset-0 z-30" style={{ background: "var(--mq-overlay-scrim)" }} onClick={() => setShowMore(false)} />
-            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 40, borderRadius: "20px 20px 0 0", padding: "20px", paddingBottom: "max(20px, env(safe-area-inset-bottom))", background: "var(--mq-card)", border: "1px solid var(--mq-border-thin)", boxShadow: "var(--mq-shadow-elevated)", animation: "mqFtSlideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1)", maxHeight: "80vh", overflowY: "auto" }}>
+            <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, zIndex: 40, borderRadius: "20px 20px 0 0", padding: "20px", paddingBottom: "max(20px, env(safe-area-inset-bottom))", background: "var(--mq-surface-1)", border: "1px solid var(--mq-edge-strong)", boxShadow: "var(--mq-elev-dialog)", animation: "mqFtSlideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1)", maxHeight: "80vh", overflowY: "auto" }}>
               <div className="w-10 h-1 rounded-full mx-auto mb-4" style={{ background: "var(--mq-glass-bg-active)" }} />
               {/* Track info header */}
               <div className="flex items-center gap-3 mb-4">

@@ -34,11 +34,10 @@ const TABS: { id: Tab; label: string; labelShort: string; icon: React.ElementTyp
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="rounded-2xl overflow-hidden"
+      className="rounded-[var(--mq-r-card)] overflow-hidden"
       style={{
-        backgroundColor: "var(--mq-card)",
-        border: "1px solid var(--mq-border-hairline)",
-        boxShadow: "var(--mq-shadow-premium-md)",
+        backgroundColor: "var(--mq-surface-1)",
+        border: "1px solid var(--mq-edge)",
       }}
     >
       {children}
@@ -49,12 +48,7 @@ function Card({ children }: { children: React.ReactNode }) {
 function CardTitle({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
     <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2 flex items-center gap-2.5">
-      <div
-        className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}
-      >
-        <Icon className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-      </div>
+      <Icon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
       <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
         {title}
       </span>
@@ -76,10 +70,10 @@ function SettingRow({
       style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
     >
       <div
-        className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: danger ? "rgba(239,68,68,0.1)" : "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}
+        className="w-8 h-8 sm:w-9 sm:h-9 rounded-[var(--mq-r-card)] flex items-center justify-center flex-shrink-0"
+        style={{ backgroundColor: danger ? "rgba(239,68,68,0.08)" : "var(--mq-surface-2)", border: "1px solid " + (danger ? "rgba(239,68,68,0.15)" : "var(--mq-edge)") }}
       >
-        <Icon className="w-4 h-4" style={{ color: danger ? "#ef4444" : "var(--mq-accent)" }} />
+        <Icon className="w-4 h-4" style={{ color: danger ? "#ef4444" : "var(--mq-text-muted)" }} />
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium" style={{ color: danger ? "#ef4444" : "var(--mq-text)" }}>{label}</p>
@@ -107,8 +101,8 @@ function SettingToggle({
       style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
     >
       <div
-        className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: value ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)" }}
+        className="w-8 h-8 sm:w-9 sm:h-9 rounded-[var(--mq-r-card)] flex items-center justify-center flex-shrink-0"
+        style={{ backgroundColor: value ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "var(--mq-surface-2)", border: "1px solid " + (value ? "color-mix(in srgb, var(--mq-accent) 22%, transparent)" : "var(--mq-edge)") }}
       >
         <Icon className="w-4 h-4" style={{ color: value ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
       </div>
@@ -341,27 +335,25 @@ export default function SettingsView() {
     <div className="p-3 sm:p-4 lg:p-6 max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-24" data-active-tab={activeTab}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-4 sm:mb-5">
-        <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}>Настройки</h1>
+        <h1 className="mq-t-display text-[26px] sm:text-[30px]" style={{ color: "var(--mq-text)" }}>Настройки</h1>
         <p className="text-xs sm:text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>Персонализируйте ваш mq</p>
       </motion.div>
 
       {/* Tab bar */}
       <div className="sticky z-30 mb-4 sm:mb-5" style={{ top: 0, paddingTop: 8, paddingBottom: 8, backgroundColor: "var(--mq-bg)" }}>
-        <div className="flex gap-1 p-1 rounded-2xl overflow-x-auto scrollbar-none"
-          style={{ background: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", boxShadow: "var(--mq-shadow-lg)", WebkitOverflowScrolling: "touch" }}>
+        <div className="flex gap-1 p-1 rounded-[var(--mq-r-card)] overflow-x-auto scrollbar-none"
+          style={{ background: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", WebkitOverflowScrolling: "touch" }}>
           {TABS.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
-              <motion.button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                whileTap={{ scale: 0.95 }}
-                whileHover={{ scale: 1.03 }}
-                className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-sm font-semibold whitespace-nowrap transition-all flex-shrink-0"
-                style={{ background: isActive ? "var(--mq-accent)" : "transparent", color: isActive ? "var(--mq-text-on-accent, #fff)" : "var(--mq-text-muted)", boxShadow: isActive ? "0 4px 12px color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "none" }}>
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-full text-[11px] sm:text-sm font-semibold whitespace-nowrap transition-colors duration-150 flex-shrink-0"
+                style={{ background: isActive ? "var(--mq-accent)" : "transparent", color: isActive ? "#fff" : "var(--mq-text-muted)" }}>
                 <Icon className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{tab.label}</span>
                 <span className="sm:hidden">{tab.labelShort}</span>
-              </motion.button>
+              </button>
             );
           })}
         </div>
@@ -375,9 +367,8 @@ export default function SettingsView() {
               <CardTitle icon={User} title="Профиль" />
               <div className="px-3 sm:px-4 py-3 sm:py-4 flex items-center gap-3 sm:gap-4" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="relative flex-shrink-0">
-                  <div className="absolute -inset-1 rounded-full opacity-60" style={{ background: "linear-gradient(135deg, var(--mq-accent), var(--mq-glass-bg-active))" }} />
                   {avatar ? (
-                    <img src={avatar} alt="" className="w-14 h-14 rounded-full object-cover relative z-10" style={{ border: "2.5px solid var(--mq-card)" }} />
+                    <img src={avatar} alt="" className="w-14 h-14 rounded-full object-cover relative z-10" style={{ border: "1px solid var(--mq-edge-strong)" }} />
                   ) : (
                     <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold relative z-10" style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>
                       {(username || "U").charAt(0).toUpperCase()}
@@ -388,10 +379,10 @@ export default function SettingsView() {
                   <p className="text-base font-bold truncate" style={{ color: "var(--mq-text)" }}>{username || "User"}</p>
                   <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{email || "нет"}</p>
                 </div>
-                <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.05 }} onClick={() => setView("profile")}
-                  className="px-3 py-2 rounded-xl text-xs font-semibold" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}>
+                <button onClick={() => setView("profile")}
+                  className="px-3 py-2 rounded-[var(--mq-r-card)] text-xs font-semibold whitespace-nowrap flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}>
                   Открыть
-                </motion.button>
+                </button>
               </div>
             </Card>
 
@@ -640,7 +631,7 @@ export default function SettingsView() {
                   </motion.a>
                   <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
                     href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk" target="_blank" rel="noopener noreferrer" download
-                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer relative" style={{ backgroundColor: "color-mix(in srgb, #3ddc84 12%, var(--mq-input-bg))", border: "1px solid color-mix(in srgb, #3ddc84 35%, transparent)", boxShadow: "0 0 16px color-mix(in srgb, #3ddc84 12%, transparent)" }}>
+                    className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer relative" style={{ backgroundColor: "color-mix(in srgb, #3ddc84 8%, var(--mq-surface-1))", border: "1px solid color-mix(in srgb, #3ddc84 25%, transparent)" }}>
                     <Smartphone className="w-5 h-5" style={{ color: "#3ddc84" }} />
                     <span className="text-[11px] font-semibold" style={{ color: "color-mix(in srgb, #3ddc84 80%, var(--mq-text))" }}>Android APK</span>
                   </motion.a>

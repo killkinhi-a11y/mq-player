@@ -16,12 +16,9 @@ interface Notification {
   createdAt: string;
 }
 
-const glassPanelSolid = {
-  background: "var(--mq-card)",
-  border: "1px solid var(--mq-border)",
-};
-
-const shadowDeep = "0 8px 32px rgba(0,0,0,0.35)";
+// Phase 4B «Тихая редакция»: side sheet on surface-1 with a hairline
+// edge and one dialog-level shadow. Rows follow the unified .mq-row
+// pattern (accent tint for unread, dot marker, meta typography).
 
 function formatNotifTime(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -153,33 +150,36 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
-            transition={{ type: "spring", damping: 28, stiffness: 300 }}
+            transition={{ type: "spring", damping: 30, stiffness: 320 }}
             className="w-full max-w-sm h-full flex flex-col"
-            style={{ backgroundColor: "var(--mq-bg)" }}
+            style={{
+              backgroundColor: "var(--mq-surface-1)",
+              borderLeft: "1px solid var(--mq-edge-strong)",
+              boxShadow: "var(--mq-elev-dialog)",
+            }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-border)" }}>
-              <div className="flex items-center gap-2">
-                <Bell className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                <h2 className="font-bold text-base" style={{ color: "var(--mq-text)" }}>
+            {/* Header — serif title, quiet count, meta actions */}
+            <div className="flex items-center justify-between px-5 pt-5 pb-4 flex-shrink-0" style={{ borderBottom: "1px solid var(--mq-edge)" }}>
+              <div className="flex items-baseline gap-2.5">
+                <h2 className="mq-t-display text-[19px]" style={{ color: "var(--mq-text)" }}>
                   Уведомления
                 </h2>
                 {unreadCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold"
-                    style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}>
+                  <span className="mq-t-num text-[12px] px-1.5 rounded"
+                    style={{ color: "var(--mq-accent)", background: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
                     {unreadCount}
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-1">
                 {unreadCount > 0 && (
-                  <button onClick={markAllRead} className="p-2 rounded-lg cursor-pointer transition-opacity hover:opacity-70"
-                    title="Прочитать все">
-                    <Check className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+                  <button onClick={markAllRead} className="px-2 py-1.5 rounded-lg cursor-pointer hover:bg-white/5 transition-colors"
+                    style={{ color: "var(--mq-accent)" }} title="Прочитать все">
+                    <Check className="w-4 h-4" />
                   </button>
                 )}
-                <button onClick={onClose} className="p-2 rounded-lg cursor-pointer transition-opacity hover:opacity-70">
+                <button onClick={onClose} className="px-2 py-1.5 rounded-lg cursor-pointer hover:bg-white/5 transition-colors" aria-label="Закрыть">
                   <X className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
                 </button>
               </div>
@@ -193,22 +193,21 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                     style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }} />
                 </div>
               ) : notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <Bell className="w-10 h-10" style={{ color: "var(--mq-text-muted)", opacity: 0.3 }} />
-                  <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>Нет уведомлений</p>
+                <div className="mq-empty mx-4 my-6">
+                  <Bell className="w-6 h-6" style={{ color: "var(--mq-text-muted)" }} />
+                  <p className="mq-empty-title">Пока тихо</p>
+                  <p className="mq-empty-hint">Друзья, сообщения и обновления появятся здесь.</p>
                 </div>
               ) : (
-                <div className="divide-y" style={{ borderColor: "var(--mq-border)" }}>
+                <div className="py-2">
                   {notifications.map((notif) => (
                     <motion.div
                       key={notif.id}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className="flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors"
-                      style={{
-                        backgroundColor: notif.read ? "transparent" : "rgba(255,255,255,0.03)",
-                        borderBottom: "1px solid var(--mq-border)",
-                      }}
+                      className="mq-row !items-start mx-2 my-0.5"
+                      data-active={!notif.read || undefined}
+                      style={{ minHeight: 64 }}
                       onClick={() => {
                         if (!notif.read) markRead(notif.id);
                         // Navigate based on notification type
@@ -228,29 +227,32 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                         onClose();
                       }}
                     >
-                      {/* Icon */}
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
-                        style={{ backgroundColor: notif.read ? "var(--mq-card)" : "var(--mq-accent)", opacity: notif.read ? 0.7 : 1 }}>
-                        <span style={{ color: notif.read ? "var(--mq-text-muted)" : "var(--mq-text)" }}>
+                      {/* Icon — quiet square, accent only when unread */}
+                      <div className="w-9 h-9 rounded-[var(--mq-r-art)] flex items-center justify-center flex-shrink-0 mt-0.5"
+                        style={{
+                          backgroundColor: notif.read ? "var(--mq-surface-2)" : "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
+                          border: "1px solid " + (notif.read ? "var(--mq-edge)" : "color-mix(in srgb, var(--mq-accent) 30%, transparent)"),
+                        }}>
+                        <span style={{ color: notif.read ? "var(--mq-text-muted)" : "var(--mq-accent)" }}>
                           {getNotifIcon(notif.type)}
                         </span>
                       </div>
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+                          <p className="text-[13px] font-semibold truncate" style={{ color: notif.read ? "var(--mq-text)" : "var(--mq-accent)" }}>
                             {notif.title}
                           </p>
                           {!notif.read && (
-                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} />
+                            <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} />
                           )}
                         </div>
                         {notif.body && (
-                          <p className="text-[11px] mt-0.5 line-clamp-2" style={{ color: "var(--mq-text-muted)" }}>
+                          <p className="text-xs mt-1 line-clamp-2" style={{ color: "var(--mq-text-muted)" }}>
                             {notif.body}
                           </p>
                         )}
-                        <p className="text-[11px] mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                        <p className="mq-t-meta text-[11px] mt-1.5">
                           {formatNotifTime(notif.createdAt)}
                         </p>
                       </div>

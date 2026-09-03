@@ -71,46 +71,30 @@ export function EmptyState({ type, title, description, action }: EmptyStateProps
   const config = emptyStateConfig[type] || emptyStateConfig.generic;
   const Icon = config.icon;
 
+  // Phase 4B: unified quiet empty state — one pattern app-wide.
+  // Static icon, serif headline, meta hint, one action. No breathing.
   return (
     <motion.div
-      className="flex flex-col items-center justify-center py-16 px-6 text-center"
-      initial={{ opacity: 0, y: 20 }}
+      className="mq-empty"
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: 0.3 }}
     >
-      <motion.div
-        className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-        style={{ backgroundColor: "rgba(255,255,255,0.05)" }}
-        animate={{ scale: [1, 1.05, 1] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-      >
-        <Icon
-          className="w-8 h-8"
-          style={{ color: "var(--mq-text-muted)" }}
-        />
-      </motion.div>
-      <h3
-        className="text-lg font-semibold mb-2"
-        style={{ color: "var(--mq-text)" }}
-      >
+      <Icon className="w-7 h-7" style={{ color: "var(--mq-text-muted)" }} />
+      <h3 className="mq-empty-title">
         {title || config.defaultTitle}
       </h3>
-      <p
-        className="text-sm max-w-xs"
-        style={{ color: "var(--mq-text-muted)" }}
-      >
+      <p className="mq-empty-hint">
         {description || config.defaultDescription}
       </p>
       {action && (
-        <motion.button
-          className="mt-4 px-4 py-2 rounded-lg text-sm font-medium"
+        <button
+          className="mt-2 px-4 py-2 rounded-full text-sm font-semibold"
           style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
           onClick={action.onClick}
         >
           {action.label}
-        </motion.button>
+        </button>
       )}
     </motion.div>
   );
