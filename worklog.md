@@ -1579,3 +1579,27 @@ Stage Summary:
   no banner (correct: page build == deployed build).
 - Demo mode: SoundCloud progressive stream resolves + «ИГРАЕТ» — playback
   works on the merged build (Phase M + WASM engine).
+
+## 2026-09-04 — PHASE M production verification COMPLETE
+
+Real two-deployment update test (spec #46, no mocks):
+1. Tab open on build C (978682ad), SoundCloud progressive stream playing
+   ("Stella Lefty - Boston", position 0:22).
+2. Deployment D (796aab8) went live while tab stayed open.
+3. Focus revalidation detected D → banner «Новая версия MQ доступна»
+   appeared; playback NOT interrupted (position kept advancing).
+4. «Обновить» pressed → snapshot saved → SW update → reload.
+5. After reload: build D active, SAME track, position 0:27 (continued from
+   0:22 — seekPlayback router restored the position on the WASM path),
+   playback resumed.
+   Earlier round (B→C) verified the same loop with position restart
+   (fixed by the seekPlayback router integration, commit 796aab8).
+
+Also verified in production:
+- /version.json: 200 + Cache-Control: no-store, must-revalidate
+- HTML BUILD_ID inline == version.json buildId (per-commit)
+- SW v4 + SKIP_WAITING message handler
+- /audio-engine/version.json WASM manifest: 200 + must-revalidate
+- Zero page errors; demo-mode playback (SoundCloud resolve + ИГРАЕТ)
+- 1440×900 + 390×844 QA screenshots (download/screens/phase-m-*)
+- 258 unit tests pass; tsc 0 errors; lint runs (remote toolchain fix kept)
