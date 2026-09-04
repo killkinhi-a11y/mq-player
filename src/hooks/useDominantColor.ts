@@ -144,7 +144,8 @@ function assignPalette(centroids: [number, number, number][]): DominantColors {
 }
 
 // ── Extract dominant colours from an image URL ──
-function extractColors(imageUrl: string): Promise<DominantColors> {
+// Exported for the Artist page hero (gradient derived from the artwork).
+export function extractColors(imageUrl: string): Promise<DominantColors> {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";

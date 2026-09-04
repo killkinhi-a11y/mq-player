@@ -266,6 +266,10 @@ export interface SCTrack {
   scTrackId: number;
   scStreamPolicy: string;
   scIsFull: boolean;
+  /** Real SoundCloud playback_count — popularity ranking signal. */
+  playbackCount?: number;
+  /** ISO release date from SC (created_at). */
+  createdAt?: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -283,6 +287,8 @@ export interface SCArtist {
   followers: number;
   genre: string;
   trackCount: number;
+  /** SC verified badge flag. */
+  verified?: boolean;
 }
 
 export async function searchSCArtists(
@@ -336,6 +342,7 @@ export async function searchSCArtists(
           followers: (u.followers_count as number) || 0,
           genre: (u.genre as string) || "",
           trackCount: (u.track_count as number) || 0,
+          verified: (u.verified as boolean) || false,
         };
       });
   } catch {
@@ -501,6 +508,7 @@ export async function getSCUserTracks(
           scTrackId: t.id as number,
           scStreamPolicy: policy,
           scIsFull: policy === "ALLOW",
+          playbackCount: (t.playback_count as number) || 0,
           createdAt: created, // ISO date string for sorting
         };
       });

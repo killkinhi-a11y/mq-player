@@ -103,6 +103,7 @@ async function handler(request: NextRequest) {
         followers: artistInfo.followers,
         genre: artistInfo.genre,
         trackCount: artistInfo.trackCount,
+        verified: (artistInfo as { verified?: boolean }).verified || false,
       } : null,
     };
 

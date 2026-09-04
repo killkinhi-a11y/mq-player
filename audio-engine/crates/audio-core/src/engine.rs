@@ -32,6 +32,12 @@ pub enum EngineMode {
     Stream,
 }
 
+/// Anti-click fade length (frames). ~5.8 ms @ 44.1 kHz: long enough to
+/// remove step-discontinuity clicks at signal/silence boundaries, short
+/// enough to be imperceptible as a gap and real-time-safe (O(frames)).
+pub const FADE_FRAMES: u32 = 256;
+
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EngineStats {
     pub playhead_frames: u64,
@@ -96,6 +102,20 @@ pub struct MqAudioEngine {
     meters: Meters,
     lufs: LufsMeter,
 
+    // ── anti-click continuity machinery (all O(1)/block, real-time safe) ──
+    // Underrun/pause/eof used to hard-cut `ch[n..] = 0.0` — a step
+    // discontinuity at an arbitrary amplitude = audible click. Now every
+    // signal→silence transition runs a short fade-out from the last real
+    // input sample, and every silence→signal transition ramps back in.
+    fade_out_active: bool,
+    fade_out_pos: u32,        // sample index within the fade-out curve
+    fade_in_left: u32,        // ramp-up samples remaining on returning data
+    had_signal: bool,        // previous block carried real input samples
+    last_in: Vec<f32>,        // per-channel pre-DSP fade anchor
+
+    // smoothed master gain (kills per-block zipper steps on volume changes)
+    volume_current: f32,
+
     // process-time tracking
     proc_accum_ns: f32,
     proc_count: u32,
@@ -143,6 +163,12 @@ impl MqAudioEngine {
             proc_accum_ns: 0.0,
             proc_count: 0,
             mono_bridge: vec![0.0; 4096],
+            fade_out_active: false,
+            fade_out_pos: FADE_FRAMES,
+            fade_in_left: FADE_FRAMES, // initial playback ramps in from silence
+            had_signal: false,
+            last_in: vec![0.0; ch],
+            volume_current: 0.85,
         };
         // Apply the initial quality mode's stage flags immediately.
         // Processor constructors default many stages to `enabled: true`
@@ -489,29 +515,66 @@ impl MqAudioEngine {
         if self.mode == EngineMode::Stream {
             let avail = self.ring.available_read();
             // Paused → silence WITHOUT consuming the ring (otherwise up to a
-            // full ring of audio keeps playing after pause).
+            // full ring of audio keeps playing after pause). The first pause
+            // block fades out from the last sample (gain-compensated, since
+            // the DSP chain is skipped here); later blocks are exact zeros.
             if !self.playing {
-                for ch in out.iter_mut() {
-                    ch.fill(0.0);
+                if !self.fade_out_active && self.had_signal {
+                    self.begin_fade_out();
+                    self.had_signal = false;
                 }
+                self.emit_fade_tail(out, 0);
+                self.apply_master_gain(out);
                 self.publish_stats(start_ns, measure);
                 return frames;
             }
             if avail == 0 && self.eof {
-                for ch in out.iter_mut() {
-                    ch.fill(0.0);
+                if !self.fade_out_active && self.had_signal {
+                    self.begin_fade_out();
+                    self.had_signal = false;
                 }
+                self.emit_fade_tail(out, 0);
+                self.apply_master_gain(out);
                 self.publish_stats(start_ns, measure);
                 return frames;
             }
             let n = self.ring.pop_planar(out);
-            if n < frames {
-                self.stats.underruns += 1;
-                for ch in out.iter_mut() {
-                    for s in ch[n..].iter_mut() {
-                        *s = 0.0;
+            if n > 0 {
+                for (c, ch) in out.iter().enumerate() {
+                    if let Some(v) = ch.get(n - 1) {
+                        if c < self.last_in.len() {
+                            self.last_in[c] = *v;
+                        }
                     }
                 }
+                // First real data after a silent stretch → ramp back in.
+                if !self.had_signal {
+                    self.fade_in_left = FADE_FRAMES;
+                    self.had_signal = true;
+                    self.fade_out_active = false;
+                }
+                if self.fade_in_left > 0 {
+                    let total = FADE_FRAMES as usize;
+                    let pos0 = total - self.fade_in_left as usize;
+                    let k = (self.fade_in_left as usize).min(n);
+                    for ch in out.iter_mut() {
+                        for i in 0..k {
+                            let t = (pos0 + i + 1) as f32 / total as f32;
+                            ch[i] *= t;
+                        }
+                    }
+                    self.fade_in_left -= k as u32;
+                }
+            }
+            if n < frames {
+                self.stats.underruns += 1;
+                // Fresh signal→dry transition → start the fade-out once;
+                // consecutive dry blocks continue it, never restart it.
+                if !self.fade_out_active && self.had_signal {
+                    self.begin_fade_out();
+                    self.had_signal = false;
+                }
+                self.emit_fade_tail(out, n);
             }
         }
 
@@ -520,13 +583,18 @@ impl MqAudioEngine {
         let pan_l = if pan > 0.0 { 1.0 - pan } else { 1.0 };
         let pan_r = if pan < 0.0 { 1.0 + pan } else { 1.0 };
 
-        // ── master gain + pan ──
+        // ── master gain + pan (per-sample ramp: no zipper on volume steps) ──
+        let v0 = self.volume_current;
+        let v1 = volume;
+        let inv_frames = 1.0 / frames.max(1) as f32;
         for (c, ch) in out.iter_mut().enumerate() {
-            let g = volume * if c == 0 { pan_l } else if c == 1 { pan_r } else { 1.0 };
-            for s in ch.iter_mut() {
+            let g_pan = if c == 0 { pan_l } else if c == 1 { pan_r } else { 1.0 };
+            for (i, s) in ch.iter_mut().enumerate() {
+                let g = (v0 + (v1 - v0) * (i as f32 + 1.0) * inv_frames) * g_pan;
                 *s *= g;
             }
         }
+        self.volume_current = v1;
 
         // ── mono → stereo bridge for spatial processors ──
         let stereo = out.len() >= 2;
@@ -615,6 +683,64 @@ impl MqAudioEngine {
         self.stats.true_peak_db = self.meters.peak_db(PeakKind::True);
     }
 
+    /// Begin a fade-out from the last real input sample. Called exactly once
+    /// per signal→silence transition (guarded by `had_signal` / callers).
+    fn begin_fade_out(&mut self) {
+        self.fade_out_active = true;
+        self.fade_out_pos = 0;
+    }
+
+    /// Flat master gain (used by pause/eof tails that skip the DSP chain,
+    /// so their loudness continues the pre-pause output).
+    fn apply_master_gain(&mut self, out: &mut [&mut [f32]]) {
+        let v = self.volume_current;
+        let pan = self.pan;
+        let pan_l = if pan > 0.0 { 1.0 - pan } else { 1.0 };
+        let pan_r = if pan < 0.0 { 1.0 + pan } else { 1.0 };
+        for (c, ch) in out.iter_mut().enumerate() {
+            let g = v * if c == 0 { pan_l } else if c == 1 { pan_r } else { 1.0 };
+            for s in ch.iter_mut() {
+                *s *= g;
+            }
+        }
+    }
+
+    /// Write the fade-out tail into `out[start..]`, then controlled silence.
+    /// Continues an in-progress fade across blocks and never restarts it —
+    /// once the curve completes the remainder of every block is exact zeros.
+    fn emit_fade_tail(&mut self, out: &mut [&mut [f32]], start: usize) {
+        let frames = out.iter().map(|c| c.len()).min().unwrap_or(0);
+        if start >= frames {
+            return;
+        }
+        if !self.fade_out_active {
+            for ch in out.iter_mut() {
+                for s in ch[start..].iter_mut() {
+                    *s = 0.0;
+                }
+            }
+            return;
+        }
+        let total = FADE_FRAMES as f32;
+        let remaining = (FADE_FRAMES - self.fade_out_pos) as usize;
+        let k = remaining.min(frames - start);
+        let pos = self.fade_out_pos as f32;
+        for (c, ch) in out.iter_mut().enumerate() {
+            let anchor = self.last_in.get(c).copied().unwrap_or(0.0);
+            for i in 0..k {
+                let t = (pos + i as f32) / total; // 0..1
+                ch[start + i] = anchor * (1.0 - t);
+            }
+            for s in ch[start + k..].iter_mut() {
+                *s = 0.0;
+            }
+        }
+        self.fade_out_pos += k as u32;
+        if self.fade_out_pos >= FADE_FRAMES {
+            self.fade_out_active = false;
+        }
+    }
+
     fn now_ns() -> u64 {
         // wasm32 has no std::time::Instant — the worklet passes
         // performance.now() deltas via the JS ABI instead. For native tests
@@ -637,6 +763,90 @@ impl MqAudioEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Fill both ring lanes with a constant value (worklet-ABI-style write).
+    fn push_const(eng: &mut MqAudioEngine, val: f32, n: usize) {
+        let (o0, o1) = eng.ring_write_offsets();
+        {
+            let l = eng.ring_lane_mut(0);
+            for i in 0..n {
+                let idx = (o0 + i) % l.len();
+                l[idx] = val;
+            }
+        }
+        {
+            let r = eng.ring_lane_mut(1);
+            for i in 0..n {
+                let idx = (o1 + i) % r.len();
+                r[idx] = val;
+            }
+        }
+        eng.ring_commit_write(n);
+    }
+
+    fn process_block2(eng: &mut MqAudioEngine) -> (Vec<f32>, Vec<f32>) {
+        let mut l = vec![0.0_f32; 256];
+        let mut r = vec![0.0_f32; 256];
+        let mut chans: Vec<&mut [f32]> = vec![&mut l, &mut r];
+        eng.process_block(&mut chans, false);
+        (l, r)
+    }
+
+    fn max_step(l: &[f32]) -> f32 {
+        let mut m = 0.0_f32;
+        for i in 1..l.len() {
+            m = m.max((l[i] - l[i - 1]).abs());
+        }
+        m
+    }
+
+    #[test]
+    fn stream_underrun_fades_instead_of_hard_cut() {
+        let mut eng = MqAudioEngine::new(48000.0, 2, EngineMode::Stream, 4096).unwrap();
+        eng.enqueue(Command { op: Opcode::SetQualityMode, a: 0.0, b: 0.0, c: 0.0 });
+        eng.enqueue(Command { op: Opcode::Play, a: 0.0, b: 0.0, c: 0.0 });
+        // 384 frames of a constant signal: block1 full, block2 partial + fade.
+        push_const(&mut eng, 0.6, 384);
+        let _ = process_block2(&mut eng); // full block
+        let (l, _) = process_block2(&mut eng); // 128 real + fade tail
+        // The old code hard-cut ch[128..] to 0.0 (a 0.51 step). With the fade
+        // the worst per-sample delta must be two orders of magnitude smaller.
+        assert!(max_step(&l) < 0.02, "underrun must fade, max step {}", max_step(&l));
+        assert!(eng.stats.underruns >= 1, "underrun still counted");
+        // Fade completes within FADE_FRAMES: the next block is exact silence.
+        let (l2, _) = process_block2(&mut eng);
+        assert!(l2[255].abs() < 1e-6, "controlled silence after fade, got {}", l2[255]);
+    }
+
+    #[test]
+    fn pause_fades_out_and_resume_fades_in() {
+        let mut eng = MqAudioEngine::new(48000.0, 2, EngineMode::Stream, 4096).unwrap();
+        eng.enqueue(Command { op: Opcode::SetQualityMode, a: 0.0, b: 0.0, c: 0.0 });
+        eng.enqueue(Command { op: Opcode::Play, a: 0.0, b: 0.0, c: 0.0 });
+        eng.enqueue(Command { op: Opcode::SetVolume, a: 1.0, b: 0.0, c: 0.0 });
+        push_const(&mut eng, 0.7, 1024);
+        let (l, _) = process_block2(&mut eng); // ramps in
+        let (l, _) = process_block2(&mut eng); // steady: 0.7 * gain
+        let steady = l[200];
+        assert!((steady - 0.7).abs() < 0.02, "steady level, got {steady}");
+
+        eng.enqueue(Command { op: Opcode::Pause, a: 0.0, b: 0.0, c: 0.0 });
+        let (l, _) = process_block2(&mut eng);
+        // The first pause block continues the live level and fades to zero.
+        assert!((l[0] - steady).abs() < 0.02, "pause starts at the live level: {} vs {steady}", l[0]);
+        assert!(max_step(&l) < 0.02, "pause fade smooth, max step {}", max_step(&l));
+        assert!(l[255].abs() < 0.02, "pause reaches silence in one fade, got {}", l[255]);
+        // Ring is NOT consumed during pause; subsequent blocks are exact zeros.
+        let (l, _) = process_block2(&mut eng);
+        assert!(l.iter().all(|s| s.abs() < 1e-6), "continued pause = exact silence");
+        assert!(eng.stats.buffered_frames >= 512, "ring preserved across pause");
+
+        // Resume: the first data block ramps back in from silence.
+        eng.enqueue(Command { op: Opcode::Play, a: 0.0, b: 0.0, c: 0.0 });
+        let (l, _) = process_block2(&mut eng);
+        assert!(l[0].abs() < 0.02, "resume ramps in from zero, got {}", l[0]);
+        assert!(l[200] > 0.4, "resume reaches signal level, got {}", l[200]);
+    }
 
     #[test]
     fn direct_mode_passes_audio_unity() {
@@ -699,8 +909,17 @@ mod tests {
         eng.enqueue(Command { op: Opcode::SetQualityMode, a: 0.0, b: 0.0, c: 0.0 });
         eng.enqueue(Command { op: Opcode::SetVolume, a: 0.5, b: 0.0, c: 0.0 });
         let mut s = vec![1.0_f32; 512];
-        let mut chans: Vec<&mut [f32]> = vec![&mut s];
-        eng.process_block(&mut chans, false);
+        // Block 1 ramps master gain from the previous value toward 0.5
+        // (anti-zipper per-sample ramp) — measure AFTER the ramp settles.
+        {
+            let mut chans: Vec<&mut [f32]> = vec![&mut s];
+            eng.process_block(&mut chans, false);
+        }
+        s.fill(1.0); // Insert mode processes `out` in place — restore the input
+        {
+            let mut chans: Vec<&mut [f32]> = vec![&mut s];
+            eng.process_block(&mut chans, false);
+        }
         let mean = s.iter().sum::<f32>() / 512.0;
         assert!((mean - 0.5).abs() < 0.05, "volume must scale: {mean}");
     }

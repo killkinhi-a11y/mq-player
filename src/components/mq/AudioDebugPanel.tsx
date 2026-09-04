@@ -55,7 +55,11 @@ function Row({ label, value, warn, ok }: { label: string; value: string; warn?: 
 export default function AudioDebugPanel() {
   // Client-only (AppShell renders this tree ssr:false) — safe lazy init.
   const [enabled] = useState(() => debugEnabled());
-  const [open, setOpen] = useState(true);
+  // Collapsed by default — the pill is enough at rest; expand on demand.
+  const [open, setOpen] = useState(false);
+  // Session-dismiss: X hides the pill entirely (debugEnabled() stays untouched,
+  // so a reload/param re-enables it — no persisted state mutated by the X).
+  const [dismissed, setDismissed] = useState(false);
   const [d, setD] = useState<WasmAudioDiagnostics>(() => getWasmDiagnostics());
 
   useEffect(() => {
@@ -63,8 +67,9 @@ export default function AudioDebugPanel() {
     return () => clearInterval(t);
   }, []);
 
-  const handleClose = useCallback(() => setOpen(false), []);
-  if (!enabled) return null;
+  const handleToggle = useCallback(() => setOpen(o => !o), []);
+  const handleDismiss = useCallback(() => setDismissed(true), []);
+  if (!enabled || dismissed) return null;
 
   const active = isWasmActive();
   const frames = d.framesProcessed;
@@ -78,11 +83,10 @@ export default function AudioDebugPanel() {
         backgroundColor: "color-mix(in srgb, var(--mq-card, #141414) 96%, transparent)",
         border: "1px solid var(--mq-border-thin, #2a2a2a)",
         boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-        pointerEvents: open ? "auto" : "none",
       }}
     >
       <button
-        onClick={() => setOpen(!open)}
+        onClick={handleToggle}
         className="w-full flex items-center gap-2 px-3 py-2"
         style={{ borderBottom: open ? "1px solid var(--mq-border-hairline, #222)" : "none" }}
         aria-expanded={open}
@@ -108,7 +112,7 @@ export default function AudioDebugPanel() {
           <Row label="Backend" value={d.backend} ok={d.backend === "wasm"} warn={d.backend !== "wasm"} />
           <Row label="Active" value={String(d.active)} ok={d.active} warn={!d.active} />
           <Row label="Engine tag" value={d.tag || "—"} />
-          <Row label="ABI / SIMD" value={`${d.abiVersion ?? "—"} / ${d.simd ? "yes" : "no"}`} ok={d.abiVersion === 2} />
+          <Row label="ABI / SIMD" value={`${d.abiVersion ?? "—"} / ${d.simd ? "yes" : "no"}`} ok={d.abiVersion === 3} warn={d.abiVersion !== 3 && d.active} />
           <Row label="Sample rate" value={d.contentSampleRate ? `${d.contentSampleRate} → ${d.contextSampleRate}` : "—"} />
           <Row label="Channels" value={d.channels ? String(d.channels) : "—"} />
           <Row label="Frames processed" value={fmtNum(frames, 0)} ok={frames > 0} warn={active && frames === 0} />
@@ -129,7 +133,7 @@ export default function AudioDebugPanel() {
       )}
 
       {!open && (
-        <button onClick={handleClose} className="absolute top-1.5 right-1.5" aria-label="Скрыть панель">
+        <button onClick={handleDismiss} className="absolute top-1.5 right-1.5" aria-label="Скрыть панель">
           <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
         </button>
       )}

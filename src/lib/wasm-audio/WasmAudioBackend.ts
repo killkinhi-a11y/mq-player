@@ -232,6 +232,11 @@ export class WasmAudioBackend {
 
   stats: WasmEngineStats | null = null;
   private playingEmitted = false;
+  // Seek-race guard (Phase F §A): bumped on every seek, sent with the
+  // worklet FLUSH/SEEK commands AND the worker 'seek' message. The worklet
+  // drops any PCM whose generation ≠ the expected one, so stale in-flight
+  // chunks can never land in the freshly flushed ring.
+  private pcmGen = 0;
   private disposed = false;
   private loading = false;
 
@@ -320,12 +325,14 @@ export class WasmAudioBackend {
 
     await WasmAudioBackend.ensureEngine();
 
-    // 1) start the fetch+decode in the worker
+    // 1) start the fetch+decode in the worker (gen 0 on a fresh backend —
+    // the worklet node is also fresh, so both sides start aligned)
     worker!.postMessage({
       type: "load",
       url: opts.url,
       durationSec: opts.durationSec,
       autoplay: opts.autoplay,
+      gen: this.pcmGen,
     });
 
     // 2) await stream info (headers + decoder start), bounded by the deadline
@@ -582,13 +589,22 @@ export class WasmAudioBackend {
       } as WasmEngineStats;
     }
     // Worklet: flush ring + move playhead; worker: reset decoder, refetch.
-    this.node!.port.postMessage({ type: "cmd", opcode: OP.FLUSH });
+    // Order matters: the worklet learns the NEW generation first (its FLUSH
+    // message), so any stale in-flight PCM arriving afterwards is dropped by
+    // the generation guard instead of being written into the reset ring.
+    // Credit gating then guarantees correctness regardless of cross-target
+    // delivery order: the worker can only pump new data after the worklet
+    // grants credit — which happens only after the FLUSH was processed.
+    this.pcmGen += 1;
+    const gen = this.pcmGen;
+    this.node!.port.postMessage({ type: "cmd", opcode: OP.FLUSH, gen });
     this.node!.port.postMessage({
       type: "cmd",
       opcode: OP.SEEK,
+      gen,
       a: Math.max(0, seconds) * this.ctx!.sampleRate,
     });
-    worker?.postMessage({ type: "seek", url: this.currentUrl, byte });
+    worker?.postMessage({ type: "seek", url: this.currentUrl, byte, gen });
     return true;
   }
 

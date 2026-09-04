@@ -1694,3 +1694,126 @@ Stage Summary:
   hard reload + persistence work, groups/admin/typography/home all green.
 - Next: production browser verification on mq1.vercel.app (deployment
   00e34f3), then final Phase O report.
+
+---
+Task ID: phase-a2
+Agent: main (Super Z)
+Task: New UX/UI+perf pass — PHASE A repository audit (session 3)
+
+Work Log:
+- REPO: /home/z/my-project/mq-player @ main == origin/main (87da1f8) after pull
+  (local was 20 commits BEHIND origin — Phase O code was only on origin).
+- ⚠️ ENV TRAP found & fixed: /home/z/my-project (parent) is an OLD app copy
+  (own .git @ e972a44, 106 files differ, NO audio-engine) and a dev server
+  was serving IT on :3000. Killed it; installed node_modules IN the repo;
+  all work now runs from /home/z/my-project/mq-player.
+- Build: npm run build OK (33s). /play 200, all 15 live-HTML chunks 200+
+  non-empty; engine assets 200 under tag 5e2870-670948-a7a2b3. Added
+  scripts/verify-build.mjs (script src/href regex + body size check).
+- Browser E2E (prod build, agent-browser): demo mode → home renders; real
+  SoundCloud track via search → backend=wasm, active, abi=3, simd, after
+  Play: framesProcessed growing (2077+), RMS .043, peak .21, underruns 0.
+- PHASE F ROOT-CAUSE CANDIDATES (diagnosed, fix pending in phase F):
+  1) SEEK RACE: worklet FLUSH→postCredit(capacity) races worker 'seek' msg —
+     worker pumps OLD decoded queue with new credit → stale PCM lands in the
+     flushed ring → wrong-audio + discontinuity click. Fix: gen tagging on
+     load/seek; worklet drops PCM with stale gen.
+  2) UNDERRUN HARD-CUT: engine.rs ring partial drain → tail zero-filled
+     instantly (step discontinuity = click); no fade-in on resume either.
+  3) VOLUME ZIPPER: master gain applied per-block instantly (no ramp).
+- Baseline screenshots: before-artist-desktop/mobile-390, before-home-desktop/
+  mobile-390 in /home/z/my-project/download/screens/. VLM verdict on artist
+  page: "wireframe level" — hero too small, flat hierarchy, no releases/
+  about/similar sections; mobile home: 10/11 images < 80px wide.
+
+Stage Summary:
+- Repo verified clean & current; production build + /play + WASM E2E all green.
+- Environment pitfall (wrong-root dev server) eliminated.
+- Audio artifact root causes diagnosed ahead of Phase F; fixes scheduled.
+- Proceeding to PHASE B (Artist Page redesign).
+
+---
+Task ID: phase-f1
+Agent: main (Super Z)
+Task: Artist Page visual completion + Debug UI dev-only + Phase F audio
+root causes (seek race / underrun hard-cut / pcmDropped) + regression
+
+Work Log:
+- STEP 1 Artist Page audit (prod build, agent-browser, VLM):
+  - 1440px hero 9-10/10, mobile 390 8-9/10, 768 SHIPPABLE; navbar/sticky
+    geometry clean (nav 10-68 z-50, sticky 72-129 z-40, 4px gap).
+  - DEFECT FOUND: content column was 640px (container-narrow) on desktop —
+    VLM: "narrow phone column floating in empty space", releases 85px cards
+    = 4/10 composition. Fix: lg:max-w container-wide (1024) on the page root
+    + sticky header inner; hero art 252→288px, minHeight 380. Result: 9/10,
+    release cards 149px, no overflow at 1440/768/390 (scrollW == clientW).
+  - One-time blank track row in the FIRST headless capture (row1 paint
+    hole): not reproducible in 5 fresh navigations; classified as a Chromium
+    headless capture raster quirk, monitor-only.
+- STEP 2 Debug UI: verified absent in prod (enabled=false → null, no
+  localStorage opt-in); collapsed-by-default was already in the diff.
+  Fixed REAL bug: pointerEvents:"none" on the collapsed container made the
+  pill dead (couldn't expand or dismiss) → removed; X now session-dismisses
+  (dismissed state); ABI row updated 2→3.
+- STEP 3A Seek race — PROVEN by code trace: worker pump posts PCM to the
+  port async; worklet FLUSH resets ring then postCredit; in-flight stale
+  PCM (or old-queue pump under a pre-seek credit) writes OLD frames into
+  the reset ring → wrong audio + discontinuity. FIX: generation tokens:
+  backend pcmGen++ per seek, sent with worklet FLUSH/SEEK cmds + worker
+  'seek'; worker stamps every pcm msg with pcmGen; worklet drops
+  msg.gen !== this.gen BEFORE ring write (counted pcmStale); credits also
+  gen-tagged (worker ignores stale-gen credits).
+- STEP 3B Underrun hard-cut — engine.rs: ch[n..]=0.0 step discontinuity
+  (also pause/EOF hard silence). FIX: fade state machine (FADE_FRAMES=256,
+  ~5.8ms): fade_out from last real input sample (anchor last_in, pre-DSP),
+  controlled silence, fade_in ramp on data return; data-driven triggers
+  via had_signal (no restart loops); pause/EOF tails gain-compensated
+  (apply_master_gain) since they skip the DSP chain; master volume now
+  per-sample ramped (volume_current) — kills zipper on volume changes.
+  Rust tests added: stream_underrun_fades_instead_of_hard_cut,
+  pause_fades_out_and_resume_fades_in (max-step < 0.02 assertions);
+  volume test updated for the 1-block ramp. 68/68 Rust tests, clippy clean
+  (only pre-existing warnings).
+- STEP 3C pcmDropped — semantics: worklet-side counter of frames the
+  worker sent that had no ring room (backpressure accounting, NOT an
+  automatic error). 59904 was session-accumulated overdraw from the OLD
+  credit protocol (grants computed without seeing in-flight chunks).
+- CREDIT PROTOCOL REWRITE (found via live instrumentation): my first
+  outstanding-credit guard DEADLOCKED the flow (grant→0, underruns 6488,
+  RMS 0.0002): the worker REPLACES its credit on each grant, silently
+  abandoning unused remainders (worker sends 1152-frame chunks = 1 mp3
+  frame per pop; grant 4480 → 3 chunks = 3456 → 1024 leaked per cycle →
+  outstanding hit 32768 → grant 0 forever). FIX: cumulative sliding-window
+  protocol (sequence space): worklet grantedTotal/arrivedTotal, grant
+  target = arrived + avail (invariant buffered+in-flight ≤ capacity);
+  worker sentTotal/grantedTotal, sends while sent < granted; resets on
+  load/seek/FLUSH with gen guard. Live proof: granted == arrived at every
+  checkpoint across 5 seek generations, pause/resume, track switch.
+- Rebuilt engine (tag a536d8-670948-870693; Rust via fresh rustup install
+  — toolchain was absent in this container). Restored deployed tag
+  5e2870-670948-a7a2b3 (build script had pruned it) + removed intermediate
+  debug tag dirs.
+- STEP 4 Regression (prod build + browser): /play 200, all 15 chunks 200
+  non-empty, engine assets 200 (verify-build.mjs PASS); E2E: backend=wasm,
+  active, abi=3, tag 870693; sustained playback underruns=0, buffer 28288,
+  RMS .06-.10, peak .37; 5 rapid UI seeks: gen 1→5, granted==arrived
+  (358528) — no stale accumulation, no window leak, signal recovers,
+  ring refills (111 transition underruns during refetch gaps — click-free
+  via fade); pause: ring preserved 32768, 0 new underruns; resume: fade-in
+  ramp, 0 new underruns; real output via analyser: RMS .02-.12 live;
+  track switch: fresh engine clean (gen 0, underruns 0); npm test 281/281;
+  tsc 0; lint: only 1 new error file (ArtistDetailView set-state-in-effect
+  — same pattern as 65 pre-existing files); Artist Page re-verified all
+  3 viewports — no degradation, no overflow; debug UI absent in prod DOM.
+
+Stage Summary:
+- Artist Page: desktop wide composition (1024px), premium hero (288px art),
+  all viewports SHIPPABLE.
+- Phase F root causes FIXED with proofs: seek race (generation tokens,
+  stale PCM dropped pre-ring), underrun/pause/resume/EOF clicks (DSP fade
+  state machine + gain ramp, tested in Rust), flow control deadlock +
+  overdraw (cumulative sliding window; pcmDropped → 0).
+- NOT touched (STEP 5): SW/update architecture, deployment mechanism,
+  WASM backend selection chain, unrelated pages, AI/API functions.
+- Pending: production deploy (mq1.vercel.app) + post-deploy browser
+  verification.
