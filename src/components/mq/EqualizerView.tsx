@@ -36,6 +36,10 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
   const setEqEnabled = useAppStore((s) => s.setEqEnabled);
   const setEqPreset = useAppStore((s) => s.setEqPreset);
   const setEqBand = useAppStore((s) => s.setEqBand);
+  const limiterEnabled = useAppStore((s) => s.limiterEnabled);
+  const limiterThreshold = useAppStore((s) => s.limiterThreshold);
+  const setLimiterEnabled = useAppStore((s) => s.setLimiterEnabled);
+  const setLimiterThreshold = useAppStore((s) => s.setLimiterThreshold);
 
   const handlePresetClick = useCallback((presetId: string) => {
     if (presetId === eqPreset && eqEnabled) {
@@ -255,6 +259,76 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                 <span className="text-[9px] font-mono" style={{ color: "var(--mq-text-muted)" }}>0</span>
                 <span className="text-[9px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{EQ_MIN} dB</span>
               </div>
+            </div>
+
+            {/* ── Look-ahead limiter (Rust DSP on the WASM path; brickwall-mode
+                compressor on the element path — real peak control on both) ── */}
+            <div
+              className="px-4 sm:px-5 py-4 flex items-center justify-between gap-4"
+              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+            >
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
+                  Лимитер
+                </p>
+                <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                  {limiterEnabled
+                    ? `Ограничение пиков на ${limiterThreshold} дБ`
+                    : "Выключен — пики не ограничиваются"}
+                </p>
+              </div>
+              <button
+                onClick={() => setLimiterEnabled(!limiterEnabled)}
+                className="relative w-11 h-6 rounded-full transition-colors shrink-0"
+                style={{
+                  backgroundColor: limiterEnabled ? "var(--mq-accent)" : "var(--mq-border-thin)",
+                  transition: "background-color 200ms cubic-bezier(0.4,0,0.2,1)",
+                }}
+                role="switch"
+                aria-checked={limiterEnabled}
+                aria-label="Включить лимитер"
+              >
+                <motion.div
+                  layout
+                  className="absolute top-0.5 w-5 h-5 rounded-full"
+                  style={{
+                    left: limiterEnabled ? 22 : 2,
+                    backgroundColor: "#fff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                  }}
+                  transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                />
+              </button>
+            </div>
+
+            {/* Limiter threshold slider */}
+            <div
+              className="px-4 sm:px-5 pb-5"
+              style={{
+                opacity: limiterEnabled ? 1 : 0.45,
+                transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1)",
+              }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                  Порог
+                </span>
+                <span className="text-[11px] font-mono" style={{ color: "var(--mq-text)" }}>
+                  {limiterThreshold} dB
+                </span>
+              </div>
+              <input
+                type="range"
+                min={-12}
+                max={0}
+                step={0.5}
+                value={limiterThreshold}
+                onChange={(e) => setLimiterThreshold(Number(e.target.value))}
+                disabled={!limiterEnabled}
+                aria-label="Порог лимитера"
+                className="w-full h-1.5 rounded-full appearance-none cursor-pointer disabled:cursor-not-allowed"
+                style={{ backgroundColor: "var(--mq-border-thin)", accentColor: "var(--mq-accent)" }}
+              />
             </div>
 
             {/* Footer hint */}

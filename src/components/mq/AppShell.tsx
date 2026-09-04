@@ -66,7 +66,7 @@ function ViewSkeleton() {
         justifyContent: "center",
         minHeight: "60vh",
         color: "var(--mq-text-muted, #888)",
-        fontFamily: "var(--font-outfit), system-ui, sans-serif",
+        fontFamily: "var(--mq-font-primary)",
         fontSize: 14,
         letterSpacing: 2,
       }}
@@ -93,6 +93,8 @@ const OnboardingTour = dynamic(() => import("@/components/mq/OnboardingTour"), {
 const CommandPalette = dynamic(() => import("@/components/mq/CommandPalette"), { ssr: false });
 // Phase M: Smart Deployment Update banner (version check + «Обновить»)
 const UpdateBanner = dynamic(() => import("@/components/mq/UpdateBanner").then(m => ({ default: m.UpdateBanner })), { ssr: false });
+// Audio engine live telemetry (dev or ?audio-debug=1) — provable WASM state
+const AudioDebugPanel = dynamic(() => import("@/components/mq/AudioDebugPanel"), { ssr: false });
 
 // P2-#300/#310: Error boundary per view — catches React errors without crashing the whole app
 import { ViewErrorBoundary } from "@/components/mq/ViewErrorBoundary";
@@ -614,6 +616,8 @@ export default function AppShell() {
       <OfflineBanner />
       {/* Phase M: deployment update banner — user-controlled, never interrupts playback */}
       <Suspense fallback={null}><UpdateBanner /></Suspense>
+      {/* Audio engine telemetry — dev or ?audio-debug=1 (diagnostic surface) */}
+      <Suspense fallback={null}><AudioDebugPanel /></Suspense>
 
       <Suspense fallback={
         <nav className="hidden lg:flex fixed top-0 left-0 right-0 z-50 items-center border-b"

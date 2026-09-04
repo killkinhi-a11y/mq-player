@@ -27,6 +27,7 @@ import {
   Database,
   Cpu,
   HardDrive,
+  Rocket,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -40,6 +41,8 @@ interface Stats {
   totalMessages: number;
   totalStories: number;
   totalPlaylists: number;
+  totalGroups?: number;
+  totalGroupMessages?: number;
   recentRegistrations: {
     id: string;
     username: string;
@@ -189,6 +192,17 @@ export default function AdminDashboard() {
       bg: "rgba(236,72,153,0.08)",
       border: "rgba(236,72,153,0.12)",
     },
+    {
+      label: "Группы",
+      value: stats.totalGroups ?? 0,
+      sub: stats.totalGroups === undefined
+        ? "Недоступно"
+        : `${stats.totalGroupMessages ?? 0} сообщений в группах`,
+      icon: Users,
+      color: "#06b6d4",
+      bg: "rgba(6,182,212,0.08)",
+      border: "rgba(6,182,212,0.12)",
+    },
   ];
 
   const growthStats = [
@@ -200,11 +214,13 @@ export default function AdminDashboard() {
 
   const quickNav = [
     { href: "/admin/users", label: "Пользователи", desc: "Аккаунты и роли", icon: Users, color: "#6366f1" },
+    { href: "/admin/groups", label: "Группы", desc: "Групповые чаты и владельцы", icon: Users, color: "#06b6d4" },
     { href: "/admin/support", label: "Поддержка", desc: "Чат с пользователями", icon: MessageSquare, color: "#06b6d4" },
     { href: "/admin/billing", label: "Финансы", desc: "Транзакции", icon: BarChart3, color: "#10b981" },
     { href: "/admin/flags", label: "Флаги", desc: "Feature flags", icon: Flag, color: "#f59e0b" },
     { href: "/admin/audit", label: "Аудит", desc: "Логи действий", icon: Activity, color: "#ec4899" },
-    { href: "/admin/settings", label: "Сервер", desc: "Настройки системы", icon: Settings, color: "#8b5cf6" },
+    { href: "/admin/system", label: "Система", desc: "Сборка и аудиодвижок", icon: Settings, color: "#8b5cf6" },
+    { href: "/admin/deployments", label: "Деплой", desc: "Текущее развертывание", icon: Rocket, color: "#22c55e" },
     { href: "/admin/cron", label: "Задачи", desc: "Планировщик", icon: Clock, color: "#f97316" },
   ];
 

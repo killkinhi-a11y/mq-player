@@ -498,6 +498,12 @@ interface AppState {
   setEqBand: (bandIndex: number, value: number) => void;
   setEqPreset: (preset: string) => void;
 
+  // Look-ahead limiter (Rust DSP on the WASM path; compressor-mode on element)
+  limiterEnabled: boolean;
+  limiterThreshold: number; // dB ceiling, -12..0
+  setLimiterEnabled: (enabled: boolean) => void;
+  setLimiterThreshold: (thresholdDb: number) => void;
+
   // A-B Repeat (loop section)
   abRepeat: { pointA: number | null; pointB: number | null; active: boolean };
   setAbRepeatPoint: (point: 'A' | 'B') => void;
@@ -685,6 +691,8 @@ const initialState = {
   // EQ
   eqEnabled: false,
   eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] as number[],
+  limiterEnabled: false,
+  limiterThreshold: -1.0,
   eqPreset: "flat",
 
   // A-B Repeat
@@ -2560,6 +2568,13 @@ export const useAppStore = create<AppState>()(
         }
       },
 
+      // ── Look-ahead limiter actions (engine routing in useAudioEngine) ──
+      setLimiterEnabled: (enabled) => set({ limiterEnabled: enabled }),
+      setLimiterThreshold: (thresholdDb) => {
+        const clamped = Math.max(-12, Math.min(0, thresholdDb));
+        set({ limiterThreshold: clamped });
+      },
+
       // ── A-B Repeat actions ──
       setAbRepeatPoint: (point) => {
         const st = useAppStore.getState();
@@ -2727,6 +2742,9 @@ export const useAppStore = create<AppState>()(
           eqEnabled: persistent.eqEnabled,
           eqBands: persistent.eqBands,
           eqPreset: persistent.eqPreset,
+          // Limiter
+          limiterEnabled: persistent.limiterEnabled,
+          limiterThreshold: persistent.limiterThreshold,
           // Taste Profile
           tasteGenres: persistent.tasteGenres,
           tasteArtists: persistent.tasteArtists,
@@ -2764,6 +2782,8 @@ export const useAppStore = create<AppState>()(
             eqEnabled: old?.eqEnabled ?? initialState.eqEnabled,
             eqBands: old?.eqBands ?? initialState.eqBands,
             eqPreset: old?.eqPreset ?? initialState.eqPreset,
+            limiterEnabled: old?.limiterEnabled ?? initialState.limiterEnabled,
+            limiterThreshold: old?.limiterThreshold ?? initialState.limiterThreshold,
             playbackRate: old?.playbackRate ?? initialState.playbackRate,
             // Preserve auth/user info during migration so username shows
             // instantly on reload (before /api/auth/me finishes)

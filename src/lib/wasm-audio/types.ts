@@ -24,7 +24,7 @@ export interface AudioEngineManifest {
  * MUST match `MQ_ABI_VERSION` in audio-engine/crates/{audio-wasm,codec-wasm}.
  * A mismatch → WASM_VERSION_MISMATCH → refuse to start (§35.9).
  */
-export const EXPECTED_WASM_ABI = 2;
+export const EXPECTED_WASM_ABI = 3;
 
 /** Stats published by the worklet ~10 Hz (EngineStatsLayout in audio-wasm). */
 export interface WasmEngineStats {
@@ -62,6 +62,16 @@ export interface WasmAudioDiagnostics {
   p95ProcessNs: number;
   maxProcessNs: number;
   lastProcessNs: number;
+  /** Live windowed RMS of the post-DSP output (0..1) — proof of real signal. */
+  rms: number;
+  /** Latched sample peak of the post-DSP output (0..1). */
+  peak: number;
+  /** Limiter/compressor gain reduction (dB, 0 = none). */
+  gainReductionDb: number;
+  /** True-peak estimate (dBFS). */
+  truePeakDb: number;
+  /** Short-term LUFS. */
+  lufsShort: number;
   totalBytes: number | null;
   supportsRange: boolean;
   lastError: string | null;

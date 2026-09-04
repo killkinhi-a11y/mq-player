@@ -19,13 +19,37 @@
 import type { AudioEngineManifest, WasmEngineStats } from "./types";
 import { EXPECTED_WASM_ABI } from "./types";
 import { fetchAudioEngineManifest, assetUrl } from "./manifest";
-import { markDiag, pushProcessNsSample, wasmDiagnostics } from "./diagnostics";
+import { markDiag, pushProcessNsSample, resetDiagTrackCounters, wasmDiagnostics } from "./diagnostics";
 import { setActiveAnalyser, getAudioElement } from "@/lib/audioEngine";
 
-// Opcodes (audio-core command.rs)
+// Opcodes (audio-core command.rs) — full surface: transport + DSP.
 export const OP = {
+  // transport
   PLAY: 1, PAUSE: 2, STOP: 3, SEEK: 4, FLUSH: 5,
-  SET_VOLUME: 10, SET_PAN: 11, SET_QUALITY_MODE: 80,
+  // gain / pan
+  SET_VOLUME: 10, SET_PAN: 11,
+  // EQ (a = band index, b = gain dB)
+  SET_EQ_ENABLED: 20, SET_EQ_BAND: 21, SET_EQ_ALL_BANDS: 22, SET_EQ_LINEAR_PHASE: 23,
+  // dynamics
+  SET_COMPRESSOR_ENABLED: 30, SET_COMPRESSOR_PARAM: 31,
+  SET_LIMITER_ENABLED: 32, SET_LIMITER_PARAM: 33,
+  SET_GATE_ENABLED: 34, SET_GATE_PARAM: 35,
+  // spatial
+  SET_REVERB_ENABLED: 40, SET_REVERB_PARAM: 41,
+  SET_ER_ENABLED: 42, SET_BINAURAL_ENABLED: 43,
+  SET_WIDTH: 45,
+  // misc
+  SET_QUALITY_MODE: 80, SET_BYPASS_ALL: 81,
+} as const;
+
+// Param selectors (command.rs `param` module) for SET_*_PARAM opcodes.
+export const PARAM = {
+  // limiter
+  LP_CEILING: 0, LP_RELEASE: 1, LP_LOOKAHEAD: 2,
+  // reverb
+  RP_MIX: 0, RP_RT60: 1,
+  // compressor
+  CP_THRESHOLD: 0, CP_RATIO: 1, CP_ATTACK: 2, CP_RELEASE: 3, CP_KNEE: 4, CP_MAKEUP: 5,
 } as const;
 
 const RING_FRAMES = 32768;
@@ -61,6 +85,82 @@ const ctxCache = new Map<number, AudioContext>();
 const ctxAnalyser = new Map<number, AnalyserNode>();
 const ctxModuleLoaded = new Set<AudioContext>();
 let activeBackend: WasmAudioBackend | null = null;
+
+// ── DSP state snapshot (module level: survives track changes) ──
+// The UI routes every DSP change through the apply* helpers below; they both
+// send commands to the ACTIVE engine and record the desired state here so
+// each NEW engine (fresh worklet node per track) starts with the same
+// EQ/spatial/limiter settings instead of resetting to flat.
+export interface DspSnapshot {
+  eqEnabled: boolean;
+  eqBands: number[]; // 10 gains, dB
+  limiterEnabled: boolean;
+  limiterCeilingDb: number;
+  width: number; // 0..3 (1 = neutral)
+  reverbMix: number; // 0..1
+}
+const dspSnapshot: DspSnapshot = {
+  eqEnabled: false,
+  eqBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  limiterEnabled: false,
+  limiterCeilingDb: -1,
+  width: 1,
+  reverbMix: 0,
+};
+
+/** Send a raw numeric command to the active engine (no state recording). */
+export function sendDspCommand(op: number, a = 0, b = 0, c = 0): void {
+  activeBackend?.sendDsp(op, a, b, c);
+}
+
+/** Replay the recorded DSP state into the given (fresh) backend. */
+function replayDspState(backend: WasmAudioBackend): void {
+  backend.sendDsp(OP.SET_EQ_ENABLED, dspSnapshot.eqEnabled ? 1 : 0);
+  dspSnapshot.eqBands.forEach((gain, i) => {
+    if (gain !== 0) backend.sendDsp(OP.SET_EQ_BAND, i, gain);
+  });
+  backend.sendDsp(OP.SET_LIMITER_ENABLED, dspSnapshot.limiterEnabled ? 1 : 0);
+  if (dspSnapshot.limiterEnabled) {
+    backend.sendDsp(OP.SET_LIMITER_PARAM, 0, PARAM.LP_CEILING, dspSnapshot.limiterCeilingDb);
+  }
+  backend.sendDsp(OP.SET_WIDTH, dspSnapshot.width);
+  backend.sendDsp(OP.SET_REVERB_ENABLED, dspSnapshot.reverbMix > 0 ? 1 : 0);
+  if (dspSnapshot.reverbMix > 0) {
+    backend.sendDsp(OP.SET_REVERB_PARAM, 0, PARAM.RP_MIX, dspSnapshot.reverbMix);
+  }
+}
+
+/** EQ → Rust graphic EQ (records + routes). bands: 10 gains in dB. */
+export function applyEqToWasm(enabled: boolean, bands: number[]): void {
+  dspSnapshot.eqEnabled = enabled;
+  dspSnapshot.eqBands = bands.slice(0, 10);
+  if (!activeBackend) return;
+  activeBackend.sendDsp(OP.SET_EQ_ENABLED, enabled ? 1 : 0);
+  bands.forEach((gain, i) => activeBackend?.sendDsp(OP.SET_EQ_BAND, i, gain));
+}
+
+/** Limiter → Rust look-ahead limiter (records + routes). */
+export function applyLimiterToWasm(enabled: boolean, ceilingDb: number): void {
+  dspSnapshot.limiterEnabled = enabled;
+  dspSnapshot.limiterCeilingDb = ceilingDb;
+  if (!activeBackend) return;
+  activeBackend.sendDsp(OP.SET_LIMITER_ENABLED, enabled ? 1 : 0);
+  if (enabled) {
+    activeBackend.sendDsp(OP.SET_LIMITER_PARAM, 0, PARAM.LP_CEILING, ceilingDb);
+  }
+}
+
+/** Spatial → Rust stereo width (+ optional reverb mix) (records + routes). */
+export function applySpatialToWasm(width: number, reverbMix = 0): void {
+  dspSnapshot.width = Math.max(0, Math.min(3, width));
+  dspSnapshot.reverbMix = Math.max(0, Math.min(1, reverbMix));
+  if (!activeBackend) return;
+  activeBackend.sendDsp(OP.SET_WIDTH, dspSnapshot.width);
+  activeBackend.sendDsp(OP.SET_REVERB_ENABLED, dspSnapshot.reverbMix > 0 ? 1 : 0);
+  if (dspSnapshot.reverbMix > 0) {
+    activeBackend.sendDsp(OP.SET_REVERB_PARAM, 0, PARAM.RP_MIX, dspSnapshot.reverbMix);
+  }
+}
 
 function browserGlobals(): boolean {
   return (
@@ -242,6 +342,12 @@ export class WasmAudioBackend {
     if (!ctx) throw new Error(`no AudioContext for ${info.sampleRate}Hz`);
     this.ctx = ctx;
     this.analyser = analyserFor(ctx);
+    // Debug handle (same pattern as window.__mqWasmAudio): lets automation
+    // measure the LIVE post-DSP output (L/R meters) — state only, no logging.
+    if (typeof window !== "undefined") {
+      (window as unknown as Record<string, unknown>).__mqAudioCtx = ctx;
+      (window as unknown as Record<string, unknown>).__mqAudioAnalyser = this.analyser;
+    }
 
     // 4) worklet node + engine + ABI check
     await ensureWorkletModule(ctx, assetUrl(manifest!, manifest!.worklet));
@@ -297,8 +403,18 @@ export class WasmAudioBackend {
     this.node.connect(this.analyser);
     setActiveAnalyser(this.analyser);
     this.node.port.postMessage({ type: "cmd", opcode: OP.SET_VOLUME, a: this.volume });
+    // Replay the user's DSP state (EQ / spatial / limiter) so a new track
+    // does not silently reset the audio processing to flat.
+    replayDspState(this);
+    resetDiagTrackCounters();
     if (opts.autoplay) this.play();
     this.loading = false;
+  }
+
+  /** Send a DSP/transport command to THIS engine instance (numeric opcodes). */
+  sendDsp(op: number, a = 0, b = 0, c = 0): void {
+    if (!this.node || this.disposed) return;
+    this.node.port.postMessage({ type: "cmd", opcode: op, a, b, c });
   }
 
   private pendingInfo: { resolve: (v: { sampleRate: number; channels: number; totalBytes: number; supportsRange: boolean }) => void; reject: (e: Error) => void } | null = null;
@@ -347,6 +463,13 @@ export class WasmAudioBackend {
           avgProcessNs: s.avgProcessNs,
           maxProcessNs: s.maxProcessNs,
           lastProcessNs: s.lastProcessNs,
+          // Meters — proof of real signal (§35.18 / Phase-O §10):
+          // RMS is windowed (live), peak latches the track max.
+          rms: s.rms,
+          peak: s.peak,
+          gainReductionDb: s.gainReductionDb,
+          truePeakDb: s.truePeakDb,
+          lufsShort: s.lufsShort,
         });
         pushProcessNsSample(s.lastProcessNs);
         if (this.playing && s.blocksProcessed > 0 && !this.playingEmitted) {

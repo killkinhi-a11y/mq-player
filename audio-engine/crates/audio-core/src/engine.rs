@@ -188,6 +188,17 @@ impl MqAudioEngine {
         )
     }
 
+    /// ABSOLUTE write-cursor offset (f32 elements) for the wasm ABI —
+    /// JS addresses wasm linear memory with absolute offsets.
+    pub fn ring_write_offset_abs(&self, ch: usize) -> usize {
+        self.ring.write_offset_abs(ch)
+    }
+
+    /// ABSOLUTE lane-start offset (f32 elements) for the wasm ABI.
+    pub fn ring_lane_base_abs(&self, ch: usize) -> usize {
+        self.ring.lane_base_abs(ch)
+    }
+
     pub fn ring_commit_write(&mut self, frames: usize) -> usize {
         self.ring.commit_write(frames)
     }

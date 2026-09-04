@@ -86,7 +86,7 @@
 [data-style="pixel-flower"] div,
 [data-style="pixel-flower"] a,
 [data-style="pixel-flower"] label {
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
   font-weight: 400 !important;
@@ -129,7 +129,7 @@
   font-weight: 500 !important;
   letter-spacing: 0.03em !important;
   text-transform: none !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   -webkit-text-fill-color: initial !important;
   background: none !important;
   filter: none !important;
@@ -217,7 +217,7 @@
 /* Nav buttons */
 [data-style="pixel-flower"] header nav button {
   color: #6b5f80 !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-size: 13px !important;
   font-weight: 500 !important;
   letter-spacing: 0.02em !important;
@@ -245,7 +245,7 @@
 
 /* Logo — bright purple */
 [data-style="pixel-flower"] header div[class*="gap-2"][class*="cursor-pointer"] span {
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 700 !important;
   font-size: 20px !important;
   letter-spacing: 0 !important;
@@ -271,7 +271,7 @@
 
 [data-style="pixel-flower"] header button[class*="rounded-xl"] span {
   color: #e8e0f0 !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 500 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -337,7 +337,7 @@
 [data-style="pixel-flower"] button[data-track-card] span[class*="text-xs"][class*="w-"],
 [data-style="pixel-flower"] div[data-track-card] span[class*="text-xs"][class*="w-"] {
   color: #6b5f80 !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   font-weight: 500 !important;
   -webkit-text-fill-color: #6b5f80 !important;
@@ -355,7 +355,7 @@
 /* Track title */
 [data-style="pixel-flower"] div[class*="fixed"][class*="z-40"] p[class*="font-medium"] {
   color: #e8e0f0 !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -397,7 +397,7 @@
 /* Time labels */
 [data-style="pixel-flower"] div[class*="fixed"][class*="z-40"] div[style*="color: var(--mq-text-muted)"] {
   color: #6b5f80 !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   letter-spacing: 0.04em !important;
   font-weight: 400 !important;
@@ -467,7 +467,7 @@
 
 [data-style="pixel-flower"] nav[class*="fixed"][class*="bottom"] button span {
   color: inherit !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
   font-size: 10px !important;
@@ -513,7 +513,7 @@
   border-radius: 12px !important;
   color: #0d0b11 !important;
   box-shadow: 0 0 15px rgba(114,71,116,0.25) !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -533,7 +533,7 @@
   border-radius: 12px !important;
   color: #0d0b11 !important;
   box-shadow: 0 0 15px rgba(114,71,116,0.25) !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -551,7 +551,7 @@
   border: 1px solid #2a2238 !important;
   background: #16131d !important;
   color: #e8e0f0 !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
 }
 
 [data-style="pixel-flower"] input[type="text"]:focus,
@@ -634,7 +634,7 @@
 [data-style="pixel-flower"] span[class*="rounded-full"][style*="background: #ef4444"] {
   background: #a693af !important;
   color: #0d0b11 !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 600 !important;
   text-transform: none !important;
   box-shadow: none !important;
@@ -719,7 +719,7 @@
   background: #2a2238 !important;
   border-radius: 8px !important;
   color: #e8e0f0 !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   font-weight: 500 !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
@@ -745,7 +745,7 @@
 [data-style="pixel-flower"] div[class*="fixed"][class*="z-100"] h2,
 [data-style="pixel-flower"] div[class*="fixed"][class*="z-50"] h2 {
   color: #e8e0f0 !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 700 !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
@@ -758,7 +758,7 @@
   color: #6b5f80 !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 400 !important;
   -webkit-text-fill-color: #6b5f80 !important;
   background: none !important;
@@ -827,7 +827,7 @@
   background: #1e1a28 !important;
   border: 1px solid #2a2238 !important;
   color: #6b5f80 !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 500 !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
@@ -871,7 +871,7 @@
 
 [data-style="pixel-flower"] div[class*="fixed"][class*="z-100"] div[style*="color: var(--mq-text-muted)"] {
   color: #6b5f80 !important;
-  font-family: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   letter-spacing: 0.04em !important;
   font-weight: 400 !important;

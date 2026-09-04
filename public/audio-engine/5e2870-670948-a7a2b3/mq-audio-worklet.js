@@ -21,6 +21,13 @@
  */
 /* eslint-disable */
 
+// AudioWorkletGlobalScope in some engines (older/headless Chrome) lacks
+// `performance` — fall back to Date.now (ms resolution: coarse avg only).
+const nowMs = () =>
+  (typeof performance !== 'undefined' && typeof performance.now === 'function')
+    ? performance.now()
+    : Date.now();
+
 const OP = {
   PLAY: 1, PAUSE: 2, STOP: 3, SEEK: 4, FLUSH: 5,
   SET_VOLUME: 10, SET_PAN: 11,
@@ -171,10 +178,18 @@ class MqAudioProcessor extends AudioWorkletProcessor {
       }
       this.pcmInFrames += n;
       const cap = this.exports.mq_ring_capacity(this.handle);
+      // ABI v3: offsets are ABSOLUTE (f32 elements into linear memory),
+      // and each lane's start comes from mq_ring_lane_base — the old code
+      // derived the base as (off % cap), which only worked if the ring
+      // happened to live at memory 0 (it does not — the Vec sits ~1 MB into
+      // the heap, so decoded PCM was written into the wrong memory and the
+      // engine played silence).
       const off0 = this.exports.mq_ring_write_offset(this.handle, 0);
       const off1 = this.exports.mq_ring_write_offset(this.handle, 1);
-      this.writeLane(off0, cap, msg.ch0, n);
-      this.writeLane(off1, cap, msg.ch1, n);
+      const base0 = this.exports.mq_ring_lane_base(this.handle, 0);
+      const base1 = this.exports.mq_ring_lane_base(this.handle, 1);
+      this.writeLane(off0, base0, cap, msg.ch0, n);
+      this.writeLane(off1, base1, cap, msg.ch1, n);
       this.exports.mq_ring_commit_write(this.handle, n);
       this.seenPcm = true;
       this.endedSent = false;
@@ -183,15 +198,14 @@ class MqAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-  /** Wrap-aware planar lane write. offEl = absolute f32 element offset. */
-  writeLane(offEl, cap, src, n) {
-    const pos = offEl % cap;
-    const laneBaseBytes = (offEl - pos) * 4;
+  /** Wrap-aware planar lane write. off/base = ABSOLUTE f32 element offsets. */
+  writeLane(off, laneBase, cap, src, n) {
+    const pos = off - laneBase;
     const first = Math.min(n, cap - pos);
-    const v1 = new Float32Array(this.mem.buffer, laneBaseBytes + pos * 4, first);
+    const v1 = new Float32Array(this.mem.buffer, off * 4, first);
     v1.set(src.subarray(0, first));
     if (n > first) {
-      const v2 = new Float32Array(this.mem.buffer, laneBaseBytes, n - first);
+      const v2 = new Float32Array(this.mem.buffer, laneBase * 4, n - first);
       v2.set(src.subarray(first, n));
     }
   }
@@ -221,9 +235,9 @@ class MqAudioProcessor extends AudioWorkletProcessor {
 
     try {
       // DSP into wasm-memory output lanes, then copy to the worklet buffers.
-      const t0 = performance.now();
+      const t0 = nowMs();
       this.exports.mq_process_out(this.handle, this.outPtr, this.outPtr + 1024, frames);
-      const dtNs = (performance.now() - t0) * 1e6;
+      const dtNs = (nowMs() - t0) * 1e6;
       this.procNsCount++;
       this.procNsAvg += (dtNs - this.procNsAvg) / Math.min(this.procNsCount, 256);
       if (dtNs > this.procNsMax) this.procNsMax = dtNs;

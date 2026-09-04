@@ -105,7 +105,7 @@ const NavBar = React.memo(function NavBar() {
           className="font-light text-[17px] tracking-[0.16em] select-none"
           style={{
             color: "var(--mq-text)",
-            fontFamily: "var(--font-outfit), system-ui, sans-serif",
+            fontFamily: "var(--mq-font-primary)",
           }}
         >
           mq

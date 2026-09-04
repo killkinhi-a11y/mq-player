@@ -9,15 +9,18 @@ import {
   connectElementToAudioGraph, onAudioElementReplaced, getGaplessPreloadedTrackId,
   setGaplessPreloadedTrackId, clearGaplessPreload, crossfadeToGapless,
   preloadTrack, isGaplessEnabled, setAudioPlaybackRate,
+  enableEQ, disableEQ, setAllEQBands,
+  enableCompressor, disableCompressor, setCompressorParams,
 } from "@/lib/audioEngine";
 import { replayGain, getDefaultGainForGenre } from "@/lib/replayGain";
 import { getAudiusStream, isAudiusTrack, findAudiusAlternative } from "@/lib/audius";
 import { getLocalBlobUrl } from "./SearchView";
 import { toast } from "@/hooks/use-toast";
 import { updateMyListeningStatus } from "@/hooks/useFriendsListening";
-import { enableSpatialAudio, initSpatialAudio, setMoodPreset, detectMoodFromTrack } from "@/lib/spatialAudio";
+import { enableSpatialAudio, initSpatialAudio, setMoodPreset, detectMoodFromTrack, getCurrentSpatialConfig } from "@/lib/spatialAudio";
 import {
   createWasmBackend, isWasmUnsupported, probeWasmCapabilities, shouldUseWasmBackend,
+  isWasmActive, applyEqToWasm, applyLimiterToWasm, applySpatialToWasm,
   type WasmAudioBackend,
 } from "@/lib/wasm-audio";
 import Hls from "hls.js";
@@ -2401,9 +2404,23 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   // ── Spatial audio effect ──
   // Toggles the spatial audio chain (5-band stereo widening) on/off.
   // Also applies mood preset when the current track changes (auto-detect mode).
+  // WASM path: the mood preset's stereo width + a small reverb mix route to
+  // the Rust engine (SetWidth / SetReverbParam) — real DSP, real PCM change.
   const spatialAudioEnabled = useAppStore((s) => s.spatialAudioEnabled);
   const spatialMood = useAppStore((s) => s.spatialMood);
   const spatialAutoDetect = useAppStore((s) => s.spatialAutoDetect);
+
+  const pushSpatialToWasm = useCallback(() => {
+    if (!isWasmActive()) return;
+    const cfg = getCurrentSpatialConfig();
+    if (!cfg) {
+      // Spatial off → neutral width, no reverb.
+      applySpatialToWasm(1.0, 0);
+      return;
+    }
+    const reverbMix = cfg.stereoWidth >= 1.8 ? 0.12 : 0; // airy presets only
+    applySpatialToWasm(cfg.stereoWidth, reverbMix);
+  }, []);
 
   useEffect(() => {
     if (spatialAudioEnabled) {
@@ -2413,7 +2430,9 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     } else {
       enableSpatialAudio(false);
     }
-  }, [spatialAudioEnabled]);
+    // Route the same intent to the Rust engine when it owns playback.
+    pushSpatialToWasm();
+  }, [spatialAudioEnabled, pushSpatialToWasm]);
 
   useEffect(() => {
     // Auto-detect mood from track when spatial audio is on
@@ -2423,7 +2442,55 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     } else if (spatialAudioEnabled && spatialMood) {
       setMoodPreset(spatialMood);
     }
-  }, [currentTrack?.id, spatialAudioEnabled, spatialMood, spatialAutoDetect]);
+    // Mood preset change → new width/reverb on the Rust path too.
+    pushSpatialToWasm();
+  }, [currentTrack?.id, spatialAudioEnabled, spatialMood, spatialAutoDetect, pushSpatialToWasm]);
+
+  // ── EQ effect: store → BOTH paths ──
+  // WASM path: Rust 10-band graphic EQ (SetEqEnabled/SetEqBand) — the bands
+  // in the store match the Rust GRAPHIC_10_FREQS table. Element path: the JS
+  // biquad chain (enableEQ/setAllEQBands). The EQ UI drives real DSP on
+  // whichever backend owns playback — no dead controls.
+  const eqEnabled = useAppStore((s) => s.eqEnabled);
+  const eqBands = useAppStore((s) => s.eqBands);
+
+  useEffect(() => {
+    // Element path (HLS/DRM/fallback): JS biquad chain. Re-applied on every
+    // track change too — the graph is created lazily on first play, so a
+    // persisted eqEnabled=true from a previous session must be re-wired.
+    if (eqEnabled) {
+      enableEQ();
+      setAllEQBands(eqBands);
+    } else {
+      disableEQ();
+    }
+    // WASM path: Rust graphic EQ (recorded + routed; replayed on next load).
+    applyEqToWasm(eqEnabled, eqBands);
+  }, [eqEnabled, eqBands, currentTrack?.id]);
+
+  // ── Limiter effect: store → BOTH paths ──
+  // WASM path: Rust look-ahead limiter (SetLimiterEnabled + ceiling —
+  // exact peak clamp, measured by the engine meters). Element path:
+  // DynamicsCompressorNode in brickwall-ish mode (20:1, knee 2, 1ms attack)
+  // — real peak control, not a fake toggle.
+  const limiterEnabled = useAppStore((s) => s.limiterEnabled);
+  const limiterThreshold = useAppStore((s) => s.limiterThreshold);
+
+  useEffect(() => {
+    applyLimiterToWasm(limiterEnabled, limiterThreshold);
+    if (limiterEnabled) {
+      enableCompressor();
+      setCompressorParams({
+        threshold: limiterThreshold,
+        knee: 2,
+        ratio: 20,
+        attack: 0.001,
+        release: 0.08,
+      });
+    } else {
+      disableCompressor();
+    }
+  }, [limiterEnabled, limiterThreshold, currentTrack?.id]);
 
   return {
     isLoadingTrack,

@@ -1,27 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Space_Grotesk, Manrope } from "next/font/google";
-import { Outfit, Playfair_Display } from "next/font/google";
+import { Geist_Mono, Manrope, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+// ── CENTRALIZED TYPOGRAPHY (Phase O §11) ──
+// THREE families, each with a job; the previous six-font setup mixed
+// latin-only faces (Geist/Outfit/Space Grotesk) ahead of Manrope, so RU
+// text rendered in a different typeface than EN text in the same UI.
+//   --font-manrope  → --mq-font-primary  (ALL text, latin + cyrillic)
+//   --font-geist-mono → --mq-font-mono   (numerals, timestamps, code)
+//   --font-playfair-display → --mq-font-serif (editorial display accents)
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
-const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
-const spaceGrotesk = Space_Grotesk({ variable: "--font-space-grotesk", subsets: ["latin"], weight: ["400", "500", "600", "700"] });
-// Cyrillic companion: Geist / Outfit / Space Grotesk are latin-only, so
-// Russian text used to fall through to a system font (looked "standard"
-// and off-brand). Manrope is a variable font with full Cyrillic coverage
-// and a matching geometric voice — chained AFTER the latin fonts it fills
-// every Cyrillic glyph while latin UI stays pixel-identical.
 const manrope = Manrope({
   variable: "--font-manrope",
   subsets: ["latin", "cyrillic"],
   display: "swap",
 });
-// Tip 1 (Typography — anchor font from video): Playfair Display as the
-// editorial serif anchor for hero headlines. Pairs with Geist Sans body
-// for high contrast (condensed serif vs geometric sans), exactly the
-// "Instrument Serif + Geist Sans" pairing the video recommends.
 const playfairDisplay = Playfair_Display({
   variable: "--font-playfair-display",
   subsets: ["latin", "cyrillic"],
@@ -269,8 +263,8 @@ export default function RootLayout({
       />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${outfit.variable} ${spaceGrotesk.variable} ${playfairDisplay.variable} ${manrope.variable} antialiased`}
-        style={{ backgroundColor: "var(--mq-bg, #0e0e0e)", fontFamily: "var(--font-geist-sans), var(--font-manrope), system-ui, sans-serif" }}
+        className={`${geistMono.variable} ${playfairDisplay.variable} ${manrope.variable} antialiased`}
+        style={{ backgroundColor: "var(--mq-bg, #0e0e0e)", fontFamily: "var(--mq-font-primary)" }}
         suppressHydrationWarning
       >
         {/* Skip-to-content link for keyboard / screen-reader users (M4.3 a11y).

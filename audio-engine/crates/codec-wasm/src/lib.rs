@@ -36,7 +36,7 @@ fn with_dec_mut<R>(handle: u32, f: impl FnOnce(&mut DecoderHandle) -> R) -> Resu
 }
 
 /// Bump on ANY ABI-breaking change to the mq_dec_* export surface.
-const MQ_ABI_VERSION: u32 = 2;
+const MQ_ABI_VERSION: u32 = 3;
 
 #[no_mangle]
 pub extern "C" fn mq_abi_version() -> u32 {

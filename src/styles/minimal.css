@@ -57,7 +57,7 @@
 [data-style="minimal"] div,
 [data-style="minimal"] a,
 [data-style="minimal"] label {
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
   font-weight: 400 !important;
@@ -100,7 +100,7 @@
   font-weight: 500 !important;
   letter-spacing: 0.02em !important;
   text-transform: none !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   -webkit-text-fill-color: initial !important;
   background: none !important;
   filter: none !important;
@@ -188,7 +188,7 @@
 /* Nav buttons */
 [data-style="minimal"] header nav button {
   color: #888888 !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-size: 13px !important;
   font-weight: 500 !important;
   letter-spacing: 0 !important;
@@ -216,7 +216,7 @@
 
 /* Logo — stark white */
 [data-style="minimal"] header div[class*="gap-2"][class*="cursor-pointer"] span {
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 700 !important;
   font-size: 20px !important;
   letter-spacing: -0.02em !important;
@@ -242,7 +242,7 @@
 
 [data-style="minimal"] header button[class*="rounded-xl"] span {
   color: #f0f0f0 !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 500 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -308,7 +308,7 @@
 [data-style="minimal"] button[data-track-card] span[class*="text-xs"][class*="w-"],
 [data-style="minimal"] div[data-track-card] span[class*="text-xs"][class*="w-"] {
   color: #888888 !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   font-weight: 500 !important;
   -webkit-text-fill-color: #888888 !important;
@@ -326,7 +326,7 @@
 /* Track title */
 [data-style="minimal"] div[class*="fixed"][class*="z-40"] p[class*="font-medium"] {
   color: #f0f0f0 !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -368,7 +368,7 @@
 /* Time labels */
 [data-style="minimal"] div[class*="fixed"][class*="z-40"] div[style*="color: var(--mq-text-muted)"] {
   color: #888888 !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
   font-weight: 400 !important;
@@ -438,7 +438,7 @@
 
 [data-style="minimal"] nav[class*="fixed"][class*="bottom"] button span {
   color: inherit !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
   font-size: 10px !important;
@@ -484,7 +484,7 @@
   border-radius: 6px !important;
   color: #111111 !important;
   box-shadow: none !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -504,7 +504,7 @@
   border-radius: 6px !important;
   color: #111111 !important;
   box-shadow: none !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -522,7 +522,7 @@
   border: 1px solid #2a2a2a !important;
   background: #1a1a1a !important;
   color: #f0f0f0 !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
 }
 
 [data-style="minimal"] input[type="text"]:focus,
@@ -605,7 +605,7 @@
 [data-style="minimal"] span[class*="rounded-full"][style*="background: #ef4444"] {
   background: #e0e0e0 !important;
   color: #111111 !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 600 !important;
   text-transform: none !important;
   box-shadow: none !important;
@@ -690,7 +690,7 @@
   background: #1a1a1a !important;
   border-radius: 4px !important;
   color: #f0f0f0 !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   font-weight: 500 !important;
   box-shadow: none !important;
@@ -716,7 +716,7 @@
 [data-style="minimal"] div[class*="fixed"][class*="z-100"] h2,
 [data-style="minimal"] div[class*="fixed"][class*="z-50"] h2 {
   color: #f0f0f0 !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 700 !important;
   text-transform: none !important;
   letter-spacing: -0.01em !important;
@@ -729,7 +729,7 @@
   color: #888888 !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 400 !important;
   -webkit-text-fill-color: #888888 !important;
   background: none !important;
@@ -785,7 +785,7 @@
   background: #252525 !important;
   border: 1px solid #2a2a2a !important;
   color: #888888 !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 500 !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
@@ -829,7 +829,7 @@
 
 [data-style="minimal"] div[class*="fixed"][class*="z-100"] div[style*="color: var(--mq-text-muted)"] {
   color: #888888 !important;
-  font-family: 'Inter', 'Helvetica Neue', 'Arial', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   letter-spacing: 0.04em !important;
   font-weight: 400 !important;

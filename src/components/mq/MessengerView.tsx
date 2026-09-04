@@ -7,7 +7,7 @@
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useAppStore } from "@/store/useAppStore";
-import { canPollProtected, controlled401Recovery } from "@/lib/authGate";
+import { canPollProtected, controlled401Recovery, isDemoUser } from "@/lib/authGate";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageCircle, Search, Send, ArrowLeft, X, Plus, Loader2, UserPlus, Mic,
@@ -21,9 +21,12 @@ import type { Message as ChatMessage } from "@/lib/musicApi";
 
 interface FriendUser { id: string; username: string; avatar?: string; addedAt: string; }
 interface OnlineStatus { online: boolean; lastSeen: string | null; }
-interface GroupMember { id: string; username: string; avatar?: string; }
+interface GroupMember { id: string; username: string; avatar?: string; userId?: string; role?: string; }
 interface GroupChat {
   id: string; name: string; avatar?: string; members: GroupMember[]; createdAt: string;
+  /** Count from the list API (owner included) — filled before the detail load. */
+  memberCount?: number;
+  createdBy?: string;
 }
 interface ContextMenuState { id: string; x: number; y: number; }
 
@@ -247,6 +250,9 @@ export default function MessengerView() {
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [showNewChat, setShowNewChat] = useState(false);
   const [showNewGroup, setShowNewGroup] = useState(false);
+  // Add-members flow for an EXISTING group (empty-group state, §13).
+  const [showAddMembers, setShowAddMembers] = useState(false);
+  const [addMembersTarget, setAddMembersTarget] = useState<string[]>([]);
   const [inChatSearch, setInChatSearch] = useState("");
   const [showInChatSearch, setShowInChatSearch] = useState(false);
   const [showProfile, setShowProfile] = useState<string | null>(null); // userId for profile modal
@@ -356,7 +362,10 @@ export default function MessengerView() {
       const list = Array.isArray(data.groupChats) ? data.groupChats : Array.isArray(data) ? data : [];
       const normalized: GroupChat[] = list.map((g: any) => ({
         id: g.id, name: g.name || "Group", avatar: g.avatar,
+        // List API has no members array — but it has the true DB count.
         members: Array.isArray(g.members) ? g.members : [],
+        memberCount: Number(g.memberCount ?? (Array.isArray(g.members) ? g.members.length : 0)),
+        createdBy: g.createdBy,
         createdAt: g.createdAt || new Date().toISOString(),
       }));
       setGroupChats(normalized);
@@ -364,6 +373,33 @@ export default function MessengerView() {
   }, [userId]);
 
   useEffect(() => { fetchGroupChats(); }, [fetchGroupChats]);
+
+  // ── Fetch group DETAIL (members list) when a group is selected ──
+  // The list endpoint returns only memberCount; the empty-group state and
+  // the add-members dialog need the actual member rows (GET [id] route).
+  useEffect(() => {
+    if (!selectedGroupId || !userId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/group-chats/${selectedGroupId}`);
+        if (!res.ok || cancelled) return;
+        const g = await res.json();
+        const members: GroupMember[] = Array.isArray(g.members) ? g.members.map((m: any) => ({
+          id: String(m.userId ?? m.id ?? ""),
+          userId: String(m.userId ?? m.id ?? ""),
+          username: String(m.user?.username ?? m.username ?? "Участник"),
+          avatar: m.user?.avatar ?? m.avatar,
+          role: String(m.role ?? "member"),
+        })) : [];
+        if (cancelled) return;
+        setGroupChats((prev) => (Array.isArray(prev) ? prev.map((gc) =>
+          gc.id === selectedGroupId ? { ...gc, members, memberCount: members.length, createdBy: g.createdBy ?? gc.createdBy } : gc
+        ) : prev));
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [selectedGroupId, userId]);
 
   // ── Fetch online statuses (poll every 30s) ──
   useEffect(() => {
@@ -950,7 +986,7 @@ export default function MessengerView() {
 
   // ── Search users (debounced) ──
   useEffect(() => {
-    if (!showNewChat && !showNewGroup) return;
+    if (!showNewChat && !showNewGroup && !showAddMembers) return;
     const q = newChatSearch.trim();
     if (!q) { setNewChatUsers([]); return; }
     const timer = setTimeout(async () => {
@@ -964,7 +1000,7 @@ export default function MessengerView() {
       } catch {}
     }, 300);
     return () => clearTimeout(timer);
-  }, [showNewChat, showNewGroup, newChatSearch, userId]);
+  }, [showNewChat, showNewGroup, showAddMembers, newChatSearch, userId]);
 
   // ── Start new chat ──
   const handleStartChat = useCallback((user: any) => {
@@ -986,11 +1022,23 @@ export default function MessengerView() {
   }, [userId, fetchFriends, fetchGroupChats, setSelectedContact, toast]);
 
   // ── Create group ──
+  // Phase O §13: creating a group requires ONLY a name — participants are
+  // optional and can be added later. The backend (POST /api/group-chats)
+  // accepts an empty memberIds list and stores the creator as the owner
+  // (role 'admin') — no fake members, real DB persistence.
+  // Demo sessions send x-demo-user-* headers → the API's demo path returns
+  // a mock group (creator = admin) so the flow works in demo mode too.
   const handleCreateGroup = useCallback(async () => {
-    if (!groupName.trim() || selectedMembers.length === 0 || !userId) return;
+    if (!groupName.trim() || !userId) return;
+    const demo = isDemoUser(userId);
     try {
       const res = await fetch("/api/group-chats", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: {
+          "Content-Type": "application/json",
+          // ASCII-only header values (fetch rejects non-ISO-8859-1); the
+          // server defaults x-demo-user-name to «Демо» when absent.
+          ...(demo ? { "x-demo-user-id": userId } : {}),
+        },
         body: JSON.stringify({
           name: groupName.trim(), creatorId: userId,
           memberIds: [...selectedMembers, userId],
@@ -998,7 +1046,21 @@ export default function MessengerView() {
       });
       if (res.ok) {
         const data = await res.json();
-        const newGroup: GroupChat = data.groupChat || data;
+        const raw: any = data.groupChat || data;
+        // POST returns members as {id, userId, role, user:{username, avatar}} —
+        // normalize to the same shape as the detail endpoint (id = userId).
+        const members: GroupMember[] = Array.isArray(raw.members) ? raw.members.map((m: any) => ({
+          id: String(m.userId ?? m.id ?? ""),
+          userId: String(m.userId ?? m.id ?? ""),
+          username: String(m.user?.username ?? m.username ?? "Участник"),
+          avatar: m.user?.avatar ?? m.avatar,
+          role: String(m.role ?? "member"),
+        })) : [];
+        const newGroup: GroupChat = {
+          id: raw.id, name: raw.name || groupName.trim(), avatar: raw.avatar,
+          members, memberCount: members.length, createdBy: raw.createdBy ?? userId,
+          createdAt: raw.createdAt || new Date().toISOString(),
+        };
         setGroupChats((p) => (Array.isArray(p) ? [...p, newGroup] : [newGroup]));
         setSelectedGroupId(newGroup?.id || null);
         setSelectedContact(null);
@@ -1013,6 +1075,37 @@ export default function MessengerView() {
       }
     } catch { toast({ title: "Не удалось создать группу" }); }
   }, [groupName, selectedMembers, userId, setSelectedContact, toast]);
+
+  // ── Add members to an EXISTING group (§13 empty-group flow) ──
+  // POST /api/group-chats/[id]/members — server enforces admin-only (403
+  // otherwise), so a non-owner cannot add members.
+  const handleAddMembers = useCallback(async () => {
+    if (!selectedGroupId || addMembersTarget.length === 0 || !userId) return;
+    try {
+      let ok = 0;
+      for (const memberId of addMembersTarget) {
+        const res = await fetch(`/api/group-chats/${selectedGroupId}/members`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: memberId }),
+        });
+        if (res.ok) ok++;
+      }
+      if (ok > 0) {
+        // Refresh the group list so memberCount/members reflect the DB.
+        await fetchGroupChats();
+        toast({ title: ok === addMembersTarget.length ? "Участники добавлены" : `Добавлено: ${ok}` });
+      } else {
+        toast({ title: "Не удалось добавить участников" });
+      }
+    } catch { toast({ title: "Не удалось добавить участников" }); }
+    finally {
+      setShowAddMembers(false);
+      setAddMembersTarget([]);
+      setNewChatSearch("");
+      setNewChatUsers([]);
+    }
+  }, [selectedGroupId, addMembersTarget, userId, fetchGroupChats, toast]);
 
   // ── Typing indicator ──
   const typingTs = useAppStore((s) =>
@@ -1320,7 +1413,10 @@ export default function MessengerView() {
                   {showTyping && !isGroupChat ? (
                     <span style={{ color: "var(--mq-accent)" }}>печатает…</span>
                   ) : isGroupChat ? (
-                    `${selectedGroup && Array.isArray(selectedGroup.members) ? selectedGroup.members.length : 0} участников`
+                    (selectedGroup && Array.isArray(selectedGroup.members)
+                      ? selectedGroup.members.filter((m) => m.id !== userId).length : 0) > 0
+                      ? `${selectedGroup && Array.isArray(selectedGroup.members) ? selectedGroup.members.filter((m) => m.id !== userId).length : 0} участников`
+                      : "Участников пока нет"
                   ) : onlineStatuses[selectedFriend?.id || ""]?.online ? (
                     "в сети"
                   ) : (
@@ -1431,12 +1527,36 @@ export default function MessengerView() {
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4">
               {filteredMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-center">
-                  <MessageCircle className="w-10 h-10 mb-3"
-                    style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
-                  <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
-                    {/* UX Core #1: позитивная формулировка вместо императива */}
-                    {inChatSearch.trim() ? "Ничего не найдено" : (isGroupChat ? "Пока тишина" : `Напишите ${selectedFriend?.username} — пусть начнётся`)}
-                  </p>
+                  {isGroupChat && (selectedGroup?.members?.length ?? 0) <= 1 ? (
+                    <>
+                      <Users className="w-10 h-10 mb-3" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
+                      <p className="text-sm font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
+                        Группа создана
+                      </p>
+                      <p className="text-xs mb-4" style={{ color: "var(--mq-text-muted)" }}>
+                        Участников пока нет
+                      </p>
+                      <button
+                        onClick={() => { setShowAddMembers(true); setNewChatSearch(""); }}
+                        className="px-4 py-2 rounded-xl text-xs font-semibold transition-colors"
+                        style={{
+                          backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+                          color: "var(--mq-accent)",
+                          border: "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)",
+                        }}>
+                        Добавить участников
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <MessageCircle className="w-10 h-10 mb-3"
+                        style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
+                      <p className="text-sm" style={{ color: "var(--mq-text-muted)" }}>
+                        {/* UX Core #1: позитивная формулировка вместо императива */}
+                        {inChatSearch.trim() ? "Ничего не найдено" : (isGroupChat ? "Пока тишина" : `Напишите ${selectedFriend?.username} — пусть начнётся`)}
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : (
                 filteredMessages.map((msg, i) => {
@@ -1775,7 +1895,7 @@ export default function MessengerView() {
                     style={{ color: "var(--mq-text-muted)" }} />
                   <input type="text" value={newChatSearch}
                     onChange={(e) => setNewChatSearch(e.target.value)}
-                    placeholder="Добавить участников"
+                    placeholder="Добавить участников (необязательно)"
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
                     style={inputStyle} />
                 </div>
@@ -1826,15 +1946,118 @@ export default function MessengerView() {
                   })}
                 </div>
                 <button onClick={handleCreateGroup}
-                  disabled={!groupName.trim() || selectedMembers.length === 0}
+                  disabled={!groupName.trim()}
                   className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
                   style={{
-                    backgroundColor: groupName.trim() && selectedMembers.length > 0
+                    backgroundColor: groupName.trim()
                       ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
-                    color: groupName.trim() && selectedMembers.length > 0
+                    color: groupName.trim()
                       ? "#fff" : "var(--mq-text-muted)",
                   }}>
                   Создать группу
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Add members dialog (existing group, §13) ── */}
+      <AnimatePresence>
+        {showAddMembers && selectedGroupId && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+            onClick={() => setShowAddMembers(false)}>
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="w-full max-w-md rounded-2xl overflow-hidden"
+              style={cardStyle} onClick={(e) => e.stopPropagation()}>
+              <div className="p-4 flex items-center justify-between border-b" style={hairlineBorder}>
+                <h3 className="font-semibold" style={{ color: "var(--mq-text)" }}>
+                  Добавить участников
+                </h3>
+                <button onClick={() => setShowAddMembers(false)}
+                  style={{ color: "var(--mq-text-muted)" }} aria-label="Закрыть">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="p-4 space-y-3">
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2"
+                    style={{ color: "var(--mq-text-muted)" }} />
+                  <input type="text" value={newChatSearch}
+                    onChange={(e) => setNewChatSearch(e.target.value)}
+                    placeholder="Поиск пользователей" autoFocus
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm outline-none"
+                    style={inputStyle} />
+                </div>
+                {addMembersTarget.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {addMembersTarget.map((id) => {
+                      const u = newChatUsers.find((u) => u.id === id);
+                      if (!u) return null;
+                      return (
+                        <span key={id} className="flex items-center gap-1 px-2 py-1 rounded-full text-xs"
+                          style={{
+                            backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)",
+                            color: "var(--mq-accent)",
+                          }}>
+                          {u.username}
+                          <button onClick={() => setAddMembersTarget((p) => p.filter((x) => x !== id))}
+                            aria-label="Убрать">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className="max-h-60 overflow-y-auto">
+                  {newChatUsers.length === 0 && newChatSearch.trim() === "" ? (
+                    <p className="text-xs text-center py-4" style={{ color: "var(--mq-text-muted)" }}>
+                      Начните вводить имя, чтобы найти пользователей
+                    </p>
+                  ) : newChatUsers.map((user) => {
+                    const selected = addMembersTarget.includes(user.id);
+                    const alreadyIn = selectedGroup?.members?.some((m) => m.id === user.id);
+                    return (
+                      <motion.button key={user.id}
+                        whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+                        whileTap={{ scale: 0.98 }}
+                        disabled={alreadyIn}
+                        onClick={() => setAddMembersTarget((p) =>
+                          selected ? p.filter((x) => x !== user.id) : [...p, user.id])}
+                        className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left"
+                        style={{ opacity: alreadyIn ? 0.45 : 1 }}>
+                        <Avatar src={user.avatar} name={user.username} id={user.id} size={36} />
+                        <p className="flex-1 text-sm font-semibold truncate"
+                          style={{ color: "var(--mq-text)" }}>
+                          {user.username}
+                        </p>
+                        {alreadyIn ? (
+                          <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>уже в группе</span>
+                        ) : selected && (
+                          <div className="w-5 h-5 rounded-full flex items-center justify-center"
+                            style={{ backgroundColor: "var(--mq-accent)" }}>
+                            <span className="text-[10px]" style={{ color: "#fff" }}>✓</span>
+                          </div>
+                        )}
+                      </motion.button>
+                    );
+                  })}
+                </div>
+                <button onClick={handleAddMembers}
+                  disabled={addMembersTarget.length === 0}
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                  style={{
+                    backgroundColor: addMembersTarget.length > 0
+                      ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                    color: addMembersTarget.length > 0
+                      ? "#fff" : "var(--mq-text-muted)",
+                  }}>
+                  Добавить
                 </button>
               </div>
             </motion.div>

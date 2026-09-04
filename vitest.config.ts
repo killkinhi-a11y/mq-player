@@ -20,6 +20,10 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Optional runtime dependency, not installed — stub for tests so
+      // vitest's transform doesn't fail resolving the dynamic import in
+      // src/lib/rate-limit.ts.
+      "@upstash/redis": path.resolve(__dirname, "./src/__tests__/stubs/upstash-redis.ts"),
     },
   },
 });

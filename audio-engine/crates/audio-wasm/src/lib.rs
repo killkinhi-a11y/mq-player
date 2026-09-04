@@ -9,7 +9,10 @@
 //!   `hq_*` helpers which are main-thread-only
 //! * errors are returned as negative i32 codes; 0 = ok
 
+// C-ABI exports take raw pointers by contract (the worklet passes validated
+// offsets into wasm linear memory); the whole surface is unsafe-by-ABI.
 #![allow(clippy::missing_safety_doc)]
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
 
 use audio_core::command::{Command, Opcode};
 use audio_core::engine::{EngineMode, MqAudioEngine};
@@ -30,7 +33,7 @@ static mut ENGINES: [EngineSlot; MAX_ENGINES] = [
 /// Bump this on ANY ABI-breaking change to the mq_* export surface.
 /// The JS bootstrap compares it against the expected value and refuses to
 /// pair mismatched JS with mismatched WASM (WASM_VERSION_MISMATCH guard).
-const MQ_ABI_VERSION: u32 = 2;
+const MQ_ABI_VERSION: u32 = 3;
 
 #[no_mangle]
 pub extern "C" fn mq_abi_version() -> u32 {
@@ -192,13 +195,22 @@ pub extern "C" fn mq_ring_write_available(handle: u32) -> i32 {
 /// Write cursor offset (in f32 elements) for a channel lane.
 #[no_mangle]
 pub extern "C" fn mq_ring_write_offset(handle: u32, channel: u32) -> i32 {
-    match with_engine_mut(handle, |e| {
-        if channel == 0 {
-            e.ring_write_offsets().0
-        } else {
-            e.ring_write_offsets().1
-        }
-    }) {
+    // ABSOLUTE write-cursor offset (f32 elements into linear memory).
+    // ABI v3: was previously the Vec-RELATIVE offset — JS treated it as
+    // absolute and wrote decoded PCM into the wrong memory (the ring Vec
+    // lives ~1 MB into the heap), so the engine popped zeros = silent
+    // playback while all logical counters looked healthy.
+    match with_engine_mut(handle, |e| e.ring_write_offset_abs(channel as usize)) {
+        Ok(n) => n as i32,
+        Err(e) => e,
+    }
+}
+
+/// ABSOLUTE lane-start offset (f32 elements) — the wrap target when a
+/// write crosses the lane end (ABI v3).
+#[no_mangle]
+pub extern "C" fn mq_ring_lane_base(handle: u32, channel: u32) -> i32 {
+    match with_engine_mut(handle, |e| e.ring_lane_base_abs(channel as usize)) {
         Ok(n) => n as i32,
         Err(e) => e,
     }

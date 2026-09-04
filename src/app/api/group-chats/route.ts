@@ -224,8 +224,9 @@ async function postHandler(req: NextRequest) {
       }
     }
 
-    // Verify that all provided memberIds exist
-    if (memberIds && memberIds.length > 0) {
+    // Verify that all provided memberIds exist (real users only — demo
+    // memberIds are in-memory ids that never exist in the real DB).
+    if (!demoUserId && memberIds && memberIds.length > 0) {
       if (memberIds.length > 50) {
         return NextResponse.json({ error: "Максимум 50 участников в группе" }, { status: 400 });
       }
@@ -240,7 +241,8 @@ async function postHandler(req: NextRequest) {
 
     const filteredMemberIds = (memberIds || []).filter((id: string) => id !== userId);
 
-    // For demo users, return a mock response (no DB persistence)
+    // For demo users, return a mock response (no DB persistence, no member
+    // verification — the demo session must not touch the database).
     if (demoUserId) {
       const mockGroupChat = {
         id: `demo-group-${Date.now()}`,

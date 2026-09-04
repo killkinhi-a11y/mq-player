@@ -44,7 +44,7 @@
 [data-style="ipod-2001"] div,
 [data-style="ipod-2001"] a,
 [data-style="ipod-2001"] label {
-  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', 'Lucida Grande', system-ui, sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   -webkit-font-smoothing: none !important;
   -moz-osx-font-smoothing: unset !important;
   text-rendering: optimizeSpeed !important;
@@ -128,7 +128,7 @@
 [data-style="ipod-2001"] header span[style*="color: var(--mq-text)"],
 [data-style="ipod-2001"] header div[class*="gap-2"][class*="cursor-pointer"] span {
   color: #ffffff !important;
-  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 600 !important;
   font-size: 18px !important;
   letter-spacing: 0.05em !important;
@@ -139,7 +139,7 @@
   background: transparent !important;
   border: none !important;
   color: #ffffff !important;
-  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-size: 11px !important;
   font-weight: 400 !important;
   padding: 4px 10px !important;
@@ -413,7 +413,7 @@
   border: 1px solid #333333 !important;
   background: #000000 !important;
   color: #ffffff !important;
-  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-size: 13px !important;
 }
 
@@ -489,7 +489,7 @@
 
 /* ── ═══ TOAST NOTIFICATIONS ═══ ─────────────────────────────────────── */
 [data-style="ipod-2001"] [data-sonner-toaster] {
-  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
 }
 
 [data-style="ipod-2001"] [data-sonner-toaster] [data-sonner-toast] {
@@ -705,7 +705,7 @@
 [data-style="ipod-2001"] div[class*="fixed"][class*="z-100"] h2,
 [data-style="ipod-2001"] div[class*="fixed"][class*="z-50"] h2 {
   color: #ffffff !important;
-  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 600 !important;
   letter-spacing: 0.01em !important;
 }
@@ -754,7 +754,7 @@
   border: 1px solid #333333 !important;
   color: #888888 !important;
   border-radius: 8px !important;
-  font-family: 'ChicagoFLF', 'Chicago', 'Geneva', 'Helvetica Neue', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
 }
 
 /* Full view album art — square, sharp */

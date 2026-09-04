@@ -12,7 +12,7 @@ import {
 import { useWaveEngine } from "@/hooks/useWaveEngine";
 import { useFriendsListening } from "@/hooks/useFriendsListening";
 import { useRecUpdates } from "@/hooks/useRecUpdates";
-import { type Track } from "@/lib/musicApi";
+import { type Track, formatDuration } from "@/lib/musicApi";
 import { extractTasteProfile, displayGenre } from "@/lib/tasteProfile";
 import { useIsMobile } from "@/hooks/use-mobile";
 import ScrollReveal from "./ScrollReveal";
@@ -20,6 +20,7 @@ import ArtistDetailView from "./ArtistDetailView";
 import PlaylistArtwork from "./PlaylistArtwork";
 import ContextMenu from "./ContextMenu";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
+import { useMagnetic } from "@/hooks/useMagnetic";
 import { useLongPress } from "@/hooks/useLongPress";
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -48,12 +49,9 @@ function getWaveGradient(): string {
   //   2. softer diagonal base wash;
   //   3. deep vignette toward bottom-right so content stays high-contrast.
   // (VLM audit: the previous single linear gradient looked "flat/cheap".)
-  // Phase 4B: saturation halved — Wave stays the one tinted hero on Home
-  // (content-type differentiation) but reads as a quiet editorial wash,
-  // not a glow. Depth = the hairline edge + grounded shadow, not bloom.
   return [
-    `radial-gradient(120% 150% at 16% 6%, color-mix(in srgb, var(--mq-accent) 17%, var(--mq-bg)) 0%, color-mix(in srgb, var(--mq-accent) 10%, var(--mq-bg)) 38%, transparent 66%)`,
-    `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 11%, var(--mq-bg)) 0%, color-mix(in srgb, var(--mq-accent) 5%, var(--mq-bg)) 52%, var(--mq-bg) 100%)`,
+    `radial-gradient(120% 150% at 16% 6%, color-mix(in srgb, var(--mq-accent) 36%, var(--mq-bg)) 0%, color-mix(in srgb, var(--mq-accent) 22%, var(--mq-bg)) 36%, transparent 64%)`,
+    `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 20%, var(--mq-bg)) 0%, color-mix(in srgb, var(--mq-accent) 10%, var(--mq-bg)) 52%, var(--mq-bg) 100%)`,
   ].join(", ");
 }
 
@@ -319,6 +317,34 @@ function MainView() {
     return result;
   }, [recCategories]);
 
+  // ── Phase O composition: split categories into PERSONAL vs CHARTS and ──
+  // pick ONE featured track (currently playing if it's a recommendation,
+  // otherwise the strongest personal pick). No fake data: if there are no
+  // recommendations, there is no featured block.
+  const personalCategories = useMemo(() => {
+    return recCategories.filter((c) => !["apple_top", "spotify_top", "trending_now"].includes(c.id));
+  }, [recCategories]);
+
+  const chartCategories = useMemo(() => {
+    return recCategories.filter((c) => ["apple_top", "spotify_top", "trending_now"].includes(c.id));
+  }, [recCategories]);
+
+  const featuredTrack = useMemo(() => {
+    if (currentTrack && allRecTracks.some((t) => t.id === currentTrack.id)) return currentTrack;
+    // Real data priority: personal pick → chart top → trending top.
+    const personal = personalCategories.find((c) => c.tracks.length > 0);
+    const chart = chartCategories.find((c) => c.tracks.length > 0);
+    return personal?.tracks[0] ?? chart?.tracks[0] ?? null;
+  }, [currentTrack, allRecTracks, personalCategories, chartCategories]);
+
+  const featuredReason = useMemo(() => {
+    if (!featuredTrack) return "";
+    if (currentTrack?.id === featuredTrack.id) return "Сейчас играет";
+    const cat = recCategories.find((c) => c.tracks.some((t) => t.id === featuredTrack.id));
+    return cat ? reasonForRec(cat.id) : "Подобрано для тебя";
+  }, [featuredTrack, currentTrack, recCategories]);
+
+
   // ── Play rec track in context of all visible tracks ──
   // If the clicked track is already current, toggle play/pause instead
   // of restarting it from 0:00. This matches Spotify-like UX where tapping
@@ -419,121 +445,148 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* HERO GREETING — Phase 2B: compact, solid color, no gradient text.
-          The greeting is context, not decoration — Wave answers "what's playing". */}
+      {/* HEADER — compact greeting + discovery line (restructured: the     */}
+      {/* old serif hero shrank into a single quiet row; the screen now     */}
+      {/* belongs to real content, not typography).                          */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <ScrollReveal direction="up" delay={0}>
-        <motion.div
-          initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="mb-5"
-        >
-          <p
-            className="mq-text-eyebrow mb-1 text-[11px] uppercase tracking-widest"
-            style={{ color: "var(--mq-text-muted)" }}
-          >
-            {currentDate()}
-          </p>
-          <h1
-            className="text-2xl sm:text-3xl"
+        <header className="mb-5 flex items-end justify-between gap-4">
+          <div className="min-w-0">
+            <p className="mq-t-meta text-[11px] uppercase tracking-[0.14em] mb-1" style={{ color: "var(--mq-text-muted)" }}>
+              {currentDate()}
+            </p>
+            <h1 className="mq-t-title text-2xl sm:text-3xl lg:text-[2rem] truncate" style={{ color: "var(--mq-text)" }}>
+              {greeting()}
+            </h1>
+            <p className="mq-t-meta text-xs mt-1.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
+              {listeningFriends.length > 0
+                ? `${listeningFriends.length} ${pluralRu(listeningFriends.length, "друг слушает", "друга слушают", "друзей слушают")} музыку сейчас`
+                : personalCategories.length > 0
+                  ? "Новое собрали для тебя ниже"
+                  : "Начни с Волны — она подберёт музыку под вкус"}
+            </p>
+          </div>
+          {/* Compact wave pill — real radio state, replaces the giant card */}
+          <button
+            onClick={() => (wave.radioMode ? wave.pauseWave() : wave.startWave())}
+            disabled={wave.waveLoading}
+            className="shrink-0 flex items-center gap-2 rounded-full pl-3 pr-4 h-10 transition-all active:scale-95"
             style={{
-              fontFamily: "var(--mq-font-serif)",
-              fontWeight: 600,
-              letterSpacing: "-0.01em",
-              lineHeight: 1.15,
-              color: "var(--mq-text)",
+              backgroundColor: wave.radioMode
+                ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)"
+                : "var(--mq-card)",
+              border: `1px solid ${wave.radioMode ? "color-mix(in srgb, var(--mq-accent) 40%, transparent)" : "var(--mq-border-thin)"}`,
             }}
+            aria-label={wave.radioMode ? "Пауза Волны" : "Запустить Волну"}
           >
-            {greeting()}
-          </h1>
-        </motion.div>
+            {wave.waveLoading ? (
+              <div className="mq-spin w-4 h-4 border-2 rounded-full" style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }} />
+            ) : (
+              <Waves className="w-4 h-4" style={{ color: wave.radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+            )}
+            <span className="mq-t-label text-xs" style={{ color: wave.radioMode ? "var(--mq-accent)" : "var(--mq-text)" }}>
+              {wave.waveLoading ? "Подбираем…" : wave.radioMode ? "Волна · играет" : "Волна"}
+            </span>
+          </button>
+        </header>
       </ScrollReveal>
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* ВОЛНА (Wave) — preserved as-is */}
+      {/* FEATURED — one dominant content block (new). Real data: the top   */}
+      {/* personal recommendation or the currently playing track. No glow,   */}
+      {/* no decorative blur — flat split card with a hard accent edge.      */}
       {/* ════════════════════════════════════════════════════════════════ */}
-      <ScrollReveal direction="up" delay={0.03}>
-        <WaveCard
-          isMobile={isMobile}
-          currentTrack={currentTrack}
-          isPlaying={isPlaying}
-          radioMode={wave.radioMode}
-          progress={progress}
-          duration={duration}
-          waveLoading={wave.waveLoading}
-          waveError={wave.waveError}
-          onStartWave={wave.startWave}
-          onPauseWave={wave.pauseWave}
-          onStopWave={wave.stopWave}
-          onSkip={wave.skipTrack}
-          onDislike={wave.dislikeTrack}
-          onLike={wave.likeTrack}
-          isLiked={!!currentTrack && likedTrackIds.includes(currentTrack.id)}
-          topGenres={tasteProfile.topGenres}
-        />
-      </ScrollReveal>
+      {featuredTrack && (
+        <ScrollReveal direction="up" delay={0.02}>
+          <FeaturedCard
+            track={featuredTrack}
+            reason={featuredReason}
+            isCurrent={currentTrack?.id === featuredTrack.id}
+            isPlaying={isPlaying && currentTrack?.id === featuredTrack.id}
+            onPlay={() => handlePlayRec(featuredTrack)}
+            onArtistClick={() => handleNavigateToArtist(featuredTrack.artist)}
+            animationsEnabled={animationsEnabled}
+          />
+        </ScrollReveal>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* QUICK LINKS — Phase 2B: quiet text row, not 4 colored stat cards.
-          Content-first navigation: icon + label + count. No competing accents,
-          no card containers — the Wave card stays the visual anchor. */}
+      {/* CONTINUE LISTENING + QUICK ACTIONS — two-column band (new). Left:  */}
+      {/* real current track with progress; right: dense action grid.        */}
       {/* ════════════════════════════════════════════════════════════════ */}
-      <ScrollReveal direction="up" delay={0.05}>
-        <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-8">
-          <QuickLink
-            icon={Heart}
-            label="Избранное"
-            value={likedTrackIds.length}
-            onClick={() => setView("favorites")}
+      <ScrollReveal direction="up" delay={0.04}>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 mb-7">
+          <ContinueListeningCard
+            track={currentTrack}
+            progress={progress}
+            duration={duration}
+            isPlaying={isPlaying}
+            radioMode={radioMode}
+            onToggle={togglePlay}
+            onSkip={() => wave.skipTrack()}
           />
-          <QuickLink
-            icon={Clock}
-            label="История"
-            value={history.length}
-            onClick={() => setView("history")}
-          />
-          <QuickLink
-            icon={ListMusic}
-            label="Плейлисты"
-            value={playlists.length}
-            onClick={() => setView("playlists")}
-          />
-          <QuickLink
-            icon={MessageCircle}
-            label="Чаты"
-            value={contacts.length}
-            onClick={() => setView("messenger")}
+          <QuickActionGrid
+            likedCount={likedTrackIds.length}
+            historyCount={history.length}
+            playlistCount={playlists.length}
+            chatCount={contacts.length}
+            onFavorites={() => setView("favorites")}
+            onHistory={() => setView("history")}
+            onPlaylists={() => setView("playlists")}
+            onMessenger={() => setView("messenger")}
           />
         </div>
       </ScrollReveal>
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* RECOMMENDATIONS — clean card-strip layout (rewritten from scratch) */}
+      {/* PERSONALIZED FOR YOU — horizontal discovery (restructured): the    */}
+      {/* first category renders as horizontal track ROWS (new rhythm), the  */}
+      {/* rest as compact square cards. Real recommendations only.           */}
       {/* ════════════════════════════════════════════════════════════════ */}
-      {recCategories.length > 0 && (
-        <Section title="Для вас" icon={Sparkles}>
-          {/* Phase 4B: the featured hero TRACK is now the first (lead) card
-              of the first strip — an editorial lead column instead of a
-              separate giant card. Frees ~200px of vertical rhythm, kills
-              the duplicated identity (hero + strip showed the same track),
-              and keeps featured ≠ regular distinction via card scale. */}
-          <div className="space-y-6">
-            {recCategories.map((cat, idx) => (
-              <RecStrip
-                key={cat.id}
-                title={idx === 0 ? undefined : cat.title}
-                icon={iconForRec(cat.id)}
-                tracks={cat.tracks}
-                reason={reasonForRec(cat.id)}
-                currentTrack={currentTrack}
-                isPlaying={isPlaying}
-                onPlay={handlePlayRec}
-                onArtistClick={handleNavigateToArtist}
-                animationsEnabled={animationsEnabled}
-              />
-            ))}
-          </div>
+      {personalCategories.length > 0 && (
+        <Section title="Для вас" icon={Sparkles} action={<span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>по твоей истории и лайкам</span>}>
+          {personalCategories.slice(0, 1).map((cat) => (
+            <div key={cat.id} className="flex flex-col gap-2 mb-5">
+              {cat.tracks.slice(0, 4).map((track, i) => (
+                <HorizontalTrackRow
+                  key={track.id + "_" + i}
+                  track={track}
+                  isCurrent={currentTrack?.id === track.id}
+                  isPlaying={isPlaying && currentTrack?.id === track.id}
+                  onPlay={() => handlePlayRec(track)}
+                  onArtistClick={() => handleNavigateToArtist(track.artist)}
+                />
+              ))}
+            </div>
+          ))}
+          {personalCategories.slice(1).map((cat) => (
+            <div key={cat.id} className="mb-5">
+              <div className="flex items-center gap-2 mb-2.5">
+                {(() => {
+                  const CatIcon = iconForRec(cat.id);
+                  return <CatIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />;
+                })()}
+                <h3 className="mq-t-label text-[13px]" style={{ color: "var(--mq-text)" }}>
+                  {cat.title}
+                </h3>
+                <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                  {reasonForRec(cat.id)}
+                </span>
+              </div>
+              <HScroll className="flex gap-3 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 pb-1">
+                {cat.tracks.slice(0, 12).map((track, i) => (
+                  <CompactTrackCard
+                    key={track.id + "_" + i}
+                    track={track}
+                    isCurrent={currentTrack?.id === track.id}
+                    isPlaying={isPlaying && currentTrack?.id === track.id}
+                    onPlay={() => handlePlayRec(track)}
+                    onArtistClick={() => handleNavigateToArtist(track.artist)}
+                  />
+                ))}
+              </HScroll>
+            </div>
+          ))}
         </Section>
       )}
 
@@ -552,24 +605,24 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* RECENTLY PLAYED */}
+      {/* RECENTLY PLAYED — horizontal compact row (was a 5-column grid).    */}
+      {/* Real listening history only; hidden entirely when empty.           */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {recentTracks.length > 0 && (
         <Section
           title="Недавно"
           icon={Clock}
           action={
-            <button onClick={() => setView("history")} className="text-xs font-semibold" style={{ color: "var(--mq-accent)" }}>
+            <button onClick={() => setView("history")} className="mq-t-label text-xs" style={{ color: "var(--mq-accent)" }}>
               Все
             </button>
           }
         >
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 sm:gap-4">
-            {recentTracks.slice(0, 5).map((track, i) => (
-              <TrackCard
+          <HScroll className="flex gap-3 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 pb-1">
+            {recentTracks.slice(0, 10).map((track, i) => (
+              <CompactTrackCard
                 key={track.id + "_" + i}
                 track={track}
-                index={i}
                 isCurrent={currentTrack?.id === track.id}
                 isPlaying={isPlaying && currentTrack?.id === track.id}
                 onPlay={() => {
@@ -577,22 +630,129 @@ function MainView() {
                   playTrack(track, recentTracks);
                 }}
                 onArtistClick={() => handleNavigateToArtist(track.artist)}
-                animationsEnabled={animationsEnabled}
               />
             ))}
+          </HScroll>
+        </Section>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* NEW / TRENDING — numbered chart rows (new): real trending +        */}
+      {/* Apple/Spotify chart data, presented as a ranked list.              */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {chartCategories.length > 0 && (
+        <Section title="Новое и в тренде" icon={Flame} action={<span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>обновляется каждый час</span>}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-1.5">
+            {chartCategories.flatMap((cat) =>
+              cat.tracks.slice(0, 5).map((track, i) => (
+                <ChartRow
+                  key={cat.id + "_" + track.id + "_" + i}
+                  rank={i + 1}
+                  track={track}
+                  isCurrent={currentTrack?.id === track.id}
+                  isPlaying={isPlaying && currentTrack?.id === track.id}
+                  onPlay={() => handlePlayRec(track)}
+                  onArtistClick={() => handleNavigateToArtist(track.artist)}
+                />
+              ))
+            ).slice(0, 10)}
           </div>
         </Section>
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* PLAYLISTS — user's playlists grid */}
+      {/* FRIENDS LISTENING NOW — social widget (below the fold now)         */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {listeningFriends.length > 0 && (
+        <Section title="Друзья слушают" icon={User}>
+          <HScroll
+            className="flex gap-3 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 pb-1"
+          >
+            {listeningFriends.map((f) => (
+              <div
+                key={f.userId}
+                className="flex-shrink-0 w-[200px] rounded-2xl p-3 cursor-pointer hover:scale-[1.02] transition-transform"
+                style={{
+                  backgroundColor: "var(--mq-card)",
+                  border: "1px solid var(--mq-border-hairline)",
+                }}
+                onClick={() => {
+                  if (f.scTrackId) {
+                    const track: Track = {
+                      id: `sc_${f.scTrackId}`,
+                      title: f.trackTitle,
+                      artist: f.trackArtist,
+                      album: "",
+                      cover: f.trackCover,
+                      duration: f.duration,
+                      genre: "",
+                      audioUrl: "",
+                      previewUrl: "",
+                      source: "soundcloud",
+                      scTrackId: f.scTrackId,
+                    };
+                    playTrack(track, [track]);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-card)" }}>
+                    {f.avatar ? (
+                      <img src={f.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <User className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="mq-t-label text-xs truncate" style={{ color: "var(--mq-text)" }}>
+                      {f.username}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      {f.isPlaying && (
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
+                      )}
+                      <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                        {f.isPlaying ? "сейчас" : "на паузе"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
+                    {f.trackCover ? (
+                      <img src={f.trackCover} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="mq-t-body text-xs truncate" style={{ color: "var(--mq-text)" }}>
+                      {f.trackTitle}
+                    </p>
+                    <p className="mq-t-meta text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                      {f.trackArtist}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </HScroll>
+        </Section>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* PLAYLISTS — user's playlists grid (moved below the fold)           */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <Section
         title="Плейлисты"
         icon={ListMusic}
         action={
           playlists.length > 0 ? (
-            <button onClick={() => setView("playlists")} className="text-xs font-semibold" style={{ color: "var(--mq-accent)" }}>
+            <button onClick={() => setView("playlists")} className="mq-t-label text-xs" style={{ color: "var(--mq-accent)" }}>
               Все
             </button>
           ) : undefined
@@ -630,16 +790,9 @@ function MainView() {
               <Plus className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
             </div>
             <div className="flex-1 min-w-0">
-              {/* UX Core #1 (Эвристика доступности): текст без императива
-                  и долга — "Новый плейлист" + "Собери своё" звучит как
-                  возможность, а не обязанность. Снижает когнитивный барьер. */}
-              <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>Новый плейлист</p>
-              <p className="text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Собери своё</p>
+              <p className="mq-t-body text-sm" style={{ color: "var(--mq-text)" }}>Новый плейлист</p>
+              <p className="mq-t-meta text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Собери своё</p>
             </div>
-            {/* UX Core #6 (Забывание без подсказок): мини-обложки недавно
-                сыгранных треков как визуальная подсказка "вот что можно
-                добавить". Без стимула пользователь забывает что у него
-                есть музыка для плейлиста. */}
             {recentTracks.length > 0 && (
               <div className="flex -space-x-2 flex-shrink-0">
                 {recentTracks.slice(0, 3).map((t, i) => t?.cover ? (
@@ -659,92 +812,7 @@ function MainView() {
       </Section>
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* FRIENDS LISTENING NOW — social widget (polling-based) */}
-      {/* ════════════════════════════════════════════════════════════════ */}
-      {listeningFriends.length > 0 && (
-        <Section title="Друзья слушают" icon={User}>
-          <HScroll
-            className="flex gap-3 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 pb-1"
-          >
-            {listeningFriends.map((f) => (
-              <div
-                key={f.userId}
-                className="flex-shrink-0 w-[200px] rounded-2xl p-3 cursor-pointer hover:scale-[1.02] transition-transform"
-                style={{
-                  backgroundColor: "var(--mq-card)",
-                  border: "1px solid var(--mq-border-hairline)",
-                }}
-                onClick={() => {
-                  if (f.scTrackId) {
-                    // Try to play the same track
-                    const track: Track = {
-                      id: `sc_${f.scTrackId}`,
-                      title: f.trackTitle,
-                      artist: f.trackArtist,
-                      album: "",
-                      cover: f.trackCover,
-                      duration: f.duration,
-                      genre: "",
-                      audioUrl: "",
-                      previewUrl: "",
-                      source: "soundcloud",
-                      scTrackId: f.scTrackId,
-                    };
-                    playTrack(track, [track]);
-                  }
-                }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-card)" }}>
-                    {f.avatar ? (
-                      <img src={f.avatar} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <User className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>
-                      {f.username}
-                    </p>
-                    <div className="flex items-center gap-1">
-                      {f.isPlaying && (
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
-                      )}
-                      <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
-                        {f.isPlaying ? "сейчас" : "на паузе"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
-                    {f.trackCover ? (
-                      <img src={f.trackCover} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>
-                      {f.trackTitle}
-                    </p>
-                    <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
-                      {f.trackArtist}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </HScroll>
-        </Section>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════ */}
-      {/* FAVORITE ARTISTS */}
+      {/* FAVORITE ARTISTS (below the fold)                                   */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {favoriteArtists.length > 0 && (
         <Section title="Любимые артисты" icon={User}>
@@ -763,10 +831,10 @@ function MainView() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════ */}
-      {/* CURATED PLAYLISTS */}
+      {/* CURATED PLAYLISTS (below the fold)                                  */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {curatedPlaylists.length > 0 && (
-        <Section title="Подобрано для вас" icon={Sparkles}>
+        <Section title="Подборки редакции" icon={Sparkles}>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
             {curatedPlaylists.slice(0, 8).map((pl, i) => (
               <CuratedPlaylistCard
@@ -788,6 +856,7 @@ function MainView() {
   );
 }
 
+
 // ═════════════════════════════════════════════════════════════════════════
 // SECTION WRAPPER — unified styling for all sections
 // ═════════════════════════════════════════════════════════════════════════
@@ -805,14 +874,19 @@ function Section({
 }) {
   return (
     <ScrollReveal direction="up" delay={0.05}>
-      {/* Phase 4B: editorial section rhythm — one header pattern, one
-          spacing scale (mb-10 sections / mb-4 header). Icon becomes a
-          quiet eyebrow-scale marker, title carries the hierarchy. */}
-      <section className="mb-9 sm:mb-10">
-        <div className="mq-section-head">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {Icon && <Icon className="w-[18px] h-[18px] flex-shrink-0" strokeWidth={2.2} style={{ color: "var(--mq-text-muted)" }} />}
-            <h2 className="mq-section-title truncate" style={{ fontFamily: "var(--mq-font-serif)" }}>
+      <section className="mb-7 sm:mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+                boxShadow: "inset 0 0 0 1px color-mix(in srgb, var(--mq-accent) 18%, transparent)",
+              }}
+            >
+              <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={{ color: "var(--mq-accent)" }} />
+            </div>
+            <h2 className="mq-text-headline text-base sm:text-lg lg:text-xl" style={{ color: "var(--mq-text)" }}>
               {title}
             </h2>
           </div>
@@ -825,40 +899,527 @@ function Section({
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// QUICK LINK — Phase 2B: quiet navigation link (icon + label + count).
-// Replaces QuickStat: no per-category colors, no gradient cards, no accent
-// dots, no hover glow. One muted surface for all four — the Wave card stays
-// the single visual anchor of the first viewport.
+// PHASE O HOME — new card components
+//
+// Five card types, used where each genuinely fits (§3.5):
+//   FeaturedCard         — one dominant block for the featured track
+//   ContinueListeningCard— current track + real progress
+//   QuickActionGrid      — dense navigation with real counts
+//   HorizontalTrackRow   — wide row card (personal picks)
+//   CompactTrackCard     — small square card (discovery rows, recent)
+//   ChartRow             — numbered ranked row (trending / charts)
+// No glow, no decorative blur, no fake metrics. All states real.
 // ═════════════════════════════════════════════════════════════════════════
 
-function QuickLink({
+function FeaturedCard({
+  track,
+  reason,
+  isCurrent,
+  isPlaying,
+  onPlay,
+  onArtistClick,
+  animationsEnabled,
+}: {
+  track: Track;
+  reason: string;
+  isCurrent: boolean;
+  isPlaying: boolean;
+  onPlay: () => void;
+  onArtistClick: () => void;
+  animationsEnabled: boolean;
+}) {
+  return (
+    <article
+      className="relative rounded-2xl overflow-hidden mb-6"
+      style={{
+        backgroundColor: "var(--mq-card)",
+        border: "1px solid var(--mq-border-hairline)",
+        // Hard accent edge on the left — structure, not glow.
+        borderLeft: "3px solid var(--mq-accent)",
+      }}
+      aria-label={`Рекомендованный трек: ${track.title}`}
+    >
+      <div className="flex flex-col sm:flex-row">
+        {/* Artwork — 40% on desktop, full-width 16:9 crop on mobile */}
+        <button
+          onClick={onPlay}
+          className="relative sm:w-[42%] lg:w-[40%] aspect-square sm:aspect-auto sm:min-h-[220px] overflow-hidden shrink-0 group"
+          aria-label={isPlaying ? "Пауза" : "Слушать"}
+        >
+          {track.cover ? (
+            <img
+              src={track.cover}
+              alt=""
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              loading="eager"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, var(--mq-bg))" }}>
+              <Music className="w-10 h-10" style={{ color: "var(--mq-text-muted)" }} />
+            </div>
+          )}
+          {isPlaying && (
+            <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
+              <NowPlayingEqualizer />
+              <span className="mq-t-meta text-[11px]" style={{ color: "#fff" }}>играет</span>
+            </div>
+          )}
+        </button>
+
+        {/* Info + actions */}
+        <div className="flex-1 min-w-0 p-4 sm:p-5 lg:p-6 flex flex-col justify-center gap-3">
+          <div>
+            <p className="mq-t-label text-[11px] uppercase tracking-[0.12em] mb-1.5" style={{ color: "var(--mq-accent)" }}>
+              {reason}
+            </p>
+            <h2 className="mq-t-display text-xl sm:text-2xl lg:text-[1.75rem] line-clamp-2" style={{ color: "var(--mq-text)" }}>
+              {track.title}
+            </h2>
+            <button
+              onClick={onArtistClick}
+              className="mq-t-body text-sm mt-1 hover:underline text-left"
+              style={{ color: "var(--mq-text-muted)" }}
+            >
+              {track.artist}
+            </button>
+          </div>
+
+          {/* Metadata — real fields only */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {track.duration > 0 && (
+              <span className="mq-t-num text-[11px] flex items-center gap-1" style={{ color: "var(--mq-text-muted)" }}>
+                <Clock className="w-3 h-3" />{formatDuration(track.duration)}
+              </span>
+            )}
+            {track.genre && (
+              <span className="mq-t-meta text-[11px] px-2 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-text-muted)" }}>
+                {displayGenre(track.genre)}
+              </span>
+            )}
+            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+              {track.source === "soundcloud" ? "SoundCloud" : track.source === "audius" ? "Audius" : "mq"}
+            </span>
+          </div>
+
+          {/* Primary + secondary actions */}
+          <div className="flex items-center gap-2.5 mt-1">
+            <motion.button
+              whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
+              onClick={onPlay}
+              className="h-11 px-6 rounded-xl flex items-center gap-2 font-semibold text-sm transition-colors"
+              style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
+              aria-label={isPlaying ? "Пауза" : "Слушать"}
+            >
+              {isPlaying ? <Pause className="w-4 h-4" fill="currentColor" /> : <Play className="w-4 h-4" fill="currentColor" />}
+              {isCurrent ? (isPlaying ? "Пауза" : "Продолжить") : "Слушать"}
+            </motion.button>
+            <button
+              onClick={onArtistClick}
+              className="h-11 px-4 rounded-xl flex items-center gap-2 text-sm transition-colors"
+              style={{ backgroundColor: "var(--mq-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
+            >
+              <User className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+              К артисту
+            </button>
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ContinueListeningCard({
+  track,
+  progress,
+  duration,
+  isPlaying,
+  radioMode,
+  onToggle,
+  onSkip,
+}: {
+  track: Track | null;
+  progress: number;
+  duration: number;
+  isPlaying: boolean;
+  radioMode: boolean;
+  onToggle: () => void;
+  onSkip: () => void;
+}) {
+  const pct = duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
+
+  // Honest empty state — no fake "continue" content.
+  if (!track) {
+    return (
+      <div
+        className="rounded-2xl p-4 sm:p-5 flex items-center gap-4"
+        style={{ backgroundColor: "var(--mq-card)", border: "1px dashed var(--mq-border-thin)" }}
+      >
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
+          <Play className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+        </div>
+        <div className="min-w-0">
+          <p className="mq-t-label text-sm" style={{ color: "var(--mq-text)" }}>Продолжить прослушивание</p>
+          <p className="mq-t-meta text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+            Пока пусто — включи трек, и он появится здесь
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="rounded-2xl p-4 sm:p-5 flex items-center gap-4"
+      style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
+    >
+      <button
+        onClick={onToggle}
+        className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform active:scale-95"
+        style={{ backgroundColor: "var(--mq-accent)" }}
+        aria-label={isPlaying ? "Пауза" : "Продолжить"}
+      >
+        {isPlaying ? (
+          <Pause className="w-5 h-5" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+        ) : (
+          <Play className="w-5 h-5" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+        )}
+      </button>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <p className="mq-t-label text-[11px] uppercase tracking-[0.1em]" style={{ color: "var(--mq-text-muted)" }}>
+            Продолжить
+          </p>
+          {radioMode && (
+            <span className="mq-t-meta text-[11px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, transparent)", color: "var(--mq-accent)" }}>
+              Волна
+            </span>
+          )}
+        </div>
+        <p className="mq-t-body text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+          {track.title}
+        </p>
+        <p className="mq-t-meta text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+          {track.artist}
+        </p>
+        {/* Real progress bar */}
+        <div className="mt-2 flex items-center gap-2">
+          <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-border-thin)" }} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
+            <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: "var(--mq-accent)" }} />
+          </div>
+          <span className="mq-t-num text-[11px] shrink-0" style={{ color: "var(--mq-text-muted)" }}>
+            {formatDuration(progress)} / {formatDuration(duration)}
+          </span>
+        </div>
+      </div>
+      {radioMode && (
+        <button
+          onClick={onSkip}
+          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors hover:bg-white/[0.04]"
+          style={{ border: "1px solid var(--mq-border-thin)" }}
+          aria-label="Следующий в Волне"
+        >
+          <SkipForward className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function QuickActionGrid({
+  likedCount,
+  historyCount,
+  playlistCount,
+  chatCount,
+  onFavorites,
+  onHistory,
+  onPlaylists,
+  onMessenger,
+}: {
+  likedCount: number;
+  historyCount: number;
+  playlistCount: number;
+  chatCount: number;
+  onFavorites: () => void;
+  onHistory: () => void;
+  onPlaylists: () => void;
+  onMessenger: () => void;
+}) {
+  const items = [
+    { icon: Heart, label: "Избранное", count: likedCount, onClick: onFavorites, accent: "#ef4444" },
+    { icon: Clock, label: "История", count: historyCount, onClick: onHistory, accent: "var(--mq-accent)" },
+    { icon: ListMusic, label: "Плейлисты", count: playlistCount, onClick: onPlaylists, accent: "#8b5cf6" },
+    { icon: MessageCircle, label: "Чаты", count: chatCount, onClick: onMessenger, accent: "#06b6d4" },
+  ];
+  return (
+    <div
+      className="grid grid-cols-4 lg:grid-cols-2 gap-2 rounded-2xl p-2"
+      style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
+      role="group"
+      aria-label="Быстрые переходы"
+    >
+      {items.map(({ icon: Icon, label, count, onClick, accent }) => (
+        <button
+          key={label}
+          onClick={onClick}
+          className="flex flex-col lg:flex-row items-center justify-center lg:justify-start gap-1 lg:gap-2.5 rounded-xl px-2 py-2.5 lg:px-3 transition-colors hover:bg-white/[0.03]"
+        >
+          <Icon className="w-4 h-4 shrink-0" style={{ color: accent }} />
+          <span className="mq-t-label text-[11px] leading-none" style={{ color: "var(--mq-text)" }}>{label}</span>
+          <span className="mq-t-num text-[11px] leading-none" style={{ color: "var(--mq-text-muted)" }}>
+            {count > 0 ? count : "—"}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function HorizontalTrackRow({
+  track,
+  isCurrent,
+  isPlaying,
+  onPlay,
+  onArtistClick,
+}: {
+  track: Track;
+  isCurrent: boolean;
+  isPlaying: boolean;
+  onPlay: () => void;
+  onArtistClick: () => void;
+}) {
+  return (
+    <div
+      className="group flex items-center gap-3 rounded-xl p-2 pr-3 transition-colors hover:bg-white/[0.03] cursor-pointer"
+      style={{ backgroundColor: isCurrent ? "color-mix(in srgb, var(--mq-accent) 7%, transparent)" : "var(--mq-card)" }}
+      onClick={onPlay}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPlay(); } }}
+      aria-label={`Играть ${track.title}`}
+    >
+      <div className="relative w-11 h-11 rounded-lg overflow-hidden shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
+        {track.cover ? (
+          <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+          </div>
+        )}
+        <div
+          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
+          {isPlaying ? <Pause className="w-4 h-4 text-white" fill="currentColor" /> : <Play className="w-4 h-4 text-white" fill="currentColor" />}
+        </div>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="mq-t-body text-[13px] font-semibold truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+          {track.title}
+        </p>
+        <button
+          onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
+          className="mq-t-meta text-xs truncate hover:underline"
+          style={{ color: "var(--mq-text-muted)" }}
+        >
+          {track.artist}
+        </button>
+      </div>
+      {isPlaying && <NowPlayingEqualizer />}
+      {track.duration > 0 && (
+        <span className="mq-t-num text-[11px] shrink-0" style={{ color: "var(--mq-text-muted)" }}>
+          {formatDuration(track.duration)}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function CompactTrackCard({
+  track,
+  isCurrent,
+  isPlaying,
+  onPlay,
+  onArtistClick,
+}: {
+  track: Track;
+  isCurrent: boolean;
+  isPlaying: boolean;
+  onPlay: () => void;
+  onArtistClick: () => void;
+}) {
+  return (
+    <button
+      className="group flex-shrink-0 w-[124px] sm:w-[136px] text-left rounded-xl overflow-hidden transition-all hover:bg-white/[0.03]"
+      style={{
+        backgroundColor: "var(--mq-card)",
+        border: `1px solid ${isCurrent ? "color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "var(--mq-border-hairline)"}`,
+      }}
+      onClick={onPlay}
+      aria-label={`Играть ${track.title}`}
+    >
+      <div className="relative w-full aspect-square" style={{ backgroundColor: "var(--mq-bg)" }}>
+        {track.cover ? (
+          <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Music className="w-6 h-6" style={{ color: "var(--mq-text-muted)" }} />
+          </div>
+        )}
+        <div
+          className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+        >
+          {isPlaying ? <Pause className="w-6 h-6 text-white" fill="currentColor" /> : <Play className="w-6 h-6 text-white" fill="currentColor" />}
+        </div>
+        {isCurrent && (
+          <div className="absolute top-1.5 left-1.5" aria-hidden>
+            <NowPlayingEqualizer />
+          </div>
+        )}
+      </div>
+      <div className="p-2">
+        <p className="mq-t-body text-xs font-semibold truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+          {track.title}
+        </p>
+        <span
+          onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
+          className="mq-t-meta text-[11px] truncate block hover:underline"
+          style={{ color: "var(--mq-text-muted)" }}
+        >
+          {track.artist}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function ChartRow({
+  rank,
+  track,
+  isCurrent,
+  isPlaying,
+  onPlay,
+  onArtistClick,
+}: {
+  rank: number;
+  track: Track;
+  isCurrent: boolean;
+  isPlaying: boolean;
+  onPlay: () => void;
+  onArtistClick: () => void;
+}) {
+  const isTop = rank <= 3;
+  return (
+    <div
+      className="group flex items-center gap-3 rounded-xl px-2 py-2 -mx-2 transition-colors hover:bg-white/[0.03] cursor-pointer"
+      onClick={onPlay}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPlay(); } }}
+      aria-label={`№${rank}: играть ${track.title}`}
+    >
+      <span
+        className="mq-t-num text-lg w-8 text-center shrink-0 select-none"
+        style={{ color: isTop ? "var(--mq-accent)" : "var(--mq-text-muted)", fontWeight: isTop ? 700 : 500 }}
+      >
+        {rank}
+      </span>
+      <div className="relative w-10 h-10 rounded-lg overflow-hidden shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
+        {track.cover ? (
+          <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="mq-t-body text-[13px] font-semibold truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+          {track.title}
+        </p>
+        <button
+          onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
+          className="mq-t-meta text-xs truncate hover:underline"
+          style={{ color: "var(--mq-text-muted)" }}
+        >
+          {track.artist}
+        </button>
+      </div>
+      {isPlaying ? <NowPlayingEqualizer /> : (
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <Play className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
+// QUICK STAT
+// ═════════════════════════════════════════════════════════════════════════
+
+function QuickStat({
   icon: Icon,
   label,
   value,
   onClick,
+  accent,
+  cover,
 }: {
   icon: React.ElementType;
   label: string;
   value: number;
   onClick: () => void;
+  accent: string;
+  cover?: string;
 }) {
+  // UX Core #1 (Эффект Ресторфф): Quick Stats приглушены чтобы Wave Card
+  // визуально доминировала как единственный главный CTA на экране.
+  // UX Core #14 (Эффект превосходства картинки): мини-обложка слева
+  // запоминается лучше чем иконка + число.
   return (
-    <button
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      whileHover={{ y: -3, boxShadow: `0 8px 24px color-mix(in srgb, ${accent} 15%, transparent)` }}
       onClick={onClick}
-      className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors hover:bg-[var(--mq-overlay-hover)] text-left min-w-0"
-      aria-label={`${label}: ${value}`}
+      className="rounded-xl p-2.5 sm:p-3 flex items-center gap-2.5 cursor-pointer transition-all"
+      style={{
+        background: `linear-gradient(135deg, color-mix(in srgb, ${accent} 8%, var(--mq-card)) 0%, var(--mq-card) 100%)`,
+        border: "1px solid color-mix(in srgb, ${accent} 20%, var(--mq-border-hairline))",
+      }}
     >
-      <Icon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-      <p className="min-w-0 text-[13px] sm:text-sm leading-none truncate">
+      <div
+        className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg overflow-hidden flex-shrink-0 relative"
+        style={{
+          backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`,
+        }}
+      >
+        {cover ? (
+          <img src={cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Icon className="w-4 h-4 sm:w-5 h-5" style={{ color: accent }} />
+          </div>
+        )}
+        {/* Accent dot — subtle indicator of category color */}
+        <span
+          className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full"
+          style={{ backgroundColor: accent, boxShadow: `0 0 4px ${accent}` }}
+        />
+      </div>
+      <div className="min-w-0">
         {/* Empty-library state: a bare "0" reads like a broken counter to
-            first-time users. An em-dash + reduced opacity reads as "nothing
-            here yet" while keeping the link useful navigation. */}
-        <span className="font-semibold" style={{ color: "var(--mq-text)", opacity: value > 0 ? 1 : 0.45 }}>
+            first-time users (VLM audit). An em-dash + reduced opacity reads
+            as "nothing here yet" while keeping the chip useful navigation. */}
+        <p
+          className="text-sm sm:text-base font-bold leading-none"
+          style={{ color: "var(--mq-text)", opacity: value > 0 ? 1 : 0.5 }}
+        >
           {value > 0 ? value : "—"}
-        </span>{" "}
-        <span style={{ color: "var(--mq-text-muted)" }}>{label}</span>
-      </p>
-    </button>
+        </p>
+        <p className="text-[11px] mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>{label}</p>
+      </div>
+    </motion.button>
   );
 }
 
@@ -888,16 +1449,17 @@ function TrackCard({
       initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.3), duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileTap={{ scale: 0.98 }}
+      whileHover={{ y: -4 }}
+      whileTap={{ scale: 0.97 }}
       onClick={onPlay}
       className="text-left cursor-pointer group w-full"
     >
       <div
-        className="relative aspect-square rounded-xl overflow-hidden mb-2"
+        className="relative aspect-square rounded-2xl overflow-hidden mb-2"
         style={{
           boxShadow: isCurrent
-            ? "0 0 0 2px var(--mq-accent)"
-            : "var(--mq-shadow-premium-sm)",
+            ? "0 0 0 2px var(--mq-accent), 0 8px 24px color-mix(in srgb, var(--mq-accent) 30%, transparent)"
+            : "var(--mq-shadow-premium-md)",
           transition: "box-shadow 0.3s var(--mq-ease-premium)",
         }}
       >
@@ -905,7 +1467,7 @@ function TrackCard({
           <img
             src={track.cover}
             alt=""
-            className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
             loading="lazy"
           />
         ) : (
@@ -917,12 +1479,13 @@ function TrackCard({
           </div>
         )}
         {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200" />
-        {/* Play button — flat accent circle, no drop-shadow */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300" />
+        {/* Play button */}
         <div
-          className="absolute bottom-2 right-2 w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200 sm:scale-90 sm:group-hover:scale-100 sm:translate-y-2 sm:group-hover:translate-y-0"
+          className="absolute bottom-2 right-2 w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:scale-90 sm:group-hover:scale-100 sm:translate-y-2 sm:group-hover:translate-y-0"
           style={{
             backgroundColor: "var(--mq-accent)",
+            boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
           }}
         >
           {isCurrent && isPlaying ? (
@@ -931,13 +1494,14 @@ function TrackCard({
             <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
           )}
         </div>
-        {/* Current badge — flat, readable */}
+        {/* Current badge */}
         {isCurrent && (
           <div
-            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1"
+            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold backdrop-blur-md flex items-center gap-1"
             style={{
-              backgroundColor: "rgba(0,0,0,0.65)",
+              backgroundColor: "rgba(0,0,0,0.6)",
               color: "var(--mq-accent)",
+              border: "1px solid var(--mq-border-accent)",
             }}
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
@@ -1058,6 +1622,183 @@ function PlaylistCard({
 }
 
 // ═════════════════════════════════════════════════════════════════════════
+// REC HERO — featured track at the top of the "Для вас" section
+// Uses the currently-playing track (if it's in recs) or the first track of
+// the first category. Mirrors Spotify's "Featured" / Apple Music's hero card
+// pattern with a blurred cover backdrop.
+// ═════════════════════════════════════════════════════════════════════════
+
+function RecHero({
+  track, reason, isCurrent, isPlaying, onPlay, onArtistClick, animationsEnabled,
+}: {
+  track: Track;
+  reason: string;
+  isCurrent: boolean;
+  isPlaying: boolean;
+  onPlay: () => void;
+  onArtistClick: () => void;
+  animationsEnabled: boolean;
+}) {
+  const liked = useAppStore((s) => s.likedTrackIds.includes(track.id));
+  const toggleLike = useAppStore((s) => s.toggleLike);
+
+  return (
+    <motion.div
+      initial={animationsEnabled ? { opacity: 0, y: 14 } : undefined}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      onClick={onPlay}
+      className="relative rounded-3xl overflow-hidden mb-1 cursor-pointer group"
+      style={{ boxShadow: "var(--mq-shadow-float)" }}
+    >
+      {/* Blurred cover background */}
+      {track.cover ? (
+        <div className="absolute inset-0">
+          <img
+            src={track.cover}
+            alt=""
+            className="w-full h-full object-cover"
+            style={{ filter: "blur(48px) saturate(180%)", transform: "scale(1.4)" }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "linear-gradient(135deg, color-mix(in srgb, var(--mq-bg) 55%, transparent), color-mix(in srgb, var(--mq-bg) 35%, transparent))",
+            }}
+          />
+        </div>
+      ) : (
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 30%, var(--mq-bg)), var(--mq-bg))",
+          }}
+        />
+      )}
+
+      {/* Content */}
+      <div className="relative z-10 p-3 sm:p-5 flex items-center gap-3 sm:gap-5">
+        {/* Cover */}
+        <div
+          className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-2xl overflow-hidden flex-shrink-0"
+          style={{ boxShadow: "var(--mq-shadow-elevated)" }}
+        >
+          {track.cover ? (
+            <img src={track.cover} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div
+              className="w-full h-full flex items-center justify-center"
+              style={{
+                background:
+                  "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))",
+              }}
+            >
+              <Music className="w-10 h-10" style={{ color: "rgba(255,255,255,0.7)" }} />
+            </div>
+          )}
+          {/* Hover play overlay */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+            style={{ backgroundColor: "rgba(0,0,0,0.45)" }}>
+            {isCurrent && isPlaying ? (
+              <Pause className="w-7 h-7 sm:w-9 sm:h-9" fill="#fff" style={{ color: "#fff" }} />
+            ) : (
+              <Play className="w-7 h-7 sm:w-9 sm:h-9 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
+            )}
+          </div>
+        </div>
+
+        {/* Meta */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <motion.span
+              animate={{ opacity: [0.6, 1, 0.6], scale: [0.95, 1, 0.95] }}
+              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+              className="inline-flex"
+            >
+              <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
+            </motion.span>
+            <span
+              className="text-[11px] font-bold uppercase tracking-widest"
+              style={{ color: "var(--mq-accent)" }}
+            >
+              Рекомендация для вас
+            </span>
+          </div>
+          <h3
+            className="text-lg sm:text-xl font-bold truncate"
+            style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}
+            title={track.title}
+          >
+            {track.title}
+          </h3>
+          <button
+            onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
+            className="text-sm truncate hover:underline block w-full text-left mt-0.5"
+            style={{ color: "var(--mq-text-muted)" }}
+          >
+            {track.artist}
+          </button>
+          {reason && (
+            <div
+              className="hidden sm:inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--mq-accent) 24%, transparent)",
+              }}
+            >
+              <span
+                className="text-[11px] font-medium"
+                style={{ color: "var(--mq-accent)" }}
+              >
+                {reason}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+          <motion.button
+            whileTap={{ scale: 0.93 }}
+            whileHover={{ scale: 1.05 }}
+            onClick={(e) => { e.stopPropagation(); onPlay(); }}
+            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center"
+            style={{
+              backgroundColor: "var(--mq-accent)",
+              color: "#fff",
+              boxShadow: "var(--mq-shadow-accent)",
+            }}
+            aria-label={isCurrent && isPlaying ? "Пауза" : "Слушать"}
+          >
+            {isCurrent && isPlaying ? (
+              <Pause className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" />
+            ) : (
+              <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5" fill="currentColor" />
+            )}
+          </motion.button>
+          <motion.button
+            whileTap={{ scale: 0.93 }}
+            whileHover={{ scale: 1.05 }}
+            onClick={(e) => { e.stopPropagation(); toggleLike(track.id, track); }}
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center"
+            style={{
+              backgroundColor: "var(--mq-card)",
+              color: liked ? "var(--mq-accent)" : "var(--mq-text-muted)",
+              border: "1px solid var(--mq-border-hairline)",
+            }}
+            aria-label={liked ? "Убрать из избранного" : "В избранное"}
+          >
+            <Heart className="w-4 h-4 sm:w-5 sm:h-5" fill={liked ? "currentColor" : "none"} />
+          </motion.button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ═════════════════════════════════════════════════════════════════════════
 // REC STRIP — horizontal scroll of track cards for one category
 // Replaces the old Hero+Tabs+List design with a simpler Spotify-home layout
 // ═════════════════════════════════════════════════════════════════════════
@@ -1065,7 +1806,7 @@ function PlaylistCard({
 function RecStrip({
   title, icon: Icon, tracks, reason, currentTrack, isPlaying, onPlay, onArtistClick, animationsEnabled,
 }: {
-  title?: string;
+  title: string;
   icon: React.ElementType;
   tracks: Track[];
   reason: string;
@@ -1078,27 +1819,22 @@ function RecStrip({
   if (tracks.length === 0) return null;
   return (
     <div>
-      {/* Phase 4B: sub-strip header — quiet meta voice, not a second
-          section title. The first strip (lead) has no header at all:
-          it flows straight out of the "Для вас" section title. */}
-      {title && (
-        <div className="flex items-center gap-2 mb-3">
-          <Icon className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
-          <h3 className="mq-text-eyebrow">{title}</h3>
-          <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", color: "var(--mq-text-muted)" }}>
-            {tracks.length}
-          </span>
-        </div>
-      )}
+      {/* Section header */}
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+        <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>{title}</h3>
+        <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "var(--mq-border-thin)", color: "var(--mq-text-muted)" }}>
+          {tracks.length}
+        </span>
+      </div>
 
-      {/* Horizontal scroll of cards — lead card is wider (editorial lead) */}
+      {/* Horizontal scroll of cards */}
       <HScroll className="flex gap-3 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 pb-1">
         {tracks.map((track, i) => (
           <RecCard
             key={track.id + "_" + i}
             track={track}
             index={i}
-            featured={i === 0 && !title}
             reason={reason}
             isCurrent={currentTrack?.id === track.id}
             isPlaying={isPlaying && currentTrack?.id === track.id}
@@ -1115,11 +1851,10 @@ function RecStrip({
 // ─── RecCard — visual card (cover + title + artist) ───────────────────────
 
 function RecCard({
-  track, index, featured, reason, isCurrent, isPlaying, onPlay, onArtistClick, animationsEnabled,
+  track, index, reason, isCurrent, isPlaying, onPlay, onArtistClick, animationsEnabled,
 }: {
   track: Track;
   index: number;
-  featured?: boolean;
   reason: string;
   isCurrent: boolean;
   isPlaying: boolean;
@@ -1132,48 +1867,43 @@ function RecCard({
       initial={animationsEnabled ? { opacity: 0, scale: 0.95 } : undefined}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ delay: Math.min(index * 0.03, 0.3), duration: 0.3 }}
+      whileHover={{ y: -4 }}
       onClick={onPlay}
-      className="flex-shrink-0 cursor-pointer group"
-      style={{ width: featured ? 232 : undefined }}
+      className="flex-shrink-0 w-[140px] sm:w-[160px] cursor-pointer group"
     >
-      {/* Cover — Phase 4B: one artwork language. Featured card is 1:1 but
-          wider (editorial lead column), regular cards are 160px squares.
-          Depth = inner hairline + grounded shadow, never accent glow. */}
+      {/* Cover */}
       <div
-        className={`mq-art relative aspect-square mb-2.5 ${featured ? "" : "w-[140px] sm:w-[160px]"}`}
+        className="relative aspect-square rounded-2xl overflow-hidden mb-2"
         style={{
           boxShadow: isCurrent
-            ? "var(--mq-art-edge), 0 0 0 2px var(--mq-accent)"
-            : "var(--mq-art-edge), var(--mq-art-shadow)",
+            ? "0 0 0 2px var(--mq-accent), 0 8px 24px color-mix(in srgb, var(--mq-accent) 30%, transparent)"
+            : "var(--mq-shadow-premium-md)",
+          transition: "box-shadow 0.3s var(--mq-ease-premium)",
         }}
       >
         {track.cover ? (
-          <img
-            src={track.cover}
-            alt=""
-            className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-[400ms] ease-out"
-            loading="lazy"
-          />
+          <img src={track.cover} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center" style={{ background: "var(--mq-surface-2)" }}>
-            <Music className="w-7 h-7" style={{ color: "var(--mq-text-muted)" }} />
+          <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+            <Music className="w-7 h-7" style={{ color: "rgba(255,255,255,0.5)" }} />
           </div>
         )}
-        {/* Play affordance — one pattern: accent circle bottom-right,
-            hover-revealed on desktop, persistent on touch + featured. */}
+        {/* Dark gradient — always visible on mobile (so play button stays readable), hover-only on desktop */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300" />
+        {/* Play / pause button — visible on mobile, hover-only on desktop */}
         <div
-          className="mq-play-overlay"
-          data-visible={featured || isCurrent ? "true" : undefined}
-          style={{ width: featured ? 48 : 40, height: featured ? 48 : 40 }}
+          className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 translate-y-0 sm:translate-y-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-hover:translate-y-0"
+          style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)" }}
         >
           {isCurrent && isPlaying ? (
-            <Pause className={featured ? "w-5 h-5" : "w-4 h-4"} fill="#fff" style={{ color: "#fff" }} />
+            <Pause className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
           ) : (
-            <Play className={featured ? "w-5 h-5" : "w-4 h-4"} fill="#fff" style={{ color: "#fff" }} />
+            <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
           )}
         </div>
         {isCurrent && (
-          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold flex items-center gap-1" style={{ backgroundColor: "rgba(0,0,0,0.7)", color: "var(--mq-accent)" }}>
+          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold backdrop-blur-md flex items-center gap-1" style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}>
+            {/* Animated equalizer bars when playing, static dot when paused */}
             {isPlaying ? (
               <NowPlayingEqualizer size="xs" variant="inline" />
             ) : (
@@ -1183,22 +1913,15 @@ function RecCard({
           </div>
         )}
       </div>
-      {/* Text — featured gets a reason line (editorial dek) under the art */}
-      <p
-        className={`text-[13px] mq-t-title truncate leading-tight ${featured ? "text-[15px] sm:text-base" : ""}`}
-        style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}
-      >
+      {/* Text */}
+      <p className="text-[13px] font-semibold truncate leading-tight" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
         {track.title}
       </p>
-      <button
-        onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-        className={`text-[11px] truncate hover:underline block w-full text-left mt-0.5 mq-t-meta ${featured ? "text-xs" : ""}`}
-        style={{ color: "var(--mq-text-muted)" }}
-      >
+      <button onClick={(e) => { e.stopPropagation(); onArtistClick(); }} className="text-[11px] truncate hover:underline block w-full text-left mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
         {track.artist}
       </button>
-      {featured && reason && (
-        <p className="text-[11px] truncate mt-1.5 mq-t-meta" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>
+      {reason && (
+        <p className="text-[11px] truncate mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
           {reason}
         </p>
       )}
@@ -1497,9 +2220,17 @@ function WaveCard({
   isLiked: boolean;
   topGenres: string[];
 }) {
+  const waveMagnetic = useMagnetic({ strength: 1, padding: 60 });
   return (
     <div
-      className={isMobile ? "relative mb-8 rounded-2xl overflow-hidden" : "mq-hero-card relative mb-8"}
+      className={isMobile ? "relative mb-8 rounded-3xl overflow-hidden" : "mq-hero-card relative mb-8"}
+      ref={waveMagnetic.ref as React.RefObject<HTMLDivElement>}
+      // react-hooks/refs false positive: useMagnetic handlers only read the
+      // ref inside event callbacks — never during render.
+      // eslint-disable-next-line react-hooks/refs
+      onMouseMove={waveMagnetic.onMouseMove}
+      // eslint-disable-next-line react-hooks/refs
+      onMouseLeave={waveMagnetic.onMouseLeave}
       style={{
         background: isMobile
           ? (currentTrack?.cover
@@ -1507,20 +2238,84 @@ function WaveCard({
             : getWaveGradient())
           : getWaveGradient(),
         minHeight: isMobile ? 140 : 160,
-        boxShadow: "var(--mq-art-shadow)",
-        border: "1px solid var(--mq-edge-strong)",
+        boxShadow: "var(--mq-shadow-float)",
+        willChange: "transform",
       }}
     >
-      {/* Phase 4B: mobile blurred-cover backdrop removed (decorative wash). */}
+      {/* Tip 4 (Depth & texture from video): subtle noise overlay on the
+          star element. Pure CSS via SVG turbulence filter — no image asset,
+          no extra request. 4% opacity keeps it from competing with content. */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          opacity: 0.04,
+          mixBlendMode: "overlay",
+          backgroundImage:
+            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>\")",
+          backgroundSize: "120px 120px",
+        }}
+      />
+      {/* Blurred album art background (mobile only) */}
+      {isMobile && currentTrack?.cover && (
+        <div className="absolute inset-0 pointer-events-none">
+          <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" style={{ filter: "blur(60px) saturate(180%)", opacity: 0.3, transform: "scale(1.3)" }} />
+          <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-bg) 70%, transparent), color-mix(in srgb, var(--mq-bg) 50%, transparent))" }} />
+        </div>
+      )}
 
-      {/* Static wave silhouette when wave mode is active — a state
-          indicator, not a motion decoration (Phase 2B). */}
+      {/* Glass overlay (mobile only) */}
+      {isMobile && (
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "color-mix(in srgb, var(--mq-bg) 40%, transparent)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }} />
+      )}
+
+      {/* Pulsing glow animation */}
+      <motion.div
+        className="absolute inset-0 rounded-[inherit] pointer-events-none"
+        style={{ boxShadow: `0 0 ${isMobile ? 80 : 60}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 15 : 18}%, transparent)` }}
+        animate={{ opacity: isMobile ? [0.3, 0.6, 0.3] : [0.4, 0.8, 0.4] }}
+        transition={{ duration: isMobile ? 5 : 4, repeat: Infinity, ease: "easeInOut" }}
+      />
+
+      {/* Animated multi-layer wave background when playing */}
       {radioMode && currentTrack && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: isMobile ? 40 : 56, opacity: 0.12 }}>
-            <path
+          {/* Back wave — slowest, dimmest */}
+          <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: isMobile ? 60 : 80, opacity: isMobile ? 0.08 : 0.10 }}>
+            <motion.path
+              d="M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z"
+              fill="white"
+              animate={{ d: [
+                "M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z",
+                "M0,55 C150,70 300,25 450,50 C600,70 750,25 900,55 C1050,70 1200,25 1200,50 L1200,80 L0,80 Z",
+                "M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z",
+              ] }}
+              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+            />
+          </svg>
+          {/* Mid wave — medium speed, medium opacity */}
+          <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: isMobile ? 40 : 55, opacity: isMobile ? 0.10 : 0.14 }}>
+            <motion.path
               d="M0,50 C200,25 400,65 600,40 C800,15 1000,65 1200,40 L1200,80 L0,80 Z"
               fill="white"
+              animate={{ d: [
+                "M0,50 C200,25 400,65 600,40 C800,15 1000,65 1200,40 L1200,80 L0,80 Z",
+                "M0,30 C200,55 400,15 600,45 C800,65 1000,20 1200,50 L1200,80 L0,80 Z",
+                "M0,50 C200,25 400,65 600,40 C800,15 1000,65 1200,40 L1200,80 L0,80 Z",
+              ] }}
+              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+            />
+          </svg>
+          {/* Front wave — fastest, most opaque */}
+          <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: isMobile ? 22 : 32, opacity: isMobile ? 0.14 : 0.18 }}>
+            <motion.path
+              d="M0,60 C150,40 300,70 450,55 C600,40 750,70 900,55 C1050,40 1200,65 1200,55 L1200,80 L0,80 Z"
+              fill="white"
+              animate={{ d: [
+                "M0,60 C150,40 300,70 450,55 C600,40 750,70 900,55 C1050,40 1200,65 1200,55 L1200,80 L0,80 Z",
+                "M0,45 C150,65 300,30 450,50 C600,65 750,30 900,50 C1050,65 1200,30 1200,50 L1200,80 L0,80 Z",
+                "M0,60 C150,40 300,70 450,55 C600,40 750,70 900,55 C1050,40 1200,65 1200,55 L1200,80 L0,80 Z",
+              ] }}
+              transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
             />
           </svg>
         </div>
@@ -1550,13 +2345,13 @@ function WaveCard({
                   </div>
                 )}
               </div>
-              <motion.button whileTap={{ scale: 0.94 }}
+              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
                 onClick={onPauseWave}
                 className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgba(255,255,255,0.14)", border: "1px solid rgba(255,255,255,0.22)", color: "rgba(255,255,255,0.92)" }}>
+                style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)", border: "1px solid var(--mq-border-medium)", color: "rgba(255,255,255,0.9)", boxShadow: "var(--mq-shadow-card)" }}>
                 {isPlaying ? <Pause className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" /> : <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5" fill="currentColor" />}
               </motion.button>
-              <motion.button whileTap={{ scale: 0.94 }}
+              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
                 onClick={onSkip}
                 className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }}>
@@ -1621,11 +2416,20 @@ function WaveCard({
                       transition={isPlaying ? { duration: 0.5 + i * 0.08, repeat: Infinity, ease: "easeInOut", delay: i * 0.06 } : { duration: 0.2 }} />
                   ))}
                 </div>
-                <motion.button whileTap={{ scale: 0.94 }}
+                <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
                   onClick={onPauseWave}
                   className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 relative"
-                  style={{ background: "var(--mq-text-on-accent, #fff)", color: "var(--mq-bg)", boxShadow: "var(--mq-shadow-card)" }}>
+                  style={{ background: "var(--mq-text-on-accent, #fff)", color: "var(--mq-bg)", boxShadow: "var(--mq-shadow-card-hover)" }}>
                   {isPlaying ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6 ml-0.5" fill="currentColor" />}
+                  {/* Animated expanding ring when playing */}
+                  {isPlaying && (
+                    <motion.span
+                      className="absolute inset-0 rounded-full pointer-events-none"
+                      style={{ border: "2px solid var(--mq-text-on-accent, #fff)" }}
+                      animate={{ scale: [1, 1.4], opacity: [0.6, 0] }}
+                      transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }}
+                    />
+                  )}
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
                   onClick={onSkip}
@@ -1660,7 +2464,7 @@ function WaveCard({
                   </div>
                 )}
               </div>
-              <motion.button whileTap={{ scale: 0.94 }}
+              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
                 onClick={onStartWave} disabled={waveLoading}
                 className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ background: "rgba(255,255,255,0.9)", color: "var(--mq-bg)", boxShadow: "var(--mq-shadow-accent)" }}>
@@ -1691,14 +2495,14 @@ function WaveCard({
                   </div>
                 )}
               </div>
-              <motion.button whileTap={{ scale: 0.94 }}
+              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
                 onClick={onStartWave} disabled={waveLoading}
-                className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgba(255,255,255,0.92)", color: "#1a1a2e" }}>
+                className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "var(--mq-shadow-card-hover)" }}>
                 {waveLoading ? (
-                  <div className="mq-spin w-5 h-5 border-2 rounded-full" style={{ borderColor: "#1a1a2e", borderTopColor: "transparent" }} />
+                  <div className="mq-spin w-6 h-6 border-2 rounded-full" style={{ borderColor: "#1a1a2e", borderTopColor: "transparent" }} />
                 ) : (
-                  <Play className="w-5 h-5 ml-0.5" fill="currentColor" />
+                  <Play className="w-6 h-6 ml-0.5" fill="currentColor" />
                 )}
               </motion.button>
             </div>

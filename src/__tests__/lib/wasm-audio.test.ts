@@ -144,8 +144,10 @@ describe("audio engine manifest", () => {
 });
 
 describe("ABI contract", () => {
-  it("EXPECTED_WASM_ABI matches the Rust MQ_ABI_VERSION (2)", () => {
+  it("EXPECTED_WASM_ABI matches the Rust MQ_ABI_VERSION (3)", () => {
     // Bump both together: audio-engine/crates/{audio-wasm,codec-wasm}/src/lib.rs
-    expect(EXPECTED_WASM_ABI).toBe(2);
+    // v3: ring-buffer lane pointer semantics + expanded EngineStats layout
+    // (rms/peak/gainReductionDb/truePeakDb/lufsShort after the DSP meters).
+    expect(EXPECTED_WASM_ABI).toBe(3);
   });
 });

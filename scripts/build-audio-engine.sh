@@ -52,7 +52,7 @@ node -e "
 const fs = require('fs');
 (async () => {
   const need = {
-    audio_wasm: ['memory','mq_engine_new','mq_engine_drop','mq_cmd','mq_process_out','mq_process_ins','mq_stats','mq_ring_write_available','mq_ring_write_offset','mq_ring_capacity','mq_ring_commit_write','mq_set_eof','mq_is_drained','mq_scratch_ptr','mq_abi_version','mq_version','mq_has_simd'],
+    audio_wasm: ['memory','mq_engine_new','mq_engine_drop','mq_cmd','mq_process_out','mq_process_ins','mq_stats','mq_ring_write_available','mq_ring_write_offset','mq_ring_lane_base','mq_ring_capacity','mq_ring_commit_write','mq_set_eof','mq_is_drained','mq_scratch_ptr','mq_abi_version','mq_version','mq_has_simd'],
     codec_wasm: ['memory','mq_dec_new','mq_dec_drop','mq_dec_push','mq_dec_eof','mq_dec_pop_pcm','mq_dec_reset','mq_dec_started','mq_dec_sample_rate','mq_dec_channels','mq_dec_queued','mq_scratch_ptr','mq_abi_version','mq_version'],
   };
   for (const [name, names] of Object.entries(need)) {

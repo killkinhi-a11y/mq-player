@@ -176,6 +176,22 @@ impl PlanarRingBuffer {
         &self.data[channel * self.capacity..(channel + 1) * self.capacity]
     }
 
+    /// ABSOLUTE linear-memory offset (in f32 elements) of a lane's start.
+    /// The wasm ABI exposes ring pointers to JS, which addresses wasm
+    /// linear memory with ABSOLUTE byte offsets — a Vec-relative offset
+    /// would make JS write into the wrong memory (silent playback bug,
+    /// Phase O: the ring Vec lives at ~1.19 MB, not at 0).
+    pub fn lane_base_abs(&self, channel: usize) -> usize {
+        debug_assert!(channel < self.channels);
+        (self.data.as_ptr() as usize) / 4 + channel * self.capacity
+    }
+
+    /// ABSOLUTE write-cursor offset (f32 elements) for a channel lane.
+    pub fn write_offset_abs(&self, channel: usize) -> usize {
+        debug_assert!(channel < self.channels);
+        self.lane_base_abs(channel) + self.write_pos % self.capacity
+    }
+
     /// Mutable lane access (wasm ABI layer).
     pub fn lane_mut(&mut self, channel: usize) -> &mut [f32] {
         &mut self.data[channel * self.capacity..(channel + 1) * self.capacity]

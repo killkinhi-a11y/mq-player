@@ -56,7 +56,7 @@
 [data-style="japan"] div,
 [data-style="japan"] a,
 [data-style="japan"] label {
-  font-family: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', 'Georgia', 'Times New Roman', serif !important;
+  font-family: var(--mq-font-serif) !important;
   letter-spacing: 0.04em !important;
 }
 

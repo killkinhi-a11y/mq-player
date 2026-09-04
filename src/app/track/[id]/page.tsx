@@ -331,13 +331,13 @@ export default function ShareTrackPage() {
           <div className="text-center mb-8 px-2">
             <h1
               className="text-xl sm:text-2xl font-bold mb-2 leading-tight"
-              style={{ color: "#fff", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+              style={{ color: "#fff", fontFamily: "var(--mq-font-primary)" }}
             >
               {track.title}
             </h1>
             <p
               className="text-base sm:text-lg mb-2"
-              style={{ color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+              style={{ color: "rgba(255,255,255,0.6)", fontFamily: "var(--mq-font-primary)" }}
             >
               {track.artist}
             </p>
@@ -347,7 +347,7 @@ export default function ShareTrackPage() {
                 style={{
                   background: "rgba(224,49,49,0.15)",
                   color: "#e03131",
-                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                  fontFamily: "var(--mq-font-primary)",
                 }}
               >
                 {track.genre}
@@ -425,7 +425,7 @@ export default function ShareTrackPage() {
                 background: "rgba(255,255,255,0.08)",
                 color: "rgba(255,255,255,0.8)",
                 border: "1px solid rgba(255,255,255,0.1)",
-                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                fontFamily: "var(--mq-font-primary)",
               }}
             >
               Слушать полностью в MQ

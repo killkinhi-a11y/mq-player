@@ -85,7 +85,7 @@
 [data-style="streaming"] div,
 [data-style="streaming"] a,
 [data-style="streaming"] label {
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   letter-spacing: 0 !important;
   text-transform: none !important;
 }
@@ -180,7 +180,7 @@
 /* Nav buttons */
 [data-style="streaming"] header nav button {
   color: #a0aec0 !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-size: 13px !important;
   font-weight: 500 !important;
   letter-spacing: 0.02em !important;
@@ -211,7 +211,7 @@
 
 /* Logo — white with red accent */
 [data-style="streaming"] header div[class*="gap-2"][class*="cursor-pointer"] span {
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 800 !important;
   font-size: 20px !important;
   letter-spacing: -0.02em !important;
@@ -236,7 +236,7 @@
 
 [data-style="streaming"] header button[class*="rounded-xl"] span {
   color: #e2e8f0 !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 500 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -311,7 +311,7 @@
 /* Track title in player */
 [data-style="streaming"] div[class*="fixed"][class*="z-40"] p[class*="font-medium"] {
   color: #ffffff !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 600 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -353,7 +353,7 @@
 /* Time labels */
 [data-style="streaming"] div[class*="fixed"][class*="z-40"] div[style*="color: var(--mq-text-muted)"] {
   color: #a0aec0 !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
   font-weight: 400 !important;
@@ -419,7 +419,7 @@
 
 [data-style="streaming"] nav[class*="fixed"][class*="bottom"] button span {
   color: inherit !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   letter-spacing: 0.01em !important;
   font-size: 10px !important;
@@ -467,7 +467,7 @@
   border-radius: 100px !important;
   color: #ffffff !important;
   box-shadow: 0 4px 14px rgba(229,62,62,0.35) !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 700 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -488,7 +488,7 @@
   border-radius: 100px !important;
   color: #ffffff !important;
   box-shadow: 0 4px 14px rgba(229,62,62,0.35) !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 700 !important;
   text-transform: none !important;
   letter-spacing: 0 !important;
@@ -506,7 +506,7 @@
   border: 1px solid rgba(255,255,255,0.08) !important;
   background: #1a1a2e !important;
   color: #ffffff !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
 }
 
 [data-style="streaming"] input[type="text"]:focus,
@@ -591,7 +591,7 @@
 [data-style="streaming"] span[class*="rounded-full"][style*="background: #ef4444"] {
   background: #e53e3e !important;
   color: #ffffff !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 700 !important;
   text-transform: none !important;
   box-shadow: 0 2px 8px rgba(229,62,62,0.4) !important;
@@ -671,7 +671,7 @@
   background: #2d3748 !important;
   border-radius: 8px !important;
   color: #ffffff !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   font-weight: 500 !important;
   box-shadow: 0 2px 12px rgba(0,0,0,0.5) !important;
@@ -699,7 +699,7 @@
 [data-style="streaming"] div[class*="fixed"][class*="z-100"] h2,
 [data-style="streaming"] div[class*="fixed"][class*="z-50"] h2 {
   color: #ffffff !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 700 !important;
   text-transform: none !important;
   letter-spacing: -0.01em !important;
@@ -712,7 +712,7 @@
   color: #a0aec0 !important;
   text-transform: none !important;
   letter-spacing: 0.01em !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 400 !important;
   -webkit-text-fill-color: #a0aec0 !important;
   background: none !important;
@@ -768,7 +768,7 @@
   background: #2d3748 !important;
   border: 1px solid rgba(255,255,255,0.08) !important;
   color: #a0aec0 !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   font-weight: 500 !important;
   text-transform: none !important;
   letter-spacing: 0.01em !important;
@@ -814,7 +814,7 @@
 
 [data-style="streaming"] div[class*="fixed"][class*="z-100"] div[style*="color: var(--mq-text-muted)"] {
   color: #a0aec0 !important;
-  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif !important;
+  font-family: var(--mq-font-primary) !important;
   text-transform: none !important;
   letter-spacing: 0.02em !important;
   font-weight: 400 !important;

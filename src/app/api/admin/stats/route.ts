@@ -26,6 +26,8 @@ async function handler(
         totalMessagesR,
         totalStoriesR,
         totalPlaylistsR,
+        totalGroupsR,
+        totalGroupMessagesR,
         recentR,
       ] = await Promise.all([
         t.execute("SELECT COUNT(*) as c FROM User"),
@@ -37,6 +39,8 @@ async function handler(
         t.execute("SELECT COUNT(*) as c FROM Message"),
         t.execute("SELECT COUNT(*) as c FROM Story"),
         t.execute("SELECT COUNT(*) as c FROM Playlist"),
+        t.execute("SELECT COUNT(*) as c FROM GroupChat"),
+        t.execute("SELECT COUNT(*) as c FROM GroupMessage"),
         t.execute({
           sql: "SELECT id, username, email, confirmed, blocked, role, createdAt FROM User ORDER BY createdAt DESC LIMIT 10",
           args: [],
@@ -53,6 +57,8 @@ async function handler(
         totalMessages: Number(totalMessagesR.rows[0]?.c ?? 0),
         totalStories: Number(totalStoriesR.rows[0]?.c ?? 0),
         totalPlaylists: Number(totalPlaylistsR.rows[0]?.c ?? 0),
+        totalGroups: Number(totalGroupsR.rows[0]?.c ?? 0),
+        totalGroupMessages: Number(totalGroupMessagesR.rows[0]?.c ?? 0),
         recentRegistrations: recentR.rows.map((r) => {
           const row = r as Record<string, unknown>;
           return {
@@ -80,6 +86,8 @@ async function handler(
       totalMessages,
       totalStories,
       totalPlaylists,
+      totalGroups,
+      totalGroupMessages,
       recentRegistrations,
     ] = await Promise.all([
       db.user.count(),
@@ -91,6 +99,8 @@ async function handler(
       db.message.count(),
       db.story.count(),
       db.playlist.count(),
+      db.groupChat.count(),
+      db.groupMessage.count(),
       db.user.findMany({
         orderBy: { createdAt: "desc" },
         take: 10,
@@ -111,6 +121,8 @@ async function handler(
       totalMessages,
       totalStories,
       totalPlaylists,
+      totalGroups,
+      totalGroupMessages,
       recentRegistrations,
     });
   } catch (error) {

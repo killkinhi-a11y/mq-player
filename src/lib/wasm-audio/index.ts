@@ -18,7 +18,12 @@ export {
   seekPlayback,
   currentPlaybackPosition,
   OP,
+  PARAM,
+  sendDspCommand,
+  applyEqToWasm,
+  applyLimiterToWasm,
+  applySpatialToWasm,
 } from "./WasmAudioBackend";
-export type { WasmLoadOptions, WasmBackendCallbacks } from "./WasmAudioBackend";
+export type { WasmLoadOptions, WasmBackendCallbacks, DspSnapshot } from "./WasmAudioBackend";
 export { WasmAudioBackend } from "./WasmAudioBackend";
 export { wasmDiagnostics, markDiag, pushProcessNsSample } from "./diagnostics";

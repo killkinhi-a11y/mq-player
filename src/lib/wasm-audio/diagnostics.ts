@@ -24,6 +24,11 @@ export const wasmDiagnostics: WasmAudioDiagnostics = {
   p95ProcessNs: 0,
   maxProcessNs: 0,
   lastProcessNs: 0,
+  rms: 0,
+  peak: 0,
+  gainReductionDb: 0,
+  truePeakDb: 0,
+  lufsShort: 0,
   totalBytes: null,
   supportsRange: false,
   lastError: null,
@@ -39,6 +44,17 @@ if (win) {
 export function markDiag(patch: Partial<WasmAudioDiagnostics>): void {
   Object.assign(wasmDiagnostics, patch);
   wasmDiagnostics.lastEventAt = new Date().toISOString();
+}
+
+/** Reset per-track counters (meters, underruns) on a new track load. */
+export function resetDiagTrackCounters(): void {
+  wasmDiagnostics.rms = 0;
+  wasmDiagnostics.peak = 0;
+  wasmDiagnostics.gainReductionDb = 0;
+  wasmDiagnostics.truePeakDb = 0;
+  wasmDiagnostics.lufsShort = 0;
+  wasmDiagnostics.underruns = 0;
+  wasmDiagnostics.overruns = 0;
 }
 
 /** Track DSP time samples for p95 (called on each stats message). */
