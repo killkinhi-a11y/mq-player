@@ -1613,3 +1613,84 @@ Also verified in production:
 - Round 2 note: after «Обновить» the demo-mode auth view reappears (demo
   session is in-memory — same as a plain F5; real Telegram auth persists).
   Player state (track/queue/position) still restored on the auth view.
+
+---
+Task ID: phase-o
+Agent: main (Super Z)
+Task: PHASE O — final production verification & completion (audio pipeline first, then product surface)
+
+Work Log:
+- REPO STATE verified: branch phase-o2 == origin/main (2e1c8fc); ALL Phase O
+  work was UNCOMMITTED in the working tree (~3000 insertions) — production
+  was still on the old build, explaining active:false/backend:"element".
+- /play CHUNK ROOT CAUSE (§2): stale `next-server` process survived
+  rebuilds on :3000 (`pkill -f "next start"` doesn't match the spawned
+  process name; new npm start hit EADDRINUSE and died) → the old process
+  served its in-memory Turbopack module graph referencing deleted chunks →
+  500 "chunk in manifest, missing on disk". Fixed by killing next-server by
+  name; clean rebuild + fresh server → ALL manifest-referenced AND
+  live-HTML-referenced chunks exist on disk (new check in
+  scripts/verify-build.mjs, MQ_ORIGIN live HTML scan). Vercel unaffected
+  (immutable deployments). Also removed stale untracked bun.lock (repo had
+  2 lockfiles → turbopack root-inference warning; npm is the package
+  manager).
+- BACKEND SELECTION (§3): decision chain intact (decide.ts:
+  capabilities → wasm/worklet/fetch → source whitelist → ABI check);
+  E2E proof on production build: real SoundCloud progressive track →
+  backend=wasm, active=true, abi=3, simd, tag 5e2870-670948-a7a2b3,
+  lastError=null. Silent fallback only on real load failure (warn line).
+- ABI v3 (§4): Rust MQ_ABI_VERSION=3 in both crates; JS EXPECTED_WASM_ABI=3;
+  runtime abiVersion=3; worklet/worker byte-identical to audio-engine/js
+  sources; stale ABI-2 unit test updated to v3 (documented reason).
+- REAL AUDIO PROOF (§5): framesProcessed>0 growing, engine RMS 0.12–0.21,
+  peak up to 0.877, underruns=0, overruns=0, totalBytes 2.5MB streamed;
+  LIVE L/R measurement via ChannelSplitter tap on the backend analyser
+  (debug handles __mqAudioCtx/__mqAudioAnalyser added): 501,760 samples,
+  rmsL=rmsR=0.173 (mono-duplicated content), peakL=peakR=0.49.
+- DSP (§6) — real PCM deltas, not UI state:
+  * EQ OFF→ON(+Бас): RMS 0.161→0.209, peak 0.49→0.877 (engine meters)
+  * Limiter ON @-10dB: windowed output peak 0.3163 vs ceiling 0.316,
+    gainReduction 4.15dB (enginePeak is latched — windowed meter is the judge)
+  * Spatial ON: side energy 0.00000→0.00514 (Rust reverb decorrelated
+    previously-mono L/R)
+  * DSP SNAPSHOT SURVIVES RELOAD: after hard reload + re-play, output peak
+    was exactly the persisted -10dB ceiling → DspSnapshot replay into the
+    fresh engine works end-to-end.
+- SW/CACHE (§7): the stuck-browser scenario (stale chunks after server
+  swap) self-healed with a PLAIN RELOAD (no manual cache clear): SW
+  network-first navigation fetched fresh HTML, fresh chunks all 200.
+  Engine assets: version.json no-store + must-revalidate manifest,
+  content-hashed immutable artifacts, version tag consistent (no old/new
+  mixing). /version.json buildId will regenerate per-commit at deploy.
+- REGRESSION (§10): 281/281 unit tests; 66/66 Rust tests; cargo clippy 0
+  errors (pre-existing style warnings only); tsc --noEmit 0 errors; lint
+  runs — 123 pre-existing errors (72 text-[10px] legibility-floor policy
+  from the new typography rule + setState-in-effect from newer
+  react-hooks rules; documented as debt, no test deletions).
+- GROUPS (§11): 0-member creation E2E verified in demo mode. Root causes
+  fixed: (a) client sent no demo headers → 401; (b) demo headers with
+  Cyrillic value crash fetch (non-ISO-8859-1) → send ASCII id only, server
+  defaults the name; (c) API demo path ran DB member verification AFTER
+  demo check → Prisma init 500 locally / bogus 400 in prod — demo
+  short-circuit moved BEFORE member verification. Real users: unchanged
+  DB path (creator=admin role, member existence verified, 50 cap).
+  Empty-group state renders: Группа создана / Участников пока нет /
+  Добавить участников.
+- ADMIN (§12): /admin layout = server-side session + FRESH DB role lookup
+  (never trusts stale JWT claims); API routes wrapped in withAdminAuth;
+  live check: unauthenticated /admin → 307 redirect, /api/admin/* → 401.
+  AdminShell explicitly does not gate access client-side.
+- TYPOGRAPHY (§13): 6 Google fonts → 3 tokens (--mq-font-primary Manrope
+  cyrillic+latin / --mq-font-mono / --mq-font-serif); all 7 theme CSS
+  font-family overrides unified onto the primary token.
+- HOME (§14): new composition verified post-rebuild (Добрый день hero,
+  Запустить Волну, Для вас, Новое и в тренде, Подборки) — no regression
+  from build/config changes.
+- COMMIT 00e34f3 pushed to origin/main → Vercel deployment.
+
+Stage Summary:
+- Local production build FULLY verified end-to-end: /play loads, WASM
+  backend selected and active, real PCM+DSP proven with runtime metrics,
+  hard reload + persistence work, groups/admin/typography/home all green.
+- Next: production browser verification on mq1.vercel.app (deployment
+  00e34f3), then final Phase O report.
