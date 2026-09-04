@@ -368,7 +368,8 @@ export default function FriendsView() {
         <div className="flex items-center gap-3">
           <motion.button
             whileTap={{ scale: 0.9 }}
-            onClick={() => setView("main")}
+            // Task 9: Friends is reached from Chats — back returns to Chats.
+            onClick={() => setView("messenger")}
             className="p-2 rounded-xl cursor-pointer"
             style={{ color: "var(--mq-accent)", backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
           >
@@ -382,7 +383,7 @@ export default function FriendsView() {
               <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
                 {friends.length} {friends.length === 1 ? "друг" : friends.length < 5 ? "друга" : "друзей"}
                 {onlineFriendsCount > 0 && (
-                  <span style={{ color: "#22c55e" }}> · {onlineFriendsCount} онлайн</span>
+                  <span style={{ color: "var(--mq-online, #22c55e)" }}> · {onlineFriendsCount} онлайн</span>
                 )}
               </p>
             )}
@@ -425,7 +426,7 @@ export default function FriendsView() {
             <span
               className="px-1.5 py-0.5 rounded-md text-[11px] font-bold"
               style={{
-                backgroundColor: showOnlineOnly ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.06)",
+                backgroundColor: showOnlineOnly ? "rgba(34,197,94,0.15)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
               }}
             >
               {showOnlineOnly ? onlineFriendsCount : friends.length}
@@ -517,7 +518,7 @@ export default function FriendsView() {
                   <h2 className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
                     Исходящие запросы
                   </h2>
-                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                  <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
                     {outgoingRequests.length}
                   </span>
                 </div>
@@ -628,7 +629,7 @@ export default function FriendsView() {
             <div className="text-center py-10">
               <div
                 className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3"
-                style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid var(--mq-border-thin)" }}
+                style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)", border: "1px solid var(--mq-border-thin)" }}
               >
                 <WifiOff className="w-7 h-7" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
               </div>
@@ -733,7 +734,7 @@ export default function FriendsView() {
                 <div className="text-center py-8">
                   <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3"
-                    style={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)" }}
                   >
                     <Search className="w-5 h-5" style={{ color: "var(--mq-text-muted)", opacity: 0.4 }} />
                   </div>

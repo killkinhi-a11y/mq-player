@@ -379,7 +379,7 @@ export default function SearchView() {
               </div>
             </div>
             {uploadProgress.status === "uploading" && (
-              <div className="w-full rounded-full h-1.5 overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+              <div className="w-full rounded-full h-1.5 overflow-hidden" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)" }}>
                 <div className="h-full rounded-full transition-all" style={{ width: "100%", transform: `scaleX(${(uploadProgress.fileProgress || 0) / 100})`, transformOrigin: "left", willChange: "transform", backgroundColor: "var(--mq-accent)" }} />
               </div>
             )}
@@ -514,7 +514,7 @@ export default function SearchView() {
               whileTap={{ scale: 0.95 }}
               onClick={handleClearSearch}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-white/10"
-              style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "var(--mq-text-muted)" }}
+              style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)", color: "var(--mq-text-muted)" }}
             >
               <X className="w-3.5 h-3.5" />
             </motion.button>
@@ -708,7 +708,7 @@ export default function SearchView() {
                           handleRemoveHistoryItem(query);
                         }}
                         className="w-4 h-4 rounded-full flex items-center justify-center transition-opacity ml-0.5 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:pointer-events-auto hover:!opacity-100"
-                        style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
+                        style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)" }}
                       >
                         <X className="w-2.5 h-2.5" />
                       </motion.button>
@@ -1110,7 +1110,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
             {track.genre && (
               <>
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
-                <span className="text-[10px] px-1.5 py-0 rounded-md" style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                <span className="text-[10px] px-1.5 py-0 rounded-md" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
                   {track.genre}
                 </span>
               </>

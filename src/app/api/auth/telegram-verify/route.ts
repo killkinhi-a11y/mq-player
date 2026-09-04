@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { database } from "@/lib/database";
 import { signToken, SESSION_COOKIE_OPTIONS } from "@/lib/auth";
+import { ensureOwnerAdminRole } from "@/lib/admin-grant";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -114,18 +115,21 @@ async function handler(req: NextRequest) {
 
         const updatedUser = await database.findUserById(existingUsername.id);
 
+        // Owner bootstrap before issuing the JWT
+        const role = await ensureOwnerAdminRole(updatedUser!);
+
         // Issue JWT — auto-login
         const token = await signToken({
           userId: updatedUser!.id,
           username: updatedUser!.username,
-          role: updatedUser!.role,
+          role,
         });
 
         const response = NextResponse.json({
           message: "Telegram привязан к аккаунту!",
           userId: updatedUser!.id,
           username: updatedUser!.username,
-          role: updatedUser!.role,
+          role,
           avatar: updatedUser!.avatar || null,
           telegramUsername: updatedUser!.telegramUsername || telegramCode.telegramUsername || null,
           isNewUser: false,
@@ -162,18 +166,21 @@ async function handler(req: NextRequest) {
         telegramUsername: telegramCode.telegramUsername,
       });
 
+      // Owner bootstrap before issuing the JWT (covers brand-new owner account)
+      const role = await ensureOwnerAdminRole(user);
+
       // Issue JWT — auto-login
       const token = await signToken({
         userId: user.id,
         username: user.username,
-        role: user.role,
+        role,
       });
 
       const response = NextResponse.json({
         message: "Аккаунт создан!",
         userId: user.id,
         username: user.username,
-        role: user.role,
+        role,
         avatar: user.avatar || null,
         telegramUsername: user.telegramUsername || telegramCode.telegramUsername || null,
         isNewUser: true,
@@ -208,18 +215,21 @@ async function handler(req: NextRequest) {
         await database.updateUser(existingUser.id, { telegramUsername: telegramCode.telegramUsername });
       }
 
+      // Owner bootstrap before issuing the JWT
+      const role = await ensureOwnerAdminRole(existingUser);
+
       // Issue JWT
       const token = await signToken({
         userId: existingUser.id,
         username: existingUser.username,
-        role: existingUser.role,
+        role,
       });
 
       const response = NextResponse.json({
         message: "Вход выполнен!",
         userId: existingUser.id,
         username: existingUser.username,
-        role: existingUser.role,
+        role,
         avatar: existingUser.avatar || null,
         telegramUsername: existingUser.telegramUsername || telegramCode.telegramUsername || null,
         isNewUser: false,

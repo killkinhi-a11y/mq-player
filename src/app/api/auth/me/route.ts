@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/get-session";
 import { database } from "@/lib/database";
+import { ensureOwnerAdminRole } from "@/lib/admin-grant";
 
 export async function GET() {
   try {
@@ -16,12 +17,15 @@ export async function GET() {
       return NextResponse.json({ authenticated: false }, { status: 401 });
     }
 
+    // Owner bootstrap: DB role is source of truth; grant persists in DB.
+    const role = await ensureOwnerAdminRole(user);
+
     return NextResponse.json({
       authenticated: true,
       userId: user.id,
       username: user.username,
       email: user.email,
-      role: user.role,
+      role,
       avatar: user.avatar || null,
       telegramUsername: user.telegramUsername || null,
       theme: user.theme,

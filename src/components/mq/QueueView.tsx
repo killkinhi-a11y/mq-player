@@ -354,7 +354,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                     {upNext.length > 0 && (
                       <span
                         className="mq-t-num text-[11px] px-1.5 py-0.5 rounded-full"
-                        style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}
+                        style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
                       >
                         {upNext.length}
                       </span>
@@ -442,7 +442,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                     </p>
                     <span
                       className="mq-t-num text-[11px] px-1.5 py-0.5 rounded-full"
-                      style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}
+                      style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
                     >
                       {remainingQueue.length}
                     </span>
@@ -731,7 +731,7 @@ function SortableUpNextTrackItem({
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 50 : "auto",
     border: isDragging ? "1.5px solid var(--mq-accent)" : "1px solid transparent",
-    backgroundColor: isDragging ? "rgba(255,255,255,0.06)" : "transparent",
+    backgroundColor: isDragging ? "color-mix(in srgb, var(--mq-text) 6%, transparent)" : "transparent",
     boxShadow: isDragging ? "0 0 12px color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "none",
   };
 
@@ -918,7 +918,7 @@ function SortableQueueTrackItem({
     opacity: isDragging ? 0.4 : 1,
     zIndex: isDragging ? 50 : "auto",
     border: isDragging ? "1.5px solid var(--mq-accent)" : "1px solid transparent",
-    backgroundColor: isDragging ? "rgba(255,255,255,0.06)" : "transparent",
+    backgroundColor: isDragging ? "color-mix(in srgb, var(--mq-text) 6%, transparent)" : "transparent",
     boxShadow: isDragging ? "0 0 12px color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "none",
   };
 

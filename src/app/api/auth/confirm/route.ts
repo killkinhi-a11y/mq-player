@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { database } from "@/lib/database";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { signToken, SESSION_COOKIE_OPTIONS } from "@/lib/auth";
+import { ensureOwnerAdminRole } from "@/lib/admin-grant";
 
 // Legacy confirm endpoint — now requires a verification code
 // Kept for backward compatibility but now verifies via code
@@ -66,7 +67,10 @@ async function handler(req: NextRequest) {
     await database.updateUser(user.id, { confirmed: true });
 
     // Issue JWT session token — auto-login after confirmation
-    const token = await signToken({ userId: user.id, username: user.username });
+    // Owner bootstrap before issuing the JWT + fix: role claim was missing here
+    const role = await ensureOwnerAdminRole(user);
+
+    const token = await signToken({ userId: user.id, username: user.username, role });
 
     const response = NextResponse.json({
       message: "Почта успешно подтверждена!",

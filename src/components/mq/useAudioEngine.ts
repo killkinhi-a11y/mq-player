@@ -506,7 +506,30 @@ export function createManifestInterceptor(audioEl: HTMLAudioElement): (xhr: XMLH
   };
 }
 
-export async function resolveSoundCloudStream(scTrackId: number): Promise<StreamResult | null> {
+// ── Client-side resolved-stream cache (Task 8: slow track loading) ──
+// Replays (from history/likes/queue re-entry) skip the 2-5s resolve round
+// trip entirely. TTL 15 min — CDN URLs are signed with longer validity, and
+// any stale URL is caught by the audio error handler which re-resolves with
+// { noCache: true }. In-flight dedupe: concurrent callers share one promise.
+const STREAM_CACHE_TTL = 15 * 60 * 1000;
+const streamCache = new Map<number, { stream: StreamResult; at: number }>();
+const streamInFlight = new Map<number, Promise<StreamResult | null>>();
+
+export async function resolveSoundCloudStream(
+  scTrackId: number,
+  opts?: { noCache?: boolean }
+): Promise<StreamResult | null> {
+  const useCache = !opts?.noCache;
+  if (useCache) {
+    const hit = streamCache.get(scTrackId);
+    if (hit && Date.now() - hit.at < STREAM_CACHE_TTL) {
+      return hit.stream;
+    }
+  }
+  const existing = streamInFlight.get(scTrackId);
+  if (existing) return existing;
+
+  const run = (async () => {
   try {
     // Include cobalt JWT if available (for SNIP bypass)
     const cobaltJwt = useAppStore.getState().getCobaltJwt();
@@ -526,7 +549,7 @@ export async function resolveSoundCloudStream(scTrackId: number): Promise<Stream
     }
 
     if (data.url) {
-      return {
+      const stream: StreamResult = {
         url: data.url,
         isPreview: !!data.isPreview,
         duration: data.duration || 0,
@@ -539,6 +562,8 @@ export async function resolveSoundCloudStream(scTrackId: number): Promise<Stream
         fallbackStreams: data.fallbackStreams || null,
         drmRestricted: !!data.drmRestricted,
       };
+      cacheResolvedStream(scTrackId, stream);
+      return stream;
     }
 
     if (data.resolveUrl) {
@@ -553,7 +578,7 @@ export async function resolveSoundCloudStream(scTrackId: number): Promise<Stream
           const proxyData = await proxyRes.json();
           if (proxyData.url) {
             console.log(`[resolveStream] CORS proxy succeeded: url=${proxyData.url.substring(0, 60)}...`);
-            return {
+            const stream: StreamResult = {
               url: proxyData.url,
               isPreview: !!data.isPreview,
               duration: data.duration || 0,
@@ -564,6 +589,8 @@ export async function resolveSoundCloudStream(scTrackId: number): Promise<Stream
               licenseUrl: data.licenseUrl || null,
               licenseAuthToken: data.licenseAuthToken || proxyData.licenseAuthToken || null,
             };
+            cacheResolvedStream(scTrackId, stream);
+            return stream;
           }
         }
       } catch {
@@ -577,6 +604,22 @@ export async function resolveSoundCloudStream(scTrackId: number): Promise<Stream
   } catch (err) {
     console.warn("[resolveSoundCloudStream] failed:", err);
     return null;
+  }
+  })();  // end in-flight run
+  streamInFlight.set(scTrackId, run);
+  try {
+    return await run;
+  } finally {
+    streamInFlight.delete(scTrackId);
+  }
+}
+
+function cacheResolvedStream(scTrackId: number, stream: StreamResult) {
+  streamCache.set(scTrackId, { stream, at: Date.now() });
+  // Cap the cache (oldest-insert eviction) — Map preserves insertion order.
+  if (streamCache.size > 50) {
+    const oldest = streamCache.keys().next().value;
+    if (oldest !== undefined) streamCache.delete(oldest);
   }
 }
 
@@ -709,14 +752,13 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     if (nextT.source !== "soundcloud" || !nextT.scTrackId) return;
 
     cacheWarmupStartedRef.current = nextT.id;
-    // Fire and forget — the response just warms the server cache.
-    fetch(`/api/music/soundcloud/stream?trackId=${nextT.scTrackId}`)
-      .then(res => res.ok ? res.json() : null)
-      .then(data => {
-        if (data?._cache_hit) {
-          console.log(`[CacheWarm] Next track already cached: ${nextT.title}`);
-        } else if (data?.url) {
-          console.log(`[CacheWarm] Pre-warmed next track: ${nextT.title}`);
+    // Fire and forget — resolveSoundCloudStream warms the SERVER cache (edge
+    // isolate) AND the CLIENT stream cache, so the actual skip reuses the
+    // resolved URL with zero round-trips (Task 8).
+    resolveSoundCloudStream(nextT.scTrackId)
+      .then(stream => {
+        if (stream?.url) {
+          console.log(`[CacheWarm] Pre-warmed next track (server + client): ${nextT.title}`);
         }
       })
       .catch(() => {
@@ -1051,7 +1093,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         const scId = st.currentTrack.scTrackId;
         console.warn(`[Player] Error on SC track${wasMidPlayback ? ' (mid-playback)' : ''}, re-resolving stream (attempt ${retryCountRef.current}/${maxRetries})`);
 
-        resolveSoundCloudStream(scId).then(async (stream) => {
+        resolveSoundCloudStream(scId, { noCache: true }).then(async (stream) => {
           retryingRef.current = false;
 
           const currentSt = useAppStore.getState();
@@ -1253,7 +1295,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             PlayerErrorLogger.log(st.currentTrack?.title || "unknown", "Loading timeout (10s)", "force retry");
             if (st.currentTrack?.scTrackId && !retryingRef.current) {
               retryingRef.current = true;
-              resolveSoundCloudStream(st.currentTrack.scTrackId).then(async (stream) => {
+              resolveSoundCloudStream(st.currentTrack.scTrackId, { noCache: true }).then(async (stream) => {
                 retryingRef.current = false;
                 if (!stream?.url || !a) return;
                 if (useAppStore.getState().currentTrack?.scTrackId !== st.currentTrack?.scTrackId) return;
@@ -1331,7 +1373,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             const st = useAppStore.getState();
             if (st.currentTrack?.scTrackId && !retryingRef.current) {
               retryingRef.current = true;
-              resolveSoundCloudStream(st.currentTrack.scTrackId).then(async (stream) => {
+              resolveSoundCloudStream(st.currentTrack.scTrackId, { noCache: true }).then(async (stream) => {
                 retryingRef.current = false;
                 if (!stream?.url || !a) {
                   setPlayError(true);
@@ -2037,7 +2079,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   if (!retryingRef.current && currentTrack.scTrackId) {
                     retryingRef.current = true;
                     console.warn("[Player] DRM failed, all fallbacks exhausted — re-resolving stream...");
-                    resolveSoundCloudStream(currentTrack.scTrackId).then(async (freshStream) => {
+                    resolveSoundCloudStream(currentTrack.scTrackId, { noCache: true }).then(async (freshStream) => {
                       retryingRef.current = false;
                       if (cancelled) return;
                       if (freshStream && freshStream.url) {

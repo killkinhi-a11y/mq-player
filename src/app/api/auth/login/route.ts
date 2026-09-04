@@ -3,6 +3,7 @@ import { database } from "@/lib/database";
 import bcrypt from "bcryptjs";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { signToken, SESSION_COOKIE_OPTIONS } from "@/lib/auth";
+import { ensureOwnerAdminRole } from "@/lib/admin-grant";
 import { validateContentType } from "@/lib/withAuth";
 
 /**
@@ -101,15 +102,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Owner bootstrap before issuing the JWT (role is embedded in the token)
+    const role = await ensureOwnerAdminRole(user);
+
     // Issue JWT session token in httpOnly cookie
-    const token = await signToken({ userId: user.id, username: user.username, email: user.email, role: user.role });
+    const token = await signToken({ userId: user.id, username: user.username, email: user.email, role });
 
     const response = NextResponse.json({
       message: "Вход выполнен успешно",
       userId: user.id,
       username: user.username,
       email: user.email,
-      role: user.role,
+      role,
       avatar: user.avatar || null,
       theme: user.theme,
       accent: user.accent,

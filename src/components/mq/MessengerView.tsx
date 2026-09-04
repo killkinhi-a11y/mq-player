@@ -11,7 +11,7 @@ import { canPollProtected, controlled401Recovery, isDemoUser } from "@/lib/authG
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MessageCircle, Search, Send, ArrowLeft, X, Plus, Loader2, UserPlus, Mic,
-  Pin, Trash2, Smile, Users, Lock, Check, CheckCheck, Copy, Reply, User,
+  Pin, Trash2, Smile, Users, Lock, Check, CheckCheck, Copy, Reply, User, Contact,
 } from "lucide-react";
 import { simulateDecryptSync, simulateEncrypt } from "@/lib/crypto";
 import { useToast } from "@/hooks/use-toast";
@@ -165,7 +165,7 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
     <div className="flex items-center gap-2 min-w-[180px] py-0.5">
       <motion.button whileTap={{ scale: 0.9 }} onClick={toggle}
         className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: isMine ? "rgba(255,255,255,0.22)" : "var(--mq-accent)", color: "#fff" }}
+        style={{ backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 22%, transparent)" : "var(--mq-accent)", color: "#fff" }}
         aria-label={playing ? "Пауза" : "Воспроизвести"}>
         {playing ? <span className="text-[10px] leading-none">❚❚</span>
           : <span className="text-xs leading-none ml-0.5">▶</span>}
@@ -221,7 +221,7 @@ function DateSeparator({ label }: { label: string }) {
   return (
     <div className="flex justify-center my-3">
       <span className="text-[11px] px-3 py-1 rounded-full font-medium"
-        style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "var(--mq-text-muted)" }}>
+        style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)", color: "var(--mq-text-muted)" }}>
         {label}
       </span>
     </div>
@@ -237,6 +237,7 @@ export default function MessengerView() {
   const addMessage = useAppStore((s) => s.addMessage);
   const selectedContactId = useAppStore((s) => s.selectedContactId);
   const setSelectedContact = useAppStore((s) => s.setSelectedContact);
+  const setView = useAppStore((s) => s.setView);
   const animationsEnabled = useAppStore((s) => s.animationsEnabled);
   const unreadCounts = useAppStore((s) => s.unreadCounts) as Record<string, number>;
   const compactMode = useAppStore((s) => s.compactMode);
@@ -1003,11 +1004,15 @@ export default function MessengerView() {
   }, [showNewChat, showNewGroup, showAddMembers, newChatSearch, userId]);
 
   // ── Start new chat ──
+  // FIX (Task 9): the POST /api/friends route reads `addresseeId` from the
+  // body (requester comes from the session cookie) — the old `friendId` field
+  // silently 400'd, so "new chat" opened a chat without creating a real
+  // friendship. Real body field now.
   const handleStartChat = useCallback((user: any) => {
     if (!user?.id) return;
     fetch("/api/friends", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, friendId: user.id }),
+      body: JSON.stringify({ addresseeId: user.id }),
     })
       .then(() => {
         fetchFriends();
@@ -1217,23 +1222,33 @@ export default function MessengerView() {
                 <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>Чаты</h2>
                 {safeFriends.length + safeGroupChats.length > 0 && (
                   <span className="text-xs px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}>
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
                     {safeFriends.length + safeGroupChats.length}
                   </span>
                 )}
               </div>
               <div className="flex items-center gap-1.5">
+                {/* Task 9: Friends access — opens the real FriendsView
+                    (requests, online statuses, add-friend, listen invites). */}
+                <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.05 }}
+                  onClick={() => setView("friends")}
+                  className="h-10 px-3 sm:px-3.5 rounded-full flex items-center gap-1.5"
+                  style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
+                  aria-label="Друзья" title="Друзья">
+                  <Contact className="w-4 h-4" />
+                  <span className="hidden sm:inline text-xs font-medium">Друзья</span>
+                </motion.button>
                 <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.05 }}
                   onClick={() => setShowNewGroup(true)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}
+                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
                   aria-label="Новая группа" title="Новая группа">
                   <Users className="w-4 h-4" />
                 </motion.button>
                 <motion.button whileTap={{ scale: 0.95 }} whileHover={{ scale: 1.05 }}
                   onClick={() => setShowNewChat(true)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
+                  className="w-10 h-10 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
                   aria-label="Новый чат">
                   <Plus className="w-4 h-4" />
                 </motion.button>
@@ -1690,7 +1705,7 @@ export default function MessengerView() {
                             inputRef.current?.focus();
                           }}
                           className="text-xl p-1.5 rounded-lg"
-                          style={{ backgroundColor: "rgba(255,255,255,0.04)" }}>
+                          style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)" }}>
                           {emoji}
                         </motion.button>
                       ))}
@@ -1703,7 +1718,7 @@ export default function MessengerView() {
                       style={{
                         backgroundColor: showQuickEmojis
                           ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
-                          : "rgba(255,255,255,0.06)",
+                          : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                         color: showQuickEmojis ? "var(--mq-accent)" : "var(--mq-text-muted)",
                       }} aria-label="Эмодзи">
                       <Smile className="w-4 h-4" />
@@ -1711,7 +1726,7 @@ export default function MessengerView() {
                     <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.05 }}
                       onClick={startRecording}
                       className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text-muted)" }}
+                      style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
                       aria-label="Записать голосовое">
                       <Mic className="w-4 h-4" />
                     </motion.button>
@@ -1731,7 +1746,7 @@ export default function MessengerView() {
                       className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{
                         backgroundColor: inputText.trim() && !isSending
-                          ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                          ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                         color: inputText.trim() && !isSending ? "#fff" : "var(--mq-text-muted)",
                       }} aria-label="Отправить">
                       {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
@@ -1842,7 +1857,7 @@ export default function MessengerView() {
                   ) : (
                     newChatUsers.map((user) => (
                       <motion.button key={user.id}
-                        whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+                        whileHover={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)" }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => handleStartChat(user)}
                         className="w-full flex items-center gap-3 p-2.5 rounded-xl text-left">
@@ -1925,7 +1940,7 @@ export default function MessengerView() {
                     const selected = selectedMembers.includes(user.id);
                     return (
                       <motion.button key={user.id}
-                        whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+                        whileHover={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)" }}
                         whileTap={{ scale: 0.98 }}
                         onClick={() => setSelectedMembers((p) =>
                           selected ? p.filter((x) => x !== user.id) : [...p, user.id])}
@@ -1950,7 +1965,7 @@ export default function MessengerView() {
                   className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
                   style={{
                     backgroundColor: groupName.trim()
-                      ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                      ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                     color: groupName.trim()
                       ? "#fff" : "var(--mq-text-muted)",
                   }}>
@@ -2024,7 +2039,7 @@ export default function MessengerView() {
                     const alreadyIn = selectedGroup?.members?.some((m) => m.id === user.id);
                     return (
                       <motion.button key={user.id}
-                        whileHover={{ backgroundColor: "rgba(255,255,255,0.04)" }}
+                        whileHover={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)" }}
                         whileTap={{ scale: 0.98 }}
                         disabled={alreadyIn}
                         onClick={() => setAddMembersTarget((p) =>
@@ -2053,7 +2068,7 @@ export default function MessengerView() {
                   className="w-full py-2.5 rounded-xl text-sm font-semibold transition-colors"
                   style={{
                     backgroundColor: addMembersTarget.length > 0
-                      ? "var(--mq-accent)" : "rgba(255,255,255,0.06)",
+                      ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                     color: addMembersTarget.length > 0
                       ? "#fff" : "var(--mq-text-muted)",
                   }}>

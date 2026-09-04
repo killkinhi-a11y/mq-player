@@ -9,8 +9,11 @@
  * Data source: window.__mqWasmAudio (wasm-audio/diagnostics.ts) — the same
  * object DevTools automation reads, so what the panel shows is provable.
  *
- * Visibility: development builds, or any build when the user opts in via
- * ?audio-debug=1 (persisted in localStorage as "mq-audio-debug").
+ * Visibility: DEVELOPMENT builds only (NODE_ENV === "development").
+ * Production never ships this surface — no query param, no localStorage
+ * opt-in (Step 2 requirement). The underlying data object
+ * (window.__mqWasmAudio) remains published for DevTools automation —
+ * state only, no UI, no console noise.
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -18,19 +21,9 @@ import { AudioWaveform, X, ChevronDown } from "lucide-react";
 import { getWasmDiagnostics, isWasmActive, type WasmAudioDiagnostics } from "@/lib/wasm-audio";
 
 function debugEnabled(): boolean {
-  if (typeof window === "undefined") return false;
-  if (process.env.NODE_ENV === "development") return true;
-  try {
-    const url = new URL(window.location.href);
-    if (url.searchParams.has("audio-debug")) {
-      localStorage.setItem("mq-audio-debug", "1");
-      url.searchParams.delete("audio-debug");
-      window.history.replaceState({}, "", url.toString());
-    }
-    return localStorage.getItem("mq-audio-debug") === "1";
-  } catch {
-    return false;
-  }
+  // Strict dev-only: production builds never render this panel — the
+  // ?audio-debug=1 / localStorage backdoor was removed (Step 2).
+  return process.env.NODE_ENV === "development";
 }
 
 function fmtNum(n: number | null | undefined, digits = 1): string {
@@ -127,7 +120,7 @@ export default function AudioDebugPanel() {
           <Row label="DSP max/block" value={d.maxProcessNs ? `${(d.maxProcessNs / 1000).toFixed(1)} µs` : "—"} />
           <Row label="Last error" value={d.lastError ?? "none"} warn={!!d.lastError} />
           <div className="text-[9px] mt-1" style={{ color: "var(--mq-text-muted, #777)" }}>
-            ?audio-debug=1 · window.__mqWasmAudio
+            window.__mqWasmAudio
           </div>
         </div>
       )}

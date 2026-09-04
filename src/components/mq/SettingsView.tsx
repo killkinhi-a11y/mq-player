@@ -38,7 +38,7 @@ function Card({ children }: { children: React.ReactNode }) {
     <div
       className="rounded-[var(--mq-r-card)] overflow-hidden"
       style={{
-        backgroundColor: "var(--mq-surface-1)",
+        backgroundColor: "var(--mq-surface-2)",
         border: "1px solid var(--mq-edge)",
       }}
     >
@@ -445,7 +445,7 @@ export default function SettingsView() {
             const isActive = activeTab === tab.id;
             return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-full text-[11px] sm:text-sm font-semibold whitespace-nowrap transition-colors duration-150 flex-shrink-0"
+                className="flex items-center gap-1.5 px-2.5 sm:px-4 min-h-[38px] py-2 rounded-full text-[11px] sm:text-sm font-semibold whitespace-nowrap transition-colors duration-150 flex-shrink-0"
                 style={{ background: isActive ? "var(--mq-accent)" : "transparent", color: isActive ? "#fff" : "var(--mq-text-muted)" }}>
                 <Icon className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{tab.label}</span>

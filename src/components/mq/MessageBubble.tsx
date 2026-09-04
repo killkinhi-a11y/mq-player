@@ -88,7 +88,7 @@ function FakeWaveform({ playing, isMine, progress, onSeek }: { playing: boolean;
               height: `${h}px`,
               backgroundColor: isMine
                 ? (isPlayed ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.3)")
-                : (isPlayed ? "var(--mq-accent)" : "rgba(255,255,255,0.18)"),
+                : (isPlayed ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 18%, transparent)"),
               opacity: playing && !isPlayed ? 0.7 : 1,
               transform: playing && isPlayed ? "scaleY(1.1)" : "scaleY(1)",
               transformOrigin: "center",
@@ -230,7 +230,7 @@ function VoicePlayer({
           onClick={togglePlay}
           className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
           style={{
-            backgroundColor: isMine ? "rgba(255,255,255,0.2)" : "var(--mq-accent)",
+            backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 20%, transparent)" : "var(--mq-accent)",
             boxShadow: isMine ? "none" : "var(--mq-shadow-accent)",
           }}
           aria-label={playing ? "Пауза" : "Воспроизвести"}
@@ -254,7 +254,7 @@ function VoicePlayer({
           className="text-[10px] font-bold tabular-nums flex-shrink-0 px-1.5 py-0.5 rounded-md transition-colors"
           style={{
             color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)",
-            backgroundColor: isMine ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)",
+            backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 10%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
           }}
           title="Скорость воспроизведения"
           aria-label={`Скорость ${playbackSpeed}x`}
@@ -299,7 +299,7 @@ function VoicePlayer({
         <div
           className="text-[12px] leading-relaxed rounded-lg px-3 py-2 mt-0.5 max-w-[100%] break-words"
           style={{
-            backgroundColor: isMine ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)",
+            backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 10%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
             color: isMine ? "rgba(255,255,255,0.9)" : "var(--mq-text)",
             borderLeft: `2px solid ${isMine ? "rgba(255,255,255,0.4)" : "var(--mq-accent)"}`,
           }}
@@ -344,7 +344,7 @@ function ReplyPreview({
         transition-colors duration-150
       `}
       style={{
-        backgroundColor: isMine ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.04)",
+        backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 12%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
         borderLeft: `3px solid ${isMine ? "rgba(255,255,255,0.5)" : "var(--mq-accent)"}`,
       }}
       title="Перейти к сообщению"
@@ -487,7 +487,7 @@ export default function MessageBubble({
           <div
             className="rounded-2xl px-4 py-2.5"
             style={{
-              backgroundColor: isMine ? "color-mix(in srgb, var(--mq-accent) 85%, rgba(255,255,255,0.18))" : "var(--mq-card)",
+              backgroundColor: isMine ? "color-mix(in srgb, var(--mq-accent) 85%, color-mix(in srgb, var(--mq-text) 18%, transparent))" : "var(--mq-card)",
               border: isMine ? "none" : "1px solid var(--mq-border-thin)",
               borderTopRightRadius: isMine ? "6px" : undefined,
               borderTopLeftRadius: isMine ? undefined : "6px",
@@ -642,7 +642,7 @@ export default function MessageBubble({
           <div
             className="rounded-2xl px-4 py-3 relative"
             style={{
-              backgroundColor: isMine ? "color-mix(in srgb, var(--mq-accent) 85%, rgba(255,255,255,0.18))" : "var(--mq-card)",
+              backgroundColor: isMine ? "color-mix(in srgb, var(--mq-accent) 85%, color-mix(in srgb, var(--mq-text) 18%, transparent))" : "var(--mq-card)",
               border: isMine ? "none" : "1px solid var(--mq-border-thin)",
               boxShadow: isMine
                 ? "0 2px 16px color-mix(in srgb, var(--mq-accent) 250%, transparent)"
@@ -694,8 +694,8 @@ export default function MessageBubble({
         <motion.div
           className="flex items-center gap-3 mb-2 p-2 rounded-xl cursor-pointer"
           style={{
-            backgroundColor: isMine ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.05)",
-            border: `1px solid ${isMine ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.08)"}`,
+            backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 12%, transparent)" : "color-mix(in srgb, var(--mq-text) 5%, transparent)",
+            border: `1px solid ${isMine ? "color-mix(in srgb, var(--mq-text) 15%, transparent)" : "color-mix(in srgb, var(--mq-text) 8%, transparent)"}`,
           }}
           whileTap={{ scale: 0.98 }}
           onClick={() => {
@@ -746,7 +746,7 @@ export default function MessageBubble({
       return (
         <div
           className="flex items-center gap-2 mb-1.5 p-2 rounded-lg"
-          style={{ backgroundColor: isMine ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.05)" }}
+          style={{ backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 10%, transparent)" : "color-mix(in srgb, var(--mq-text) 5%, transparent)" }}
         >
           <Music2 className="w-4 h-4" style={{ color: isMine ? "rgba(255,255,255,0.6)" : "var(--mq-accent)" }} />
           <div className="flex-1 min-w-0">
@@ -789,7 +789,7 @@ export default function MessageBubble({
           className="rounded-2xl px-3.5 py-2 relative"
           style={{
             backgroundColor: isMine
-              ? "color-mix(in srgb, var(--mq-accent) 85%, rgba(255,255,255,0.18))"
+              ? "color-mix(in srgb, var(--mq-accent) 85%, color-mix(in srgb, var(--mq-text) 18%, transparent))"
               : "var(--mq-card)",
             border: isMine ? "none" : "1px solid var(--mq-border-thin)",
             boxShadow: isMine
@@ -850,7 +850,7 @@ export default function MessageBubble({
                     style={{
                       backgroundColor: hasMine
                         ? "color-mix(in srgb, var(--mq-accent) 20%, transparent)"
-                        : "rgba(255,255,255,0.06)",
+                        : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                       border: hasMine
                         ? "1px solid var(--mq-border-accent)"
                         : "1px solid var(--mq-border-thin)",

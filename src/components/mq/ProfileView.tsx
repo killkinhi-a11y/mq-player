@@ -36,6 +36,7 @@ const ProfileView = React.memo(function ProfileView() {
   const tasteArtists = useAppStore((s) => s.tasteArtists);
   const currentTrack = useAppStore((s) => s.currentTrack);
   const lastSyncAt = useAppStore((s) => s.lastSyncAt);
+  const userRole = useAppStore((s) => s.userRole);
   const unreadCounts = useAppStore((s) => s.unreadCounts);
   const supportUnreadCount = useAppStore((s) => s.supportUnreadCount);
   const safeLiked = Array.isArray(likedTrackIds) ? likedTrackIds : [];
@@ -625,7 +626,7 @@ const ProfileView = React.memo(function ProfileView() {
 
             {/* Member since badge */}
             {!isEditingName && (
-              <div className="flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid var(--mq-border-thin)" }}>
+              <div className="flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)", border: "1px solid var(--mq-border-thin)" }}>
                 <Calendar className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
                 <span className="text-[11px] font-medium" style={{ color: "var(--mq-text)", opacity: 0.85 }}>
                   Участник с {accountCreated || memberSince}
@@ -695,7 +696,7 @@ const ProfileView = React.memo(function ProfileView() {
           <div className="px-4 py-4 flex items-center gap-4">
             <div
               className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: "rgba(255,255,255,0.06)" }}
+              style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)" }}
             >
               <Settings className="w-6 h-6" style={{ color: "var(--mq-text-muted)" }} />
             </div>
@@ -843,7 +844,7 @@ const ProfileView = React.memo(function ProfileView() {
                       style={{
                         backgroundColor: day.count > 0
                           ? "var(--mq-accent)"
-                          : "rgba(255,255,255,0.06)",
+                          : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                         opacity: day.count > 0 ? 0.85 : 1,
                         minHeight: "4px",
                       }}
@@ -920,7 +921,7 @@ const ProfileView = React.memo(function ProfileView() {
                             className="aspect-square rounded-sm flex-1 min-w-[6px]"
                             style={{
                               backgroundColor: count === 0
-                                ? "rgba(255,255,255,0.03)"
+                                ? "color-mix(in srgb, var(--mq-text) 3%, transparent)"
                                 : `color-mix(in srgb, var(--mq-accent) ${Math.max(15, intensity * 100)}%, transparent)`,
                             }}
                             title={`${day} ${hIdx}:00 — ${count} треков`}
@@ -980,7 +981,7 @@ const ProfileView = React.memo(function ProfileView() {
                       <span className="text-xs font-medium w-20 truncate flex-shrink-0" style={{ color: "var(--mq-text)" }}>
                         {genre}
                       </span>
-                      <div className="flex-1 h-4 rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.04)" }}>
+                      <div className="flex-1 h-4 rounded-full overflow-hidden" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)" }}>
                         <motion.div
                           initial={animationsEnabled ? { scaleX: 0 } : undefined}
                           animate={{ scaleX: width / 100 }}
@@ -1059,7 +1060,7 @@ const ProfileView = React.memo(function ProfileView() {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: i * 0.05, duration: 0.3 }}
                     className="flex flex-col items-center p-2.5 rounded-xl"
-                    style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--mq-border-hairline)" }}
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 3%, transparent)", border: "1px solid var(--mq-border-hairline)" }}
                   >
                     <div
                       className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center mb-1.5"
@@ -1118,7 +1119,7 @@ const ProfileView = React.memo(function ProfileView() {
                 >
                   <div
                     className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: track.cover ? "transparent" : "rgba(255,255,255,0.05)" }}
+                    style={{ backgroundColor: track.cover ? "transparent" : "color-mix(in srgb, var(--mq-text) 5%, transparent)" }}
                   >
                     {track.cover ? (
                       <img src={track.cover} alt={track.title} className="w-full h-full object-cover" />
@@ -1250,6 +1251,28 @@ const ProfileView = React.memo(function ProfileView() {
             </div>
           </motion.button>
 
+          {/* Admin panel — server-gated surface (/admin re-checks DB role) */}
+          {userRole === "admin" && (
+            <motion.button
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              onClick={() => window.open("/admin", "_self")}
+              className="w-full px-4 py-3 flex items-center gap-3 text-left transition-colors"
+              style={{ borderBottom: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
+            >
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}
+              >
+                <Shield className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Админ-панель</p>
+                <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Управление пользователями и системой</p>
+              </div>
+            </motion.button>
+          )}
+
           {/* Logout — cleaner design */}
           <motion.button
             whileHover={{ scale: 1.01 }}
@@ -1301,7 +1324,7 @@ const ProfileView = React.memo(function ProfileView() {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setShowLogoutConfirm(false)}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                  style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text)" }}
+                  style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text)" }}
                 >
                   Остаться
                 </motion.button>

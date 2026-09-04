@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, Music, Heart, Clock, ListMusic, MessageCircle,
   Plus, Sparkles, Waves, User, Flame,
-  SkipForward, ThumbsDown, TrendingUp, Compass, RotateCcw,
+  SkipForward, SkipBack, ThumbsDown, TrendingUp, Compass, RotateCcw,
   MoreHorizontal, X, Shuffle,
 } from "lucide-react";
 import { useWaveEngine } from "@/hooks/useWaveEngine";
@@ -14,6 +14,7 @@ import { useFriendsListening } from "@/hooks/useFriendsListening";
 import { useRecUpdates } from "@/hooks/useRecUpdates";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import { extractTasteProfile, displayGenre } from "@/lib/tasteProfile";
+import { type HomeRecCategory as RecCategory, type HomeCuratedPlaylist as CuratedPlaylist } from "@/store/useAppStore";
 import { useIsMobile } from "@/hooks/use-mobile";
 import ScrollReveal from "./ScrollReveal";
 import ArtistDetailView from "./ArtistDetailView";
@@ -25,20 +26,8 @@ import { useLongPress } from "@/hooks/useLongPress";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
-interface CuratedPlaylist {
-  id: string;
-  name: string;
-  subtitle: string;
-  gradient: string;
-  tracks: Track[];
-}
-
-interface RecCategory {
-  id: string;
-  title: string;
-  icon: string;
-  tracks: Track[];
-}
+// RecCategory / CuratedPlaylist types now live in the store (home feed
+// cache, Task 2) and are imported at the top of this file.
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -106,19 +95,21 @@ function MainView() {
   const progress = useAppStore((s) => s.progress);
   const contacts = useAppStore((s) => s.contacts);
 
-  // ── Local state ──
-  const [curatedPlaylists, setCuratedPlaylists] = useState<CuratedPlaylist[]>([]);
-  const [recCategories, setRecCategories] = useState<RecCategory[]>([]);
-  const [recLoading, setRecLoading] = useState(false);
-  // Bumped by the Empty-State "Retry" button to force a recommendations refetch
-  const [retryTick, setRetryTick] = useState<number>(0);
-  // Specific error type for better empty-state messaging ("offline" / "api" / "empty" / null)
-  const [recError, setRecError] = useState<"offline" | "api" | "empty" | null>(null);
+  // ── Home feed cache (Task 2): data lives in the STORE and survives view
+  // remounts. One network fetch per taste change (5 min TTL + taste
+  // signature guard + in-flight dedupe) — see loadHomeFeed in the store.
+  const recCategories = useAppStore((s) => s.homeRecCategories);
+  const curatedPlaylists = useAppStore((s) => s.homeCuratedPlaylists);
+  const recLoading = useAppStore((s) => s.homeFeedLoading);
+  const recError = useAppStore((s) => s.homeFeedError);
+  const loadHomeFeed = useAppStore((s) => s.loadHomeFeed);
+  const prevTrack = useAppStore((s) => s.prevTrack);
+  const nextTrack = useAppStore((s) => s.nextTrack);
+  const setFullTrackViewOpen = useAppStore((s) => s.setFullTrackViewOpen);
 
   // ── Wave engine (logic separated from UI) ──
   const wave = useWaveEngine();
 
-  const isMobile = useIsMobile();
 
   // ── Taste profile ──
   const tasteProfile = useMemo(() => {
@@ -134,172 +125,73 @@ function MainView() {
     return history.slice(0, 10).map((h: any) => h.track).filter(Boolean);
   }, [history]);
 
-  // ── Fetch curated playlists ──
+  // ── Taste signature (Task 2) ──
+  // Stable STRING derived from the exact params that drive the home feed
+  // request. The tasteProfile object identity changes on every play/sync
+  // (new array refs) — comparing the SIGNATURE instead kills the refetch
+  // storm while still refreshing when taste genuinely changes (new likes,
+  // history entries, favorite artists, genres).
+  const tasteSig = useMemo(() => {
+    const st = useAppStore.getState();
+    const likedScIds = (st.likedTracksData || [])
+      .map((t: any) => t.scTrackId).filter(Boolean).slice(0, 5).join(",");
+    const historyScIds = (st.history || [])
+      .slice(0, 10).map((h: any) => h.track?.scTrackId).filter(Boolean).join(",");
+    const dislikedIds = (st.dislikedTrackIds || []).slice(0, 50).join(",");
+    const favNames = (st.favoriteArtists || []).map((a: any) => a.username).filter(Boolean);
+    const artists = [...new Set([...favNames, ...tasteProfile.topArtists])].slice(0, 5).join(",");
+    return JSON.stringify([
+      likedScIds,
+      historyScIds,
+      dislikedIds,
+      tasteProfile.topGenres.slice(0, 8).join(","),
+      artists,
+    ]);
+  }, [tasteProfile]);
+
+  // ── Load home feed (debounced; the store gates the actual network use) ──
   useEffect(() => {
-    let cancelled = false;
-    const fetchAll = async () => {
-      try {
-        const curatedParams = new URLSearchParams();
-        const disliked = useAppStore.getState().dislikedTrackIds || [];
-        if (disliked.length > 0) curatedParams.set("dislikedIds", disliked.join(","));
+    const timer = setTimeout(() => {
+      loadHomeFeed({
+        tasteSig,
+        topGenres: tasteProfile.topGenres,
+        topArtists: tasteProfile.topArtists,
+      });
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [tasteSig, loadHomeFeed, tasteProfile.topGenres, tasteProfile.topArtists]);
 
-        const curatedRes = await fetch(`/api/playlists/curated?${curatedParams}`);
+  // Force refresh (Retry button / pull-to-refresh)
+  const tasteSigRef = useRef(tasteSig);
+  const tasteRef = useRef(tasteProfile);
+  // Latest-ref pattern — written in effects (never during render: the React
+  // compiler / react-hooks/refs rule forbids ref access in render bodies).
+  useEffect(() => { tasteSigRef.current = tasteSig; }, [tasteSig]);
+  useEffect(() => { tasteRef.current = tasteProfile; }, [tasteProfile]);
+  const handleRetryRecs = useCallback(() => {
+    loadHomeFeed({
+      force: true,
+      tasteSig: tasteSigRef.current,
+      topGenres: tasteRef.current.topGenres,
+      topArtists: tasteRef.current.topArtists,
+    });
+  }, [loadHomeFeed]);
 
-        if (!cancelled && curatedRes.ok) {
-          const data = await curatedRes.json();
-          setCuratedPlaylists(data.playlists || []);
-        }
-      } catch {
-        if (!cancelled) { setCuratedPlaylists([]); }
-      }
-    };
-    fetchAll();
-    return () => { cancelled = true; };
-  }, []);
-
-  // ── Fetch recommendations (non-blocking) ──
-  useEffect(() => {
-    let cancelled = false;
-    const fetchRecs = async () => {
-      setRecLoading(true);
-      setRecError(null);
-      try {
-        const disliked = useAppStore.getState().dislikedTrackIds || [];
-        const params = new URLSearchParams();
-        const likedScIds = useAppStore.getState().likedTracksData
-          .map((t: any) => t.scTrackId).filter((id: any): id is number => !!id).slice(0, 5).join(",");
-        if (likedScIds) params.set("likedScIds", likedScIds);
-        const historyScIds = useAppStore.getState().history.slice(0, 10)
-          .map((h: any) => h.track?.scTrackId).filter((id: any): id is number => !!id).join(",");
-        if (historyScIds) params.set("historyScIds", historyScIds);
-        if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
-        if (tasteProfile.topGenres.length > 0) params.set("genres", tasteProfile.topGenres.join(","));
-        const favArtistNames = (useAppStore.getState().favoriteArtists || []).map(a => a.username);
-        const allArtists = [...new Set([...favArtistNames, ...tasteProfile.topArtists])];
-        if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
-
-        // Fetch recommendations + trending + Apple Music Top + Spotify Top in parallel
-        // Detect user country via timezone
-        const userCountry = detectUserCountry();
-
-        // allSettled instead of all: a single rejected fetch (offline flake,
-        // one dead upstream) must not discard the other three responses —
-        // partial content beats an error state.
-        const [recSettled, trendingSettled, appleSettled, spotifySettled] =
-          await Promise.allSettled([
-            fetch(`/api/music/recommendations?${params}`),
-            fetch(`/api/music/trending?limit=50`),
-            fetch(`/api/music/apple-charts?country=${userCountry}`),
-            fetch(`/api/music/spotify-charts?country=${userCountry}`),
-          ]);
-        const recRes = recSettled.status === "fulfilled" ? recSettled.value : null;
-        const trendingRes = trendingSettled.status === "fulfilled" ? trendingSettled.value : null;
-        const appleRes = appleSettled.status === "fulfilled" ? appleSettled.value : null;
-        const spotifyRes = spotifySettled.status === "fulfilled" ? spotifySettled.value : null;
-
-        const cats: RecCategory[] = [];
-
-        // Add Spotify Top as first category ("Топ Spotify")
-        if (spotifyRes?.ok) {
-          try {
-            const spotifyData = await spotifyRes.json();
-            const spotifyTracks = (spotifyData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
-            if (spotifyTracks.length > 0) {
-              cats.push({
-                id: "spotify_top",
-                title: "Топ Spotify",
-                icon: "Flame",
-                tracks: spotifyTracks,
-              });
-            }
-          } catch {}
-        }
-
-        // Add Apple Music Top 100 as second category
-        if (appleRes?.ok) {
-          try {
-            const appleData = await appleRes.json();
-            const appleTracks = (appleData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
-            if (appleTracks.length > 0) {
-              const cName = countryNameFromCode(appleData.country || userCountry);
-              cats.push({
-                id: "apple_top",
-                title: `Топ ${cName}`,
-                icon: "Flame",
-                tracks: appleTracks,
-              });
-            }
-          } catch {}
-        }
-
-        // Add trending as third category ("Популярное сейчас")
-        if (trendingRes?.ok) {
-          const tData = await trendingRes.json();
-          const trendingTracks = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
-          if (trendingTracks.length > 0) {
-            cats.push({
-              id: "trending_now",
-              title: "Популярное сейчас",
-              icon: "Flame",
-              tracks: trendingTracks,
-            });
-          }
-        }
-
-        // Add recommendation categories
-        if (recRes?.ok) {
-          const data = await recRes.json();
-          const recCats = (data.categories || []).map((cat: any) => ({
-            id: cat.id || `cat_${Date.now()}_${Math.random()}`,
-            title: cat.title || "Рекомендации",
-            icon: cat.icon || "Sparkles",
-            tracks: (cat.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50),
-          })).filter((cat: any) => cat.tracks.length > 0);
-          cats.push(...recCats);
-        }
-
-        // If no categories at all, create a fallback from trending
-        if (cats.length === 0 && trendingRes?.ok) {
-          const tData = await trendingRes.json();
-          const fallback = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
-          if (fallback.length > 0) {
-            cats.push({ id: "fallback", title: "Для вас", icon: "Sparkles", tracks: fallback });
-          }
-        }
-
-        if (!cancelled) {
-          setRecCategories(cats);
-          if (cats.length > 0) {
-            setRecError(null);
-          } else {
-            // Distinguish total network failure (all fetches rejected) from
-            // "providers answered but returned nothing" for accurate messaging.
-            const anyResponded = !!(recRes || trendingRes || appleRes || spotifyRes);
-            setRecError(anyResponded ? "empty" : "offline");
-          }
-        }
-      } catch (err) {
-        if (!cancelled) {
-          // Distinguish offline vs API error for better messaging
-          const isOffline = err instanceof TypeError && (err.message.includes("Failed to fetch") || err.message.includes("NetworkError"));
-          setRecError(isOffline ? "offline" : "api");
-          setRecCategories([]);
-        }
-      } finally {
-        if (!cancelled) setRecLoading(false);
-      }
-    };
-    const timer = setTimeout(fetchRecs, 200);
-    return () => { cancelled = true; clearTimeout(timer); };
-  }, [tasteProfile, retryTick]);
-
-  const handleRetryRecs = useCallback(() => setRetryTick((n) => n + 1), []);
+  // Soft refresh for the 30s rec-updates hash poll: the store still applies
+  // the TTL + signature guard, so unchanged taste does NOT refetch.
+  const handleRecUpdatesChange = useCallback(() => {
+    loadHomeFeed({
+      tasteSig: tasteSigRef.current,
+      topGenres: tasteRef.current.topGenres,
+      topArtists: tasteRef.current.topArtists,
+    });
+  }, [loadHomeFeed]);
 
   // ── Friends listening now (polling every 15s) ──
   const { friends: listeningFriends } = useFriendsListening();
 
   // ── Real-time rec updates (polling hash every 30s, triggers refetch on change) ──
-  useRecUpdates(handleRetryRecs);
+  useRecUpdates(handleRecUpdatesChange);
 
   // ── Aggregated recommendations (deduped across categories) ──
   // Used as the play context when user taps a rec card, so playback
@@ -360,7 +252,6 @@ function MainView() {
   }, [allRecTracks, playTrack, togglePlay]);
 
   // ── Wave controls (from useWaveEngine hook) ──
-  // Visual WaveCard component handles all rendering; this hook provides logic.
 
   // ── Artist navigation ──
   const handleNavigateToArtist = useCallback((artist: string) => {
@@ -466,11 +357,12 @@ function MainView() {
                   : "Начни с Волны — она подберёт музыку под вкус"}
             </p>
           </div>
-          {/* Compact wave pill — real radio state, replaces the giant card */}
+          {/* Compact wave pill — real radio state. On phones it yields to the
+              hero's own wave CTA when nothing is playing (one primary action). */}
           <button
             onClick={() => (wave.radioMode ? wave.pauseWave() : wave.startWave())}
             disabled={wave.waveLoading}
-            className="shrink-0 flex items-center gap-2 rounded-full pl-3 pr-4 h-10 transition-all active:scale-95"
+            className={`shrink-0 ${currentTrack ? "flex" : "hidden lg:flex"} items-center gap-2 rounded-full pl-3 pr-4 h-10 transition-all active:scale-95`}
             style={{
               backgroundColor: wave.radioMode
                 ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)"
@@ -496,47 +388,90 @@ function MainView() {
       {/* personal recommendation or the currently playing track. No glow,   */}
       {/* no decorative blur — flat split card with a hard accent edge.      */}
       {/* ════════════════════════════════════════════════════════════════ */}
-      {featuredTrack && (
-        <ScrollReveal direction="up" delay={0.02}>
-          <FeaturedCard
-            track={featuredTrack}
-            reason={featuredReason}
-            isCurrent={currentTrack?.id === featuredTrack.id}
-            isPlaying={isPlaying && currentTrack?.id === featuredTrack.id}
-            onPlay={() => handlePlayRec(featuredTrack)}
-            onArtistClick={() => handleNavigateToArtist(featuredTrack.artist)}
-            animationsEnabled={animationsEnabled}
-          />
-        </ScrollReveal>
-      )}
+      {/* Desktop featured card (mobile uses MobileNowHero below) */}
+      <div className="hidden lg:block">
+        {featuredTrack && (
+          <ScrollReveal direction="up" delay={0.02}>
+            <FeaturedCard
+              track={featuredTrack}
+              reason={featuredReason}
+              isCurrent={currentTrack?.id === featuredTrack.id}
+              isPlaying={isPlaying && currentTrack?.id === featuredTrack.id}
+              onPlay={() => handlePlayRec(featuredTrack)}
+              onArtistClick={() => handleNavigateToArtist(featuredTrack.artist)}
+              animationsEnabled={animationsEnabled}
+            />
+          </ScrollReveal>
+        )}
+      </div>
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* CONTINUE LISTENING + QUICK ACTIONS — two-column band (new). Left:  */}
       {/* real current track with progress; right: dense action grid.        */}
       {/* ════════════════════════════════════════════════════════════════ */}
-      <ScrollReveal direction="up" delay={0.04}>
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 mb-7">
-          <ContinueListeningCard
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* MOBILE — new Home composition (Task 3): the NOW hero owns the       */}
+      {/* first screen; desktop keeps Featured + ContinueListening below.      */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      <div className="lg:hidden">
+        <ScrollReveal direction="up" delay={0.02}>
+          <MobileNowHero
             track={currentTrack}
+            fallbackTrack={featuredTrack}
+            fallbackReason={featuredReason}
+            isPlaying={isPlaying}
             progress={progress}
             duration={duration}
-            isPlaying={isPlaying}
             radioMode={radioMode}
             onToggle={togglePlay}
-            onSkip={() => wave.skipTrack()}
+            onPrev={radioMode ? () => wave.skipTrack() : prevTrack}
+            onNext={radioMode ? () => wave.skipTrack() : nextTrack}
+            onPlayFallback={() => featuredTrack && handlePlayRec(featuredTrack)}
+            onArtistClick={handleNavigateToArtist}
+            onOpenFull={() => {
+              if (currentTrack) setFullTrackViewOpen(true);
+              else if (featuredTrack) handlePlayRec(featuredTrack);
+            }}
           />
-          <QuickActionGrid
-            likedCount={likedTrackIds.length}
-            historyCount={history.length}
-            playlistCount={playlists.length}
-            chatCount={contacts.length}
-            onFavorites={() => setView("favorites")}
-            onHistory={() => setView("history")}
-            onPlaylists={() => setView("playlists")}
-            onMessenger={() => setView("messenger")}
-          />
-        </div>
-      </ScrollReveal>
+        </ScrollReveal>
+        <MobileQuickRow
+          likedCount={likedTrackIds.length}
+          historyCount={history.length}
+          playlistCount={playlists.length}
+          chatCount={contacts.length}
+          onFavorites={() => setView("favorites")}
+          onHistory={() => setView("history")}
+          onPlaylists={() => setView("playlists")}
+          onMessenger={() => setView("messenger")}
+        />
+      </div>
+
+      {/* Desktop: continue-listening band + quick actions */}
+      <div className="hidden lg:block">
+        <ScrollReveal direction="up" delay={0.04}>
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-3 mb-7">
+            <ContinueListeningCard
+              track={currentTrack}
+              progress={progress}
+              duration={duration}
+              isPlaying={isPlaying}
+              radioMode={radioMode}
+              onToggle={togglePlay}
+              onSkip={() => wave.skipTrack()}
+            />
+            <QuickActionGrid
+              likedCount={likedTrackIds.length}
+              historyCount={history.length}
+              playlistCount={playlists.length}
+              chatCount={contacts.length}
+              onFavorites={() => setView("favorites")}
+              onHistory={() => setView("history")}
+              onPlaylists={() => setView("playlists")}
+              onMessenger={() => setView("messenger")}
+            />
+          </div>
+        </ScrollReveal>
+      </div>
 
       {/* ════════════════════════════════════════════════════════════════ */}
       {/* PERSONALIZED FOR YOU — horizontal discovery (restructured): the    */}
@@ -1125,6 +1060,265 @@ function ContinueListeningCard({
   );
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// MOBILE NOW HERO (Task 3 — new mobile Home composition).
+// The user's main state (current track + real progress + transport) becomes
+// the visually dominant block on phones: full-width square artwork, big
+// 64px play target, 48px skips. Nothing decorative — every element is a
+// real control or real playback state. Desktop keeps its own layout below.
+// ══════════════════════════════════════════════════════════════════════════
+function MobileNowHero({
+  track,
+  fallbackTrack,
+  fallbackReason,
+  isPlaying,
+  progress,
+  duration,
+  radioMode,
+  onToggle,
+  onPrev,
+  onNext,
+  onPlayFallback,
+  onArtistClick,
+  onOpenFull,
+}: {
+  track: Track | null;
+  fallbackTrack: Track | null;
+  fallbackReason: string;
+  isPlaying: boolean;
+  progress: number;
+  duration: number;
+  radioMode: boolean;
+  onToggle: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onPlayFallback: () => void;
+  onArtistClick: (artist: string) => void;
+  onOpenFull: () => void;
+}) {
+  const hero = track || fallbackTrack;
+  const isNow = !!track; // true → real "now playing" state; false → pick + big CTA
+  const pct = isNow && duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
+
+  // Honest empty state: no track, no recommendation yet → the Wave is the
+  // single primary action (the header pill is hidden in this case).
+  if (!hero) {
+    return (
+      <div
+        className="rounded-[var(--mq-r-card,24px)] p-6 mb-5"
+        style={{ background: getWaveGradient(), border: "1px solid var(--mq-border-hairline)" }}
+      >
+        <div className="flex items-center gap-2.5 mb-3">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 20%, transparent)" }}
+          >
+            <Waves className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+          </div>
+          <div>
+            <p className="mq-t-title text-lg" style={{ color: "var(--mq-text)" }}>Волна</p>
+            <p className="mq-t-meta text-xs" style={{ color: "var(--mq-text-muted)" }}>радио по твоему вкусу</p>
+          </div>
+        </div>
+        <p className="mq-t-body text-sm mb-5" style={{ color: "var(--mq-text-muted)" }}>
+          Включи трек или запусти Волну — она подберёт музыку по истории, лайкам и любимым артистам.
+        </p>
+        <HeroWaveCTA />
+      </div>
+    );
+  }
+
+  return (
+    <section className="mb-4" aria-label={isNow ? "Сейчас играет" : "Рекомендация"}>
+      {/* ── Dominant artwork ── */}
+      <button
+        onClick={onOpenFull}
+        className="relative block w-full rounded-[var(--mq-r-card,24px)] overflow-hidden"
+        style={{ border: "1px solid var(--mq-border-hairline)", boxShadow: "var(--mq-shadow-card, 0 8px 24px rgba(0,0,0,0.28))" }}
+        aria-label={isNow ? "Открыть плеер" : "Открыть трек"}
+      >
+        {hero.cover ? (
+          <img
+            src={hero.cover}
+            alt={`${hero.title} — ${hero.artist}`}
+            className="w-full object-cover"
+            // Capped height: a full-width square on a 390×844 phone pushes
+            // the quick-actions row under the fixed dock (mini-player + nav).
+            // min(46vh, 340px) keeps the hero dominant AND the first screen
+            // complete (VLM-verified geometry).
+            style={{ display: "block", height: "min(42vh, 320px)" }}
+          />
+        ) : (
+          <div
+            className="w-full flex items-center justify-center"
+            style={{ background: getWaveGradient(), height: "min(42vh, 320px)" }}
+          >
+            <Music className="w-16 h-16" style={{ color: "var(--mq-text-muted)" }} />
+          </div>
+        )}
+        {/* isPlaying equalizer hint overlaid on the artwork edge */}
+        {isNow && isPlaying && (
+          <div className="absolute" style={{ position: "absolute", left: 12, top: 12 }}>
+            <NowPlayingEqualizer />
+          </div>
+        )}
+      </button>
+
+      {/* ── Title block ── */}
+      <div className="mt-4 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {isNow ? (
+            <div className="flex items-center gap-2 mb-1">
+              <p className="mq-t-meta text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--mq-accent)" }}>
+                {radioMode ? "Волна · играет" : "Сейчас играет"}
+              </p>
+            </div>
+          ) : (
+            <p className="mq-t-meta text-[11px] uppercase tracking-[0.12em] mb-1" style={{ color: "var(--mq-text-muted)" }}>
+              {fallbackReason || "Подобрано для тебя"}
+            </p>
+          )}
+          <h2 className="mq-t-title text-xl leading-snug line-clamp-2" style={{ color: "var(--mq-text)" }}>
+            {hero.title}
+          </h2>
+          <button
+            onClick={() => onArtistClick(hero.artist)}
+            className="mq-t-body text-sm mt-0.5 truncate max-w-full text-left"
+            style={{ color: "var(--mq-text-muted)" }}
+            aria-label={`Открыть артиста ${hero.artist}`}
+          >
+            {hero.artist}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Real progress (now playing only) ── */}
+      {isNow && (
+        <div className="mt-3.5">
+          <div
+            className="h-1.5 rounded-full overflow-hidden"
+            style={{ backgroundColor: "var(--mq-border-thin)" }}
+            role="progressbar"
+            aria-valuenow={Math.round(pct)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: "var(--mq-accent)" }} />
+          </div>
+          <div className="flex justify-between mt-1.5">
+            <span className="mq-t-num text-[11px]" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(progress)}</span>
+            <span className="mq-t-num text-[11px]" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(duration)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Transport: 48px skips + 64px primary ── */}
+      <div className="mt-4 flex items-center justify-center gap-7">
+        <button
+          onClick={onPrev}
+          className="w-12 h-12 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+          style={{ border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
+          aria-label="Предыдущий трек"
+        >
+          <SkipBack className="w-5 h-5" fill="currentColor" />
+        </button>
+        <button
+          onClick={isNow ? onToggle : onPlayFallback}
+          className="w-16 h-16 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+          style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 8px 24px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
+          aria-label={isNow ? (isPlaying ? "Пауза" : "Продолжить") : "Слушать"}
+        >
+          {isNow && isPlaying ? (
+            <Pause className="w-7 h-7" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+          ) : (
+            <Play className="w-7 h-7 translate-x-[2px]" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+          )}
+        </button>
+        <button
+          onClick={onNext}
+          className="w-12 h-12 rounded-full flex items-center justify-center active:scale-95 transition-transform"
+          style={{ border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
+          aria-label="Следующий трек"
+        >
+          <SkipForward className="w-5 h-5" fill="currentColor" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// Wave CTA inside the empty hero — calls the real wave engine (no timers).
+function HeroWaveCTA() {
+  const wave = useWaveEngine();
+  return (
+    <button
+      onClick={() => (wave.radioMode ? wave.pauseWave() : wave.startWave())}
+      disabled={wave.waveLoading}
+      className="w-full h-12 rounded-2xl flex items-center justify-center gap-2.5 active:scale-[0.98] transition-transform disabled:opacity-60"
+      style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
+      aria-label="Запустить Волну"
+    >
+      {wave.waveLoading ? (
+        <div className="mq-spin w-5 h-5 border-2 rounded-full" style={{ borderColor: "var(--mq-text-on-accent, #fff)", borderTopColor: "transparent" }} />
+      ) : (
+        <Waves className="w-5 h-5" />
+      )}
+      <span className="mq-t-label text-sm font-semibold">
+        {wave.waveLoading ? "Подбираем музыку…" : wave.radioMode ? "Пауза Волны" : "Запустить Волну"}
+      </span>
+    </button>
+  );
+}
+
+// Compact borderless quick row for mobile: 4 real navigation targets,
+// 44px touch height, no boxed card chrome (anti "card+card+card").
+function MobileQuickRow({
+  likedCount, historyCount, playlistCount, chatCount,
+  onFavorites, onHistory, onPlaylists, onMessenger,
+}: {
+  likedCount: number; historyCount: number; playlistCount: number; chatCount: number;
+  onFavorites: () => void; onHistory: () => void; onPlaylists: () => void; onMessenger: () => void;
+}) {
+  const items = [
+    { icon: Heart, label: "Избранное", count: likedCount, onClick: onFavorites },
+    { icon: Clock, label: "История", count: historyCount, onClick: onHistory },
+    { icon: ListMusic, label: "Плейлисты", count: playlistCount, onClick: onPlaylists },
+    { icon: MessageCircle, label: "Чаты", count: chatCount, onClick: onMessenger },
+  ];
+  return (
+    <div className="grid grid-cols-4 gap-1 mb-6" role="group" aria-label="Быстрые переходы">
+      {items.map(({ icon: Icon, label, count, onClick }) => (
+        <button
+          key={label}
+          onClick={onClick}
+          className="flex flex-col items-center gap-1.5 py-2 rounded-xl active:scale-95 transition-transform"
+          aria-label={`${label}${count > 0 ? ` — ${count}` : ""}`}
+        >
+          <div className="relative">
+            <div
+              className="w-11 h-11 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 7%, transparent)" }}
+            >
+              <Icon className="w-[19px] h-[19px]" style={{ color: "var(--mq-text)" }} />
+            </div>
+            {count > 0 && (
+              <span
+                className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center mq-t-num text-[11px] font-bold"
+                style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
+              >
+                {count > 99 ? "99+" : count}
+              </span>
+            )}
+          </div>
+          <span className="mq-t-label text-[11px] leading-none max-w-full truncate" style={{ color: "var(--mq-text-muted)" }}>
+            {label}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function QuickActionGrid({
   likedCount,
   historyCount,
@@ -1358,173 +1552,9 @@ function ChartRow({
 // QUICK STAT
 // ═════════════════════════════════════════════════════════════════════════
 
-function QuickStat({
-  icon: Icon,
-  label,
-  value,
-  onClick,
-  accent,
-  cover,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: number;
-  onClick: () => void;
-  accent: string;
-  cover?: string;
-}) {
-  // UX Core #1 (Эффект Ресторфф): Quick Stats приглушены чтобы Wave Card
-  // визуально доминировала как единственный главный CTA на экране.
-  // UX Core #14 (Эффект превосходства картинки): мини-обложка слева
-  // запоминается лучше чем иконка + число.
-  return (
-    <motion.button
-      whileTap={{ scale: 0.97 }}
-      whileHover={{ y: -3, boxShadow: `0 8px 24px color-mix(in srgb, ${accent} 15%, transparent)` }}
-      onClick={onClick}
-      className="rounded-xl p-2.5 sm:p-3 flex items-center gap-2.5 cursor-pointer transition-all"
-      style={{
-        background: `linear-gradient(135deg, color-mix(in srgb, ${accent} 8%, var(--mq-card)) 0%, var(--mq-card) 100%)`,
-        border: "1px solid color-mix(in srgb, ${accent} 20%, var(--mq-border-hairline))",
-      }}
-    >
-      <div
-        className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg overflow-hidden flex-shrink-0 relative"
-        style={{
-          backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`,
-        }}
-      >
-        {cover ? (
-          <img src={cover} alt="" className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Icon className="w-4 h-4 sm:w-5 h-5" style={{ color: accent }} />
-          </div>
-        )}
-        {/* Accent dot — subtle indicator of category color */}
-        <span
-          className="absolute bottom-0.5 right-0.5 w-1.5 h-1.5 rounded-full"
-          style={{ backgroundColor: accent, boxShadow: `0 0 4px ${accent}` }}
-        />
-      </div>
-      <div className="min-w-0">
-        {/* Empty-library state: a bare "0" reads like a broken counter to
-            first-time users (VLM audit). An em-dash + reduced opacity reads
-            as "nothing here yet" while keeping the chip useful navigation. */}
-        <p
-          className="text-sm sm:text-base font-bold leading-none"
-          style={{ color: "var(--mq-text)", opacity: value > 0 ? 1 : 0.5 }}
-        >
-          {value > 0 ? value : "—"}
-        </p>
-        <p className="text-[11px] mt-1 truncate" style={{ color: "var(--mq-text-muted)" }}>{label}</p>
-      </div>
-    </motion.button>
-  );
-}
-
 // ═════════════════════════════════════════════════════════════════════════
 // TRACK CARD — universal card for tracks (recommendations, recently, trending preview)
 // ═════════════════════════════════════════════════════════════════════════
-
-function TrackCard({
-  track,
-  index,
-  isCurrent,
-  isPlaying,
-  onPlay,
-  onArtistClick,
-  animationsEnabled,
-}: {
-  track: Track;
-  index: number;
-  isCurrent: boolean;
-  isPlaying: boolean;
-  onPlay: () => void;
-  onArtistClick: () => void;
-  animationsEnabled: boolean;
-}) {
-  return (
-    <motion.button
-      initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.04, 0.3), duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -4 }}
-      whileTap={{ scale: 0.97 }}
-      onClick={onPlay}
-      className="text-left cursor-pointer group w-full"
-    >
-      <div
-        className="relative aspect-square rounded-2xl overflow-hidden mb-2"
-        style={{
-          boxShadow: isCurrent
-            ? "0 0 0 2px var(--mq-accent), 0 8px 24px color-mix(in srgb, var(--mq-accent) 30%, transparent)"
-            : "var(--mq-shadow-premium-md)",
-          transition: "box-shadow 0.3s var(--mq-ease-premium)",
-        }}
-      >
-        {track.cover ? (
-          <img
-            src={track.cover}
-            alt=""
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-            loading="lazy"
-          />
-        ) : (
-          <div
-            className="w-full h-full flex items-center justify-center"
-            style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}
-          >
-            <Music className="w-7 h-7" style={{ color: "rgba(255,255,255,0.7)" }} />
-          </div>
-        )}
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300" />
-        {/* Play button */}
-        <div
-          className="absolute bottom-2 right-2 w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-300 sm:scale-90 sm:group-hover:scale-100 sm:translate-y-2 sm:group-hover:translate-y-0"
-          style={{
-            backgroundColor: "var(--mq-accent)",
-            boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
-          }}
-        >
-          {isCurrent && isPlaying ? (
-            <Pause className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
-          ) : (
-            <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
-          )}
-        </div>
-        {/* Current badge */}
-        {isCurrent && (
-          <div
-            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold backdrop-blur-md flex items-center gap-1"
-            style={{
-              backgroundColor: "rgba(0,0,0,0.6)",
-              color: "var(--mq-accent)",
-              border: "1px solid var(--mq-border-accent)",
-            }}
-          >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
-            ИГРАЕТ
-          </div>
-        )}
-      </div>
-      <p
-        className="text-[13px] sm:text-sm font-semibold truncate leading-tight mt-0.5"
-        style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}
-      >
-        {track.title}
-      </p>
-      <button
-        onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-        className="text-[11px] sm:text-xs truncate hover:underline block w-full text-left mt-0.5"
-        style={{ color: "var(--mq-text-muted)" }}
-      >
-        {track.artist}
-      </button>
-    </motion.button>
-  );
-}
 
 // ═════════════════════════════════════════════════════════════════════════
 // PLAYLIST CARD — user's playlist tile
@@ -1628,306 +1658,12 @@ function PlaylistCard({
 // pattern with a blurred cover backdrop.
 // ═════════════════════════════════════════════════════════════════════════
 
-function RecHero({
-  track, reason, isCurrent, isPlaying, onPlay, onArtistClick, animationsEnabled,
-}: {
-  track: Track;
-  reason: string;
-  isCurrent: boolean;
-  isPlaying: boolean;
-  onPlay: () => void;
-  onArtistClick: () => void;
-  animationsEnabled: boolean;
-}) {
-  const liked = useAppStore((s) => s.likedTrackIds.includes(track.id));
-  const toggleLike = useAppStore((s) => s.toggleLike);
-
-  return (
-    <motion.div
-      initial={animationsEnabled ? { opacity: 0, y: 14 } : undefined}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-      onClick={onPlay}
-      className="relative rounded-3xl overflow-hidden mb-1 cursor-pointer group"
-      style={{ boxShadow: "var(--mq-shadow-float)" }}
-    >
-      {/* Blurred cover background */}
-      {track.cover ? (
-        <div className="absolute inset-0">
-          <img
-            src={track.cover}
-            alt=""
-            className="w-full h-full object-cover"
-            style={{ filter: "blur(48px) saturate(180%)", transform: "scale(1.4)" }}
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(135deg, color-mix(in srgb, var(--mq-bg) 55%, transparent), color-mix(in srgb, var(--mq-bg) 35%, transparent))",
-            }}
-          />
-        </div>
-      ) : (
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 30%, var(--mq-bg)), var(--mq-bg))",
-          }}
-        />
-      )}
-
-      {/* Content */}
-      <div className="relative z-10 p-3 sm:p-5 flex items-center gap-3 sm:gap-5">
-        {/* Cover */}
-        <div
-          className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-2xl overflow-hidden flex-shrink-0"
-          style={{ boxShadow: "var(--mq-shadow-elevated)" }}
-        >
-          {track.cover ? (
-            <img src={track.cover} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div
-              className="w-full h-full flex items-center justify-center"
-              style={{
-                background:
-                  "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))",
-              }}
-            >
-              <Music className="w-10 h-10" style={{ color: "rgba(255,255,255,0.7)" }} />
-            </div>
-          )}
-          {/* Hover play overlay */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-            style={{ backgroundColor: "rgba(0,0,0,0.45)" }}>
-            {isCurrent && isPlaying ? (
-              <Pause className="w-7 h-7 sm:w-9 sm:h-9" fill="#fff" style={{ color: "#fff" }} />
-            ) : (
-              <Play className="w-7 h-7 sm:w-9 sm:h-9 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
-            )}
-          </div>
-        </div>
-
-        {/* Meta */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <motion.span
-              animate={{ opacity: [0.6, 1, 0.6], scale: [0.95, 1, 0.95] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-              className="inline-flex"
-            >
-              <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
-            </motion.span>
-            <span
-              className="text-[11px] font-bold uppercase tracking-widest"
-              style={{ color: "var(--mq-accent)" }}
-            >
-              Рекомендация для вас
-            </span>
-          </div>
-          <h3
-            className="text-lg sm:text-xl font-bold truncate"
-            style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}
-            title={track.title}
-          >
-            {track.title}
-          </h3>
-          <button
-            onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-            className="text-sm truncate hover:underline block w-full text-left mt-0.5"
-            style={{ color: "var(--mq-text-muted)" }}
-          >
-            {track.artist}
-          </button>
-          {reason && (
-            <div
-              className="hidden sm:inline-flex items-center gap-1.5 mt-2.5 px-2.5 py-1 rounded-full"
-              style={{
-                backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
-                border: "1px solid color-mix(in srgb, var(--mq-accent) 24%, transparent)",
-              }}
-            >
-              <span
-                className="text-[11px] font-medium"
-                style={{ color: "var(--mq-accent)" }}
-              >
-                {reason}
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
-          <motion.button
-            whileTap={{ scale: 0.93 }}
-            whileHover={{ scale: 1.05 }}
-            onClick={(e) => { e.stopPropagation(); onPlay(); }}
-            className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center"
-            style={{
-              backgroundColor: "var(--mq-accent)",
-              color: "#fff",
-              boxShadow: "var(--mq-shadow-accent)",
-            }}
-            aria-label={isCurrent && isPlaying ? "Пауза" : "Слушать"}
-          >
-            {isCurrent && isPlaying ? (
-              <Pause className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" />
-            ) : (
-              <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5" fill="currentColor" />
-            )}
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.93 }}
-            whileHover={{ scale: 1.05 }}
-            onClick={(e) => { e.stopPropagation(); toggleLike(track.id, track); }}
-            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center"
-            style={{
-              backgroundColor: "var(--mq-card)",
-              color: liked ? "var(--mq-accent)" : "var(--mq-text-muted)",
-              border: "1px solid var(--mq-border-hairline)",
-            }}
-            aria-label={liked ? "Убрать из избранного" : "В избранное"}
-          >
-            <Heart className="w-4 h-4 sm:w-5 sm:h-5" fill={liked ? "currentColor" : "none"} />
-          </motion.button>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
 // ═════════════════════════════════════════════════════════════════════════
 // REC STRIP — horizontal scroll of track cards for one category
 // Replaces the old Hero+Tabs+List design with a simpler Spotify-home layout
 // ═════════════════════════════════════════════════════════════════════════
 
-function RecStrip({
-  title, icon: Icon, tracks, reason, currentTrack, isPlaying, onPlay, onArtistClick, animationsEnabled,
-}: {
-  title: string;
-  icon: React.ElementType;
-  tracks: Track[];
-  reason: string;
-  currentTrack: Track | null;
-  isPlaying: boolean;
-  onPlay: (track: Track) => void;
-  onArtistClick: (artist: string) => void;
-  animationsEnabled: boolean;
-}) {
-  if (tracks.length === 0) return null;
-  return (
-    <div>
-      {/* Section header */}
-      <div className="flex items-center gap-2 mb-3">
-        <Icon className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
-        <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>{title}</h3>
-        <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "var(--mq-border-thin)", color: "var(--mq-text-muted)" }}>
-          {tracks.length}
-        </span>
-      </div>
-
-      {/* Horizontal scroll of cards */}
-      <HScroll className="flex gap-3 overflow-x-auto scrollbar-none -mx-3 px-3 lg:mx-0 lg:px-0 pb-1">
-        {tracks.map((track, i) => (
-          <RecCard
-            key={track.id + "_" + i}
-            track={track}
-            index={i}
-            reason={reason}
-            isCurrent={currentTrack?.id === track.id}
-            isPlaying={isPlaying && currentTrack?.id === track.id}
-            onPlay={() => onPlay(track)}
-            onArtistClick={() => onArtistClick(track.artist)}
-            animationsEnabled={animationsEnabled}
-          />
-        ))}
-      </HScroll>
-    </div>
-  );
-}
-
 // ─── RecCard — visual card (cover + title + artist) ───────────────────────
-
-function RecCard({
-  track, index, reason, isCurrent, isPlaying, onPlay, onArtistClick, animationsEnabled,
-}: {
-  track: Track;
-  index: number;
-  reason: string;
-  isCurrent: boolean;
-  isPlaying: boolean;
-  onPlay: () => void;
-  onArtistClick: () => void;
-  animationsEnabled: boolean;
-}) {
-  return (
-    <motion.div
-      initial={animationsEnabled ? { opacity: 0, scale: 0.95 } : undefined}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: Math.min(index * 0.03, 0.3), duration: 0.3 }}
-      whileHover={{ y: -4 }}
-      onClick={onPlay}
-      className="flex-shrink-0 w-[140px] sm:w-[160px] cursor-pointer group"
-    >
-      {/* Cover */}
-      <div
-        className="relative aspect-square rounded-2xl overflow-hidden mb-2"
-        style={{
-          boxShadow: isCurrent
-            ? "0 0 0 2px var(--mq-accent), 0 8px 24px color-mix(in srgb, var(--mq-accent) 30%, transparent)"
-            : "var(--mq-shadow-premium-md)",
-          transition: "box-shadow 0.3s var(--mq-ease-premium)",
-        }}
-      >
-        {track.cover ? (
-          <img src={track.cover} alt="" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" loading="lazy" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-            <Music className="w-7 h-7" style={{ color: "rgba(255,255,255,0.5)" }} />
-          </div>
-        )}
-        {/* Dark gradient — always visible on mobile (so play button stays readable), hover-only on desktop */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300" />
-        {/* Play / pause button — visible on mobile, hover-only on desktop */}
-        <div
-          className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 translate-y-0 sm:translate-y-2 sm:opacity-0 sm:group-hover:opacity-100 sm:group-hover:translate-y-0"
-          style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)" }}
-        >
-          {isCurrent && isPlaying ? (
-            <Pause className="w-4 h-4" fill="#fff" style={{ color: "#fff" }} />
-          ) : (
-            <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
-          )}
-        </div>
-        {isCurrent && (
-          <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold backdrop-blur-md flex items-center gap-1" style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}>
-            {/* Animated equalizer bars when playing, static dot when paused */}
-            {isPlaying ? (
-              <NowPlayingEqualizer size="xs" variant="inline" />
-            ) : (
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
-            )}
-            ИГРАЕТ
-          </div>
-        )}
-      </div>
-      {/* Text */}
-      <p className="text-[13px] font-semibold truncate leading-tight" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
-        {track.title}
-      </p>
-      <button onClick={(e) => { e.stopPropagation(); onArtistClick(); }} className="text-[11px] truncate hover:underline block w-full text-left mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
-        {track.artist}
-      </button>
-      {reason && (
-        <p className="text-[11px] truncate mt-1" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
-          {reason}
-        </p>
-      )}
-    </motion.div>
-  );
-}
 
 // ═════════════════════════════════════════════════════════════════════════
 // RECS — Reasoning helper
@@ -2185,416 +1921,6 @@ function CuratedPlaylistCard({
 // WAVE CARD — preserved from previous version
 // ═════════════════════════════════════════════════════════════════════════
 
-function WaveCard({
-  isMobile,
-  currentTrack,
-  isPlaying,
-  radioMode,
-  progress,
-  duration,
-  waveLoading,
-  waveError,
-  onStartWave,
-  onPauseWave,
-  onStopWave,
-  onSkip,
-  onDislike,
-  onLike,
-  isLiked,
-  topGenres,
-}: {
-  isMobile: boolean;
-  currentTrack: Track | null;
-  isPlaying: boolean;
-  radioMode: boolean;
-  progress: number;
-  duration: number;
-  waveLoading: boolean;
-  waveError: string | null;
-  onStartWave: () => void;
-  onPauseWave: () => void;
-  onStopWave: () => void;
-  onSkip: () => void;
-  onDislike: () => void;
-  onLike: () => void;
-  isLiked: boolean;
-  topGenres: string[];
-}) {
-  const waveMagnetic = useMagnetic({ strength: 1, padding: 60 });
-  return (
-    <div
-      className={isMobile ? "relative mb-8 rounded-3xl overflow-hidden" : "mq-hero-card relative mb-8"}
-      ref={waveMagnetic.ref as React.RefObject<HTMLDivElement>}
-      // react-hooks/refs false positive: useMagnetic handlers only read the
-      // ref inside event callbacks — never during render.
-      // eslint-disable-next-line react-hooks/refs
-      onMouseMove={waveMagnetic.onMouseMove}
-      // eslint-disable-next-line react-hooks/refs
-      onMouseLeave={waveMagnetic.onMouseLeave}
-      style={{
-        background: isMobile
-          ? (currentTrack?.cover
-            ? `linear-gradient(135deg, color-mix(in srgb, var(--mq-accent) 20%, var(--mq-bg)), color-mix(in srgb, var(--mq-accent) 8%, var(--mq-bg)))`
-            : getWaveGradient())
-          : getWaveGradient(),
-        minHeight: isMobile ? 140 : 160,
-        boxShadow: "var(--mq-shadow-float)",
-        willChange: "transform",
-      }}
-    >
-      {/* Tip 4 (Depth & texture from video): subtle noise overlay on the
-          star element. Pure CSS via SVG turbulence filter — no image asset,
-          no extra request. 4% opacity keeps it from competing with content. */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          opacity: 0.04,
-          mixBlendMode: "overlay",
-          backgroundImage:
-            "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>\")",
-          backgroundSize: "120px 120px",
-        }}
-      />
-      {/* Blurred album art background (mobile only) */}
-      {isMobile && currentTrack?.cover && (
-        <div className="absolute inset-0 pointer-events-none">
-          <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" style={{ filter: "blur(60px) saturate(180%)", opacity: 0.3, transform: "scale(1.3)" }} />
-          <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, color-mix(in srgb, var(--mq-bg) 70%, transparent), color-mix(in srgb, var(--mq-bg) 50%, transparent))" }} />
-        </div>
-      )}
-
-      {/* Glass overlay (mobile only) */}
-      {isMobile && (
-        <div className="absolute inset-0 pointer-events-none" style={{ background: "color-mix(in srgb, var(--mq-bg) 40%, transparent)", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }} />
-      )}
-
-      {/* Pulsing glow animation */}
-      <motion.div
-        className="absolute inset-0 rounded-[inherit] pointer-events-none"
-        style={{ boxShadow: `0 0 ${isMobile ? 80 : 60}px color-mix(in srgb, var(--mq-accent) ${isMobile ? 15 : 18}%, transparent)` }}
-        animate={{ opacity: isMobile ? [0.3, 0.6, 0.3] : [0.4, 0.8, 0.4] }}
-        transition={{ duration: isMobile ? 5 : 4, repeat: Infinity, ease: "easeInOut" }}
-      />
-
-      {/* Animated multi-layer wave background when playing */}
-      {radioMode && currentTrack && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {/* Back wave — slowest, dimmest */}
-          <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: isMobile ? 60 : 80, opacity: isMobile ? 0.08 : 0.10 }}>
-            <motion.path
-              d="M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z"
-              fill="white"
-              animate={{ d: [
-                "M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z",
-                "M0,55 C150,70 300,25 450,50 C600,70 750,25 900,55 C1050,70 1200,25 1200,50 L1200,80 L0,80 Z",
-                "M0,40 C150,15 300,65 450,40 C600,15 750,65 900,40 C1050,15 1200,65 1200,40 L1200,80 L0,80 Z",
-              ] }}
-              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </svg>
-          {/* Mid wave — medium speed, medium opacity */}
-          <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: isMobile ? 40 : 55, opacity: isMobile ? 0.10 : 0.14 }}>
-            <motion.path
-              d="M0,50 C200,25 400,65 600,40 C800,15 1000,65 1200,40 L1200,80 L0,80 Z"
-              fill="white"
-              animate={{ d: [
-                "M0,50 C200,25 400,65 600,40 C800,15 1000,65 1200,40 L1200,80 L0,80 Z",
-                "M0,30 C200,55 400,15 600,45 C800,65 1000,20 1200,50 L1200,80 L0,80 Z",
-                "M0,50 C200,25 400,65 600,40 C800,15 1000,65 1200,40 L1200,80 L0,80 Z",
-              ] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </svg>
-          {/* Front wave — fastest, most opaque */}
-          <svg className="absolute bottom-0 left-0 w-full" viewBox="0 0 1200 80" preserveAspectRatio="none" style={{ height: isMobile ? 22 : 32, opacity: isMobile ? 0.14 : 0.18 }}>
-            <motion.path
-              d="M0,60 C150,40 300,70 450,55 C600,40 750,70 900,55 C1050,40 1200,65 1200,55 L1200,80 L0,80 Z"
-              fill="white"
-              animate={{ d: [
-                "M0,60 C150,40 300,70 450,55 C600,40 750,70 900,55 C1050,40 1200,65 1200,55 L1200,80 L0,80 Z",
-                "M0,45 C150,65 300,30 450,50 C600,65 750,30 900,50 C1050,65 1200,30 1200,50 L1200,80 L0,80 Z",
-                "M0,60 C150,40 300,70 450,55 C600,40 750,70 900,55 C1050,40 1200,65 1200,55 L1200,80 L0,80 Z",
-              ] }}
-              transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </svg>
-        </div>
-      )}
-
-      <div className={`relative z-10 ${isMobile ? "p-4 sm:p-5 flex items-center gap-4 sm:gap-5" : "p-5 sm:p-6 flex items-center gap-5"}`} style={{ minHeight: isMobile ? 140 : 160 }}>
-        {radioMode && currentTrack ? (
-          isMobile ? (
-            /* Mobile Active Wave */
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden flex-shrink-0 relative" style={{ boxShadow: "var(--mq-shadow-elevated)" }}>
-                {currentTrack.cover ? <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" /> : (
-                  <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.15)" }}><Music className="w-6 h-6" style={{ color: "rgba(255,255,255,0.8)" }} /></div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <Waves className="w-3 h-3" style={{ color: "rgba(255,255,255,0.7)" }} />
-                  <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.6)" }}>Волна · Играет</span>
-                </div>
-                <p className="text-base sm:text-lg font-bold truncate" style={{ color: "#fff", letterSpacing: "-0.02em" }}>{currentTrack.title}</p>
-                <p className="text-[13px] truncate" style={{ color: "rgba(255,255,255,0.55)" }}>{currentTrack.artist}</p>
-                {isPlaying && duration > 0 && (
-                  <div className="mt-2.5 h-[2px] rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.1)", maxWidth: 180 }}>
-                    <motion.div className="h-full rounded-full" style={{ width: "100%", transformOrigin: "left", willChange: "transform", background: "linear-gradient(90deg, rgba(255,255,255,0.5), rgba(255,255,255,0.9))" }}
-                      initial={{ scaleX: 0 }} animate={{ scaleX: Math.min(progress / duration, 1) }} transition={{ duration: 0.3, ease: "linear" }} />
-                  </div>
-                )}
-              </div>
-              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
-                onClick={onPauseWave}
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgba(255,255,255,0.12)", backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)", border: "1px solid var(--mq-border-medium)", color: "rgba(255,255,255,0.9)", boxShadow: "var(--mq-shadow-card)" }}>
-                {isPlaying ? <Pause className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" /> : <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5" fill="currentColor" />}
-              </motion.button>
-              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
-                onClick={onSkip}
-                className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.7)" }}>
-                <SkipForward className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" />
-              </motion.button>
-              {/* Like/Dislike/Stop removed from Wave Card per user request.
-                  Use PlayerBar controls instead (like/dislike there, and
-                  Radio button toggles wave on/off). Wave stays focused on
-                  playback: just Play/Pause + Skip. */}
-            </div>
-          ) : (
-            /* Desktop Active Wave */
-            <div className="flex items-center gap-5 flex-1 min-w-0">
-              <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 mq-cover-shadow">
-                {currentTrack.cover ? <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" /> : (
-                  <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}><Music className="w-7 h-7" style={{ color: "#fff" }} /></div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Waves className="w-3.5 h-3.5" style={{ color: "#fff", opacity: "var(--mq-emphasis-medium)" }} />
-                  <span
-                    className="text-[11px] font-semibold uppercase tracking-wider"
-                    style={{ color: "#fff", opacity: "var(--mq-emphasis-medium)" }}
-                  >
-                    Волна · Играет
-                  </span>
-                </div>
-                {/* Tip 5 (Opacity hierarchy): title 100% (high), artist 70% (medium) */}
-                <p
-                  className="text-lg font-bold truncate"
-                  style={{
-                    color: "#fff",
-                    fontFamily: "var(--mq-font-serif)",
-                    fontWeight: 600,
-                    letterSpacing: "-0.01em",
-                  }}
-                >
-                  {currentTrack.title}
-                </p>
-                <p
-                  className="text-sm truncate"
-                  style={{ color: "#fff", opacity: "var(--mq-emphasis-medium)" }}
-                >
-                  {currentTrack.artist}
-                </p>
-                {isPlaying && duration > 0 && (
-                  <div className="mt-2.5 h-[3px] rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.15)", maxWidth: 200 }}>
-                    <motion.div className="h-full rounded-full" style={{ width: "100%", transformOrigin: "left", willChange: "transform", backgroundColor: "rgba(255,255,255,0.8)" }}
-                      initial={{ scaleX: 0 }} animate={{ scaleX: Math.min(progress / duration, 1) }} transition={{ duration: 0.3, ease: "linear" }} />
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <div className="flex items-end gap-[2px] h-5">
-                  {[0, 1, 2, 3, 4].map((i) => (
-                    <motion.div key={i} className="w-[2.5px] rounded-full"
-                      style={{ height: "100%", transformOrigin: "bottom", willChange: "transform", backgroundColor: "rgba(255,255,255,0.7)" }}
-                      // ui-ux-design rule: animate transform (scaleY) instead of height
-                      // — GPU-accelerated, no layout reflow.
-                      animate={isPlaying ? { scaleY: [0.3, 1, 0.3 + (i % 3) * 0.2, 0.5, 0.3] } : { scaleY: 0.3 }}
-                      transition={isPlaying ? { duration: 0.5 + i * 0.08, repeat: Infinity, ease: "easeInOut", delay: i * 0.06 } : { duration: 0.2 }} />
-                  ))}
-                </div>
-                <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
-                  onClick={onPauseWave}
-                  className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 relative"
-                  style={{ background: "var(--mq-text-on-accent, #fff)", color: "var(--mq-bg)", boxShadow: "var(--mq-shadow-card-hover)" }}>
-                  {isPlaying ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6 ml-0.5" fill="currentColor" />}
-                  {/* Animated expanding ring when playing */}
-                  {isPlaying && (
-                    <motion.span
-                      className="absolute inset-0 rounded-full pointer-events-none"
-                      style={{ border: "2px solid var(--mq-text-on-accent, #fff)" }}
-                      animate={{ scale: [1, 1.4], opacity: [0.6, 0] }}
-                      transition={{ duration: 1.8, repeat: Infinity, ease: "easeOut" }}
-                    />
-                  )}
-                </motion.button>
-                <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
-                  onClick={onSkip}
-                  className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{ background: "var(--mq-glass-bg-active)", color: "var(--mq-text-on-accent, rgba(255,255,255,0.8))" }}>
-                  <SkipForward className="w-5 h-5" fill="currentColor" />
-                </motion.button>
-                {/* Like/Dislike/Stop removed from Wave Card per user request.
-                    Use PlayerBar controls instead. Wave stays focused on
-                    playback: just Play/Pause + Skip. */}
-              </div>
-            </div>
-          )
-        ) : (
-          isMobile ? (
-            /* Mobile Inactive Wave */
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <Waves className="w-5 h-5" style={{ color: "rgba(255,255,255,0.8)" }} />
-                  <h3 className="text-lg sm:text-xl font-bold" style={{ color: "#fff", letterSpacing: "-0.02em" }}>Волна</h3>
-                </div>
-                <p className="text-[13px] sm:text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>Бесконечный поток музыки для вас</p>
-                {topGenres.length > 0 && (
-                  <div className="flex gap-1.5 mt-2 overflow-hidden">
-                    {topGenres.slice(0, 3).map((genre) => (
-                      <span key={genre} className="text-[11px] px-2.5 py-0.5 rounded-full whitespace-nowrap font-medium"
-                        style={{ backgroundColor: "rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.85)", border: "1px solid var(--mq-border-medium)" }}>
-                        {displayGenre(genre)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.06 }}
-                onClick={onStartWave} disabled={waveLoading}
-                className="w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgba(255,255,255,0.9)", color: "var(--mq-bg)", boxShadow: "var(--mq-shadow-accent)" }}>
-                {waveLoading ? (
-                  <div className="mq-spin w-5 h-5 border-2 rounded-full" style={{ borderColor: "var(--mq-bg)", borderTopColor: "transparent" }} />
-                ) : (
-                  <Play className="w-5 h-5 sm:w-6 sm:h-6 ml-0.5" fill="currentColor" />
-                )}
-              </motion.button>
-            </div>
-          ) : (
-            /* Desktop Inactive Wave */
-            <div className="flex items-center gap-5 flex-1 min-w-0">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <Waves className="w-6 h-6" style={{ color: "rgba(255,255,255,0.9)" }} />
-                  <h3 className="text-xl font-bold" style={{ color: "#fff", letterSpacing: "-0.02em" }}>Волна</h3>
-                </div>
-                <p className="text-sm" style={{ color: "rgba(255,255,255,0.65)" }}>Бесконечный поток музыки для вас</p>
-                {topGenres.length > 0 && (
-                  <div className="flex gap-1.5 mt-2 overflow-hidden">
-                    {topGenres.slice(0, 3).map((genre) => (
-                      <span key={genre} className="text-[11px] px-2.5 py-0.5 rounded-full whitespace-nowrap font-medium"
-                        style={{ backgroundColor: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.9)", border: "1px solid var(--mq-border-medium)" }}>
-                        {displayGenre(genre)}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <motion.button whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.08 }}
-                onClick={onStartWave} disabled={waveLoading}
-                className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: "rgba(255,255,255,0.95)", color: "#1a1a2e", boxShadow: "var(--mq-shadow-card-hover)" }}>
-                {waveLoading ? (
-                  <div className="mq-spin w-6 h-6 border-2 rounded-full" style={{ borderColor: "#1a1a2e", borderTopColor: "transparent" }} />
-                ) : (
-                  <Play className="w-6 h-6 ml-0.5" fill="currentColor" />
-                )}
-              </motion.button>
-            </div>
-          )
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── Country detection ────────────────────────────────────────────────────
-
-function detectUserCountry(): string {
-  try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-    // Map common timezones to country codes
-    const tzMap: Record<string, string> = {
-      "Europe/Moscow": "RU",
-      "Europe/Kaliningrad": "RU",
-      "Europe/Samara": "RU",
-      "Europe/Yekaterinburg": "RU",
-      "Europe/Omsk": "RU",
-      "Europe/Novosibirsk": "RU",
-      "Europe/Krasnoyarsk": "RU",
-      "Europe/Irkutsk": "RU",
-      "Asia/Yakutsk": "RU",
-      "Asia/Vladivostok": "RU",
-      "Asia/Magadan": "RU",
-      "Asia/Kamchatka": "RU",
-      "Asia/Anadyr": "RU",
-      "Asia/Yekaterinburg": "RU",
-      "Europe/Kiev": "UA",
-      "Europe/Kyiv": "UA",
-      "Europe/Minsk": "BY",
-      "Asia/Almaty": "KZ",
-      "Asia/Tashkent": "UZ",
-      "Europe/London": "GB",
-      "Europe/Berlin": "DE",
-      "Europe/Paris": "FR",
-      "Europe/Madrid": "ES",
-      "Europe/Rome": "IT",
-      "Europe/Amsterdam": "NL",
-      "Europe/Stockholm": "SE",
-      "Europe/Oslo": "NO",
-      "Europe/Copenhagen": "DK",
-      "Europe/Warsaw": "PL",
-      "Europe/Prague": "CZ",
-      "Europe/Vienna": "AT",
-      "Europe/Zurich": "CH",
-      "Europe/Brussels": "BE",
-      "America/New_York": "US",
-      "America/Chicago": "US",
-      "America/Denver": "US",
-      "America/Los_Angeles": "US",
-      "America/Toronto": "CA",
-      "America/Vancouver": "CA",
-      "America/Mexico_City": "MX",
-            "America/Sao_Paulo": "BR",
-      "America/Argentina/Buenos_Aires": "AR",
-      "Asia/Tokyo": "JP",
-      "Asia/Seoul": "KR",
-      "Asia/Shanghai": "CN",
-      "Asia/Hong_Kong": "HK",
-      "Asia/Singapore": "SG",
-      "Asia/Kolkata": "IN",
-      "Asia/Bangkok": "TH",
-      "Asia/Dubai": "AE",
-      "Asia/Tel_Aviv": "IL",
-      "Australia/Sydney": "AU",
-      "Australia/Melbourne": "AU",
-      "Pacific/Auckland": "NZ",
-    };
-    return tzMap[tz] || "RU"; // Default to Russia
-  } catch {
-    return "RU";
-  }
-}
-
-function countryNameFromCode(code: string): string {
-  const names: Record<string, string> = {
-    RU: "России", UA: "Украины", BY: "Беларуси", KZ: "Казахстана",
-    US: "США", GB: "Британии", DE: "Германии", FR: "Франции",
-    ES: "Испании", IT: "Италии", NL: "Нидерландов", SE: "Швеции",
-    NO: "Норвегии", DK: "Дании", PL: "Польши", CZ: "Чехии",
-    AT: "Австрии", CH: "Швейцарии", BE: "Бельгии", CA: "Канады",
-    MX: "Мексики", BR: "Бразилии", AR: "Аргентины",
-    JP: "Японии", KR: "Кореи", CN: "Китая", HK: "Гонконга",
-    SG: "Сингапура", IN: "Индии", TH: "Таиланда", AE: "ОАЭ",
-    IL: "Израиля", AU: "Австралии", NZ: "Новой Зеландии",
-    UZ: "Узбекистана",
-  };
-  return names[code] || code;
-}
 
 export default memo(MainView);

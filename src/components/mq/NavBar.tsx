@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import {
-  Home, Search, MessageCircle, Settings, User, Bell,
+  Home, Search, MessageCircle, Settings, User, Bell, Shield,
   Library,
 } from "lucide-react";
 import type { ViewType } from "@/store/useAppStore";
@@ -35,6 +35,7 @@ const NavBar = React.memo(function NavBar() {
   const setNotifPanelOpen = useAppStore((s) => s.setNotifPanelOpen);
   const notificationCount = useAppStore((s) => s.notificationCount);
   const notifPanelOpen = useAppStore((s) => s.notifPanelOpen);
+  const userRole = useAppStore((s) => s.userRole);
 
   const messengerBadge = Object.values(unreadCounts).reduce((sum, c) => sum + (c || 0), 0);
   const settingsBadge = supportUnreadCount;
@@ -192,6 +193,19 @@ const NavBar = React.memo(function NavBar() {
             </span>
           )}
         </button>
+
+        {/* Admin — server-gated /admin surface, shown only to admins */}
+        {userRole === "admin" && (
+          <button
+            onClick={() => window.open("/admin", "_self")}
+            aria-label="Админ-панель"
+            title="Админ-панель"
+            className={iconButtonBase + " focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"}
+            style={{ color: "var(--mq-text-muted)" }}
+          >
+            <Shield className="w-[17px] h-[17px]" strokeWidth={1.8} />
+          </button>
+        )}
 
         {/* Settings icon-button */}
         <button

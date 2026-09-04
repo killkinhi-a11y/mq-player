@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { database } from "@/lib/database";
 import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { signToken, SESSION_COOKIE_OPTIONS } from "@/lib/auth";
+import { ensureOwnerAdminRole } from "@/lib/admin-grant";
 
 async function handler(req: NextRequest) {
   try {
@@ -50,14 +51,17 @@ async function handler(req: NextRequest) {
     await database.markVerificationCodeUsed(verificationCode.id);
     await database.updateUser(user.id, { confirmed: true });
 
+    // Owner bootstrap before issuing the JWT (role is embedded in the token)
+    const role = await ensureOwnerAdminRole(user);
+
     // Issue JWT session token — auto-login after confirmation
-    const token = await signToken({ userId: user.id, username: user.username, role: user.role });
+    const token = await signToken({ userId: user.id, username: user.username, role });
 
     const response = NextResponse.json({
       message: "Email успешно подтверждён",
       userId: user.id,
       username: user.username,
-      role: user.role,
+      role,
       avatar: user.avatar || null,
     });
 

@@ -319,10 +319,13 @@ input, textarea, select {
   --mq-accent: #e03131;
   --mq-text: #f0f0f0;
   --mq-text-muted: #9a9a9a;
+  /* Derived borders — Task 7: reference --mq-border (overridden per theme by
+     applyThemeToDOM) instead of static white alphas. In Daylight the hairlines
+     now resolve to light grey (#dee2e6 mix) instead of invisible white. */
   --mq-border: rgba(255,255,255,0.05);
-  --mq-border-hairline: rgba(255,255,255,0.04);
-  --mq-border-thin: rgba(255,255,255,0.06);
-  --mq-border-medium: rgba(255,255,255,0.1);
+  --mq-border-hairline: color-mix(in srgb, var(--mq-border) 22%, transparent);
+  --mq-border-thin: color-mix(in srgb, var(--mq-border) 32%, transparent);
+  --mq-border-medium: color-mix(in srgb, var(--mq-border) 48%, transparent);
   --mq-border-accent: color-mix(in srgb, var(--mq-accent) 25%, transparent);
   --mq-border-accent-strong: color-mix(in srgb, var(--mq-accent) 40%, transparent);
   --mq-focus-ring: 0 0 0 2px color-mix(in srgb, var(--mq-accent) 40%, transparent);
@@ -3732,17 +3735,18 @@ a,
 
 :root {
   /* Surface ladder — three quiet steps above the page background */
-  --mq-surface-1: #151517;
-  --mq-surface-2: #1b1b1e;
+  --mq-surface-1: var(--mq-bg, #151517);
+  --mq-surface-2: var(--mq-card, #1b1b1e);
   /* Radius scale — one card radius, one artwork radius, one pill */
   --mq-r-card: 12px;
   --mq-r-card-lg: 16px;
   --mq-r-art: 10px;
   /* Hairline edge for every card (replaces glow-based depth) */
-  --mq-edge: rgba(255, 255, 255, 0.07);
-  --mq-edge-strong: rgba(255, 255, 255, 0.12);
+  /* Edges derive from --mq-border so light themes get visible edges (Task 7) */
+  --mq-edge: color-mix(in srgb, var(--mq-border) 36%, transparent);
+  --mq-edge-strong: color-mix(in srgb, var(--mq-border) 60%, transparent);
   /* Resting vs hover edge */
-  --mq-edge-hover: rgba(255, 255, 255, 0.14);
+  --mq-edge-hover: color-mix(in srgb, var(--mq-border) 72%, transparent);
   /* Elevation for genuinely floating surfaces only (dialogs, player) */
   --mq-elev-dialog: 0 24px 64px rgba(0, 0, 0, 0.6), 0 8px 24px rgba(0, 0, 0, 0.4);
   --mq-elev-bar: 0 -1px 0 rgba(255, 255, 255, 0.06), 0 8px 32px rgba(0, 0, 0, 0.45);

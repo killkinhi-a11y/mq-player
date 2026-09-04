@@ -133,9 +133,11 @@
      P2.1: Adaptive glass tokens that work on both dark AND light themes.
      Previously hardcoded as rgba(255,255,255,0.x) — invisible on daylight theme.
      Dark themes override these in their theme class. Light theme overrides below. */
-  --mq-glass-bg: rgba(255,255,255,0.04);
-  --mq-glass-bg-hover: rgba(255,255,255,0.08);
-  --mq-glass-bg-active: rgba(255,255,255,0.12);
+  /* Glass tints derive from --mq-text: white-ish in dark themes, dark-ish
+     in light themes — surfaces never turn invisible (Task 7). */
+  --mq-glass-bg: color-mix(in srgb, var(--mq-text) 4%, transparent);
+  --mq-glass-bg-hover: color-mix(in srgb, var(--mq-text) 8%, transparent);
+  --mq-glass-bg-active: color-mix(in srgb, var(--mq-text) 12%, transparent);
   --mq-glass-border: rgba(255,255,255,0.08);
   --mq-glass-border-hover: rgba(255,255,255,0.15);
   /* Glass/Blur System — Phase 2B: blur values cut 60% (40px→16px, 60px→24px).
@@ -146,7 +148,7 @@
 
   /* P2.1: Light theme overrides — daylight theme sets these via .daylight-theme class */
   --mq-overlay-scrim: rgba(0,0,0,0.6);     /* modal backdrop */
-  --mq-overlay-hover: rgba(255,255,255,0.04); /* card hover */
+  --mq-overlay-hover: color-mix(in srgb, var(--mq-text) 4%, transparent); /* card hover — theme-aware */
   --mq-overlay-active: rgba(255,255,255,0.06); /* card active/pressed */
   --mq-border-subtle: rgba(255,255,255,0.06);  /* hairline borders */
   --mq-border-default: rgba(255,255,255,0.1);   /* standard borders */
@@ -159,12 +161,15 @@
   /* Dynamic Color System — album art reactive */
   --mq-accent-rgb: 224,49,49;
 
-  /* Surface hierarchy — progressive depth */
-  --mq-surface-0: #050505;   /* deepest background */
-  --mq-surface-1: #0e0e0e;   /* main background */
-  --mq-surface-2: #1a1a1a;   /* cards */
-  --mq-surface-3: #242424;   /* elevated cards */
-  --mq-surface-4: #2e2e2e;   /* highest elevation */
+  /* Surface hierarchy — progressive depth. Task 7: derived from the ACTIVE
+     theme's tokens (set by applyThemeToDOM) so light themes get light
+     surfaces — previously these were static dark hexes and the whole app
+     stayed near-black in Daylight. */
+  --mq-surface-0: color-mix(in srgb, var(--mq-bg, #0e0e0e) 88%, #000);
+  --mq-surface-1: color-mix(in srgb, var(--mq-bg, #0e0e0e) 85%, var(--mq-card, #1a1a1a)); /* bg+card mix: subtle elevation both themes */
+  --mq-surface-2: var(--mq-card, #1a1a1a);    /* cards */
+  --mq-surface-3: var(--mq-card-hover, #242424); /* elevated cards */
+  --mq-surface-4: color-mix(in srgb, var(--mq-card-hover, #2e2e2e) 82%, var(--mq-text, #fff)); /* highest elevation */
 
   /* Ambient/Glow System */
   --mq-ambient-opacity: 0.06;

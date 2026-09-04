@@ -148,3 +148,86 @@ export async function getTracksByGenre(genre: string): Promise<Track[]> {
 export function mapGenreToRu(genre: string): string {
   return genreMapReverse[genre] || genre;
 }
+
+// ─── Country detection (moved from MainView — used by the home feed cache) ───
+
+export function detectUserCountry(): string {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    // Map common timezones to country codes
+    const tzMap: Record<string, string> = {
+      "Europe/Moscow": "RU",
+      "Europe/Kaliningrad": "RU",
+      "Europe/Samara": "RU",
+      "Europe/Yekaterinburg": "RU",
+      "Europe/Omsk": "RU",
+      "Europe/Novosibirsk": "RU",
+      "Europe/Krasnoyarsk": "RU",
+      "Europe/Irkutsk": "RU",
+      "Asia/Yakutsk": "RU",
+      "Asia/Vladivostok": "RU",
+      "Asia/Magadan": "RU",
+      "Asia/Kamchatka": "RU",
+      "Asia/Anadyr": "RU",
+      "Europe/Kiev": "UA",
+      "Europe/Kyiv": "UA",
+      "Europe/Minsk": "BY",
+      "Asia/Almaty": "KZ",
+      "Asia/Tashkent": "UZ",
+      "Europe/London": "GB",
+      "Europe/Berlin": "DE",
+      "Europe/Paris": "FR",
+      "Europe/Madrid": "ES",
+      "Europe/Rome": "IT",
+      "Europe/Amsterdam": "NL",
+      "Europe/Stockholm": "SE",
+      "Europe/Oslo": "NO",
+      "Europe/Copenhagen": "DK",
+      "Europe/Warsaw": "PL",
+      "Europe/Prague": "CZ",
+      "Europe/Vienna": "AT",
+      "Europe/Zurich": "CH",
+      "Europe/Brussels": "BE",
+      "America/New_York": "US",
+      "America/Chicago": "US",
+      "America/Denver": "US",
+      "America/Los_Angeles": "US",
+      "America/Toronto": "CA",
+      "America/Vancouver": "CA",
+      "America/Mexico_City": "MX",
+      "America/Sao_Paulo": "BR",
+      "America/Argentina/Buenos_Aires": "AR",
+      "Asia/Tokyo": "JP",
+      "Asia/Seoul": "KR",
+      "Asia/Shanghai": "CN",
+      "Asia/Hong_Kong": "HK",
+      "Asia/Singapore": "SG",
+      "Asia/Kolkata": "IN",
+      "Asia/Bangkok": "TH",
+      "Asia/Dubai": "AE",
+      "Asia/Tel_Aviv": "IL",
+      "Australia/Sydney": "AU",
+      "Australia/Melbourne": "AU",
+      "Pacific/Auckland": "NZ",
+    };
+    return tzMap[tz] || "RU"; // Default to Russia
+  } catch {
+    return "RU";
+  }
+}
+
+export function countryNameFromCode(code: string): string {
+  const names: Record<string, string> = {
+    RU: "России", UA: "Украины", BY: "Беларуси", KZ: "Казахстана",
+    US: "США", GB: "Британии", DE: "Германии", FR: "Франции",
+    ES: "Испании", IT: "Италии", NL: "Нидерландов", SE: "Швеции",
+    NO: "Норвегии", DK: "Дании", PL: "Польши", CZ: "Чехии",
+    AT: "Австрии", CH: "Швейцарии", BE: "Бельгии", CA: "Канады",
+    MX: "Мексики", BR: "Бразилии", AR: "Аргентины",
+    JP: "Японии", KR: "Кореи", CN: "Китая", HK: "Гонконга",
+    SG: "Сингапура", IN: "Индии", TH: "Таиланда", AE: "ОАЭ",
+    IL: "Израиля", AU: "Австралии", NZ: "Новой Зеландии",
+    UZ: "Узбекистана",
+  };
+  return names[code] || code;
+}

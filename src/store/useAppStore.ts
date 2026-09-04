@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage, type StateStorage } from "zustand/middleware";
-import { type Track, type Message as ChatMessage } from "@/lib/musicApi";
+import { type Track, type Message as ChatMessage, detectUserCountry, countryNameFromCode } from "@/lib/musicApi";
 import { themes, applyThemeToDOM } from "@/lib/themes";
 import { resetPollingSuspension, canPollProtected } from "@/lib/authGate";
 import { enableEQ as engineEnableEQ, disableEQ as engineDisableEQ, setEQBand as engineSetEQBand, setAllEQBands as engineSetAllEQBands, resetEQBands as engineResetEQBands, setAudioPlaybackRate as engineSetAudioPlaybackRate, getAudioElement, resumeAudioContext, getInactiveAudio, setCrossfadeEnabled as engineSetCrossfadeEnabled } from "@/lib/audioEngine";
@@ -95,6 +95,27 @@ export interface HistoryEntry {
 export interface SelectedPlaylist {
   id: string;
 }
+
+// ── Home feed cache types (Task 2: stop repeated reloads) ──
+export interface HomeRecCategory {
+  id: string;
+  title: string;
+  icon: string;
+  tracks: Track[];
+}
+
+export interface HomeCuratedPlaylist {
+  id: string;
+  name: string;
+  subtitle: string;
+  gradient: string;
+  tracks: Track[];
+}
+
+// Module-scope in-flight guard for the home feed fetch (Task 2):
+// every caller of loadHomeFeed() while a fetch is running awaits the SAME
+// promise — remounts, tab-focus and taste changes cannot stack requests.
+let homeFeedInFlight: Promise<void> | null = null;
 
 interface AppState {
   // Auth
@@ -261,6 +282,17 @@ interface AppState {
   releaseRadarTracks: Track[];
   releaseRadarLoading: boolean;
 
+  // ── Home feed cache (Task 2: survive view remounts, TTL + taste signature) ──
+  // In-memory only (NOT persisted): a refresh may refetch once — that is
+  // honest fresh data — but navigation/remount/refocus must NOT refetch.
+  homeRecCategories: HomeRecCategory[];
+  homeCuratedPlaylists: HomeCuratedPlaylist[];
+  homeFeedLoading: boolean;
+  homeFeedError: "offline" | "api" | "empty" | null;
+  homeFeedFetchedAt: number;
+  homeFeedTasteSig: string;
+  loadHomeFeed: (opts: { force?: boolean; tasteSig: string; topGenres: string[]; topArtists: string[] }) => Promise<void>;
+
   // Actions
   setAuth: (userId: string, username: string, email: string, role?: string, avatar?: string | null, telegramUsername?: string | null) => void;
   logout: () => void;
@@ -370,7 +402,7 @@ interface AppState {
   addFavoriteArtist: (artist: FavoriteArtist) => void;
   removeFavoriteArtist: (artistId: number) => void;
   setOnboardingComplete: (complete: boolean) => void;
-  saveFavoriteArtistsToServer: () => Promise<void>;
+  saveFavoriteArtistsToServer: (opts?: { completeOnboarding?: boolean }) => Promise<void>;
   loadFavoriteArtistsFromServer: () => Promise<void>;
 
   // Disliked playlist tags (for recommendations filtering)
@@ -668,6 +700,14 @@ const initialState = {
   // Release Radar
   releaseRadarTracks: [] as Track[],
   releaseRadarLoading: false,
+
+  // Home feed cache
+  homeRecCategories: [] as HomeRecCategory[],
+  homeCuratedPlaylists: [] as HomeCuratedPlaylist[],
+  homeFeedLoading: false,
+  homeFeedError: null as "offline" | "api" | "empty" | null,
+  homeFeedFetchedAt: 0,
+  homeFeedTasteSig: "",
 
   // Style
   currentStyle: "",
@@ -1670,6 +1710,155 @@ export const useAppStore = create<AppState>()(
       clearBrokenTracks: () => set({ brokenTrackIds: new Set<string>() }),
 
       setSimilarTracks: (tracks) => set({ similarTracks: tracks }),
+
+      // ── Home feed cache (Task 2: one fetch per taste change, TTL-guarded) ──
+      // In-flight dedupe lives OUTSIDE the store object (module scope) so
+      // every caller awaits the same promise instead of stacking requests.
+      loadHomeFeed: async (opts) => {
+        const { force = false, tasteSig, topGenres = [], topArtists = [] } = opts || {};
+        const HOME_FEED_TTL = 5 * 60 * 1000; // 5 min
+
+        const s0 = get();
+        if (homeFeedInFlight) return; // an identical request is already running
+        if (
+          !force &&
+          s0.homeFeedTasteSig === tasteSig &&
+          Date.now() - s0.homeFeedFetchedAt < HOME_FEED_TTL &&
+          (s0.homeRecCategories.length > 0 || s0.homeCuratedPlaylists.length > 0)
+        ) {
+          return; // fresh cache for the SAME taste — no reload
+        }
+
+        const run = (async () => {
+          set({ homeFeedLoading: true, homeFeedError: null });
+          try {
+            const st = get();
+            const disliked = st.dislikedTrackIds || [];
+            const params = new URLSearchParams();
+            const likedScIds = (st.likedTracksData || [])
+              .map((t: any) => t.scTrackId)
+              .filter((id: any): id is number => !!id)
+              .slice(0, 5)
+              .join(",");
+            if (likedScIds) params.set("likedScIds", likedScIds);
+            const historyScIds = (st.history || [])
+              .slice(0, 10)
+              .map((h: any) => h.track?.scTrackId)
+              .filter((id: any): id is number => !!id)
+              .join(",");
+            if (historyScIds) params.set("historyScIds", historyScIds);
+            if (disliked.length > 0) params.set("dislikedIds", disliked.join(","));
+            if (topGenres.length > 0) params.set("genres", topGenres.join(","));
+            const favArtistNames = (st.favoriteArtists || []).map((a: any) => a.username);
+            const allArtists = [...new Set([...favArtistNames, ...topArtists])];
+            if (allArtists.length > 0) params.set("artists", allArtists.slice(0, 5).join(","));
+
+            const userCountry = detectUserCountry();
+
+            const curatedParams = new URLSearchParams();
+            if (disliked.length > 0) curatedParams.set("dislikedIds", disliked.join(","));
+
+            // 5 parallel requests: recs + trending + apple + spotify + curated
+            const [recSettled, trendingSettled, appleSettled, spotifySettled, curatedSettled] =
+              await Promise.allSettled([
+                fetch(`/api/music/recommendations?${params}`),
+                fetch(`/api/music/trending?limit=50`),
+                fetch(`/api/music/apple-charts?country=${userCountry}`),
+                fetch(`/api/music/spotify-charts?country=${userCountry}`),
+                fetch(`/api/playlists/curated?${curatedParams}`),
+              ]);
+            const recRes = recSettled.status === "fulfilled" ? recSettled.value : null;
+            const trendingRes = trendingSettled.status === "fulfilled" ? trendingSettled.value : null;
+            const appleRes = appleSettled.status === "fulfilled" ? appleSettled.value : null;
+            const spotifyRes = spotifySettled.status === "fulfilled" ? spotifySettled.value : null;
+            const curatedRes = curatedSettled.status === "fulfilled" ? curatedSettled.value : null;
+
+            const cats: HomeRecCategory[] = [];
+
+            if (spotifyRes?.ok) {
+              try {
+                const spotifyData = await spotifyRes.json();
+                const spotifyTracks = (spotifyData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
+                if (spotifyTracks.length > 0) {
+                  cats.push({ id: "spotify_top", title: "Топ Spotify", icon: "Flame", tracks: spotifyTracks });
+                }
+              } catch {}
+            }
+
+            if (appleRes?.ok) {
+              try {
+                const appleData = await appleRes.json();
+                const appleTracks = (appleData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
+                if (appleTracks.length > 0) {
+                  const cName = countryNameFromCode(appleData.country || userCountry);
+                  cats.push({ id: "apple_top", title: `Топ ${cName}`, icon: "Flame", tracks: appleTracks });
+                }
+              } catch {}
+            }
+
+            if (trendingRes?.ok) {
+              try {
+                const tData = await trendingRes.json();
+                const trendingTracks = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
+                if (trendingTracks.length > 0) {
+                  cats.push({ id: "trending_now", title: "Популярное сейчас", icon: "Flame", tracks: trendingTracks });
+                }
+              } catch {}
+            }
+
+            if (recRes?.ok) {
+              try {
+                const data = await recRes.json();
+                const recCats = (data.categories || []).map((cat: any) => ({
+                  id: cat.id || `cat_${Date.now()}_${Math.random()}`,
+                  title: cat.title || "Рекомендации",
+                  icon: cat.icon || "Sparkles",
+                  tracks: (cat.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50),
+                })).filter((cat: any) => cat.tracks.length > 0);
+                cats.push(...recCats);
+              } catch {}
+            }
+
+            if (cats.length === 0 && trendingRes?.ok) {
+              try {
+                const tData = await trendingRes.json();
+                const fallback = (tData.tracks || []).filter((t: Track) => !disliked.includes(t.id)).slice(0, 50);
+                if (fallback.length > 0) {
+                  cats.push({ id: "fallback", title: "Для вас", icon: "Sparkles", tracks: fallback });
+                }
+              } catch {}
+            }
+
+            let curated: HomeCuratedPlaylist[] = [];
+            if (curatedRes?.ok) {
+              try {
+                const curatedData = await curatedRes.json();
+                curated = curatedData.playlists || [];
+              } catch {}
+            }
+
+            const anyResponded = !!(recRes || trendingRes || appleRes || spotifyRes || curatedRes);
+            set({
+              homeRecCategories: cats,
+              homeCuratedPlaylists: curated,
+              homeFeedFetchedAt: Date.now(),
+              homeFeedTasteSig: tasteSig,
+              homeFeedError: cats.length > 0 || curated.length > 0 ? null : anyResponded ? "empty" : "offline",
+            });
+          } catch (err) {
+            const isOffline =
+              err instanceof TypeError &&
+              (err.message.includes("Failed to fetch") || err.message.includes("NetworkError"));
+            set({ homeRecCategories: [], homeFeedError: isOffline ? "offline" : "api" });
+          } finally {
+            set({ homeFeedLoading: false });
+            homeFeedInFlight = null;
+          }
+        })();
+
+        homeFeedInFlight = run;
+        return run;
+      },
       setSimilarTracksLoading: (loading) => set({ similarTracksLoading: loading }),
       requestShowSimilar: () => set({ showSimilarRequested: true, isFullTrackViewOpen: true, showLyricsRequested: false }),
       clearShowSimilarRequest: () => set({ showSimilarRequested: false }),
@@ -1930,14 +2119,19 @@ export const useAppStore = create<AppState>()(
         get().saveFavoriteArtistsToServer();
       },
       setOnboardingComplete: (complete) => set({ onboardingComplete: complete }),
-      saveFavoriteArtistsToServer: async () => {
+      saveFavoriteArtistsToServer: async (opts) => {
         const { userId, favoriteArtists } = get();
         if (!userId) return;
         try {
           await fetch('/api/user/favorite-artists', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ artists: favoriteArtists }),
+            body: JSON.stringify({
+              artists: favoriteArtists,
+              // Task 6: persist onboarding completion SERVER-side too — a
+              // fresh device must not re-show the wizard for a finished user.
+              ...(opts?.completeOnboarding ? { completeOnboarding: true } : {}),
+            }),
           });
         } catch (e) { console.warn("[store]", e); }
       },

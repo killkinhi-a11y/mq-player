@@ -641,7 +641,7 @@ export default function HistoryView() {
                                   <span
                                     className="inline-flex items-center text-[11px] font-medium px-1.5 py-0 rounded-md flex-shrink-0"
                                     style={{
-                                      backgroundColor: "rgba(255,255,255,0.06)",
+                                      backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                                       color: "var(--mq-text-muted)",
                                     }}
                                   >
@@ -688,7 +688,7 @@ export default function HistoryView() {
 
                             {/* Subtle divider */}
                             {i < group.items.length - 1 && (
-                              <div className="absolute bottom-0 left-14 right-3" style={{ height: 1, backgroundColor: "rgba(255,255,255,0.04)" }} />
+                              <div className="absolute bottom-0 left-14 right-3" style={{ height: 1, backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)" }} />
                             )}
                           </motion.div>
                         );
@@ -778,7 +778,7 @@ export default function HistoryView() {
                   whileTap={{ scale: 0.95 }}
                   onClick={() => setShowClearConfirm(false)}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium"
-                  style={{ backgroundColor: "rgba(255,255,255,0.06)", color: "var(--mq-text)" }}
+                  style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text)" }}
                 >
                   Отмена
                 </motion.button>
