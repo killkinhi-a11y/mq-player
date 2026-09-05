@@ -14,6 +14,21 @@ import { signToken, verifyToken, setSessionCookie, clearSessionCookie, SESSION_C
 import { withAuth, withAdminAuth, validateContentType } from "@/lib/withAuth";
 import { NextRequest, NextResponse } from "next/server";
 
+// withAdminAuth re-checks the FRESH role in the database (owner-transfer
+// security: a demoted admin's stale JWT must stop working immediately).
+vi.mock("@/lib/database", () => ({
+  database: {
+    findUserById: vi.fn(async (id: string) => {
+      if (id === "admin-1") return { id: "admin-1", username: "admin", role: "admin" };
+      if (id === "demoted-1") return { id: "demoted-1", username: "oldowner", role: "user" };
+      return null;
+    }),
+  },
+}));
+
+import { database } from "@/lib/database";
+const findUserByIdMock = database.findUserById as ReturnType<typeof vi.fn>;
+
 // Set up JWT_SECRET for tests
 process.env.JWT_SECRET = "test-secret-key-for-integration-tests-32ch";
 
@@ -219,7 +234,7 @@ describe("withAdminAuth middleware", () => {
     expect(mockHandler).not.toHaveBeenCalled();
   });
 
-  it("should allow admin user", async () => {
+  it("should allow admin user (JWT admin + fresh DB role admin)", async () => {
     const token = await signToken({ userId: "admin-1", username: "admin", role: "admin" });
     const req = new NextRequest(new URL("http://localhost/api/admin/test"), {
       headers: { cookie: `session=${token}` },
@@ -235,6 +250,39 @@ describe("withAdminAuth middleware", () => {
     const handlerCtx = mockHandler.mock.calls[0][1];
     expect(handlerCtx.userId).toBe("admin-1");
     expect(handlerCtx.userRole).toBe("admin");
+  });
+
+  it("should reject an admin JWT whose DB role was demoted (stale-token defense)", async () => {
+    // Token issued while the user WAS admin; DB role is now "user".
+    const token = await signToken({ userId: "demoted-1", username: "oldowner", role: "admin" });
+    const req = new NextRequest(new URL("http://localhost/api/admin/test"), {
+      headers: { cookie: `session=${token}` },
+    });
+    const ctx = { params: Promise.resolve({}) };
+
+    const wrappedHandler = withAdminAuth(mockHandler);
+    const response = await wrappedHandler(req, ctx);
+
+    expect(response.status).toBe(403);
+    expect(mockHandler).not.toHaveBeenCalled();
+    expect(findUserByIdMock).toHaveBeenCalledWith("demoted-1");
+  });
+
+  it("should fail CLOSED when the database is unavailable", async () => {
+    const token = await signToken({ userId: "admin-1", username: "admin", role: "admin" });
+    findUserByIdMock.mockRejectedValueOnce(new Error("db down"));
+    const req = new NextRequest(new URL("http://localhost/api/admin/test"), {
+      headers: { cookie: `session=${token}` },
+    });
+    const ctx = { params: Promise.resolve({}) };
+
+    const wrappedHandler = withAdminAuth(mockHandler);
+    const response = await wrappedHandler(req, ctx);
+
+    expect(response.status).toBe(403);
+    expect(mockHandler).not.toHaveBeenCalled();
+    // Clear the rejected call history; keep the default mock implementation.
+    findUserByIdMock.mockClear();
   });
 
   it("should reject request without token", async () => {

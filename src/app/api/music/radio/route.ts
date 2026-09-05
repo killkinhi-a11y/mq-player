@@ -59,14 +59,21 @@ interface RadioTrack {
   duration: number; cover: string; genre: string;
   audioUrl: string; previewUrl: string; source: string;
   scTrackId: number; scStreamPolicy: string; scIsFull: boolean;
+  /** Honest recommendation context (Wave UI). */
+  _reason?: string;
+  _seedArtist?: string;
 }
 
-function mapToRadioTrack(t: SCTrack): RadioTrack {
+function mapToRadioTrack(t: SCTrack, reason?: string, seedArtist?: string): RadioTrack {
   return {
     id: t.id, title: t.title, artist: t.artist, album: t.album,
     duration: t.duration, cover: t.cover, genre: t.genre,
     audioUrl: t.audioUrl, previewUrl: t.previewUrl, source: "soundcloud",
     scTrackId: t.scTrackId, scStreamPolicy: t.scStreamPolicy, scIsFull: t.scIsFull,
+    // Honest recommendation context (surfaced by the Wave UI):
+    //   related_current / related_history / liked_artist
+    _reason: reason,
+    _seedArtist: seedArtist,
   };
 }
 
@@ -105,6 +112,13 @@ async function handler(request: NextRequest) {
   const likedGenresParam = searchParams.get("likedGenres") || "";
   const dislikedScIdsParam = searchParams.get("dislikedScIds") || "";
   const langParam = searchParams.get("lang") || "";
+  // Heavy-rotation fatigue: artists played >=2 times recently (excluding
+  // explicitly liked ones) get a SOFT score penalty — the wave stops echoing
+  // the same 3 artists across batches without ever hiding favourites.
+  const recentArtistsParam = searchParams.get("recentArtists") || "";
+  // Honest seed context (from the client's CURRENT track — real data only).
+  const seedArtistParam = searchParams.get("seedArtist") || "";
+  const seedGenreParam = searchParams.get("seedGenre") || "";
 
   if (!scTrackIdParam) {
     return NextResponse.json({ error: "Missing scTrackId" }, { status: 400 });
@@ -124,9 +138,12 @@ async function handler(request: NextRequest) {
   const likedArtists = new Set(likedArtistsParam.split(",").filter(Boolean).map(a => a.toLowerCase().trim()));
   const likedGenres = new Set(likedGenresParam.split(",").filter(Boolean).map(g => normalizeGenre(g)));
   const langPref = (langParam === "russian" || langParam === "english") ? langParam : null;
+  const fatigueArtists = new Set(
+    recentArtistsParam.split(",").filter(Boolean).map(a => a.toLowerCase().trim())
+  );
 
   // ── Cache check (disabled — TTL=0) ──
-  const cacheKey = `radio-v3:${scTrackId}:${historyScIdsParam}:${skippedArtistsParam}:${likedArtistsParam}:${dislikedScIdsParam}:${langParam}`;
+  const cacheKey = `radio-v4:${scTrackId}:${historyScIdsParam}:${skippedArtistsParam}:${likedArtistsParam}:${dislikedScIdsParam}:${langParam}:${recentArtistsParam}:${seedArtistParam}`;
   const cached = getFromCache(cacheKey, cache);
   if (cached) return NextResponse.json(cached);
 
@@ -138,14 +155,20 @@ async function handler(request: NextRequest) {
     const relatedPromises = seedIds.map(id => fetchSCTrackRelated(id));
     const relatedResults = await Promise.allSettled(relatedPromises);
 
-    // Track map: scTrackId → { track, source }
+    // Track map: scTrackId → { track, source, seedArtist }
+    // seedArtist = which seed produced this candidate (current track's artist
+    // or the history seed's artist) — honest "why this track" context.
     type Source = "current_related" | "history_related" | "artist_search";
-    const trackMap = new Map<number, { track: SCTrack; source: Source }>();
+    const trackMap = new Map<number, { track: SCTrack; source: Source; seedArtist?: string }>();
 
     for (let i = 0; i < relatedResults.length; i++) {
       const result = relatedResults[i];
       if (result.status !== "fulfilled") continue;
       const source: Source = i === 0 ? "current_related" : "history_related";
+      // seedArtist is only attributed where it is KNOWN to be true: the
+      // current seed's artist comes from the client (seedArtist param).
+      // History seeds: no per-seed attribution (the UI stays generic-but-honest).
+      const seedArtist = source === "current_related" ? seedArtistParam : undefined;
       for (const track of result.value) {
         if (excludedScIds.has(track.scTrackId)) continue;
         if (isLowQuality(track)) continue;
@@ -153,7 +176,7 @@ async function handler(request: NextRequest) {
         const artistLower = (track.artist || "").toLowerCase().trim();
         if (artistLower && skippedArtists.has(artistLower)) continue;
         if (!trackMap.has(track.scTrackId)) {
-          trackMap.set(track.scTrackId, { track, source });
+          trackMap.set(track.scTrackId, { track, source, seedArtist });
         }
       }
     }
@@ -165,7 +188,8 @@ async function handler(request: NextRequest) {
       const topArtists = [...likedArtists].slice(0, 3);
       const artistPromises = topArtists.map(a => searchSCTracks(`"${a}"`, 10));
       const artistResults = await Promise.allSettled(artistPromises);
-      for (const result of artistResults) {
+      for (let ai = 0; ai < artistResults.length; ai++) {
+        const result = artistResults[ai];
         if (result.status !== "fulfilled") continue;
         for (const track of result.value) {
           if (excludedScIds.has(track.scTrackId)) continue;
@@ -173,7 +197,8 @@ async function handler(request: NextRequest) {
           const artistLower = (track.artist || "").toLowerCase().trim();
           if (artistLower && skippedArtists.has(artistLower)) continue;
           if (!trackMap.has(track.scTrackId)) {
-            trackMap.set(track.scTrackId, { track, source: "artist_search" });
+            // Quoted search on the liked artist → attribution is exact.
+            trackMap.set(track.scTrackId, { track, source: "artist_search", seedArtist: topArtists[ai] });
           }
         }
       }
@@ -182,8 +207,8 @@ async function handler(request: NextRequest) {
     // ════════════════════════════════════════════════════════════════════
     // SCORING + SORTING
     // ════════════════════════════════════════════════════════════════════
-    const scored: { track: SCTrack; score: number; source: Source }[] = [];
-    for (const { track, source } of trackMap.values()) {
+    const scored: { track: SCTrack; score: number; source: Source; seedArtist?: string }[] = [];
+    for (const { track, source, seedArtist } of trackMap.values()) {
       let score = 0;
 
       // Source priority
@@ -200,6 +225,12 @@ async function handler(request: NextRequest) {
       // Liked artist bonus
       const artistLower = (track.artist || "").toLowerCase().trim();
       if (artistLower && likedArtists.has(artistLower)) score += 30;
+
+      // Heavy-rotation fatigue (soft, never on liked artists): the wave stops
+      // echoing the same few artists across consecutive batches.
+      if (artistLower && fatigueArtists.has(artistLower) && !likedArtists.has(artistLower)) {
+        score -= 18;
+      }
 
       // Liked genre bonus
       const trackGenre = normalizeGenre(track.genre || "");
@@ -218,7 +249,7 @@ async function handler(request: NextRequest) {
       // Jitter ±15 for variety
       score += Math.floor(Math.random() * 30) - 15;
 
-      scored.push({ track, score, source });
+      scored.push({ track, score, source, seedArtist });
     }
 
     scored.sort((a, b) => b.score - a.score);
@@ -252,17 +283,26 @@ async function handler(request: NextRequest) {
 
     // Interleave for artist variety
     const interleaved = interleaveByArtist(selected);
-    const tracks = interleaved.map(mapToRadioTrack);
+    const tracks = interleaved.map(t => {
+      const entry = scored.find(s => s.track.scTrackId === t.scTrackId);
+      const src = entry?.source;
+      const reason =
+        src === "current_related" ? "related_current" :
+        src === "history_related" ? "related_history" :
+        src === "artist_search" ? "liked_artist" : undefined;
+      return mapToRadioTrack(t, reason, entry?.seedArtist);
+    });
 
     const responseData = {
       tracks,
       seedInfo: {
-        artist: "Unknown",
-        genre: "Unknown",
-        energy: 0.5,
+        // REAL seed context passed by the client (current track) — no fake
+        // "Unknown"/"energy" placeholders.
+        artist: seedArtistParam || null,
+        genre: seedGenreParam || null,
       },
       _meta: {
-        version: 3,
+        version: 4,
         candidates: trackMap.size,
         selected: tracks.length,
         sources: {
@@ -270,15 +310,16 @@ async function handler(request: NextRequest) {
           history_related: scored.filter(s => s.source === "history_related").length,
           artist_search: scored.filter(s => s.source === "artist_search").length,
         },
+        fatigueApplied: fatigueArtists.size,
       },
     };
 
     setCache(cacheKey, responseData, cache, 100, CACHE_TTL);
     return NextResponse.json(responseData);
   } catch (err) {
-    console.error("[radio v3] error:", err);
+    console.error("[radio v4] error:", err);
     return NextResponse.json(
-      { tracks: [], seedInfo: { artist: "Unknown", genre: "Unknown", energy: 0 } },
+      { tracks: [], seedInfo: { artist: null, genre: null } },
       { status: 200 },
     );
   }

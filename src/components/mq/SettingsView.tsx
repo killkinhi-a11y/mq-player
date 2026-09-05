@@ -429,7 +429,7 @@ export default function SettingsView() {
   ];
 
   return (
-    <div className="p-3 sm:p-4 lg:p-6 max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-24" data-active-tab={activeTab}>
+    <div className="p-3 sm:p-4 lg:p-6 max-w-[var(--mq-container-narrow)] lg:max-w-[var(--mq-container-base)] mx-auto pb-32 lg:pb-24" data-active-tab={activeTab}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-4 sm:mb-5">
         <h1 className="mq-t-display text-[26px] sm:text-[30px]" style={{ color: "var(--mq-text)" }}>Настройки</h1>

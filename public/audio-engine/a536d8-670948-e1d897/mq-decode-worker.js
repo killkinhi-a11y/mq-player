@@ -23,10 +23,23 @@ let dec = null;      // decoder handle
 let ex = null;       // wasm exports
 let mem = null;      // wasm memory
 let pcmPort = null;  // MessagePort → AudioWorklet
-let credit = 0;      // ring frames the worklet will accept
+// Flow control — cumulative sliding window (Phase F §C):
+//   grantedTotal: cumulative send allowance from the worklet (sequence
+//                 space — a bigger number always widens the window)
+//   sentTotal:    cumulative frames sent
+// The worker may send while sentTotal < grantedTotal. Cumulative totals
+// can never be "abandoned" by a newer grant (that leak deadlocked the
+// old replaceable-credit protocol). Invariant on the worklet side:
+// ring buffered + (granted − arrived) ≤ ring capacity.
+let grantedTotal = 0;
+let sentTotal = 0;
 let playing = false;
 let abortCtrl = null;
 let loadSeq = 0;     // generation guard for async loads
+// Seek-race guard (Phase F §A): generation stamped on every PCM message.
+// The worklet drops frames whose generation ≠ its expected one, so stale
+// in-flight chunks can never be written into a freshly flushed ring.
+let pcmGen = 0;
 let pushedBytes = 0;
 let poppedFrames = 0;
 let fetchStartByte = 0;
@@ -56,10 +69,12 @@ function pump() {
   if (dec === null || dec < 0 || !pcmPort || !ex) return;
   try {
     let guard = 0;
-    while (guard++ < 32) {
+    while (guard++ < 64) {
       const queued = ex.mq_dec_queued(dec);
-      if (queued <= 0 || credit < Math.min(MIN_POP_CREDIT, queued)) break;
-      const n = Math.min(POP_FRAMES, credit, queued);
+      if (queued <= 0) break;
+      const window = grantedTotal - sentTotal;
+      if (window <= 0) break; // no allowance yet — the worklet will widen it
+      const n = Math.min(POP_FRAMES, window, queued);
       const v = scratchViews();
       const got = ex.mq_dec_pop_pcm(dec, v.popL, v.popR, n);
       if (got <= 0) break;
@@ -68,8 +83,8 @@ function pump() {
       const r = new Float32Array(got);
       l.set(new Float32Array(mem.buffer, v.popL, got));
       r.set(new Float32Array(mem.buffer, v.popR, got));
-      pcmPort.postMessage({ type: 'pcm', frames: got, ch0: l, ch1: r }, [l.buffer, r.buffer]);
-      credit -= got;
+      pcmPort.postMessage({ type: 'pcm', gen: pcmGen, frames: got, ch0: l, ch1: r }, [l.buffer, r.buffer]);
+      sentTotal += got;
       poppedFrames += got;
       chunksSent++;
       framesSent += got;
@@ -81,64 +96,103 @@ function pump() {
 let pumpDebugEntries = 0;
 
 // ── stream loader with backpressure ──
+// Splits the fetch into RANGE WINDOWS: some proxies/CDNs cap a single
+// open-ended range (our own proxy used to cap at 1 MB → the track ended
+// prematurely ~65 s after every seek). After each window we check the
+// Content-Range end against the total and, when the server truncated us,
+// fetch the NEXT window instead of marking EOF. Only a true end-of-entity
+// (or totalBytes=unknown exhausted) finishes the load.
 async function loadStream(url, startByte, seq) {
   try {
     if (abortCtrl) { try { abortCtrl.abort(); } catch (e) {} }
-    abortCtrl = new AbortController();
     fetchStartByte = startByte | 0;
     pushedBytes = 0;
     poppedFrames = 0;
     infoSent = false;
 
-    const headers = {};
-    if (startByte > 0) headers['Range'] = 'bytes=' + startByte + '-';
-    const resp = await fetch(url, { headers, signal: abortCtrl.signal, redirect: 'follow' });
-    if (seq !== loadSeq) return;
-
-    if (!resp.ok && resp.status !== 206) {
-      postError('fetch', 'HTTP ' + resp.status);
-      return;
-    }
-    // Full entity size: Content-Range total or Content-Length.
-    const cr = resp.headers.get('content-range');
-    if (cr && /\/(\d+)\s*$/.test(cr)) {
-      totalBytes = parseInt(cr.match(/\/(\d+)\s*$/)[1], 10);
-    } else if (!startByte) {
-      const cl = resp.headers.get('content-length');
-      if (cl) totalBytes = parseInt(cl, 10);
-    }
-    const supportsRange = resp.status === 206 || (resp.headers.get('accept-ranges') || '').includes('bytes');
-    post({ type: 'headers', totalBytes, supportsRange, startByte });
-
-    const reader = resp.body && resp.body.getReader ? resp.body.getReader() : null;
-    if (!reader) {
-      // No streaming body — read the whole buffer at once.
-      const buf = new Uint8Array(await resp.arrayBuffer());
-      if (seq !== loadSeq) return;
-      pushBytes(buf);
-      finish(seq);
-      return;
-    }
+    let windowStart = startByte | 0;
 
     for (;;) {
-      // Backpressure 1: while paused, stop pulling the network.
-      if (!playing && ex.mq_dec_started(dec) === 1) {
-        if (seq !== loadSeq) return;
-        await sleep(150);
-        continue;
+      if (seq !== loadSeq) return;
+
+      abortCtrl = new AbortController();
+      const headers = {};
+      if (windowStart > 0) headers['Range'] = 'bytes=' + windowStart + '-';
+      const resp = await fetch(url, { headers, signal: abortCtrl.signal, redirect: 'follow' });
+      if (seq !== loadSeq) return;
+
+      if (!resp.ok && resp.status !== 206) {
+        postError('fetch', 'HTTP ' + resp.status);
+        return;
       }
-      // Backpressure 2: decoded queue saturated (no consumer yet / slow) —
-      // stop pulling so the shared byte buffer stays bounded.
-      if (ex.mq_dec_started(dec) === 1 && ex.mq_dec_queued(dec) >= QUEUE_FRAMES_CAP) {
-        if (seq !== loadSeq) return;
-        await sleep(150);
-        continue;
+      // Full entity size: Content-Range total or Content-Length.
+      const cr = resp.headers.get('content-range');
+      let rangeEnd = -1;          // last byte actually delivered this window
+      if (cr && /\/(\d+)\s*$/.test(cr)) {
+        totalBytes = parseInt(cr.match(/\/(\d+)\s*$/)[1], 10);
+        const m = cr.match(/^bytes\s+(\d+)-(\d+)\s*\//);
+        if (m) rangeEnd = parseInt(m[2], 10);
+      } else if (!windowStart) {
+        const cl = resp.headers.get('content-length');
+        if (cl) totalBytes = parseInt(cl, 10);
       }
-      const { done, value } = await reader.read();
-      if (seq !== loadSeq) { try { reader.cancel(); } catch (e) {} return; }
-      if (done) break;
-      if (value && value.byteLength) pushBytes(value);
-      pump();
+      if (rangeEnd < 0 && resp.status !== 206) {
+        // Full 200 response — the whole entity is in this window.
+        rangeEnd = totalBytes ? totalBytes - 1 : -1;
+      }
+      const supportsRange = resp.status === 206 || (resp.headers.get('accept-ranges') || '').includes('bytes');
+      post({ type: 'headers', totalBytes, supportsRange, startByte: windowStart });
+
+      const reader = resp.body && resp.body.getReader ? resp.body.getReader() : null;
+      if (!reader) {
+        // No streaming body — read the whole buffer at once.
+        const buf = new Uint8Array(await resp.arrayBuffer());
+        if (seq !== loadSeq) return;
+        pushBytes(buf);
+        if (buf.byteLength > 0 && rangeEnd < 0) rangeEnd = windowStart + buf.byteLength - 1;
+        if (rangeEnd >= 0 && totalBytes && rangeEnd < totalBytes - 1) {
+          windowStart = rangeEnd + 1;      // truncated — fetch the next window
+          continue;
+        }
+        finish(seq);
+        return;
+      }
+
+      let windowDone = false;
+      while (!windowDone) {
+        // Backpressure 1: while paused, stop pulling the network.
+        if (!playing && ex.mq_dec_started(dec) === 1) {
+          if (seq !== loadSeq) return;
+          await sleep(150);
+          continue;
+        }
+        // Backpressure 2: decoded queue saturated (no consumer yet / slow) —
+        // stop pulling so the shared byte buffer stays bounded.
+        if (ex.mq_dec_started(dec) === 1 && ex.mq_dec_queued(dec) >= QUEUE_FRAMES_CAP) {
+          if (seq !== loadSeq) return;
+          await sleep(150);
+          continue;
+        }
+        const { done, value } = await reader.read();
+        if (seq !== loadSeq) { try { reader.cancel(); } catch (e) {} return; }
+        if (done) { windowDone = true; break; }
+        if (value && value.byteLength) {
+          pushBytes(value);
+          if (rangeEnd < 0) rangeEnd = windowStart + pushedBytes - 1; // streaming 200 fallback
+        }
+        pump();
+      }
+
+      // Window exhausted. Truncated by an intermediary (capped range)?
+      // → fetch the next window instead of declaring EOF.
+      if (rangeEnd >= 0 && totalBytes && rangeEnd < totalBytes - 1) {
+        const next = rangeEnd + 1;
+        if (next > windowStart) {           // sanity: never loop on zero progress
+          windowStart = next;
+          continue;
+        }
+      }
+      break; // true end of entity (or unknown total exhausted)
     }
     finish(seq);
   } catch (e) {
@@ -186,7 +240,7 @@ function finish(seq) {
   let guard = 0;
   while (guard++ < 512 && ex.mq_dec_queued(dec) > 0) {
     pump();
-    if (ex.mq_dec_queued(dec) > 0 && credit <= 0) break; // worklet still consuming
+    if (ex.mq_dec_queued(dec) > 0 && grantedTotal - sentTotal <= 0) break; // worklet still consuming
   }
   post({ type: 'fetchDone', pushedBytes, poppedFrames });
 }
@@ -196,8 +250,12 @@ function bindPcmPort(port) {
   if (pcmPort) {
     pcmPort.onmessage = (e) => {
       if (e.data && e.data.type === 'credit') {
+        // Only credits for the CURRENT generation widen the window: a
+        // pre-seek credit arriving late must not resurrect the old window.
+        if (typeof e.data.gen === 'number' && (e.data.gen | 0) !== pcmGen) return;
         creditsIn++;
-        credit = e.data.frames | 0;
+        const total = e.data.total | 0;
+        if (total > grantedTotal) grantedTotal = total;
         pump();
       }
     };
@@ -232,17 +290,21 @@ self.onmessage = async (ev) => {
       }
       case 'load': {
         loadSeq++;
+        pcmGen = msg.gen | 0;
         durationSec = +msg.durationSec || 0;
         if (dec !== null) ex.mq_dec_reset(dec);
         playing = !!msg.autoplay;
-        credit = 0;
+        grantedTotal = 0;
+        sentTotal = 0;
         await loadStream(msg.url, msg.startByte | 0, loadSeq);
         break;
       }
       case 'seek': {
         loadSeq++;
+        pcmGen = msg.gen | 0;
         if (dec !== null) ex.mq_dec_reset(dec);
-        credit = 0;
+        grantedTotal = 0;
+        sentTotal = 0;
         // keep current `playing` — the engine keeps its state across seeks
         await loadStream(msg.url, msg.byte | 0, loadSeq);
         break;
@@ -284,7 +346,7 @@ setInterval(() => {
       type: 'flow',
       creditsIn, chunksSent, framesSent,
       queued: ex.mq_dec_queued(dec),
-      credit, playing, pushedBytes, poppedFrames,
+      granted: grantedTotal, sent: sentTotal, playing, pushedBytes, poppedFrames, pcmGen,
     });
   } catch (e) {}
 }, 1000);

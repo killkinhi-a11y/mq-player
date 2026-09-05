@@ -749,7 +749,7 @@ export default function FullTrackView() {
                 >
                   {/* Track info */}
                   <div className={`w-full ${isMobile ? "text-center" : "text-left"} mb-4`}>
-                    <h1 className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1.5 truncate w-full" style={{ color: "var(--mq-text)" }}>
+                    <h1 className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1.5 leading-tight line-clamp-2 w-full" style={{ color: "var(--mq-text)" }}>
                       {currentTrack.title}
                     </h1>
                     <button

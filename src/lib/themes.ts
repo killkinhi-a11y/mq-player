@@ -277,15 +277,18 @@ export const themes: Record<string, ThemeConfig> = {
     background: "#f8f9fa",
     card: "#ffffff",
     cardHover: "#f0f0f0",
-    accent: "#e03131",
+    // P1 (theme audit): #e03131 on #f8f9fa = ~4.1:1 — below WCAG AA for the
+    // 11px uppercase labels that use the accent in light mode. #c92a2a keeps
+    // the red identity at ~5.3:1.
+    accent: "#c92a2a",
     text: "#212529",
     textMuted: "#6c757d", // P1.4: was #868e96 (4.0:1 — below WCAG AA). Now 4.7:1.
     border: "#dee2e6",
     inputBg: "#ffffff",
     playerBg: "#ffffff",
     navBg: "rgba(248,249,250,0.95)",
-    gradient: "radial-gradient(ellipse at 20% 50%, rgba(224,49,49,0.06) 0%, transparent 50%)",
-    glowColor: "rgba(224,49,49,0.15)",
+    gradient: "radial-gradient(ellipse at 20% 50%, rgba(201,42,42,0.06) 0%, transparent 50%)",
+    glowColor: "rgba(201,42,42,0.15)",
     className: "daylight-theme",
   },
   // ===== Seasonal Themes =====

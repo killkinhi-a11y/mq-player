@@ -11,7 +11,9 @@ import { withRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
  * Streams data in chunks to avoid loading the entire file into memory.
  */
 
-const CHUNK_SIZE = 512 * 1024; // 512KB chunks
+// (CHUNK_SIZE removed: it only fed the 1 MB open-ended-range cap — see the
+// Range handling below for the history of that bug. Bodies stream through,
+// so there is no memory reason to cap range size.)
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB max
 
 // SoundCloud CDN headers — CloudFront-signed URLs may require Referer/Origin
@@ -111,7 +113,18 @@ async function handler(request: NextRequest) {
       const rangeMatch = rangeHeader.match(/bytes=(\d+)-(\d*)/);
       if (rangeMatch) {
         const start = parseInt(rangeMatch[1], 10);
-        const end = rangeMatch[2] ? parseInt(rangeMatch[2], 10) : (contentLength ? Math.min(start + CHUNK_SIZE * 2 - 1, contentLength - 1) : start + CHUNK_SIZE * 2 - 1);
+        // Open-ended ranges (bytes=N-) MUST stream the full remainder.
+        //
+        // HISTORY (audio bug, 2026-09): this used to cap open-ended ranges at
+        // CHUNK_SIZE*2 (1 MB). The WASM decode worker makes exactly ONE
+        // open-ended fetch per load/seek — it received 1 MB, then EOF, and
+        // the track ENDED PREMATURELY ~65 s after every seek on long tracks
+        // (verified in-browser: Get Lucky 246 s cut at ~90 s). The body is
+        // STREAMED through the server, so an unbounded range is memory-safe.
+        // Bounded ranges (browser media stack) keep the explicit end.
+        const requestedEnd = rangeMatch[2]
+          ? parseInt(rangeMatch[2], 10)
+          : (contentLength ? contentLength - 1 : Infinity);
 
         if (contentLength && start >= contentLength) {
           return new NextResponse(null, {
@@ -120,15 +133,23 @@ async function handler(request: NextRequest) {
           });
         }
 
-        const effectiveEnd = contentLength ? Math.min(end, contentLength - 1) : end;
+        const effectiveEnd =
+          contentLength && isFinite(requestedEnd)
+            ? Math.min(requestedEnd, contentLength - 1)
+            : requestedEnd;
 
-        // Fetch the requested range from SoundCloud CDN
+        // Fetch the requested range from SoundCloud CDN.
+        // For open-ended ranges we forward the open-ended request upstream —
+        // the CDN streams the remainder (proper 206 + Content-Range back).
+        const rangeValue = isFinite(effectiveEnd)
+          ? `bytes=${start}-${effectiveEnd}`
+          : `bytes=${start}-`;
         const scResponse = await fetch(audioUrl, {
           headers: {
-            Range: `bytes=${start}-${effectiveEnd}`,
+            Range: rangeValue,
             ...SC_FETCH_HEADERS,
           },
-          signal: AbortSignal.timeout(30000),
+          signal: AbortSignal.timeout(60000),
           redirect: "follow",
         });
 
@@ -137,33 +158,46 @@ async function handler(request: NextRequest) {
         }
 
         const upstreamLength = scResponse.headers.get("content-length");
-        const actualLength = upstreamLength ? parseInt(upstreamLength, 10) : (effectiveEnd - start + 1);
-        const totalLength = contentLength || actualLength;
+        const actualLength = upstreamLength ? parseInt(upstreamLength, 10) : null;
+        // True total from Content-Range (authoritative for 206 responses).
+        const crHeader = scResponse.headers.get("content-range");
+        const crTotalMatch = crHeader?.match(/\/(\d+)\s*$/);
+        const crTotal = crTotalMatch ? parseInt(crTotalMatch[1], 10) : null;
+        const crRangeMatch = crHeader?.match(/^bytes\s+(\d+)-(\d+)\s*\//);
+        const totalLength = crTotal || contentLength || (actualLength ? start + actualLength : 0);
+        const rangeEnd = crRangeMatch
+          ? parseInt(crRangeMatch[2], 10)
+          : actualLength !== null
+            ? start + actualLength - 1
+            : effectiveEnd;
         const upstreamCT = scResponse.headers.get("content-type");
         if (upstreamCT) contentType = upstreamCT;
 
         // Update cache
-        if (!contentLength || totalLength > contentLength) {
+        if (totalLength) {
           lengthCache.set(cacheKey, {
             length: totalLength,
-            contentType: contentType,
+            contentType,
             expiry: Date.now() + 3 * 60 * 1000,
           });
         }
 
-        // Stream the response body through
-        const body = scResponse.body;
-
-        return new NextResponse(body, {
+        // Stream the response body through with an accurate Content-Range
+        // so clients can detect truncation and issue follow-up requests.
+        const outHeaders: Record<string, string> = {
+          "Content-Type": contentType,
+          "Accept-Ranges": "bytes",
+          "Cache-Control": "private, max-age=300",
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Expose-Headers": "Content-Range, Content-Length, Accept-Ranges",
+          "Content-Range": `bytes ${start}-${rangeEnd}/${totalLength}`,
+        };
+        if (actualLength !== null) {
+          outHeaders["Content-Length"] = actualLength.toString();
+        }
+        return new NextResponse(scResponse.body, {
           status: 206,
-          headers: {
-            "Content-Type": contentType,
-            "Content-Length": actualLength.toString(),
-            "Content-Range": `bytes ${start}-${start + actualLength - 1}/${totalLength}`,
-            "Accept-Ranges": "bytes",
-            "Cache-Control": "private, max-age=300",
-            "Access-Control-Allow-Origin": "*",
-          },
+          headers: outHeaders,
         });
       }
     }

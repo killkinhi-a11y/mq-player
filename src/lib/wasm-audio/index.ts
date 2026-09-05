@@ -17,6 +17,7 @@ export {
   pauseElementAudio,
   seekPlayback,
   currentPlaybackPosition,
+  warmUpWasmEngine,
   OP,
   PARAM,
   sendDspCommand,

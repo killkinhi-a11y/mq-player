@@ -79,6 +79,9 @@ export function useWaveEngine() {
       try {
         const params = new URLSearchParams();
         params.set("scTrackId", String(cur.scTrackId));
+        // Honest seed context — real data from the CURRENT track.
+        if (cur.artist) params.set("seedArtist", cur.artist);
+        if (cur.genre) params.set("seedGenre", cur.genre);
 
         // History SC IDs (prevent repeats)
         const playedScIds = [
@@ -87,6 +90,23 @@ export function useWaveEngine() {
         ];
         const uniquePlayed = [...new Set(playedScIds)].slice(0, 80).join(",");
         if (uniquePlayed) params.set("historyScIds", uniquePlayed);
+
+        // Heavy-rotation fatigue signal: artists played >=2 times in the last
+        // 15 history entries, EXCLUDING liked artists (favorites stay strong).
+        const likedArtistSet = new Set(
+          (state.likedTracksData || []).map((t: any) => (t?.artist || "").toLowerCase().trim()).filter(Boolean)
+        );
+        const artistPlays = new Map<string, number>();
+        for (const h of (state.history || []).slice(0, 15)) {
+          const a = (h.track?.artist || "").toLowerCase().trim();
+          if (!a) continue;
+          artistPlays.set(a, (artistPlays.get(a) || 0) + 1);
+        }
+        const fatigue = [...artistPlays.entries()]
+          .filter(([a, n]) => n >= 2 && !likedArtistSet.has(a))
+          .map(([a]) => a)
+          .slice(0, 12);
+        if (fatigue.length > 0) params.set("recentArtists", fatigue.join(","));
 
         // Skipped/disliked artists
         const dislikedArtists = (state.dislikedTracksData || [])

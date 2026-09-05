@@ -247,7 +247,10 @@ export class WasmAudioBackend {
   }
 
   // ── engine bootstrap (once per page) ──
-  private static async ensureEngine(): Promise<void> {
+  // (private static, but accessible within this module — the idle warm-up
+  // below shares it. Kept private to the class surface; module-level code
+  // is the only intended caller.)
+  static async ensureEngine(): Promise<void> {
     if (engineReady) return engineReady;
     engineReady = (async () => {
       if (!browserGlobals() || wasmUnsupported) throw new Error("unsupported");
@@ -695,6 +698,34 @@ export function createWasmBackend(callbacks: WasmBackendCallbacks, volume01 = 1)
 /** Session kill-switch state (probe before attempting a load). */
 export function isWasmUnsupported(): boolean {
   return wasmUnsupported;
+}
+
+/**
+ * IDLE ENGINE WARM-UP (track-loading optimization).
+ *
+ * The first play used to pay the full engine bootstrap on the critical
+ * click→audio path: manifest fetch + ~1.4 MB of wasm bytes + compile +
+ * worker init (~0.5-2 s cold). This pre-fetches/pre-compiles the engine
+ * singleton at app idle time, so the first play only pays the track's own
+ * network cost. Idempotent: shares the same `engineReady` promise as a real
+ * load; failures arm the session kill-switch exactly like a real load
+ * would (no behavior change, just earlier).
+ */
+export function warmUpWasmEngine(): void {
+  if (typeof window === "undefined") return;
+  if (wasmUnsupported || engineReady) return;
+  if (!browserGlobals()) return;
+  try {
+    const run = () => { WasmAudioBackend.ensureEngine().catch(() => {}); };
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+    if (typeof ric === "function") {
+      ric(run, { timeout: 4000 });
+    } else {
+      setTimeout(run, 1500);
+    }
+  } catch {
+    // warm-up is best-effort — never block or crash the app
+  }
 }
 
 /** Diagnostics access for DevTools/automation (§35.18). */

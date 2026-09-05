@@ -13,6 +13,15 @@ export interface Track {
   scStreamPolicy?: string;
   scIsFull?: boolean;
   createdAt?: string;
+  /**
+   * Honest recommendation context (Wave / recommendations API).
+   * Values: related_current | related_history | related_to_liked |
+   * liked_artist | artist_match | discovery — surfaced by the Wave UI as
+   * "why this track" text. Never synthesized client-side.
+   */
+  _reason?: string;
+  /** Seed the recommendation engine actually used (real attribution only). */
+  _seedArtist?: string;
 }
 
 export interface Playlist {

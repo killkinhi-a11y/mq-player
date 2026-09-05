@@ -96,64 +96,103 @@ function pump() {
 let pumpDebugEntries = 0;
 
 // ── stream loader with backpressure ──
+// Splits the fetch into RANGE WINDOWS: some proxies/CDNs cap a single
+// open-ended range (our own proxy used to cap at 1 MB → the track ended
+// prematurely ~65 s after every seek). After each window we check the
+// Content-Range end against the total and, when the server truncated us,
+// fetch the NEXT window instead of marking EOF. Only a true end-of-entity
+// (or totalBytes=unknown exhausted) finishes the load.
 async function loadStream(url, startByte, seq) {
   try {
     if (abortCtrl) { try { abortCtrl.abort(); } catch (e) {} }
-    abortCtrl = new AbortController();
     fetchStartByte = startByte | 0;
     pushedBytes = 0;
     poppedFrames = 0;
     infoSent = false;
 
-    const headers = {};
-    if (startByte > 0) headers['Range'] = 'bytes=' + startByte + '-';
-    const resp = await fetch(url, { headers, signal: abortCtrl.signal, redirect: 'follow' });
-    if (seq !== loadSeq) return;
-
-    if (!resp.ok && resp.status !== 206) {
-      postError('fetch', 'HTTP ' + resp.status);
-      return;
-    }
-    // Full entity size: Content-Range total or Content-Length.
-    const cr = resp.headers.get('content-range');
-    if (cr && /\/(\d+)\s*$/.test(cr)) {
-      totalBytes = parseInt(cr.match(/\/(\d+)\s*$/)[1], 10);
-    } else if (!startByte) {
-      const cl = resp.headers.get('content-length');
-      if (cl) totalBytes = parseInt(cl, 10);
-    }
-    const supportsRange = resp.status === 206 || (resp.headers.get('accept-ranges') || '').includes('bytes');
-    post({ type: 'headers', totalBytes, supportsRange, startByte });
-
-    const reader = resp.body && resp.body.getReader ? resp.body.getReader() : null;
-    if (!reader) {
-      // No streaming body — read the whole buffer at once.
-      const buf = new Uint8Array(await resp.arrayBuffer());
-      if (seq !== loadSeq) return;
-      pushBytes(buf);
-      finish(seq);
-      return;
-    }
+    let windowStart = startByte | 0;
 
     for (;;) {
-      // Backpressure 1: while paused, stop pulling the network.
-      if (!playing && ex.mq_dec_started(dec) === 1) {
-        if (seq !== loadSeq) return;
-        await sleep(150);
-        continue;
+      if (seq !== loadSeq) return;
+
+      abortCtrl = new AbortController();
+      const headers = {};
+      if (windowStart > 0) headers['Range'] = 'bytes=' + windowStart + '-';
+      const resp = await fetch(url, { headers, signal: abortCtrl.signal, redirect: 'follow' });
+      if (seq !== loadSeq) return;
+
+      if (!resp.ok && resp.status !== 206) {
+        postError('fetch', 'HTTP ' + resp.status);
+        return;
       }
-      // Backpressure 2: decoded queue saturated (no consumer yet / slow) —
-      // stop pulling so the shared byte buffer stays bounded.
-      if (ex.mq_dec_started(dec) === 1 && ex.mq_dec_queued(dec) >= QUEUE_FRAMES_CAP) {
-        if (seq !== loadSeq) return;
-        await sleep(150);
-        continue;
+      // Full entity size: Content-Range total or Content-Length.
+      const cr = resp.headers.get('content-range');
+      let rangeEnd = -1;          // last byte actually delivered this window
+      if (cr && /\/(\d+)\s*$/.test(cr)) {
+        totalBytes = parseInt(cr.match(/\/(\d+)\s*$/)[1], 10);
+        const m = cr.match(/^bytes\s+(\d+)-(\d+)\s*\//);
+        if (m) rangeEnd = parseInt(m[2], 10);
+      } else if (!windowStart) {
+        const cl = resp.headers.get('content-length');
+        if (cl) totalBytes = parseInt(cl, 10);
       }
-      const { done, value } = await reader.read();
-      if (seq !== loadSeq) { try { reader.cancel(); } catch (e) {} return; }
-      if (done) break;
-      if (value && value.byteLength) pushBytes(value);
-      pump();
+      if (rangeEnd < 0 && resp.status !== 206) {
+        // Full 200 response — the whole entity is in this window.
+        rangeEnd = totalBytes ? totalBytes - 1 : -1;
+      }
+      const supportsRange = resp.status === 206 || (resp.headers.get('accept-ranges') || '').includes('bytes');
+      post({ type: 'headers', totalBytes, supportsRange, startByte: windowStart });
+
+      const reader = resp.body && resp.body.getReader ? resp.body.getReader() : null;
+      if (!reader) {
+        // No streaming body — read the whole buffer at once.
+        const buf = new Uint8Array(await resp.arrayBuffer());
+        if (seq !== loadSeq) return;
+        pushBytes(buf);
+        if (buf.byteLength > 0 && rangeEnd < 0) rangeEnd = windowStart + buf.byteLength - 1;
+        if (rangeEnd >= 0 && totalBytes && rangeEnd < totalBytes - 1) {
+          windowStart = rangeEnd + 1;      // truncated — fetch the next window
+          continue;
+        }
+        finish(seq);
+        return;
+      }
+
+      let windowDone = false;
+      while (!windowDone) {
+        // Backpressure 1: while paused, stop pulling the network.
+        if (!playing && ex.mq_dec_started(dec) === 1) {
+          if (seq !== loadSeq) return;
+          await sleep(150);
+          continue;
+        }
+        // Backpressure 2: decoded queue saturated (no consumer yet / slow) —
+        // stop pulling so the shared byte buffer stays bounded.
+        if (ex.mq_dec_started(dec) === 1 && ex.mq_dec_queued(dec) >= QUEUE_FRAMES_CAP) {
+          if (seq !== loadSeq) return;
+          await sleep(150);
+          continue;
+        }
+        const { done, value } = await reader.read();
+        if (seq !== loadSeq) { try { reader.cancel(); } catch (e) {} return; }
+        if (done) { windowDone = true; break; }
+        if (value && value.byteLength) {
+          pushBytes(value);
+          if (rangeEnd < 0) rangeEnd = windowStart + pushedBytes - 1; // streaming 200 fallback
+        }
+        pump();
+      }
+
+      // Window exhausted. Truncated by an intermediary (capped range)?
+      // → fetch the next window instead of declaring EOF.
+      if (rangeEnd >= 0 && totalBytes && rangeEnd < totalBytes - 1) {
+        const next = rangeEnd + 1;
+        if (next > windowStart) {           // sanity: never loop on zero progress
+          windowStart = next;
+          continue;
+        }
+      }
+      break; // true end of entity (or unknown total exhausted)
     }
     finish(seq);
   } catch (e) {

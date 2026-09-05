@@ -60,6 +60,25 @@ class MqAudioProcessor extends AudioWorkletProcessor {
     this.pcmInFrames = 0;
     this.creditOut = 0;
     this.pcmDropped = 0;
+    // Generation guard (Phase F §A): PCM popped by the worker under a
+    // previous seek/load generation must NEVER land in the reset ring —
+    // that was the stale-frame seek race (wrong audio + discontinuity).
+    this.gen = 0;           // expected generation (set by the main thread)
+    this.pcmStale = 0;      // stale frames dropped BEFORE writing
+    // Flow control — cumulative sliding window (Phase F §C):
+    // Grants are SEQUENCE SPACE (cumulative totals), never replaceable
+    // windows: the old protocol let the worker silently abandon unused
+    // credit when a new grant replaced it, while this side kept counting
+    // it as in-flight — the window leaked shut (grant → 0 → deadlock).
+    // Invariant: buffered + (grantedTotal − arrivedTotal) ≤ capacity.
+    this.grantedTotal = 0;  // cumulative frames the worker may ever send
+    this.arrivedTotal = 0;  // cumulative frames received & accepted
+    // Rolling credit/arrival event log (Phase F diagnostics — bounded).
+    this.evLog = [];
+    this.ev = (kind, n) => {
+      if (this.evLog.length > 400) this.evLog.shift();
+      this.evLog.push([Math.round(currentTime * 1000), kind, n]);
+    };
     // DSP timing (§35.19): wasm32 has no Instant — measure the export call
     // from JS with performance.now() (same thread, µs resolution).
     this.procNsWindow = [];
@@ -126,10 +145,17 @@ class MqAudioProcessor extends AudioWorkletProcessor {
         }
         case 'cmd': {
           if (!this.ready) return;
+          // Generation advances BEFORE the command runs: any PCM arriving
+          // after a FLUSH/SEEK/STOP must carry the new generation or be
+          // dropped as stale (the ring was just reset for new content).
+          if (typeof msg.gen === 'number' && msg.gen > this.gen) this.gen = msg.gen | 0;
           const rc = this.exports.mq_cmd(this.handle, msg.opcode | 0, +msg.a || 0, +msg.b || 0, +msg.c || 0);
-          // Flush/Seek/Stop reset the ring → worker credit changes immediately
+          // Flush/Seek/Stop reset the ring → the sequence space resets with
+          // it (in-flight stale sends are gen-dropped, never counted).
           if (msg.opcode === OP.SEEK || msg.opcode === OP.FLUSH || msg.opcode === OP.STOP) {
             this.endedSent = false;
+            this.grantedTotal = 0;
+            this.arrivedTotal = 0;
             this.postCredit();
           }
           if (msg.opcode === OP.PLAY) this.endedSent = false;
@@ -164,9 +190,19 @@ class MqAudioProcessor extends AudioWorkletProcessor {
   // ── PCM from the Decode Worker (data plane, transferred buffers) ──
   onPcm(msg) {
     if (!this.ready || !msg || msg.type !== 'pcm' || !msg.ch0) return;
+    // Seek-race guard: frames popped under a dead generation are dropped
+    // BEFORE touching the ring (they would otherwise be written into the
+    // freshly flushed buffer and play as stale audio + a discontinuity).
+    if (typeof msg.gen === 'number' && (msg.gen | 0) !== this.gen) {
+      this.pcmStale += msg.frames | 0;
+      this.ev('stale', msg.frames | 0);
+      return;
+    }
     this.pcmIn++;
     const frames = msg.frames | 0;
     if (frames <= 0) return;
+    this.arrivedTotal += frames;
+    this.ev('pcm', frames);
     try {
       const avail = this.exports.mq_ring_write_available(this.handle);
       const n = Math.min(frames, avail);
@@ -210,12 +246,20 @@ class MqAudioProcessor extends AudioWorkletProcessor {
     }
   }
 
-  /** Tell the worker how many ring frames it may send (flow control). */
+  /** Tell the worker its cumulative send allowance (sliding window).
+   *  Grant target = arrived + current ring availability: buffered +
+   *  in-flight can never exceed capacity (no overdraw), and because the
+   *  allowance is a cumulative total, the worker can never "abandon"
+   *  credit — unused allowance simply remains valid for later sends. */
   postCredit() {
     if (!this.pcmPort || !this.ready) return;
     try {
+      const avail = this.exports.mq_ring_write_available(this.handle);
+      const target = this.arrivedTotal + avail;
+      if (target > this.grantedTotal) this.grantedTotal = target;
+      this.ev('grant', this.grantedTotal);
       this.creditOut++;
-      this.pcmPort.postMessage({ type: 'credit', frames: this.exports.mq_ring_write_available(this.handle) });
+      this.pcmPort.postMessage({ type: 'credit', total: this.grantedTotal, gen: this.gen });
     } catch (e) {}
   }
 
@@ -281,7 +325,7 @@ class MqAudioProcessor extends AudioWorkletProcessor {
           lufsIntegrated: s[11],
           gainReductionDb: s[12],
           truePeakDb: s[13],
-          _flow: { pcmIn: this.pcmIn, pcmInFrames: this.pcmInFrames, creditOut: this.creditOut, pcmDropped: this.pcmDropped },
+          _flow: { pcmIn: this.pcmIn, pcmInFrames: this.pcmInFrames, creditOut: this.creditOut, pcmDropped: this.pcmDropped, pcmStale: this.pcmStale, gen: this.gen, granted: this.grantedTotal, arrived: this.arrivedTotal, evLog: this.evLog.slice(-400) },
         });
         this.postCredit();
       }

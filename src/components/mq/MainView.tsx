@@ -1067,6 +1067,29 @@ function ContinueListeningCard({
 // 64px play target, 48px skips. Nothing decorative — every element is a
 // real control or real playback state. Desktop keeps its own layout below.
 // ══════════════════════════════════════════════════════════════════════════
+// Honest "why this track" context — computed ONLY from the real reason
+// metadata the recommendation engine attached to the track (_reason /
+// _seedArtist). No synthesized explanations: unknown → empty (the caller
+// falls back to the generic "Волна · играет").
+function waveReasonText(track: Track): string {
+  switch (track._reason) {
+    case "related_current":
+      return track._seedArtist ? `Похоже на ${track._seedArtist}` : "Волна · похожее";
+    case "related_history":
+      return "Из твоей истории";
+    case "related_to_liked":
+      return "По твоим лайкам";
+    case "liked_artist":
+      return track._seedArtist ? `Любимый артист · ${track._seedArtist}` : "Любимый артист";
+    case "artist_match":
+      return "Твой артист";
+    case "discovery":
+      return "Открытие для тебя";
+    default:
+      return "";
+  }
+}
+
 function MobileNowHero({
   track,
   fallbackTrack,
@@ -1170,7 +1193,7 @@ function MobileNowHero({
           {isNow ? (
             <div className="flex items-center gap-2 mb-1">
               <p className="mq-t-meta text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--mq-accent)" }}>
-                {radioMode ? "Волна · играет" : "Сейчас играет"}
+                {waveReasonText(hero) || (radioMode ? "Волна · играет" : "Сейчас играет")}
               </p>
             </div>
           ) : (

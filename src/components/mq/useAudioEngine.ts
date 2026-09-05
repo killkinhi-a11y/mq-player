@@ -515,6 +515,37 @@ const STREAM_CACHE_TTL = 15 * 60 * 1000;
 const streamCache = new Map<number, { stream: StreamResult; at: number }>();
 const streamInFlight = new Map<number, Promise<StreamResult | null>>();
 
+/**
+ * Track-loading optimization: prefetch the NEXT queued track's stream URL
+ * while the current track plays (fire-and-forget, best-effort). The next
+ * track switch then skips the ~0.7-0.9 s resolve round trip — the biggest
+ * remaining cost on the warm switch path (engine warm-up already removed
+ * the WASM bootstrap). No-ops when the next track is unknown, non-SC, or
+ * already cached/in-flight.
+ */
+let prefetchTimer: ReturnType<typeof setTimeout> | null = null;
+function prefetchNextTrackStream(): void {
+  if (prefetchTimer) clearTimeout(prefetchTimer);
+  // Defer 4 s: let the current track's own fetch + decode settle first.
+  prefetchTimer = setTimeout(() => {
+    prefetchTimer = null;
+    try {
+      const st = useAppStore.getState();
+      const next = st.queue?.[st.queueIndex + 1];
+      const scId = next?.scTrackId;
+      if (!scId || scId <= 0) return;
+      if (typeof window === "undefined") return;
+      const hit = streamCache.get(scId);
+      if (hit && Date.now() - hit.at < STREAM_CACHE_TTL) return;
+      if (streamInFlight.has(scId)) return;
+      // Shared in-flight promise — result lands in the cache for the switch.
+      resolveSoundCloudStream(scId).catch(() => {});
+    } catch {
+      // best-effort only
+    }
+  }, 4000);
+}
+
 export async function resolveSoundCloudStream(
   scTrackId: number,
   opts?: { noCache?: boolean }
@@ -1963,7 +1994,10 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             // hls.js/element path — see AUDIO_ENGINE_ARCHITECTURE.md §1.4).
             if (!isHlsStream && !stream.isEncrypted) {
               const wasmUrl = proxyStreamUrl(stream.url);
-              if (await tryWasmLoad(wasmUrl, currentTrack, { isHls: false, isEncrypted: false })) return;
+              if (await tryWasmLoad(wasmUrl, currentTrack, { isHls: false, isEncrypted: false })) {
+                prefetchNextTrackStream();
+                return;
+              }
             }
 
             if (isHlsStream) {

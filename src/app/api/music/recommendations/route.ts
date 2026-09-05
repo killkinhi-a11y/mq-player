@@ -352,10 +352,14 @@ async function handler(request: NextRequest) {
     );
     for (const { track } of discoveryTracks) usedInCategory.add(track.scTrackId);
 
-    // 4. Flat list (all tracks, interleaved) — target 50
+    // 4. Flat list (all tracks, interleaved) — target 50.
+    //    Carries the honest _reason (wave initial start reads this list):
+    //    related_to_liked / related_to_history / discovery.
     const flatTracks = interleaveByArtist(
-      deduped.map(({ track }) => track), 2
-    ).slice(0, 50).map(t => mapTrack(t));
+      deduped.map(d => ({ ...d, artist: d.track.artist })), 2
+    ).slice(0, 50).map(({ track, fromLiked, fromHistory }) =>
+      mapTrack(track, fromLiked ? "related_to_liked" : fromHistory ? "related_to_history" : "discovery")
+    );
 
     // ── Build categories ──
     const categories: { id: string; title: string; icon: string; tracks: MappedTrack[] }[] = [];

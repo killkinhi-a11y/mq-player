@@ -189,6 +189,19 @@ export default function AppShell() {
     }
   }, [_hasHydrated]);
 
+  // ── Track-loading optimization: idle WASM engine warm-up ──
+  // Prefetch+compile the audio engine (manifest + wasm bytes + worker) at
+  // app idle time so the FIRST play doesn't pay ~0.5-2 s of engine
+  // bootstrap on the click→audio critical path. Best-effort, idempotent.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+    import("@/lib/wasm-audio").then(({ warmUpWasmEngine }) => {
+      if (!cancelled) warmUpWasmEngine();
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   // ── Hydration timeout safety net ──
   // If Zustand hydration doesn't complete within 5 seconds (e.g. due to
   // corrupt localStorage, TDZ error, or browser quota issue), force

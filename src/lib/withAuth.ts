@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyToken, SESSION_COOKIE_OPTIONS } from "./auth";
+import { database } from "./database";
 
 type AuthenticatedHandler = (
   req: NextRequest,
@@ -29,14 +30,32 @@ export function withAuth(
 
 /**
  * Wrap an API route handler with admin authentication.
- * Same as withAuth but also checks userRole === "admin".
- * Returns 403 if not admin.
+ *
+ * Security model (owner transfer, 2026-09): the JWT role claim alone is NOT
+ * trusted for admin APIs — a user demoted after their token was issued must
+ * lose admin access immediately. After verifying the token this wrapper
+ * re-checks the FRESH role from the database (same policy as /admin layout,
+ * which already re-checks per request). DB unavailable → fail CLOSED.
+ *
+ * Returns 401 if not authenticated, 403 if not admin.
  */
 export function withAdminAuth(
   handler: AuthenticatedHandler
 ): (req: NextRequest, ctx: { params: Promise<Record<string, string>> }) => Promise<Response> {
   return withAuth(async (req, ctx) => {
+    // Fast path: a JWT that never carried the admin claim can't be admin.
     if (ctx.userRole !== "admin") {
+      return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
+    }
+    // Fresh role from the DB — defeats stale-JWT admin access after demotion.
+    let freshRole: string | null = null;
+    try {
+      const user = await database.findUserById(ctx.userId);
+      freshRole = user ? user.role || "user" : null;
+    } catch {
+      freshRole = null; // DB error → fail closed below
+    }
+    if (freshRole !== "admin") {
       return NextResponse.json({ error: "Доступ запрещён" }, { status: 403 });
     }
     return handler(req, ctx);
