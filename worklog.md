@@ -1817,3 +1817,17 @@ Stage Summary:
   WASM backend selection chain, unrelated pages, AI/API functions.
 - Pending: production deploy (mq1.vercel.app) + post-deploy browser
   verification.
+
+---
+Task ID: 7
+Agent: main (Super Z)
+Task: Production verification + push
+
+Work Log:
+- Committed 0501bbc (audio hang fix + EQ curve + QA hardening) and pushed to origin/main.
+- Vercel auto-deploy: / 307→/play 200, audio-engine/version.json serves tag a536d8-670948-be9d28, worker 200.
+- Real-browser production smoke: demo mode → WASM backend active (tag be9d28), trusted user click unlocks AudioContext (note: synthetic JS clicks create no user activation — the context stays suspended; a REAL user click resumes instantly, verified), playback progressing with real signal (peak 0.21).
+- End-of-track FIX verified on production: seek to 37/40s → drained → auto-advanced to the next demo track (position advancing into demo-2), demo-3 already registered — no hang, pipeline continues.
+
+Stage Summary:
+- Production healthy with the end-of-track hang fix live. QA pass complete: audio engine v2 runtime-verified (playback/seek/gapless/lifecycle/signal-health/network/benchmarks), long-title actions regression green at real viewports, visual audit done with the EQ response-curve improvement shipped, Wave quality verified across 4 taste profiles.
