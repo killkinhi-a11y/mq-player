@@ -1028,7 +1028,7 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, onPlay, onLike,
       {/* Like */}
       <button
         onClick={(e) => { e.stopPropagation(); onLike(); }}
-        className="p-1.5 rounded-full sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+        className="p-1.5 rounded-full flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
         style={{ opacity: isLiked ? 1 : undefined }}
       >
         <Heart
@@ -1046,7 +1046,7 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, onPlay, onLike,
       {/* Remove */}
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        className="p-1.5 rounded-full sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+        className="p-1.5 rounded-full flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
       >
         <Trash2 className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
       </button>
@@ -1054,7 +1054,7 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, onPlay, onLike,
       {/* More button (3-dot) — opens context menu */}
       <button
         onClick={handleMoreClick}
-        className="p-1.5 rounded-full sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+        className="p-1.5 rounded-full flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
         style={{ color: "var(--mq-text-muted)" }}
         aria-label="Меню"
       >
@@ -1158,7 +1158,7 @@ function PlaylistTile({
 
         {/* Cover upload overlay */}
         <button
-          className="absolute inset-0 bg-black/60 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center"
+          className="absolute inset-0 bg-black/60 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity flex items-center justify-center"
           onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
         >
           {coverUploading ? (
@@ -1175,7 +1175,7 @@ function PlaylistTile({
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.92 }}
             onClick={onPlay}
-            className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300"
+            className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity duration-300"
             style={{
               backgroundColor: "var(--mq-accent)",
               boxShadow: "0 4px 16px color-mix(in srgb, var(--mq-accent) 40%, transparent)",
@@ -1202,7 +1202,7 @@ function PlaylistTile({
         {/* More menu trigger */}
         <button
           onClick={onToggleMenu}
-          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10"
+          className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity z-10"
           style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(8px)" }}
         >
           <MoreVertical className="w-3.5 h-3.5 text-white" />

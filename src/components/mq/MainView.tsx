@@ -718,7 +718,7 @@ function MainView() {
         ) : (
           <button
             onClick={() => setView("playlists")}
-            className="w-full rounded-2xl p-5 flex items-center gap-4 transition-all hover:bg-white/[0.02] text-left"
+            className="w-full rounded-2xl p-5 flex items-center gap-4 transition-all hover:bg-[var(--mq-overlay-hover)] text-left"
             style={{ backgroundColor: "var(--mq-card)", border: "1px dashed var(--mq-border-thin)" }}
           >
             <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}>
@@ -1049,7 +1049,7 @@ function ContinueListeningCard({
       {radioMode && (
         <button
           onClick={onSkip}
-          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors hover:bg-white/[0.04]"
+          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)]"
           style={{ border: "1px solid var(--mq-border-thin)" }}
           aria-label="Следующий в Волне"
         >
@@ -1378,7 +1378,7 @@ function QuickActionGrid({
         <button
           key={label}
           onClick={onClick}
-          className="flex flex-col lg:flex-row items-center justify-center lg:justify-start gap-1 lg:gap-2.5 rounded-xl px-2 py-2.5 lg:px-3 transition-colors hover:bg-white/[0.03]"
+          className="flex flex-col lg:flex-row items-center justify-center lg:justify-start gap-1 lg:gap-2.5 rounded-xl px-2 py-2.5 lg:px-3 transition-colors hover:bg-[var(--mq-overlay-hover)]"
         >
           <Icon className="w-4 h-4 shrink-0" style={{ color: accent }} />
           <span className="mq-t-label text-[11px] leading-none" style={{ color: "var(--mq-text)" }}>{label}</span>
@@ -1406,7 +1406,7 @@ function HorizontalTrackRow({
 }) {
   return (
     <div
-      className="group flex items-center gap-3 rounded-xl p-2 pr-3 transition-colors hover:bg-white/[0.03] cursor-pointer"
+      className="group flex items-center gap-3 rounded-xl p-2 pr-3 transition-colors hover:bg-[var(--mq-overlay-hover)] cursor-pointer"
       style={{ backgroundColor: isCurrent ? "color-mix(in srgb, var(--mq-accent) 7%, transparent)" : "var(--mq-card)" }}
       onClick={onPlay}
       role="button"
@@ -1466,7 +1466,7 @@ function CompactTrackCard({
 }) {
   return (
     <button
-      className="group flex-shrink-0 w-[124px] sm:w-[136px] text-left rounded-xl overflow-hidden transition-all hover:bg-white/[0.03]"
+      className="group flex-shrink-0 w-[124px] sm:w-[136px] text-left rounded-xl overflow-hidden transition-all hover:bg-[var(--mq-overlay-hover)]"
       style={{
         backgroundColor: "var(--mq-card)",
         border: `1px solid ${isCurrent ? "color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "var(--mq-border-hairline)"}`,
@@ -1528,7 +1528,7 @@ function ChartRow({
   const isTop = rank <= 3;
   return (
     <div
-      className="group flex items-center gap-3 rounded-xl px-2 py-2 -mx-2 transition-colors hover:bg-white/[0.03] cursor-pointer"
+      className="group flex items-center gap-3 rounded-xl px-2 py-2 -mx-2 transition-colors hover:bg-[var(--mq-overlay-hover)] cursor-pointer"
       onClick={onPlay}
       role="button"
       tabIndex={0}

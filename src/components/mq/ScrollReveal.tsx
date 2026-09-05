@@ -26,8 +26,8 @@ export default function ScrollReveal({
   children,
   direction = "up",
   delay = 0,
-  duration = 0.6,
-  distance = 30,
+  duration = 0.3,
+  distance = 16,
   threshold = 0.1,
   once = true,
   className,
@@ -84,7 +84,6 @@ export default function ScrollReveal({
             animate={{ opacity: 1, x: 0, y: 0 }}
             exit={{ opacity: 0, x: d.x * distance, y: d.y * distance }}
             transition={{ duration, delay, ease: [0.25, 0.1, 0.25, 1] }}
-            style={{ willChange: "opacity, transform" }}
           >
             {children}
           </motion.div>

@@ -189,7 +189,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               className={`
                 flex items-center justify-center rounded-full
                 ${compactMode ? "w-7 h-7" : "w-8 h-8"}
-                sm:opacity-0 sm:group-hover:opacity-100
+                sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100
                 transition-opacity duration-200 ease-out
                 ${isActive && isPlaying ? "!opacity-100" : ""}
               `}
@@ -306,8 +306,8 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               flex items-center justify-center
               rounded-full
               transition-colors duration-150
-              sm:opacity-0 sm:group-hover:opacity-100
-              hover:bg-white/10
+              sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100
+              hover:bg-[var(--mq-overlay-hover)]
             `}
             style={{ color: isLiked ? "#ef4444" : "var(--mq-text-muted)" }}
             animate={likePulse ? { scale: [1, 1.3, 0.9, 1.1, 1] } : { scale: 1 }}
@@ -328,8 +328,8 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               hidden sm:flex items-center justify-center
               rounded-full
               transition-colors duration-150
-              sm:opacity-0 sm:group-hover:opacity-100
-              hover:bg-white/10
+              sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100
+              hover:bg-[var(--mq-overlay-hover)]
             `}
             style={{ color: isDisliked ? "#ef4444" : "var(--mq-text-muted)" }}
             animate={dislikeShake ? { x: [0, -3, 3, -2, 2, 0] } : { x: 0 }}
@@ -345,8 +345,8 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               ${compactMode ? "w-7 h-7" : "w-8 h-8"}
               flex items-center justify-center
               rounded-full
-              sm:opacity-0 sm:group-hover:opacity-100
-              hover:bg-white/10
+              sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100
+              hover:bg-[var(--mq-overlay-hover)]
               transition-colors duration-150
             `}
             style={{ color: "var(--mq-text-muted)" }}

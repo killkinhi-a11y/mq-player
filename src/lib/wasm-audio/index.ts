@@ -18,6 +18,7 @@ export {
   seekPlayback,
   currentPlaybackPosition,
   warmUpWasmEngine,
+  ensureBenchApi,
   OP,
   PARAM,
   sendDspCommand,
@@ -25,6 +26,6 @@ export {
   applyLimiterToWasm,
   applySpatialToWasm,
 } from "./WasmAudioBackend";
-export type { WasmLoadOptions, WasmBackendCallbacks, DspSnapshot } from "./WasmAudioBackend";
+export type { WasmLoadOptions, WasmBackendCallbacks, DspSnapshot, NextTrackRegistration } from "./WasmAudioBackend";
 export { WasmAudioBackend } from "./WasmAudioBackend";
 export { wasmDiagnostics, markDiag, pushProcessNsSample } from "./diagnostics";

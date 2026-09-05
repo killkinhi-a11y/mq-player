@@ -1234,7 +1234,7 @@ const ProfileView = React.memo(function ProfileView() {
           {/* Settings link */}
           <motion.button
             whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => setView("settings")}
             className="w-full px-4 py-3 flex items-center gap-3 text-left transition-colors"
             style={{ borderBottom: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
@@ -1255,7 +1255,7 @@ const ProfileView = React.memo(function ProfileView() {
           {userRole === "admin" && (
             <motion.button
               whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => window.open("/admin", "_self")}
               className="w-full px-4 py-3 flex items-center gap-3 text-left transition-colors"
               style={{ borderBottom: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
@@ -1276,7 +1276,7 @@ const ProfileView = React.memo(function ProfileView() {
           {/* Logout — cleaner design */}
           <motion.button
             whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.99 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => setShowLogoutConfirm(true)}
             className="w-full px-4 py-3.5 flex items-center gap-3 text-left"
             style={{ color: "#ff6b6b" }}

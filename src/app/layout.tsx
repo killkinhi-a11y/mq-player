@@ -120,13 +120,38 @@ export default function RootLayout({
           *:focus-visible {
             outline: 2px solid var(--mq-accent, #e03131) !important;
             outline-offset: 2px !important;
-            border-radius: 4px;
           }
           input:focus-visible, textarea:focus-visible, select:focus-visible {
             outline: 2px solid var(--mq-accent, #e03131) !important;
             outline-offset: 2px !important;
           }
         `}} />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){
+              // === PRE-PAINT THEME (no flash of wrong theme) ===
+              // 24 of 25 themes are dark (#0e0e0e default is close enough);
+              // daylight (and pure-black midnight/black) need the correct
+              // background BEFORE first paint. Full var set still comes from
+              // applyThemeToDOM after hydration.
+              try {
+                var raw = localStorage.getItem('mq-store-v8');
+                var t = raw ? (JSON.parse(raw).state || {}).theme : null;
+                var root = document.documentElement;
+                if (t === 'daylight') {
+                  root.style.setProperty('--mq-bg', '#f8f9fa');
+                  root.style.setProperty('--mq-card', '#ffffff');
+                  root.style.setProperty('--mq-text', '#212529');
+                  root.style.setProperty('--mq-text-muted', '#6c757d');
+                  root.style.backgroundColor = '#f8f9fa';
+                } else if (t === 'midnight' || t === 'black') {
+                  root.style.setProperty('--mq-bg', '#000000');
+                  root.style.backgroundColor = '#000000';
+                }
+              } catch (e) {}
+            })();`
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `(function(){

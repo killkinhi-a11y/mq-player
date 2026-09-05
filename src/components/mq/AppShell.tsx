@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState, useMemo, useCallback } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, MotionConfig } from "framer-motion";
 import { useAppStore, type ViewType } from "@/store/useAppStore";
 import { themes, applyThemeToDOM } from "@/lib/themes";
 import { canPollProtected } from "@/lib/authGate";
@@ -606,7 +606,20 @@ export default function AppShell() {
 
   const isMountedView = VISITED_VIEW_IDS.has(currentView);
 
+  // ── Unified motion policy (PART F) ──
+  // ONE place wires the store's animation settings into framer-motion for
+  // the whole tree (previously the flags only reached CSS):
+  //  - reducedMotion (a11y) or animationsEnabled=false → transform/layout
+  //    animations disabled (opacity remains);
+  //  - animationsEnabled=false additionally collapses every default
+  //    transition to ~zero — "Анимации интерфейса" is now honest.
+  const motionReduced = reduceMotion || !animationsEnabled;
+
   return (
+    <MotionConfig
+      reducedMotion={motionReduced ? "always" : "user"}
+      transition={animationsEnabled ? undefined : { duration: 0.01 }}
+    >
     <div
       className={`min-h-[100dvh] ${showMiniPlayerSpacer ? 'mq-has-player' : ''}`}
       style={{
@@ -731,5 +744,6 @@ export default function AppShell() {
       <Suspense fallback={null}>{isAuthenticated && <NotificationPanel isOpen={notifPanelOpen} onClose={() => setNotifPanelOpen(false)} />}</Suspense>
       <Suspense fallback={null}>{isAuthenticated && <OnboardingTour />}</Suspense>
     </div>
+    </MotionConfig>
   );
 }

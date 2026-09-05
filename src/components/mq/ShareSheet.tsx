@@ -108,17 +108,17 @@ export const ShareSheet = memo(function ShareSheet({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--mq-border-hairline)" }}>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
+            <div className="flex items-center justify-between gap-3 px-5 py-4" style={{ borderBottom: "1px solid var(--mq-border-hairline)" }}>
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}>
                   <Share2 className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <h3 className="text-sm font-bold" style={{ color: "var(--mq-text)" }}>Поделиться</h3>
-                  <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>{title}</p>
+                  <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{title}</p>
                 </div>
               </div>
-              <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ color: "var(--mq-text-muted)" }}>
+              <button onClick={onClose} className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ color: "var(--mq-text-muted)" }}>
                 <X className="w-4 h-4" />
               </button>
             </div>

@@ -576,7 +576,8 @@ input[type="range"]::-webkit-slider-thumb {
   border-radius: 50%;
   background: var(--mq-accent);
   cursor: pointer;
-  box-shadow: 0 0 8px var(--mq-glow);
+  /* Flat shadow only — custom sliders carry no glow either (pro-audio look) */
+  box-shadow: var(--mq-shadow-sm);
 }
 
 input[type="range"]::-moz-range-thumb {
@@ -586,7 +587,7 @@ input[type="range"]::-moz-range-thumb {
   background: var(--mq-accent);
   cursor: pointer;
   border: none;
-  box-shadow: 0 0 8px var(--mq-glow);
+  box-shadow: var(--mq-shadow-sm);
 }
 
 /* Color input */
@@ -608,26 +609,26 @@ input[type="color"]::-webkit-color-swatch {
   border-radius: 6px;
 }
 
-/* Smooth theme transitions — scoped to MQ elements only, not all DOM */
-[class*="rounded"],
-[class*="mq-"],
-button, input, select, textarea,
-nav, header, .fixed, [style*="background"] {
-  transition: background-color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+/* ── Theme-switch choreography (single source of truth for duration) ──
+ * The blanket "every element transitions" rule is GONE: it overrode every
+ * Tailwind transition utility (utilities live in @layer, unlayered rules
+ * win) — all duration-150/200 hovers silently ran at 250ms, and framer
+ * whileHover backgroundColors double-eased. Instead: a transient class
+ * applied by applyThemeToDOM for ~450ms that colors ONLY the large
+ * surfaces (html/body/cards) — components keep their designed timings. */
+html.mq-theme-switch,
+html.mq-theme-switch body,
+html.mq-theme-switch [class*="mq-"] {
+  transition: background-color 0.35s ease, border-color 0.35s ease,
+    color 0.35s ease, box-shadow 0.35s ease !important;
 }
 
-/* ── Liquid Glass smooth theme change transition ── */
-html { transition: background-color 0.6s ease; }
-html.liquid-glass-theme,
-html.liquid-glass-theme * {
-  transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
-}
-
-/* Framer Motion managed elements — no CSS transition interference */
-[data-framer-motion-id],
-[data-framer-motion-id] *,
-.mq-no-transition,
-motion-div, motion-button, motion-span {
+/* Framer Motion managed elements — no CSS transition interference.
+ * v12 renders plain elements, so the opt-out is an explicit class or the
+ * data attribute the motion wrapper sets. */
+[data-motion],
+[data-motion] *,
+.mq-no-transition {
   transition: none !important;
 }
 
@@ -648,32 +649,13 @@ motion-div, motion-button, motion-span {
     scroll-behavior: auto !important;
   }
 
-  /* Remove all spring/bounce animations */
+  /* Removed dead "Premium Button System" (.mq-btn-glass/.mq-btn-play) —
+   * zero usages anywhere; transition:all + hover-scale contradicted the
+   * live interaction language (audit PART C 1.12). */
   .mq-card-hover:hover,
-  .mq-btn-play:hover,
-  .mq-btn-glass:hover,
   .mq-card-cinematic:hover,
-  .mq-icon-btn:active,
-  .mq-btn-glass:active,
-  .mq-btn-play:active {
+  .mq-icon-btn:active {
     transform: none !important;
-  }
-
-  /* Remove parallax effects */
-  .mq-ambient-gradient,
-  .mq-player-glow,
-  .mq-hero-gradient {
-    display: none !important;
-  }
-
-  /* Remove ambient glow pulsing */
-  .player-glow,
-  .timer-glow-pc,
-  .liquid-glass-accent,
-  .online-pulse,
-  .mq-player-glow.is-playing,
-  .mq-breathe-glow {
-    animation: none !important;
   }
 }
 
@@ -1711,57 +1693,7 @@ a:not([data-framer-motion-id]),
   pointer-events: none;
 }
 
-/* ── Premium Button System ── */
-.mq-btn-glass {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--mq-radius-full);
-  background: var(--mq-glass-bg);
-  backdrop-filter: var(--mq-glass-blur);
-  -webkit-backdrop-filter: var(--mq-glass-blur);
-  border: 1px solid var(--mq-glass-border);
-  color: var(--mq-text);
-  cursor: pointer;
-  transition: all var(--mq-duration-fast) var(--mq-spring-smooth);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.mq-btn-glass:hover {
-  background: var(--mq-glass-bg-hover);
-  border-color: var(--mq-glass-border-hover);
-  box-shadow: var(--mq-shadow-glow);
-}
-
-.mq-btn-glass:active {
-  transform: scale(0.96);
-}
-
-/* ── Accent Play Button ── */
-.mq-btn-play {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--mq-accent);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  border: none;
-  box-shadow: 0 4px 16px color-mix(in srgb, var(--mq-accent) 35%, transparent);
-  transition: all var(--mq-duration-fast) var(--mq-spring-smooth);
-  -webkit-tap-highlight-color: transparent;
-}
-
-.mq-btn-play:hover {
-  transform: scale(1.08);
-  box-shadow: 0 6px 24px color-mix(in srgb, var(--mq-accent) 45%, transparent);
-}
-
-.mq-btn-play:active {
-  transform: scale(0.95);
-}
+/* Dead "Premium Button System" removed (zero usages) — see audit note above. */
 
 /* ── Premium Player Bar ── */
 .mq-player-premium {
@@ -1965,8 +1897,6 @@ a:not([data-framer-motion-id]),
 /* ── Reduced Motion Premium ── */
 @media (prefers-reduced-motion: reduce) {
   .mq-card-cinematic,
-  .mq-btn-glass,
-  .mq-btn-play,
   .mq-progress-premium {
     transition-duration: 0.01ms !important;
   }

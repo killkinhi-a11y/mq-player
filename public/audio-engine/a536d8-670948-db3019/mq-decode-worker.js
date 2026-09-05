@@ -447,9 +447,6 @@ async function loadStream(url, startByte, seq) {
       // Cache-first: replay contiguous cached bytes without network.
       const run = cacheFindRun(url, windowStart);
       if (run && run.chunks.length) {
-        // Headers must be reported on the cache path too — the backend's
-        // canSeek() depends on totalBytes (a cached replay was unseekable).
-        post({ type: 'headers', totalBytes: cacheTotal(url), supportsRange: true, startByte: windowStart });
         for (let i = 0; i < run.chunks.length; i++) {
           const c = run.chunks[i];
           if (c.start < windowStart) continue; // overlap head — skip

@@ -844,7 +844,7 @@ export default function MessageBubble({
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                    whileTap={{ scale: 0.85 }}
+                    whileTap={{ scale: 0.94 }}
                     onClick={() => addReaction(emoji)}
                     className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] transition-colors"
                     style={{
@@ -901,7 +901,7 @@ export default function MessageBubble({
           {/* ── Hover actions bar — reply + react ── */}
           <div className={`absolute ${isMine ? "right-full mr-1" : "left-full ml-1"} top-1/2 -translate-y-1/2 opacity-0 group-hover/msg:opacity-100 transition-opacity flex gap-0.5`}>
             <motion.button
-              whileTap={{ scale: 0.85 }}
+              whileTap={{ scale: 0.94 }}
               onClick={() => setShowReactions(!showReactions)}
               className="w-7 h-7 rounded-full flex items-center justify-center"
               style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}
@@ -912,7 +912,7 @@ export default function MessageBubble({
             </motion.button>
             {onReplyClick && (
               <motion.button
-                whileTap={{ scale: 0.85 }}
+                whileTap={{ scale: 0.94 }}
                 onClick={() => onReplyClick(message.id)}
                 className="w-7 h-7 rounded-full flex items-center justify-center"
                 style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)", color: "var(--mq-text-muted)" }}

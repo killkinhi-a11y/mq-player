@@ -18,11 +18,21 @@ export function resetManifestCache(): void {
 export function fetchAudioEngineManifest(): Promise<AudioEngineManifest> {
   if (cached) return cached;
   cached = (async () => {
-    const res = await fetch("/audio-engine/version.json", {
-      cache: "no-store",
-      headers: { "Cache-Control": "no-cache" },
-    });
-    if (!res.ok) throw new Error(`version.json HTTP ${res.status}`);
+    // One transient retry: a single network hiccup (SW activation window,
+    // CDN revalidation) must not arm the session kill-switch — only a
+    // persistent failure does.
+    let res: Response | null = null;
+    for (let attempt = 0; attempt < 2 && !res; attempt++) {
+      try {
+        res = await fetch("/audio-engine/version.json", {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
+        });
+      } catch {
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 400));
+      }
+    }
+    if (!res || !res.ok) throw new Error(`version.json HTTP ${res ? res.status : "unreachable"}`);
     const m = (await res.json()) as AudioEngineManifest;
     if (!m || typeof m.tag !== "string" || !m.core || !m.codec || !m.worklet || !m.worker) {
       throw new Error("version.json: malformed manifest");

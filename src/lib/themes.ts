@@ -508,6 +508,18 @@ export function applyThemeToDOM(theme: ThemeConfig, customAccent?: string) {
   if (theme.className) {
     root.classList.add(theme.className);
   }
+
+  // ── Theme-switch choreography ──
+  // Smooth color transition on large surfaces ONLY, applied transiently
+  // (the previous always-on blanket rule overrode every component's own
+  // transition timing). First application (initial load) skips the
+  // animation — no flash of intermediate colors on boot.
+  if (!root.dataset.mqThemeApplied) {
+    root.dataset.mqThemeApplied = "1";
+  } else {
+    root.classList.add("mq-theme-switch");
+    window.setTimeout(() => root.classList.remove("mq-theme-switch"), 450);
+  }
 }
 
 /** Convert a hex color (#rrggbb or #rgb) to {r, g, b}. Returns null on invalid input. */

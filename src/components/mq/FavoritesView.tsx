@@ -1107,7 +1107,7 @@ export default function FavoritesView() {
                           whileHover={{ scale: 1.12 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={(e) => handleMoreClick(track, e)}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-all sm:opacity-0 sm:group-hover:opacity-100"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
                           style={{ color: "var(--mq-text-muted)", backgroundColor: "transparent" }}
                           title="Меню"
                         >
@@ -1121,7 +1121,7 @@ export default function FavoritesView() {
                           whileHover={{ scale: 1.12 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={(e) => { e.stopPropagation(); handleRemoveTrack(track.id, track); }}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-all sm:opacity-0 sm:group-hover:opacity-100"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
                           style={{
                             color: activeTab === "liked" ? "#ef4444" : "#f97316",
                             backgroundColor: "transparent",

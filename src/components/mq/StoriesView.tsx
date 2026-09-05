@@ -338,7 +338,7 @@ export default function StoriesView() {
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
+              <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>
                 {story.username}
               </p>
               <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
@@ -443,11 +443,11 @@ export default function StoriesView() {
               <div className="absolute top-0 left-0 right-0 z-20 flex items-center gap-3 p-4"
                 style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)" }}>
                 {viewingStory.avatar
-                  ? <img src={viewingStory.avatar} alt={viewingStory.username} className="w-9 h-9 rounded-full object-cover" style={{ border: "2px solid white" }} />
-                  : <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "var(--mq-accent)", border: "2px solid white" }}><User className="w-5 h-5 text-white" /></div>
+                  ? <img src={viewingStory.avatar} alt={viewingStory.username} className="w-9 h-9 rounded-full object-cover shrink-0" style={{ border: "2px solid white" }} />
+                  : <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "var(--mq-accent)", border: "2px solid white" }}><User className="w-5 h-5 text-white" /></div>
                 }
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-white">{viewingStory.username}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{viewingStory.username}</p>
                   <p className="text-[11px] text-white/60">
                     {new Date(viewingStory.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })}
                   </p>
@@ -455,7 +455,7 @@ export default function StoriesView() {
                 <motion.button
                   whileTap={{ scale: 0.9 }}
                   onClick={(e) => { e.stopPropagation(); setIsPaused(!isPaused); }}
-                  className="p-2 rounded-full"
+                  className="p-2 rounded-full shrink-0"
                   style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
                 >
                   {isPaused

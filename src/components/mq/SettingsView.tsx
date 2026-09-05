@@ -445,7 +445,7 @@ export default function SettingsView() {
             const isActive = activeTab === tab.id;
             return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-4 min-h-[38px] py-2 rounded-full text-[11px] sm:text-sm font-semibold whitespace-nowrap transition-colors duration-150 flex-shrink-0"
+                className="flex items-center gap-1.5 px-2.5 sm:px-4 min-h-[44px] py-2 rounded-full text-[11px] sm:text-sm font-semibold whitespace-nowrap transition-colors duration-150 flex-shrink-0"
                 style={{ background: isActive ? "var(--mq-accent)" : "transparent", color: isActive ? "#fff" : "var(--mq-text-muted)" }}>
                 <Icon className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">{tab.label}</span>
@@ -541,28 +541,23 @@ export default function SettingsView() {
             <Card>
               <CardTitle icon={Palette} title="Тема" />
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-[280px] overflow-y-auto">
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {Object.entries(themes).map(([key, theme]: [string, any]) => {
                     const isActive = currentTheme === key;
                     return (
                       <motion.button
                         key={key}
-                        whileTap={{ scale: 0.95, rotateY: 180 }}
-                        whileHover={{ scale: 1.03 }}
+                        whileTap={{ scale: 0.96 }}
                         onClick={() => setTheme(key)}
                         className="relative p-2 rounded-xl flex flex-col items-center gap-1.5"
                         style={{
                           backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "var(--mq-overlay-hover)",
                           border: isActive ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-hairline)",
-                          transformStyle: "preserve-3d",
-                          perspective: "500px",
                         }}
                       >
-                        <motion.div
-                          className="w-10 h-10 rounded-full"
-                          style={{ background: `linear-gradient(135deg, ${theme.accent || "#e03131"}, ${theme.bg || "#0e0e0e"})` }}
-                          animate={{ rotateY: isActive ? 360 : 0 }}
-                          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        <div
+                          className="w-10 h-10 rounded-full shrink-0"
+                          style={{ background: `linear-gradient(135deg, ${theme.accent || "#e03131"}, ${theme.background || "#0e0e0e"})` }}
                         />
                         <span className="text-[11px] font-medium truncate w-full text-center" style={{ color: "var(--mq-text-muted)" }}>{theme.name || key}</span>
                         {isActive && <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}><Check className="w-2.5 h-2.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} /></div>}
@@ -630,19 +625,35 @@ export default function SettingsView() {
               <SettingToggle icon={Headphones} label="Пространственное аудио" subtitle="3D-звучание" value={spatialAudioEnabled} onCheckedChange={setSpatialAudioEnabled} />
               <SettingToggle icon={Zap} label="Gapless" subtitle="Без пауз между треками" value={gaplessEnabled} onCheckedChange={setGaplessEnabled} />
               <SettingToggle icon={Cpu} label="WASM-движок" subtitle={wasmEngineEnabled ? "Rust-декодер + DSP (прогрессивные треки)" : "Стандартный браузерный декодер"} value={wasmEngineEnabled} onCheckedChange={setWasmEngineEnabled} />
-              <SettingRow
-                icon={Gauge}
-                label="Скорость воспроизведения"
-                subtitle={playbackRate === 1 ? "Обычная" : `${playbackRate}×`}
-                value={`${playbackRate}×`}
-                onClick={() => {
-                  const rates = [0.75, 1, 1.25, 1.5, 2];
-                  const idx = rates.indexOf(playbackRate);
-                  const next = rates[(idx + 1) % rates.length];
-                  setPlaybackRate(next);
-                  toast({ title: `Скорость: ${next}×` });
-                }}
-              />
+              {/* Playback rate — segmented control (was a cyclic button whose
+                  value was only discoverable after tapping; PART E 3.5). */}
+              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Gauge className="w-4 h-4 shrink-0" style={{ color: "var(--mq-accent)" }} />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>Скорость воспроизведения</p>
+                      <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>Воспроизведение треков (не для WASM-движка)</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 rounded-full p-1 shrink-0" style={{ backgroundColor: "var(--mq-overlay-hover)" }}>
+                    {[0.75, 1, 1.25, 1.5, 2].map((r) => {
+                      const active = Math.abs(playbackRate - r) < 0.001;
+                      return (
+                        <button
+                          key={r}
+                          onClick={() => setPlaybackRate(r)}
+                          className="min-w-[38px] min-h-[32px] px-1.5 rounded-full text-xs font-semibold transition-colors duration-150"
+                          style={{ backgroundColor: active ? "var(--mq-accent)" : "transparent", color: active ? "var(--mq-text-on-accent, #fff)" : "var(--mq-text-muted)" }}
+                          aria-pressed={active}
+                        >
+                          {r}×
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </Card>
 
             <Card>
@@ -667,11 +678,6 @@ export default function SettingsView() {
               )}
             </Card>
 
-            {/* Phase M #14/#16: honest audio-system + deployment diagnostics.
-                Only real data — no invented WASM/codec/SIMD fields (the audio
-                engine in this repo is HTML5 MediaElement + WebAudio; see
-                docs/design-phase-m.md G1 and the final report's NOT VERIFIED). */}
-            <SystemDiagnosticsCard />
           </motion.div>
         )}
 
@@ -689,20 +695,26 @@ export default function SettingsView() {
               )}
             </Card>
 
-            <Card>
-              <CardTitle icon={Sparkles} title="Контент" />
-              <SettingToggle icon={Sparkles} label="ИИ-подборки" subtitle="Рекомендации на главной" value={!aiRecsHidden} onCheckedChange={(v) => setAiRecsHidden(!v)} />
-            </Card>
           </motion.div>
         )}
 
         {/* ════ MORE ════ */}
         {activeTab === "more" && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="space-y-4">
+            {/* Phase M #14/#16: honest audio-system + deployment diagnostics.
+                IA fix: moved from the "Звук" tab — system diagnostics are not
+                an audio setting (PART E 3.8). */}
+            <SystemDiagnosticsCard />
+
             <Card>
               <CardTitle icon={Info} title="О приложении" />
               <SettingRow icon={Info} label="Версия" value={typeof process !== "undefined" && process.env.NEXT_PUBLIC_APP_VERSION ? `v${process.env.NEXT_PUBLIC_APP_VERSION}` : "v1.3.0"} />
               <SettingRow icon={Cloud} label="Сервер" value={APP_URL.replace("https://", "")} />
+            </Card>
+
+            <Card>
+              <CardTitle icon={Sparkles} title="Контент" />
+              <SettingToggle icon={Sparkles} label="ИИ-подборки" subtitle="Рекомендации на главной" value={!aiRecsHidden} onCheckedChange={(v) => setAiRecsHidden(!v)} />
             </Card>
 
             <Card>

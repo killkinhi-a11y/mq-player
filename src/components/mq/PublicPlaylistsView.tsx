@@ -430,14 +430,14 @@ function PlaylistCard({ playlist, index, onClick, onLike, onDislikeTags, animati
             <span className="flex items-center gap-1"><Heart className="w-3 h-3" />{playlist.likeCount}</span>
             <span className="flex items-center gap-1"><Play className="w-3 h-3" />{playlist.playCount}</span>
           </div>
-          <motion.button whileTap={{ scale: 0.8 }}
+          <motion.button whileTap={{ scale: 0.96 }}
             onClick={(e) => { e.stopPropagation(); onLike(); }}
             className="p-1 cursor-pointer"
             style={{ color: playlist.isLiked ? "#ef4444" : "var(--mq-text-muted)" }}>
             <Heart className={`w-4 h-4 ${playlist.isLiked ? "fill-current" : ""}`} />
           </motion.button>
           {onDislikeTags && playlist.tags.length > 0 && (
-            <motion.button whileTap={{ scale: 0.8 }}
+            <motion.button whileTap={{ scale: 0.96 }}
               onClick={(e) => { e.stopPropagation(); onDislikeTags(); }}
               className="p-1 cursor-pointer"
               style={{ color: "var(--mq-text-muted)" }}

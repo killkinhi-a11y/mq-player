@@ -535,7 +535,20 @@ export default function PlayerBar() {
                 <div
                   ref={volTrackRef}
                   onMouseDown={handleVolDown}
-                  className="relative cursor-pointer rounded-full group/vol"
+                  role="slider"
+                  tabIndex={0}
+                  aria-label="Громкость"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={volume}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowLeft" || e.key === "ArrowDown") { e.preventDefault(); setVolume(Math.max(0, volume - 5)); }
+                    else if (e.key === "ArrowRight" || e.key === "ArrowUp") { e.preventDefault(); setVolume(Math.min(100, volume + 5)); }
+                    else if (e.key === "Home") { e.preventDefault(); setVolume(0); }
+                    else if (e.key === "End") { e.preventDefault(); setVolume(100); }
+                    else if (e.key === " " || e.key === "Enter") { e.preventDefault(); setVolume(volume > 0 ? 0 : (prevVolumeRef.current > 0 ? prevVolumeRef.current : 70)); }
+                  }}
+                  className="relative cursor-pointer rounded-full group/vol focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"
                   style={{ width: 88, height: 4, backgroundColor: "var(--mq-glass-bg-hover)" }}
                 >
                   <div
@@ -550,7 +563,7 @@ export default function PlayerBar() {
                   />
                   <div
                     ref={volThumbRef}
-                    className="absolute left-0 top-1/2 w-3.5 h-3.5 rounded-full opacity-0 group-hover/vol:opacity-100 pointer-events-none"
+                    className="absolute left-0 top-1/2 w-3.5 h-3.5 rounded-full opacity-0 group-hover/vol:opacity-100 group-focus-within/vol:opacity-100 pointer-events-none"
                     style={{ left: `${volume}%`, backgroundColor: "var(--mq-text-on-accent, #fff)", boxShadow: "0 0 0 1.5px var(--mq-accent)", transition: "opacity 0.15s" }}
                   />
                 </div>

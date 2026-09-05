@@ -764,17 +764,17 @@ export default function FullTrackView() {
                         {currentTrack.album}
                       </p>
                     )}
-                    <div className={`flex items-center gap-3 mt-2 text-[11px] ${isMobile ? "justify-center" : ""}`} style={{ color: "var(--mq-text-muted)" }}>
+                    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] ${isMobile ? "justify-center" : ""}`} style={{ color: "var(--mq-text-muted)" }}>
                       {duration > 0 && (
-                        <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatDuration(duration)}</span>
+                        <span className="flex items-center gap-1 shrink-0"><Clock className="w-3 h-3" />{formatDuration(duration)}</span>
                       )}
-                      {currentTrack.genre && <span>·</span>}
-                      {currentTrack.genre && <span>{currentTrack.genre}</span>}
-                      {playbackRate !== 1 && <span>·</span>}
-                      {playbackRate !== 1 && <span className="flex items-center gap-1"><Gauge className="w-3 h-3" />{playbackRate}x</span>}
-                      {sleepTimerActive && <span>·</span>}
+                      {currentTrack.genre && <span className="shrink-0">·</span>}
+                      {currentTrack.genre && <span className="min-w-0 max-w-[220px] truncate">{currentTrack.genre}</span>}
+                      {playbackRate !== 1 && <span className="shrink-0">·</span>}
+                      {playbackRate !== 1 && <span className="flex items-center gap-1 shrink-0"><Gauge className="w-3 h-3" />{playbackRate}x</span>}
+                      {sleepTimerActive && <span className="shrink-0">·</span>}
                       {sleepTimerActive && (
-                        <span className="flex items-center gap-1" style={{ color: "var(--mq-accent)" }}><Timer className="w-3 h-3" />{sleepRemainingMin}м</span>
+                        <span className="flex items-center gap-1 shrink-0" style={{ color: "var(--mq-accent)" }}><Timer className="w-3 h-3" />{sleepRemainingMin}м</span>
                       )}
                     </div>
                   </div>
@@ -1197,8 +1197,9 @@ export default function FullTrackView() {
                     <button onClick={prevTrack} aria-label="Предыдущий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий (P)">
                       <SkipBack className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                     </button>
-                    <button
+                    <motion.button
                       onClick={togglePlay}
+                      whileTap={{ scale: 0.94 }}
                       aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
                       className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
                       style={{ backgroundColor: "var(--mq-accent)" }}
@@ -1207,7 +1208,7 @@ export default function FullTrackView() {
                       {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
                         : isPlaying ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
                         : <Play className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)", transform: "translateX(1px)" }} />}
-                    </button>
+                    </motion.button>
                     <button onClick={nextTrack} aria-label="Следующий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий (N)">
                       <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
                     </button>

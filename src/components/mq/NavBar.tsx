@@ -139,6 +139,8 @@ const NavBar = React.memo(function NavBar() {
               aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
               className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"
+              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "var(--mq-overlay-hover)"; }}
+              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
               style={{
                 color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
                 background: isActive ? "var(--mq-bg)" : "transparent",
@@ -157,7 +159,7 @@ const NavBar = React.memo(function NavBar() {
                 <span
                   className="absolute -top-1 -right-1 min-w-[16px] h-[16px] rounded-full z-20 flex items-center justify-center text-[11px] font-bold px-1"
                   style={{
-                    backgroundColor: "#ef4444",
+                    backgroundColor: "var(--mq-accent)",
                     color: "white",
                   }}
                 >
@@ -187,7 +189,7 @@ const NavBar = React.memo(function NavBar() {
           {notificationCount > 0 && (
             <span
               className="absolute -top-0.5 -right-0.5 min-w-[15px] h-[15px] rounded-full flex items-center justify-center text-[11px] font-bold px-1"
-              style={{ backgroundColor: "#ef4444", color: "white" }}
+              style={{ backgroundColor: "var(--mq-accent)", color: "white" }}
             >
               {notificationCount > 99 ? "99+" : notificationCount}
             </span>
@@ -226,7 +228,7 @@ const NavBar = React.memo(function NavBar() {
           {settingsBadge > 0 && (
             <span
               className="absolute -top-0.5 -right-0.5 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[11px] font-bold px-1"
-              style={{ backgroundColor: "#ef4444", color: "white" }}
+              style={{ backgroundColor: "var(--mq-accent)", color: "white" }}
             >
               {settingsBadge > 99 ? "99+" : settingsBadge}
             </span>

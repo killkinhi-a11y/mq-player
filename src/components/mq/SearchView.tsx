@@ -405,7 +405,7 @@ export default function SearchView() {
             <h2 className="mq-t-title text-[15px]" style={{ color: "var(--mq-text)" }}>Быстрый доступ</h2>
             <button
               onClick={() => setQuickPicksSeed(s => s + 1)}
-              className="ml-auto p-2.5 rounded-lg transition-colors hover:bg-white/5 flex-shrink-0"
+              className="ml-auto p-2.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)] flex-shrink-0"
               style={{ color: "var(--mq-text-muted)" }}
               title="Обновить"
               aria-label="Обновить"
@@ -513,7 +513,7 @@ export default function SearchView() {
               animate={{ scale: 1 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleClearSearch}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-white/10"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
               style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)", color: "var(--mq-text-muted)" }}
             >
               <X className="w-3.5 h-3.5" />
@@ -658,9 +658,9 @@ export default function SearchView() {
                 Недавние запросы
               </h3>
               <motion.button
-                whileTap={{ scale: 0.9 }}
+                whileTap={{ scale: 0.94 }}
                 onClick={handleClearHistory}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors hover:bg-white/5"
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
                 style={{ color: "var(--mq-text-muted)" }}
               >
                 <Trash2 className="w-3 h-3" />
@@ -688,7 +688,7 @@ export default function SearchView() {
                     className="flex-shrink-0 group relative"
                   >
                     <motion.button
-                      whileTap={{ scale: 0.93 }}
+                      whileTap={{ scale: 0.96 }}
                       whileHover={{ scale: 1.03, backgroundColor: "var(--mq-card-hover)" }}
                       onClick={() => handleHistoryClick(query)}
                       className="flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer"
@@ -920,7 +920,7 @@ export default function SearchView() {
                   initial={animationsEnabled ? { opacity: 0, scale: 0.9 } : undefined}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.25 + i * 0.03, duration: 0.25 }}
-                  whileTap={{ scale: 0.93 }}
+                  whileTap={{ scale: 0.96 }}
                   whileHover={{ scale: 1.05, backgroundColor: "var(--mq-card-hover)" }}
                   onClick={() => handleTrendingClick(term)}
                   className="px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer"
@@ -959,7 +959,7 @@ export default function SearchView() {
                 initial={animationsEnabled ? { opacity: 0, scale: 0.9 } : undefined}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: i * 0.03, duration: 0.2 }}
-                whileTap={{ scale: 0.93 }}
+                whileTap={{ scale: 0.96 }}
                 whileHover={{ scale: 1.05, backgroundColor: "var(--mq-card-hover)" }}
                 onClick={() => handleTrendingClick(term)}
                 className="px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer"
@@ -1110,7 +1110,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
             {track.genre && (
               <>
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
-                <span className="text-[10px] px-1.5 py-0 rounded-md" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
+                <span className="text-[10px] px-1.5 py-0 rounded-md min-w-0 max-w-[140px] truncate" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
                   {track.genre}
                 </span>
               </>
@@ -1131,7 +1131,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
         {/* More button (3-dot) */}
         <button
           onClick={handleMoreClick}
-          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
+          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
           style={{ color: "var(--mq-text-muted)" }}
           aria-label="Меню"
         >
@@ -1203,7 +1203,7 @@ function SearchSuggestions({
       {/* Direct search for current query */}
       <button
         onClick={() => onSelect(query)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-white/5"
+        className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
       >
         <Search className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
         <span className="text-sm" style={{ color: "var(--mq-text)" }}>
@@ -1221,7 +1221,7 @@ function SearchSuggestions({
             <button
               key={`hist-${term}`}
               onClick={() => onSelect(term)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
             >
               <Clock className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
               <span className="text-sm truncate" style={{ color: "var(--mq-text)" }}>{term}</span>
@@ -1240,7 +1240,7 @@ function SearchSuggestions({
             <button
               key={`trend-${term}`}
               onClick={() => onSelect(term)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
             >
               <TrendingUp className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
               <span className="text-sm truncate" style={{ color: "var(--mq-text)" }}>{term}</span>
@@ -1259,7 +1259,7 @@ function SearchSuggestions({
             <button
               key={`art-${artist}`}
               onClick={() => onSelect(artist)}
-              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
             >
               <Mic className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
               <span className="text-sm truncate" style={{ color: "var(--mq-text)" }}>{artist}</span>

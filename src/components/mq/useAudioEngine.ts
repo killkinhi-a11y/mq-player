@@ -21,11 +21,38 @@ import { enableSpatialAudio, initSpatialAudio, setMoodPreset, detectMoodFromTrac
 import {
   createWasmBackend, isWasmUnsupported, probeWasmCapabilities, shouldUseWasmBackend,
   isWasmActive, applyEqToWasm, applyLimiterToWasm, applySpatialToWasm,
-  type WasmAudioBackend,
+  ensureBenchApi, type WasmAudioBackend,
 } from "@/lib/wasm-audio";
 import Hls from "hls.js";
 import type { HlsConfig } from "hls.js";
 import type { Track } from "@/lib/musicApi";
+
+// ── v2 Predictive continuation score (A10) — REAL data only ──
+// Rolling window of track-transition outcomes observed at the hook level:
+// 'completed' (track ran to its end / gapless advance) vs 'skipped' (a new
+// track loaded while the previous one was mid-play). The score paces the
+// next-track prefetch lead: heavy skippers prefetch later (less wasted
+// bandwidth), listeners who let tracks run prefetch early.
+const transitionOutcomes: Array<"completed" | "skipped"> = [];
+function markTransitionOutcome(outcome: "completed" | "skipped"): void {
+  transitionOutcomes.push(outcome);
+  if (transitionOutcomes.length > 12) transitionOutcomes.shift();
+}
+function continuationScore(): number {
+  const st = useAppStore.getState();
+  let score = 0.6; // conservative default until real data exists
+  if (transitionOutcomes.length >= 4) {
+    const completed = transitionOutcomes.filter((o) => o === "completed").length;
+    score = completed / transitionOutcomes.length;
+  }
+  if (st.radioMode) score = Math.max(score, 0.9); // radio always continues
+  else if (st.repeat === "all") score = Math.min(1, score + 0.1);
+  return Math.max(0.3, Math.min(1, score));
+}
+/** Prefetch lead (s) from the score — Spotify's 30 s anchor, floored at 8 s. */
+function prefetchLeadSec(): number {
+  return Math.max(8, Math.min(30, 30 * continuationScore()));
+}
 
 // ── Error Logger ──
 export const PlayerErrorLogger = {
@@ -546,6 +573,70 @@ function prefetchNextTrackStream(): void {
   }, 4000);
 }
 
+/**
+ * v2 Predictive Playback Pipeline (A10): register the next queue track with
+ * the WASM engine for gapless continuation. The engine's worker starts the
+ * byte-prefetch + second-decoder decode by its own adaptive lead (real
+ * continuation score × the 30 s Spotify anchor). Re-registers when the
+ * queue's next track CHANGES (upNext edits / reordering); cancels when no
+ * next track exists. Deterministic + explainable — no fake predictions.
+ */
+const wasmNextRegInFlight = new Map<string, Promise<void>>();
+function scheduleWasmNextTrack(
+  backend: WasmAudioBackend,
+  _remaining: number
+): void {
+  if (typeof window === "undefined") return;
+  const st = useAppStore.getState();
+  if (st.repeat === "one") return; // loops the current track instead
+  const nextT = st.peekNextTrack();
+  const registered = backend.nextReg?.trackId;
+  if (!nextT) {
+    if (registered) backend.cancelNextTrack();
+    return;
+  }
+  if (registered === nextT.id) return; // already registered
+  if (wasmNextRegInFlight.has(nextT.id)) return;
+  const scId = nextT.scTrackId;
+  if (!scId || scId <= 0) {
+    // Non-SoundCloud next track (demo/audius/local) — demo files are
+    // same-origin; register with their direct URL when available.
+    if (nextT.source === "demo" && nextT.audioUrl) {
+      backend.setNextTrack({
+        trackId: nextT.id,
+        url: nextT.audioUrl,
+        durationSec: nextT.duration || 0,
+        leadSec: prefetchLeadSec(),
+      });
+      return;
+    }
+    if (registered) backend.cancelNextTrack();
+    return;
+  }
+  const p = (async () => {
+    try {
+      const stream = await resolveSoundCloudStream(scId);
+      if (!stream || !stream.url) return;
+      // The engine may have moved on (seek/switch) — only register when
+      // this backend still owns playback AND the queue intent is unchanged.
+      if (!backend.active) return;
+      const stillNext = useAppStore.getState().peekNextTrack();
+      if (!stillNext || stillNext.id !== nextT.id) return;
+      backend.setNextTrack({
+        trackId: nextT.id,
+        url: stream.url,
+        durationSec: nextT.duration || stream.duration || 0,
+        leadSec: prefetchLeadSec(),
+      });
+    } catch {
+      // best-effort — gapless degrades to a normal transition
+    } finally {
+      wasmNextRegInFlight.delete(nextT.id);
+    }
+  })();
+  wasmNextRegInFlight.set(nextT.id, p);
+}
+
 export async function resolveSoundCloudStream(
   scTrackId: number,
   opts?: { noCache?: boolean }
@@ -720,10 +811,12 @@ export function useAudioEngine(params: UseAudioEngineParams) {
     if (isRAFRunning.current) return;
     isRAFRunning.current = true;
     const tick = () => {
-      // WASM path: position from engine stats (playhead frames / rate)
+      // WASM path: position from the backend's INTERPOLATED engine clock
+      // (A6) — Rust playhead frames + clamped performance.now extrapolation
+      // between 10 Hz stats. Zero React renders; smooth at display rate.
       const wasm = wasmBackendRef.current;
-      if (wasm && wasm.active && wasm.stats && wasm.ctx) {
-        const pos = wasm.stats.playheadFrames / wasm.ctx.sampleRate;
+      if (wasm && wasm.active && wasm.ctx) {
+        const pos = wasm.positionSec;
         const dur = wasm.currentDuration;
         if (isFinite(pos) && isFinite(dur) && dur > 0 && wasm.playing) {
           progressRAFCallbacks.current.forEach(cb => { try { cb(pos, dur); } catch {} });
@@ -774,6 +867,10 @@ export function useAudioEngine(params: UseAudioEngineParams) {
   //  - user manually skips (new currentTrack)
   // Skips tracks that are already cached (server returns _cache_hit=true).
   const cacheWarmupStartedRef = useRef<string | null>(null);
+  // v2: benchmark/QA surface (window.__mqAudioBench — A11/A12).
+  useEffect(() => {
+    try { ensureBenchApi(); } catch {}
+  }, []);
   useEffect(() => {
     if (!currentTrack || !isPlaying) return;
     // Read next track from queue without subscribing
@@ -1717,8 +1814,18 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             const s2 = useAppStore.getState();
             if (Math.abs(pos - s2.progress) >= 1 || pos === 0) setProgressRef.current(pos);
           }
+          // v2 Predictive pipeline (A10): register the next queue track with
+          // the engine when it comes into prefetch range. The engine decides
+          // the actual fetch/decode timing by its adaptive lead; re-registers
+          // if the queue changed (upNext edits, reordering).
+          if (backend.active) {
+            const remaining = dur - pos;
+            if (remaining <= 45 && remaining > 0 && dur > 10) {
+              scheduleWasmNextTrack(backend, remaining);
+            }
+          }
           if ("mediaSession" in navigator && navigator.mediaSession && dur && isFinite(dur)) {
-            try { navigator.mediaSession.setPositionState({ duration: dur, playbackRate: 1, position: pos }); } catch {}
+            try { navigator.mediaSession.setPositionState({ duration: dur, playbackRate: 1, position: Math.min(pos, dur) }); } catch {}
           }
           // Social listening status (10s throttle — same as onTimeUpdate)
           const now = Date.now();
@@ -1743,6 +1850,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
         onEnded: () => {
           setPlayError(false);
           crossfadeRef.current = false;
+          markTransitionOutcome("completed");
           const st2 = useAppStore.getState();
           const currentTrackId = st2.currentTrack?.id;
           if (currentTrackId && st2.progress > 0) {
@@ -1754,6 +1862,44 @@ export function useAudioEngine(params: UseAudioEngineParams) {
             setProgressRef.current(0);
           } else {
             nextTrackRef.current();
+          }
+        },
+        // v2 GAPLESS ADVANCE (A5): the playhead crossed the track boundary —
+        // the next track is ALREADY audible (continuous PCM, no flush).
+        // Advance the store WITHOUT reloading: the loadTrack effect sees
+        // gaplessAdvanced + matching track id and skips the teardown that
+        // would cut the audio.
+        onAdvanced: (nextTrackId) => {
+          markTransitionOutcome("completed");
+          const st2 = useAppStore.getState();
+          const prevId = st2.currentTrack?.id;
+          if (prevId && st2.progress > 0) {
+            st2.recordComplete(prevId, st2.progress);
+          }
+          setPlayError(false);
+          crossfadeRef.current = false;
+          if (useAppStore.getState().repeat === "one") {
+            // Rare: repeat-one got enabled after registration — loop this
+            // track from the top instead of continuing the chain.
+            backend.seek(0);
+            backend.play();
+            setProgressRef.current(0);
+            return;
+          }
+          const peeked = useAppStore.getState().peekNextTrack();
+          if (!peeked || peeked.id !== nextTrackId) {
+            // Queue changed under us (upNext edit etc.) — the AUDIO already
+            // plays the prefetched continuation; fall back to a normal
+            // advance so the UI follows the audio honestly.
+            console.warn("[Gapless] queue changed at boundary — normal advance");
+          }
+          nextTrackRef.current();
+        },
+        onBufferingChange: (buffering) => {
+          // Engine-side starve/refill state (fade-protected silence while
+          // the ring refills) — surfaced as the store's isBuffering flag.
+          if (useAppStore.getState().isPlaying) {
+            useAppStore.setState({ isBuffering: buffering });
           }
         },
         onFatal: (reason, positionSec) => {
@@ -1813,6 +1959,34 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
     const loadTrack = async () => {
       try {
+        // ── v2 GAPLESS ADVANCE SHORT-CIRCUIT ──
+        // The engine's boundary crossing (onAdvanced → store.nextTrack) set
+        // currentTrack to the track the engine is ALREADY playing with no
+        // discontinuity. Reloading it would dispose the backend and cut the
+        // audio mid-note — skip the whole load and just resync local refs.
+        const wasmAlready = wasmBackendRef.current;
+        if (
+          wasmAlready && wasmAlready.active &&
+          wasmAlready.currentTrackId === currentTrack.id &&
+          wasmAlready.gaplessAdvanced
+        ) {
+          prevTrackIdForCrossfade.current = currentTrack.id;
+          setIsLoadingTrack(false);
+          setPlayError(false);
+          retryCountRef.current = 0;
+          gaplessPreloadStartedRef.current = false;
+          gaplessPreloadedTrackRef.current = null;
+          useAppStore.setState({ playbackState: "playing", isBuffering: false });
+          return;
+        }
+        // Previous track was cut mid-play by a user action → real data for
+        // the predictive continuation score (A10).
+        if (wasmBackendRef.current && !wasmBackendRef.current.gaplessAdvanced) {
+          const st0 = useAppStore.getState();
+          if (st0.progress > 1 && st0.currentTrack && st0.currentTrack.id !== currentTrack.id) {
+            markTransitionOutcome("skipped");
+          }
+        }
         // New track: tear down any WASM backend from the previous track.
         if (wasmBackendRef.current) {
           try { wasmBackendRef.current.dispose(); } catch {}

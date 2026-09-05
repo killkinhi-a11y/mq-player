@@ -355,8 +355,8 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
                 {previewTracks.slice(0, 20).map((track, i) => (
                   <div key={track.id + "_" + i} className="flex items-center gap-2 px-3 py-1.5 text-xs">
                     <span style={{ color: "var(--mq-text-muted)", minWidth: 20 }}>{i + 1}.</span>
-                    <span className="flex-1 truncate" style={{ color: "var(--mq-text)" }}>{track.title}</span>
-                    <span className="truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</span>
+                    <span className="flex-1 min-w-0 truncate" style={{ color: "var(--mq-text)" }}>{track.title}</span>
+                    <span className="shrink-0 max-w-[55%] truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</span>
                   </div>
                 ))}
                 {previewTracks.length > 20 && (

@@ -403,7 +403,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                       </p>
                     </div>
                     <button onClick={e => { e.stopPropagation(); toggleLike(track.id, track); }} aria-label="В любимые"
-                      className="p-2 rounded-full sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0" style={{ opacity: liked ? 1 : undefined }}>
+                      className="p-2 rounded-full sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity shrink-0" style={{ opacity: liked ? 1 : undefined }}>
                       <Heart className="w-4 h-4" style={{ color: liked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={liked ? "currentColor" : "none"} />
                     </button>
                     <span className="mq-t-num text-[12px] hidden sm:block shrink-0" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>

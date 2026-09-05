@@ -33,6 +33,11 @@ export const wasmDiagnostics: WasmAudioDiagnostics = {
   supportsRange: false,
   lastError: null,
   lastEventAt: null,
+  lifecycle: "IDLE",
+  engineState: 0,
+  currentTrackId: null,
+  next: null,
+  generation: 0,
 };
 
 if (win) {

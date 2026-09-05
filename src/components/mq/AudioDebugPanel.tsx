@@ -111,10 +111,10 @@ export default function AudioDebugPanel() {
           <Row label="Frames processed" value={fmtNum(frames, 0)} ok={frames > 0} warn={active && frames === 0} />
           <Row label="Buffer (frames)" value={fmtNum(d.bufferLevel, 0)} />
           <Row label="Underruns" value={String(d.underruns)} warn={d.underruns > 100} ok={d.underruns === 0} />
-          <Row label="RMS" value={typeof d.rms === "number" ? d.rms.toFixed(4) : "—"} ok={rmsOk} warn={active && !rmsOk} />
-          <Row label="Peak" value={typeof d.peak === "number" ? d.peak.toFixed(4) : "—"} ok={(d.peak ?? 0) > 0.001} />
+          <Row label="RMS" value={typeof d.rms === "number" ? `${(20 * Math.log10(Math.max(d.rms, 1e-9))).toFixed(1)} dBFS` : "—"} ok={rmsOk} warn={active && !rmsOk} />
+          <Row label="Peak" value={typeof d.peak === "number" ? `${(20 * Math.log10(Math.max(d.peak, 1e-9))).toFixed(1)} dBFS` : "—"} ok={(d.peak ?? 0) > 0.001} />
           <Row label="True peak" value={typeof d.truePeakDb === "number" ? `${d.truePeakDb.toFixed(1)} dBFS` : "—"} />
-          <Row label="LUFS-S" value={typeof d.lufsShort === "number" ? d.lufsShort.toFixed(1) : "—"} />
+          <Row label="LUFS-S (short-term)" value={typeof d.lufsShort === "number" ? d.lufsShort.toFixed(1) : "—"} />
           <Row label="Limiter GR" value={typeof d.gainReductionDb === "number" ? `${d.gainReductionDb.toFixed(1)} dB` : "—"} ok={limiterWorking} />
           <Row label="DSP avg/block" value={d.avgProcessNs ? `${(d.avgProcessNs / 1000).toFixed(1)} µs` : "—"} />
           <Row label="DSP max/block" value={d.maxProcessNs ? `${(d.maxProcessNs / 1000).toFixed(1)} µs` : "—"} />

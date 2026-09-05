@@ -326,7 +326,7 @@ export default function HistoryView() {
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-md hover:bg-white/10 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded-md hover:bg-[var(--mq-overlay-hover)] transition-colors"
                 style={{ color: "var(--mq-text-muted)" }}
               >
                 <X className="w-3.5 h-3.5" />
@@ -552,7 +552,7 @@ export default function HistoryView() {
                                 ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)"
                                 : "rgba(255,255,255,0.035)",
                             }}
-                            whileTap={{ scale: 0.995 }}
+                            whileTap={{ scale: 0.98 }}
                           >
                             {/* Active accent bar */}
                             {isActive && (

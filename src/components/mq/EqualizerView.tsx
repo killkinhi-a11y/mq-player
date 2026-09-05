@@ -255,9 +255,9 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
 
               {/* dB scale hint */}
               <div className="flex items-center justify-between mt-3 px-1">
-                <span className="text-[9px] font-mono" style={{ color: "var(--mq-text-muted)" }}>+{EQ_MAX} dB</span>
-                <span className="text-[9px] font-mono" style={{ color: "var(--mq-text-muted)" }}>0</span>
-                <span className="text-[9px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{EQ_MIN} dB</span>
+                <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>+{EQ_MAX} dB</span>
+                <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>0</span>
+                <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{EQ_MIN} dB</span>
               </div>
             </div>
 
@@ -327,7 +327,7 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                 disabled={!limiterEnabled}
                 aria-label="Порог лимитера"
                 className="w-full h-1.5 rounded-full appearance-none cursor-pointer disabled:cursor-not-allowed"
-                style={{ backgroundColor: "var(--mq-border-thin)", accentColor: "var(--mq-accent)" }}
+                style={{ backgroundColor: "var(--mq-border-thin)", }}
               />
             </div>
 
@@ -448,7 +448,7 @@ function EqBandSlider({ label, value, disabled, onChange }: EqBandSliderProps) {
     <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
       {/* Value label */}
       <span
-        className="text-[10px] font-mono font-semibold tabular-nums"
+        className="text-[11px] font-mono font-semibold tabular-nums"
         style={{
           color: isPositive
             ? "var(--mq-accent)"
@@ -476,20 +476,31 @@ function EqBandSlider({ label, value, disabled, onChange }: EqBandSliderProps) {
         onKeyDown={handleKeyDown}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className="relative w-full rounded-full cursor-pointer touch-none select-none"
+        className="relative rounded-full cursor-pointer touch-none select-none flex items-center justify-center"
         style={{
           height: TRACK_HEIGHT,
-          width: 6,
-          backgroundColor: "var(--mq-glass-bg)",
+          // Touch target: 44px wide (WCAG 2.5.8 / mobile usability) — the
+          // VISIBLE track is the 6px child; the drag math is vertical-only
+          // so a wide hit area does not change the value mapping.
+          width: 44,
           outline: "none",
           cursor: disabled ? "default" : "pointer",
-          // Soft inset shadow for depth
-          boxShadow: "var(--mq-shadow-inner-glow)",
         }}
       >
+        {/* Visible track — 6px visual column centered in the hit area */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none"
+          style={{
+            height: TRACK_HEIGHT,
+            width: 6,
+            backgroundColor: "var(--mq-glass-bg)",
+            boxShadow: "var(--mq-shadow-inner-glow)",
+          }}
+        />
+
         {/* Zero line — subtle horizontal marker at 0 dB */}
         <div
-          className="absolute left-1/2 -translate-x-1/2 w-3 h-px"
+          className="absolute left-1/2 -translate-x-1/2 w-3 h-px pointer-events-none"
           style={{
             top: zeroLineTop,
             backgroundColor: "var(--mq-border-default)",
@@ -500,10 +511,11 @@ function EqBandSlider({ label, value, disabled, onChange }: EqBandSliderProps) {
         {/* Fill — from 0 line to current value */}
         {!disabled && value !== 0 && (
           <div
-            className="absolute left-0 right-0 rounded-full"
+            className="absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none"
             style={{
               top: isPositive ? thumbTop : zeroLineTop,
               height: fillHeight,
+              width: 6,
               backgroundColor: "var(--mq-accent)",
               opacity: isDragging ? 1 : 0.9,
               transition: isDragging ? "none" : "top 120ms cubic-bezier(0.4,0,0.2,1), height 120ms cubic-bezier(0.4,0,0.2,1)",
@@ -536,7 +548,7 @@ function EqBandSlider({ label, value, disabled, onChange }: EqBandSliderProps) {
 
       {/* Frequency label */}
       <span
-        className="text-[9px] sm:text-[10px] font-semibold text-center tabular-nums"
+        className="text-[11px] font-semibold text-center tabular-nums"
         style={{ color: "var(--mq-text-muted)" }}
       >
         {label}

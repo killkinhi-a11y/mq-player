@@ -22,9 +22,11 @@ interface SpatialAudioViewProps {
 const MOOD_INFO = getAvailableMoods();
 
 // Band colors for the 5 frequency ranges
-const BAND_COLORS = [
-  "#f97316", "#ef4444", "#eab308", "#22c55e", "#3b82f6",
-];
+// Band tint = accent at stepped intensities (pro-audio: one hue, no rainbow).
+// 5 bands: 100% / 78% / 60% / 45% / 32% accent mixed into transparent.
+const BAND_COLOR_MIX = [100, 78, 60, 45, 32];
+const bandColor = (i: number) =>
+  `color-mix(in srgb, var(--mq-accent) ${BAND_COLOR_MIX[i % 5]}%, transparent)`;
 
 // ── Custom SVG: spatial sound wave icon (no emoji) ──
 function SoundSpaceIcon({ color, size = 28 }: { color: string; size?: number }) {
@@ -133,12 +135,20 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
       }
     };
 
+    // Read the theme accent ONCE per second (theme changes are rare) —
+    // getComputedStyle forces style recalc; calling it per frame (60/s)
+    // showed up as layout jank in the audio QA.
+    let accentCache = { r: 224, g: 49, b: 49 };
+    let accentCacheAt = 0;
     const getAccent = () => {
+      const now = performance.now();
+      if (now - accentCacheAt < 1000) return accentCache;
+      accentCacheAt = now;
       const c = getComputedStyle(document.documentElement).getPropertyValue("--mq-accent").trim() || "#e03131";
       if (c.startsWith("#") && c.length >= 7) {
-        return { r: parseInt(c.slice(1, 3), 16), g: parseInt(c.slice(3, 5), 16), b: parseInt(c.slice(5, 7), 16) };
+        accentCache = { r: parseInt(c.slice(1, 3), 16), g: parseInt(c.slice(3, 5), 16), b: parseInt(c.slice(5, 7), 16) };
       }
-      return { r: 224, g: 49, b: 49 };
+      return accentCache;
     };
 
     const smoothed = [0, 0, 0, 0, 0];
@@ -196,7 +206,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
 
       for (let i = 0; i < 5; i++) {
         const level = smoothed[i] / 255;
-        const bc = BAND_COLORS[i];
+        const bc = bandColor(i);
         const br = parseInt(bc.slice(1, 3), 16);
         const bg = parseInt(bc.slice(3, 5), 16);
         const bb = parseInt(bc.slice(5, 7), 16);
@@ -475,7 +485,7 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
                     className="w-full rounded-full"
                     style={{
                       height: `${Math.max(2, level * 22)}px`,
-                      backgroundColor: BAND_COLORS[i],
+                      backgroundColor: bandColor(i),
                       opacity: 0.25 + level * 0.6,
                       transition: "height 120ms, opacity 120ms",
                     }}

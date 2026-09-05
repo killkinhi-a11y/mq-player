@@ -285,7 +285,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                 <button
                   onClick={onClose}
                   aria-label="Закрыть очередь"
-                  className="p-2 rounded-full transition-colors hover:bg-white/5"
+                  className="p-2 rounded-full transition-colors hover:bg-[var(--mq-overlay-hover)]"
                   style={{
                     color: "var(--mq-text-muted)",
                   }}
@@ -768,7 +768,7 @@ function SortableUpNextTrackItem({
       ref={setNodeRef}
       style={style}
       onContextMenu={handleRightClick}
-      className="group relative flex items-center gap-2 p-2.5 rounded-xl hover:bg-white/[0.03] transition-colors select-none"
+      className="group relative flex items-center gap-2 p-2.5 rounded-xl hover:bg-[var(--mq-overlay-hover)] transition-colors select-none"
     >
       {/* Drag grip — connected to dnd-kit listeners */}
       <div

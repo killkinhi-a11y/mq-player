@@ -1790,17 +1790,17 @@ export default function MessengerView() {
               ...cardStyle,
             }}>
             <button onClick={() => handleReplyMessage(contextMenu.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white/5"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
               style={{ color: "var(--mq-text)" }}>
               <Reply className="w-3.5 h-3.5" /> Ответить
             </button>
             <button onClick={() => handleCopyMessage(contextMenu.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white/5"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
               style={{ color: "var(--mq-text)" }}>
               <Copy className="w-3.5 h-3.5" /> Копировать
             </button>
             <button onClick={() => togglePinMessage(contextMenu.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white/5"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
               style={{ color: "var(--mq-text)" }}>
               <Pin className="w-3.5 h-3.5"
                 style={{ color: pinnedMsgId === contextMenu.id ? "var(--mq-accent)" : "currentColor" }}
@@ -1808,7 +1808,7 @@ export default function MessengerView() {
               {pinnedMsgId === contextMenu.id ? "Открепить" : "Закрепить"}
             </button>
             <button onClick={() => handleDeleteMessage(contextMenu.id)}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-white/5"
+              className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-[var(--mq-overlay-hover)]"
               style={{ color: "#ef4444" }}>
               <Trash2 className="w-3.5 h-3.5" /> Удалить
             </button>
