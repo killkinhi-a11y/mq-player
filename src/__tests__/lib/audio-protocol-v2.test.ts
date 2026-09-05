@@ -78,6 +78,25 @@ describe("engine v2 worker contract", () => {
     expect(workerSrc).toMatch(/SEEK_COALESCE_MS = 150/);
   });
 
+  it("prefetch scheduler uses the ABSOLUTE seek anchor (no post-seek hang)", () => {
+    // Regression: after a seek, sentTotal restarts at 0 — the remaining-time
+    // estimate MUST include the seek offset or the continuation prefetch
+    // never fires and the engine hangs in STARVED at track end.
+    expect(workerSrc).toMatch(/curTrack\.basePosSec = \+msg\.posSec \|\| 0/);
+    expect(workerSrc).toMatch(
+      /\(curTrack\.basePosSec \|\| 0\) \+ \(sentTotal - trackStartSent\) \/ rate/
+    );
+    expect(workerSrc).toMatch(/basePosSec: 0/); // load + boundary rotation reset
+  });
+
+  it("stuck continuation gives up after a bounded wait (terminal must fire)", () => {
+    // Safety net: a registered/fetching continuation while the active track
+    // is drained falls back to a normal track end — never infinite silence.
+    expect(workerSrc).toMatch(/drainedWaitMs \+= TICK_MS/);
+    expect(workerSrc).toMatch(/drainedWaitMs >= 2500/);
+    expect(workerSrc).toMatch(/clearNext\('give-up'\)/);
+  });
+
   it("segment cache is bounded", () => {
     expect(workerSrc).toMatch(/CACHE_BUDGET_BYTES = 12 \* 1024 \* 1024/);
   });

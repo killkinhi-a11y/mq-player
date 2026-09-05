@@ -57,7 +57,7 @@ let seekCoalesceTimer = null;
 let pendingSeek = null;    // deferred by coalescing
 
 // ── current-track accounting ──
-let curTrack = null;  // {trackId, url, durationSec, rate}
+let curTrack = null;  // {trackId, url, durationSec, rate, basePosSec}
 let pushedBytes = 0;
 let poppedFrames = 0;
 let fetchStartByte = 0;
@@ -69,6 +69,7 @@ let pendingBoundary = false; // marker+rotation prepared
 let boundaryMarked = false;  // marker sent for the pending boundary
 let terminalSent = false;    // terminal fetchDone posted for this gen
 let tailHold = null;         // held last chunk for tail trim
+let drainedWaitMs = 0;       // safety net: ring drained while continuation stuck
 
 // ── continuation (gapless next track) ──
 let next = null; // {trackId,url,durationSec,leadSec,state,rate,channels,dec,ctrl,inputEof,readySent}
@@ -303,7 +304,7 @@ function pump() {
         dec0 = nt.dec;
         if (oldDec !== null && oldDec >= 0) { try { ex.mq_dec_drop(oldDec); } catch (e) {} }
         abortCtrl = nt.ctrl || null;
-        curTrack = { trackId: nt.trackId, url: nt.url, durationSec: nt.durationSec, rate: nt.rate || curTrack.rate };
+        curTrack = { trackId: nt.trackId, url: nt.url, durationSec: nt.durationSec, rate: nt.rate || curTrack.rate, basePosSec: 0 };
         pushedBytes = 0; poppedFrames = 0; totalBytes = cacheTotal(nt.url);
         infoSent = false; terminalSent = false;
         activeEof = !!nt.inputEof;
@@ -447,6 +448,9 @@ async function loadStream(url, startByte, seq) {
       // Cache-first: replay contiguous cached bytes without network.
       const run = cacheFindRun(url, windowStart);
       if (run && run.chunks.length) {
+        // Headers must be reported on the cache path too — the backend's
+        // canSeek() depends on totalBytes (a cached replay was unseekable).
+        post({ type: 'headers', totalBytes: cacheTotal(url), supportsRange: true, startByte: windowStart });
         for (let i = 0; i < run.chunks.length; i++) {
           const c = run.chunks[i];
           if (c.start < windowStart) continue; // overlap head — skip
@@ -746,7 +750,10 @@ function tick() {
     // Prefetch scheduling by continuation lead (A10).
     if (next && next.state === 'registered' && curTrack && curTrack.rate) {
       const rate = curTrack.rate;
-      const playedSec = (sentTotal - trackStartSent) / rate; // sent ≈ played+buffered (early)
+      // ABSOLUTE played position: seek offset (basePosSec) + frames sent
+      // since the flush. Without basePosSec a mid-track seek resets the
+      // counter to ~0 → remaining ≈ full duration → prefetch never fires.
+      const playedSec = (curTrack.basePosSec || 0) + (sentTotal - trackStartSent) / rate;
       const remaining = (curTrack.durationSec || 0) - playedSec;
       if (remaining <= next.leadSec) {
         logDecision('prefetch-start', remaining, 'lead ' + next.leadSec.toFixed(1) + 's remaining');
@@ -765,9 +772,26 @@ function tick() {
     }
 
     // Terminal check: active input EOF, no continuation, not yet terminal.
-    if (activeEof && !next && !pendingBoundary && !terminalSent && dec0 !== null) {
+    if (activeEof && !pendingBoundary && !terminalSent && dec0 !== null) {
       const drainedHere = ex.mq_dec_queued(dec0) <= 0 && !tailHold;
-      if (drainedHere) finalizeTerminal();
+      if (!next) {
+        if (drainedHere) finalizeTerminal();
+      } else if (next.state !== 'ready' && drainedHere) {
+        // SAFETY NET: continuation registered but stuck (registered/fetching)
+        // while the active track is fully drained — the prefetch will not
+        // make the boundary in time. Bounded wait, then fall back to a
+        // NORMAL track end (store auto-advance reloads the next track).
+        // A stuck continuation must NEVER hang playback in silence.
+        drainedWaitMs += TICK_MS;
+        if (drainedWaitMs >= 2500) {
+          logDecision('continuation-giveup', drainedWaitMs, 'next stuck in ' + next.state + ' after drain');
+          clearNext('give-up');
+        }
+      } else {
+        drainedWaitMs = 0;
+      }
+    } else {
+      drainedWaitMs = 0;
     }
 
     // Stall accounting → adaptive target raise (A7).
@@ -859,8 +883,9 @@ self.onmessage = async (ev) => {
         clearNext();
         resetForGen();
         activeEof = false;
+        drainedWaitMs = 0;
         if (dec0 !== null && dec0 >= 0) ex.mq_dec_reset(dec0);
-        curTrack = { trackId: msg.trackId, url: msg.url, durationSec: +msg.durationSec || 0, rate: 0 };
+        curTrack = { trackId: msg.trackId, url: msg.url, durationSec: +msg.durationSec || 0, rate: 0, basePosSec: 0 };
         playing = !!msg.autoplay;
         await loadStream(msg.url, 0, loadSeq);
         break;
@@ -872,6 +897,13 @@ self.onmessage = async (ev) => {
         clearNext();
         resetForGen();
         activeEof = false;
+        drainedWaitMs = 0;
+        // Absolute position anchor: after the flush, sentTotal restarts at
+        // 0, so the prefetch scheduler's "remaining" MUST add the seek
+        // offset — otherwise a mid-track seek makes the engine think the
+        // whole track is still ahead (prefetch never fires → terminal
+        // blocked → STARVED hang at track end).
+        if (curTrack) curTrack.basePosSec = +msg.posSec || 0;
         if (dec0 !== null && dec0 >= 0) ex.mq_dec_reset(dec0);
         // Coalesce rapid scrubbing: defer the refetch 150 ms; a newer seek
         // supersedes this one — one network round trip per gesture.

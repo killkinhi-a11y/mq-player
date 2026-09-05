@@ -76,6 +76,48 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [show, onClose]);
 
+  // ── Frequency-response curve geometry (measured from the live tracks) ──
+  const bandsWrapRef = useRef<HTMLDivElement>(null);
+  const [curvePath, setCurvePath] = useState("");
+  const [curveZeroY, setCurveZeroY] = useState(0);
+  const [curveSize, setCurveSize] = useState({ w: 0, h: 0 });
+
+  useEffect(() => {
+    if (!show || !eqEnabled) return;
+    let raf = 0;
+    const update = () => {
+      const wrap = bandsWrapRef.current;
+      if (!wrap) return;
+      const wrapRect = wrap.getBoundingClientRect();
+      if (wrapRect.width < 10) return;
+      const tracks = Array.from(wrap.querySelectorAll<HTMLElement>(".eq-band-track"));
+      if (tracks.length !== EQ_BANDS.length) return;
+      const pts: { x: number; y: number }[] = [];
+      let zeroY = 0;
+      tracks.forEach((t, i) => {
+        const r = t.getBoundingClientRect();
+        const value = eqBands[i] ?? 0;
+        const pct = (value - EQ_MIN) / (EQ_MAX - EQ_MIN); // 0..1
+        const y = r.top - wrapRect.top + (1 - pct) * r.height;
+        pts.push({ x: r.left - wrapRect.left + r.width / 2, y });
+        if (i === 0) zeroY = r.top - wrapRect.top + r.height / 2;
+      });
+      setCurveSize({ w: Math.round(wrapRect.width), h: Math.round(wrapRect.height) });
+      setCurveZeroY(Math.round(zeroY));
+      setCurvePath(catmullRomPath(pts));
+    };
+    update();
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(update);
+    });
+    if (bandsWrapRef.current) ro.observe(bandsWrapRef.current);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
+  }, [show, eqEnabled, eqBands]);
+
   return (
     <AnimatePresence>
       {show && (
@@ -233,24 +275,61 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
               </button>
             </div>
 
-            {/* Band sliders */}
+            {/* Band sliders + frequency-response curve */}
             <div className="px-4 sm:px-5 py-5">
-              <div
-                className="flex items-end justify-between gap-1 sm:gap-1.5"
-                style={{
-                  opacity: eqEnabled ? 1 : 0.45,
-                  transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1)",
-                }}
-              >
-                {EQ_BANDS.map((band, i) => (
-                  <EqBandSlider
-                    key={i}
-                    label={band.frequency >= 1000 ? `${band.frequency / 1000}k` : `${band.frequency}`}
-                    value={eqBands[i] ?? 0}
-                    disabled={!eqEnabled}
-                    onChange={(v) => handleBandChange(i, v)}
-                  />
-                ))}
+              <div ref={bandsWrapRef} className="relative">
+                <div
+                  className="flex items-end justify-between gap-1 sm:gap-1.5"
+                  style={{
+                    opacity: eqEnabled ? 1 : 0.45,
+                    transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1)",
+                  }}
+                >
+                  {EQ_BANDS.map((band, i) => (
+                    <EqBandSlider
+                      key={i}
+                      label={band.frequency >= 1000 ? `${band.frequency / 1000}k` : `${band.frequency}`}
+                      value={eqBands[i] ?? 0}
+                      disabled={!eqEnabled}
+                      onChange={(v) => handleBandChange(i, v)}
+                    />
+                  ))}
+                </div>
+                {/* Frequency-response curve — the pro-graphic-EQ signature:
+                    a smooth spline through the band gains, with a soft area
+                    fill toward 0 dB. Measured from the live track geometry
+                    (exact at any viewport), pointer-transparent. */}
+                {eqEnabled && curvePath && curveSize.w > 0 && (
+                  <svg
+                    className="absolute inset-0 pointer-events-none"
+                    width="100%"
+                    height="100%"
+                    viewBox={`0 0 ${curveSize.w} ${curveSize.h}`}
+                    preserveAspectRatio="none"
+                    style={{ zIndex: 5, overflow: "visible" }}
+                    aria-hidden="true"
+                  >
+                    <defs>
+                      <linearGradient id="eq-curve-fill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--mq-accent)" stopOpacity="0.30" />
+                        <stop offset="50%" stopColor="var(--mq-accent)" stopOpacity="0.10" />
+                        <stop offset="100%" stopColor="var(--mq-accent)" stopOpacity="0.30" />
+                      </linearGradient>
+                    </defs>
+                    {curveZeroY > 0 && (
+                      <path d={`${curvePath} L ${curveSize.w} ${curveZeroY} L 0 ${curveZeroY} Z`} fill="url(#eq-curve-fill)" />
+                    )}
+                    <path
+                      d={curvePath}
+                      fill="none"
+                      stroke="var(--mq-accent)"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      opacity="0.9"
+                    />
+                  </svg>
+                )}
               </div>
 
               {/* dB scale hint */}
@@ -354,6 +433,24 @@ interface EqBandSliderProps {
   value: number; // -12 to +12
   disabled: boolean;
   onChange: (v: number) => void;
+}
+
+/** Catmull-Rom → cubic bezier smooth path through points (pro-EQ curve). */
+function catmullRomPath(pts: { x: number; y: number }[]): string {
+  if (pts.length < 2) return "";
+  let d = `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  return d;
 }
 
 function EqBandSlider({ label, value, disabled, onChange }: EqBandSliderProps) {
@@ -476,7 +573,7 @@ function EqBandSlider({ label, value, disabled, onChange }: EqBandSliderProps) {
         onKeyDown={handleKeyDown}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        className="relative rounded-full cursor-pointer touch-none select-none flex items-center justify-center"
+        className="eq-band-track relative rounded-full cursor-pointer touch-none select-none flex items-center justify-center"
         style={{
           height: TRACK_HEIGHT,
           // Touch target: 44px wide (WCAG 2.5.8 / mobile usability) — the

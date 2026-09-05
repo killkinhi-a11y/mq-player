@@ -454,12 +454,12 @@ export class WasmAudioBackend {
     if (this.lifecycle === s) return;
     const legal: Record<string, string[]> = {
       IDLE: ["LOADING"],
-      LOADING: ["PRIMING", "PLAYING", "PAUSED", "SEEKING", "ERROR", "IDLE"],
-      PRIMING: ["PLAYING", "PAUSED", "SEEKING", "ERROR", "ENDED"],
-      PLAYING: ["PAUSED", "SEEKING", "STARVED", "ENDED", "ERROR"],
-      SEEKING: ["PRIMING", "PLAYING", "PAUSED", "SEEKING", "ERROR"],
-      STARVED: ["RECOVERING", "PAUSED", "SEEKING", "ENDED", "ERROR"],
-      RECOVERING: ["PLAYING", "STARVED", "PAUSED", "SEEKING", "ERROR"],
+      LOADING: ["PRIMING", "PLAYING", "PAUSED", "SEEKING", "STARVED", "ERROR", "IDLE"],
+      PRIMING: ["PLAYING", "PAUSED", "SEEKING", "STARVED", "ERROR", "ENDED"],
+      PLAYING: ["PAUSED", "SEEKING", "STARVED", "ENDED", "ERROR", "LOADING"],
+      SEEKING: ["PRIMING", "PLAYING", "PAUSED", "SEEKING", "LOADING", "ERROR"],
+      STARVED: ["RECOVERING", "PRIMING", "PLAYING", "PAUSED", "SEEKING", "ENDED", "LOADING", "ERROR"],
+      RECOVERING: ["PLAYING", "STARVED", "PAUSED", "SEEKING", "LOADING", "ERROR"],
       PAUSED: ["PLAYING", "SEEKING", "LOADING", "ERROR"],
       ENDED: ["LOADING", "IDLE", "ERROR"],
       ERROR: ["IDLE"],
@@ -973,7 +973,10 @@ export class WasmAudioBackend {
     const a = Math.max(0, trackStart + target * rate);
     this.node!.port.postMessage({ type: "cmd", opcode: OP.FLUSH, gen });
     this.node!.port.postMessage({ type: "cmd", opcode: OP.SEEK, gen, a });
-    worker?.postMessage({ type: "seek", url: this.currentUrl, byte, gen });
+    // posSec: the worker's prefetch scheduler needs the ABSOLUTE seek target
+    // (after the flush, its sent-frames counter restarts at 0 — without the
+    // anchor, remaining-time is overestimated and prefetch never fires).
+    worker?.postMessage({ type: "seek", url: this.currentUrl, byte, gen, posSec: Math.round(target * 1000) / 1000 });
     return true;
   }
 
@@ -1067,6 +1070,200 @@ export class WasmAudioBackend {
   }
 }
 
+// ── v2.1 QA: independent OUTPUT-side signal tap (bench-only surface) ──
+// The worker's PCM validator scans pre-ring data; this tap reads the FINAL
+// post-DSP output at the session node — the signal the user actually hears.
+// Sliding-window analyser coverage: 2048-sample window polled every 30 ms
+// (46 ms of audio per read) → contiguous samples, zero gaps.
+export interface TapViolation {
+  tMs: number;
+  kind: string;
+  detail: string;
+  context: {
+    trackId: string | null;
+    positionSec: number;
+    generation: number;
+    bufferedSec: number;
+    underruns: number;
+    engineState: number | null;
+    lifecycle: string;
+    timelineTail: BenchEvent[];
+  };
+}
+export interface TapReport {
+  durationMs: number;
+  samples: number;
+  windows: number;
+  maxAbs: number;
+  minAbs: number;
+  rmsMax: number;
+  rmsAvg: number;
+  peak: number;
+  maxDelta: number;
+  nanInf: number;
+  dcOffset: number;
+  /** TRUE DC fault: consistent running window mean (asymmetry averages out). */
+  dcFault: boolean;
+  maxZeroRunMs: number;
+  gainJumps: number;
+  silenceRatio: number;
+  violations: TapViolation[];
+}
+interface TapState {
+  analyser: AnalyserNode;
+  timer: number;
+  startedAt: number;
+  buf: Float32Array;
+  lastSample: number;
+  lastRms: number;
+  windows: number;
+  samples: number;
+  silentWindows: number;
+  maxAbs: number;
+  minAbs: number;
+  rmsSum: number;
+  rmsMax: number;
+  maxDelta: number;
+  nanInf: number;
+  dcSum: number;
+  zeroRunMax: number;
+  gainJumps: number;
+  violations: TapViolation[];
+}
+let tapState: TapState | null = null;
+
+function tapContext(kind: string, detail: string): TapViolation {
+  const b = activeBackend;
+  const s = b?.stats || null;
+  return {
+    tMs: Math.round(performance.now()),
+    kind,
+    detail,
+    context: {
+      trackId: s?.trackId ?? b?.currentTrackId ?? null,
+      positionSec: +((s?.trackOffsetFrames ?? s?.playheadFrames ?? 0) / (b?.ctx?.sampleRate || 44100)).toFixed(2),
+      generation: wasmDiagnostics.generation ?? 0,
+      bufferedSec: +(((s?.bufferedFrames ?? 0) / (b?.ctx?.sampleRate || 44100))).toFixed(2),
+      underruns: s?.underruns ?? 0,
+      engineState: s?.engineState ?? null,
+      lifecycle: b?.lifecycleState || "IDLE",
+      timelineTail: benchTimeline.slice(-12),
+    },
+  };
+}
+
+function tapTick(): void {
+  const t = tapState;
+  if (!t) return;
+  t.analyser.getFloatTimeDomainData(t.buf as Float32Array<ArrayBuffer>);
+  const n = t.buf.length;
+  let maxA = 0, minA = 0, sum = 0, sumSq = 0, nan = 0, zeroRun = 0, zeroRunMax = 0, dMax = 0;
+  let prev = t.lastSample;
+  let hasSignal = false;
+  for (let i = 0; i < n; i++) {
+    const x = t.buf[i];
+    if (typeof x !== "number" || !Number.isFinite(x)) { nan++; continue; }
+    if (x > maxA) maxA = x;
+    if (x < minA) minA = x;
+    sum += x;
+    sumSq += x * x;
+    const d = Math.abs(x - prev);
+    if (d > dMax) dMax = d;
+    prev = x;
+    if (Math.abs(x) < 1e-5) {
+      zeroRun++;
+      if (zeroRun > zeroRunMax) zeroRunMax = zeroRun;
+    } else {
+      zeroRun = 0;
+      hasSignal = true;
+    }
+  }
+  const rms = Math.sqrt(sumSq / n);
+  t.windows++;
+  t.samples += n - (nan || 0);
+  t.silentWindows += hasSignal ? 0 : 1;
+  if (maxA > t.maxAbs) t.maxAbs = maxA;
+  if (minA < t.minAbs) t.minAbs = minA;
+  if (rms > t.rmsMax) t.rmsMax = rms;
+  t.rmsSum += rms;
+  if (dMax > t.maxDelta) t.maxDelta = dMax;
+  t.nanInf += nan;
+  t.dcSum += sum / n;
+  if (zeroRunMax > t.zeroRunMax) t.zeroRunMax = zeroRunMax;
+  t.lastSample = prev;
+
+  // Gain-jump detector (both windows carrying signal; silence↔signal
+  // transitions are normal at seeks/underruns — recorded, not flagged).
+  if (t.lastRms > 1e-3 && rms > 1e-3) {
+    const ratio = Math.max(rms / t.lastRms, t.lastRms / rms);
+    if (ratio > 20) {
+      t.gainJumps++;
+      t.violations.push(tapContext("gain-jump", `rms ${t.lastRms.toFixed(3)}→${rms.toFixed(3)} ratio ${ratio.toFixed(1)}`));
+    }
+  }
+  t.lastRms = rms;
+
+  // Hard pathologies — immediate violation + context capture.
+  if (nan > 0) t.violations.push(tapContext("nan-inf", `${nan} non-finite samples`));
+  if (maxA > 1.02 || minA < -1.02) t.violations.push(tapContext("clip", `max=${maxA.toFixed(3)} min=${minA.toFixed(3)} (limiter ceiling exceeded)`));
+  if (dMax > 1.4 && hasSignal) t.violations.push(tapContext("discontinuity", `inter-sample |Δ|=${dMax.toFixed(3)}`));
+  // Window DC: real music (kick/sub-bass) legitimately shows ±0.04 window
+  // means over 46 ms; a TRUE DC fault is a CONSISTENT offset — checked via
+  // the running average at tapStop (|avg| > 0.02) instead of per-window.
+  const dc = Math.abs(sum / n);
+  if (dc > 0.06 && hasSignal) t.violations.push(tapContext("dc-window", `window mean=${(sum / n).toFixed(4)} (sustained > 0.06)`));
+}
+
+function tapStart(): boolean {
+  if (tapState) return true;
+  if (!session || !session.node) return false;
+  try {
+    const analyser = session.ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0;
+    session.node.connect(analyser);
+    const buf = new Float32Array(analyser.fftSize);
+    tapState = {
+      analyser, timer: 0, startedAt: performance.now(), buf,
+      lastSample: 0, lastRms: 0, windows: 0, samples: 0, silentWindows: 0,
+      maxAbs: 0, minAbs: 0, rmsSum: 0, rmsMax: 0, maxDelta: 0, nanInf: 0,
+      dcSum: 0, zeroRunMax: 0, gainJumps: 0, violations: [],
+    };
+    (tapState as { timer: number }).timer = window.setInterval(tapTick, 30);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function tapStop(): TapReport | null {
+  const t = tapState;
+  if (!t) return null;
+  window.clearInterval(t.timer);
+  try { t.analyser.disconnect(); } catch { /* already detached */ }
+  tapState = null;
+  const rate = session?.ctx?.sampleRate || 44100;
+  return {
+    durationMs: Math.round(performance.now() - t.startedAt),
+    samples: t.samples,
+    windows: t.windows,
+    maxAbs: +t.maxAbs.toFixed(4),
+    minAbs: +t.minAbs.toFixed(4),
+    rmsMax: +t.rmsMax.toFixed(4),
+    rmsAvg: +(t.rmsSum / Math.max(1, t.windows)).toFixed(4),
+    peak: +Math.max(t.maxAbs, -t.minAbs).toFixed(4),
+    maxDelta: +t.maxDelta.toFixed(4),
+    nanInf: t.nanInf,
+    dcOffset: +(t.dcSum / Math.max(1, t.windows)).toFixed(4),
+    // TRUE DC fault: consistent running mean (musical asymmetry averages out)
+    dcFault: Math.abs(t.dcSum / Math.max(1, t.windows)) > 0.02,
+    maxZeroRunMs: +((t.zeroRunMax / rate) * 1000).toFixed(1),
+    gainJumps: t.gainJumps,
+    silenceRatio: +(t.silentWindows / Math.max(1, t.windows)).toFixed(3),
+    violations: t.violations,
+  };
+}
+
 // ── v2 benchmark + QA surface (A11/A12): window.__mqAudioBench ──
 interface BenchApi {
   timeline: () => BenchEvent[];
@@ -1082,6 +1279,9 @@ interface BenchApi {
   pause: () => void;
   seek: (sec: number) => boolean;
   setNext: (reg: NextTrackRegistration) => void;
+  position: () => number;
+  tapStart: () => boolean;
+  tapStop: () => TapReport | null;
 }
 
 function workerFlow(): Record<string, unknown> | null {
@@ -1126,6 +1326,9 @@ export function ensureBenchApi(): void {
     pause: () => getActiveWasmBackend()?.pause(),
     seek: (sec) => getActiveWasmBackend()?.seek(sec) || false,
     setNext: (reg) => getActiveWasmBackend()?.setNextTrack(reg),
+    position: () => getActiveWasmBackend()?.positionSec ?? 0,
+    tapStart,
+    tapStop,
   };
   (window as unknown as Record<string, unknown>).__mqAudioBench = api;
 }
