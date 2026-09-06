@@ -1981,3 +1981,19 @@ Stage Summary:
 - /android native app: builds (debug+release), tests green, signed
   release artifact produced. README with setup/build/signing/architecture
   + Rust-core decision rationale. Commit + push + GitHub verification next.
+
+P20 verification (final):
+- Commit: b82fad5 (100 files, +6321/-628). Pushed to origin/main ✓.
+- GitHub verified: /android tree present (README.md 8.6KB, 59 files,
+  40 Kotlin sources, gradle wrapper); MainActivity.kt raw 200;
+  README raw 200; GitHub HEAD = b82fad5c.
+- Web chain (P21): Vercel auto-deploy of b82fad5 LIVE (~75s).
+  Production smoke: / 307->/play 200; engine tag ca010d; wave API 200.
+- Release artifact: GitHub Release android-v1.0.0 with
+  mq-player-v1.0.0-release.apk (3586004 bytes, apksigner v2 verified,
+  state=uploaded, download HTTP 200 byte-identical). APKs also in
+  /home/z/my-project/download/.
+- Honest NOT DONE (requires real hardware, no KVM in sandbox):
+  install/launch/login/background/lock-screen runtime QA on a physical
+  device (P20.15 steps 3-22). Procedure: download release APK, sideload,
+  follow the QA checklist in android/README.md.
