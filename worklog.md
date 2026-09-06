@@ -1925,3 +1925,59 @@ Verification results (mq1.vercel.app @ 407f5f8 / version 61):
 - NOTE (deploy hygiene): local first build attempt OOM-killed by sandbox
   cgroup after stray processes (dev-server 785MB + telemetry) — killed them,
   rebuilt clean. Production build on Vercel: unaffected.
+---
+Task ID: p20-android
+Agent: main (Super Z)
+Task: P20 — полноценный нативный Android-клиент MQ Player (+ P21 deploy rule)
+
+Work Log:
+- 20.1 Study: mapped the full backend contract (auth cookie flow, search,
+  stream JSON shape, wave params, playlists/friends/messages/ai, themes,
+  onboarding tasteGenres, track DTO casing).
+- 20.4 R&D: Rust/WASM core reuse REJECTED with justification — Media3
+  provides streaming/HLS/offload/MediaSession/notification/focus natively;
+  WASM engine exists for browser constraints that don't apply on Android.
+- Toolchain: Temurin JDK 21 (javac missing in system JRE), Android SDK
+  cmdline-tools + platform-35 + build-tools 35, Gradle 8.14.3 (AGP 8.7.3
+  requires >= 8.13), wrapper generated and committed.
+- Removed the old Capacitor WebView wrapper from /android (was tracked in
+  git — exactly the anti-pattern P20.14 forbids).
+- Implemented native app (Kotlin 2.0.21, Compose M3, ~40 files):
+  - data: Retrofit MqApi (all endpoints), SecureCookieJar (httpOnly
+    session cookie sealed with AndroidKeyStore AES-256-GCM), DataStore
+    LocalStore (theme/taste/favorites/history), repositories with TTL
+    caches + single-flight + debounce.
+  - player: MqPlaybackService (MediaLibraryService: MediaSession, audio
+    focus, becoming-noisy, WAKE_MODE_NETWORK, custom notification buttons
+    Wave-next/Like, playback resumption), MqStreamDataSource (lazy
+    mq-stream:// resolution with fallback chain), PlaybackController
+    (queue StateFlows, pre-resolution of current+next, auto Wave
+    extension, network-loss recovery via ConnectivityManager with
+    position-preserving prepare retry).
+  - ui: 7 themes + light/dark/system (no white flash: splash + window bg),
+    bottom nav + mini player, 13 screens (Login via t.me bot, Onboarding
+    tasteGenres, compact Home, Search debounce, Artist, Playlist with
+    play/shuffle/menu, Wave with honest _reason chips + auto-extend,
+    Library tabs, Chats + AI assistant, ChatDetail polling, Friends
+    search/add, Settings with theme previews, FullPlayer with seek/
+    shuffle/repeat/favorite/share/queue sheet).
+- 20.6 Long-title: TrackRow invariants (fixed sizes, weight(1f)+maxLines=1
+  +Ellipsis, RTL-safe). Automated regression: TrackRowLongTitleTest —
+  REAL Compose layout on JVM via Robolectric, matrix 50/100/147/300/
+  no-space/RTL/emoji/unicode/long-artist; asserts exact row width, height
+  constancy across matrix, action bounds + target sizes. 6/6 tests green.
+  (Found & fixed 2 real test-env issues: process-start MediaController
+  binding breaks Robolectric; fixed-height root squishes last row —
+  switched test to scrollable container like production LazyColumn.)
+- 20.11 Build: debug APK 22.3MB; release APK 3.6MB (R8 minify+shrink),
+  signed with locally generated self-signed keystore (OUTSIDE git),
+  apksigner verify: v2 scheme TRUE; badging: com.mq1.player 1.0.0,
+  minSdk 26, target 35, launchable MainActivity.
+- 20.12/20.13: APKs copied to download/; GitHub release planned next.
+- Sandbox limits (honest): no KVM → no emulator → install/runtime device QA
+  (P20.15 steps 3+) documented as pending on real hardware.
+
+Stage Summary:
+- /android native app: builds (debug+release), tests green, signed
+  release artifact produced. README with setup/build/signing/architecture
+  + Rust-core decision rationale. Commit + push + GitHub verification next.

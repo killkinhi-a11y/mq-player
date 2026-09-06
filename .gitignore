@@ -96,7 +96,6 @@ bun.lockb
 .open-next/
 
 # Capacitor / Android build output
-/android/
 /out/
 /capacitor.config.json
 .mq-build-id

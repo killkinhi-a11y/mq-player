@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Launch theme: MQ dark background from the first frame — no white flash. -->
+    <style name="Theme.MQPlayer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/mq_launch_bg</item>
+        <item name="android:statusBarColor">@color/mq_launch_bg</item>
+        <item name="android:navigationBarColor">@color/mq_launch_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="Theme.MQPlayer.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/mq_launch_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash</item>
+        <item name="postSplashScreenTheme">@style/Theme.MQPlayer</item>
+    </style>
+</resources>
