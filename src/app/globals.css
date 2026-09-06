@@ -779,6 +779,20 @@ html, body {
   scroll-behavior: smooth;
 }
 
+/* Theme switch crossfade (§7 no-white-flash): enabled for ~480ms by
+   setTheme via html.mq-theme-anim. Paint-only properties. */
+html.mq-theme-anim,
+html.mq-theme-anim body,
+html.mq-theme-anim *,
+html.mq-theme-anim *::before,
+html.mq-theme-anim *::after {
+  transition: background-color 320ms cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 320ms cubic-bezier(0.4, 0, 0.2, 1),
+              color 320ms cubic-bezier(0.4, 0, 0.2, 1),
+              fill 320ms cubic-bezier(0.4, 0, 0.2, 1),
+              stroke 320ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
 /* Selection color */
 ::selection {
   background: var(--mq-accent);
@@ -2796,14 +2810,17 @@ a,
     opacity: 0.85;
     transition: all 0.06s ease;
   }
-  /* No hover effects on touch */
+  /* No hover effects on touch: cancel stuck hover transforms only —
+     NEVER blank row content (title/artist/actions) when :hover sticks
+     after a tap. Tailwind v4 hover variants are already gated by
+     @media (hover: hover), so they never fire on touch devices. */
   .group:hover * {
     transform: none !important;
-    opacity: 0 !important;
   }
-  /* But keep opacity-100 for always-visible elements */
-  .group:hover .opacity-100,
-  .group .opacity-100 {
+  /* Touch tablets (>=640px): hover-revealed actions have sm:opacity-0,
+     but the group-hover reveal can't fire without a mouse — keep them
+     visible so actions are always reachable on touch. */
+  [class*="sm:opacity-0"] {
     opacity: 1 !important;
   }
 }

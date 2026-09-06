@@ -21,6 +21,7 @@ import { fetchLyrics } from "@/lib/lyrics-client";
 import { LyricsView, type LyricLine } from "./LyricsView";
 import { AudioVisualizer } from "./AudioVisualizer";
 import { ShareSheet } from "./ShareSheet";
+import { waveReasonText } from "./MainView";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
@@ -165,11 +166,26 @@ export default function FullTrackView() {
   const createPlaylist = useAppStore((s) => s.createPlaylist);
 
   const isMobile = useIsMobile();
+  // Wide 3-column composition (artwork | center | context panel) kicks in at
+  // ≥1024px. Below that (768–1023) the centered 2-column layout is kept.
+  // JS-level branch (not CSS lg:hidden) so refs (progressBarRef, coverRef,
+  // moreMenuRef) attach to the actually-mounted tree.
+  const [isWide, setIsWide] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(min-width: 1024px)");
+    const onChange = () => setIsWide(mql.matches);
+    onChange();
+    mql.addEventListener("change", onChange);
+    return () => mql.removeEventListener("change", onChange);
+  }, []);
   const progressBarRef = useRef<HTMLDivElement>(null);
   const coverRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredTime, setHoveredTime] = useState<number | null>(null);
   const [activePanel, setActivePanel] = useState<"queue" | "lyrics" | "history" | null>(null);
+  // On wide layouts the context panel is persistent — a null activePanel
+  // falls back to the queue tab instead of hiding content.
+  const panelTab = isWide ? (activePanel ?? "queue") : activePanel;
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState<string>("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
@@ -485,12 +501,32 @@ export default function FullTrackView() {
     return queue.slice(queueIndex + 1, queueIndex + 6);
   }, [queue, queueIndex]);
 
-  // ── Recently played (deduped, exclude current) ──────────────────────────
+  // Upcoming — long window for the persistent desktop context panel
+  const upcomingAll = useMemo(() => {
+    if (queue.length === 0) return [];
+    return queue.slice(queueIndex + 1, queueIndex + 51);
+  }, [queue, queueIndex]);
+
+  // ── Recently played (deduped, exclude current) ──
   const recent = useMemo(() => {
     if (!currentTrack) return [];
     const seen = new Set<string>([currentTrack.id]);
     const out: Track[] = [];
     for (let i = history.length - 1; i >= 0 && out.length < 5; i--) {
+      const t = history[i].track;
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        out.push(t);
+      }
+    }
+    return out;
+  }, [history, currentTrack]);
+
+  // Recent — long window (persistent desktop panel)
+  const recentAll = useMemo(() => {
+    const seen = new Set<string>(currentTrack ? [currentTrack.id] : []);
+    const out: Track[] = [];
+    for (let i = history.length - 1; i >= 0 && out.length < 30; i--) {
       const t = history[i].track;
       if (!seen.has(t.id)) {
         seen.add(t.id);
@@ -580,6 +616,604 @@ export default function FullTrackView() {
     window.addEventListener("mousedown", onDown);
     return () => window.removeEventListener("mousedown", onDown);
   }, [showMoreMenu]);
+  // ── Shared layout nodes ───────────────────────────────────────────────────
+  // The classic (≤1023px) and wide (≥1024px) compositions render from the
+  // same node trees below; only ONE composition is mounted at a time, so
+  // shared refs (coverRef / progressBarRef / moreMenuRef) always attach to
+  // live DOM.
+  const coverBox = currentTrack ? (
+    <>
+      {/* Phase 4B: artwork depth = grounded shadow + inner hairline.
+          No premium shadow stack. */}
+      <div
+        className="w-full h-full rounded-3xl overflow-hidden relative"
+        style={{
+          boxShadow: "var(--mq-art-shadow), var(--mq-art-edge)",
+        }}
+      >
+          {currentTrack.cover ? (
+            <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="eager" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
+              <Music className="w-16 h-16" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
+            </div>
+          )}
+          {/* Audio Visualizer overlay — WebGL-style particle sphere */}
+          {showVisualizer && (
+            <div className="absolute inset-0 rounded-3xl overflow-hidden" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+              <AudioVisualizer isPlaying={isPlaying} />
+            </div>
+          )}
+          {/* Subtle playing indicator — static accent ring (CSS) */}
+          {isPlaying && (
+            <div
+              className="absolute inset-0 rounded-3xl pointer-events-none"
+              style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}
+            />
+          )}
+        </div>
+
+      {/* Glow — REMOVED in Phase 2B (decorative bloom behind artwork) */}
+
+      {/* Double-tap seek feedback */}
+      <AnimatePresence>
+        {seekFeedback && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="absolute top-1/2 -translate-y-1/2 px-4 py-2 rounded-2xl pointer-events-none"
+            style={{
+              [seekFeedback.side]: "20%",
+              backgroundColor: "rgba(10,10,12,0.85)",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 600,
+            } as React.CSSProperties}
+          >
+            {seekFeedback.amount > 0 ? `+${seekFeedback.amount}s` : `${seekFeedback.amount}s`}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hint text for double-tap — auto-hides after 4 seconds */}
+      {showDoubleTapHint && (
+        <motion.div
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] pointer-events-none"
+          style={{ color: "var(--mq-text-muted)" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 0.5, 0.5, 0] }}
+          transition={{ duration: 4, times: [0, 0.1, 0.8, 1] }}
+          onAnimationComplete={() => setShowDoubleTapHint(false)}
+        >
+          ← двойной тап →
+        </motion.div>
+      )}
+    </>
+  ) : null;
+  const trackInfoNode = currentTrack ? (
+    <>
+      {/* Track info */}
+      <div className={`w-full ${isMobile ? "text-center" : "text-left"} mb-4`}>
+        <h1 className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1.5 leading-tight line-clamp-2 w-full" style={{ color: "var(--mq-text)" }}>
+          {currentTrack.title}
+        </h1>
+        <button
+          onClick={handleArtistClick}
+          className={`text-sm sm:text-base lg:text-lg hover:underline truncate w-full ${isMobile ? "" : "text-left"}`}
+          style={{ color: "var(--mq-text-muted)" }}
+        >
+          {currentTrack.artist}
+        </button>
+        {currentTrack.album && currentTrack.album !== currentTrack.title && (
+          <p className={`text-xs sm:text-sm mt-0.5 truncate w-full ${isMobile ? "text-center" : "text-left"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+            {currentTrack.album}
+          </p>
+        )}
+        <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] ${isMobile ? "justify-center" : ""}`} style={{ color: "var(--mq-text-muted)" }}>
+          {duration > 0 && (
+            <span className="flex items-center gap-1 shrink-0"><Clock className="w-3 h-3" />{formatDuration(duration)}</span>
+          )}
+          {currentTrack.genre && <span className="shrink-0">·</span>}
+          {currentTrack.genre && <span className="min-w-0 max-w-[220px] truncate">{currentTrack.genre}</span>}
+          {playbackRate !== 1 && <span className="shrink-0">·</span>}
+          {playbackRate !== 1 && <span className="flex items-center gap-1 shrink-0"><Gauge className="w-3 h-3" />{playbackRate}x</span>}
+          {sleepTimerActive && <span className="shrink-0">·</span>}
+          {sleepTimerActive && (
+            <span className="flex items-center gap-1 shrink-0" style={{ color: "var(--mq-accent)" }}><Timer className="w-3 h-3" />{sleepRemainingMin}м</span>
+          )}
+        </div>
+      </div>
+
+    </>
+  ) : null;
+  const actionsNode = currentTrack ? (
+    <>
+      {/* Action buttons row */}
+      <div className={`flex items-center gap-2 mb-4 flex-wrap ${isMobile ? "justify-center" : "justify-start"}`}>
+        <button onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }} title="Нравится (L)">
+          <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
+        </button>
+        <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "transparent" }} title="Не нравится">
+          <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
+        </button>
+        <button
+          onClick={() => setShowPlaylistPicker(v => !v)}
+          className="w-10 h-10 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: showPlaylistPicker ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
+          title="Добавить в плейлист"
+        >
+          <ListPlus className="w-4 h-4" style={{ color: showPlaylistPicker ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+        </button>
+        <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
+        <button
+          onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
+          className="w-10 h-10 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: panelTab === "queue" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
+          title="Очередь (Q)"
+        >
+          <ListMusic className="w-4 h-4" style={{ color: panelTab === "queue" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+        </button>
+        <button
+          onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
+          className="w-10 h-10 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: panelTab === "lyrics" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
+          title="Текст песни (F)"
+        >
+          <Mic2 className="w-4 h-4" style={{ color: panelTab === "lyrics" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+        </button>
+        <button
+          onClick={() => setActivePanel(p => p === "history" ? null : "history")}
+          className="w-10 h-10 rounded-full flex items-center justify-center"
+          style={{ backgroundColor: panelTab === "history" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
+          title="История (H)"
+        >
+          <History className="w-4 h-4" style={{ color: panelTab === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+        </button>
+        {/* More button — replaces 4 secondary buttons (EQ, Spatial, Speed, Sleep) */}
+        {/* Reduces action row from 11 buttons to 8 — cleaner UX */}
+        <div className="relative" ref={moreMenuRef}>
+          <button
+            onClick={() => { setShowMoreMenu(!showMoreMenu); setShowSpeedMenu(false); setShowSleepMenu(false); }}
+            aria-label="Дополнительные настройки"
+            className="w-10 h-10 rounded-full flex items-center justify-center relative"
+            style={{
+              backgroundColor: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer)
+                ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
+                : "transparent"
+            }}
+            title="Дополнительно"
+          >
+            <MoreHorizontal className="w-4 h-4" style={{ color: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer) ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+            {/* Active indicator dot */}
+            {(eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer) && (
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
+            )}
+          </button>
+          <AnimatePresence>
+            {showMoreMenu && (
+              <motion.div
+                initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className="absolute top-full right-0 mt-2 z-50 rounded-[var(--mq-r-card)] overflow-hidden min-w-[200px]"
+                style={{
+                  backgroundColor: "var(--mq-surface-1)",
+                  border: "1px solid var(--mq-edge-strong)",
+                  boxShadow: "var(--mq-elev-dialog)",
+                }}
+              >
+                <button
+                  onClick={() => { setEqOpen(true); setShowMoreMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                >
+                  <Sliders className="w-4 h-4" style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                  <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Эквалайзер</span>
+                  {eqEnabled && <span className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>ON</span>}
+                </button>
+                <button
+                  onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                  style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+                >
+                  <AirVent className="w-4 h-4" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                  <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Пространственное аудио</span>
+                  {spatialAudioEnabled && <span className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>ON</span>}
+                </button>
+                <button
+                  onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowMoreMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                  style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+                >
+                  <Gauge className="w-4 h-4" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                  <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Скорость</span>
+                  <span className="text-xs font-mono" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span>
+                </button>
+                <button
+                  onClick={() => { setShowSleepMenu(!showSleepMenu); setShowMoreMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                  style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+                >
+                  <Timer className="w-4 h-4" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                  <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
+                  {sleepTimerActive && <span className="text-xs font-mono" style={{ color: "var(--mq-accent)" }}>{sleepRemainingMin}м</span>}
+                </button>
+                <button
+                  onClick={() => { setShowVisualizer(!showVisualizer); setShowMoreMenu(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                  style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
+                >
+                  <Sparkles className="w-4 h-4" style={{ color: showVisualizer ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                  <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Визуализатор</span>
+                  {showVisualizer && <span className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>ВКЛ</span>}
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Playlist picker — add current track to a playlist */}
+      <AnimatePresence>
+        {showPlaylistPicker && currentTrack && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="w-full mb-3 rounded-2xl overflow-hidden"
+            style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
+          >
+            <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--mq-border-thin)" }}>
+              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                Добавить в плейлист
+              </span>
+              <button
+                onClick={() => {
+                  if (!currentTrack) return;
+                  createPlaylist(currentTrack.artist);
+                  const state = useAppStore.getState();
+                  const newPl = [...state.playlists].reverse().find(p => p.name === currentTrack.artist);
+                  if (newPl) addToPlaylist(newPl.id, currentTrack);
+                  setShowPlaylistPicker(false);
+                }}
+                className="flex items-center gap-1 text-xs font-semibold"
+                style={{ color: "var(--mq-accent)" }}
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Новый
+              </button>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              {playlists.length === 0 ? (
+                <div className="px-4 py-6 text-center">
+                  <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+                    У вас пока нет плейлистов
+                  </p>
+                </div>
+              ) : (
+                playlists.map(pl => (
+                  <button
+                    key={pl.id}
+                    onClick={() => {
+                      if (currentTrack) addToPlaylist(pl.id, currentTrack);
+                      setShowPlaylistPicker(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                  >
+                    <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
+                      {pl.cover ? (
+                        <img src={pl.cover} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <ListMusic className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>
+                        {pl.name}
+                      </p>
+                      <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                        {pl.tracks.length} треков
+                      </p>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Speed menu */}
+      <AnimatePresence>
+        {showSpeedMenu && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="w-full mb-3 overflow-hidden">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Скорость:</span>
+              {speedOptions.map(speed => (
+                <button key={speed} onClick={() => handleSpeedChange(speed)} className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors" style={{ backgroundColor: playbackRate === speed ? "var(--mq-accent)" : "var(--mq-card)", color: playbackRate === speed ? "#fff" : "var(--mq-text-muted)" }}>
+                  {speed}x
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Sleep timer menu */}
+      <AnimatePresence>
+        {showSleepMenu && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="w-full mb-3 overflow-hidden">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Сон через:</span>
+              {sleepOptions.map(min => (
+                <button key={min} onClick={() => handleSleepSet(min)} className="px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)" }}>
+                  {min} мин
+                </button>
+              ))}
+              {sleepTimerActive && (
+                <button onClick={() => { stopSleepTimer(); setShowSleepMenu(false); toast({ title: "Таймер отменён" }); }} className="px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "var(--mq-error, #ef4444)" }}>
+                  Отменить
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+    </>
+  ) : null;
+  const inlinePanelsNode = (
+    <>
+      {/* ═══ PANELS: Queue / Lyrics / History ═══ */}
+      <AnimatePresence mode="wait">
+        {activePanel === "lyrics" && (
+          <motion.div
+            key="lyrics-panel"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="w-full mb-4 overflow-hidden rounded-[var(--mq-r-card-lg)]"
+            style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+          >
+            <div className="flex items-center justify-end mb-2">
+              <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
+                <X className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
+              </button>
+            </div>
+            {lyricsLoading ? (
+              <div className="flex items-center gap-2 py-6 justify-center">
+                <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} />
+                <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск текста...</span>
+              </div>
+            ) : (
+              <LyricsView
+                lines={lyrics}
+                plainText={plainLyrics}
+                currentTime={progress}
+                isLoading={false}
+                error={lyricsError}
+                onSeek={seekToTime}
+                cover={currentTrack?.cover}
+              />
+            )}
+          </motion.div>
+        )}
+
+        {activePanel === "queue" && (
+          <motion.div
+            key="queue-panel"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="w-full mb-4 overflow-hidden rounded-[var(--mq-r-card-lg)]"
+            style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="mq-text-eyebrow text-[11px] uppercase tracking-widest">Далее в очереди</p>
+              <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
+                <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
+              </button>
+            </div>
+            {upcoming.length === 0 ? (
+              <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>Очередь пуста</p>
+            ) : (
+              <div className="space-y-1 max-h-[240px] overflow-y-auto" data-scrollable="true">
+                {upcoming.map((track, i) => (
+                  <button
+                    key={track.id + "_" + i}
+                    onClick={() => { playTrack?.(track, queue); setActivePanel(null); }}
+                    className="mq-row !min-h-[52px] w-full text-left"
+                  >
+                    <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
+                      {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center"><Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /></div>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                      <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+                    </div>
+                    <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+
+        {activePanel === "history" && (
+          <motion.div
+            key="history-panel"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="w-full mb-4 overflow-hidden rounded-[var(--mq-r-card-lg)]"
+            style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <p className="mq-text-eyebrow text-[11px] uppercase tracking-widest">Недавно играло</p>
+              <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
+                <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
+              </button>
+            </div>
+            {recent.length === 0 ? (
+              <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>История пуста</p>
+            ) : (
+              <div className="space-y-1 max-h-[240px] overflow-y-auto" data-scrollable="true">
+                {recent.map((track, i) => (
+                  <button
+                    key={track.id + "_h_" + i}
+                    onClick={() => { playTrack?.(track, [track]); setActivePanel(null); }}
+                    className="mq-row !min-h-[52px] w-full text-left"
+                  >
+                    <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
+                      {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
+                        : <div className="w-full h-full flex items-center justify-center"><Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /></div>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                      <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+                    </div>
+                    <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+    </>
+  );
+  const progressNode = (
+    <>
+      {/* ═══ PROGRESS BAR ═══ */}
+      <div className="w-full mb-4">
+        <div
+          ref={progressBarRef}
+          className="relative cursor-pointer group mb-2"
+          style={{ height: "24px", display: "flex", alignItems: "center" }}
+          onMouseDown={handleProgressMouseDown}
+          onTouchStart={handleProgressTouchStart}
+          onMouseLeave={() => setHoveredTime(null)}
+          onMouseMove={handleProgressMouseMove}
+          role="slider"
+          aria-label="Прогресс воспроизведения"
+          aria-valuemin={0}
+          aria-valuemax={Math.round(duration || 0)}
+          aria-valuenow={Math.round(progress || 0)}
+          tabIndex={0}
+        >
+          {/* Touch target overlay — 24px tall transparent area for easy touch drag.
+              Visual bar stays 6px (h-1.5), but touch area is 24px (WCAG 2.5.8). */}
+          <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full">
+            <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "var(--mq-glass-bg-hover)" }} />
+            {hoveredPct > progressPct && (
+              <div className="absolute inset-y-0 left-0 rounded-full opacity-0 group-hover:opacity-100" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-glass-bg-active)" }} />
+            )}
+            <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", transition: isDragging ? "none" : "transform 0.1s linear" }} />
+            {/* Drag handle — visible on mobile (touch devices don't have hover) */}
+            <div
+              className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none transition-opacity"
+              style={{
+                left: `${isDragging ? progressPct : (hoveredPct || progressPct)}%`,
+                backgroundColor: "var(--mq-accent)",
+                                            opacity: isDragging ? 1 : (isMobile ? 0.7 : 0),
+              }}
+            />
+            {/* Hover-only handle on desktop */}
+            {!isMobile && (
+              <div
+                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ left: `${hoveredPct}%`, backgroundColor: "var(--mq-accent)" }}
+              />
+            )}
+          </div>
+          {/* Hover tooltip — inside progressBarRef div for correct positioning */}
+          {hoveredTime !== null && !isDragging && (
+            <div
+              className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded text-[11px] font-mono pointer-events-none whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ left: `${Math.max(10, Math.min(90, hoveredPct))}%`, backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-thin)" }}
+            >
+              {formatDuration(hoveredTime)}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(progress)}</span>
+          <span className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(duration)}</span>
+        </div>
+      </div>
+
+    </>
+  );
+  const transportNode = (
+    <>
+      {/* ═══ MAIN CONTROLS ═══ */}
+      <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "justify-center" : "justify-start"}`}>
+        <button onClick={toggleShuffle} aria-label="Перемешать" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать (S)">
+          <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+        </button>
+        <button onClick={prevTrack} aria-label="Предыдущий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий (P)">
+          <SkipBack className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+        </button>
+        <motion.button
+          onClick={togglePlay}
+          whileTap={{ scale: 0.94 }}
+          aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
+          className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
+          style={{ backgroundColor: "var(--mq-accent)" }}
+          title="Play/Pause (Space)"
+        >
+          {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+            : isPlaying ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
+            : <Play className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)", transform: "translateX(1px)" }} />}
+        </motion.button>
+        <button onClick={nextTrack} aria-label="Следующий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий (N)">
+          <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+        </button>
+        <button onClick={toggleRepeat} aria-label="Повтор" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Повтор (R)">
+          {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
+            : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
+        </button>
+      </div>
+
+    </>
+  );
+  const volumeNode = (
+    <>
+      {/* ═══ VOLUME (desktop — single horizontal slider with icon) ═══ */}
+      {!isMobile && (
+        <div className="flex items-center gap-2 w-full max-w-xs">
+          <VolumeSlider volume={volume} onChange={setVolume} showIcon={true} showValue={true} className="flex-1" />
+        </div>
+      )}
+
+    </>
+  );
+  const hintsNode = (
+    <>
+      {/* ═══ Keyboard shortcuts hint (desktop, top 3 only) ═══ */}
+      {!isMobile && (
+        <div className="mt-4 flex items-center gap-3 flex-wrap text-[11px] opacity-70" style={{ color: "var(--mq-text-muted)" }}>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 rounded font-mono text-[11px]" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>Space</kbd>
+            play/pause
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 rounded font-mono text-[11px]" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>←/→</kbd>
+            seek
+          </span>
+          <span className="flex items-center gap-1">
+            <kbd className="px-1.5 py-0.5 rounded font-mono text-[11px]" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>Esc</kbd>
+            close
+          </span>
+        </div>
+      )}
+    </>
+  );
 
   return (
     <>
@@ -638,7 +1272,7 @@ export default function FullTrackView() {
                 <ChevronDown className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
               </button>
               <div className="text-center">
-                <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">{radioMode ? "Волна" : isPlaying ? "Играет" : "Пауза"}</p>
+                <p className="mq-text-eyebrow text-[11px] uppercase tracking-widest">{radioMode ? "Волна" : isPlaying ? "Играет" : "Пауза"}</p>
                 <p className="text-xs font-medium truncate max-w-[200px] sm:max-w-xs" style={{ color: "var(--mq-text-muted)" }}>
                   {currentTrack.album || currentTrack.artist}
                 </p>
@@ -654,7 +1288,8 @@ export default function FullTrackView() {
             </div>
 
             {/* ── Main content ── */}
-            <div className="flex-1 flex flex-col items-center justify-center px-6 pb-6 overflow-y-auto" data-scrollable="true">
+            {!isWide ? (
+              <div className="flex-1 flex flex-col items-center justify-center px-6 pb-6 overflow-y-auto" data-scrollable="true">
               <div className={`w-full max-w-5xl flex ${isMobile ? "flex-col items-center" : "flex-row items-center gap-12"}`}>
                 {/* ═══ COVER (with parallax tilt on desktop) ═══ */}
                 <motion.div
@@ -672,72 +1307,7 @@ export default function FullTrackView() {
                   onTouchStart={handleCoverTouchStart}
                   onTouchEnd={handleCoverTouchEnd}
                 >
-                  {/* Phase 4B: artwork depth = grounded shadow + inner hairline.
-                      No premium shadow stack. */}
-                  <div
-                    className="w-full h-full rounded-3xl overflow-hidden relative"
-                    style={{
-                      boxShadow: "var(--mq-art-shadow), var(--mq-art-edge)",
-                    }}
-                  >
-                      {currentTrack.cover ? (
-                        <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" loading="eager" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}>
-                          <Music className="w-16 h-16" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
-                        </div>
-                      )}
-                      {/* Audio Visualizer overlay — WebGL-style particle sphere */}
-                      {showVisualizer && (
-                        <div className="absolute inset-0 rounded-3xl overflow-hidden" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
-                          <AudioVisualizer isPlaying={isPlaying} />
-                        </div>
-                      )}
-                      {/* Subtle playing indicator — static accent ring (CSS) */}
-                      {isPlaying && (
-                        <div
-                          className="absolute inset-0 rounded-3xl pointer-events-none"
-                          style={{ boxShadow: "inset 0 0 0 2px color-mix(in srgb, var(--mq-accent) 30%, transparent)" }}
-                        />
-                      )}
-                    </div>
-
-                  {/* Glow — REMOVED in Phase 2B (decorative bloom behind artwork) */}
-
-                  {/* Double-tap seek feedback */}
-                  <AnimatePresence>
-                    {seekFeedback && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        className="absolute top-1/2 -translate-y-1/2 px-4 py-2 rounded-2xl pointer-events-none"
-                        style={{
-                          [seekFeedback.side]: "20%",
-                          backgroundColor: "rgba(10,10,12,0.85)",
-                          color: "#fff",
-                          fontSize: 14,
-                          fontWeight: 600,
-                        } as React.CSSProperties}
-                      >
-                        {seekFeedback.amount > 0 ? `+${seekFeedback.amount}s` : `${seekFeedback.amount}s`}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Hint text for double-tap — auto-hides after 4 seconds */}
-                  {showDoubleTapHint && (
-                    <motion.div
-                      className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[9px] pointer-events-none"
-                      style={{ color: "var(--mq-text-muted)" }}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: [0, 0.5, 0.5, 0] }}
-                      transition={{ duration: 4, times: [0, 0.1, 0.8, 1] }}
-                      onAnimationComplete={() => setShowDoubleTapHint(false)}
-                    >
-                      ← двойной тап →
-                    </motion.div>
-                  )}
+                  {coverBox}
                 </motion.div>
 
                 {/* ═══ RIGHT SIDE: info, controls, panels ═══ */}
@@ -747,504 +1317,253 @@ export default function FullTrackView() {
                   transition={{ duration: 0.4, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
                   className={`flex-1 ${isMobile ? "w-full" : "min-w-0"} flex flex-col ${isMobile ? "items-center" : "items-start"}`}
                 >
-                  {/* Track info */}
-                  <div className={`w-full ${isMobile ? "text-center" : "text-left"} mb-4`}>
-                    <h1 className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1.5 leading-tight line-clamp-2 w-full" style={{ color: "var(--mq-text)" }}>
-                      {currentTrack.title}
-                    </h1>
-                    <button
-                      onClick={handleArtistClick}
-                      className={`text-sm sm:text-base lg:text-lg hover:underline truncate w-full ${isMobile ? "" : "text-left"}`}
-                      style={{ color: "var(--mq-text-muted)" }}
+                  {trackInfoNode}
+                  {actionsNode}
+                  {inlinePanelsNode}
+                  {progressNode}
+                  {transportNode}
+                  {volumeNode}
+                  {hintsNode}
+                </motion.div>
+              </div>
+              </div>
+            ) : (
+              <div className="flex-1 min-h-0 w-full flex items-stretch justify-center overflow-hidden">
+                <div className="w-full h-full max-w-[1408px] flex items-stretch gap-6 xl:gap-8 px-8 xl:px-10 pb-6 pt-1">
+
+                  {/* ═══ LEFT — large artwork ═══ */}
+                  <div
+                    className="flex-shrink-0 flex items-center justify-center min-h-0"
+                    style={{ width: "min(clamp(300px, 30vw, 420px), calc(100vh - 220px))" }}
+                  >
+                    <motion.div
+                      key={currentTrack.id}
+                      initial={{ scale: 0.96, opacity: 0, y: 8 }}
+                      animate={{ scale: 1, opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                      ref={coverRef}
+                      className="relative w-full cursor-pointer"
+                      style={{ aspectRatio: "1 / 1" }}
+                      onClick={handleCoverAreaTap}
+                      onTouchStart={handleCoverTouchStart}
+                      onTouchEnd={handleCoverTouchEnd}
                     >
-                      {currentTrack.artist}
-                    </button>
-                    {currentTrack.album && currentTrack.album !== currentTrack.title && (
-                      <p className={`text-xs sm:text-sm mt-0.5 truncate w-full ${isMobile ? "text-center" : "text-left"}`} style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
-                        {currentTrack.album}
-                      </p>
-                    )}
-                    <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] ${isMobile ? "justify-center" : ""}`} style={{ color: "var(--mq-text-muted)" }}>
-                      {duration > 0 && (
-                        <span className="flex items-center gap-1 shrink-0"><Clock className="w-3 h-3" />{formatDuration(duration)}</span>
-                      )}
-                      {currentTrack.genre && <span className="shrink-0">·</span>}
-                      {currentTrack.genre && <span className="min-w-0 max-w-[220px] truncate">{currentTrack.genre}</span>}
-                      {playbackRate !== 1 && <span className="shrink-0">·</span>}
-                      {playbackRate !== 1 && <span className="flex items-center gap-1 shrink-0"><Gauge className="w-3 h-3" />{playbackRate}x</span>}
-                      {sleepTimerActive && <span className="shrink-0">·</span>}
-                      {sleepTimerActive && (
-                        <span className="flex items-center gap-1 shrink-0" style={{ color: "var(--mq-accent)" }}><Timer className="w-3 h-3" />{sleepRemainingMin}м</span>
-                      )}
-                    </div>
+                      {coverBox}
+                    </motion.div>
                   </div>
 
-                  {/* Action buttons row */}
-                  <div className={`flex items-center gap-2 mb-4 flex-wrap ${isMobile ? "justify-center" : "justify-start"}`}>
-                    <button onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }} title="Нравится (L)">
-                      <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
-                    </button>
-                    <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "transparent" }} title="Не нравится">
-                      <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
-                    </button>
-                    <button
-                      onClick={() => setShowPlaylistPicker(v => !v)}
-                      className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: showPlaylistPicker ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
-                      title="Добавить в плейлист"
-                    >
-                      <ListPlus className="w-4 h-4" style={{ color: showPlaylistPicker ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                    </button>
-                    <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
-                    <button
-                      onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
-                      className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: activePanel === "queue" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
-                      title="Очередь (Q)"
-                    >
-                      <ListMusic className="w-4 h-4" style={{ color: activePanel === "queue" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                    </button>
-                    <button
-                      onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
-                      className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: activePanel === "lyrics" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
-                      title="Текст песни (F)"
-                    >
-                      <Mic2 className="w-4 h-4" style={{ color: activePanel === "lyrics" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                    </button>
-                    <button
-                      onClick={() => setActivePanel(p => p === "history" ? null : "history")}
-                      className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ backgroundColor: activePanel === "history" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
-                      title="История (H)"
-                    >
-                      <History className="w-4 h-4" style={{ color: activePanel === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                    </button>
-                    {/* More button — replaces 4 secondary buttons (EQ, Spatial, Speed, Sleep) */}
-                    {/* Reduces action row from 11 buttons to 8 — cleaner UX */}
-                    <div className="relative" ref={moreMenuRef}>
-                      <button
-                        onClick={() => { setShowMoreMenu(!showMoreMenu); setShowSpeedMenu(false); setShowSleepMenu(false); }}
-                        aria-label="Дополнительные настройки"
-                        className="w-10 h-10 rounded-full flex items-center justify-center relative"
-                        style={{
-                          backgroundColor: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer)
-                            ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
-                            : "transparent"
-                        }}
-                        title="Дополнительно"
-                      >
-                        <MoreHorizontal className="w-4 h-4" style={{ color: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer) ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                        {/* Active indicator dot */}
-                        {(eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer) && (
-                          <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
-                        )}
-                      </button>
-                      <AnimatePresence>
-                        {showMoreMenu && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                            className="absolute top-full right-0 mt-2 z-50 rounded-[var(--mq-r-card)] overflow-hidden min-w-[200px]"
-                            style={{
-                              backgroundColor: "var(--mq-surface-1)",
-                              border: "1px solid var(--mq-edge-strong)",
-                              boxShadow: "var(--mq-elev-dialog)",
-                            }}
-                          >
-                            <button
-                              onClick={() => { setEqOpen(true); setShowMoreMenu(false); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                            >
-                              <Sliders className="w-4 h-4" style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                              <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Эквалайзер</span>
-                              {eqEnabled && <span className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>ON</span>}
-                            </button>
-                            <button
-                              onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-                            >
-                              <AirVent className="w-4 h-4" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                              <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Пространственное аудио</span>
-                              {spatialAudioEnabled && <span className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>ON</span>}
-                            </button>
-                            <button
-                              onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowMoreMenu(false); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-                            >
-                              <Gauge className="w-4 h-4" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                              <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Скорость</span>
-                              <span className="text-xs font-mono" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span>
-                            </button>
-                            <button
-                              onClick={() => { setShowSleepMenu(!showSleepMenu); setShowMoreMenu(false); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-                            >
-                              <Timer className="w-4 h-4" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                              <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
-                              {sleepTimerActive && <span className="text-xs font-mono" style={{ color: "var(--mq-accent)" }}>{sleepRemainingMin}м</span>}
-                            </button>
-                            <button
-                              onClick={() => { setShowVisualizer(!showVisualizer); setShowMoreMenu(false); }}
-                              className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-                            >
-                              <Sparkles className="w-4 h-4" style={{ color: showVisualizer ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                              <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Визуализатор</span>
-                              {showVisualizer && <span className="text-[10px] font-semibold" style={{ color: "var(--mq-accent)" }}>ВКЛ</span>}
-                            </button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                  {/* ═══ CENTER — identity / progress / transport / actions ═══ */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex-1 min-w-0 max-w-[520px] flex flex-col justify-center items-start py-2 overflow-y-auto"
+                    data-scrollable="true"
+                  >
+                    {trackInfoNode}
+                    {progressNode}
+                    {transportNode}
+                    <div className="w-full mt-1 mb-2">
+                      {actionsNode}
                     </div>
-                  </div>
+                    {volumeNode}
+                    {hintsNode}
+                  </motion.div>
 
-                  {/* Playlist picker — add current track to a playlist */}
-                  <AnimatePresence>
-                    {showPlaylistPicker && currentTrack && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        className="w-full mb-3 rounded-2xl overflow-hidden"
-                        style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
+                  {/* ═══ RIGHT — persistent queue / context panel ═══ */}
+                  <aside className="flex-shrink-0 w-[300px] xl:w-[340px] min-h-0 flex flex-col py-1">
+                    <div
+                      className="flex-1 min-h-0 flex flex-col overflow-hidden rounded-[var(--mq-r-card-lg)]"
+                      style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+                    >
+                      {/* Tab switcher */}
+                      <div
+                        role="tablist"
+                        aria-label="Контекст воспроизведения"
+                        className="flex items-center gap-1 p-1.5"
+                        style={{ borderBottom: "1px solid var(--mq-edge)" }}
                       >
-                        <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid var(--mq-border-thin)" }}>
-                          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
-                            Добавить в плейлист
+                        <button
+                          role="tab"
+                          aria-selected={panelTab === "queue"}
+                          onClick={() => setActivePanel("queue")}
+                          className="flex-1 h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                          style={{ color: panelTab === "queue" ? "var(--mq-text)" : "var(--mq-text-muted)", backgroundColor: panelTab === "queue" ? "var(--mq-overlay-hover)" : "transparent" }}
+                          title="Очередь (Q)"
+                        >
+                          Очередь
+                          {upcomingAll.length > 0 && (
+                            <span className="text-[11px] font-semibold px-1.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}>
+                              {upcomingAll.length}
+                            </span>
+                          )}
+                        </button>
+                        <button
+                          role="tab"
+                          aria-selected={panelTab === "lyrics"}
+                          onClick={() => setActivePanel("lyrics")}
+                          className="flex-1 h-9 rounded-xl flex items-center justify-center text-xs font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                          style={{ color: panelTab === "lyrics" ? "var(--mq-text)" : "var(--mq-text-muted)", backgroundColor: panelTab === "lyrics" ? "var(--mq-overlay-hover)" : "transparent" }}
+                          title="Текст песни (F)"
+                        >
+                          Текст
+                        </button>
+                        <button
+                          role="tab"
+                          aria-selected={panelTab === "history"}
+                          onClick={() => setActivePanel("history")}
+                          className="flex-1 h-9 rounded-xl flex items-center justify-center gap-1.5 text-xs font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                          style={{ color: panelTab === "history" ? "var(--mq-text)" : "var(--mq-text-muted)", backgroundColor: panelTab === "history" ? "var(--mq-overlay-hover)" : "transparent" }}
+                          title="История (H)"
+                        >
+                          История
+                          {recentAll.length > 0 && (
+                            <span className="text-[11px] font-semibold px-1.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}>
+                              {recentAll.length}
+                            </span>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Wave context — why this track is playing */}
+                      {radioMode && currentTrack?._reason && (
+                        <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: "1px solid var(--mq-edge)" }}>
+                          <Sparkles className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
+                          <span className="text-[11px] leading-snug truncate" style={{ color: "var(--mq-text-muted)" }}>
+                            {waveReasonText(currentTrack) || currentTrack._reason}
                           </span>
-                          <button
-                            onClick={() => {
-                              if (!currentTrack) return;
-                              createPlaylist(currentTrack.artist);
-                              const state = useAppStore.getState();
-                              const newPl = [...state.playlists].reverse().find(p => p.name === currentTrack.artist);
-                              if (newPl) addToPlaylist(newPl.id, currentTrack);
-                              setShowPlaylistPicker(false);
-                            }}
-                            className="flex items-center gap-1 text-xs font-semibold"
-                            style={{ color: "var(--mq-accent)" }}
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            Новый
-                          </button>
                         </div>
-                        <div className="max-h-48 overflow-y-auto">
-                          {playlists.length === 0 ? (
-                            <div className="px-4 py-6 text-center">
-                              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
-                                У вас пока нет плейлистов
-                              </p>
-                            </div>
-                          ) : (
-                            playlists.map(pl => (
-                              <button
-                                key={pl.id}
-                                onClick={() => {
-                                  if (currentTrack) addToPlaylist(pl.id, currentTrack);
-                                  setShowPlaylistPicker(false);
-                                }}
-                                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                              >
-                                <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-bg)" }}>
-                                  {pl.cover ? (
-                                    <img src={pl.cover} alt="" className="w-full h-full object-cover" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                      <ListMusic className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
+                      )}
+
+                      {/* Tab content */}
+                      <div className="flex-1 min-h-0 overflow-y-auto" data-scrollable="true">
+                        {panelTab === "queue" && (
+                          <div className="py-2">
+                            {/* Now playing */}
+                            {currentTrack && (
+                              <div className="px-3 pb-2">
+                                <p className="mq-text-eyebrow text-[11px] uppercase tracking-widest px-1 pb-2" style={{ color: "var(--mq-text-muted)" }}>Сейчас играет</p>
+                                <div className="flex items-center gap-3 px-2.5 py-2 rounded-xl" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, transparent)" }}>
+                                  <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
+                                    {currentTrack.cover ? (
+                                      <img src={currentTrack.cover} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center"><Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /></div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+                                    <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
+                                  </div>
+                                  {isPlaying && (
+                                    <div className="flex items-end gap-[3px] h-4 flex-shrink-0" aria-hidden="true">
+                                      <span className="w-[3px] h-full rounded-sm" style={{ transformOrigin: "bottom", backgroundColor: "var(--mq-accent)", animation: "playerEq0 0.9s ease-in-out infinite alternate" }} />
+                                      <span className="w-[3px] h-full rounded-sm" style={{ transformOrigin: "bottom", backgroundColor: "var(--mq-accent)", animation: "playerEq1 0.8s ease-in-out infinite alternate" }} />
+                                      <span className="w-[3px] h-full rounded-sm" style={{ transformOrigin: "bottom", backgroundColor: "var(--mq-accent)", animation: "playerEq2 1s ease-in-out infinite alternate" }} />
                                     </div>
                                   )}
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>
-                                    {pl.name}
-                                  </p>
-                                  <p className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>
-                                    {pl.tracks.length} треков
-                                  </p>
-                                </div>
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                              </div>
+                            )}
 
-                  {/* Speed menu */}
-                  <AnimatePresence>
-                    {showSpeedMenu && (
-                      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="w-full mb-3 overflow-hidden">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Скорость:</span>
-                          {speedOptions.map(speed => (
-                            <button key={speed} onClick={() => handleSpeedChange(speed)} className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors" style={{ backgroundColor: playbackRate === speed ? "var(--mq-accent)" : "var(--mq-card)", color: playbackRate === speed ? "#fff" : "var(--mq-text-muted)" }}>
-                              {speed}x
-                            </button>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Sleep timer menu */}
-                  <AnimatePresence>
-                    {showSleepMenu && (
-                      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="w-full mb-3 overflow-hidden">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[10px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Сон через:</span>
-                          {sleepOptions.map(min => (
-                            <button key={min} onClick={() => handleSleepSet(min)} className="px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)" }}>
-                              {min} мин
-                            </button>
-                          ))}
-                          {sleepTimerActive && (
-                            <button onClick={() => { stopSleepTimer(); setShowSleepMenu(false); toast({ title: "Таймер отменён" }); }} className="px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "var(--mq-error, #ef4444)" }}>
-                              Отменить
-                            </button>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* ═══ PANELS: Queue / Lyrics / History ═══ */}
-                  <AnimatePresence mode="wait">
-                    {activePanel === "lyrics" && (
-                      <motion.div
-                        key="lyrics-panel"
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        className="w-full mb-4 overflow-hidden rounded-[var(--mq-r-card-lg)]"
-                        style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
-                      >
-                        <div className="flex items-center justify-end mb-2">
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
-                            <X className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
-                          </button>
-                        </div>
-                        {lyricsLoading ? (
-                          <div className="flex items-center gap-2 py-6 justify-center">
-                            <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} />
-                            <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск текста...</span>
-                          </div>
-                        ) : (
-                          <LyricsView
-                            lines={lyrics}
-                            plainText={plainLyrics}
-                            currentTime={progress}
-                            isLoading={false}
-                            error={lyricsError}
-                            onSeek={seekToTime}
-                            cover={currentTrack?.cover}
-                          />
-                        )}
-                      </motion.div>
-                    )}
-
-                    {activePanel === "queue" && (
-                      <motion.div
-                        key="queue-panel"
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        className="w-full mb-4 overflow-hidden rounded-[var(--mq-r-card-lg)]"
-                        style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Далее в очереди</p>
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
-                            <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                          </button>
-                        </div>
-                        {upcoming.length === 0 ? (
-                          <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>Очередь пуста</p>
-                        ) : (
-                          <div className="space-y-1 max-h-[240px] overflow-y-auto" data-scrollable="true">
-                            {upcoming.map((track, i) => (
-                              <button
-                                key={track.id + "_" + i}
-                                onClick={() => { playTrack?.(track, queue); setActivePanel(null); }}
-                                className="mq-row !min-h-[52px] w-full text-left"
-                              >
-                                <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
-                                  {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
-                                    : <div className="w-full h-full flex items-center justify-center"><Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /></div>}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
-                                  <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
-                                </div>
-                                <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
-                              </button>
-                            ))}
+                            {/* Upcoming */}
+                            <div className="px-4 flex items-center justify-between pb-1">
+                              <p className="mq-text-eyebrow text-[11px] uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>{radioMode ? "Волна · далее" : "Далее"}</p>
+                            </div>
+                            {upcomingAll.length === 0 ? (
+                              <div className="px-4 py-8 text-center">
+                                <ListMusic className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }} />
+                                <p className="text-xs leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+                                  {radioMode ? "Волна подберёт следующий трек автоматически" : "Очередь пуста — добавь треки из поиска или плейлистов"}
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="px-2">
+                                {upcomingAll.map((track, i) => (
+                                  <button
+                                    key={track.id + "_q_" + i}
+                                    onClick={() => { playTrack?.(track, queue); }}
+                                    className="mq-row !min-h-[52px] w-full text-left"
+                                    title={track.title}
+                                  >
+                                    <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
+                                      {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
+                                        : <div className="w-full h-full flex items-center justify-center"><Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /></div>}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                                      <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+                                      {radioMode && track._reason && (
+                                        <p className="text-[11px] truncate" style={{ color: "var(--mq-accent)", opacity: 0.75 }}>{waveReasonText(track) || track._reason}</p>
+                                      )}
+                                    </div>
+                                    <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
-                      </motion.div>
-                    )}
 
-                    {activePanel === "history" && (
-                      <motion.div
-                        key="history-panel"
-                        initial={{ opacity: 0, y: -8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        className="w-full mb-4 overflow-hidden rounded-[var(--mq-r-card-lg)]"
-                        style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest">Недавно играло</p>
-                          <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
-                            <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                          </button>
-                        </div>
-                        {recent.length === 0 ? (
-                          <p className="text-xs py-4 text-center" style={{ color: "var(--mq-text-muted)" }}>История пуста</p>
-                        ) : (
-                          <div className="space-y-1 max-h-[240px] overflow-y-auto" data-scrollable="true">
-                            {recent.map((track, i) => (
-                              <button
-                                key={track.id + "_h_" + i}
-                                onClick={() => { playTrack?.(track, [track]); setActivePanel(null); }}
-                                className="mq-row !min-h-[52px] w-full text-left"
-                              >
-                                <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
-                                  {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
-                                    : <div className="w-full h-full flex items-center justify-center"><Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /></div>}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
-                                  <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
-                                </div>
-                                <span className="text-[10px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
-                              </button>
-                            ))}
+                        {panelTab === "lyrics" && (
+                          <div className="px-2 py-3">
+                            {lyricsLoading ? (
+                              <div className="flex items-center gap-2 py-8 justify-center">
+                                <Loader2 className="w-4 h-4 animate-spin" style={{ color: "var(--mq-accent)" }} />
+                                <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>Поиск текста...</span>
+                              </div>
+                            ) : (
+                              <LyricsView
+                                lines={lyrics}
+                                plainText={plainLyrics}
+                                currentTime={progress}
+                                isLoading={false}
+                                error={lyricsError}
+                                onSeek={seekToTime}
+                                cover={currentTrack?.cover}
+                              />
+                            )}
                           </div>
                         )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
 
-                  {/* ═══ PROGRESS BAR ═══ */}
-                  <div className="w-full mb-4">
-                    <div
-                      ref={progressBarRef}
-                      className="relative cursor-pointer group mb-2"
-                      style={{ height: "24px", display: "flex", alignItems: "center" }}
-                      onMouseDown={handleProgressMouseDown}
-                      onTouchStart={handleProgressTouchStart}
-                      onMouseLeave={() => setHoveredTime(null)}
-                      onMouseMove={handleProgressMouseMove}
-                      role="slider"
-                      aria-label="Прогресс воспроизведения"
-                      aria-valuemin={0}
-                      aria-valuemax={Math.round(duration || 0)}
-                      aria-valuenow={Math.round(progress || 0)}
-                      tabIndex={0}
-                    >
-                      {/* Touch target overlay — 24px tall transparent area for easy touch drag.
-                          Visual bar stays 6px (h-1.5), but touch area is 24px (WCAG 2.5.8). */}
-                      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full">
-                        <div className="absolute inset-0 rounded-full" style={{ backgroundColor: "var(--mq-glass-bg-hover)" }} />
-                        {hoveredPct > progressPct && (
-                          <div className="absolute inset-y-0 left-0 rounded-full opacity-0 group-hover:opacity-100" style={{ transform: `scaleX(${hoveredPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-glass-bg-active)" }} />
-                        )}
-                        <div className="absolute inset-y-0 left-0 rounded-full" style={{ transform: `scaleX(${progressPct / 100})`, transformOrigin: "left", width: "100%", backgroundColor: "var(--mq-accent)", transition: isDragging ? "none" : "transform 0.1s linear" }} />
-                        {/* Drag handle — visible on mobile (touch devices don't have hover) */}
-                        <div
-                          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none transition-opacity"
-                          style={{
-                            left: `${isDragging ? progressPct : (hoveredPct || progressPct)}%`,
-                            backgroundColor: "var(--mq-accent)",
-                                                        opacity: isDragging ? 1 : (isMobile ? 0.7 : 0),
-                          }}
-                        />
-                        {/* Hover-only handle on desktop */}
-                        {!isMobile && (
-                          <div
-                            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity"
-                            style={{ left: `${hoveredPct}%`, backgroundColor: "var(--mq-accent)" }}
-                          />
+                        {panelTab === "history" && (
+                          <div className="py-2">
+                            {recentAll.length === 0 ? (
+                              <div className="px-4 py-8 text-center">
+                                <History className="w-8 h-8 mx-auto mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }} />
+                                <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>История пуста</p>
+                              </div>
+                            ) : (
+                              <div className="px-2">
+                                <p className="mq-text-eyebrow text-[11px] uppercase tracking-widest px-2 pb-1" style={{ color: "var(--mq-text-muted)" }}>Недавно играло</p>
+                                {recentAll.map((track, i) => (
+                                  <button
+                                    key={track.id + "_h_" + i}
+                                    onClick={() => { playTrack?.(track, [track]); }}
+                                    className="mq-row !min-h-[52px] w-full text-left"
+                                    title={track.title}
+                                  >
+                                    <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
+                                      {track.cover ? <img src={track.cover} alt="" className="w-full h-full object-cover" />
+                                        : <div className="w-full h-full flex items-center justify-center"><Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} /></div>}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                                      <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
+                                    </div>
+                                    <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
-                      {/* Hover tooltip — inside progressBarRef div for correct positioning */}
-                      {hoveredTime !== null && !isDragging && (
-                        <div
-                          className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded text-[9px] font-mono pointer-events-none whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
-                          style={{ left: `${Math.max(10, Math.min(90, hoveredPct))}%`, backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-thin)" }}
-                        >
-                          {formatDuration(hoveredTime)}
-                        </div>
-                      )}
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(progress)}</span>
-                      <span className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(duration)}</span>
-                    </div>
-                  </div>
-
-                  {/* ═══ MAIN CONTROLS ═══ */}
-                  <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "justify-center" : "justify-start"}`}>
-                    <button onClick={toggleShuffle} aria-label="Перемешать" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать (S)">
-                      <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                    </button>
-                    <button onClick={prevTrack} aria-label="Предыдущий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий (P)">
-                      <SkipBack className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                    </button>
-                    <motion.button
-                      onClick={togglePlay}
-                      whileTap={{ scale: 0.94 }}
-                      aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
-                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
-                      style={{ backgroundColor: "var(--mq-accent)" }}
-                      title="Play/Pause (Space)"
-                    >
-                      {isLoading ? <Loader2 className="w-7 h-7 sm:w-8 sm:h-8 animate-spin" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-                        : isPlaying ? <Pause className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-                        : <Play className="w-7 h-7 sm:w-8 sm:h-8" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)", transform: "translateX(1px)" }} />}
-                    </motion.button>
-                    <button onClick={nextTrack} aria-label="Следующий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий (N)">
-                      <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-                    </button>
-                    <button onClick={toggleRepeat} aria-label="Повтор" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Повтор (R)">
-                      {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-                        : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
-                    </button>
-                  </div>
-
-                  {/* ═══ VOLUME (desktop — single horizontal slider with icon) ═══ */}
-                  {!isMobile && (
-                    <div className="flex items-center gap-2 w-full max-w-xs">
-                      <VolumeSlider volume={volume} onChange={setVolume} showIcon={true} showValue={true} className="flex-1" />
-                    </div>
-                  )}
-
-                  {/* ═══ Keyboard shortcuts hint (desktop, top 3 only) ═══ */}
-                  {!isMobile && (
-                    <div className="mt-4 flex items-center gap-3 flex-wrap text-[11px] opacity-70" style={{ color: "var(--mq-text-muted)" }}>
-                      <span className="flex items-center gap-1">
-                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>Space</kbd>
-                        play/pause
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>←/→</kbd>
-                        seek
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <kbd className="px-1.5 py-0.5 rounded font-mono text-[10px]" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>Esc</kbd>
-                        close
-                      </span>
-                    </div>
-                  )}
-                </motion.div>
+                  </aside>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </motion.div>
       )}

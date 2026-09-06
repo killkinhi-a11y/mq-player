@@ -789,6 +789,17 @@ export function enableCompressor(): void {
   _compressorEnabled = true;
 }
 
+/** Real-time gain reduction of the element-path limiter (dB, >= 0).
+ *  DynamicsCompressorNode.reduction is a live read-only metric (number in
+ *  modern browsers; AudioParam in legacy engines). Returns 0 when the
+ *  limiter is bypassed. */
+export function getCompressorReduction(): number {
+  if (!_compressor) return 0;
+  const r = _compressor.reduction as unknown as number | { value?: number };
+  const v = typeof r === "number" ? r : (r?.value ?? 0);
+  return Math.abs(v);
+}
+
 /** Disable compressor — bypass it from the graph */
 export function disableCompressor(): void {
   if (!_audioCtx || !_analyser || !_compressor || !_compressorEnabled) return;

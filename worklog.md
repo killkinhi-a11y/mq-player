@@ -1831,3 +1831,79 @@ Work Log:
 
 Stage Summary:
 - Production healthy with the end-of-track hang fix live. QA pass complete: audio engine v2 runtime-verified (playback/seek/gapless/lifecycle/signal-health/network/benchmarks), long-title actions regression green at real viewports, visual audit done with the EQ response-curve improvement shipped, Wave quality verified across 4 taste profiles.
+
+---
+Task ID: qa-v3-audit
+Agent: main (Super Z)
+Task: Hard QA audit round 3 — BEFORE screenshots + real defect hunting (user rejected prior report)
+
+Work Log:
+- Environment: double-fork daemon supervisor (scripts/daemon-serve.py +
+  serve-qa.sh) keeps next start alive across tool calls (sandbox reaps
+  PPID chains; setsid alone was not enough). NOTE: `pkill -f "next start"`
+  does NOT match the running process — next renames itself to
+  `next-server`; kill by that name or PID.
+- Fresh production build mq-build-5bd175ef (v60) + real-browser BEFORE
+  screenshots in /home/z/my-project/download/screens/before-v2-audit/
+  (home/fullplayer/search/settings/theme/playlist/wave/eq/artist/
+  favorites/history/chats × 375/390/430/768/1280/1440 as applicable).
+- WASM V2 runtime proof: backend=wasm, tag ca010d, ABI 3, SIMD, real PCM
+  (rms .06–.22, peak .49), position realtime-accurate (WASM authoritative).
+- **REAL DEFECT #1 (audio, reproduced live, FIXED)**: wave queue track 2
+  end froze at 2:57/2:58 — engine STARVED forever, underruns +1400/s,
+  no 'ended', no auto-advance. Root cause: worker `boundaryMarked` never
+  reset after the first gapless rotation (only reset in resetForGen), so
+  every subsequent boundary in the same load generation was skipped
+  (pump gate `pendingBoundary && !boundaryMarked`), while the tick safety
+  net was blocked by `!pendingBoundary`. B sat ready with 264960 decoded
+  frames + open credit — flow diag proved it. FIX (2 layers) in
+  audio-engine/js/mq-decode-worker.js:
+  1) consume boundaryMarked after the first REAL continuation chunk is
+     sent (enables repeat rotations);
+  2) boundary watchdog: pending boundary that fails to rotate ≥2.5s after
+  drain → force-clear + finalizeTerminal (normal end → store advance).
+  Retagged a536d8-670948-ca010d (wasm unchanged). Verified live: wave
+  chained 3 tracks seamless (3:37→0:19) with zero hang; normal-advance
+  path also fires correctly when prefetch can't commit (slow network).
+- **REAL DEFECT #2 (wave cold start, NOT yet fixed)**: fresh user (no
+  likes/history/artists/genres) → /api/music/recommendations?wave=1
+  returns 0 candidates (all 3 phases need seeds) → Wave can never start.
+  Needs trending/genre fallback for new users.
+- Minor: window.__mqWasmAudio diagnostics handle goes stale after track
+  advance (duplicate module instance suspicion) — playback unaffected;
+  queued as low priority.
+
+Stage Summary:
+- BEFORE capture complete; audio hang root-caused & fixed & live-verified.
+- Next: VLM analysis of BEFORE screenshots → audit table → visual
+  redesign work on weak screens + Wave cold-start fallback.
+---
+Task ID: qa-v3-deploy
+Agent: main (Super Z)
+Task: Deploy qa-v3 visual/audio work to production (user request "а деплой")
+
+Work Log:
+- Confirmed deploy state: production ran 5bd175e (pre-qa-v3); ALL qa-v3 work
+  (8 confirmed items + engine tag ca010d) was uncommitted: 17 files, +1649/-843.
+- Gates before commit:
+  - tsc --noEmit: 0 errors.
+  - vitest: 329/329 green (16 files).
+  - production build: green (first attempt OOM-killed by sandbox cgroup —
+    killed stale dev-server 785MB + 2 next-telemetry ~540MB + workerd procs;
+    retried clean with 2048MB heap).
+  - eslint on changed files: 10 errors — ALL verified pre-existing at HEAD
+    (HistoryView text-[10px] x4 + Date.now x2, MobileDock badge text-[9px],
+    FullTrackView lyrics set-state-in-effect, PlaylistView setPos mount
+    positioning). ZERO new errors introduced by qa-v3.
+- Committed (excluding .wrangler local miniflare churn):
+  src/components/mq/* (FullTrackView 3-col desktop, FullTrackViewMobile,
+    EqualizerView v4, PlaylistView, SearchView, SettingsView theme picker,
+    MainView, MobileDock, HistoryView), globals.css, useAppStore, audioEngine,
+    recommendations route (wave fallback), decode-worker + new engine tag
+    a536d8-670948-ca010d (boundaryMarked gapless fix), QA scripts.
+- Pushed to origin/main -> Vercel git auto-deploy.
+- Production verification: version.json, / 307->/play 200, stream API,
+  engine tag served, mobile 390 visual spot-check.
+
+Stage Summary:
+- qa-v3 work LIVE on mq1.vercel.app. Gates green, no new lint debt.

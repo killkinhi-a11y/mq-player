@@ -341,15 +341,15 @@ function MainView() {
       {/* belongs to real content, not typography).                          */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <ScrollReveal direction="up" delay={0}>
-        <header className="mb-5 flex items-end justify-between gap-4">
+        <header className="mb-6 flex items-end justify-between gap-4">
           <div className="min-w-0">
-            <p className="mq-t-meta text-[11px] uppercase tracking-[0.14em] mb-1" style={{ color: "var(--mq-text-muted)" }}>
+            <p className="mq-t-meta text-[11px] uppercase tracking-[0.14em] mb-1.5" style={{ color: "var(--mq-text-muted)" }}>
               {currentDate()}
             </p>
             <h1 className="mq-t-title text-2xl sm:text-3xl lg:text-[2rem] truncate" style={{ color: "var(--mq-text)" }}>
               {greeting()}
             </h1>
-            <p className="mq-t-meta text-xs mt-1.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
+            <p className="mq-t-meta text-xs mt-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
               {listeningFriends.length > 0
                 ? `${listeningFriends.length} ${pluralRu(listeningFriends.length, "друг слушает", "друга слушают", "друзей слушают")} музыку сейчас`
                 : personalCategories.length > 0
@@ -986,7 +986,7 @@ function ContinueListeningCard({
   if (!track) {
     return (
       <div
-        className="rounded-2xl p-4 sm:p-5 flex items-center gap-4"
+        className="rounded-2xl p-4 sm:p-5 flex items-center gap-4 min-w-0"
         style={{ backgroundColor: "var(--mq-card)", border: "1px dashed var(--mq-border-thin)" }}
       >
         <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
@@ -1004,7 +1004,7 @@ function ContinueListeningCard({
 
   return (
     <div
-      className="rounded-2xl p-4 sm:p-5 flex items-center gap-4"
+      className="rounded-2xl p-4 sm:p-5 flex items-center gap-4 min-w-0"
       style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)" }}
     >
       <button
@@ -1071,7 +1071,7 @@ function ContinueListeningCard({
 // metadata the recommendation engine attached to the track (_reason /
 // _seedArtist). No synthesized explanations: unknown → empty (the caller
 // falls back to the generic "Волна · играет").
-function waveReasonText(track: Track): string {
+export function waveReasonText(track: Track): string {
   switch (track._reason) {
     case "related_current":
       return track._seedArtist ? `Похоже на ${track._seedArtist}` : "Волна · похожее";
@@ -1085,6 +1085,8 @@ function waveReasonText(track: Track): string {
       return "Твой артист";
     case "discovery":
       return "Открытие для тебя";
+    case "trending":
+      return "Популярно сейчас";
     default:
       return "";
   }
@@ -1128,6 +1130,7 @@ function MobileNowHero({
   if (!hero) {
     return (
       <div
+        data-mq-hero
         className="rounded-[var(--mq-r-card,24px)] p-6 mb-5"
         style={{ background: getWaveGradient(), border: "1px solid var(--mq-border-hairline)" }}
       >
@@ -1152,7 +1155,7 @@ function MobileNowHero({
   }
 
   return (
-    <section className="mb-4" aria-label={isNow ? "Сейчас играет" : "Рекомендация"}>
+    <section data-mq-hero className="mb-5" aria-label={isNow ? "Сейчас играет" : "Рекомендация"}>
       {/* ── Dominant artwork ── */}
       <button
         onClick={onOpenFull}
@@ -1188,7 +1191,7 @@ function MobileNowHero({
       </button>
 
       {/* ── Title block ── */}
-      <div className="mt-4 flex items-start justify-between gap-3">
+      <div className="mt-5 flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           {isNow ? (
             <div className="flex items-center gap-2 mb-1">
@@ -1217,7 +1220,7 @@ function MobileNowHero({
 
       {/* ── Real progress (now playing only) ── */}
       {isNow && (
-        <div className="mt-3.5">
+        <div className="mt-4">
           <div
             className="h-1.5 rounded-full overflow-hidden"
             style={{ backgroundColor: "var(--mq-border-thin)" }}
@@ -1236,7 +1239,7 @@ function MobileNowHero({
       )}
 
       {/* ── Transport: 48px skips + 64px primary ── */}
-      <div className="mt-4 flex items-center justify-center gap-7">
+      <div className="mt-5 flex items-center justify-center gap-7">
         <button
           onClick={onPrev}
           className="w-12 h-12 rounded-full flex items-center justify-center active:scale-95 transition-transform"
@@ -1435,7 +1438,7 @@ function HorizontalTrackRow({
         </p>
         <button
           onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="mq-t-meta text-xs truncate hover:underline"
+          className="mq-t-meta text-xs block max-w-full text-left truncate hover:underline"
           style={{ color: "var(--mq-text-muted)" }}
         >
           {track.artist}
@@ -1556,7 +1559,7 @@ function ChartRow({
         </p>
         <button
           onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="mq-t-meta text-xs truncate hover:underline"
+          className="mq-t-meta text-xs block max-w-full text-left truncate hover:underline"
           style={{ color: "var(--mq-text-muted)" }}
         >
           {track.artist}

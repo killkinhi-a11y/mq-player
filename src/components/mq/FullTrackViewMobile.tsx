@@ -304,6 +304,17 @@ function FullTrackViewMobileInner() {
           from { transform: translateY(100%); }
           to { transform: translateY(0); }
         }
+        @keyframes mqFtArtIn {
+          from { transform: translateY(14px) scale(0.965); opacity: 0; }
+          to { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes mqFtRise {
+          from { transform: translateY(10px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .mq-ft-anim { animation: none !important; }
+        }
         .mq-ft-btn {
           transition: transform 0.1s ease;
           -webkit-tap-highlight-color: transparent;
@@ -323,7 +334,7 @@ function FullTrackViewMobileInner() {
           touch-action: none;
         }
         .mq-ft-seek-input::-webkit-slider-runnable-track {
-          height: 5px;
+          height: 6px;
           border-radius: 3px;
           background: linear-gradient(to right,
             var(--mq-accent) 0%, var(--mq-accent) var(--mq-seek-pct, 0%),
@@ -332,13 +343,16 @@ function FullTrackViewMobileInner() {
         .mq-ft-seek-input::-webkit-slider-thumb {
           -webkit-appearance: none;
           appearance: none;
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          background: var(--mq-text);
-          margin-top: -5.5px;
+          /* MQ signature: SQUARE fader cap — same design language as the EQ
+             faders (pro audio), not the generic round dot */
+          width: 18px;
+          height: 18px;
+          border-radius: 5px;
+          background: var(--mq-card);
+          border: 2px solid var(--mq-accent);
+          margin-top: -6px;
           cursor: pointer;
-          box-shadow: 0 1px 6px rgba(0,0,0,0.35), 0 0 0 4px color-mix(in srgb, var(--mq-accent) 22%, transparent);
+          box-shadow: 0 1px 6px rgba(0,0,0,0.35), 0 0 0 4px color-mix(in srgb, var(--mq-accent) 20%, transparent);
         }
         .mq-ft-seek-input::-moz-range-track {
           height: 5px;
@@ -351,11 +365,11 @@ function FullTrackViewMobileInner() {
           background: var(--mq-accent);
         }
         .mq-ft-seek-input::-moz-range-thumb {
-          width: 16px;
-          height: 16px;
-          border-radius: 50%;
-          background: var(--mq-text);
-          border: none;
+          width: 14px;
+          height: 14px;
+          border-radius: 4px;
+          background: var(--mq-card);
+          border: 2px solid var(--mq-accent);
           cursor: pointer;
           box-shadow: 0 0 0 4px color-mix(in srgb, var(--mq-accent) 22%, transparent);
         }
@@ -404,20 +418,22 @@ function FullTrackViewMobileInner() {
         {/* ── Header: close · context · more ── */}
         <div className="flex items-center justify-between px-4" style={{ paddingTop: "max(10px, env(safe-area-inset-top))", paddingBottom: 6, flexShrink: 0 }}>
           <button onClick={() => setOpen(false)} aria-label="Закрыть" className="mq-ft-btn" style={iconBtn}><ChevronDown className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
-          <div className="text-center min-w-0 px-2">
+          <div className="flex-1 min-w-0 flex items-center justify-center gap-1.5">
+            {isPlaying && <span className="w-[5px] h-[5px] rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} aria-hidden="true" />}
             <p className="mq-t-meta text-[11px] font-semibold uppercase tracking-[0.18em] truncate" style={{ color: "var(--mq-text-muted)" }}>
               {contextLabel}{queueName ? ` · ${queueName}` : ""}
             </p>
+            <span className="flex-1 h-px max-w-14" style={{ backgroundColor: "var(--mq-border-thin)" }} aria-hidden="true" />
           </div>
           <button onClick={() => setShowMore(true)} aria-label="Ещё" className="mq-ft-btn" style={iconBtn}><MoreHorizontal className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
         </div>
 
         {/* ── Dominant artwork (fills the leftover space) ── */}
-        <div className="flex-1 flex items-center justify-center px-6 min-h-0" style={{ paddingTop: 6, paddingBottom: 10 }}>
+        <div className="flex-1 flex items-center justify-center px-4 min-h-0" style={{ paddingTop: 6, paddingBottom: 10 }}>
           <div
-            className="rounded-[28px] overflow-hidden"
+            className="mq-ft-anim relative rounded-[20px] overflow-hidden"
             style={{
-              width: "min(88vw, 58vh)",
+              width: "min(92vw, 58vh)",
               aspectRatio: "1 / 1",
               boxShadow: "var(--mq-art-shadow), var(--mq-art-edge)",
             }}
@@ -431,12 +447,15 @@ function FullTrackViewMobileInner() {
                 <Music className="w-16 h-16" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} />
               </div>
             )}
+            {isPlaying && (
+              <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: "inset 0 0 0 1.5px color-mix(in srgb, var(--mq-accent) 32%, transparent)" }} />
+            )}
           </div>
         </div>
 
         {/* ── Title (2-line clamp) + artist link ── */}
-        <div className="px-5" style={{ flexShrink: 0 }}>
-          <h1 className="mq-text-display text-[22px] leading-snug line-clamp-2" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
+        <div className="mq-ft-anim px-4" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 60ms backwards" }}>
+          <h1 className="mq-text-display text-[27px] leading-[1.12] tracking-[-0.01em] line-clamp-2" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
           <button onClick={handleArtist} className="mq-t-body text-[15px] mt-1 flex items-center gap-1 max-w-full text-left group" style={{ color: "var(--mq-text-muted)" }}>
             <span className="truncate">{currentTrack.artist}</span>
             <ChevronUp className="w-3.5 h-3.5 flex-shrink-0 rotate-90 opacity-60" />
@@ -444,7 +463,7 @@ function FullTrackViewMobileInner() {
         </div>
 
         {/* ── Action row: like · dislike · add-to-playlist ── */}
-        <div className="flex items-center gap-2.5 px-5 mt-3" style={{ flexShrink: 0 }}>
+        <div className="mq-ft-anim flex items-center gap-2.5 px-4 mt-3" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 110ms backwards" }}>
           <button
             onClick={handleLike}
             aria-label={isLiked ? "Убрать из избранного" : "Нравится"}
@@ -535,7 +554,12 @@ function FullTrackViewMobileInner() {
         )}
 
         {/* ── Seek (28px touch) + times ── */}
-        <div className="px-5 mt-3" style={{ flexShrink: 0 }}>
+        <div className="mq-ft-anim px-4 mt-4" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 150ms backwards" }}>
+          {/* Editorial flip: times ABOVE the bar — current in text color, larger */}
+          <div className="flex items-baseline justify-between">
+            <span ref={timeCurrentRef} className="text-[26px] font-mono tabular-nums font-bold leading-none tracking-tight" style={{ color: "var(--mq-text)" }}>0:00</span>
+            <span ref={timeRemainingRef} className="text-[13px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>−{formatDuration(duration)}</span>
+          </div>
           <input
             ref={seekInputRef}
             type="range"
@@ -550,18 +574,14 @@ function FullTrackViewMobileInner() {
             aria-label="Позиция воспроизведения"
             className="mq-ft-seek-input"
           />
-          <div className="flex items-center justify-between" style={{ marginTop: 2 }}>
-            <span ref={timeCurrentRef} className="text-xs font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>0:00</span>
-            <span ref={timeRemainingRef} className="text-xs font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>−{formatDuration(duration)}</span>
-          </div>
         </div>
 
         {/* ── Transport: shuffle 44 · prev 56 · PLAY 76 · next 56 · repeat 44 ── */}
-        <div className="flex items-center justify-between px-5 mt-2" style={{ flexShrink: 0 }}>
-          <button onClick={toggleShuffle} aria-label="Перемешать" aria-pressed={shuffle} className="mq-ft-btn" style={iconBtn}>
+        <div className="mq-ft-anim flex items-center justify-between px-4 mt-2" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 190ms backwards" }}>
+          <button onClick={toggleShuffle} aria-label="Перемешать" aria-pressed={shuffle} className="mq-ft-btn" style={{ ...iconBtn, borderRadius: 14, backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : iconBtn.backgroundColor, boxShadow: shuffle ? "inset 0 0 0 1.5px color-mix(in srgb, var(--mq-accent) 40%, transparent)" : "none" }}>
             <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
           </button>
-          <button onClick={prevTrack} aria-label="Предыдущий трек" className="mq-ft-btn" style={{ ...iconBtn, width: 56, height: 56 }}>
+          <button onClick={prevTrack} aria-label="Предыдущий трек" className="mq-ft-btn" style={{ ...iconBtn, width: 56, height: 56, borderRadius: 18 }}>
             <SkipBack className="w-8 h-8" style={{ color: "var(--mq-text)" }} fill="currentColor" />
           </button>
           <button
@@ -583,18 +603,18 @@ function FullTrackViewMobileInner() {
               <Play className="w-8 h-8 ml-1" fill="currentColor" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
             )}
           </button>
-          <button onClick={nextTrack} aria-label="Следующий трек" className="mq-ft-btn" style={{ ...iconBtn, width: 56, height: 56 }}>
+          <button onClick={nextTrack} aria-label="Следующий трек" className="mq-ft-btn" style={{ ...iconBtn, width: 56, height: 56, borderRadius: 18 }}>
             <SkipForward className="w-8 h-8" style={{ color: "var(--mq-text)" }} fill="currentColor" />
           </button>
-          <button onClick={toggleRepeat} aria-label="Повтор" aria-pressed={repeat !== "off"} className="mq-ft-btn" style={iconBtn}>
+          <button onClick={toggleRepeat} aria-label="Повтор" aria-pressed={repeat !== "off"} className="mq-ft-btn" style={{ ...iconBtn, borderRadius: 14, backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : iconBtn.backgroundColor, boxShadow: repeat !== "off" ? "inset 0 0 0 1.5px color-mix(in srgb, var(--mq-accent) 40%, transparent)" : "none" }}>
             {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} /> : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
           </button>
         </div>
 
         {/* ── Chips: lyrics · queue · history (48px targets) ── */}
         <div
-          className="flex items-center justify-center gap-2 px-5"
-          style={{ flexShrink: 0, paddingTop: 12, paddingBottom: "max(14px, env(safe-area-inset-bottom))" }}
+          className="mq-ft-anim flex items-center justify-center gap-2 px-5"
+          style={{ flexShrink: 0, paddingTop: 12, paddingBottom: "max(14px, env(safe-area-inset-bottom))", animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 230ms backwards" }}
         >
           {([
             { id: "lyrics", icon: Mic2, label: "Текст", on: panel === "lyrics" },
@@ -605,7 +625,7 @@ function FullTrackViewMobileInner() {
               key={id}
               onClick={() => setPanel(p => (p === id ? null : (id as typeof panel)))}
               aria-pressed={on}
-              className="mq-ft-btn flex items-center gap-2 px-4 h-12 rounded-full"
+              className="mq-ft-btn flex items-center gap-2 px-4 h-12 rounded-[14px]"
               style={{
                 backgroundColor: on ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)" : "var(--mq-glass-bg)",
                 border: `1px solid ${on ? "color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "var(--mq-border-hairline, transparent)"}`,

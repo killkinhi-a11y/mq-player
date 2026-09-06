@@ -456,7 +456,7 @@ export default function PlaylistView() {
     const isPlPlaying = currentTrack && pl.tracks.some(t => t.id === currentTrack.id) && storeIsPlaying;
 
     return (
-      <div className={`${compactMode ? "p-3 lg:p-4" : "p-4 lg:p-6"} max-w-[var(--mq-container-narrow)] mx-auto pb-32 lg:pb-28`}>
+      <div className={`${compactMode ? "p-3 lg:p-4" : "p-4 lg:p-6"} max-w-[var(--mq-container-base)] lg:max-w-[var(--mq-container-wide)] mx-auto pb-32 lg:pb-28`}>
         {/* Back */}
         <motion.button
           initial={{ opacity: 0, x: -8 }}
@@ -541,11 +541,38 @@ export default function PlaylistView() {
                   Плейлист
                 </span>
               </div>
-              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-2 break-words">
-                {pl.name}
-              </h1>
+              {editingId === pl.id ? (
+                <div className="flex items-center gap-2 mb-2" onClick={(e) => e.stopPropagation()}>
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="flex-1 min-w-0 text-2xl sm:text-3xl font-extrabold tracking-tight rounded-xl px-3 py-1.5 outline-none"
+                    style={{ backgroundColor: "rgba(0,0,0,0.35)", border: "1px solid var(--mq-accent)", color: "#fff" }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleConfirmRename();
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    autoFocus
+                    maxLength={300}
+                    aria-label="Новое название плейлиста"
+                  />
+                  <button onClick={handleConfirmRename} className="p-2 rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} aria-label="Сохранить название">
+                    <Check className="w-4 h-4 text-white" />
+                  </button>
+                  <button onClick={() => setEditingId(null)} className="p-2 rounded-full flex-shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.15)" }} aria-label="Отменить переименование">
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                </div>
+              ) : (
+                <h1
+                  className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-2 break-words line-clamp-3"
+                  title={pl.name}
+                >
+                  {pl.name}
+                </h1>
+              )}
               {pl.description && (
-                <p className="text-sm mb-3" style={{ color: "rgba(255,255,255,0.6)" }}>
+                <p className="text-sm mb-3 break-words line-clamp-2" style={{ color: "rgba(255,255,255,0.6)" }} title={pl.description}>
                   {pl.description}
                 </p>
               )}
@@ -564,13 +591,30 @@ export default function PlaylistView() {
             </div>
           </div>
 
+          {/* Playlist menu — pinned to the card's top-right corner (Spotify pattern) */}
+          <div
+            className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setMenuOpenId(menuOpenId === pl.id ? null : pl.id)}
+              className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
+              style={{ backgroundColor: "rgba(0,0,0,0.35)", color: "#fff", backdropFilter: "blur(8px)" }}
+              aria-label="Меню плейлиста"
+              aria-haspopup="menu"
+              aria-expanded={menuOpenId === pl.id}
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+          </div>
+
           {/* Action bar */}
-          <div className="relative px-5 sm:px-7 pb-5 sm:pb-7 flex items-center gap-3">
+          <div className="relative px-5 sm:px-7 pb-5 sm:pb-7 flex flex-wrap items-center gap-3">
             <motion.button
               whileTap={{ scale: 0.95 }}
               whileHover={{ scale: 1.04 }}
               onClick={() => isPlPlaying ? togglePlay() : handlePlayAll(pl)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-sm shadow-lg"
+              className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full font-semibold text-sm shadow-lg"
               style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
             >
               <Play className="w-4 h-4" fill="currentColor" />
@@ -581,7 +625,7 @@ export default function PlaylistView() {
               whileHover={{ scale: 1.04 }}
               onClick={() => handleShufflePlay(pl)}
               disabled={pl.tracks.length === 0}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium"
+              className="flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-full text-sm font-medium"
               style={{
                 backgroundColor: "rgba(255,255,255,0.1)",
                 color: "#fff",
@@ -593,11 +637,30 @@ export default function PlaylistView() {
               Перемешать
             </motion.button>
           </div>
+
+          {/* Portal context menu for playlist controls */}
+          <AnimatePresence>
+            {menuOpenId === pl.id && (
+              <PlaylistContextMenu
+                playlist={pl}
+                pinned={pinnedIds.has(pl.id)}
+                onClose={() => setMenuOpenId(null)}
+                onTogglePin={() => handleTogglePin(pl.id)}
+                onRenameStart={() => handleStartRename(pl)}
+                onCoverUpload={() => coverInputRef.current?.click()}
+                onShare={() => {
+                  navigator.clipboard?.writeText(`${window.location.origin}/play?pl=${pl.id}`).catch(() => {});
+                  toast({ title: "Ссылка скопирована", description: "Ссылка на плейлист в буфере обмена" });
+                }}
+                onDelete={() => handleDelete(pl)}
+              />
+            )}
+          </AnimatePresence>
         </motion.div>
 
-        {/* Track list */}
+        {/* Track list — inset to align with the header card's inner content edge */}
         {pl.tracks.length > 0 ? (
-          <div className="space-y-1">
+          <div className="space-y-1 px-5 sm:px-7">
             <AnimatePresence>
               {pl.tracks.map((track, idx) => {
                 const isCurrent = currentTrack?.id === track.id;
@@ -1018,7 +1081,7 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, onPlay, onLike,
         </p>
         <button
           onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="text-xs truncate hover:underline"
+          className="text-xs block max-w-full text-left truncate hover:underline"
           style={{ color: "var(--mq-text-muted)" }}
         >
           {track.artist}

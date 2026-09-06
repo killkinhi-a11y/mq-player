@@ -166,6 +166,51 @@ function interleaveByArtist<T extends { artist: string }>(tracks: T[], maxPerArt
   return result;
 }
 
+// ── Cold start: diverse global discovery pool (Wave for new users) ──
+// A brand-new user has no likes/history/genres/artists → phases 1-3 have
+// no seeds → 0 candidates → Wave could never start. These queries seed a
+// DIVERSE, quality-filtered global set (real SoundCloud search results,
+// artist-interleaved). Tracks are scored BELOW every personalized tier,
+// so they only surface when personalized supply is empty.
+const COLD_START_SEED_QUERIES = [
+  "popular pop hits", "hip hop hits", "electronic house mix",
+  "indie rock", "r&b soul", "chill lofi", "jazz", "ambient",
+  "drum and bass", "trap beat",
+];
+
+async function fetchColdStartPool(requested: number): Promise<SCTrack[]> {
+  // Rotate the pool so different new users / sessions see different genres
+  const shuffled = [...COLD_START_SEED_QUERIES];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const queries = shuffled.slice(0, Math.max(3, Math.min(5, requested)));
+  const results = await Promise.allSettled(queries.map(q => searchSCTracks(q, 12)));
+  const seen = new Set<number>();
+  // Cold-start diversity guard: max 2 tracks per artist in the pool itself,
+  // so one channel-heavy query (e.g. a label account dominating "drum and
+  // bass") can't flood the new-user Wave queue. interleaveByArtist's
+  // ultimate fallback would otherwise pass the excess through.
+  const artistCount = new Map<string, number>();
+  const pool: SCTrack[] = [];
+  for (const r of results) {
+    if (r.status !== "fulfilled") continue;
+    for (const track of r.value) {
+      if (seen.has(track.scTrackId)) continue;
+      if (track.duration && (track.duration < 60 || track.duration > 600)) continue;
+      const a = (track.artist || "").toLowerCase().trim();
+      if (a) {
+        if ((artistCount.get(a) || 0) >= 2) continue;
+        artistCount.set(a, (artistCount.get(a) || 0) + 1);
+      }
+      seen.add(track.scTrackId);
+      pool.push(track);
+    }
+  }
+  return pool;
+}
+
 // ═════════════════════════════════════════════════════════════════════════
 // MAIN HANDLER
 // ═════════════════════════════════════════════════════════════════════════
@@ -266,14 +311,36 @@ async function handler(request: NextRequest) {
       }
     }
 
+    // ── Phase 4: COLD-START FALLBACK (Wave for new users) ──
+    // Fires when personalized supply is (near-)empty: pure cold start
+    // (no seeds at all) or every phase failed to yield candidates.
+    // Honest reason "trending", score below all personalized tiers.
+    const isColdStart = seedIds.length === 0 && artists.length === 0 && genres.length === 0;
+    const coldStartIds = new Set<number>();
+    if (trackMap.size < 10) {
+      const requestedCount = Number(searchParams.get("count") || "") || 15;
+      const coldPool = await fetchColdStartPool(requestedCount);
+      for (const track of coldPool) {
+        if (sourceScIds.has(track.scTrackId)) continue;
+        if (isLowQuality(track)) continue;
+        if (excludeIds.has(track.id) || dislikedIds.has(track.id)) continue;
+        if (!trackMap.has(track.scTrackId)) {
+          trackMap.set(track.scTrackId, { track, fromLiked: false, fromHistory: false });
+          coldStartIds.add(track.scTrackId);
+        }
+      }
+    }
+
     // ── Build scored + sorted track list ──
     // Spotify-style scoring: related-to-liked > related-to-history > artist search > genre
     // Plus: playable bonus, cover bonus, promo penalty
-    const scoredTracks: { track: SCTrack; score: number; fromLiked: boolean; fromHistory: boolean }[] = [];
+    const scoredTracks: { track: SCTrack; score: number; fromLiked: boolean; fromHistory: boolean; isTrending: boolean }[] = [];
     for (const { track, fromLiked, fromHistory } of trackMap.values()) {
       let score = 0;
+      const isTrending = coldStartIds.has(track.scTrackId);
       if (fromLiked) score += 100; // highest priority
       else if (fromHistory) score += 60;
+      else if (isTrending) score += 15; // cold-start fill — below discovery
       else score += 20; // artist/genre search
 
       if (track.scIsFull) score += 15; // prefer full tracks
@@ -287,7 +354,7 @@ async function handler(request: NextRequest) {
       // Jitter for variety (±10)
       score += Math.floor(Math.random() * 20) - 10;
 
-      scoredTracks.push({ track, score, fromLiked, fromHistory });
+      scoredTracks.push({ track, score, fromLiked, fromHistory, isTrending });
     }
 
     // Sort by score descending
@@ -357,8 +424,8 @@ async function handler(request: NextRequest) {
     //    related_to_liked / related_to_history / discovery.
     const flatTracks = interleaveByArtist(
       deduped.map(d => ({ ...d, artist: d.track.artist })), 2
-    ).slice(0, 50).map(({ track, fromLiked, fromHistory }) =>
-      mapTrack(track, fromLiked ? "related_to_liked" : fromHistory ? "related_to_history" : "discovery")
+    ).slice(0, 50).map(({ track, fromLiked, fromHistory, isTrending }) =>
+      mapTrack(track, fromLiked ? "related_to_liked" : fromHistory ? "related_to_history" : isTrending ? "trending" : "discovery")
     );
 
     // ── Build categories ──
@@ -400,6 +467,8 @@ async function handler(request: NextRequest) {
         afterDedup: deduped.length,
         forYouCount: forYouInterleaved.length,
         discoveryCount: discoveryInterleaved.length,
+        coldStart: coldStartIds.size > 0,
+        isColdStart,
       },
     };
 

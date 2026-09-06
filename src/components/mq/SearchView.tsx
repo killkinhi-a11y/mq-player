@@ -205,6 +205,10 @@ export default function SearchView() {
       abortRef.current = controller;
       setIsLoading(true);
       setHasSearched(true);
+      // Results for THIS query are about to render — the suggestions
+      // dropdown (query echo + Enter hint) is redundant noise above them.
+      // Typing again re-opens it (onChange resets hasSearched).
+      setShowSuggestions(false);
 
       try {
         const params = new URLSearchParams({ q: searchQuery.trim() });
@@ -559,7 +563,7 @@ export default function SearchView() {
           !hasSearched — но после 300ms debounce hasSearched становилось
           true и suggestions пропадали (мигание). */}
       <AnimatePresence>
-        {searchQuery.trim() && showSuggestions && (
+        {searchQuery.trim() && showSuggestions && !hasSearched && (
           <motion.div
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1094,7 +1098,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
           <div className="flex items-center gap-1.5 mt-0.5">
             <button
               onClick={(e) => { e.stopPropagation(); onArtistClick?.(track.artist, track.cover); }}
-              className="text-xs truncate hover:underline"
+              className="text-xs block max-w-full text-left truncate hover:underline"
               style={{ color: "var(--mq-text-muted)" }}
             >
               {track.artist}
@@ -1110,7 +1114,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
             {track.genre && (
               <>
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
-                <span className="text-[10px] px-1.5 py-0 rounded-md min-w-0 max-w-[140px] truncate" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
+                <span className="text-[11px] px-1.5 py-0 rounded-md min-w-0 max-w-[140px] truncate" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
                   {track.genre}
                 </span>
               </>
@@ -1214,7 +1218,7 @@ function SearchSuggestions({
       {/* History matches */}
       {historyMatches.length > 0 && (
         <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-          <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
             Недавно искали
           </p>
           {historyMatches.map((term) => (
@@ -1233,7 +1237,7 @@ function SearchSuggestions({
       {/* Trending matches */}
       {trendingMatches.length > 0 && (
         <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-          <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
             Популярное
           </p>
           {trendingMatches.map((term) => (
@@ -1252,7 +1256,7 @@ function SearchSuggestions({
       {/* Artist matches */}
       {artistMatches.length > 0 && (
         <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-          <p className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
             Артисты
           </p>
           {artistMatches.map((artist) => (

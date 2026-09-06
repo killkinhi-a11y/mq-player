@@ -679,7 +679,7 @@ export default function HistoryView() {
                             {/* More button (3-dot) — opens context menu */}
                             <button
                               onClick={(e) => handleMoreClick(track, e)}
-                              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
                               style={{ color: "var(--mq-text-muted)" }}
                               title="Меню"
                             >

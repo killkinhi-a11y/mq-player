@@ -366,9 +366,9 @@ function pump() {
       poppedFrames += frames;
       chunksSent++;
       framesSent += frames;
-      // FIX (gapless chain hang, 2nd-rotation freeze): boundaryMarked gates
+      // FIX (gapless chain hang, 2nd-rotation freeze): `boundaryMarked` gates
       // BOTH the leading trim (first chunk of a continuation) AND the next
-      // rotation attempt (pump: pendingBoundary && !boundaryMarked). It was
+      // rotation attempt (pump: `pendingBoundary && !boundaryMarked`). It was
       // never cleared after the first continuation chunk, so after ONE
       // successful gapless rotation every subsequent boundary within the same
       // load generation was silently skipped: A drains, B sits ready with
@@ -809,8 +809,8 @@ function tick() {
     // SAFETY NET 2 (boundary watchdog): a PENDING boundary that fails to
     // rotate within a bounded window after A drained (any stuck path —
     // marker desync, B decode stall, closed credit plane) must fall back to
-    // a normal track end. Without this, pendingBoundary=true also blocks
-    // the terminal check above (!pendingBoundary guard), so silence could
+    // a normal track end. Without this, `pendingBoundary=true` also blocks
+    // the terminal check above (`!pendingBoundary` guard), so silence could
     // hang playback indefinitely with the engine spinning in STARVED.
     if (activeEof && pendingBoundary && !terminalSent && dec0 !== null &&
         ex.mq_dec_queued(dec0) <= 0 && !tailHold) {

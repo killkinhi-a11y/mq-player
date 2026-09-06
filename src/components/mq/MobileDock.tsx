@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useCallback, useEffect, memo } from "react";
+import React, { useRef, useCallback, useEffect, useState, memo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { getAudioElement } from "@/lib/audioEngine";
 import { Play, Pause, Heart, Music, Loader2, Home, Search, Library, MessageCircle, Settings } from "lucide-react";
@@ -41,7 +41,34 @@ function MobileDockInner() {
   // Refs for progress
   const progressFillRef = useRef<HTMLDivElement>(null);
 
-  const showPlayer = currentTrack && !miniPlayerHidden && !isFullTrackViewOpen;
+  // ── Hero/mini-player de-duplication ──────────────────────────────
+  // On the Home screen the MobileNowHero already owns the now-playing
+  // surface (artwork + title + transport). While the hero is visibly in
+  // the viewport, the dock's mini player hides — the SAME track must not
+  // appear twice. Scroll past the hero → the mini player slides back in.
+  const [heroOwnsPlayer, setHeroOwnsPlayer] = useState(false);
+  useEffect(() => {
+    let raf = 0;
+    const update = () => {
+      raf = 0;
+      if (currentView !== "main") { setHeroOwnsPlayer(false); return; }
+      const hero = document.querySelector("[data-mq-hero]");
+      if (!hero) { setHeroOwnsPlayer(false); return; }
+      // Hero substantially visible (≥160px of it on screen) → it owns.
+      setHeroOwnsPlayer(hero.getBoundingClientRect().bottom > 160);
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update); };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [currentView, currentTrack?.id, isPlaying]);
+
+  const showPlayer = !!currentTrack && !miniPlayerHidden && !isFullTrackViewOpen && !heroOwnsPlayer;
 
   // RAF: update progress fill width (simple, reliable)
   useEffect(() => {
@@ -104,15 +131,23 @@ function MobileDockInner() {
         borderTop: "1px solid var(--mq-border-hairline)",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}>
-        {/* Progress line (visual only — tap cover to open full player for seek) */}
+        {/* Mini player — smooth collapse (max-height) when the Home hero
+            owns the now-playing surface, so the nav row slides, not jumps */}
+        <div
+          style={{
+            maxHeight: showPlayer ? 54 : 0,
+            opacity: showPlayer ? 1 : 0,
+            overflow: "hidden",
+            transition: "max-height 240ms cubic-bezier(0.4,0,0.2,1), opacity 200ms cubic-bezier(0.4,0,0.2,1)",
+          }}
+          aria-hidden={!showPlayer}
+        >
         {showPlayer && (
           <div className="mq-dock-progress-track">
             <div ref={progressFillRef} className="mq-dock-progress-fill" />
           </div>
         )}
-
-        {/* Mini player */}
-        {showPlayer && (
+        {currentTrack && (
           <div className="flex items-center gap-2 px-3" style={{ height: "52px" }}>
             <button onClick={openFull} className="mq-mini flex items-center gap-2.5 flex-1 min-w-0" style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0 }}>
               <div className="rounded-md overflow-hidden flex-shrink-0" style={{ width: "38px", height: "38px" }}>
@@ -135,6 +170,7 @@ function MobileDockInner() {
             </button>
           </div>
         )}
+        </div>
 
         {/* Navigation */}
         <div className="flex items-stretch justify-around" style={{ height: "var(--mq-nav-height-mobile, 50px)" }}>

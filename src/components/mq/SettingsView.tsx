@@ -549,17 +549,44 @@ export default function SettingsView() {
                         key={key}
                         whileTap={{ scale: 0.96 }}
                         onClick={() => setTheme(key)}
-                        className="relative p-2 rounded-xl flex flex-col items-center gap-1.5"
+                        aria-pressed={isActive}
+                        title={theme.name || key}
+                        className="group relative p-2 rounded-xl flex flex-col items-center gap-1.5 transition-colors duration-200"
                         style={{
                           backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "var(--mq-overlay-hover)",
                           border: isActive ? "1px solid var(--mq-border-accent)" : "1px solid var(--mq-border-hairline)",
+                          boxShadow: isActive ? "0 0 0 3px color-mix(in srgb, var(--mq-accent) 18%, transparent)" : "none",
                         }}
                       >
+                        {/* Mini UI preview — the theme's own colors: background,
+                            card block, accent bar + dot. Communicates the actual
+                            look, not just a gradient ball. */}
                         <div
-                          className="w-10 h-10 rounded-full shrink-0"
-                          style={{ background: `linear-gradient(135deg, ${theme.accent || "#e03131"}, ${theme.background || "#0e0e0e"})` }}
-                        />
-                        <span className="text-[11px] font-medium truncate w-full text-center" style={{ color: "var(--mq-text-muted)" }}>{theme.name || key}</span>
+                          className="w-full rounded-lg overflow-hidden relative shrink-0"
+                          style={{ backgroundColor: theme.background || "#0e0e0e", height: 44, border: "1px solid color-mix(in srgb, " + String(theme.text || "#fff") + " 8%, transparent)" }}
+                        >
+                          <div
+                            className="absolute left-1.5 top-2 bottom-2 rounded-[3px]"
+                            style={{ width: 14, backgroundColor: theme.card || "#1a1a1a" }}
+                          />
+                          <div
+                            className="absolute left-1.5 bottom-2 h-[3px] rounded-full"
+                            style={{ width: 14, backgroundColor: theme.accent || "#e03131" }}
+                          />
+                          <div
+                            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full"
+                            style={{ width: 6, height: 6, backgroundColor: theme.accent || "#e03131" }}
+                          />
+                          <div
+                            className="absolute left-[22px] top-2.5 h-[3px] rounded-full"
+                            style={{ width: 16, backgroundColor: "color-mix(in srgb, " + String(theme.text || "#fff") + " 55%, transparent)" }}
+                          />
+                          <div
+                            className="absolute left-[22px] top-[18px] h-[2px] rounded-full"
+                            style={{ width: 10, backgroundColor: "color-mix(in srgb, " + String(theme.text || "#fff") + " 30%, transparent)" }}
+                          />
+                        </div>
+                        <span className="text-[11px] font-medium truncate w-full text-center" style={{ color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)" }}>{theme.name || key}</span>
                         {isActive && <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}><Check className="w-2.5 h-2.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} /></div>}
                       </motion.button>
                     );

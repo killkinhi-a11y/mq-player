@@ -1004,6 +1004,17 @@ export const useAppStore = create<AppState>()(
       setAuthStep: (step) => set({ authStep: step }),
 
       setTheme: (theme) => {
+        // Smooth color crossfade (no white flash): briefly enable global
+        // color transitions while the token values swap. Class + rule live
+        // in globals.css (html.mq-theme-anim). Reduced-motion users get an
+        // instant swap (their global 0.01ms rule wins anyway).
+        try {
+          if (typeof document !== "undefined") {
+            const root = document.documentElement;
+            root.classList.add("mq-theme-anim");
+            window.setTimeout(() => root.classList.remove("mq-theme-anim"), 480);
+          }
+        } catch {}
         set({ currentTheme: theme });
         // Save theme to account if logged in
         const { userId } = get();
