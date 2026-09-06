@@ -1907,3 +1907,21 @@ Work Log:
 
 Stage Summary:
 - qa-v3 work LIVE on mq1.vercel.app. Gates green, no new lint debt.
+
+Verification results (mq1.vercel.app @ 407f5f8 / version 61):
+- Deploy: push 5bd175e..407f5f8 -> Vercel auto-deploy LIVE in ~105s.
+- HTTP: / 307 -> /play 200; engine version.json tag=a536d8-670948-ca010d;
+  new worker 200 (40164B, byte-identical); old tag be9d28 still served (compat).
+- Browser (prod, 1440x900): demo mode OK; track plays (Тимати); Full Player
+  opens via dock -> 3-COLUMN LAYOUT CONFIRMED by DOM measurement:
+  artwork 420px / center 504px / queue 340px in max-w-[1408px] container.
+- Engine runtime: active=true, tag=ca010d running, AudioContext running,
+  framesProcessed advancing at ~sample-rate (29587->30987 quanta/4s),
+  underruns STABLE (216->216, zero new), buffer 28288 steady, state=2.
+- Mobile 390x844: Full Player reflows to mobile component (mq-ft-anim),
+  scrollWidth=390=clientWidth (no horizontal overflow).
+- Screenshots: download/screens/prod-desktop-home-407f5f8.png,
+  prod-desktop-fullplayer-407f5f8.png, prod-mobile-fullplayer-390-407f5f8.png.
+- NOTE (deploy hygiene): local first build attempt OOM-killed by sandbox
+  cgroup after stray processes (dev-server 785MB + telemetry) — killed them,
+  rebuilt clean. Production build on Vercel: unaffected.
