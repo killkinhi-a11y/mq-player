@@ -202,3 +202,5 @@ android/
   отключали автовосстановление).
 - Deep links `mq://` + network security config (debug-only cleartext
   для 10.0.2.2, release — строгий HTTPS).
+- Theme picker стал компактным: по умолчанию свёрнут (мини-превью текущей
+  темы + шеврон), нажатие плавно разворачивает сетку (animateContentSize).

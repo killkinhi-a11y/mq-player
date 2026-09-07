@@ -2058,3 +2058,44 @@ Stage Summary:
   6/6 tests, deep links + netSec + ownership-aware destructive actions.
 - Next: commit → push → GitHub release android-v1.0.1 (APK asset) →
   verify GitHub + release download → web regression chain → final report.
+
+---
+Task ID: p20-android-v1.0.1-final
+Agent: main (Super Z)
+Task: v1.0.1 delivery — release, GitHub, web chain, final verification.
+
+Work Log:
+- Collapsible theme picker (§8 of the usable-state checklist): collapsed
+  = compact row with 56x36 mini preview + name + chevron; tap expands the
+  7-theme grid with animateContentSize(tween 200ms). No white flash (dark
+  splash + window bg unchanged).
+- Rebuilt: BUILD SUCCESSFUL (debug+release), 6/6 tests green.
+- Release APK v1.0.1 (final): 3,602,948 bytes, sha256
+  2c12aeb2c884da66bd2fcd3515a613c590656e31b9d2022ef95255532ca1e385,
+  apksigner v2 verified, badging com.mq1.player versionCode 2 / 1.0.1,
+  minSdk 26 / targetSdk 35, launchable MainActivity, mq:// deep link +
+  networkSecurityConfig present in the binary manifest.
+- GitHub Release android-v1.0.1: first asset replaced with the final APK
+  (old asset deleted 204, new upload 201); download re-verified HTTP 200,
+  byte-identical sha256, signature verified.
+- GitHub /android at HEAD: 61 files; raw spot-checks (README, gradlew,
+  settings.gradle.kts, build.gradle.kts, MainActivity.kt, both
+  network_security_config.xml) all HTTP 200.
+- Web chain (P21/P17): push c846e7d → Vercel auto-deploy LIVE
+  (version.json commit=c846e7d, polled e89bdad→c846e7d). Production
+  smoke: / 307→/play 200; demo mode OK; Wave playback engine
+  tag=a536d8-670948-ca010d active, frames advancing, underruns stable
+  (152→152), buffer healthy; search "daft punk" → 79 rows, "Get Lucky -
+  Daft Punk" first; zero page errors. Wave API cold-start: 24 tracks,
+  honest reason=trending (no 0-recommendations). playlists API 401
+  without auth — correct (user-scoped).
+- Honest RUNTIME split (§13): no physical device and no KVM emulator in
+  this sandbox → install/launch/background/lock-screen/notification
+  device QA NOT VERIFIED. BUILD VERIFIED: full toolchain, tests,
+  signature, badging, manifest, deep links, netSec.
+
+Stage Summary:
+- ANDROID: v1.0.1 built, tested, signed, released, verified on GitHub.
+- WEB: production healthy at c846e7d, smoke green, no regression
+  (web src untouched — android/ + docs only).
+- Final report follows in conversation per the required format.
