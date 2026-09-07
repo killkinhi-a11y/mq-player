@@ -2099,3 +2099,61 @@ Stage Summary:
 - WEB: production healthy at c846e7d, smoke green, no regression
   (web src untouched — android/ + docs only).
 - Final report follows in conversation per the required format.
+
+---
+Task ID: p19-final-verification
+Agent: main (Super Z)
+Task: P19 mandatory deploy-completion pass — independently verify the
+whole chain (GitHub releases, Android artifacts, web production), close
+the loop with commit → push → Vercel → production verification.
+
+Work Log:
+- Resynced stale local tree (old Capacitor-era android/ + uncommitted
+  qa-v3 leftovers, all already upstream in 407f5f8) to origin/main
+  c9cd0a1 via stash+reset; backup patch kept at
+  scripts/backup-stale-qav3.patch. Tree clean at c9cd0a1.
+- §1 GitHub Releases (independent re-verification, fresh downloads):
+  * android-v1.0.0: HTTP 200, 3,586,004 B, sha256
+    f967d21cb74a27cce89b807169fd7eedeca6940dfd7e3996e8925c5ba8a49baa
+  * android-v1.0.1: HTTP 200, 3,602,948 B, sha256
+    2c12aeb2c884da66bd2fcd3515a613c590656e31b9d2022ef95255532ca1e385
+  * aapt2 badging: com.mq1.player, versionCode 1/2, 1.0.0/1.0.1,
+    minSdk 26 / targetSdk 35 / compile 35, launchable MainActivity,
+    native-code 4 ABIs, adaptive icon, label 'MQ'.
+  * apksigner: both VERIFY (v2 scheme true, 1 signer). Certs:
+    1.0.0 af8231c5… / 1.0.1 40c49dc8… (documented keystore rotation,
+    upgrade requires reinstall).
+  * Permissions minimal: INTERNET, POST_NOTIFICATIONS,
+    FOREGROUND_SERVICE(+MEDIA_PLAYBACK), WAKE_LOCK, ACCESS_NETWORK_STATE.
+    Release netSec = strict (cleartextTrafficPermitted=false); NO
+    debuggable flag; ProfileInstallReceiver is stock androidx
+    (DUMP-guarded); mq:// deep link; foregroundServiceType=mediaPlayback.
+  * Verified with freshly downloaded build-tools r34 (toolchain had been
+    wiped by sandbox reset).
+- §15 repo integrity: /android at HEAD = native project (61 files,
+  37 Kotlin sources, wrapper, README); raw.githubusercontent spot-checks
+  at HEAD SHA all 200; 13 screens + long-title Robolectric tests +
+  recovery-reset logic confirmed in source.
+- Web chain at c9cd0a1: tsc clean; vitest 329/329 (16 files); eslint
+  55 errors / 496 warnings — ALL pre-existing at HEAD (new
+  react-hooks setState-in-effect rule + custom 11px floor), web src
+  untouched this session; next build exit 0.
+- Production browser QA (mq1.vercel.app @ c9cd0a1, v61):
+  307→/play 200; demo login OK; Home; playback via WASM engine
+  (tag a536d8-670948-ca010d, active, frames advancing, underruns stable
+  during steady playback); Search "daft punk" 79 rows Get Lucky first;
+  Wave view + honest reason chips + queue auto-extended to 14 tracks
+  (Похоже/Из истории reasons); theme switch Abyss↔Obsidian crossfade,
+  no white flash; Full Player (dialog, transport, secondary actions,
+  queue/lyrics/history tabs); mobile 390 no horizontal overflow,
+  compact Settings tabs; zero page errors, console only healthy
+  resolveStream diagnostics. Screenshots in download/screens/.
+- Honest §13 split: no physical device / no KVM emulator in sandbox →
+  Android RUNTIME (install/launch/background/lock-screen/notification)
+  NOT VERIFIED — documented, not faked. BUILD VERIFIED: artifacts,
+  signatures, manifest, tests (P20 session), source at HEAD.
+
+Stage Summary:
+- All P19 gates green at c9cd0a1. This commit (worklog only) → push →
+  Vercel deploy → poll production version.json for the new SHA → final
+  smoke → report.
