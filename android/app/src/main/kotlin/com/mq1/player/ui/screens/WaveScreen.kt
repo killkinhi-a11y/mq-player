@@ -141,7 +141,7 @@ fun WaveScreen(onOpenFullPlayer: () -> Unit) {
                     onPlay = {
                         player.controller.seekToIndex(queue.indexOf(track))
                     },
-                    onFavorite = { player.controller.toggleFavoriteForCurrent() }
+                    onFavorite = { player.controller.toggleFavorite(track) }
                 )
             }
         }

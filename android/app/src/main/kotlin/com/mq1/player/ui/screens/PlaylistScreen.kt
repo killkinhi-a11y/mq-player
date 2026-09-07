@@ -18,6 +18,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,11 +29,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.mq1.player.data.api.Track
+import com.mq1.player.di.ServiceLocator
 import com.mq1.player.ui.components.Artwork
 import com.mq1.player.ui.components.LoadingState
 import com.mq1.player.ui.components.TrackRow
@@ -47,9 +54,13 @@ fun PlaylistScreen(playlistId: String, onBack: () -> Unit) {
     val queue by player.controller.queue.collectAsState()
     val currentIndex by player.controller.currentIndex.collectAsState()
     val favorites by player.favorites.collectAsState(initial = emptyList())
+    val sessionUser by ServiceLocator.localStore.sessionUser.collectAsState(initial = null)
+    var menuTrack by remember { mutableStateOf<Track?>(null) }
 
     LaunchedEffect(playlistId) { vm.loadById(playlistId) }
     val playlist = ui.current
+    val owned = playlist != null && sessionUser != null &&
+            playlist.userId == sessionUser?.userId
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.padding(horizontal = 4.dp)) {
@@ -133,17 +144,34 @@ fun PlaylistScreen(playlistId: String, onBack: () -> Unit) {
             }
 
             items(playlist.tracks, key = { it.id }) { track ->
-                TrackRow(
-                    track = track,
-                    isPlaying = currentIndex >= 0 &&
-                            queue.getOrNull(currentIndex)?.id == track.id,
-                    isFavorite = favorites.any { it.id == track.id },
-                    onPlay = {
-                        player.controller.playQueue(playlist.tracks, playlist.tracks.indexOf(track))
-                    },
-                    onFavorite = { player.controller.toggleFavoriteForCurrent() },
-                    onMenu = { vm.removeTrack(track.id) }
-                )
+                // Long-title-safe row + explicit menu (no destructive surprises):
+                // "Remove" is offered ONLY for playlists owned by this account,
+                // behind an explicit DropdownMenu item instead of an instant action.
+                Box {
+                    TrackRow(
+                        track = track,
+                        isPlaying = currentIndex >= 0 &&
+                                queue.getOrNull(currentIndex)?.id == track.id,
+                        isFavorite = favorites.any { it.id == track.id },
+                        onPlay = {
+                            player.controller.playQueue(playlist.tracks, playlist.tracks.indexOf(track))
+                        },
+                        onFavorite = { player.controller.toggleFavorite(track) },
+                        onMenu = { if (owned) menuTrack = track }
+                    )
+                    DropdownMenu(
+                        expanded = menuTrack?.id == track.id,
+                        onDismissRequest = { if (menuTrack?.id == track.id) menuTrack = null }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Удалить из плейлиста") },
+                            onClick = {
+                                menuTrack = null
+                                vm.removeTrack(track.id)
+                            }
+                        )
+                    }
+                }
             }
         }
     }

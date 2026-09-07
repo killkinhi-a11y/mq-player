@@ -70,6 +70,11 @@ class TrackRowLongTitleTest {
         "long-artist" to track(
             "Трек с очень длинным названием исполнителя в обеих строках " + "Х".repeat(120),
             longArtist
+        ),
+        // explicit checklist case: long title AND long artist TOGETHER (300+ chars each line)
+        "long-title+long-artist" to track(
+            "Название трека предельной длины вместе с длинным исполнителем " .repeat(6).trim(),
+            longArtist
         )
     )
 

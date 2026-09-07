@@ -69,7 +69,7 @@ fun SearchScreen(onOpenArtist: (String) -> Unit) {
                         onPlay = {
                             player.controller.playQueue(ui.results, ui.results.indexOf(track))
                         },
-                        onFavorite = { player.controller.toggleFavoriteForCurrent() }
+                        onFavorite = { player.controller.toggleFavorite(track) }
                     )
                 }
             }

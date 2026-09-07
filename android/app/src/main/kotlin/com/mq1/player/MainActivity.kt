@@ -1,6 +1,7 @@
 package com.mq1.player
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -40,10 +41,25 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         ServiceLocator.playbackController.connect()
         maybeRequestNotificationPermission()
+        handleDeepLink(intent)
 
         setContent {
             RootContent()
         }
+    }
+
+    /** Warm deep-link delivery (singleTask → existing instance gets onNewIntent). */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleDeepLink(intent)
+    }
+
+    /** mq://player → open the Full Player; other mq:// links simply bring the app forward. */
+    private fun handleDeepLink(intent: Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme != "mq") return
+        if (data.host == "player") ServiceLocator.playbackController.requestOpenPlayer()
     }
 
     private fun maybeRequestNotificationPermission() {

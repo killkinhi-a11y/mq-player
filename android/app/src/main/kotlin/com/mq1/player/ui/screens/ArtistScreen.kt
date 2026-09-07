@@ -94,7 +94,7 @@ fun ArtistScreen(artistName: String, onBack: () -> Unit) {
                         onPlay = {
                             player.controller.playQueue(ui.tracks, ui.tracks.indexOf(track))
                         },
-                        onFavorite = { player.controller.toggleFavoriteForCurrent() }
+                        onFavorite = { player.controller.toggleFavorite(track) }
                     )
                 }
             }

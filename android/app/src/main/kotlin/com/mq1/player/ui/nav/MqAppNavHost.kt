@@ -93,7 +93,15 @@ fun MqAppNavHost(
     val isPlaying by player.controller.isPlaying.collectAsState()
     val position by player.controller.positionMs.collectAsState()
     val duration by player.controller.durationMs.collectAsState()
+    val openPlayerRequest by player.controller.openPlayerRequest.collectAsState()
     val activeTrack = queue.getOrNull(index)
+
+    // mq://player deep link → Full Player (cold start AND warm relaunch)
+    androidx.compose.runtime.LaunchedEffect(openPlayerRequest) {
+        if (openPlayerRequest > 0) {
+            navController.navigate(Routes.FULL_PLAYER) { launchSingleTop = true }
+        }
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -149,7 +157,8 @@ fun MqAppNavHost(
                     HomeScreen(
                         onOpenFullPlayer = { navController.navigate(Routes.FULL_PLAYER) },
                         onOpenArtist = { name -> navController.navigate(Routes.artist(name)) },
-                        onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) }
+                        onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) },
+                        onOpenSettings = { navController.navigate(Routes.SETTINGS) }
                     )
                 }
                 composable(Routes.SEARCH) {
@@ -162,9 +171,12 @@ fun MqAppNavHost(
                     LibraryScreen(onOpenPlaylist = { id -> navController.navigate(Routes.playlist(id)) })
                 }
                 composable(Routes.CHATS) {
-                    ChatsScreen { peerId, peerName ->
-                        navController.navigate(Routes.chat(peerId, peerName))
-                    }
+                    ChatsScreen(
+                        onOpenChat = { peerId, peerName ->
+                            navController.navigate(Routes.chat(peerId, peerName))
+                        },
+                        onOpenFriends = { navController.navigate(Routes.FRIENDS) }
+                    )
                 }
                 composable(Routes.FRIENDS) {
                     FriendsScreen { peerId, peerName ->
@@ -186,7 +198,10 @@ fun MqAppNavHost(
                         slideOutVertically(targetOffsetY = { it }) + androidx.compose.animation.fadeOut()
                     }
                 ) {
-                    FullPlayerScreen(onClose = { navController.popBackStack() })
+                    FullPlayerScreen(
+                        onClose = { navController.popBackStack() },
+                        onOpenArtist = { name -> navController.navigate(Routes.artist(name)) }
+                    )
                 }
                 composable(Routes.ARTIST) { entry ->
                     val name = entry.arguments?.getString("name") ?: ""

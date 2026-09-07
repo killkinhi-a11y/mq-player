@@ -77,6 +77,22 @@ class PlaybackController(private val context: Context) {
     private val _networkWaiting = MutableStateFlow(false)
     val networkWaiting: StateFlow<Boolean> = _networkWaiting.asStateFlow()
 
+    // Reactive playback modes (UI tint updates immediately, not on next tick)
+    private val _shuffleEnabled = MutableStateFlow(false)
+    val shuffleEnabled: StateFlow<Boolean> = _shuffleEnabled.asStateFlow()
+
+    private val _repeatMode = MutableStateFlow(Player.REPEAT_MODE_OFF)
+    val repeatMode: StateFlow<Int> = _repeatMode.asStateFlow()
+
+    // Deep links (mq://player): monotonically increasing request counter;
+    // the NavHost observes it and opens the Full Player once per request.
+    private val _openPlayerRequest = MutableStateFlow(0)
+    val openPlayerRequest: StateFlow<Int> = _openPlayerRequest.asStateFlow()
+
+    fun requestOpenPlayer() {
+        _openPlayerRequest.value += 1
+    }
+
     @Volatile var resumePositionMs: Long = 0L
         private set
 
@@ -189,6 +205,22 @@ class PlaybackController(private val context: Context) {
         if (c.isPlaying) c.pause() else c.play()
     }
 
+    /** Toggle favorite for an EXPLICIT track (list rows favorite their own
+     *  track — previously every row hearted the *currently playing* track). */
+    fun toggleFavorite(track: Track) {
+        ioScope.launch {
+            ServiceLocator.localStore.toggleFavorite(track)
+            // Taste feedback to the recommendation engine (best-effort).
+            track.scTrackId?.let { id ->
+                runCatching {
+                    ServiceLocator.api.recommendationFeedback(
+                        mapOf("scTrackId" to id.toString(), "action" to "like")
+                    )
+                }
+            }
+        }
+    }
+
     fun next() { controller?.seekToNextMediaItem() }
 
     fun previous() {
@@ -208,10 +240,6 @@ class PlaybackController(private val context: Context) {
     fun setShuffle(enabled: Boolean) { controller?.shuffleModeEnabled = enabled }
 
     fun setRepeatMode(mode: Int) { controller?.repeatMode = mode }
-
-    fun shuffleEnabled(): Boolean = controller?.shuffleModeEnabled ?: false
-
-    fun repeatMode(): Int = controller?.repeatMode ?: Player.REPEAT_MODE_OFF
 
     fun stop() {
         controller?.run {
@@ -336,6 +364,15 @@ class PlaybackController(private val context: Context) {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _isPlaying.value = isPlaying
             _isBuffering.value = controller?.playbackState == Player.STATE_BUFFERING
+            if (isPlaying) recoveryAttempts = 0 // healthy again — future blips get full retries
+        }
+
+        override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
+            _shuffleEnabled.value = shuffleModeEnabled
+        }
+
+        override fun onRepeatModeChanged(repeatMode: Int) {
+            _repeatMode.value = repeatMode
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {

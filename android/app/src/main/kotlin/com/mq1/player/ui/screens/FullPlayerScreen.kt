@@ -67,10 +67,15 @@ import com.mq1.player.ui.vm.PlayerViewModel
  * Full Player — artwork, long-title-safe title/artist, seek, transport,
  * shuffle/repeat, favorite, share, queue sheet, volume. Background playback
  * is owned by MqPlaybackService; this screen is pure UI over its state.
+ * Hierarchy (P6 spec): artwork → track identity → progress → transport →
+ * secondary actions.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FullPlayerScreen(onClose: () -> Unit) {
+fun FullPlayerScreen(
+    onClose: () -> Unit,
+    onOpenArtist: (String) -> Unit = {}
+) {
     val vm: PlayerViewModel = viewModel()
     val controller = vm.controller
     val context = LocalContext.current
@@ -83,6 +88,8 @@ fun FullPlayerScreen(onClose: () -> Unit) {
     val duration by controller.durationMs.collectAsState()
     val error by controller.error.collectAsState()
     val networkWaiting by controller.networkWaiting.collectAsState()
+    val shuffleEnabled by controller.shuffleEnabled.collectAsState()
+    val repeatMode by controller.repeatMode.collectAsState()
     val favorites by vm.favorites.collectAsState(initial = emptyList())
     val track = queue.getOrNull(index)
 
@@ -151,7 +158,10 @@ fun FullPlayerScreen(onClose: () -> Unit) {
                     color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.clickable { onClose() } // nav back → search artist
+                    modifier = Modifier.clickable {
+                        // Open the artist screen (same behavior as the web player)
+                        if (track.artist.isNotBlank()) onOpenArtist(track.artist)
+                    }
                 )
 
                 Spacer(Modifier.height(8.dp))
@@ -205,11 +215,11 @@ fun FullPlayerScreen(onClose: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
-                        onClick = { controller.setShuffle(!controller.shuffleEnabled()) },
+                        onClick = { controller.setShuffle(!shuffleEnabled) },
                         modifier = Modifier.size(44.dp)
                     ) {
                         Icon(Icons.Filled.Shuffle, contentDescription = "Перемешать",
-                            tint = if (controller.shuffleEnabled())
+                            tint = if (shuffleEnabled)
                                 MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -241,7 +251,7 @@ fun FullPlayerScreen(onClose: () -> Unit) {
                     }
                     IconButton(
                         onClick = {
-                            val next = when (controller.repeatMode()) {
+                            val next = when (repeatMode) {
                                 Player.REPEAT_MODE_OFF -> Player.REPEAT_MODE_ONE
                                 Player.REPEAT_MODE_ONE -> Player.REPEAT_MODE_ALL
                                 else -> Player.REPEAT_MODE_OFF
@@ -252,7 +262,7 @@ fun FullPlayerScreen(onClose: () -> Unit) {
                     ) {
                         Icon(
                             Icons.Filled.Repeat, contentDescription = "Повтор",
-                            tint = if (controller.repeatMode() != Player.REPEAT_MODE_OFF)
+                            tint = if (repeatMode != Player.REPEAT_MODE_OFF)
                                 MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -268,7 +278,7 @@ fun FullPlayerScreen(onClose: () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     val isFav = favorites.any { it.id == track.id }
-                    IconButton(onClick = { controller.toggleFavoriteForCurrent() },
+                    IconButton(onClick = { controller.toggleFavorite(track) },
                         modifier = Modifier.size(44.dp)) {
                         Icon(
                             if (isFav) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
@@ -312,7 +322,7 @@ fun FullPlayerScreen(onClose: () -> Unit) {
                         isPlaying = i == index,
                         isFavorite = favorites.any { it.id == t.id },
                         onPlay = { controller.seekToIndex(i) },
-                        onFavorite = { controller.toggleFavoriteForCurrent() }
+                        onFavorite = { controller.toggleFavorite(t) }
                     )
                 }
             }

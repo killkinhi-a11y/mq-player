@@ -1997,3 +1997,64 @@ P20 verification (final):
   install/launch/login/background/lock-screen runtime QA on a physical
   device (P20.15 steps 3-22). Procedure: download release APK, sideload,
   follow the QA checklist in android/README.md.
+
+---
+Task ID: p20-android-v1.0.1
+Agent: main (Super Z)
+Task: P20 follow-up — bring Android app from BUILD SUCCESSFUL to really
+usable: full 18-point audit, fix real defects, rebuild, re-release, verify.
+
+Work Log:
+- Resynced local repo to origin/main (e89bdad) — sandbox had been reset
+  (old Capacitor-era android/ tree + stale uncommitted qa-v3 changes).
+- P1 GitHub Release android-v1.0.0 verified: HTTP 200, 3,586,004 bytes,
+  sha256 f967d21c..., apksigner v2 valid, package com.mq1.player 1.0.0,
+  minSdk 26 / target 35. NOTE: original signing keystore was lost with the
+  sandbox reset (it never lived in git) → 1.0.1 is signed with a NEW
+  self-signed key (documented in README; upgrade requires reinstall).
+- Toolchain rebuilt: cmdline-tools + platform-35 + build-tools 35 +
+  Temurin JDK 21 (system JRE lacks javac). Rebuild reproduces BUILD
+  SUCCESSFUL; baseline tests 6/6 green.
+- Full source audit (~40 Kotlin files) found 12 real defects; fixed:
+  1. CRITICAL Settings screen unreachable (route registered, no entry
+     point) → gear icon in Home header.
+  2. CRITICAL Friends screen unreachable → Group icon in Chats header
+     (empty-state text no longer references a nonexistent "tab").
+  3. CRITICAL row-favorite bug: every list row's heart toggled the
+     CURRENTLY PLAYING track instead of its own → PlaybackController
+     .toggleFavorite(track) + rewired all 8 screens (notification custom
+     command still uses toggleFavoriteForCurrent — correct there).
+  4. Playlist menu icon was an INSTANT destructive delete (no confirm,
+     no ownership check) → DropdownMenu with explicit "Удалить из
+     плейлиста", shown only for playlists owned by the session user.
+  5. Shuffle/repeat icons non-reactive (tint only updated on the next
+     500ms position tick) → StateFlows via Player.Listener callbacks.
+  6. Network recovery counter never reset → 3 cumulative blips over a
+     long session permanently disabled auto-recovery; now resets on
+     successful playback.
+  7. README-documented local-dev flow was broken: usesCleartextTraffic
+     ="false" blocked http://10.0.2.2:3000 → network_security_config
+     (main: strict HTTPS; debug override: cleartext for 10.0.2.2/
+     localhost/127.0.0.1).
+  8. No deep links → mq:// scheme (VIEW+BROWSABLE+DEFAULT), mq://player
+     opens Full Player on cold start AND warm relaunch (singleTask +
+     onNewIntent → openPlayerRequest counter → NavHost LaunchedEffect).
+     HTTPS links deliberately NOT intercepted (web owns them).
+  9. Settings "Версия 1.0.0" hardcoded → BuildConfig.VERSION_NAME.
+  10. Chats AI-suggested rows: isFavorite always false → real favorites.
+  11. Full Player artist tap just closed the player → opens Artist screen
+      (web parity).
+  12. Long-title matrix extended with explicit "long-title+long-artist"
+      case (300+ chars in BOTH lines) — now 10 cases, 6/6 tests green.
+- Version bump: versionCode 2 / versionName 1.0.1.
+- Verified release APK: BUILD SUCCESSFUL, 3,602,948 bytes, apksigner v2
+  (cert 40c49dc8...), badging com.mq1.player 1.0.1 minSdk 26 target 35,
+  launchable MainActivity, deep-link + netSec entries in binary manifest.
+- Honest limits: no physical device / no KVM emulator in this sandbox →
+  runtime device QA remains NOT VERIFIED (documented, not faked).
+
+Stage Summary:
+- /android v1.0.1: 12 real usability defects fixed, builds debug+release,
+  6/6 tests, deep links + netSec + ownership-aware destructive actions.
+- Next: commit → push → GitHub release android-v1.0.1 (APK asset) →
+  verify GitHub + release download → web regression chain → final report.

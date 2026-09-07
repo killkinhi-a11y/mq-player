@@ -10,14 +10,17 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Radio
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -50,7 +53,8 @@ import com.mq1.player.ui.vm.PlayerViewModel
 fun HomeScreen(
     onOpenFullPlayer: () -> Unit,
     onOpenArtist: (String) -> Unit,
-    onOpenPlaylist: (String) -> Unit
+    onOpenPlaylist: (String) -> Unit,
+    onOpenSettings: () -> Unit = {}
 ) {
     val vm: HomeViewModel = viewModel()
     val player: PlayerViewModel = viewModel()
@@ -68,12 +72,29 @@ fun HomeScreen(
         item {
             Column(Modifier.padding(horizontal = 16.dp)) {
                 Spacer(Modifier.height(52.dp))
-                Text(greeting, style = MaterialTheme.typography.headlineSmall)
-                Text(
-                    "MQ · музыка для вас",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(greeting, style = MaterialTheme.typography.headlineSmall)
+                        Text(
+                            "MQ · музыка для вас",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    IconButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Settings,
+                            contentDescription = "Настройки",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
                 Spacer(Modifier.height(16.dp))
                 WaveStartCard(loading = ui.loading) { vm.startWave { batch ->
                     player.controller.startWave(batch)
@@ -94,7 +115,7 @@ fun HomeScreen(
                     onPlay = {
                         player.controller.playQueue(ui.history, ui.history.indexOf(track))
                     },
-                    onFavorite = { player.controller.toggleFavoriteForCurrent() }
+                    onFavorite = { player.controller.toggleFavorite(track) }
                 )
             }
         }
@@ -124,7 +145,7 @@ fun HomeScreen(
                     onPlay = {
                         player.controller.playQueue(ui.wavePreview, ui.wavePreview.indexOf(track))
                     },
-                    onFavorite = { player.controller.toggleFavoriteForCurrent() }
+                    onFavorite = { player.controller.toggleFavorite(track) }
                 )
             }
         }

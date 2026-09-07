@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,10 +46,14 @@ import com.mq1.player.ui.vm.PlayerViewModel
 
 /** Chats hub: friend chats + MQ AI assistant (taste-aware, real /api/ai/chat). */
 @Composable
-fun ChatsScreen(onOpenChat: (peerId: String, peerName: String) -> Unit) {
+fun ChatsScreen(
+    onOpenChat: (peerId: String, peerName: String) -> Unit,
+    onOpenFriends: () -> Unit = {}
+) {
     val vm: ChatsViewModel = viewModel()
     val player: PlayerViewModel = viewModel()
     val ui by vm.ui.collectAsState()
+    val favorites by player.favorites.collectAsState(initial = emptyList())
     var aiInput by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) { vm.refresh() }
@@ -59,11 +64,28 @@ fun ChatsScreen(onOpenChat: (peerId: String, peerName: String) -> Unit) {
     ) {
         item {
             Spacer(Modifier.height(52.dp))
-            Text(
-                "Чаты",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Чаты",
+                    style = MaterialTheme.typography.headlineMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(
+                    onClick = onOpenFriends,
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Group,
+                        contentDescription = "Друзья",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
             Spacer(Modifier.height(12.dp))
         }
 
@@ -140,14 +162,14 @@ fun ChatsScreen(onOpenChat: (peerId: String, peerName: String) -> Unit) {
                 com.mq1.player.ui.components.SectionHeader("MQ подобрал (${ui.aiSuggested.size})")
             }
             items(ui.aiSuggested, key = { "ai" + it.id }) { track ->
-                val queueState by player.controller.queue.collectAsState()
                 TrackRow(
                     track = track,
                     isPlaying = false,
-                    isFavorite = false,
+                    isFavorite = favorites.any { it.id == track.id },
                     onPlay = {
                         player.controller.playQueue(ui.aiSuggested, ui.aiSuggested.indexOf(track))
-                    }
+                    },
+                    onFavorite = { player.controller.toggleFavorite(track) }
                 )
             }
         }
@@ -155,7 +177,7 @@ fun ChatsScreen(onOpenChat: (peerId: String, peerName: String) -> Unit) {
         // Friend chats
         item { com.mq1.player.ui.components.SectionHeader("Друзья") }
         if (ui.friends.isEmpty()) {
-            item { EmptyState("Нет друзей — добавьте их во вкладке Друзья") }
+            item { EmptyState("Нет друзей — найдите их через иконку друзей сверху") }
         } else {
             items(ui.friends, key = { it.id }) { friend ->
                 Row(

@@ -94,7 +94,7 @@ fun LibraryScreen(onOpenPlaylist: (String) -> Unit) {
                         onPlay = {
                             player.controller.playQueue(favorites, favorites.indexOf(track))
                         },
-                        onFavorite = { player.controller.toggleFavoriteForCurrent() }
+                        onFavorite = { player.controller.toggleFavorite(track) }
                     )
                 }
             }
@@ -109,7 +109,7 @@ fun LibraryScreen(onOpenPlaylist: (String) -> Unit) {
                         onPlay = {
                             player.controller.playQueue(history, history.indexOf(track))
                         },
-                        onFavorite = { player.controller.toggleFavoriteForCurrent() }
+                        onFavorite = { player.controller.toggleFavorite(track) }
                     )
                 }
             }

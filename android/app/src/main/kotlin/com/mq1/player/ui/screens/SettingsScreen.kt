@@ -166,7 +166,7 @@ fun SettingsScreen(onLogout: () -> Unit, onBack: () -> Unit) {
         SettingsCard("О приложении") {
             Text("MQ Player для Android", style = MaterialTheme.typography.bodyMedium)
             Text(
-                "Версия 1.0.0 · нативный клиент MQ (mq1.vercel.app)",
+                "Версия ${com.mq1.player.BuildConfig.VERSION_NAME} · нативный клиент MQ (mq1.vercel.app)",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
