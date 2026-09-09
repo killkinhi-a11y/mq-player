@@ -2774,7 +2774,11 @@ export const useAppStore = create<AppState>()(
         set((s) => {
           const bands = [...s.eqBands];
           bands[bandIndex] = value;
-          return { eqBands: bands, eqPreset: 'flat' };
+          // Manual band edit => the curve is no longer any stock preset.
+          // 'custom' (not 'flat') so the preset pills don't highlight a
+          // wrong pill for a non-flat curve; SettingsView already maps
+          // eqPreset === 'custom' to «свои настройки».
+          return { eqBands: bands, eqPreset: 'custom' };
         });
         if (useAppStore.getState().eqEnabled) {
           engineSetEQBand(bandIndex, value);
