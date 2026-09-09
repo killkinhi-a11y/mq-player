@@ -482,10 +482,10 @@ export default function OnboardingTour() {
                     {!isFirstStep && (
                       <button
                         onClick={prevStep}
-                        className="flex items-center gap-1 px-3 py-2 sm:py-1.5 rounded-xl text-sm font-medium transition-colors hover:bg-white/5 active:bg-white/10"
+                        className="flex items-center gap-1 px-3 py-2 sm:py-1.5 rounded-xl text-sm font-medium mq-icon-btn"
                         style={{
                           color: "var(--mq-text-muted, #aaa)",
-                          backgroundColor: "rgba(255,255,255,0.04)",
+                          ["--mq-rest-bg" as string]: "rgba(255,255,255,0.04)",
                         }}
                       >
                         <ChevronLeft className="w-4 h-4" />

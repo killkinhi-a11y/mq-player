@@ -580,8 +580,9 @@ export default function PlayerBar() {
               <div className="relative flex-shrink-0" ref={moreMenuRef}>
                 <button
                   onClick={() => setShowMoreMenu(v => !v)}
-                  className="w-9 h-9 rounded-full flex items-center justify-center relative transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                  style={{ backgroundColor: showMoreMenu ? "var(--mq-overlay-hover)" : "transparent" }}
+                  className="w-9 h-9 rounded-full flex items-center justify-center relative mq-icon-btn"
+                  data-active={showMoreMenu}
+                  style={{ ["--mq-active-bg" as string]: "var(--mq-overlay-hover)" }}
                   title="Дополнительно"
                   aria-label="Дополнительные действия"
                   aria-haspopup="menu"
