@@ -441,7 +441,7 @@ export default function TasteProfileView() {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={resetTasteProfile}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-all"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-colors"
           style={{
             color: "var(--mq-text-muted)",
             background: "rgba(255,255,255,0.04)",
@@ -567,7 +567,7 @@ export default function TasteProfileView() {
                   whileTap={{ scale: 0.95 }}
                   onClick={addCustomGenre}
                   disabled={!customGenreInput.trim()}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all disabled:opacity-30"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors disabled:opacity-30"
                   style={{
                     backgroundColor: "var(--mq-accent, #e03131)",
                     color: "#fff",

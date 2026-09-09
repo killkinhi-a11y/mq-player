@@ -40,6 +40,16 @@ const nextConfig: NextConfig = {
     return MQ_BUILD_ID || process.env.BUILD_ID || "mq-build-v58";
   },
   serverExternalPackages: ['@opennextjs/cloudflare'],
+  // QA: dev-only rewrite so the browser page can reach the local network
+  // degradation proxy (scripts/qa-net-proxy.js) same-origin — the page CSP
+  // (connect-src 'self' https:) forbids raw http://localhost:<other-port>.
+  ...(process.env.NODE_ENV !== "production" ? {
+    async rewrites() {
+      return [
+        { source: "/qa-proxy/:path*", destination: "http://127.0.0.1:3199/:path*" },
+      ];
+    },
+  } : {}),
   experimental: {
     // Allow uploads up to 200MB (default is 10MB)
     proxyClientMaxBodySize: 200 * 1024 * 1024,

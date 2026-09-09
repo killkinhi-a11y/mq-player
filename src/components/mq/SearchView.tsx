@@ -686,18 +686,17 @@ export default function SearchView() {
                 {searchHistory.slice(0, 12).map((query, i) => (
                   <motion.div
                     key={query}
-                    initial={animationsEnabled ? { opacity: 0, scale: 0.85 } : undefined}
-                    animate={{ opacity: 1, scale: 1 }}
+                    initial={animationsEnabled ? { opacity: 0 } : undefined}
+                    animate={{ opacity: 1 }}
                     transition={{ delay: i * 0.03, duration: 0.2 }}
                     className="flex-shrink-0 group relative"
                   >
-                    <motion.button
-                      whileTap={{ scale: 0.96 }}
-                      whileHover={{ scale: 1.03, backgroundColor: "var(--mq-card-hover)" }}
+                    {/* §F: hover = CSS only. whileHover inherited the entrance
+                        stagger delay (i*0.03) and fought `transition-all`. */}
+                    <button
                       onClick={() => handleHistoryClick(query)}
-                      className="flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer"
+                      className="flex items-center gap-2 pl-2.5 pr-1.5 py-1.5 rounded-xl text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.03] active:scale-[0.96] transition-[background-color,transform] duration-150 cursor-pointer"
                       style={{
-                        backgroundColor: "var(--mq-card)",
                         color: "var(--mq-text-muted)",
                         border: "1px solid var(--mq-border-thin)",
                       }}
@@ -705,18 +704,17 @@ export default function SearchView() {
                       <Clock className="w-3 h-3 opacity-40" />
                       <span className="whitespace-nowrap">{query}</span>
                       {/* Remove individual item button */}
-                      <motion.button
-                        whileTap={{ scale: 0.8 }}
+                      <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleRemoveHistoryItem(query);
                         }}
-                        className="w-4 h-4 rounded-full flex items-center justify-center transition-opacity ml-0.5 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:pointer-events-auto hover:!opacity-100"
+                        className="w-4 h-4 rounded-full flex items-center justify-center transition-opacity ml-0.5 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:pointer-events-auto hover:!opacity-100 active:scale-90"
                         style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)" }}
                       >
                         <X className="w-2.5 h-2.5" />
-                      </motion.button>
-                    </motion.button>
+                      </button>
+                    </button>
                   </motion.div>
                 ))}
               </div>
@@ -921,15 +919,14 @@ export default function SearchView() {
               {TRENDING_SEARCHES.map((term, i) => (
                 <motion.button
                   key={term}
-                  initial={animationsEnabled ? { opacity: 0, scale: 0.9 } : undefined}
-                  animate={{ opacity: 1, scale: 1 }}
+                  initial={animationsEnabled ? { opacity: 0 } : undefined}
+                  animate={{ opacity: 1 }}
                   transition={{ delay: 0.25 + i * 0.03, duration: 0.25 }}
-                  whileTap={{ scale: 0.96 }}
-                  whileHover={{ scale: 1.05, backgroundColor: "var(--mq-card-hover)" }}
+                  /* §F: hover = CSS only (stagger delay was leaking into the
+                     whileHover tween; transition-all fought framer writes). */
                   onClick={() => handleTrendingClick(term)}
-                  className="px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer"
+                  className="px-4 py-2 rounded-xl text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.04] active:scale-[0.96] transition-[background-color,transform] duration-150 cursor-pointer"
                   style={{
-                    backgroundColor: "var(--mq-card)",
                     color: "var(--mq-text-muted)",
                     border: "1px solid var(--mq-border-thin)",
                   }}
@@ -960,15 +957,13 @@ export default function SearchView() {
             {TRENDING_SEARCHES.map((term, i) => (
               <motion.button
                 key={term}
-                initial={animationsEnabled ? { opacity: 0, scale: 0.9 } : undefined}
-                animate={{ opacity: 1, scale: 1 }}
+                initial={animationsEnabled ? { opacity: 0 } : undefined}
+                animate={{ opacity: 1 }}
                 transition={{ delay: i * 0.03, duration: 0.2 }}
-                whileTap={{ scale: 0.96 }}
-                whileHover={{ scale: 1.05, backgroundColor: "var(--mq-card-hover)" }}
+                /* §F: hover = CSS only — see note above. */
                 onClick={() => handleTrendingClick(term)}
-                className="px-4 py-2 rounded-xl text-xs font-medium transition-all duration-200 cursor-pointer"
+                className="px-4 py-2 rounded-xl text-xs font-medium bg-[var(--mq-card)] hover:bg-[var(--mq-card-hover)] hover:scale-[1.04] active:scale-[0.96] transition-[background-color,transform] duration-150 cursor-pointer"
                 style={{
-                  backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text-muted)",
                   border: "1px solid var(--mq-border-thin)",
                 }}
@@ -1095,29 +1090,32 @@ const SearchTrackRow = memo(function SearchTrackRow({
               {track.title}
             </p>
           </div>
-          <div className="flex items-center gap-1.5 mt-0.5">
+          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+            {/* §E: artist is the FLEXIBLE element (flex-1 + min-w-0 →
+                truncates, never collapses to 0 when the meta tail
+                overflows); duration/genre are shrink-0 fixed boxes. */}
             <button
               onClick={(e) => { e.stopPropagation(); onArtistClick?.(track.artist, track.cover); }}
-              className="text-xs block max-w-full text-left truncate hover:underline"
+              className="text-xs flex-1 min-w-0 text-left truncate hover:underline"
               style={{ color: "var(--mq-text-muted)" }}
             >
               {track.artist}
             </button>
             {track.duration > 0 && (
-              <>
+              <span className="flex items-center gap-1.5 flex-shrink min-w-0">
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
-                <span className="mq-t-num text-[11px]" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                <span className="mq-t-num text-[11px] truncate max-w-[64px]" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
                   {formatDuration(track.duration)}
                 </span>
-              </>
+              </span>
             )}
             {track.genre && (
-              <>
+              <span className="flex items-center gap-1.5 flex-shrink min-w-0">
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
-                <span className="text-[11px] px-1.5 py-0 rounded-md min-w-0 max-w-[140px] truncate" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
+                <span className="text-[11px] px-1.5 py-0 rounded-md max-w-[140px] truncate" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
                   {track.genre}
                 </span>
-              </>
+              </span>
             )}
           </div>
         </div>

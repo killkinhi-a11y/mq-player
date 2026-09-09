@@ -40,9 +40,11 @@ const QUICK_SUGGESTIONS = [
 function TrackChip({ track, onPlay, onAdd }: { track: Track; onPlay: () => void; onAdd: () => void }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="flex items-center gap-2.5 p-2 rounded-xl cursor-pointer group transition-all duration-200 hover:scale-[1.01]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      /* §F: hover scale is CSS-only; framer handles the entrance fade so
+         its writes never share a transitioned property with CSS. */
+      className="flex items-center gap-2.5 p-2 rounded-xl cursor-pointer group transition-transform duration-200 hover:scale-[1.01]"
       style={{
         backgroundColor: "var(--mq-card)",
         border: "1px solid var(--mq-border)",

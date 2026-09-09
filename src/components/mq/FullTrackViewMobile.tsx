@@ -428,14 +428,16 @@ function FullTrackViewMobileInner() {
           <button onClick={() => setShowMore(true)} aria-label="Ещё" className="mq-ft-btn" style={iconBtn}><MoreHorizontal className="w-6 h-6" style={{ color: "var(--mq-text)" }} /></button>
         </div>
 
-        {/* ── Dominant artwork (fills the leftover space) ── */}
+        {/* ── Dominant artwork (fills the leftover space) ──
+            §C redesign: NO white hairline edge (the old 1px border read as
+            a "sticker" outline — VLM critique) — pure grounded shadow. */}
         <div className="flex-1 flex items-center justify-center px-4 min-h-0" style={{ paddingTop: 6, paddingBottom: 10 }}>
           <div
             className="mq-ft-anim relative rounded-[20px] overflow-hidden"
             style={{
               width: "min(92vw, 58vh)",
               aspectRatio: "1 / 1",
-              boxShadow: "var(--mq-art-shadow), var(--mq-art-edge)",
+              boxShadow: "var(--mq-art-shadow)",
             }}
             onTouchStart={handleCoverTouchStart}
             onTouchEnd={handleCoverTouchEnd}
@@ -453,52 +455,26 @@ function FullTrackViewMobileInner() {
           </div>
         </div>
 
-        {/* ── Title (2-line clamp) + artist link ── */}
-        <div className="mq-ft-anim px-4" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 60ms backwards" }}>
-          <h1 className="mq-text-display text-[27px] leading-[1.12] tracking-[-0.01em] line-clamp-2" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
-          <button onClick={handleArtist} className="mq-t-body text-[15px] mt-1 flex items-center gap-1 max-w-full text-left group" style={{ color: "var(--mq-text-muted)" }}>
-            <span className="truncate">{currentTrack.artist}</span>
-            <ChevronUp className="w-3.5 h-3.5 flex-shrink-0 rotate-90 opacity-60" />
-          </button>
-        </div>
-
-        {/* ── Action row: like · dislike · add-to-playlist ── */}
-        <div className="mq-ft-anim flex items-center gap-2.5 px-4 mt-3" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 110ms backwards" }}>
+        {/* ── TRACK IDENTITY: title + artist (left) + LIKE (right) ──
+            §C redesign: the like action lives HERE, anchored to identity,
+            instead of a glass-button row wedged between title and progress.
+            Weight contrast: title 800 / artist regular-muted. */}
+        <div className="mq-ft-anim px-4 flex items-end justify-between gap-3" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 60ms backwards" }}>
+          <div className="min-w-0 flex-1">
+            <h1 className="mq-text-display text-[25px] leading-[1.15] tracking-[-0.015em] line-clamp-2 font-extrabold" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
+            <button onClick={handleArtist} className="mq-t-body text-[14px] mt-1.5 flex items-center gap-1 max-w-full text-left group" style={{ color: "var(--mq-text-muted)" }}>
+              <span className="truncate">{currentTrack.artist}</span>
+              <ChevronUp className="w-3.5 h-3.5 flex-shrink-0 rotate-90 opacity-60" />
+            </button>
+          </div>
           <button
             onClick={handleLike}
             aria-label={isLiked ? "Убрать из избранного" : "Нравится"}
             aria-pressed={isLiked}
-            className="mq-ft-btn"
-            style={{ ...iconBtn, backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)" : "var(--mq-glass-bg)" }}
+            className="mq-ft-btn flex-shrink-0 mb-1"
+            style={{ width: 44, height: 44, borderRadius: "9999px", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)" : "var(--mq-glass-bg)", border: "none", cursor: "pointer", padding: 0 }}
           >
             <Heart className="w-[22px] h-[22px]" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
-          </button>
-          <button
-            onClick={handleDislike}
-            aria-label="Не нравится"
-            aria-pressed={isDisliked}
-            className="mq-ft-btn"
-            style={{ ...iconBtn, backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "var(--mq-glass-bg)" }}
-          >
-            <ThumbsDown className="w-[20px] h-[20px]" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
-          </button>
-          <button
-            onClick={() => setShowPlaylistPicker(v => !v)}
-            aria-label="Добавить в плейлист"
-            aria-expanded={showPlaylistPicker}
-            className="mq-ft-btn"
-            style={{ ...iconBtn, backgroundColor: showPlaylistPicker ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)" : "var(--mq-glass-bg)" }}
-          >
-            <ListPlus className="w-[20px] h-[20px]" style={{ color: showPlaylistPicker ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-          </button>
-          <div className="flex-1" />
-          <button
-            onClick={handleShare}
-            aria-label="Поделиться"
-            className="mq-ft-btn"
-            style={{ ...iconBtn, backgroundColor: "var(--mq-glass-bg)" }}
-          >
-            <Share2 className="w-[20px] h-[20px]" style={{ color: "var(--mq-text-muted)" }} />
           </button>
         </div>
 
@@ -554,7 +530,7 @@ function FullTrackViewMobileInner() {
         )}
 
         {/* ── Seek (28px touch) + times ── */}
-        <div className="mq-ft-anim px-4 mt-4" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 150ms backwards" }}>
+        <div className="mq-ft-anim px-4 mt-3.5" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 150ms backwards" }}>
           {/* Editorial flip: times ABOVE the bar — current in text color, larger */}
           <div className="flex items-baseline justify-between">
             <span ref={timeCurrentRef} className="text-[26px] font-mono tabular-nums font-bold leading-none tracking-tight" style={{ color: "var(--mq-text)" }}>0:00</span>
@@ -611,29 +587,42 @@ function FullTrackViewMobileInner() {
           </button>
         </div>
 
-        {/* ── Chips: lyrics · queue · history (48px targets) ── */}
+        {/* ── SECONDARY ACTIONS (§C hierarchy: after transport) ──
+            dislike · playlist · lyrics · queue · history · share —
+            one even row of 40px icon targets (like lives up in identity). */}
         <div
-          className="mq-ft-anim flex items-center justify-center gap-2 px-5"
-          style={{ flexShrink: 0, paddingTop: 12, paddingBottom: "max(14px, env(safe-area-inset-bottom))", animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 230ms backwards" }}
+          className="mq-ft-anim flex items-center justify-between px-6"
+          style={{ flexShrink: 0, paddingTop: 14, paddingBottom: "max(14px, env(safe-area-inset-bottom))", animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 230ms backwards" }}
         >
           {([
-            { id: "lyrics", icon: Mic2, label: "Текст", on: panel === "lyrics" },
-            { id: "queue", icon: ListMusic, label: "Очередь", on: panel === "queue" },
-            { id: "history", icon: History, label: "История", on: panel === "history" },
-          ] as const).map(({ id, icon: Icon, label, on }) => (
+            { id: "dislike", icon: ThumbsDown, label: "Не нравится", on: isDisliked, danger: true, onClick: handleDislike },
+            { id: "playlist", icon: ListPlus, label: "В плейлист", on: showPlaylistPicker, danger: false, onClick: () => setShowPlaylistPicker(v => !v) },
+            { id: "lyrics", icon: Mic2, label: "Текст", on: panel === "lyrics", danger: false, onClick: () => setPanel(p => (p === "lyrics" ? null : "lyrics")) },
+            { id: "queue", icon: ListMusic, label: "Очередь", on: panel === "queue", danger: false, onClick: () => setPanel(p => (p === "queue" ? null : "queue")) },
+            { id: "history", icon: History, label: "История", on: panel === "history", danger: false, onClick: () => setPanel(p => (p === "history" ? null : "history")) },
+            { id: "share", icon: Share2, label: "Поделиться", on: false, danger: false, onClick: handleShare },
+          ] as const).map(({ id, icon: Icon, label, on, danger, onClick }) => (
             <button
               key={id}
-              onClick={() => setPanel(p => (p === id ? null : (id as typeof panel)))}
-              aria-pressed={on}
-              className="mq-ft-btn flex items-center gap-2 px-4 h-12 rounded-[14px]"
+              onClick={onClick}
+              aria-label={label}
+              aria-pressed={on || undefined}
+              title={label}
+              className="mq-ft-btn w-10 h-10 rounded-[13px] flex items-center justify-center"
               style={{
-                backgroundColor: on ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)" : "var(--mq-glass-bg)",
-                border: `1px solid ${on ? "color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "var(--mq-border-hairline, transparent)"}`,
-                color: on ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                backgroundColor: on
+                  ? danger
+                    ? "rgba(239,68,68,0.15)"
+                    : "color-mix(in srgb, var(--mq-accent) 16%, transparent)"
+                  : "transparent",
+                color: on
+                  ? danger
+                    ? "var(--mq-error, #ef4444)"
+                    : "var(--mq-accent)"
+                  : "var(--mq-text-muted)",
               }}
             >
-              <Icon className="w-4.5 h-4.5" style={{ width: 18, height: 18 }} />
-              <span className="text-xs font-medium">{label}</span>
+              <Icon className="w-[19px] h-[19px]" fill={on && (id === "dislike") ? "currentColor" : "none"} />
             </button>
           ))}
         </div>

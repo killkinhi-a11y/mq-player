@@ -47,7 +47,9 @@ export default function PlaylistCard({ playlist, index = 0 }: PlaylistCardProps)
   return (
     <motion.div
       {...motionProps}
-      whileHover={animationsEnabled ? { y: -2 } : undefined}
+      /* §F: hover transform is owned by useTilt3D (rAF lerp). The old
+         framer whileHover y:-2 fought the tilt for the same transform
+         property — two writers = jitter/double effect. */
       className="overflow-hidden cursor-pointer group relative"
       style={{
         borderRadius: radius,

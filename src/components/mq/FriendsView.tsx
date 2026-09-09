@@ -841,8 +841,11 @@ function FriendCard({
       initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
-      whileHover={{ y: -1, boxShadow: "var(--mq-shadow-card-hover)" }}
-      className="flex items-center gap-3 p-3 rounded-2xl transition-all"
+      whileHover={{ y: -1, boxShadow: "var(--mq-shadow-card-hover)", transition: { duration: 0.15, ease: "easeOut" } }}
+      /* §F: framer owns transform + box-shadow here; no CSS transition on
+         those props (was transition-all → double animation + stagger delay
+         leak from the entrance transition). */
+      className="flex items-center gap-3 p-3 rounded-2xl"
       style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-thin)" }}
     >
       <div className="relative flex-shrink-0">

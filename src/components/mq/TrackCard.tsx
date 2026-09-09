@@ -305,7 +305,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               ${compactMode ? "w-7 h-7" : "w-8 h-8"}
               flex items-center justify-center
               rounded-full
-              transition-colors duration-150
+              transition-[background-color,color,opacity] duration-150
               sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100
               hover:bg-[var(--mq-overlay-hover)]
             `}
@@ -327,7 +327,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               w-8 h-8
               hidden sm:flex items-center justify-center
               rounded-full
-              transition-colors duration-150
+              transition-[background-color,color,opacity] duration-150
               sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100
               hover:bg-[var(--mq-overlay-hover)]
             `}
@@ -347,7 +347,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
               rounded-full
               sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100
               hover:bg-[var(--mq-overlay-hover)]
-              transition-colors duration-150
+              transition-[background-color,color,opacity] duration-150
             `}
             style={{ color: "var(--mq-text-muted)" }}
           >

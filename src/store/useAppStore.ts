@@ -1086,6 +1086,23 @@ export const useAppStore = create<AppState>()(
       playTrack: (track, queue, playlistId) => {
         const state = get();
 
+        // Same-track resume path (QA fix 2026-09-09, playlist hero/row dead click):
+        // when the requested track IS the current one and it has finished loading
+        // (not buffering), treat the call as a resume request — toggle isPlaying on
+        // when paused, no-op when already playing. Previously this fell into the
+        // _playLock guard below; on the WASM path no `canplay` ever fires, so the
+        // lock never released and the click did NOTHING (hero «Слушать» and the
+        // current row were dead after a pause). Restart semantics (progress 0,
+        // history re-entry) stay reserved for a genuinely different track.
+        if (
+          state.currentTrack?.id === track.id &&
+          !state.isBuffering &&
+          state.playbackState !== "loading"
+        ) {
+          if (!state.isPlaying) get().togglePlay();
+          return;
+        }
+
         // Play lock — prevents race condition when playTrack is called
         // while previous track is still loading. Without this, rapid taps
         // cause currentTrack to flip back and forth.

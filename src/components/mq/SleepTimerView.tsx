@@ -313,7 +313,7 @@ export default function SleepTimerView() {
             {/* Desktop: Grid presets (PC-optimized) */}
             <div className="hidden lg:grid grid-cols-6 gap-2 w-full mb-6">
               {quickPresets.map((val) => (
-                <motion.button key={val} whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }} onClick={() => setSelectedMinutes(val)} className="py-3 rounded-xl text-sm font-semibold transition-all" style={{ backgroundColor: selectedMinutes === val ? "var(--mq-accent)" : "var(--mq-card)", color: selectedMinutes === val ? "var(--mq-bg)" : "var(--mq-text-muted)", border: "1px solid", borderColor: selectedMinutes === val ? "var(--mq-accent)" : "var(--mq-border)", boxShadow: selectedMinutes === val ? "0 4px 16px var(--mq-glow)" : "none" }}>
+                <motion.button key={val} whileHover={{ scale: 1.05, y: -2 }} whileTap={{ scale: 0.95 }} onClick={() => setSelectedMinutes(val)} className="py-3 rounded-xl text-sm font-semibold transition-colors" style={{ backgroundColor: selectedMinutes === val ? "var(--mq-accent)" : "var(--mq-card)", color: selectedMinutes === val ? "var(--mq-bg)" : "var(--mq-text-muted)", border: "1px solid", borderColor: selectedMinutes === val ? "var(--mq-accent)" : "var(--mq-border)", boxShadow: selectedMinutes === val ? "0 4px 16px var(--mq-glow)" : "none" }}>
                   {formatOption(val)}
                 </motion.button>
               ))}
@@ -349,7 +349,7 @@ export default function SleepTimerView() {
                 </div>
                 <div className="grid grid-cols-5 gap-2">
                   {recommendations.map((rec) => (
-                    <motion.div key={rec.cycles} whileHover={{ y: -2 }} className="rounded-xl p-3 text-center cursor-pointer transition-all" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--mq-border)" }} onClick={() => { setSelectedMinutes(rec.cycles * SLEEP_CYCLE_MINUTES); }}>
+                    <motion.div key={rec.cycles} whileHover={{ y: -2 }} className="rounded-xl p-3 text-center cursor-pointer transition-colors" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--mq-border)" }} onClick={() => { setSelectedMinutes(rec.cycles * SLEEP_CYCLE_MINUTES); }}>
                       <p className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>{rec.wakeTime}</p>
                       <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{rec.cycles} цикл</p>
                       <p className="text-[11px] mt-1 font-medium" style={{ color: rec.qualityColor }}>{rec.quality}</p>

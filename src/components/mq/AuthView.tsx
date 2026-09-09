@@ -401,7 +401,7 @@ export default function AuthView() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.3, duration: 0.3 }}
-                  className="flex items-center justify-center gap-2 w-full min-h-[44px] rounded-xl text-sm font-medium transition-all duration-200 hover:brightness-110 mb-6"
+                  className="flex items-center justify-center gap-2 w-full min-h-[44px] rounded-xl text-sm font-medium transition-[filter,background-color] duration-200 hover:brightness-110 mb-6"
                   style={{ backgroundColor: "rgba(42,171,238,0.15)", color: "var(--mq-telegram)", border: "1px solid rgba(42,171,238,0.3)" }}
                 >
                   <Send className="w-4 h-4" />

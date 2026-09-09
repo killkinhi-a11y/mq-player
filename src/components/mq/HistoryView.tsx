@@ -25,8 +25,6 @@ export default function HistoryView() {
   const compactMode = useAppStore((s) => s.compactMode);
   const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
 
-  const [hoveredTrackId, setHoveredTrackId] = useState<string | null>(null);
-
   // Context menu
   const { contextMenu, closeContextMenu, handleContextMenu, handleMoreClick } = useTrackContextMenu();
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -529,7 +527,6 @@ export default function HistoryView() {
                       {group.items.map((entry, i) => {
                         const track = entry.track;
                         const isActive = currentTrack?.id === track.id;
-                        const isHovered = hoveredTrackId === track.id;
 
                         return (
                           <motion.div
@@ -537,22 +534,15 @@ export default function HistoryView() {
                             initial={animationsEnabled ? { opacity: 0, x: -10 } : undefined}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.03 }}
-                            onMouseEnter={() => setHoveredTrackId(track.id)}
-                            onMouseLeave={() => setHoveredTrackId(null)}
                             onClick={() => handleTrackClick(track)}
                             onContextMenu={(e) => handleContextMenu(track, e)}
-                            className={`group flex items-center gap-3 px-3 py-2.5 cursor-pointer relative overflow-hidden`}
-                            style={{
-                              backgroundColor: isActive
-                                ? "color-mix(in srgb, var(--mq-accent) 8%, transparent)"
-                                : "transparent",
-                            }}
-                            whileHover={{
-                              backgroundColor: isActive
-                                ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)"
-                                : "rgba(255,255,255,0.035)",
-                            }}
-                            whileTap={{ scale: 0.98 }}
+                            /* §F: hover is CSS-only (.mq-hover-row). No
+                               onMouseEnter state (re-rendered the whole list
+                               per boundary crossing), no Framer whileHover
+                               (its tween inherited the stagger delay and
+                               fought `transition-all`). */
+                            className="mq-hover-row group flex items-center gap-3 px-3 py-2.5 cursor-pointer relative overflow-hidden"
+                            data-active={isActive || undefined}
                           >
                             {/* Active accent bar */}
                             {isActive && (
@@ -570,28 +560,22 @@ export default function HistoryView() {
                                 className="w-full h-full object-cover"
                                 loading="lazy"
                               />
-                              {/* Play overlay on hover */}
-                              <AnimatePresence>
-                                {(isHovered || (isActive && isPlaying)) && (
-                                  <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.15 }}
-                                    className="absolute inset-0 flex items-center justify-center"
-                                    style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-                                  >
-                                    {isActive && isPlaying ? (
-                                      <Pause className="w-4 h-4" style={{ color: "#fff" }} fill="#fff" />
-                                    ) : (
-                                      <Play className="w-4 h-4" style={{ color: "#fff" }} fill="#fff" />
-                                    )}
-                                  </motion.div>
+                              {/* Play overlay on hover — CSS-only reveal
+                                  (was AnimatePresence + list-level state) */}
+                              <div
+                                className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity duration-150"
+                                style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+                              >
+                                {isActive && isPlaying ? (
+                                  <Pause className="w-4 h-4" style={{ color: "#fff" }} fill="#fff" />
+                                ) : (
+                                  <Play className="w-4 h-4" style={{ color: "#fff" }} fill="#fff" />
                                 )}
-                              </AnimatePresence>
-                              {/* Playing bars indicator */}
-                              {isActive && isPlaying && !isHovered && (
-                                <div className="absolute inset-0 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
+                              </div>
+                              {/* Playing bars indicator — hides on hover via CSS
+                                  so the play overlay takes over (no state) */}
+                              {isActive && isPlaying && (
+                                <div className="absolute inset-0 flex items-center justify-center opacity-100 group-hover:opacity-0 transition-opacity duration-150" style={{ backgroundColor: "rgba(0,0,0,0.4)" }}>
                                   <div className="flex items-end gap-[2px] h-3">
                                     <motion.div
                                       animate={{ scaleY: [0.3, 1, 0.5] }}

@@ -123,9 +123,20 @@
 .mq-stagger > *:nth-child(8) { animation-delay: 0.3s; }
 .mq-stagger > *:nth-child(n+9) { animation-delay: 0.34s; }
 
-/* Global smooth transitions on interactive elements */
-button, a, [role="button"] {
-  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease, opacity 0.15s ease;
+/* Global smooth transitions on interactive elements.
+   §F root-cause fix: this used to be UNLAYERED with transform+opacity in
+   the list. Unlayered rules beat every Tailwind utility (utilities live in
+   @layer), so transition-[...]/duration-* classes were dead code — and the
+   transform/opacity transitions fought Framer's per-frame inline style
+   writes on every motion.button (framer-motion 12 never sets
+   data-framer-motion-id): CSS chased each frame → the visible "double,
+   delayed, flickering" hover. Now: (a) rule lives in @layer base so
+   utilities override it; (b) transform/opacity are excluded — Framer is
+   the sole writer of those; CSS keeps color feedback only. */
+@layer base {
+  button, a, [role="button"] {
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
 }
 
 /* Card hover transitions */
@@ -1402,12 +1413,15 @@ html.blood-theme body::before {
   transform-origin: bottom;
 }
 
-/* Interactive element transitions — smooth feedback on touch/click */
-/* Avoid `transition: all` — it forces browser to track every property change */
-button:not([data-framer-motion-id]),
-a:not([data-framer-motion-id]),
-[role="button"] {
-  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+/* Interactive element transitions — smooth feedback on touch/click.
+   §F: same fix as above — layered + no transform/opacity, so Framer
+   gestures on motion.buttons are never double-animated by CSS. */
+@layer base {
+  button:not([data-framer-motion-id]),
+  a:not([data-framer-motion-id]),
+  [role="button"] {
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
 }
 
 /* Touch target optimization for mobile */
@@ -2639,21 +2653,23 @@ canvas {
   animation: mq-ripple 0.5s ease-out;
 }
 
-/* 2. Smooth card hover lift (desktop) */
+/* 2. Smooth card hover lift (desktop) — §F: the old broad selector
+   `[class*="rounded-2xl"][class*="cursor-pointer"]` matched Framer-
+   animated motion.cards (Home cards animate y via whileHover) → CSS
+   transform transition chased the per-frame JS writes → double/laggy
+   hover. Only the two CSS-only design classes keep the lift. */
 @media (hover: hover) {
   .mq-premium-card,
-  .mq-hero-card,
-  [class*="rounded-2xl"][class*="cursor-pointer"] {
+  .mq-hero-card {
     transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
   }
 }
 
-/* 3. Button press feedback (mobile + desktop) */
-button:active:not(:disabled),
-[role="button"]:active:not(:disabled) {
-  transform: scale(0.96);
-  transition: transform 0.08s ease;
-}
+/* 3. Button press feedback — §F: REMOVED global CSS press-scale
+   (transform: scale(0.96) on every button). It stacked with Framer
+   whileTap on motion.buttons → double press animation. Press feedback
+   comes from ONE system per element: Framer whileTap on motion
+   controls, CSS :active backgrounds on rows/plain buttons. */
 
 /* 4. Smooth view transitions */
 @keyframes mq-view-enter {
@@ -2793,23 +2809,24 @@ a:focus-visible {
   animation: mq-glow-pulse 2s ease-in-out infinite;
 }
 
-/* 18. Smooth color transitions on interactive elements */
-button,
-[role="button"],
-a,
-.mq-premium-card,
-.mq-hero-card {
-  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease, box-shadow 0.2s ease;
+/* 18. Smooth color transitions on interactive elements.
+   §F: was UNLAYERED with `transform` in the list — beat every Tailwind
+   utility and fought Framer's per-frame transform writes on all
+   motion.buttons. Layered now; transform dropped (Framer owns it). */
+@layer base {
+  button,
+  [role="button"],
+  a,
+  .mq-premium-card,
+  .mq-hero-card {
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.2s ease;
+  }
 }
 
-/* 19. Touch feedback — larger press area on mobile */
+/* 19. Touch feedback — §F: same rationale as §3 — no global CSS
+   transform/opacity press animation (stacks with Framer whileTap on
+   touch). Rows keep their :active background tint instead. */
 @media (hover: none) {
-  button:active:not(:disabled),
-  [role="button"]:active:not(:disabled) {
-    transform: scale(0.94);
-    opacity: 0.85;
-    transition: all 0.06s ease;
-  }
   /* No hover effects on touch: cancel stuck hover transforms only —
      NEVER blank row content (title/artist/actions) when :hover sticks
      after a tap. Tailwind v4 hover variants are already gated by
@@ -3767,7 +3784,10 @@ a,
   min-height: 56px;
   border-radius: 10px;
   cursor: pointer;
-  transition: background-color 0.18s ease, border-color  0.18s ease;
+  /* §F hover unification: exactly ONE writer per property. Rows animate
+     background/border/opacity via CSS only — no Framer gestures on rows,
+     no transition-all (which would fight per-frame JS style writes). */
+  transition: background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
   border: 1px solid transparent;
   text-align: left;
 }
@@ -3799,6 +3819,40 @@ a,
 .mq-row:focus-visible {
   outline: 2px solid var(--mq-accent);
   outline-offset: -2px;
+}
+
+/* ── §F: mq-hover-row — CSS-only hover system for stateful list rows
+   (History / Favorites). Framer previously animated backgroundColor via
+   whileHover on these rows while `transition-all` re-smoothed the same
+   property — two writers → double/laggy hover, plus the stagger delay
+   from the entrance `transition` prop leaked into the hover tween.
+   States are data-attributes so CSS is the single source of truth. ── */
+.mq-hover-row {
+  transition: background-color 0.15s ease;
+}
+.mq-hover-row:hover {
+  background: color-mix(in srgb, var(--mq-text) 4%, transparent);
+}
+.mq-hover-row:active {
+  background: color-mix(in srgb, var(--mq-text) 7%, transparent);
+}
+.mq-hover-row[data-selected="true"] {
+  background: color-mix(in srgb, var(--mq-accent) 6%, transparent);
+}
+.mq-hover-row[data-current="true"] {
+  background: color-mix(in srgb, var(--mq-text) 4%, transparent);
+}
+.mq-hover-row[data-active="true"] {
+  background: color-mix(in srgb, var(--mq-accent) 8%, transparent);
+}
+.mq-hover-row[data-selected="true"]:hover {
+  background: color-mix(in srgb, var(--mq-accent) 10%, transparent);
+}
+.mq-hover-row[data-current="true"]:hover {
+  background: color-mix(in srgb, var(--mq-text) 6%, transparent);
+}
+.mq-hover-row[data-active="true"]:hover {
+  background: color-mix(in srgb, var(--mq-accent) 14%, transparent);
 }
 
 /* ── TrackCard (unified interactive card row, ~1500 instances) ────────── */

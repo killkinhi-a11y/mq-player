@@ -970,7 +970,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
           if (stream.isEncrypted) {
             targetEl = prepareEncryptedElement(inactive);
-            const origXhrSetup = hlsConfig.xhrSetup;
+            const origXhrSetup = hlsConfig.xhrSetup as undefined | ((xhr: XMLHttpRequest, url: string) => void);
             const manifestInterceptor = createManifestInterceptor(targetEl);
             // hls.js 1.6 types xhrSetup as (xhr, url) — no context param.
             hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
@@ -1243,7 +1243,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                 const hlsConfig = buildEmeHlsConfig(stream);
                 if (stream.isEncrypted) {
                   a = prepareEncryptedElement(a);
-                  const origXhrSetup = hlsConfig.xhrSetup;
+                  const origXhrSetup = hlsConfig.xhrSetup as undefined | ((xhr: XMLHttpRequest, url: string) => void);
                   const manifestInterceptor = createManifestInterceptor(a);
                   hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                     manifestInterceptor(xhr, url);
@@ -1438,7 +1438,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   const hlsConfig = buildEmeHlsConfig(stream);
                   if (stream.isEncrypted) {
                     activeEl = prepareEncryptedElement(activeEl);
-                    const origXhrSetup = hlsConfig.xhrSetup;
+                    const origXhrSetup = hlsConfig.xhrSetup as undefined | ((xhr: XMLHttpRequest, url: string) => void);
                     const manifestInterceptor = createManifestInterceptor(activeEl);
                     hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                       manifestInterceptor(xhr, url);
@@ -1520,7 +1520,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                   const hlsConfig = buildEmeHlsConfig(stream);
                   if (stream.isEncrypted) {
                     activeEl = prepareEncryptedElement(activeEl);
-                    const origXhrSetup = hlsConfig.xhrSetup;
+                    const origXhrSetup = hlsConfig.xhrSetup as undefined | ((xhr: XMLHttpRequest, url: string) => void);
                     const manifestInterceptor = createManifestInterceptor(activeEl);
                     hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                       manifestInterceptor(xhr, url);
@@ -1715,7 +1715,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
 
         if (fallback.isEncrypted) {
           activeEl = prepareEncryptedElement(activeEl);
-          const origXhrSetup = hlsConfig.xhrSetup;
+          const origXhrSetup = hlsConfig.xhrSetup as undefined | ((xhr: XMLHttpRequest, url: string) => void);
           const manifestInterceptor = createManifestInterceptor(activeEl);
           hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
             manifestInterceptor(xhr, url);
@@ -2184,7 +2184,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                 console.log("[Player]   protocol:", stream.protocol, "| hasLicenseUrl:", !!stream.licenseUrl, "| hasAuthToken:", !!stream.licenseAuthToken);
                 audioEl = prepareEncryptedElement(audioEl);
 
-                const origXhrSetup = hlsConfig.xhrSetup;
+                const origXhrSetup = hlsConfig.xhrSetup as undefined | ((xhr: XMLHttpRequest, url: string) => void);
                 const manifestInterceptor = createManifestInterceptor(audioEl);
                 hlsConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                   manifestInterceptor(xhr, url);
@@ -2302,7 +2302,7 @@ export function useAudioEngine(params: UseAudioEngineParams) {
                         const fbConfig = buildEmeHlsConfig(freshStream);
                         if (freshStream.isEncrypted) {
                           activeEl = prepareEncryptedElement(activeEl);
-                          const origXhrSetup = fbConfig.xhrSetup;
+                          const origXhrSetup = fbConfig.xhrSetup as undefined | ((xhr: XMLHttpRequest, url: string) => void);
                           const manifestInterceptor = createManifestInterceptor(activeEl);
                           fbConfig.xhrSetup = function (xhr: XMLHttpRequest, url: string) {
                             manifestInterceptor(xhr, url);

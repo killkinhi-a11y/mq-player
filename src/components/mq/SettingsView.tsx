@@ -9,7 +9,7 @@ import {
   User, Palette, Headphones, Bell, MoreHorizontal,
   Volume2, Moon, Type, Minimize2, Sparkles, Zap,
   RefreshCw, Cloud, Trash2, LogOut, Download, Upload,
-  Smartphone, Monitor, Apple, Info, ChevronRight, X, Check, Loader2,
+  Smartphone, Monitor, Apple, Info, ChevronRight, ChevronDown, X, Check, Loader2,
   AlertTriangle, Sliders, Gauge, Terminal, Cpu,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -266,6 +266,11 @@ export default function SettingsView() {
   });
   useEffect(() => { try { localStorage.setItem("mq-settings-tab", activeTab); } catch {} }, [activeTab]);
 
+  // ── §K Theme picker — collapsed by default (compact row "Тема · Dark >"),
+  // tap toggles the preview grid; selection does NOT auto-collapse (per spec:
+  // collapse happens only on a repeated tap of the row).
+  const [themeExpanded, setThemeExpanded] = useState(false);
+
   // ── Push ──
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
@@ -429,34 +434,64 @@ export default function SettingsView() {
   ];
 
   return (
-    <div className="p-3 sm:p-4 lg:p-6 max-w-[var(--mq-container-narrow)] lg:max-w-[var(--mq-container-base)] mx-auto pb-32 lg:pb-24" data-active-tab={activeTab}>
+    /* §K IA: categories → selected section → controls.
+       Desktop (lg+): sticky LEFT NAV + wide content pane (no long narrow
+       column). Mobile: compact scrollable pill bar. Content sections keep
+       their scannable Card structure. */
+    <div className="p-3 sm:p-4 lg:p-6 max-w-[var(--mq-container-narrow)] lg:max-w-[var(--mq-container-wide)] mx-auto pb-32 lg:pb-24" data-active-tab={activeTab}>
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-4 sm:mb-5">
         <h1 className="mq-t-display text-[26px] sm:text-[30px]" style={{ color: "var(--mq-text)" }}>Настройки</h1>
         <p className="text-xs sm:text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>Персонализируйте ваш mq</p>
       </motion.div>
 
-      {/* Tab bar */}
-      <div className="sticky z-30 mb-4 sm:mb-5" style={{ top: 0, paddingTop: 8, paddingBottom: 8, backgroundColor: "var(--mq-bg)" }}>
-        <div className="flex gap-1 p-1 rounded-[var(--mq-r-card)] overflow-x-auto scrollbar-none"
-          style={{ background: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", WebkitOverflowScrolling: "touch" }}>
-          {TABS.map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className="flex items-center gap-1.5 px-2.5 sm:px-4 min-h-[44px] py-2 rounded-full text-[11px] sm:text-sm font-semibold whitespace-nowrap transition-colors duration-150 flex-shrink-0"
-                style={{ background: isActive ? "var(--mq-accent)" : "transparent", color: isActive ? "#fff" : "var(--mq-text-muted)" }}>
-                <Icon className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{tab.label}</span>
-                <span className="sm:hidden">{tab.labelShort}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <div className="lg:flex lg:gap-6 lg:items-start">
+        {/* Desktop — sticky left category nav */}
+        <aside className="hidden lg:block w-[216px] flex-shrink-0">
+          <div className="sticky top-24 rounded-[var(--mq-r-card)] overflow-hidden"
+            style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}>
+            {TABS.map((tab, i) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-sm font-semibold text-left transition-colors duration-150 hover:bg-[var(--mq-overlay-hover)]"
+                  style={{
+                    backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "transparent",
+                    color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                    borderTop: i > 0 ? "1px solid var(--mq-border-hairline)" : undefined,
+                    borderLeft: isActive ? "2px solid var(--mq-accent)" : "2px solid transparent",
+                  }}
+                  aria-current={isActive ? "true" : undefined}>
+                  <Icon className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </aside>
 
-      <div className="space-y-4">
+        {/* Mobile — compact scrollable pill bar */}
+        <div className="lg:hidden sticky z-30 mb-4 sm:mb-5" style={{ top: 0, paddingTop: 8, paddingBottom: 8, backgroundColor: "var(--mq-bg)" }}>
+          <div className="flex gap-1 p-1 rounded-[var(--mq-r-card)] overflow-x-auto scrollbar-none"
+            style={{ background: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", WebkitOverflowScrolling: "touch" }}>
+            {TABS.map(tab => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-4 min-h-[40px] py-1.5 rounded-full text-[11px] sm:text-sm font-semibold whitespace-nowrap transition-colors duration-150 flex-shrink-0"
+                  style={{ background: isActive ? "var(--mq-accent)" : "transparent", color: isActive ? "#fff" : "var(--mq-text-muted)" }}>
+                  <Icon className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.labelShort}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+      <div className="space-y-4 flex-1 min-w-0 lg:max-w-[760px]">
         {/* ════ ACCOUNT ════ */}
         {activeTab === "account" && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="space-y-4">
@@ -539,9 +574,52 @@ export default function SettingsView() {
         {activeTab === "appearance" && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }} className="space-y-4">
             <Card>
-              <CardTitle icon={Palette} title="Тема" />
-              <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {/* §K Theme — compact collapsed row by default:
+                  [mini preview] Тема · <current name> [chevron]
+                  Tap → expands the preview grid; repeated tap → collapses.
+                  Selection keeps it open; the row chevron mirrors state. */}
+              <button
+                onClick={() => setThemeExpanded(o => !o)}
+                className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5 text-left transition-colors duration-150 hover:bg-[var(--mq-overlay-hover)]"
+                aria-expanded={themeExpanded}
+                aria-controls="mq-theme-picker"
+              >
+                {/* Mini preview of the CURRENT theme (bg + card + accent) */}
+                <div
+                  className="w-11 h-11 rounded-[var(--mq-r-card)] flex-shrink-0 relative overflow-hidden"
+                  style={{
+                    backgroundColor: (themes as any)[currentTheme]?.background || "#0e0e0e",
+                    border: "1px solid var(--mq-edge)",
+                  }}
+                  aria-hidden
+                >
+                  <div className="absolute left-1.5 top-2 bottom-2 rounded-[3px]" style={{ width: 12, backgroundColor: (themes as any)[currentTheme]?.card || "#1a1a1a" }} />
+                  <div className="absolute left-1.5 bottom-2 h-[3px] rounded-full" style={{ width: 12, backgroundColor: (themes as any)[currentTheme]?.accent || "#e03131" }} />
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full" style={{ width: 5, height: 5, backgroundColor: (themes as any)[currentTheme]?.accent || "#e03131" }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>Тема</p>
+                  <p className="text-xs mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
+                    {(themes as any)[currentTheme]?.name || currentTheme}
+                  </p>
+                </div>
+                <ChevronDown
+                  className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
+                  style={{ color: "var(--mq-text-muted)", transform: themeExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
+                />
+              </button>
+              <AnimatePresence initial={false}>
+                {themeExpanded && (
+                  <motion.div
+                    id="mq-theme-picker"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {Object.entries(themes).map(([key, theme]: [string, any]) => {
                     const isActive = currentTheme === key;
                     return (
@@ -591,8 +669,11 @@ export default function SettingsView() {
                       </motion.button>
                     );
                   })}
-                </div>
-              </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </Card>
 
             <Card>
@@ -797,6 +878,7 @@ export default function SettingsView() {
             </Card>
           </motion.div>
         )}
+      </div>
       </div>
     </div>
   );

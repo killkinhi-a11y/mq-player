@@ -183,9 +183,11 @@ export default function FullTrackView() {
   const [isDragging, setIsDragging] = useState(false);
   const [hoveredTime, setHoveredTime] = useState<number | null>(null);
   const [activePanel, setActivePanel] = useState<"queue" | "lyrics" | "history" | null>(null);
-  // On wide layouts the context panel is persistent — a null activePanel
-  // falls back to the queue tab instead of hiding content.
-  const panelTab = isWide ? (activePanel ?? "queue") : activePanel;
+  // §D redesign: NO persistent panel — the context panel (queue/lyrics/
+  // history) is CLOSED by default on every layout and opens only on an
+  // explicit action (button, Q/F/H key). Wide screens show it as a
+  // slide-in overlay; classic layouts keep the inline block.
+  const panelTab = activePanel;
   const [lyrics, setLyrics] = useState<LyricLine[]>([]);
   const [plainLyrics, setPlainLyrics] = useState<string>("");
   const [lyricsLoading, setLyricsLoading] = useState(false);
@@ -479,13 +481,16 @@ export default function FullTrackView() {
           break;
         case "Escape":
           e.preventDefault();
-          setOpen(false);
+          // Layered dismissal: an open context panel closes FIRST; only a
+          // second Esc closes the player itself.
+          if (activePanel) setActivePanel(null);
+          else setOpen(false);
           break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [isOpen, togglePlay, nextTrack, prevTrack, setProgress, setVolume, handleLike, toggleShuffle, toggleRepeat, setOpen, duration]);
+  }, [isOpen, togglePlay, nextTrack, prevTrack, setProgress, setVolume, handleLike, toggleShuffle, toggleRepeat, setOpen, duration, activePanel]);
 
   // ── Derived ─────────────────────────────────────────────────────────────
   const isLiked = currentTrack ? likedTrackIds.includes(currentTrack.id) : false;
@@ -1328,13 +1333,13 @@ export default function FullTrackView() {
               </div>
               </div>
             ) : (
-              <div className="flex-1 min-h-0 w-full flex items-stretch justify-center overflow-hidden">
-                <div className="w-full h-full max-w-[1408px] flex items-stretch gap-6 xl:gap-8 px-8 xl:px-10 pb-6 pt-1">
+              <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
+                <div className="w-full h-full max-w-[1120px] flex items-center gap-12 xl:gap-16 px-10 xl:px-14 pb-8 pt-2">
 
                   {/* ═══ LEFT — large artwork ═══ */}
                   <div
                     className="flex-shrink-0 flex items-center justify-center min-h-0"
-                    style={{ width: "min(clamp(300px, 30vw, 420px), calc(100vh - 220px))" }}
+                    style={{ width: "min(clamp(340px, 36vw, 480px), calc(100vh - 180px))" }}
                   >
                     <motion.div
                       key={currentTrack.id}
@@ -1370,17 +1375,47 @@ export default function FullTrackView() {
                     {hintsNode}
                   </motion.div>
 
-                  {/* ═══ RIGHT — persistent queue / context panel ═══ */}
-                  <aside className="flex-shrink-0 w-[300px] xl:w-[340px] min-h-0 flex flex-col py-1">
+                </div>
+              </div>
+            )}
+
+            {/* ═══ §D: CONTEXT PANEL OVERLAY — queue / lyrics / history.
+                CLOSED by default; opens ONLY on explicit action (button or
+                Q/F/H). Slide-in from the right + scrim, spring-eased. ═══ */}
+            <AnimatePresence>
+              {isWide && activePanel && (
+                <>
+                  <motion.div
+                    key="panel-scrim"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="absolute inset-0 z-20"
+                    style={{ background: "color-mix(in srgb, var(--mq-bg) 55%, transparent)", backdropFilter: "blur(2px)" }}
+                    onClick={() => setActivePanel(null)}
+                    aria-hidden="true"
+                  />
+                  <motion.aside
+                    key="context-panel"
+                    initial={{ x: 400, opacity: 0.6 }}
+                    animate={{ x: 0, opacity: 1 }}
+                    exit={{ x: 400, opacity: 0.6 }}
+                    transition={{ type: "spring", stiffness: 380, damping: 38 }}
+                    className="absolute inset-y-0 right-0 z-30 w-[340px] xl:w-[380px] flex flex-col py-4 pr-4"
+                    role="complementary"
+                    aria-label="Контекст воспроизведения"
+                    data-mq-context-panel
+                  >
                     <div
                       className="flex-1 min-h-0 flex flex-col overflow-hidden rounded-[var(--mq-r-card-lg)]"
-                      style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
+                      style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)", boxShadow: "var(--mq-elev-dialog)" }}
                     >
-                      {/* Tab switcher */}
+                      {/* Tab switcher + close */}
                       <div
                         role="tablist"
                         aria-label="Контекст воспроизведения"
-                        className="flex items-center gap-1 p-1.5"
+                        className="flex items-center gap-1 p-1.5 pr-2"
                         style={{ borderBottom: "1px solid var(--mq-edge)" }}
                       >
                         <button
@@ -1423,6 +1458,15 @@ export default function FullTrackView() {
                             </span>
                           )}
                         </button>
+                        <button
+                          onClick={() => setActivePanel(null)}
+                          className="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                          style={{ color: "var(--mq-text-muted)" }}
+                          aria-label="Закрыть панель"
+                          title="Закрыть (Esc)"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
 
                       {/* Wave context — why this track is playing */}
@@ -1435,7 +1479,7 @@ export default function FullTrackView() {
                         </div>
                       )}
 
-                      {/* Tab content */}
+                    {/* Tab content */}
                       <div className="flex-1 min-h-0 overflow-y-auto" data-scrollable="true">
                         {panelTab === "queue" && (
                           <div className="py-2">
@@ -1559,11 +1603,12 @@ export default function FullTrackView() {
                           </div>
                         )}
                       </div>
+    
                     </div>
-                  </aside>
-                </div>
-              </div>
-            )}
+                  </motion.aside>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </motion.div>
       )}

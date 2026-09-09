@@ -7,7 +7,7 @@ import { type Track, formatDuration } from "@/lib/musicApi";
 import {
   Plus, Trash2, Play, ListMusic, ChevronLeft,
   Edit3, X, Check, Clock, Heart, Download, Loader2, AlertCircle,
-  Camera, Shuffle, Pin, MoreVertical, Music, Share2, MoreHorizontal,
+  Camera, Shuffle, Pin, MoreVertical, Music, Share2, MoreHorizontal, Pause,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "./EmptyState";
@@ -454,6 +454,10 @@ export default function PlaylistView() {
     const pl = selectedPlaylist;
     const totalDur = formatTotalDuration(pl.tracks);
     const isPlPlaying = currentTrack && pl.tracks.some(t => t.id === currentTrack.id) && storeIsPlaying;
+    const isPinned = pinnedIds.has(pl.id);
+    const createdLabel = pl.createdAt
+      ? new Date(pl.createdAt).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+      : null;
 
     return (
       <div className={`${compactMode ? "p-3 lg:p-4" : "p-4 lg:p-6"} max-w-[var(--mq-container-base)] lg:max-w-[var(--mq-container-wide)] mx-auto pb-32 lg:pb-28`}>
@@ -463,36 +467,46 @@ export default function PlaylistView() {
           animate={{ opacity: 1, x: 0 }}
           whileTap={{ scale: 0.95 }}
           onClick={() => setSelectedPlaylistId(null)}
-          className="flex items-center gap-1.5 text-sm mb-5"
+          className="flex items-center gap-1.5 text-sm mb-5 -ml-1.5 rounded-lg px-2.5 py-1.5 transition-colors hover:bg-[var(--mq-overlay-hover)]"
           style={{ color: "var(--mq-text-muted)" }}
         >
           <ChevronLeft className="w-4 h-4" />
           Все плейлисты
         </motion.button>
 
-        {/* Header — cinematic */}
+        {/* ═══ §J HERO — playlist as an independent entity (album-page
+            composition). Flat MQ language: hairline surface + accent tint
+            band (no photo background, no blur, no gradient glow).
+            ARTWORK → IDENTITY → PRIMARY ACTIONS. ═══ */}
         <motion.div
           initial={animationsEnabled ? { opacity: 0, y: 16 } : undefined}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="relative rounded-3xl overflow-hidden mb-6"
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="relative rounded-[var(--mq-r-card-lg)] overflow-hidden mb-5"
           style={{
-            background: pl.cover
-              ? `linear-gradient(180deg, transparent 0%, var(--mq-bg) 100%), url(${pl.cover}) center/cover`
-              : gradientCover(pl.name),
-            border: "1px solid var(--mq-border-thin)",
-            boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
+            backgroundColor: "var(--mq-surface-1)",
+            border: "1px solid var(--mq-edge)",
+            boxShadow: "var(--mq-shadow-xs)",
           }}
         >
-          {/* Dark overlay for readability */}
-          <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.7) 100%)" }} />
+          {/* Ambient: flat accent tint band behind the artwork zone */}
+          <div
+            aria-hidden
+            className="absolute inset-x-0 top-0 h-48 sm:h-56"
+            style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, transparent)" }}
+          />
 
-          <div className="relative p-5 sm:p-7 flex flex-col sm:flex-row gap-5 sm:items-end">
-            {/* Cover */}
-            <div className="relative group/cover flex-shrink-0 self-start sm:self-end">
+          <div className="relative p-4 sm:p-6 lg:p-8 flex flex-col sm:flex-row gap-5 sm:gap-7">
+            {/* ── ARTWORK ── */}
+            <div className="group/cover relative flex-shrink-0 self-center sm:self-start">
               <div
-                className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl overflow-hidden flex items-center justify-center shadow-2xl"
-                style={pl.cover ? { backgroundColor: "transparent" } : { background: gradientCover(pl.name) }}
+                className="w-40 h-40 sm:w-44 sm:h-44 lg:w-52 lg:h-52 rounded-[var(--mq-r-card)] overflow-hidden flex items-center justify-center"
+                style={{
+                  backgroundColor: pl.cover ? "var(--mq-surface-2)" : "transparent",
+                  background: pl.cover ? undefined : gradientCover(pl.name),
+                  border: "1px solid var(--mq-edge)",
+                  boxShadow: "var(--mq-shadow-premium-md)",
+                }}
               >
                 {pl.cover ? (
                   <img src={pl.cover} alt="" className="w-full h-full object-cover" />
@@ -502,10 +516,11 @@ export default function PlaylistView() {
                   </div>
                 )}
               </div>
-              {/* Cover upload */}
+              {/* Cover upload — hover reveal */}
               <button
-                className="absolute inset-0 rounded-2xl bg-black/60 sm:opacity-0 sm:group-hover/cover:opacity-100 transition-opacity flex items-center justify-center"
+                className="absolute inset-0 rounded-[var(--mq-r-card)] bg-black/60 sm:opacity-0 sm:group-hover/cover:opacity-100 transition-opacity flex items-center justify-center"
                 onClick={() => coverInputRef.current?.click()}
+                aria-label="Сменить обложку"
               >
                 {coverUploadingId === pl.id ? (
                   <Loader2 className="w-5 h-5 animate-spin text-white" />
@@ -515,8 +530,9 @@ export default function PlaylistView() {
               </button>
               {pl.cover && (
                 <button
-                  className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center"
+                  className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center"
                   onClick={(e) => { e.stopPropagation(); handleRemoveCover(pl.id); }}
+                  aria-label="Убрать обложку"
                 >
                   <X className="w-3 h-3 text-white" />
                 </button>
@@ -534,20 +550,32 @@ export default function PlaylistView() {
               />
             </div>
 
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.5)" }}>
+            {/* ── IDENTITY + PRIMARY ACTIONS ── */}
+            <div className="flex-1 min-w-0 flex flex-col sm:justify-end">
+              {/* Eyebrow */}
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[11px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-accent)" }}>
                   Плейлист
                 </span>
+                {isPinned && (
+                  <span
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
+                  >
+                    <Pin className="w-3 h-3" />
+                    Закреплён
+                  </span>
+                )}
               </div>
+
+              {/* Title (inline rename preserved) */}
               {editingId === pl.id ? (
                 <div className="flex items-center gap-2 mb-2" onClick={(e) => e.stopPropagation()}>
                   <input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="flex-1 min-w-0 text-2xl sm:text-3xl font-extrabold tracking-tight rounded-xl px-3 py-1.5 outline-none"
-                    style={{ backgroundColor: "rgba(0,0,0,0.35)", border: "1px solid var(--mq-accent)", color: "#fff" }}
+                    className="flex-1 min-w-0 text-2xl sm:text-4xl font-extrabold tracking-tight rounded-xl px-3 py-2 outline-none"
+                    style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-accent)", color: "var(--mq-text)" }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") handleConfirmRename();
                       if (e.key === "Escape") setEditingId(null);
@@ -556,89 +584,125 @@ export default function PlaylistView() {
                     maxLength={300}
                     aria-label="Новое название плейлиста"
                   />
-                  <button onClick={handleConfirmRename} className="p-2 rounded-full flex-shrink-0" style={{ backgroundColor: "var(--mq-accent)" }} aria-label="Сохранить название">
+                  <button onClick={handleConfirmRename} className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }} aria-label="Сохранить название">
                     <Check className="w-4 h-4 text-white" />
                   </button>
-                  <button onClick={() => setEditingId(null)} className="p-2 rounded-full flex-shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.15)" }} aria-label="Отменить переименование">
-                    <X className="w-4 h-4 text-white" />
+                  <button onClick={() => setEditingId(null)} className="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center" style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)" }} aria-label="Отменить переименование">
+                    <X className="w-4 h-4" style={{ color: "var(--mq-text)" }} />
                   </button>
                 </div>
               ) : (
                 <h1
-                  className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-2 break-words line-clamp-3"
+                  className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight mb-2 break-words"
+                  style={{ color: "var(--mq-text)", letterSpacing: "-0.02em" }}
                   title={pl.name}
                 >
-                  {pl.name}
+                  <span className="line-clamp-4">{pl.name}</span>
                 </h1>
               )}
+
+              {/* Description */}
               {pl.description && (
-                <p className="text-sm mb-3 break-words line-clamp-2" style={{ color: "rgba(255,255,255,0.6)" }} title={pl.description}>
+                <p
+                  className="text-sm mb-3 break-words line-clamp-2 max-w-[60ch]"
+                  style={{ color: "var(--mq-text-muted)" }}
+                  title={pl.description}
+                >
                   {pl.description}
                 </p>
               )}
-              <div className="flex items-center gap-3 text-xs" style={{ color: "rgba(255,255,255,0.5)" }}>
-                <span className="flex items-center gap-1">
-                  <Music className="w-3 h-3" />
-                  {pl.tracks.length} треков
+
+              {/* Meta line */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs mb-5" style={{ color: "var(--mq-text-muted)" }}>
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Music className="w-3.5 h-3.5" />
+                  {pl.tracks.length} {pluralRu(pl.tracks.length, "трек", "трека", "треков")}
                 </span>
                 {totalDur && (
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {totalDur}
-                  </span>
+                  <>
+                    <span aria-hidden style={{ opacity: 0.4 }}>·</span>
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5" />
+                      {totalDur}
+                    </span>
+                  </>
                 )}
+                {createdLabel && (
+                  <>
+                    <span aria-hidden style={{ opacity: 0.4 }}>·</span>
+                    <span>создан {createdLabel}</span>
+                  </>
+                )}
+              </div>
+
+              {/* PRIMARY ACTIONS — one row, predictable order: play → shuffle → pin → menu */}
+              <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
+                <motion.button
+                  whileTap={{ scale: 0.96, transition: { duration: 0.1 } }}
+                  whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }}
+                  onClick={() => isPlPlaying ? togglePlay() : handlePlayAll(pl)}
+                  disabled={pl.tracks.length === 0}
+                  className="flex items-center justify-center gap-2 flex-1 sm:flex-none sm:min-w-[150px] px-5 sm:px-6 py-3 rounded-full font-bold text-sm"
+                  style={{
+                    backgroundColor: "var(--mq-accent)",
+                    color: "var(--mq-text-on-accent, #fff)",
+                    opacity: pl.tracks.length === 0 ? 0.45 : 1,
+                    cursor: pl.tracks.length === 0 ? "default" : "pointer",
+                  }}
+                  aria-label={isPlPlaying ? "Поставить на паузу" : "Слушать плейлист"}
+                >
+                  {isPlPlaying ? <Pause className="w-4.5 h-4.5" fill="currentColor" /> : <Play className="w-4.5 h-4.5" fill="currentColor" />}
+                  {isPlPlaying ? "Пауза" : "Слушать"}
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.96, transition: { duration: 0.1 } }}
+                  whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }}
+                  onClick={() => handleShufflePlay(pl)}
+                  disabled={pl.tracks.length === 0}
+                  className="flex items-center justify-center gap-2 flex-1 sm:flex-none px-4 sm:px-5 py-3 rounded-full font-semibold text-sm"
+                  style={{
+                    backgroundColor: "var(--mq-surface-2)",
+                    color: "var(--mq-text)",
+                    border: "1px solid var(--mq-edge)",
+                    opacity: pl.tracks.length === 0 ? 0.45 : 1,
+                    cursor: pl.tracks.length === 0 ? "default" : "pointer",
+                  }}
+                  aria-label="Перемешать и слушать"
+                >
+                  <Shuffle className="w-4 h-4" />
+                  Перемешать
+                </motion.button>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleTogglePin(pl.id)}
+                    className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                    style={{
+                      color: isPinned ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                      border: "1px solid var(--mq-edge)",
+                      backgroundColor: "var(--mq-surface-1)",
+                    }}
+                    aria-label={isPinned ? "Открепить плейлист" : "Закрепить плейлист"}
+                    aria-pressed={isPinned}
+                    title={isPinned ? "Открепить" : "Закрепить"}
+                  >
+                    <Pin className="w-4.5 h-4.5" fill={isPinned ? "currentColor" : "none"} />
+                  </button>
+                  <button
+                    onClick={() => setMenuOpenId(menuOpenId === pl.id ? null : pl.id)}
+                    className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                    style={{ color: "var(--mq-text-muted)", border: "1px solid var(--mq-edge)", backgroundColor: "var(--mq-surface-1)" }}
+                    aria-label="Меню плейлиста"
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpenId === pl.id}
+                  >
+                    <MoreVertical className="w-4.5 h-4.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Playlist menu — pinned to the card's top-right corner (Spotify pattern) */}
-          <div
-            className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setMenuOpenId(menuOpenId === pl.id ? null : pl.id)}
-              className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
-              style={{ backgroundColor: "rgba(0,0,0,0.35)", color: "#fff", backdropFilter: "blur(8px)" }}
-              aria-label="Меню плейлиста"
-              aria-haspopup="menu"
-              aria-expanded={menuOpenId === pl.id}
-            >
-              <MoreVertical className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Action bar */}
-          <div className="relative px-5 sm:px-7 pb-5 sm:pb-7 flex flex-wrap items-center gap-3">
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              whileHover={{ scale: 1.04 }}
-              onClick={() => isPlPlaying ? togglePlay() : handlePlayAll(pl)}
-              className="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full font-semibold text-sm shadow-lg"
-              style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
-            >
-              <Play className="w-4 h-4" fill="currentColor" />
-              {isPlPlaying ? "Пауза" : "Слушать"}
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              whileHover={{ scale: 1.04 }}
-              onClick={() => handleShufflePlay(pl)}
-              disabled={pl.tracks.length === 0}
-              className="flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-full text-sm font-medium"
-              style={{
-                backgroundColor: "rgba(255,255,255,0.1)",
-                color: "#fff",
-                backdropFilter: "blur(10px)",
-                opacity: pl.tracks.length === 0 ? 0.4 : 1,
-              }}
-            >
-              <Shuffle className="w-4 h-4" />
-              Перемешать
-            </motion.button>
-          </div>
-
-          {/* Portal context menu for playlist controls */}
+          {/* Portal context menu (fixed position, unaffected by trigger) */}
           <AnimatePresence>
             {menuOpenId === pl.id && (
               <PlaylistContextMenu
@@ -658,40 +722,57 @@ export default function PlaylistView() {
           </AnimatePresence>
         </motion.div>
 
-        {/* Track list — inset to align with the header card's inner content edge */}
+        {/* ═══ TRACKLIST — unified .mq-row system (same rows as Queue /
+            Search / History: 56px, hover surface, accent bar + eq when
+            playing, actions revealed on row hover). ═══ */}
         {pl.tracks.length > 0 ? (
-          <div className="space-y-1 px-5 sm:px-7">
-            <AnimatePresence>
-              {pl.tracks.map((track, idx) => {
-                const isCurrent = currentTrack?.id === track.id;
-                const isLiked = likedTrackIds.includes(track.id);
-                return (
-                  <motion.div
-                    key={track.id + "_" + idx}
-                    initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: Math.min(idx * 0.02, 0.4) }}
-                  >
-                    <TrackRow
-                      track={track}
-                      index={idx + 1}
-                      isCurrent={isCurrent}
-                      isPlaying={isCurrent && storeIsPlaying}
-                      isLiked={isLiked}
-                      onPlay={() => playTrack(track, pl.tracks, pl.id)}
-                      onLike={() => toggleLike(track.id, track)}
-                      onRemove={() => setTimeout(() => removeFromPlaylist(pl.id, track.id), 0)}
-                      onArtistClick={() => {
-                        if (track.artist) {
-                          setSelectedArtist({ name: track.artist });
-                          setView("main");
-                        }
-                      }}
-                    />
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
+          <div
+            className="rounded-[var(--mq-r-card-lg)] overflow-hidden"
+            style={{ border: "1px solid var(--mq-edge)", backgroundColor: "var(--mq-surface-1)" }}
+          >
+            {/* Column header */}
+            <div
+              className="flex items-center gap-3 px-4 py-2.5 text-[11px] uppercase tracking-[0.12em] font-semibold select-none"
+              style={{ color: "var(--mq-text-muted)", borderBottom: "1px solid var(--mq-edge)" }}
+            >
+              <span className="w-7 flex-shrink-0 text-center mq-t-num">#</span>
+              <span className="flex-1">Название</span>
+              <span className="hidden sm:block w-[86px] text-right pr-3 mq-t-num">Длит.</span>
+              <span className="w-[92px] sm:w-[108px] flex-shrink-0" aria-hidden />
+            </div>
+            <div>
+              <AnimatePresence>
+                {pl.tracks.map((track, idx) => {
+                  const isCurrent = currentTrack?.id === track.id;
+                  const isLiked = likedTrackIds.includes(track.id);
+                  return (
+                    <motion.div
+                      key={track.id + "_" + idx}
+                      initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: Math.min(idx * 0.02, 0.4), duration: 0.25 }}
+                    >
+                      <TrackRow
+                        track={track}
+                        index={idx + 1}
+                        isCurrent={isCurrent}
+                        isPlaying={isCurrent && storeIsPlaying}
+                        isLiked={isLiked}
+                        onPlay={() => playTrack(track, pl.tracks, pl.id)}
+                        onLike={() => toggleLike(track.id, track)}
+                        onRemove={() => setTimeout(() => removeFromPlaylist(pl.id, track.id), 0)}
+                        onArtistClick={() => {
+                          if (track.artist) {
+                            setSelectedArtist({ name: track.artist });
+                            setView("main");
+                          }
+                        }}
+                      />
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            </div>
           </div>
         ) : (
           <EmptyState
@@ -1019,7 +1100,8 @@ interface TrackRowProps {
 }
 
 function TrackRow({ track, index, isCurrent, isPlaying, isLiked, onPlay, onLike, onRemove, onArtistClick }: TrackRowProps) {
-  const [hovering, setHovering] = useState(false);
+  // §F/§J: CSS-only hover (.mq-row) — no per-row hover state, no framer
+  // gestures on the row itself (press feedback via CSS :active).
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -1038,92 +1120,102 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, onPlay, onLike,
 
   return (
     <>
-      <motion.div
-        onHoverStart={() => setHovering(true)}
-        onHoverEnd={() => setHovering(false)}
+      <div
         onClick={onPlay}
         onContextMenu={handleContextMenu}
-        className="group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors"
-        style={{
-          backgroundColor: isCurrent ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : "transparent",
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onPlay();
+          }
         }}
-        whileTap={{ scale: 0.99 }}
+        aria-label={`Слушать ${track.title} — ${track.artist}${isCurrent ? " (играет сейчас)" : ""}`}
+        className="mq-row group"
+        data-active={isCurrent || undefined}
       >
-      {/* Index / play icon */}
-      <div className="w-7 flex-shrink-0 text-center">
-        {isCurrent ? (
-          <NowPlayingEqualizer size="sm" variant="inline" paused={!isPlaying} />
-        ) : hovering ? (
-          <Play className="w-3.5 h-3.5 mx-auto" style={{ color: "var(--mq-text)" }} fill="currentColor" />
-        ) : (
-          <span className="text-xs" style={{ color: "var(--mq-text-muted)" }}>{index}</span>
+        {/* Index → play affordance on hover (CSS swap, no state) */}
+        <div className="w-7 flex-shrink-0 flex items-center justify-center">
+          {isCurrent ? (
+            <NowPlayingEqualizer size="sm" variant="inline" paused={!isPlaying} />
+          ) : (
+            <>
+              <span className="mq-t-num text-xs group-hover:hidden" style={{ color: "var(--mq-text-muted)", opacity: 0.65 }}>
+                {index}
+              </span>
+              <Play className="w-3.5 h-3.5 hidden group-hover:block" style={{ color: "var(--mq-text)" }} fill="currentColor" />
+            </>
+          )}
+        </div>
+
+        {/* Cover — 44px unified art */}
+        <div className="w-11 h-11 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art" style={{ backgroundColor: "var(--mq-surface-2)" }}>
+          {track.cover ? (
+            <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)", opacity: 0.45 }} />
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <p
+            className="text-sm font-semibold truncate"
+            style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)", letterSpacing: "-0.01em" }}
+            title={`${track.title} — ${track.artist}`}
+          >
+            {track.title}
+          </p>
+          <button
+            onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
+            className="text-[13px] block max-w-full text-left truncate hover:underline transition-colors"
+            style={{ color: "var(--mq-text-muted)" }}
+            title={track.artist}
+          >
+            {track.artist}
+          </button>
+        </div>
+
+        {/* Duration */}
+        {track.duration > 0 && (
+          <span className="mq-t-num text-[11px] flex-shrink-0 hidden sm:block text-right w-[68px]" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>
+            {formatDuration(track.duration)}
+          </span>
         )}
+
+        {/* Actions — revealed on row hover (CSS) */}
+        <div className="flex items-center gap-0.5 flex-shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); onLike(); }}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-[background-color,color,opacity] duration-150 hover:bg-[var(--mq-overlay-hover)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
+            style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+            aria-label={isLiked ? "Убрать из избранного" : "В избранное"}
+            aria-pressed={isLiked}
+          >
+            <Heart className="w-4 h-4" fill={isLiked ? "currentColor" : "none"} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-[background-color,color,opacity] duration-150 hover:bg-[var(--mq-overlay-hover)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
+            style={{ color: "var(--mq-text-muted)" }}
+            aria-label="Убрать из плейлиста"
+            title="Убрать из плейлиста"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={handleMoreClick}
+            className="w-8 h-8 rounded-full flex items-center justify-center transition-[background-color,color,opacity] duration-150 hover:bg-[var(--mq-overlay-hover)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
+            style={{ color: "var(--mq-text-muted)" }}
+            aria-label="Меню трека"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+        </div>
       </div>
-
-      {/* Cover */}
-      <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0" style={{ backgroundColor: "var(--mq-card)" }}>
-        {track.cover ? (
-          <img src={track.cover} alt="" className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <p
-          className="text-sm font-medium truncate"
-          style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}
-        >
-          {track.title}
-        </p>
-        <button
-          onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="text-xs block max-w-full text-left truncate hover:underline"
-          style={{ color: "var(--mq-text-muted)" }}
-        >
-          {track.artist}
-        </button>
-      </div>
-
-      {/* Like */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onLike(); }}
-        className="p-1.5 rounded-full flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
-        style={{ opacity: isLiked ? 1 : undefined }}
-      >
-        <Heart
-          className="w-4 h-4"
-          style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
-          fill={isLiked ? "currentColor" : "none"}
-        />
-      </button>
-
-      {/* Duration */}
-      <div className="hidden sm:block text-xs flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
-        {formatDuration(track.duration)}
-      </div>
-
-      {/* Remove */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onRemove(); }}
-        className="p-1.5 rounded-full flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
-      >
-        <Trash2 className="w-3.5 h-3.5" style={{ color: "var(--mq-text-muted)" }} />
-      </button>
-
-      {/* More button (3-dot) — opens context menu */}
-      <button
-        onClick={handleMoreClick}
-        className="p-1.5 rounded-full flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
-        style={{ color: "var(--mq-text-muted)" }}
-        aria-label="Меню"
-      >
-        <MoreHorizontal className="w-4 h-4" />
-      </button>
-    </motion.div>
 
       {/* Context menu */}
       {contextMenu.show && (

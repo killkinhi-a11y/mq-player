@@ -341,7 +341,7 @@ function MainView() {
       {/* belongs to real content, not typography).                          */}
       {/* ════════════════════════════════════════════════════════════════ */}
       <ScrollReveal direction="up" delay={0}>
-        <header className="mb-6 flex items-end justify-between gap-4">
+        <header className="mb-4 lg:mb-6 flex items-end justify-between gap-4">
           <div className="min-w-0">
             <p className="mq-t-meta text-[11px] uppercase tracking-[0.14em] mb-1.5" style={{ color: "var(--mq-text-muted)" }}>
               {currentDate()}
@@ -1122,160 +1122,177 @@ function MobileNowHero({
   onOpenFull: () => void;
 }) {
   const hero = track || fallbackTrack;
-  const isNow = !!track; // true → real "now playing" state; false → pick + big CTA
+  const isNow = !!track; // true → real "now playing"; false → pick + play CTA
   const pct = isNow && duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
 
-  // Honest empty state: no track, no recommendation yet → the Wave is the
-  // single primary action (the header pill is hidden in this case).
+  // Honest empty state: no track, no recommendation → compact Wave card,
+  // same 76px geometry as the now-card (one primary action, no dead zones).
   if (!hero) {
     return (
       <div
         data-mq-hero
-        className="rounded-[var(--mq-r-card,24px)] p-6 mb-5"
+        className="mb-4 rounded-2xl overflow-hidden"
         style={{ background: getWaveGradient(), border: "1px solid var(--mq-border-hairline)" }}
+        aria-label="Волна"
       >
-        <div className="flex items-center gap-2.5 mb-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 20%, transparent)" }}
-          >
-            <Waves className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
-          </div>
-          <div>
-            <p className="mq-t-title text-lg" style={{ color: "var(--mq-text)" }}>Волна</p>
-            <p className="mq-t-meta text-xs" style={{ color: "var(--mq-text-muted)" }}>радио по твоему вкусу</p>
-          </div>
-        </div>
-        <p className="mq-t-body text-sm mb-5" style={{ color: "var(--mq-text-muted)" }}>
-          Включи трек или запусти Волну — она подберёт музыку по истории, лайкам и любимым артистам.
-        </p>
-        <HeroWaveCTA />
+        <HeroWaveCTA compact />
       </div>
     );
   }
 
+  // ── Compact horizontal NOW card (2026-09 redesign) ──────────────────────
+  // Was: full-width 42vh artwork + title + progress + 3 transport buttons
+  // ≈ 500px of vertical space ("a Now-Playing overlay, not a dashboard").
+  // Now: ONE 76px row — 68px art, eyebrow reason, 1-line identity,
+  // thumb-side play/next, progress as a 2.5px edge strip. The immersive
+  // experience lives in the full player; Home is a dashboard again.
   return (
-    <section data-mq-hero className="mb-5" aria-label={isNow ? "Сейчас играет" : "Рекомендация"}>
-      {/* ── Dominant artwork ── */}
-      <button
-        onClick={onOpenFull}
-        className="relative block w-full rounded-[var(--mq-r-card,24px)] overflow-hidden"
-        style={{ border: "1px solid var(--mq-border-hairline)", boxShadow: "var(--mq-shadow-card, 0 8px 24px rgba(0,0,0,0.28))" }}
-        aria-label={isNow ? "Открыть плеер" : "Открыть трек"}
+    <section data-mq-hero className="mb-4" aria-label={isNow ? "Сейчас играет" : "Рекомендация"}>
+      <div
+        className="relative rounded-2xl flex items-center gap-3 pl-2.5 pr-2 py-2.5 overflow-hidden"
+        style={{ backgroundColor: "var(--mq-surface-1, var(--mq-card))", border: "1px solid var(--mq-border-hairline)" }}
       >
-        {hero.cover ? (
-          <img
-            src={hero.cover}
-            alt={`${hero.title} — ${hero.artist}`}
-            className="w-full object-cover"
-            // Capped height: a full-width square on a 390×844 phone pushes
-            // the quick-actions row under the fixed dock (mini-player + nav).
-            // min(46vh, 340px) keeps the hero dominant AND the first screen
-            // complete (VLM-verified geometry).
-            style={{ display: "block", height: "min(42vh, 320px)" }}
-          />
-        ) : (
-          <div
-            className="w-full flex items-center justify-center"
-            style={{ background: getWaveGradient(), height: "min(42vh, 320px)" }}
-          >
-            <Music className="w-16 h-16" style={{ color: "var(--mq-text-muted)" }} />
-          </div>
-        )}
-        {/* isPlaying equalizer hint overlaid on the artwork edge */}
-        {isNow && isPlaying && (
-          <div className="absolute" style={{ position: "absolute", left: 12, top: 12 }}>
-            <NowPlayingEqualizer />
-          </div>
-        )}
-      </button>
-
-      {/* ── Title block ── */}
-      <div className="mt-5 flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          {isNow ? (
-            <div className="flex items-center gap-2 mb-1">
-              <p className="mq-t-meta text-[11px] uppercase tracking-[0.12em]" style={{ color: "var(--mq-accent)" }}>
-                {waveReasonText(hero) || (radioMode ? "Волна · играет" : "Сейчас играет")}
-              </p>
-            </div>
+        {/* Artwork — tap opens the full player (immersive layer lives there) */}
+        <button
+          onClick={onOpenFull}
+          className="relative w-[68px] h-[68px] rounded-[14px] overflow-hidden flex-shrink-0"
+          style={{ boxShadow: "var(--mq-art-edge, 0 0 0 1px rgba(255,255,255,0.06))" }}
+          aria-label={isNow ? "Открыть плеер" : "Открыть трек"}
+        >
+          {hero.cover ? (
+            <img
+              src={hero.cover}
+              alt=""
+              className="w-full h-full object-cover"
+              style={{ display: "block" }}
+              loading="eager"
+            />
           ) : (
-            <p className="mq-t-meta text-[11px] uppercase tracking-[0.12em] mb-1" style={{ color: "var(--mq-text-muted)" }}>
-              {fallbackReason || "Подобрано для тебя"}
-            </p>
+            <div className="w-full h-full flex items-center justify-center" style={{ background: getWaveGradient() }}>
+              <Music className="w-6 h-6" style={{ color: "var(--mq-text-muted)" }} />
+            </div>
           )}
-          <h2 className="mq-t-title text-xl leading-snug line-clamp-2" style={{ color: "var(--mq-text)" }}>
+          {isNow && isPlaying && (
+            <span className="absolute left-1 top-1"><NowPlayingEqualizer size="xs" variant="overlay" /></span>
+          )}
+        </button>
+
+        {/* Identity — tap opens the full player; artist row navigates */}
+        <button
+          onClick={onOpenFull}
+          className="flex-1 min-w-0 text-left py-0.5"
+          aria-label={`Открыть плеер: ${hero.title}`}
+        >
+          <p
+            className="mq-t-meta text-[11px] uppercase tracking-[0.12em] truncate mb-0.5"
+            style={{ color: isNow ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
+          >
+            {isNow
+              ? waveReasonText(hero) || (radioMode ? "Волна · играет" : "Сейчас играет")
+              : fallbackReason || "Подобрано для тебя"}
+          </p>
+          <p className="mq-t-title text-[15px] font-semibold leading-tight line-clamp-1" style={{ color: "var(--mq-text)" }}>
             {hero.title}
-          </h2>
-          <button
-            onClick={() => onArtistClick(hero.artist)}
-            className="mq-t-body text-sm mt-0.5 truncate max-w-full text-left"
+          </p>
+          <span
+            onClick={(e) => { e.stopPropagation(); onArtistClick(hero.artist); }}
+            className="mq-t-body text-xs truncate block max-w-full"
             style={{ color: "var(--mq-text-muted)" }}
-            aria-label={`Открыть артиста ${hero.artist}`}
+            aria-label={`Артист: ${hero.artist}`}
           >
             {hero.artist}
-          </button>
-        </div>
-      </div>
+          </span>
+        </button>
 
-      {/* ── Real progress (now playing only) ── */}
-      {isNow && (
-        <div className="mt-4">
+        {/* Thumb-side transport: play/pause + next (44px targets) */}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <button
+            onClick={isNow ? onToggle : onPlayFallback}
+            className="w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+            style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
+            aria-label={isNow ? (isPlaying ? "Пауза" : "Продолжить") : "Слушать"}
+          >
+            {isNow && isPlaying ? (
+              <Pause className="w-[18px] h-[18px]" fill="currentColor" />
+            ) : (
+              <Play className="w-[18px] h-[18px] translate-x-[1px]" fill="currentColor" />
+            )}
+          </button>
+          {isNow && (
+            <button
+              onClick={onNext}
+              className="w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+              style={{ color: "var(--mq-text-muted)" }}
+              aria-label="Следующий трек"
+            >
+              <SkipForward className="w-5 h-5" fill="currentColor" />
+            </button>
+          )}
+        </div>
+
+        {/* Progress — 2.5px accent strip on the card's bottom edge */}
+        {isNow && (
           <div
-            className="h-1.5 rounded-full overflow-hidden"
+            className="absolute bottom-0 left-0 right-0 h-[2.5px]"
             style={{ backgroundColor: "var(--mq-border-thin)" }}
             role="progressbar"
             aria-valuenow={Math.round(pct)}
             aria-valuemin={0}
             aria-valuemax={100}
+            aria-label="Прогресс трека"
           >
-            <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: "var(--mq-accent)" }} />
+            <div className="h-full" style={{ width: `${pct}%`, backgroundColor: "var(--mq-accent)" }} />
           </div>
-          <div className="flex justify-between mt-1.5">
-            <span className="mq-t-num text-[11px]" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(progress)}</span>
-            <span className="mq-t-num text-[11px]" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(duration)}</span>
-          </div>
-        </div>
-      )}
-
-      {/* ── Transport: 48px skips + 64px primary ── */}
-      <div className="mt-5 flex items-center justify-center gap-7">
-        <button
-          onClick={onPrev}
-          className="w-12 h-12 rounded-full flex items-center justify-center active:scale-95 transition-transform"
-          style={{ border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
-          aria-label="Предыдущий трек"
-        >
-          <SkipBack className="w-5 h-5" fill="currentColor" />
-        </button>
-        <button
-          onClick={isNow ? onToggle : onPlayFallback}
-          className="w-16 h-16 rounded-full flex items-center justify-center active:scale-95 transition-transform"
-          style={{ backgroundColor: "var(--mq-accent)", boxShadow: "0 8px 24px color-mix(in srgb, var(--mq-accent) 35%, transparent)" }}
-          aria-label={isNow ? (isPlaying ? "Пауза" : "Продолжить") : "Слушать"}
-        >
-          {isNow && isPlaying ? (
-            <Pause className="w-7 h-7" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-          ) : (
-            <Play className="w-7 h-7 translate-x-[2px]" fill="var(--mq-text-on-accent, #fff)" style={{ color: "var(--mq-text-on-accent, #fff)" }} />
-          )}
-        </button>
-        <button
-          onClick={onNext}
-          className="w-12 h-12 rounded-full flex items-center justify-center active:scale-95 transition-transform"
-          style={{ border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
-          aria-label="Следующий трек"
-        >
-          <SkipForward className="w-5 h-5" fill="currentColor" />
-        </button>
+        )}
       </div>
     </section>
   );
 }
 
 // Wave CTA inside the empty hero — calls the real wave engine (no timers).
-function HeroWaveCTA() {
+// compact → one 76px row (icon + label + action) matching the now-card
+// geometry; default → the standalone full-width button.
+function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
   const wave = useWaveEngine();
+  if (compact) {
+    return (
+      <button
+        onClick={() => (wave.radioMode ? wave.pauseWave() : wave.startWave())}
+        disabled={wave.waveLoading}
+        className="w-full flex items-center gap-3 px-3 py-3.5 active:scale-[0.99] transition-transform disabled:opacity-60 text-left"
+        aria-label={wave.radioMode ? "Пауза Волны" : "Запустить Волну"}
+      >
+        <div
+          className="w-[52px] h-[52px] rounded-[14px] flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 22%, transparent)" }}
+        >
+          {wave.waveLoading ? (
+            <div className="mq-spin w-5 h-5 border-2 rounded-full" style={{ borderColor: "var(--mq-accent)", borderTopColor: "transparent" }} />
+          ) : (
+            <Waves className="w-6 h-6" style={{ color: "var(--mq-accent)" }} />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="mq-t-meta text-[11px] uppercase tracking-[0.12em] mb-0.5" style={{ color: "var(--mq-text-muted)" }}>
+            Персональное радио
+          </p>
+          <p className="mq-t-title text-[15px] font-semibold leading-tight" style={{ color: "var(--mq-text)" }}>
+            {wave.waveLoading ? "Подбираем музыку…" : "Запустить Волну"}
+          </p>
+          <p className="mq-t-body text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+            по истории, лайкам и любимым артистам
+          </p>
+        </div>
+        <span
+          className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
+          aria-hidden="true"
+        >
+          <Play className="w-[18px] h-[18px] translate-x-[1px]" fill="currentColor" />
+        </span>
+      </button>
+    );
+  }
   return (
     <button
       onClick={() => (wave.radioMode ? wave.pauseWave() : wave.startWave())}
@@ -1446,7 +1463,7 @@ function HorizontalTrackRow({
       </div>
       {isPlaying && <NowPlayingEqualizer />}
       {track.duration > 0 && (
-        <span className="mq-t-num text-[11px] shrink-0" style={{ color: "var(--mq-text-muted)" }}>
+        <span className="mq-t-num text-[11px] shrink-0 truncate max-w-[64px]" style={{ color: "var(--mq-text-muted)" }}>
           {formatDuration(track.duration)}
         </span>
       )}
@@ -1616,8 +1633,8 @@ function PlaylistCard({
       initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -4 }}
-      whileTap={{ scale: 0.97 }}
+      whileHover={{ y: -4, transition: { duration: 0.15, ease: "easeOut" } }}
+      whileTap={{ scale: 0.97, transition: { duration: 0.1 } }}
       onClick={onClick}
       className="group relative text-left cursor-pointer rounded-2xl overflow-hidden w-full"
       style={{
@@ -1867,8 +1884,8 @@ function ArtistCircleCard({
       initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -4 }}
-      whileTap={{ scale: 0.97 }}
+      whileHover={{ y: -4, transition: { duration: 0.15, ease: "easeOut" } }}
+      whileTap={{ scale: 0.97, transition: { duration: 0.1 } }}
       onClick={onClick}
       className="text-left cursor-pointer group flex flex-col items-center"
     >
@@ -1914,8 +1931,8 @@ function CuratedPlaylistCard({
       initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      whileHover={{ y: -4 }}
-      whileTap={{ scale: 0.97 }}
+      whileHover={{ y: -4, transition: { duration: 0.15, ease: "easeOut" } }}
+      whileTap={{ scale: 0.97, transition: { duration: 0.1 } }}
       onClick={onPlay}
       className="text-left cursor-pointer group rounded-2xl overflow-hidden w-full"
       style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border-hairline)", boxShadow: "var(--mq-shadow-premium-md)" }}

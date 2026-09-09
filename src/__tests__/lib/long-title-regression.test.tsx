@@ -75,7 +75,12 @@ describe("long-title source contracts — actions never squeezed (min-w-0 + shri
 
   it("SearchView: genre badge is capped + truncatable (cannot overlay like/more)", () => {
     const src = read("SearchView.tsx");
-    expect(src).toMatch(/min-w-0 max-w-\[140px\] truncate/);
+    // §E results row (post suggestion-panel removal): the artist is the
+    // flexible element (flex-1 min-w-0 → truncates), the genre badge is
+    // capped at 140px + truncatable, duration is a fixed shrink box.
+    expect(src).toMatch(/max-w-\[140px\] truncate/);
+    expect(src).toMatch(/text-xs flex-1 min-w-0 text-left truncate/);
+    expect(src).toMatch(/flex-shrink min-w-0/);
   });
 
   it("FullTrackView (desktop): meta row wraps, genre capped", () => {
@@ -86,8 +91,12 @@ describe("long-title source contracts — actions never squeezed (min-w-0 + shri
 
   it("PlaylistView: PlaylistTrackRow actions are explicitly shrink-0", () => {
     const src = read("PlaylistView.tsx");
-    const likeButtons = src.match(/p-1\.5 rounded-full flex-shrink-0/g) || [];
-    expect(likeButtons.length).toBeGreaterThanOrEqual(3); // like + remove + more
+    // §J TrackRow: actions live in a flex-shrink-0 container; every action
+    // button is fixed-size (w-8 h-8) — long titles can never squeeze them.
+    const actionContainer = src.match(/flex items-center gap-0\.5 flex-shrink-0/g) || [];
+    expect(actionContainer.length).toBeGreaterThanOrEqual(1);
+    const fixedButtons = src.match(/w-8 h-8 rounded-full flex items-center justify-center/g) || [];
+    expect(fixedButtons.length).toBeGreaterThanOrEqual(3); // like + remove + more
   });
 });
 

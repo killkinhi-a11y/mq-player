@@ -439,7 +439,7 @@ export default function FavoritesView() {
           <motion.button
             whileTap={{ scale: 0.93 }}
             onClick={() => setActiveFilter(null)}
-            className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200 cursor-pointer"
+            className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors duration-200 cursor-pointer"
             style={{
               backgroundColor: !activeFilter ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
               color: !activeFilter ? "var(--mq-accent)" : "var(--mq-text-muted)",
@@ -457,7 +457,7 @@ export default function FavoritesView() {
                 key={tagKey}
                 whileTap={{ scale: 0.93 }}
                 onClick={() => setActiveFilter(isActive ? null : tagKey)}
-                className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all duration-200 cursor-pointer"
+                className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors duration-200 cursor-pointer"
                 style={{
                   backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
                   color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
@@ -517,7 +517,7 @@ export default function FavoritesView() {
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={(e) => { e.stopPropagation(); setShowSortMenu(!showSortMenu); }}
-              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-all duration-200"
+              className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors duration-200"
               style={{
                 backgroundColor: sortBy !== "default" ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                 color: sortBy !== "default" ? "var(--mq-text)" : "var(--mq-text-muted)",
@@ -579,7 +579,7 @@ export default function FavoritesView() {
             whileTap={{ scale: 0.9 }}
             onClick={handleShuffleAll}
             disabled={tracks.length === 0}
-            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer disabled:opacity-30 transition-all duration-200"
+            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer disabled:opacity-30 transition-colors duration-200"
             style={{
               backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)",
               color: "var(--mq-text-muted)",
@@ -675,7 +675,7 @@ export default function FavoritesView() {
             whileHover={{ scale: 1.02, boxShadow: "var(--mq-shadow-card-hover)" }}
             whileTap={{ scale: 0.97 }}
             onClick={handlePlayAll}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-all duration-200"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-colors duration-200"
             style={{
               backgroundColor: "var(--mq-accent)",
               color: "var(--mq-text)",
@@ -689,7 +689,7 @@ export default function FavoritesView() {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.97 }}
             onClick={handleShuffleAll}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-all duration-200"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-colors duration-200"
             style={{
               backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)",
               color: "var(--mq-text-muted)",
@@ -778,9 +778,8 @@ export default function FavoritesView() {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 10, height: 0, marginBottom: 0 }}
                     transition={{ delay: index * 0.02 }}
-                    className="relative flex items-center gap-3.5 px-4 py-3 transition-all duration-200 group cursor-pointer"
+                    className="mq-hover-row relative flex items-center gap-3.5 px-4 py-3 group cursor-pointer"
                     onClick={() => handleArtistClick(artist)}
-                    whileHover={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 3%, transparent)" }}
                   >
                     {/* Artist avatar */}
                     <motion.div
@@ -841,7 +840,7 @@ export default function FavoritesView() {
                       whileHover={{ scale: 1.12, backgroundColor: "rgba(239,68,68,0.12)" }}
                       whileTap={{ scale: 0.95 }}
                       onClick={(e) => { e.stopPropagation(); removeFavoriteArtist(artist.id); }}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer sm:opacity-0 sm:group-hover:opacity-70 transition-all"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer sm:opacity-0 sm:group-hover:opacity-70 transition-opacity"
                       style={{ color: "#ef4444" }}
                       title="Отписаться"
                     >
@@ -974,15 +973,12 @@ export default function FavoritesView() {
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 10, height: 0, padding: 0, marginBottom: 0 }}
                       transition={{ delay: index * 0.02 }}
-                      className="flex items-center gap-3 px-4 py-3.5 transition-all duration-200 group relative overflow-hidden"
-                      style={{
-                        backgroundColor: isSelected
-                          ? "color-mix(in srgb, var(--mq-accent) 6%, transparent)"
-                          : isCurrentTrack
-                          ? "color-mix(in srgb, var(--mq-text) 4%, transparent)"
-                          : "transparent",
-                      }}
-                      whileHover={{ backgroundColor: isSelected ? "color-mix(in srgb, var(--mq-accent) 10%, transparent)" : isCurrentTrack ? "color-mix(in srgb, var(--mq-text) 6%, transparent)" : "color-mix(in srgb, var(--mq-text) 2%, transparent)" }}
+                      /* §F: CSS-only hover (.mq-hover-row) — whileHover +
+                         transition-all previously double-animated the row
+                         background; state colors now live on data-attrs. */
+                      className="mq-hover-row flex items-center gap-3 px-4 py-3.5 group relative overflow-hidden"
+                      data-selected={isSelected || undefined}
+                      data-current={isCurrentTrack || undefined}
                       onClick={batchMode ? () => toggleBatchSelection(track.id) : undefined}
                       onContextMenu={(e) => handleContextMenu(track, e)}
                     >
@@ -1107,7 +1103,7 @@ export default function FavoritesView() {
                           whileHover={{ scale: 1.12 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={(e) => handleMoreClick(track, e)}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
                           style={{ color: "var(--mq-text-muted)", backgroundColor: "transparent" }}
                           title="Меню"
                         >
@@ -1121,7 +1117,7 @@ export default function FavoritesView() {
                           whileHover={{ scale: 1.12 }}
                           whileTap={{ scale: 0.95 }}
                           onClick={(e) => { e.stopPropagation(); handleRemoveTrack(track.id, track); }}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-all sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
+                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
                           style={{
                             color: activeTab === "liked" ? "#ef4444" : "#f97316",
                             backgroundColor: "transparent",
