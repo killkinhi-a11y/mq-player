@@ -143,10 +143,10 @@ export const ShareSheet = memo(function ShareSheet({
             <div className="px-5 pb-5 space-y-2">
               {/* Copy link */}
               <motion.button
-                whileTap={{ scale: 0.97 }}
+                whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                 onClick={handleCopy}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                style={{ backgroundColor: "var(--mq-glass-bg)" }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mq-icon-btn"
+                style={{ ["--mq-rest-bg" as string]: "var(--mq-glass-bg)" }}
               >
                 {copied ? <Check className="w-4 h-4" style={{ color: "var(--mq-accent)" }} /> : <Copy className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />}
                 <span className="text-sm flex-1 text-left truncate" style={{ color: "var(--mq-text)" }}>
@@ -156,10 +156,10 @@ export const ShareSheet = memo(function ShareSheet({
 
               {/* Download QR */}
               <motion.button
-                whileTap={{ scale: 0.97 }}
+                whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                 onClick={handleDownloadQR}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                style={{ backgroundColor: "var(--mq-glass-bg)" }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl mq-icon-btn"
+                style={{ ["--mq-rest-bg" as string]: "var(--mq-glass-bg)" }}
               >
                 <Download className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
                 <span className="text-sm flex-1 text-left" style={{ color: "var(--mq-text)" }}>Скачать QR код</span>
@@ -168,7 +168,7 @@ export const ShareSheet = memo(function ShareSheet({
               {/* Native share (mobile only) */}
               {typeof navigator !== "undefined" && "share" in navigator && (
                 <motion.button
-                  whileTap={{ scale: 0.97 }}
+                  whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                   onClick={handleNativeShare}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors"
                   style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}

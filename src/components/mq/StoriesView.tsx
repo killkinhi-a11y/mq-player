@@ -223,8 +223,8 @@ export default function StoriesView() {
           <h1 className="text-2xl font-bold" style={{ color: "var(--mq-text)" }}>Истории</h1>
         </div>
         <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+          whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
           onClick={() => setShowCreateModal(true)}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
           style={{
@@ -244,7 +244,7 @@ export default function StoriesView() {
         <motion.button
           initial={animationsEnabled ? { opacity: 0, scale: 0.8 } : undefined}
           animate={{ opacity: 1, scale: 1 }}
-          whileTap={{ scale: 0.95 }}
+          whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
           onClick={() => setShowCreateModal(true)}
           className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer"
         >
@@ -273,7 +273,8 @@ export default function StoriesView() {
               initial={animationsEnabled ? { opacity: 0, scale: 0.8 } : undefined}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: (groupIdx + 1) * 0.05 }}
-              whileTap={{ scale: 0.95 }}
+              /* §HOVER: own tap transition — entrance delay never leaks. */
+              whileTap={{ scale: 0.95, transition: { duration: 0.1 } }}
               onClick={() => setViewingIndex(firstUnviewedIdx >= 0 ? firstUnviewedIdx : stories.indexOf(firstStory))}
               className="flex flex-col items-center gap-2 flex-shrink-0 cursor-pointer"
             >
@@ -312,8 +313,10 @@ export default function StoriesView() {
             initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.06 }}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
+            /* §HOVER: own gesture transitions — entrance delay (i*0.06)
+               never leaks into hover/tap. */
+            whileHover={{ scale: 1.03, transition: { duration: 0.15, ease: "easeOut" } }}
+            whileTap={{ scale: 0.97, transition: { duration: 0.1 } }}
             onClick={() => setViewingIndex(i)}
             className="w-full flex items-center gap-4 p-4 rounded-xl text-left cursor-pointer"
             style={{
@@ -380,7 +383,7 @@ export default function StoriesView() {
           >
             {/* Close button */}
             <motion.button
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
               onClick={(e) => { e.stopPropagation(); closeViewer(); }}
               className="absolute top-4 right-4 z-[310] p-2 rounded-full"
               style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
@@ -410,7 +413,7 @@ export default function StoriesView() {
             {/* Navigation arrows */}
             {viewingIndex !== null && viewingIndex > 0 && (
               <motion.button
-                whileTap={{ scale: 0.9 }}
+                whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
                 onClick={(e) => { e.stopPropagation(); handlePrevStory(); }}
                 className="absolute left-2 z-[310] p-2 rounded-full"
                 style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
@@ -420,7 +423,7 @@ export default function StoriesView() {
             )}
             {viewingIndex !== null && viewingIndex < stories.length - 1 && (
               <motion.button
-                whileTap={{ scale: 0.9 }}
+                whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
                 onClick={(e) => { e.stopPropagation(); handleNextStory(); }}
                 className="absolute right-2 z-[310] p-2 rounded-full"
                 style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
@@ -453,7 +456,7 @@ export default function StoriesView() {
                   </p>
                 </div>
                 <motion.button
-                  whileTap={{ scale: 0.9 }}
+                  whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
                   onClick={(e) => { e.stopPropagation(); setIsPaused(!isPaused); }}
                   className="p-2 rounded-full shrink-0"
                   style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
@@ -498,8 +501,8 @@ export default function StoriesView() {
                       <p className="text-sm text-white/70">{viewingStory.trackData.artist}</p>
                     </div>
                     <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                      whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                       onClick={(e) => { e.stopPropagation(); handlePlayTrack(viewingStory); }}
                       className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-medium"
                       style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
@@ -569,7 +572,7 @@ export default function StoriesView() {
               <div className="flex items-center justify-between p-4" style={{ borderBottom: "1px solid var(--mq-border)" }}>
                 <h3 className="text-base font-bold" style={{ color: "var(--mq-text)" }}>Новая история</h3>
                 <motion.button
-                  whileTap={{ scale: 0.9 }}
+                  whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
                   onClick={() => setShowCreateModal(false)}
                   className="p-1 rounded-lg cursor-pointer"
                   style={{ color: "var(--mq-text-muted)" }}
@@ -585,7 +588,7 @@ export default function StoriesView() {
                   {storyGradients.map((gradient, i) => (
                     <motion.button
                       key={i}
-                      whileTap={{ scale: 0.9 }}
+                      whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
                       onClick={() => setSelectedGradient(i)}
                       className="w-10 h-10 rounded-full flex-shrink-0 cursor-pointer"
                       style={{
@@ -616,8 +619,8 @@ export default function StoriesView() {
               {/* Post button */}
               <div className="p-4" style={{ borderTop: "1px solid var(--mq-border)" }}>
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={{ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" }} }
+                  whileTap={{ scale: 0.98, transition: { duration: 0.08 }} }
                   onClick={createStory}
                   disabled={!newStoryText.trim()}
                   className="w-full py-3 rounded-xl text-sm font-medium flex items-center justify-center gap-2 cursor-pointer"

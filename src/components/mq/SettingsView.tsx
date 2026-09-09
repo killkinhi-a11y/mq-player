@@ -189,10 +189,12 @@ function SettingToggle({
   icon: React.ElementType; label: string; subtitle?: string;
   value: boolean; onCheckedChange: (v: boolean) => void;
 }) {
+  /* §HOVER one-owner: CSS owns background (hover:bg + transition-colors);
+     the old Framer whileHover={{ backgroundColor }} double-eased with the
+     CSS transition — one visible "highlight twice / second flash" bug. */
   return (
-    <motion.div
-      whileHover={{ backgroundColor: "var(--mq-overlay-hover)" }}
-      className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5 transition-colors"
+    <div
+      className="w-full flex items-center gap-3 px-3 sm:px-4 py-3 sm:py-3.5 transition-colors hover:bg-[var(--mq-overlay-hover)]"
       style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
     >
       <div
@@ -206,7 +208,7 @@ function SettingToggle({
         {subtitle && <p className="text-[11px] sm:text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{subtitle}</p>}
       </div>
       <Switch checked={value} onCheckedChange={onCheckedChange} />
-    </motion.div>
+    </div>
   );
 }
 
@@ -545,7 +547,7 @@ export default function SettingsView() {
                   </p>
                   <div className="flex gap-2">
                     <motion.button
-                      whileTap={{ scale: 0.97 }}
+                      whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                       onClick={handleDeleteAccount}
                       disabled={deleting}
                       className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
@@ -555,8 +557,8 @@ export default function SettingsView() {
                       Удалить навсегда
                     </motion.button>
                     <motion.button
-                      whileTap={{ scale: 0.97 }}
-                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
+                      whileHover={{ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" }} }
                       onClick={() => setDeleteConfirm(false)}
                       className="px-4 py-2.5 rounded-xl text-sm font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
                       style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-thin)" }}
@@ -625,7 +627,7 @@ export default function SettingsView() {
                     return (
                       <motion.button
                         key={key}
-                        whileTap={{ scale: 0.96 }}
+                        whileTap={{ scale: 0.96, transition: { duration: 0.08 }} }
                         onClick={() => setTheme(key)}
                         aria-pressed={isActive}
                         title={theme.name || key}
@@ -681,7 +683,7 @@ export default function SettingsView() {
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="flex flex-wrap gap-2">
                   {accentPresets.map(color => (
-                    <motion.button key={color} whileTap={{ scale: 0.9 }} whileHover={{ scale: 1.1 }} onClick={() => setCustomAccent(color)}
+                    <motion.button key={color} whileTap={{ scale: 0.9, transition: { duration: 0.08 }} } whileHover={{ scale: 1.1, transition: { duration: 0.12, ease: "easeOut" }} } onClick={() => setCustomAccent(color)}
                       className="w-9 h-9 rounded-full flex items-center justify-center"
                       style={{ backgroundColor: color, boxShadow: customAccent === color ? `0 0 0 3px var(--mq-bg), 0 0 0 5px ${color}` : "none" }}>
                       {customAccent === color && <Check className="w-4 h-4" style={{ color: "var(--mq-text-on-accent, #fff)" }} />}
@@ -835,25 +837,25 @@ export default function SettingsView() {
               <CardTitle icon={Download} title="Скачать приложение" />
               <div className="px-3 sm:px-4 py-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  <motion.a whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} } whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                     href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip" target="_blank" rel="noopener noreferrer"
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
                     <Monitor className="w-5 h-5" style={{ color: "#3b82f6" }} />
                     <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
                   </motion.a>
-                  <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  <motion.a whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} } whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                     href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer"
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
                     <Apple className="w-5 h-5" style={{ color: "#a855f7" }} />
                     <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>macOS</span>
                   </motion.a>
-                  <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  <motion.a whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} } whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                     href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer"
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
                     <Terminal className="w-5 h-5" style={{ color: "#eab308" }} />
                     <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
                   </motion.a>
-                  <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                  <motion.a whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} } whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                     href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk" target="_blank" rel="noopener noreferrer" download
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer relative" style={{ backgroundColor: "color-mix(in srgb, #3ddc84 8%, var(--mq-surface-1))", border: "1px solid color-mix(in srgb, #3ddc84 25%, transparent)" }}>
                     <Smartphone className="w-5 h-5" style={{ color: "#3ddc84" }} />

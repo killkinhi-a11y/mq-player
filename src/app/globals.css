@@ -123,26 +123,15 @@
 .mq-stagger > *:nth-child(8) { animation-delay: 0.3s; }
 .mq-stagger > *:nth-child(n+9) { animation-delay: 0.34s; }
 
-/* Global smooth transitions on interactive elements.
-   §F root-cause fix: this used to be UNLAYERED with transform+opacity in
-   the list. Unlayered rules beat every Tailwind utility (utilities live in
-   @layer), so transition-[...]/duration-* classes were dead code — and the
-   transform/opacity transitions fought Framer's per-frame inline style
-   writes on every motion.button (framer-motion 12 never sets
-   data-framer-motion-id): CSS chased each frame → the visible "double,
-   delayed, flickering" hover. Now: (a) rule lives in @layer base so
-   utilities override it; (b) transform/opacity are excluded — Framer is
-   the sole writer of those; CSS keeps color feedback only. */
-@layer base {
-  button, a, [role="button"] {
-    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  }
-}
+/* Global smooth transitions on interactive elements — see the consolidated
+   rule further below (§"Interactive element transitions"). ONE PROPERTY =
+   ONE OWNER: CSS owns background/color/border on plain buttons; Framer owns
+   transform/opacity/box-shadow on motion elements (`.mq-no-transition`
+   opts a component out of this rule entirely). */
 
-/* Card hover transitions */
-.mq-card-cinematic, .mq-hero-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-}
+/* Card hover transitions — REMOVED (.mq-card-cinematic/.mq-hero-card
+   transition rule): zero component usages. CSS transform transitions on
+   card classes fight Framer whileHover y/scale on motion cards. */
 
 /* Input focus transitions */
 input, textarea, select {
@@ -288,13 +277,10 @@ input, textarea, select {
 }
 
 /* ── Tactile Feedback (tasteskill rule 4.5) ──
-   On :active, buttons with .mq-tactile class simulate a physical push.
-   Only apply to plain <button> WITHOUT inline transform (motion.button
-   handles its own whileTap). Global selector removed — was conflicting
-   with inline transforms causing button jump. */
-.mq-tactile:not(:disabled):active {
-  transform: translateY(-1px);
-}
+   REMOVED (.mq-tactile): zero usages in the app and the CSS :active
+   transform fought motion.button whileTap transforms (two owners of
+   transform). Keyboard/touch press feedback is owned by Framer whileTap
+   or the per-component active: utilities — never a global CSS transform. */
 
 /* ── Focus System — unified, premium ──
    One system for all elements. No more 3 competing focus styles.
@@ -462,20 +448,9 @@ main {
   pointer-events: none;
 }
 
-.mq-premium-hover {
-  transition: transform 0.3s var(--mq-ease-premium), box-shadow 0.3s var(--mq-ease-premium);
-}
-.mq-premium-hover:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--mq-shadow-premium-lg);
-}
-
-.mq-premium-tap {
-  transition: transform 0.15s var(--mq-ease-premium);
-}
-.mq-premium-tap:active {
-  transform: scale(0.97);
-}
+/* REMOVED (.mq-premium-hover/.mq-premium-tap): zero usages; CSS-owned
+   transform transitions on possibly-motion elements violated the
+   one-property-one-owner contract. */
 
 /* Premium text styles — ALL on the primary token (one typeface). */
 .mq-text-display {
@@ -660,12 +635,11 @@ html.mq-theme-switch [class*="mq-"] {
     scroll-behavior: auto !important;
   }
 
-  /* Removed dead "Premium Button System" (.mq-btn-glass/.mq-btn-play) —
-   * zero usages anywhere; transition:all + hover-scale contradicted the
-   * live interaction language (audit PART C 1.12). */
-  .mq-card-hover:hover,
-  .mq-card-cinematic:hover,
-  .mq-icon-btn:active {
+  /* Removed dead "Premium Button System" (.mq-btn-glass/.mq-btn-play),
+   * .mq-card-hover and .mq-icon-btn — zero usages anywhere; their
+   * transform-on-hover rules contradicted the live interaction language
+   * (audit PART C 1.12) and the one-owner contract. */
+  .mq-card-cinematic:hover {
     transform: none !important;
   }
 }
@@ -739,23 +713,9 @@ button, a, [role="button"] {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ── Rec card hover — CSS scale instead of framer-motion per-card whileHover ──
-   Replaces motion.button whileHover={{ scale: 1.03 }} on each of 50 cards per row.
-   GPU-composited, zero React re-renders, no AnimatePresence overhead. */
-.mq-rec-card {
-  transition: transform 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
-  will-change: transform;
-}
-.mq-rec-card:hover { transform: scale(1.03); }
-.mq-rec-card:active { transform: scale(0.97); transition-duration: 0.08s; }
-.mq-rec-card-img {
-  transition: transform 0.5s ease;
-}
-.mq-rec-card:hover .mq-rec-card-img { transform: scale(1.1); }
-@media (max-width: 639px) {
-  .mq-rec-card:hover { transform: none; }
-  .mq-rec-card:active { transform: scale(0.96); }
-}
+/* ── Rec card hover — REMOVED (.mq-rec-card*): zero component usages.
+   Was a CSS transform-scale alternative to framer whileHover; the class
+   is dead and any future use would violate the one-owner contract. */
 
 /* Disable transitions during page load */
 .no-transition * {
@@ -1082,15 +1042,10 @@ html.blood-theme body::before {
   box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08);
 }
 
-/* Hover lift for interactive cards */
-.mq-card-hover {
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
-}
-.mq-card-hover:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-  background-color: var(--mq-card-hover);
-}
+/* Hover lift for interactive cards — REMOVED (.mq-card-hover class):
+   zero component usages (only the --mq-card-hover *variable* is used via
+   Tailwind hover:bg-[var(--mq-card-hover)]). CSS transform on cards that
+   are motion.div elements fought Framer whileHover y/scale — two owners. */
 
 /* Refined section headers */
 .mq-section-title {
@@ -1100,29 +1055,8 @@ html.blood-theme body::before {
   color: var(--mq-text);
 }
 
-/* Pill button — genre tags, filters */
-.mq-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 100px;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.15s ease;
-  border: 1px solid var(--mq-border);
-  background: var(--mq-card);
-  color: var(--mq-text-muted);
-}
-.mq-pill:hover {
-  background: var(--mq-card-hover);
-  color: var(--mq-text);
-}
-.mq-pill-active {
-  background: var(--mq-accent);
-  color: var(--mq-text);
-  border-color: var(--mq-accent);
-}
+/* Pill button — REMOVED (.mq-pill): zero usages; transition:all on a
+   possibly-motion element violated the one-owner contract. */
 
 /* Refined input field */
 .mq-input {
@@ -1137,23 +1071,9 @@ html.blood-theme body::before {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--mq-accent) 150%, transparent);
 }
 
-/* Smooth icon buttons */
-.mq-icon-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 12px;
-  transition: background-color 0.15s ease, color 0.15s ease, transform 0.1s ease;
-  color: var(--mq-text-muted);
-  background: transparent;
-}
-.mq-icon-btn:hover {
-  background: rgba(255,255,255,0.06);
-  color: var(--mq-text);
-}
-.mq-icon-btn:active {
-  transform: scale(0.95);
-}
+/* Smooth icon buttons — REMOVED (.mq-icon-btn): zero usages; its
+   transition list included transform (CSS) which fought Framer whileTap
+   scale on motion buttons — two owners of transform. */
 
 /* Better empty state */
 .mq-empty-state {
@@ -1414,13 +1334,16 @@ html.blood-theme body::before {
 }
 
 /* Interactive element transitions — smooth feedback on touch/click.
-   §F: same fix as above — layered + no transform/opacity, so Framer
-   gestures on motion.buttons are never double-animated by CSS. */
+   §F: same fix as above — layered + no transform/opacity/box-shadow, so
+   Framer gestures on motion.buttons are never double-animated by CSS.
+   (Rule consolidated with the one above; kept for history.) */
 @layer base {
-  button:not([data-framer-motion-id]),
-  a:not([data-framer-motion-id]),
-  [role="button"] {
-    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  button:not(.mq-no-transition),
+  a:not(.mq-no-transition),
+  [role="button"]:not(.mq-no-transition) {
+    /* .mq-no-transition = explicit opt-out for elements whose visual props
+       are fully Framer-owned (per-frame inline writes). */
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
   }
 }
 
@@ -2819,7 +2742,10 @@ a:focus-visible {
   a,
   .mq-premium-card,
   .mq-hero-card {
-    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.2s ease;
+    /* box-shadow dropped (§F one-owner contract): several Framer whileHover
+       values animate boxShadow; a CSS transition on the same property
+       double-eases every per-frame write. */
+    transition: background-color 0.15s ease, color 0.15s ease;
   }
 }
 
@@ -3853,6 +3779,32 @@ a:focus-visible {
 }
 .mq-hover-row[data-active="true"]:hover {
   background: color-mix(in srgb, var(--mq-accent) 14%, transparent);
+}
+
+/* ── §HOVER: mq-icon-btn — CSS-only bg system for stateful icon buttons ──
+   (PlayerBar shuffle/repeat, FullTrackView like/dislike/playlist/queue/
+   lyrics/history/more). Previously the active tint was an INLINE
+   backgroundColor ("transparent" when off) — inline styles outrank every
+   class, so the hover:bg-* utility could NEVER apply: hover feedback was
+   dead on these buttons. Now the state is a data-attribute and CSS owns
+   the background exclusively (one property = one writer). Custom tints
+   (dislike red) set --mq-active-bg via inline style — a custom property,
+   NOT background-color — so the cascade stays CSS-owned.
+   Active beats hover (later rule, equal specificity) → tinted buttons
+   don't flicker when hovered. */
+
+.mq-icon-btn {
+  background-color: var(--mq-rest-bg, transparent);
+  transition: background-color 0.15s ease;
+}
+.mq-icon-btn:hover {
+  background-color: var(--mq-overlay-hover);
+}
+.mq-icon-btn:active {
+  background-color: color-mix(in srgb, var(--mq-text) 8%, transparent);
+}
+.mq-icon-btn[data-active="true"] {
+  background-color: var(--mq-active-bg, color-mix(in srgb, var(--mq-accent) 15%, transparent));
 }
 
 /* ── TrackCard (unified interactive card row, ~1500 instances) ────────── */

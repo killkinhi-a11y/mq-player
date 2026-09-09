@@ -551,9 +551,9 @@ export default function SpatialAudioView({ currentTrack }: SpatialAudioViewProps
             return (
               <motion.button
                 key={info.mood}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                 onClick={() => handleSelectMood(info.mood)}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-xl transition-all duration-200"
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl transition-colors duration-150"
                 style={{
                   backgroundColor: isActive ? `rgba(${ir},${ig},${ib},0.1)` : "var(--mq-card)",
                   border: isActive

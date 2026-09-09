@@ -97,7 +97,7 @@ function SyncedLyrics({
             key={i}
             ref={(el) => { lineRefs.current[i] = el; }}
             onClick={() => onSeek(line.time)}
-            className="block w-full text-left px-2 py-1.5 rounded-lg transition-all duration-300 cursor-pointer"
+            className="block w-full text-left px-2 py-1.5 rounded-lg transition-colors duration-150 cursor-pointer"
             style={{
               color: isActive ? "var(--mq-text)" : isPast ? "color-mix(in srgb, var(--mq-text-muted) 50%, transparent)" : "var(--mq-text-muted)",
               fontWeight: isActive ? 600 : 400,
@@ -736,16 +736,18 @@ export default function FullTrackView() {
     <>
       {/* Action buttons row */}
       <div className={`flex items-center gap-2 mb-4 flex-wrap ${isMobile ? "justify-center" : "justify-start"}`}>
-        <button onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: isLiked ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }} title="Нравится (L)">
+        <button onClick={handleLike} className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn" data-active={isLiked} title="Нравится (L)">
           <Heart className="w-4 h-4" style={{ color: isLiked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={isLiked ? "currentColor" : "none"} />
         </button>
-        <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: isDisliked ? "rgba(239,68,68,0.15)" : "transparent" }} title="Не нравится">
+        <button onClick={handleDislike} className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn" data-active={isDisliked} style={{ ["--mq-active-bg" as string]: "rgba(239,68,68,0.15)" }} title="Не нравится">
           <ThumbsDown className="w-4 h-4" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
         </button>
         <button
           onClick={() => setShowPlaylistPicker(v => !v)}
-          className="w-10 h-10 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: showPlaylistPicker ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
+          /* §HOVER: CSS owns hover bg (was missing — no feedback at all). */
+          className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn"
+          data-active={showPlaylistPicker}
+          style={{ ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 15%, transparent)" }}
           title="Добавить в плейлист"
         >
           <ListPlus className="w-4 h-4" style={{ color: showPlaylistPicker ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -753,24 +755,24 @@ export default function FullTrackView() {
         <div className="w-px h-5 mx-1" style={{ backgroundColor: "var(--mq-border-thin)" }} />
         <button
           onClick={() => setActivePanel(p => p === "queue" ? null : "queue")}
-          className="w-10 h-10 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: panelTab === "queue" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
+          className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn"
+          data-active={panelTab === "queue"}
           title="Очередь (Q)"
         >
           <ListMusic className="w-4 h-4" style={{ color: panelTab === "queue" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
         </button>
         <button
           onClick={() => setActivePanel(p => p === "lyrics" ? null : "lyrics")}
-          className="w-10 h-10 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: panelTab === "lyrics" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
+          className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn"
+          data-active={panelTab === "lyrics"}
           title="Текст песни (F)"
         >
           <Mic2 className="w-4 h-4" style={{ color: panelTab === "lyrics" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
         </button>
         <button
           onClick={() => setActivePanel(p => p === "history" ? null : "history")}
-          className="w-10 h-10 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: panelTab === "history" ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "transparent" }}
+          className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn"
+          data-active={panelTab === "history"}
           title="История (H)"
         >
           <History className="w-4 h-4" style={{ color: panelTab === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -781,12 +783,11 @@ export default function FullTrackView() {
           <button
             onClick={() => { setShowMoreMenu(!showMoreMenu); setShowSpeedMenu(false); setShowSleepMenu(false); }}
             aria-label="Дополнительные настройки"
-            className="w-10 h-10 rounded-full flex items-center justify-center relative"
-            style={{
-              backgroundColor: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer)
-                ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
-                : "transparent"
-            }}
+            aria-expanded={showMoreMenu}
+            aria-haspopup="menu"
+            /* §HOVER: CSS owns hover bg (was missing — no feedback at all). */
+            className="w-10 h-10 rounded-full flex items-center justify-center relative mq-icon-btn"
+            data-active={eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer}
             title="Дополнительно"
           >
             <MoreHorizontal className="w-4 h-4" style={{ color: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer) ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
@@ -1158,7 +1159,7 @@ export default function FullTrackView() {
     <>
       {/* ═══ MAIN CONTROLS ═══ */}
       <div className={`flex items-center gap-3 sm:gap-5 mb-4 ${isMobile ? "justify-center" : "justify-start"}`}>
-        <button onClick={toggleShuffle} aria-label="Перемешать" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать (S)">
+        <button onClick={toggleShuffle} aria-label="Перемешать" className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn" data-active={shuffle} title="Перемешать (S)">
           <Shuffle className="w-5 h-5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
         </button>
         <button onClick={prevTrack} aria-label="Предыдущий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Предыдущий (P)">
@@ -1166,7 +1167,7 @@ export default function FullTrackView() {
         </button>
         <motion.button
           onClick={togglePlay}
-          whileTap={{ scale: 0.94 }}
+          whileTap={{ scale: 0.94, transition: { duration: 0.08 }} }
           aria-label={isPlaying ? "Пауза" : "Воспроизвести"}
           className="w-16 h-16 sm:w-20 sm:h-20 rounded-full flex items-center justify-center relative"
           style={{ backgroundColor: "var(--mq-accent)" }}
@@ -1179,7 +1180,7 @@ export default function FullTrackView() {
         <button onClick={nextTrack} aria-label="Следующий трек" className="w-12 h-12 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" title="Следующий (N)">
           <SkipForward className="w-6 h-6" style={{ color: "var(--mq-text)" }} fill="currentColor" />
         </button>
-        <button onClick={toggleRepeat} aria-label="Повтор" className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Повтор (R)">
+        <button onClick={toggleRepeat} aria-label="Повтор" className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn" data-active={repeat !== "off"} title="Повтор (R)">
           {repeat === "one" ? <Repeat1 className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
             : <Repeat className="w-5 h-5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
         </button>
@@ -1270,8 +1271,7 @@ export default function FullTrackView() {
             <div className="flex items-center justify-between p-4 sm:p-6">
               <button
                 onClick={() => setOpen(false)}
-                className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                style={{ backgroundColor: "transparent" }}
+                className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn"
                 aria-label="Закрыть"
               >
                 <ChevronDown className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
@@ -1284,8 +1284,7 @@ export default function FullTrackView() {
               </div>
               <button
                 onClick={handleShare}
-                className="w-10 h-10 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                style={{ backgroundColor: "transparent" }}
+                className="w-10 h-10 rounded-full flex items-center justify-center mq-icon-btn"
                 aria-label="Поделиться"
               >
                 <Share2 className="w-4 h-4" style={{ color: "var(--mq-text)" }} />

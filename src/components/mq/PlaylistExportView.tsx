@@ -370,8 +370,8 @@ export default function PlaylistExportView({
             {/* Export buttons */}
             <div className="grid grid-cols-2 gap-3">
               <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" }} }
+                whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                 onClick={handleCopyText}
                 disabled={status === "copying" || status === "generating"}
                 className="flex flex-col items-center gap-2 p-4 rounded-xl transition-colors"
@@ -403,8 +403,8 @@ export default function PlaylistExportView({
               </motion.button>
 
               <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.97 }}
+                whileHover={{ scale: 1.02, transition: { duration: 0.12, ease: "easeOut" }} }
+                whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                 onClick={handleExportImage}
                 disabled={status === "generating" || status === "copying"}
                 className="flex flex-col items-center gap-2 p-4 rounded-xl transition-colors"

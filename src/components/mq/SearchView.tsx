@@ -424,7 +424,9 @@ export default function SearchView() {
                 initial={animationsEnabled ? { opacity: 0, y: 6 } : undefined}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.08 + i * 0.03, duration: 0.3 }}
-                whileTap={{ scale: 0.98 }}
+                /* §HOVER: own tap transition — entrance delay never leaks
+                   into the press feedback. */
+                whileTap={{ scale: 0.98, transition: { duration: 0.1 } }}
                 onClick={() => playTrack(track, quickPicks)}
                 className="flex items-center gap-2.5 p-2.5 rounded-[var(--mq-r-card)] text-left cursor-pointer group transition-colors duration-150"
                 style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
@@ -515,10 +517,10 @@ export default function SearchView() {
             <motion.button
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              whileTap={{ scale: 0.95 }}
+              whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
               onClick={handleClearSearch}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
-              style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)", color: "var(--mq-text-muted)" }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center mq-icon-btn"
+              style={{ ["--mq-rest-bg" as string]: "color-mix(in srgb, var(--mq-text) 8%, transparent)", color: "var(--mq-text-muted)" }}
             >
               <X className="w-3.5 h-3.5" />
             </motion.button>
@@ -662,7 +664,7 @@ export default function SearchView() {
                 Недавние запросы
               </h3>
               <motion.button
-                whileTap={{ scale: 0.94 }}
+                whileTap={{ scale: 0.94, transition: { duration: 0.08 }} }
                 onClick={handleClearHistory}
                 className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
                 style={{ color: "var(--mq-text-muted)" }}

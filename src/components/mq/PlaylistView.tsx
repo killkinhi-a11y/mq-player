@@ -106,6 +106,9 @@ export default function PlaylistView() {
     }
   });
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+  /* §CONTEXT-AUDIT: menu anchors to the trigger click position (was
+     top-right viewport corner — "wrong position" bug). */
+  const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   // Persist pinned set
@@ -465,7 +468,7 @@ export default function PlaylistView() {
         <motion.button
           initial={{ opacity: 0, x: -8 }}
           animate={{ opacity: 1, x: 0 }}
-          whileTap={{ scale: 0.95 }}
+          whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
           onClick={() => setSelectedPlaylistId(null)}
           className="flex items-center gap-1.5 text-sm mb-5 -ml-1.5 rounded-lg px-2.5 py-1.5 transition-colors hover:bg-[var(--mq-overlay-hover)]"
           style={{ color: "var(--mq-text-muted)" }}
@@ -688,7 +691,10 @@ export default function PlaylistView() {
                     <Pin className="w-4.5 h-4.5" fill={isPinned ? "currentColor" : "none"} />
                   </button>
                   <button
-                    onClick={() => setMenuOpenId(menuOpenId === pl.id ? null : pl.id)}
+                    onClick={(e) => {
+                      setMenuAnchor({ x: e.clientX, y: e.clientY });
+                      setMenuOpenId(menuOpenId === pl.id ? null : pl.id);
+                    }}
                     className="w-11 h-11 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]"
                     style={{ color: "var(--mq-text-muted)", border: "1px solid var(--mq-edge)", backgroundColor: "var(--mq-surface-1)" }}
                     aria-label="Меню плейлиста"
@@ -708,6 +714,7 @@ export default function PlaylistView() {
               <PlaylistContextMenu
                 playlist={pl}
                 pinned={pinnedIds.has(pl.id)}
+                anchor={menuAnchor}
                 onClose={() => setMenuOpenId(null)}
                 onTogglePin={() => handleTogglePin(pl.id)}
                 onRenameStart={() => handleStartRename(pl)}
@@ -806,8 +813,8 @@ export default function PlaylistView() {
         </div>
         <div className="flex items-center gap-2">
           <motion.button
-            whileTap={{ scale: 0.95 }}
-            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+            whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm"
             style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
@@ -816,8 +823,8 @@ export default function PlaylistView() {
             Создать
           </motion.button>
           <motion.button
-            whileTap={{ scale: 0.95 }}
-            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
+            whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
             onClick={() => setShowImport(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-medium"
             style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)", border: "1px solid var(--mq-border-thin)" }}
@@ -1065,6 +1072,7 @@ export default function PlaylistView() {
               editing={editingId === pl.id}
               editName={editName}
               menuOpen={menuOpenId === pl.id}
+              menuAnchor={menuAnchor}
               animationsEnabled={animationsEnabled}
               onOpen={() => setSelectedPlaylistId(pl.id)}
               onPlay={(e) => { e.stopPropagation(); handlePlayAll(pl); }}
@@ -1074,7 +1082,7 @@ export default function PlaylistView() {
               onRenameCancel={() => setEditingId(null)}
               onDelete={() => handleDelete(pl)}
               onTogglePin={() => handleTogglePin(pl.id)}
-              onToggleMenu={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === pl.id ? null : pl.id); }}
+              onToggleMenu={(e) => { e.stopPropagation(); setMenuAnchor({ x: e.clientX, y: e.clientY }); setMenuOpenId(menuOpenId === pl.id ? null : pl.id); }}
               onCoverUpload={(file) => handleCoverUpload(pl.id, file)}
               onCoverRemove={() => handleRemoveCover(pl.id)}
             />
@@ -1246,13 +1254,14 @@ interface PlaylistTileProps {
   onDelete: () => void;
   onTogglePin: () => void;
   onToggleMenu: (e: React.MouseEvent) => void;
+  menuAnchor?: { x: number; y: number } | null;
   onCoverUpload: (file: File) => void;
   onCoverRemove: () => void;
 }
 
 function PlaylistTile({
   playlist: pl, index, pinned, isCurrentPlaying, coverUploading, editing, editName, menuOpen,
-  animationsEnabled,
+  menuAnchor, animationsEnabled,
   onOpen, onPlay, onRenameStart, onRenameChange, onRenameConfirm, onRenameCancel,
   onDelete, onTogglePin, onToggleMenu, onCoverUpload, onCoverRemove,
 }: PlaylistTileProps) {
@@ -1270,8 +1279,12 @@ function PlaylistTile({
       initial={animationsEnabled ? { opacity: 0, y: 16 } : undefined}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.4), duration: 0.3 }}
-      whileHover={{ y: -3 }}
-      whileTap={{ scale: 0.98 }}
+      /* §HOVER one-owner + no-delay: the gesture carries its OWN transition
+         so the entrance stagger delay (index*0.04, up to 0.4s) can NEVER
+         leak into the hover/tap response (the "second effect appears with
+         delay" bug). Framer owns transform; CSS owns colors. */
+      whileHover={{ y: -3, transition: { duration: 0.15, ease: "easeOut" } }}
+      whileTap={{ scale: 0.98, transition: { duration: 0.1 } }}
       onClick={onOpen}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -1327,8 +1340,8 @@ function PlaylistTile({
         {pl.tracks.length > 0 && (
           <motion.button
             initial={{ opacity: 0, scale: 0.8 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.92 }}
+            whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+            whileTap={{ scale: 0.92, transition: { duration: 0.08 }} }
             onClick={onPlay}
             className="absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity duration-300"
             style={{
@@ -1369,6 +1382,7 @@ function PlaylistTile({
             <PlaylistContextMenu
               playlist={pl}
               pinned={pinned}
+              anchor={menuAnchor}
               onClose={() => onToggleMenu({ stopPropagation: () => {} } as React.MouseEvent)}
               onTogglePin={onTogglePin}
               onRenameStart={onRenameStart}
@@ -1464,10 +1478,11 @@ function pluralRu(n: number, one: string, few: string, many: string): string {
 import { createPortal } from "react-dom";
 
 function PlaylistContextMenu({
-  playlist: pl, pinned, onClose, onTogglePin, onRenameStart, onCoverUpload, onShare, onDelete,
+  playlist: pl, pinned, anchor, onClose, onTogglePin, onRenameStart, onCoverUpload, onShare, onDelete,
 }: {
   playlist: UserPlaylist;
   pinned: boolean;
+  anchor?: { x: number; y: number } | null;
   onClose: () => void;
   onTogglePin: () => void;
   onRenameStart: () => void;
@@ -1478,14 +1493,21 @@ function PlaylistContextMenu({
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Position menu near top-right of viewport, adjusted to fit screen
+  // §CONTEXT-AUDIT fix: anchor the menu to the TRIGGER (click position),
+  // clamped to the viewport — was pinned to the top-right viewport corner,
+  // far from the button ("wrong position" bug).
   useEffect(() => {
-    const menuW = 200;
-    const menuH = 240;
-    const x = Math.min(window.innerWidth - menuW - 16, window.innerWidth - menuW - 16);
-    const y = Math.max(80, Math.min(window.innerHeight - menuH - 16, 100));
+    const menuW = 208;
+    const menuH = 260;
+    const ax = anchor?.x ?? window.innerWidth - menuW - 16;
+    const ay = anchor?.y ?? 100;
+    // open to the LEFT of the anchor, below it when space allows
+    let x = ax - menuW - 8;
+    if (x < 8) x = Math.min(ax + 8, window.innerWidth - menuW - 8);
+    let y = ay + 8;
+    if (y + menuH > window.innerHeight - 16) y = Math.max(8, window.innerHeight - menuH - 16);
     setPos({ x, y });
-  }, []);
+  }, [anchor?.x, anchor?.y]);
 
   // Close on outside click + Escape
   useEffect(() => {

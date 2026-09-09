@@ -138,13 +138,12 @@ const NavBar = React.memo(function NavBar() {
               }}
               aria-label={item.label}
               aria-current={isActive ? "page" : undefined}
-              className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)]"
-              onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = "var(--mq-overlay-hover)"; }}
-              onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = "transparent"; }}
+              className="group relative flex items-center gap-1.5 px-3 py-1.5 rounded-full cursor-pointer select-none focus-visible:outline-2 focus-visible:outline-[var(--mq-accent)] mq-icon-btn"
+              data-active={isActive}
               style={{
                 color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)",
-                background: isActive ? "var(--mq-bg)" : "transparent",
-                transition: "color 0.15s ease, background-color 0.15s ease",
+                ["--mq-active-bg" as string]: "var(--mq-bg)",
+                transition: "color 0.15s ease, border-color 0.15s ease",
                 fontSize: 13,
                 fontWeight: isActive ? 600 : 500,
                 minHeight: 34,

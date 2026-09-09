@@ -367,7 +367,7 @@ export default function FriendsView() {
       >
         <div className="flex items-center gap-3">
           <motion.button
-            whileTap={{ scale: 0.9 }}
+            whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
             // Task 9: Friends is reached from Chats — back returns to Chats.
             onClick={() => setView("messenger")}
             className="p-2 rounded-xl cursor-pointer"
@@ -390,8 +390,8 @@ export default function FriendsView() {
           </div>
         </div>
         <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } }}
+          whileTap={{ scale: 0.95, transition: { duration: 0.08 } }}
           onClick={() => { setShowAddDialog(true); setSearchQuery(""); setFriendRequestStatus({}); }}
           className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
           style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
@@ -477,7 +477,7 @@ export default function FriendsView() {
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <motion.button
-                          whileTap={{ scale: 0.95 }}
+                          whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                           onClick={() => acceptRequest(req.requestId)}
                           disabled={actionLoading === req.requestId}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium cursor-pointer"
@@ -491,7 +491,7 @@ export default function FriendsView() {
                           <span className="hidden sm:inline">Принять</span>
                         </motion.button>
                         <motion.button
-                          whileTap={{ scale: 0.95 }}
+                          whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                           onClick={() => rejectRequest(req.requestId)}
                           disabled={actionLoading === req.requestId}
                           className="flex items-center justify-center w-9 h-9 rounded-lg cursor-pointer"
@@ -658,8 +658,8 @@ export default function FriendsView() {
             Найдите друзей по имени пользователя, чтобы делиться музыкой и общаться
           </p>
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } }}
+            whileTap={{ scale: 0.95, transition: { duration: 0.08 } }}
             onClick={() => { setShowAddDialog(true); setSearchQuery(""); }}
             className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-medium cursor-pointer"
             style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}
@@ -699,7 +699,7 @@ export default function FriendsView() {
                   </p>
                 </div>
                 <motion.button
-                  whileTap={{ scale: 0.9 }}
+                  whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
                   onClick={() => setShowAddDialog(false)}
                   className="p-1.5 rounded-lg cursor-pointer"
                   style={{ color: "var(--mq-text-muted)" }}
@@ -769,7 +769,7 @@ export default function FriendsView() {
                           </span>
                         ) : (
                           <motion.button
-                            whileTap={{ scale: 0.9 }}
+                            whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
                             onClick={() => sendFriendRequest(user.id)}
                             disabled={actionLoading === user.id}
                             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer min-h-[44px]"
@@ -841,7 +841,7 @@ function FriendCard({
       initial={animationsEnabled ? { opacity: 0, y: 10 } : undefined}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
-      whileHover={{ y: -1, boxShadow: "var(--mq-shadow-card-hover)", transition: { duration: 0.15, ease: "easeOut" } }}
+      whileHover={{ y: -1, transition: { duration: 0.15, ease: "easeOut" } }}
       /* §F: framer owns transform + box-shadow here; no CSS transition on
          those props (was transition-all → double animation + stagger delay
          leak from the entrance transition). */
@@ -881,8 +881,8 @@ function FriendCard({
         {/* Listen Along button — only when online and a track is playing */}
         {isOnline && currentTrack && (
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } }}
+            whileTap={{ scale: 0.9, transition: { duration: 0.08 } }}
             onClick={onListenAlong}
             disabled={listenAlongLoading}
             className="flex items-center gap-1 px-2.5 py-2 rounded-xl text-xs font-medium cursor-pointer min-h-[40px] transition-colors"
@@ -903,8 +903,8 @@ function FriendCard({
         )}
         {/* Message button */}
         <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.9 }}
+          whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+          whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
           onClick={onMessage}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer min-h-[40px] transition-colors"
           style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}

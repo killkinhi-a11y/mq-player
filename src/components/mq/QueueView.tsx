@@ -18,6 +18,7 @@ import {
   ListMusic,
   History,
   Clock,
+  MoreHorizontal,
 } from "lucide-react";
 import {
   DndContext,
@@ -689,6 +690,29 @@ function HistoryTrackItem({
       >
         {formatDuration(track.duration)}
       </span>
+
+      {/* Context menu — LMB (…) is the PRIMARY trigger. Nested interactive
+          element: the row is a <button>, so this trigger is a <span
+          role="button"> (valid HTML, no button-in-button). §CONTEXT-AUDIT */}
+      <span
+        role="button"
+        tabIndex={0}
+        aria-label="Меню трека"
+        title="Меню трека"
+        onClick={(e) => { e.stopPropagation(); onContextMenu(track, e.clientX, e.clientY); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            e.stopPropagation();
+            const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            onContextMenu(track, r.left, r.top);
+          }
+        }}
+        className="p-1.5 rounded flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[var(--mq-overlay-hover)] cursor-pointer"
+        style={{ color: "var(--mq-text-muted)" }}
+      >
+        <MoreHorizontal className="w-3.5 h-3.5" />
+      </span>
     </button>
   );
 }
@@ -871,6 +895,18 @@ function SortableUpNextTrackItem({
         >
           <X className="w-3.5 h-3.5" />
         </button>
+
+        {/* Context menu — LMB (…) is the PRIMARY trigger (right-click +
+            long-press stay as aliases). §CONTEXT-AUDIT */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onContextMenu(track, e.clientX, e.clientY); }}
+          className="p-1 rounded transition-colors hover:bg-[var(--mq-overlay-hover)]"
+          style={{ color: "var(--mq-text-muted)" }}
+          aria-label="Меню трека"
+          title="Меню трека"
+        >
+          <MoreHorizontal className="w-3.5 h-3.5" />
+        </button>
       </div>
     </motion.div>
   );
@@ -1050,6 +1086,18 @@ function SortableQueueTrackItem({
           className="w-4 h-4"
           style={{ color: "var(--mq-accent)" }}
         />
+
+        {/* Context menu — LMB (…) is the PRIMARY trigger (right-click +
+            long-press stay as aliases). §CONTEXT-AUDIT */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onContextMenu(track, e.clientX, e.clientY); }}
+          className="p-1 rounded transition-colors hover:bg-[var(--mq-overlay-hover)]"
+          style={{ color: "var(--mq-text-muted)" }}
+          aria-label="Меню трека"
+          title="Меню трека"
+        >
+          <MoreHorizontal className="w-3.5 h-3.5" />
+        </button>
       </div>
     </motion.div>
   );

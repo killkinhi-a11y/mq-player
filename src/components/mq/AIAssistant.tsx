@@ -79,7 +79,7 @@ function TrackChip({ track, onPlay, onAdd }: { track: Track; onPlay: () => void;
 
       {/* Add button */}
       <motion.button
-        whileTap={{ scale: 0.95 }}
+        whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
         onClick={(e) => { e.stopPropagation(); onAdd(); }}
         className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
         style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
@@ -297,7 +297,7 @@ export default function AIAssistant() {
           <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Подбирает музыку по описанию</p>
         </div>
         <motion.button
-          whileTap={{ scale: 0.9 }}
+          whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
           onClick={handleClear}
           className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors hover:opacity-80"
           style={{ backgroundColor: "var(--mq-card)", border: "1px solid var(--mq-border)" }}
@@ -349,7 +349,7 @@ export default function AIAssistant() {
                     {/* Play all button */}
                     {msg.tracks.length > 1 && (
                       <motion.button
-                        whileTap={{ scale: 0.95 }}
+                        whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                         onClick={() => handlePlayAllFromMessage(msg.tracks!)}
                         className="flex items-center gap-1.5 mb-2 px-2.5 py-1 rounded-lg text-[11px] font-medium cursor-pointer transition-all hover:opacity-80"
                         style={{
@@ -434,10 +434,10 @@ export default function AIAssistant() {
                   return (
                     <motion.button
                       key={i}
-                      whileHover={{ scale: 1.03 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
+                      whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                       onClick={() => sendMessage(sug.prompt)}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium cursor-pointer transition-all"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-medium cursor-pointer transition-colors"
                       style={{
                         backgroundColor: "var(--mq-card)",
                         border: "1px solid var(--mq-border)",
@@ -482,7 +482,7 @@ export default function AIAssistant() {
             disabled={isLoading}
           />
           <motion.button
-            whileTap={{ scale: 0.95 }}
+            whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || isLoading}
             className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-all disabled:opacity-30"
@@ -512,7 +512,7 @@ export default function AIAssistant() {
               return (
                 <motion.button
                   key={i}
-                  whileTap={{ scale: 0.95 }}
+                  whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                   onClick={() => sendMessage(sug.prompt)}
                   className="flex items-center gap-1 px-2 py-1 rounded-full text-[11px] whitespace-nowrap cursor-pointer flex-shrink-0"
                   style={{

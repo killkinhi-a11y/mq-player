@@ -492,7 +492,7 @@ const ProfileView = React.memo(function ProfileView() {
             {/* Larger avatar with edit overlay */}
             <motion.div
               className="relative group"
-              whileHover={{ scale: 1.03 }}
+              whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} }
             >
               <div
                 className="w-28 h-28 rounded-full overflow-hidden flex items-center justify-center"
@@ -645,11 +645,13 @@ const ProfileView = React.memo(function ProfileView() {
           initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.08, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-          className="rounded-[var(--mq-r-card)] overflow-hidden cursor-pointer"
+          /* §HOVER one-owner: CSS owns hover background (class), Framer owns
+             only the tap transform — no bg double-easing, no entrance-delay
+             leak into gestures. */
+          className="rounded-[var(--mq-r-card)] overflow-hidden cursor-pointer transition-colors hover:bg-[var(--mq-card-hover)]"
           style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
           onClick={() => setView("messenger")}
-          whileHover={{ backgroundColor: "var(--mq-card-hover)" }}
-          whileTap={{ scale: 0.98 }}
+          whileTap={{ scale: 0.98, transition: { duration: 0.08 } }}
         >
           <div className="px-4 py-4 flex items-center gap-4">
             <div
@@ -687,11 +689,11 @@ const ProfileView = React.memo(function ProfileView() {
           initial={animationsEnabled ? { opacity: 0, y: 12 } : undefined}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
-          className="rounded-[var(--mq-r-card)] overflow-hidden cursor-pointer"
+          /* §HOVER one-owner: CSS owns hover background, Framer owns the tap. */
+          className="rounded-[var(--mq-r-card)] overflow-hidden cursor-pointer transition-colors hover:bg-[var(--mq-card-hover)]"
           style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
           onClick={() => setView("settings")}
-          whileHover={{ backgroundColor: "var(--mq-card-hover)" }}
-          whileTap={{ scale: 0.98 }}
+          whileTap={{ scale: 0.98, transition: { duration: 0.08 } }}
         >
           <div className="px-4 py-4 flex items-center gap-4">
             <div
@@ -1233,8 +1235,8 @@ const ProfileView = React.memo(function ProfileView() {
 
           {/* Settings link */}
           <motion.button
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.01, transition: { duration: 0.12, ease: "easeOut" }} }
+            whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
             onClick={() => setView("settings")}
             className="w-full px-4 py-3 flex items-center gap-3 text-left transition-colors"
             style={{ borderBottom: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
@@ -1254,8 +1256,8 @@ const ProfileView = React.memo(function ProfileView() {
           {/* Admin panel — server-gated surface (/admin re-checks DB role) */}
           {userRole === "admin" && (
             <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.97 }}
+              whileHover={{ scale: 1.01, transition: { duration: 0.12, ease: "easeOut" }} }
+              whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
               onClick={() => window.open("/admin", "_self")}
               className="w-full px-4 py-3 flex items-center gap-3 text-left transition-colors"
               style={{ borderBottom: "1px solid var(--mq-border)", color: "var(--mq-text)" }}
@@ -1275,8 +1277,8 @@ const ProfileView = React.memo(function ProfileView() {
 
           {/* Logout — cleaner design */}
           <motion.button
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.01, transition: { duration: 0.12, ease: "easeOut" }} }
+            whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
             onClick={() => setShowLogoutConfirm(true)}
             className="w-full px-4 py-3.5 flex items-center gap-3 text-left"
             style={{ color: "#ff6b6b" }}
@@ -1321,7 +1323,7 @@ const ProfileView = React.memo(function ProfileView() {
               <p className="text-sm mb-6" style={{ color: "var(--mq-text-muted)" }}>Вам придётся войти заново для доступа к музыке и чатам</p>
               <div className="flex items-center gap-3">
                 <motion.button
-                  whileTap={{ scale: 0.95 }}
+                  whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                   onClick={() => setShowLogoutConfirm(false)}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
                   style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text)" }}
@@ -1329,7 +1331,7 @@ const ProfileView = React.memo(function ProfileView() {
                   Остаться
                 </motion.button>
                 <motion.button
-                  whileTap={{ scale: 0.95 }}
+                  whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                   onClick={() => { logout(); setShowLogoutConfirm(false); }}
                   className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors"
                   style={{ backgroundColor: "#ef4444", color: "#fff" }}

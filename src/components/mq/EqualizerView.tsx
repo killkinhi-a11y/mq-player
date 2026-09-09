@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useRef, useEffect, useState } from "react";
+import { useCallback, useRef, useEffect, useState, type RefObject } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Sliders, RotateCcw, Power, AudioWaveform, ShieldAlert } from "lucide-react";
+import { X, Sliders, RotateCcw, Power, AudioWaveform, ShieldAlert, Gauge } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { EQ_BANDS, EQ_PRESETS, EQ_MIN, EQ_MAX } from "@/lib/eq";
 import { getAnalyser, getCompressorReduction } from "@/lib/audioEngine";
@@ -14,30 +14,26 @@ interface EqualizerViewProps {
 }
 
 /**
- * EqualizerView v4 — professional channel-strip redesign.
+ * EqualizerView v5 — MIXER composition rework.
  *
- * v3 had vertical faders + presets + bypass + limiter, but read as a
- * consumer "EQ dialog". v4 rebuilds the visual language as a real audio
- * tool — WITHOUT fake controls:
+ * v4 was a single flat column: presets → faders → meters → limiter →
+ * threshold read like one long settings list. v5 restructures it as a real
+ * audio tool with TWO labeled sections and a dedicated master module:
  *
- *  - Left: real dB scale (+12…-12, 3dB ticks) aligned to fader geometry
- *  - Center: 10 vertical faders (pointer events) + frequency-response
- *    spline measured from live DOM geometry
- *  - Right: OUT meters — REAL time-domain peak from the active analyser
- *    (works on both element and WASM backends), peak-hold needle,
- *    LUFS-S / true-peak readouts on the WASM path (real engine stats)
- *  - GR (gain-reduction) meter for the limiter: real telemetry —
- *    wasmDiagnostics.gainReductionDb (Rust look-ahead limiter) on the
- *    WASM path, DynamicsCompressorNode.reduction on the element path
- *  - Presets (real), bypass (real), limiter threshold (real, -12..0 dB)
- *  - Q is NOT user-controllable in the engine → not rendered as a
- *    control; the actual per-band Q is disclosed in the fader tooltip
+ *  ┌ Header: identity + STATE chip (preset/custom/bypass) + power/reset/× ┐
+ *  ├ § ПОЛОСЫ: dB scale | 10 faders + response spline | freq labels      ┤
+ *  ├ § МАСТЕР · ВЫХОД (distinct surface + eyebrow):                     ┤
+ *  │   OUT meter (with dB tick scale) | GR meter | numeric cluster      ┤
+ *  │   (PEAK/TP/LUFS/GR, mono tabular) + limiter switch + threshold     ┤
+ *  └ Footer: hints                                                       ┘
  *
- * Meter updates bypass React state (single rAF loop writes refs) — no
- * per-frame re-renders of the fader bank.
+ * DSP is UNTOUCHED (store actions → Rust/WASM or element path).
+ * Metering stays rAF-driven (refs, zero React re-renders).
+ * Mobile: master module collapses to horizontal meters + 2×2 readouts.
+ * Preset/custom state is visually explicit: header chip + preset pill.
  */
 
-const TRACK_HEIGHT = 160;
+const TRACK_HEIGHT = 168;
 const RANGE = EQ_MAX - EQ_MIN; // 24 dB
 const DB_TICKS = [12, 9, 6, 3, 0, -3, -6, -9, -12];
 
@@ -48,6 +44,9 @@ const peakPct = (db: number) =>
 // GR mapping: 0…24 dB reduction → 0…1
 const GR_MAX_DB = 24;
 const grPct = (gr: number) => Math.max(0, Math.min(1, gr / GR_MAX_DB));
+
+// Vertical meter tick scale (readable at a glance — pro convention)
+const OUT_TICKS = [-60, -40, -24, -12, -6, 0];
 
 export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
   const eqEnabled = useAppStore((s) => s.eqEnabled);
@@ -139,8 +138,6 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
   }, [show, eqEnabled, eqBands]);
 
   // ── Metering refs (rAF-driven, no React re-renders) ──────────────────────
-  // Vertical (>=640px) and horizontal (<640px) meter variants mount
-  // exclusively, so refs always point at the live DOM.
   const [isNarrow, setIsNarrow] = useState(false);
   useEffect(() => {
     const mql = window.matchMedia("(max-width: 639px)");
@@ -226,11 +223,11 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
         const wasm = isWasmActive();
         if (lufsNumRef.current) {
           const l = wasm ? wasmDiagnostics.lufsShort : null;
-          lufsNumRef.current.textContent = l != null && l !== 0 ? `${l.toFixed(1)}` : "—";
+          lufsNumRef.current.textContent = l != null && l !== 0 ? `${l.toFixed(1)} LU` : "—";
         }
         if (tpNumRef.current) {
           const t = wasm ? wasmDiagnostics.truePeakDb : null;
-          tpNumRef.current.textContent = t != null && t !== 0 ? `${t.toFixed(1)}` : "—";
+          tpNumRef.current.textContent = t != null && t !== 0 ? `${t.toFixed(1)} dB` : "—";
         }
       }
 
@@ -239,6 +236,14 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [show]);
+
+  // ── State chips: preset / custom / bypass (instantly readable) ──
+  const presetName = eqPreset === "custom" ? "Свои настройки" : (EQ_PRESETS.find(p => p.id === eqPreset)?.name ?? eqPreset);
+  const stateChip = !eqEnabled
+    ? { text: "БАЙПАС", tone: "muted" as const }
+    : eqPreset === "custom"
+      ? { text: "СВОИ", tone: "custom" as const }
+      : { text: presetName.toUpperCase(), tone: "preset" as const };
 
   return (
     <AnimatePresence>
@@ -266,11 +271,11 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-modal="true"
-            aria-label="Эквалайзер"
+            aria-label="Эквалайзер и микшер"
           >
-            {/* ── Header: identity + EQ power (bypass) + reset + close ── */}
+            {/* ── Header: identity + STATE chip + power/reset/close ── */}
             <div
-              className="flex items-center justify-between px-5 py-4 gap-3"
+              className="flex items-center justify-between px-4 sm:px-5 py-3.5 gap-3"
               style={{ borderBottom: "1px solid var(--mq-border-hairline)" }}
             >
               <div className="flex items-center gap-3 min-w-0">
@@ -284,11 +289,38 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                   <AudioWaveform className="w-4 h-4" style={{ color: "var(--mq-accent)" }} />
                 </div>
                 <div className="min-w-0">
-                  <h2 className="text-base font-bold leading-tight" style={{ color: "var(--mq-text)" }}>
-                    Эквалайзер
-                  </h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-bold leading-tight" style={{ color: "var(--mq-text)" }}>
+                      Эквалайзер
+                    </h2>
+                    {/* State chip — preset/custom/bypass is obvious at a glance */}
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[11px] font-bold tracking-wide shrink-0"
+                      style={{
+                        backgroundColor:
+                          stateChip.tone === "muted"
+                            ? "color-mix(in srgb, var(--mq-text-muted) 14%, transparent)"
+                            : stateChip.tone === "custom"
+                              ? "color-mix(in srgb, var(--mq-text) 12%, transparent)"
+                              : "color-mix(in srgb, var(--mq-accent) 16%, transparent)",
+                        color:
+                          stateChip.tone === "muted"
+                            ? "var(--mq-text-muted)"
+                            : stateChip.tone === "custom"
+                              ? "var(--mq-text)"
+                              : "var(--mq-accent)",
+                        border: `1px solid ${
+                          stateChip.tone === "preset"
+                            ? "color-mix(in srgb, var(--mq-accent) 40%, transparent)"
+                            : "var(--mq-border-thin)"
+                        }`,
+                      }}
+                    >
+                      {stateChip.text}
+                    </span>
+                  </div>
                   <p className="text-[11px] leading-tight mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
-                    10 полос · {eqEnabled ? "активен" : "байпас"}
+                    10 полос · {eqEnabled ? presetName : "обработка выключена"}
                   </p>
                 </div>
               </div>
@@ -297,14 +329,16 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
                 {/* EQ power — pro bypass switch */}
                 <button
                   onClick={() => setEqEnabled(!eqEnabled)}
-                  className="h-9 px-3 rounded-full flex items-center gap-2 text-xs font-semibold transition-colors"
+                  className="h-9 px-3 rounded-full flex items-center gap-2 text-xs font-semibold mq-icon-btn"
                   style={{
-                    backgroundColor: eqEnabled ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)" : "var(--mq-glass-bg)",
+                    ["--mq-rest-bg" as string]: "var(--mq-glass-bg)",
+                    ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 16%, transparent)",
                     border: `1px solid ${eqEnabled ? "color-mix(in srgb, var(--mq-accent) 45%, transparent)" : "var(--mq-border-thin)"}`,
                     color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
                   }}
                   role="switch"
                   aria-checked={eqEnabled}
+                  data-active={eqEnabled}
                   aria-label="Включить эквалайзер"
                   title="Bypass (обработка вкл/выкл)"
                 >
@@ -332,301 +366,449 @@ export default function EqualizerView({ show, onClose }: EqualizerViewProps) {
               </div>
             </div>
 
-            {/* ── Presets ── */}
-            <div
-              className="px-5 py-3"
-              style={{ borderBottom: "1px solid var(--mq-border-hairline)" }}
-            >
-              <div className="flex flex-wrap gap-1.5">
-                {EQ_PRESETS.map((preset) => {
-                  const isActive = preset.id === eqPreset && eqEnabled;
-                  return (
-                    <button
-                      key={preset.id}
-                      onClick={() => handlePresetClick(preset.id)}
-                      className="px-3 py-1.5 rounded-full text-xs font-medium"
-                      style={{
-                        backgroundColor: isActive
-                          ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)"
-                          : "var(--mq-glass-bg)",
-                        border: isActive
-                          ? "1px solid color-mix(in srgb, var(--mq-accent) 45%, transparent)"
-                          : "1px solid var(--mq-border-thin)",
-                        color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
-                        transition: "background-color 200ms cubic-bezier(0.4,0,0.2,1), border-color 200ms cubic-bezier(0.4,0,0.2,1), color 200ms cubic-bezier(0.4,0,0.2,1)",
-                      }}
-                    >
-                      {preset.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            {/* Scroll body — sections stacked, master module distinct */}
+            <div className="max-h-[calc(100vh-220px)] overflow-y-auto">
+              {/* ══ §1 ПОЛОСЫ — fader bank ══ */}
+              <div className="px-4 sm:px-5 pt-4 pb-1">
+                <div className="flex items-center gap-2 mb-3" aria-hidden="true">
+                  <Sliders className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
+                  <span className="text-[11px] font-bold tracking-[0.14em] uppercase" style={{ color: "var(--mq-text-muted)" }}>
+                    Полосы · {EQ_BANDS.length}
+                  </span>
+                  <span className="flex-1 h-px" style={{ backgroundColor: "var(--mq-border-hairline)" }} />
+                  <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                    ±{EQ_MAX} dB
+                  </span>
+                </div>
 
-            {/* ── Channel strip: dB scale | faders | OUT meters ── */}
-            <div className="px-4 sm:px-5 py-5">
-              <div className="flex gap-2 sm:gap-3">
-                {/* dB scale (>=sm) — aligned to the fader track geometry */}
-                <div className="hidden sm:flex flex-col items-end justify-between h-[184px] pt-3 pb-[21px] w-8 shrink-0 select-none" aria-hidden="true">
-                  {DB_TICKS.map((db) => (
-                    <span
-                      key={db}
-                      className="text-[11px] font-mono tabular-nums leading-none"
+                {/* Presets — custom state highlighted via store */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {EQ_PRESETS.map((preset) => {
+                    const isActive = preset.id === eqPreset && eqEnabled;
+                    return (
+                      <button
+                        key={preset.id}
+                        onClick={() => handlePresetClick(preset.id)}
+                        className="px-3 min-h-[30px] rounded-full text-xs font-medium mq-icon-btn"
+                        style={{
+                          ["--mq-rest-bg" as string]: "var(--mq-glass-bg)",
+                          ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 18%, transparent)",
+                          border: isActive
+                            ? "1px solid color-mix(in srgb, var(--mq-accent) 45%, transparent)"
+                            : "1px solid var(--mq-border-thin)",
+                          color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                        }}
+                        data-active={isActive}
+                        aria-pressed={isActive}
+                      >
+                        {preset.name}
+                      </button>
+                    );
+                  })}
+                  {/* Custom pill — explicit state, not a hidden mode */}
+                  <button
+                    onClick={() => { if (!eqEnabled) setEqEnabled(true); setEqPreset("custom"); }}
+                    className="px-3 min-h-[30px] rounded-full text-xs font-medium mq-icon-btn"
+                    style={{
+                      ["--mq-rest-bg" as string]: "var(--mq-glass-bg)",
+                      ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-text) 12%, transparent)",
+                      border: `1px solid ${eqPreset === "custom" && eqEnabled ? "color-mix(in srgb, var(--mq-text) 30%, transparent)" : "var(--mq-border-thin)"}`,
+                      color: eqPreset === "custom" && eqEnabled ? "var(--mq-text)" : "var(--mq-text-muted)",
+                    }}
+                    data-active={eqPreset === "custom" && eqEnabled}
+                    aria-pressed={eqPreset === "custom" && eqEnabled}
+                  >
+                    Свои
+                  </button>
+                </div>
+
+                {/* Channel strip: dB scale | faders | curve */}
+                <div className="flex gap-2 sm:gap-3">
+                  {/* dB scale (>=sm) — aligned to the fader track geometry */}
+                  <div className="hidden sm:flex flex-col items-end justify-between h-[192px] pt-3 pb-[21px] w-8 shrink-0 select-none" aria-hidden="true">
+                    {DB_TICKS.map((db) => (
+                      <span
+                        key={db}
+                        className="text-[11px] font-mono tabular-nums leading-none"
+                        style={{
+                          color: db === 0 ? "var(--mq-text-muted)" : "var(--mq-text-faint, var(--mq-text-muted))",
+                          opacity: db === 0 ? 0.9 : 0.6,
+                          fontWeight: db === 0 ? 600 : 400,
+                        }}
+                      >
+                        {db > 0 ? `+${db}` : db}
+                      </span>
+                    ))}
+                  </div>
+
+                  {/* Fader bank + frequency-response curve */}
+                  <div ref={bandsWrapRef} className="relative flex-1 min-w-0">
+                    <div
+                      className="flex items-end justify-between gap-0.5 sm:gap-1"
                       style={{
-                        color: db === 0 ? "var(--mq-text-muted)" : "var(--mq-text-faint, var(--mq-text-muted))",
-                        opacity: db === 0 ? 0.9 : 0.6,
-                        fontWeight: db === 0 ? 600 : 400,
+                        opacity: eqEnabled ? 1 : 0.45,
+                        transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1)",
                       }}
                     >
-                      {db > 0 ? `+${db}` : db}
+                      {EQ_BANDS.map((band, i) => (
+                        <EqBandSlider
+                          key={i}
+                          label={band.frequency >= 1000 ? `${band.frequency / 1000}k` : `${band.frequency}`}
+                          bandInfo={`${band.frequency >= 1000 ? `${band.frequency / 1000} кГц` : `${band.frequency} Гц`} · ${band.labelRu} · Q ${band.Q}`}
+                          value={eqBands[i] ?? 0}
+                          disabled={!eqEnabled}
+                          onChange={(v) => handleBandChange(i, v)}
+                        />
+                      ))}
+                    </div>
+                    {eqEnabled && curvePath && curveSize.w > 0 && (
+                      <svg
+                        className="absolute inset-0 pointer-events-none"
+                        width="100%"
+                        height="100%"
+                        viewBox={`0 0 ${curveSize.w} ${curveSize.h}`}
+                        preserveAspectRatio="none"
+                        style={{ zIndex: 5, overflow: "visible" }}
+                        aria-hidden="true"
+                      >
+                        <defs>
+                          <linearGradient id="eq-curve-fill" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--mq-accent)" stopOpacity="0.30" />
+                            <stop offset="50%" stopColor="var(--mq-accent)" stopOpacity="0.10" />
+                            <stop offset="100%" stopColor="var(--mq-accent)" stopOpacity="0.30" />
+                          </linearGradient>
+                        </defs>
+                        {curveZeroY > 0 && (
+                          <path d={`${curvePath} L ${curveSize.w} ${curveZeroY} L 0 ${curveZeroY} Z`} fill="url(#eq-curve-fill)" />
+                        )}
+                        <path
+                          d={curvePath}
+                          fill="none"
+                          stroke="var(--mq-accent)"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          opacity="0.9"
+                        />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+
+                {/* Frequency labels */}
+                <div className="flex sm:pl-9 mt-2.5 select-none" aria-hidden="true">
+                  {EQ_BANDS.map((band, i) => (
+                    <span key={i} className="flex-1 min-w-0 text-center text-[11px] font-semibold tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
+                      {band.frequency >= 1000 ? `${band.frequency / 1000}k` : `${band.frequency}`}
                     </span>
                   ))}
                 </div>
+              </div>
 
-                {/* Fader bank + frequency-response curve */}
-                <div ref={bandsWrapRef} className="relative flex-1 min-w-0">
-                  <div
-                    className="flex items-end justify-between gap-0.5 sm:gap-1"
-                    style={{
-                      opacity: eqEnabled ? 1 : 0.45,
-                      transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1)",
-                    }}
-                  >
-                    {EQ_BANDS.map((band, i) => (
-                      <EqBandSlider
-                        key={i}
-                        label={band.frequency >= 1000 ? `${band.frequency / 1000}k` : `${band.frequency}`}
-                        bandInfo={`${band.frequency >= 1000 ? `${band.frequency / 1000} кГц` : `${band.frequency} Гц`} · ${band.labelRu} · Q ${band.Q}`}
-                        value={eqBands[i] ?? 0}
-                        disabled={!eqEnabled}
-                        onChange={(v) => handleBandChange(i, v)}
-                      />
-                    ))}
+              {/* ══ §2 МАСТЕР · ВЫХОД — meters + limiter as ONE module ══ */}
+              <div className="px-4 sm:px-5 pb-4 pt-3">
+                <div
+                  className="rounded-2xl p-4"
+                  style={{
+                    backgroundColor: "var(--mq-surface-1)",
+                    border: "1px solid var(--mq-edge-strong)",
+                  }}
+                  aria-label="Мастер и выход"
+                >
+                  <div className="flex items-center gap-2 mb-3.5" aria-hidden="true">
+                    <Gauge className="w-3 h-3" style={{ color: "var(--mq-accent)" }} />
+                    <span className="text-[11px] font-bold tracking-[0.14em] uppercase" style={{ color: "var(--mq-text-muted)" }}>
+                      Мастер · Выход
+                    </span>
+                    <span className="flex-1 h-px" style={{ backgroundColor: "var(--mq-border-hairline)" }} />
+                    {/* Limiter status — one glance */}
+                    <span
+                      className="px-2 py-0.5 rounded-full text-[11px] font-bold tracking-wide"
+                      style={{
+                        backgroundColor: limiterEnabled ? "color-mix(in srgb, var(--mq-accent) 16%, transparent)" : "color-mix(in srgb, var(--mq-text-muted) 12%, transparent)",
+                        color: limiterEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)",
+                      }}
+                    >
+                      LIMITER {limiterEnabled ? "ON" : "OFF"}
+                    </span>
                   </div>
-                  {eqEnabled && curvePath && curveSize.w > 0 && (
-                    <svg
-                      className="absolute inset-0 pointer-events-none"
-                      width="100%"
-                      height="100%"
-                      viewBox={`0 0 ${curveSize.w} ${curveSize.h}`}
-                      preserveAspectRatio="none"
-                      style={{ zIndex: 5, overflow: "visible" }}
-                      aria-hidden="true"
-                    >
-                      <defs>
-                        <linearGradient id="eq-curve-fill" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="var(--mq-accent)" stopOpacity="0.30" />
-                          <stop offset="50%" stopColor="var(--mq-accent)" stopOpacity="0.10" />
-                          <stop offset="100%" stopColor="var(--mq-accent)" stopOpacity="0.30" />
-                        </linearGradient>
-                      </defs>
-                      {curveZeroY > 0 && (
-                        <path d={`${curvePath} L ${curveSize.w} ${curveZeroY} L 0 ${curveZeroY} Z`} fill="url(#eq-curve-fill)" />
-                      )}
-                      <path
-                        d={curvePath}
-                        fill="none"
-                        stroke="var(--mq-accent)"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        opacity="0.9"
-                      />
-                    </svg>
-                  )}
-                </div>
 
-                {/* OUT meters (>=sm) — REAL peak from the live analyser +
-                    GR from the limiter telemetry */}
-                <div className="hidden sm:flex flex-col gap-1.5 w-12 shrink-0 pt-3" aria-label="Измерители">
-                  {/* Peak meter */}
-                  <div className="flex items-stretch gap-1.5">
-                    <div
-                      className="relative w-3.5 rounded-[3px] overflow-hidden"
-                      style={{ height: TRACK_HEIGHT, backgroundColor: "var(--mq-glass-bg)", boxShadow: "var(--mq-shadow-inner-glow)" }}
-                    >
-                      <div
-                        ref={peakBarVRef}
-                        className="absolute inset-x-0 bottom-0 origin-bottom"
-                        style={{
-                          height: "100%",
-                          background: "linear-gradient(180deg, #e03131 0%, #e8590c 18%, #f08c00 38%, #2f9e44 100%)",
-                          opacity: 0.95,
-                        }}
-                      />
-                      <div
-                        ref={peakHoldVRef}
-                        className="absolute inset-x-0 h-px"
-                        style={{ top: "100%", backgroundColor: "var(--mq-text)", opacity: 0.75 }}
-                      />
-                    </div>
-                    {/* GR meter */}
-                    <div className="flex flex-col gap-1">
-                      <div
-                        className="relative w-2.5 rounded-[3px] overflow-hidden"
-                        style={{ height: TRACK_HEIGHT, backgroundColor: "var(--mq-glass-bg)", boxShadow: "var(--mq-shadow-inner-glow)" }}
-                      >
+                  {/* Desktop (>=sm): meters left, readouts+limiter right */}
+                  <div className="hidden sm:flex gap-4">
+                    {/* Meters column with dB tick scale */}
+                    <div className="flex gap-2.5 shrink-0">
+                      {/* OUT peak meter */}
+                      <div className="flex gap-1" aria-label="Пиковый метр выхода">
                         <div
-                          ref={grBarVRef}
-                          className="absolute inset-x-0 top-0 origin-top"
+                          className="relative w-3.5 rounded-[3px] overflow-hidden"
+                          style={{ height: TRACK_HEIGHT, backgroundColor: "var(--mq-glass-bg)", boxShadow: "var(--mq-shadow-inner-glow)" }}
+                        >
+                          <div
+                            ref={peakBarVRef}
+                            className="absolute inset-x-0 bottom-0 origin-bottom"
+                            style={{
+                              height: "100%",
+                              background: "linear-gradient(180deg, #e03131 0%, #e8590c 18%, #f08c00 38%, #2f9e44 100%)",
+                              opacity: 0.95,
+                            }}
+                          />
+                          <div
+                            ref={peakHoldVRef}
+                            className="absolute inset-x-0 h-px"
+                            style={{ top: "100%", backgroundColor: "var(--mq-text)", opacity: 0.75 }}
+                          />
+                        </div>
+                        {/* dB tick scale beside the meter */}
+                        <div className="flex flex-col justify-between h-[168px] py-0 select-none" aria-hidden="true">
+                          {OUT_TICKS.map(t => (
+                            <span key={t} className="text-[11px] font-mono tabular-nums leading-none" style={{ color: "var(--mq-text-muted)", opacity: 0.65 }}>
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      {/* GR meter */}
+                      <div className="flex flex-col items-center gap-1" aria-label="Gain reduction">
+                        <div
+                          className="relative w-2.5 rounded-[3px] overflow-hidden"
+                          style={{ height: TRACK_HEIGHT, backgroundColor: "var(--mq-glass-bg)", boxShadow: "var(--mq-shadow-inner-glow)" }}
+                        >
+                          <div
+                            ref={grBarVRef}
+                            className="absolute inset-x-0 top-0 origin-top"
+                            style={{
+                              height: "100%",
+                              backgroundColor: "var(--mq-accent)",
+                              opacity: 0.85,
+                            }}
+                          />
+                        </div>
+                        <span className="text-[11px] font-mono font-bold" style={{ color: "var(--mq-text-muted)" }}>GR</span>
+                      </div>
+                      <span className="text-[11px] font-mono font-bold self-end pb-0.5" style={{ color: "var(--mq-text-muted)" }}>OUT</span>
+                    </div>
+
+                    {/* Readout cluster + limiter control */}
+                    <div className="flex-1 min-w-0 flex flex-col gap-3">
+                      {/* Numeric readouts — 2×2, mono tabular, instantly readable */}
+                      <div className="grid grid-cols-2 gap-2" role="status" aria-label="Показатели выхода">
+                        <Readout label="PEAK" ref={peakNumRef} value="— dB" title="Пиковый уровень выхода" />
+                        <Readout label="LUFS-S" ref={lufsNumRef} value="—" title="Short-term громкость (WASM-движок)" />
+                        <Readout label="TRUE PEAK" ref={tpNumRef} value="—" title="True peak (дБ, WASM-движок)" />
+                        <Readout label="GAIN RED" ref={grNumRef} value="0 dB" accent={limiterEnabled} title="Gain reduction лимитера (реальная телеметрия)" />
+                      </div>
+
+                      {/* Limiter: switch + threshold in one row */}
+                      <div
+                        className="rounded-xl px-3.5 py-3 flex items-center justify-between gap-3"
+                        style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)" }}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                            style={{
+                              backgroundColor: limiterEnabled ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "var(--mq-glass-bg)",
+                            }}
+                          >
+                            <ShieldAlert className="w-3.5 h-3.5" style={{ color: limiterEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[13px] font-semibold" style={{ color: "var(--mq-text)" }}>Лимитер</p>
+                            <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                              {limiterEnabled ? `Потолок ${limiterThreshold} дБ` : "Пики не ограничиваются"}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setLimiterEnabled(!limiterEnabled)}
+                          className="relative w-11 h-6 rounded-full shrink-0 transition-colors"
                           style={{
-                            height: "100%",
-                            backgroundColor: "var(--mq-accent)",
-                            opacity: 0.85,
+                            backgroundColor: limiterEnabled ? "var(--mq-accent)" : "var(--mq-border-thin)",
                           }}
+                          role="switch"
+                          aria-checked={limiterEnabled}
+                          aria-label="Включить лимитер"
+                        >
+                          <motion.div
+                            layout
+                            className="absolute top-0.5 w-5 h-5 rounded-full"
+                            style={{
+                              left: limiterEnabled ? 22 : 2,
+                              backgroundColor: "#fff",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                            }}
+                            transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                          />
+                        </button>
+                      </div>
+
+                      {/* Threshold with dB scale */}
+                      <div
+                        style={{
+                          opacity: limiterEnabled ? 1 : 0.45,
+                          transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1)",
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Порог</span>
+                          <span className="text-[11px] font-mono font-semibold" style={{ color: "var(--mq-text)" }}>{limiterThreshold} dB</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={-12}
+                          max={0}
+                          step={0.5}
+                          value={limiterThreshold}
+                          onChange={(e) => setLimiterThreshold(Number(e.target.value))}
+                          disabled={!limiterEnabled}
+                          aria-label="Порог лимитера"
+                          className="w-full h-1.5 rounded-full appearance-none cursor-pointer disabled:cursor-not-allowed"
+                          style={{ backgroundColor: "var(--mq-border-thin)", accentColor: "var(--mq-accent)" }}
                         />
+                        <div className="flex justify-between mt-1 px-0.5 select-none" aria-hidden="true">
+                          {[-12, -9, -6, -3, 0].map((v) => (
+                            <span key={v} className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{v}</span>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
-                  {/* meter labels */}
-                  <div className="flex gap-1.5">
-                    <span className="flex-1 text-center text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>OUT</span>
-                    <span className="w-2.5 text-center text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>GR</span>
-                  </div>
-                </div>
-              </div>
 
-              {/* Frequency labels */}
-              <div className="flex sm:pl-9 sm:pr-14 mt-2.5 select-none" aria-hidden="true">
-                {EQ_BANDS.map((band, i) => (
-                  <span key={i} className="flex-1 min-w-0 text-center text-[11px] font-semibold tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
-                    {band.frequency >= 1000 ? `${band.frequency / 1000}k` : `${band.frequency}`}
-                  </span>
-                ))}
-              </div>
+                  {/* Mobile (<sm): horizontal meters + 2×2 readouts + limiter */}
+                  <div className="sm:hidden flex flex-col gap-3">
+                    {/* Horizontal meters */}
+                    <div className="flex flex-col gap-1.5" aria-label="Измерители">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-mono font-bold w-7 shrink-0" style={{ color: "var(--mq-text-muted)" }}>OUT</span>
+                        <div className="relative flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
+                          <div
+                            ref={peakBarHRef}
+                            className="absolute inset-y-0 left-0 origin-left"
+                            style={{ width: "100%", background: "linear-gradient(90deg, #2f9e44 0%, #f08c00 70%, #e03131 100%)", opacity: 0.95 }}
+                          />
+                          <div ref={peakHoldHRef} className="absolute inset-y-0 w-px" style={{ left: "0%", backgroundColor: "var(--mq-text)", opacity: 0.75 }} />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-mono font-bold w-7 shrink-0" style={{ color: "var(--mq-text-muted)" }}>GR</span>
+                        <div className="relative flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
+                          <div
+                            ref={grBarHRef}
+                            className="absolute inset-y-0 left-0 origin-left"
+                            style={{ width: "100%", backgroundColor: "var(--mq-accent)", opacity: 0.85 }}
+                          />
+                        </div>
+                      </div>
+                    </div>
 
-              {/* Mobile meters — horizontal, same real data */}
-              {isNarrow && (
-                <div className="mt-4 flex flex-col gap-1.5" aria-label="Измерители">
-                  <div className="relative h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
+                    {/* Readouts 2×2 */}
+                    <div className="grid grid-cols-2 gap-2" role="status" aria-label="Показатели выхода">
+                      <Readout label="PEAK" ref={peakNumRef} value="— dB" title="Пиковый уровень выхода" />
+                      <Readout label="LUFS-S" ref={lufsNumRef} value="—" title="Short-term громкость (WASM-движок)" />
+                      <Readout label="TRUE PEAK" ref={tpNumRef} value="—" title="True peak (дБ, WASM-движок)" />
+                      <Readout label="GAIN RED" ref={grNumRef} value="0 dB" accent={limiterEnabled} title="Gain reduction лимитера" />
+                    </div>
+
+                    {/* Limiter row */}
                     <div
-                      ref={peakBarHRef}
-                      className="absolute inset-y-0 left-0 origin-left"
-                      style={{ width: "100%", background: "linear-gradient(90deg, #2f9e44 0%, #f08c00 70%, #e03131 100%)", opacity: 0.95 }}
-                    />
-                    <div ref={peakHoldHRef} className="absolute inset-y-0 w-px" style={{ left: "0%", backgroundColor: "var(--mq-text)", opacity: 0.75 }} />
-                  </div>
-                  <div className="relative h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-glass-bg)" }}>
-                    <div
-                      ref={grBarHRef}
-                      className="absolute inset-y-0 left-0 origin-left"
-                      style={{ width: "100%", backgroundColor: "var(--mq-accent)", opacity: 0.85 }}
-                    />
-                  </div>
-                </div>
-              )}
+                      className="rounded-xl px-3 py-2.5 flex items-center justify-between gap-3"
+                      style={{ backgroundColor: "var(--mq-surface-2)", border: "1px solid var(--mq-edge)" }}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <ShieldAlert className="w-4 h-4 shrink-0" style={{ color: limiterEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-semibold" style={{ color: "var(--mq-text)" }}>Лимитер</p>
+                          <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                            {limiterEnabled ? `Потолок ${limiterThreshold} дБ` : "Выключен"}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setLimiterEnabled(!limiterEnabled)}
+                        className="relative w-11 h-6 rounded-full shrink-0 transition-colors"
+                        style={{ backgroundColor: limiterEnabled ? "var(--mq-accent)" : "var(--mq-border-thin)" }}
+                        role="switch"
+                        aria-checked={limiterEnabled}
+                        aria-label="Включить лимитер"
+                      >
+                        <motion.div
+                          layout
+                          className="absolute top-0.5 w-5 h-5 rounded-full"
+                          style={{ left: limiterEnabled ? 22 : 2, backgroundColor: "#fff", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }}
+                          transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                        />
+                      </button>
+                    </div>
 
-              {/* Numeric metering — real values only */}
-              <div className="mt-4 flex items-center justify-between gap-3 px-1">
-                <span className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }} ref={peakNumRef}>— dB</span>
-                <div className="flex items-center gap-3 text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>
-                  <span title="Short-term громкость (LUFS-S, WASM-движок)">LUFS <span ref={lufsNumRef}>—</span></span>
-                  <span title="True peak (дБ, WASM-движок)">TP <span ref={tpNumRef}>—</span></span>
-                  <span title="Gain reduction лимитера (реальная телеметрия)">GR <span ref={grNumRef} style={{ color: limiterEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>0 dB</span></span>
+                    {/* Threshold */}
+                    <div style={{ opacity: limiterEnabled ? 1 : 0.45, transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1)" }}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Порог</span>
+                        <span className="text-[11px] font-mono font-semibold" style={{ color: "var(--mq-text)" }}>{limiterThreshold} dB</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={-12}
+                        max={0}
+                        step={0.5}
+                        value={limiterThreshold}
+                        onChange={(e) => setLimiterThreshold(Number(e.target.value))}
+                        disabled={!limiterEnabled}
+                        aria-label="Порог лимитера"
+                        className="w-full h-1.5 rounded-full appearance-none cursor-pointer disabled:cursor-not-allowed"
+                        style={{ backgroundColor: "var(--mq-border-thin)", accentColor: "var(--mq-accent)" }}
+                      />
+                      <div className="flex justify-between mt-1 px-0.5 select-none" aria-hidden="true">
+                        {[-12, -9, -6, -3, 0].map((v) => (
+                          <span key={v} className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{v}</span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* ── Look-ahead limiter (Rust DSP on the WASM path; brickwall
-                compressor on the element path — real peak control on both) ── */}
-            <div
-              className="px-4 sm:px-5 py-4 flex items-center justify-between gap-4"
-              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-            >
-              <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                  style={{
-                    backgroundColor: limiterEnabled
-                      ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)"
-                      : "var(--mq-glass-bg)",
-                  }}
-                >
-                  <ShieldAlert className="w-3.5 h-3.5" style={{ color: limiterEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold" style={{ color: "var(--mq-text)" }}>
-                    Лимитер
-                  </p>
-                  <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
-                    {limiterEnabled
-                      ? `Потолок ${limiterThreshold} дБ · GR реальный`
-                      : "Выключен — пики не ограничиваются"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setLimiterEnabled(!limiterEnabled)}
-                className="relative w-11 h-6 rounded-full shrink-0"
-                style={{
-                  backgroundColor: limiterEnabled ? "var(--mq-accent)" : "var(--mq-border-thin)",
-                  transition: "background-color 200ms cubic-bezier(0.4,0,0.2,1)",
-                }}
-                role="switch"
-                aria-checked={limiterEnabled}
-                aria-label="Включить лимитер"
+              {/* Footer hint */}
+              <div
+                className="px-5 py-3 flex items-center justify-center gap-2"
+                style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
               >
-                <motion.div
-                  layout
-                  className="absolute top-0.5 w-5 h-5 rounded-full"
-                  style={{
-                    left: limiterEnabled ? 22 : 2,
-                    backgroundColor: "#fff",
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
-                  }}
-                  transition={{ type: "spring", stiffness: 500, damping: 32 }}
-                />
-              </button>
-            </div>
-
-            {/* Limiter threshold */}
-            <div
-              className="px-4 sm:px-5 pb-5"
-              style={{
-                opacity: limiterEnabled ? 1 : 0.45,
-                transition: "opacity 200ms cubic-bezier(0.4,0,0.2,1)",
-              }}
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
-                  Порог
-                </span>
-                <span className="text-[11px] font-mono" style={{ color: "var(--mq-text)" }}>
-                  {limiterThreshold} dB
+                <span className="text-[11px] text-center" style={{ color: "var(--mq-text-muted)" }}>
+                  Двойной тап — сброс полосы · ←/→ или ↑/↓ — шаг 0.5 дБ
                 </span>
               </div>
-              <input
-                type="range"
-                min={-12}
-                max={0}
-                step={0.5}
-                value={limiterThreshold}
-                onChange={(e) => setLimiterThreshold(Number(e.target.value))}
-                disabled={!limiterEnabled}
-                aria-label="Порог лимитера"
-                className="w-full h-1.5 rounded-full appearance-none cursor-pointer disabled:cursor-not-allowed"
-                style={{ backgroundColor: "var(--mq-border-thin)", accentColor: "var(--mq-accent)" }}
-              />
-              <div className="flex justify-between mt-1.5 px-0.5 select-none" aria-hidden="true">
-                {[-12, -9, -6, -3, 0].map((v) => (
-                  <span key={v} className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>{v}</span>
-                ))}
-              </div>
-            </div>
-
-            {/* Footer hint */}
-            <div
-              className="px-5 py-3 flex items-center justify-center gap-2"
-              style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-            >
-              <span className="text-[11px] text-center" style={{ color: "var(--mq-text-muted)" }}>
-                Двойной тап — сброс полосы · ←/→ или ↑/↓ — шаг 0.5 дБ
-              </span>
             </div>
           </motion.div>
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// ─── Readout — labeled numeric value (mono, tabular, instantly readable) ───
+function Readout({ label, value, title, accent, ref }: {
+  label: string;
+  value: string;
+  title: string;
+  accent?: boolean;
+  ref: RefObject<HTMLSpanElement | null>;
+}) {
+  return (
+    <div
+      className="rounded-xl px-3 py-2.5 min-w-0"
+      style={{
+        backgroundColor: "var(--mq-surface-2)",
+        border: `1px solid ${accent ? "color-mix(in srgb, var(--mq-accent) 30%, transparent)" : "var(--mq-edge)"}`,
+      }}
+      title={title}
+    >
+      <p className="text-[11px] font-bold tracking-[0.1em] uppercase leading-none mb-1" style={{ color: "var(--mq-text-muted)" }}>
+        {label}
+      </p>
+      <span ref={ref} className="text-[15px] font-mono font-semibold tabular-nums leading-none block truncate" style={{ color: accent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+        {value}
+      </span>
+    </div>
   );
 }
 
@@ -650,7 +832,7 @@ function catmullRomPath(pts: { x: number; y: number }[]): string {
     const p2 = pts[i + 1];
     const p3 = pts[Math.min(pts.length - 1, i + 2)];
     const c1x = p1.x + (p2.x - p0.x) / 6;
-    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c1y = p1.y + (p2.y - p1.y) / 6;
     const c2x = p2.x - (p3.x - p1.x) / 6;
     const c2y = p2.y - (p3.y - p1.y) / 6;
     d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;

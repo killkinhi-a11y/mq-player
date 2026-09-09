@@ -950,8 +950,8 @@ function FeaturedCard({
             </motion.button>
             <button
               onClick={onArtistClick}
-              className="h-11 px-4 rounded-xl flex items-center gap-2 text-sm transition-colors"
-              style={{ backgroundColor: "var(--mq-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
+              className="h-11 px-4 rounded-xl flex items-center gap-2 text-sm mq-icon-btn"
+              style={{ ["--mq-rest-bg" as string]: "var(--mq-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
             >
               <User className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
               К артисту
@@ -1486,7 +1486,7 @@ function CompactTrackCard({
 }) {
   return (
     <button
-      className="group flex-shrink-0 w-[124px] sm:w-[136px] text-left rounded-xl overflow-hidden transition-all hover:bg-[var(--mq-overlay-hover)]"
+      className="group flex-shrink-0 w-[124px] sm:w-[136px] text-left rounded-xl overflow-hidden transition-[border-color] duration-150"
       style={{
         backgroundColor: "var(--mq-card)",
         border: `1px solid ${isCurrent ? "color-mix(in srgb, var(--mq-accent) 35%, transparent)" : "var(--mq-border-hairline)"}`,

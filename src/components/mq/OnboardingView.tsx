@@ -303,7 +303,7 @@ export default function OnboardingView() {
                           return (
                             <motion.button
                               key={g.name}
-                              whileTap={{ scale: 0.95 }}
+                              whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                               onClick={() => handleGenreToggle(g.name)}
                               aria-pressed={isSelected}
                               className="min-h-[44px] px-4 py-2.5 rounded-full text-sm font-medium"
@@ -385,7 +385,9 @@ export default function OnboardingView() {
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: Math.min(i * 0.04, 0.4), duration: 0.25 }}
-                        whileTap={{ scale: 0.96 }}
+                        /* §HOVER: own tap transition — entrance delay (up to
+                           0.4s) never leaks into the press feedback. */
+                        whileTap={{ scale: 0.96, transition: { duration: 0.08 } }}
                         onClick={() => handleArtistToggle(artist)}
                         aria-pressed={isSelected}
                         className="relative flex flex-col items-center p-3 rounded-2xl min-h-[44px]"
@@ -396,7 +398,10 @@ export default function OnboardingView() {
                           border: isSelected
                             ? "1px solid color-mix(in srgb, var(--mq-accent) 35%, transparent)"
                             : "1px solid var(--mq-border-hairline)",
-                          transition: "all var(--mq-duration-fast) var(--mq-spring-smooth)",
+                          /* §HOVER one-owner: CSS transitions ONLY its own props
+                             (bg/border for the selected-state change) — never
+                             `all` (chases Framer's per-frame transform writes). */
+                          transition: "background-color var(--mq-duration-fast) var(--mq-spring-smooth), border-color var(--mq-duration-fast) var(--mq-spring-smooth)",
                         }}
                       >
                         <div
@@ -463,7 +468,7 @@ export default function OnboardingView() {
           )}
           {step === "genres" ? (
             <motion.button
-              whileTap={{ scale: 0.97 }}
+              whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
               onClick={handleGenreContinue}
               disabled={selectedGenres.length < MIN_GENRES}
               className="flex items-center gap-2 px-6 min-h-[48px] rounded-xl text-sm font-semibold"
@@ -478,7 +483,7 @@ export default function OnboardingView() {
             </motion.button>
           ) : (
             <motion.button
-              whileTap={{ scale: 0.97 }}
+              whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
               onClick={handleFinish}
               disabled={finishing}
               className="flex items-center gap-2 px-6 min-h-[48px] rounded-xl text-sm font-semibold"

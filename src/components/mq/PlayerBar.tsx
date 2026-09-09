@@ -358,7 +358,7 @@ export default function PlayerBar() {
               {/* Control buttons — one clear hierarchy:
                   shuffle/repeat quiet (32px), prev/next (36px), play (44px accent) */}
               <div className="flex items-center gap-2 relative">
-                <button onClick={toggleShuffle} className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: shuffle ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Перемешать" aria-label="Перемешать" aria-pressed={shuffle}>
+                <button onClick={toggleShuffle} className="w-8 h-8 rounded-full flex items-center justify-center mq-icon-btn" data-active={shuffle} title="Перемешать" aria-label="Перемешать" aria-pressed={shuffle}>
                   <Shuffle className="w-3.5 h-3.5" style={{ color: shuffle ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                 </button>
 
@@ -367,7 +367,7 @@ export default function PlayerBar() {
                 </button>
 
                 <motion.button
-                  whileTap={{ scale: 0.92 }}
+                  whileTap={{ scale: 0.92, transition: { duration: 0.08 }} }
                   onClick={() => { togglePlay(); hapticPlay(); }}
                   className="w-10 h-10 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: "var(--mq-accent)" }}
@@ -457,7 +457,7 @@ export default function PlayerBar() {
                 </AnimatePresence>
                 </div>
 
-                <button onClick={toggleRepeat} className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: repeat !== "off" ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }} title="Повтор" aria-label="Повтор" aria-pressed={repeat !== "off"}>
+                <button onClick={toggleRepeat} className="w-8 h-8 rounded-full flex items-center justify-center mq-icon-btn" data-active={repeat !== "off"} title="Повтор" aria-label="Повтор" aria-pressed={repeat !== "off"}>
                   {repeat === "one" ? <Repeat1 className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
                     : <Repeat className="w-3.5 h-3.5" style={{ color: repeat === "all" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />}
                 </button>
@@ -508,8 +508,9 @@ export default function PlayerBar() {
               <button
                 onClick={handleStartRadio}
                 disabled={wave.waveLoading}
-                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                style={{ backgroundColor: radioMode ? "color-mix(in srgb, var(--mq-accent) 14%, transparent)" : "transparent" }}
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 relative mq-icon-btn"
+                data-active={radioMode}
+                style={{ ["--mq-active-bg" as string]: "color-mix(in srgb, var(--mq-accent) 14%, transparent)" }}
                 title={radioMode ? "Выключить волну" : "Радио от этого трека"}
                 aria-label={radioMode ? "Выключить волну" : "Радио от этого трека"}
                 aria-pressed={radioMode}

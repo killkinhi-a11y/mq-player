@@ -192,7 +192,9 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
   };
 
   // Shared menu item style for better hover effect
-  const menuItemClass = "w-full flex items-center gap-3 px-3 py-2.5 text-[13px] transition-all duration-100 text-left";
+  // §HOVER one-owner: CSS owns the hover background (class), 100ms —
+  // no JS mouseenter handlers, no transition-all, no double highlight.
+  const menuItemClass = "w-full flex items-center gap-3 px-3 py-2.5 text-[13px] transition-colors duration-100 text-left hover:bg-[rgba(255,255,255,0.06)]";
 
   const menuContent = showPlaylistPicker ? (
     <motion.div
@@ -223,8 +225,6 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
           onClick={() => handleAddToPlaylist(pl.id)}
           className={menuItemClass}
           style={{ color: "var(--mq-text)" }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(255,255,255,0.06)"; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent"; }}
         >
           <ListMusic className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
           <span className="truncate">{pl.name}</span>
@@ -236,8 +236,6 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
         onClick={handleQuickCreateAndAdd}
         className={menuItemClass}
         style={{ color: "var(--mq-accent)" }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(255,255,255,0.06)"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent"; }}
       >
         <Plus className="w-4 h-4" />
         Новый плейлист
@@ -246,8 +244,6 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
         onClick={() => setShowPlaylistPicker(false)}
         className={menuItemClass}
         style={{ color: "var(--mq-text-muted)" }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "rgba(255,255,255,0.06)"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = "transparent"; }}
       >
         Назад
       </button>
@@ -337,14 +333,6 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
               className={menuItemClass}
               style={{
                 color: item.accent ? "var(--mq-accent)" : "var(--mq-text)",
-              }}
-              onMouseEnter={(e) => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.backgroundColor = "rgba(255,255,255,0.06)";
-              }}
-              onMouseLeave={(e) => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.backgroundColor = "transparent";
               }}
             >
               <item.icon className="w-4 h-4 flex-shrink-0" style={{ color: item.accent ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />

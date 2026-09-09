@@ -318,8 +318,8 @@ export default function FavoritesView() {
       >
         <div className="flex items-center gap-3 mb-1">
           <motion.div
-            whileHover={{ scale: 1.06 }}
-            transition={{ type: "spring", stiffness: 300 }}
+            /* §HOVER: gesture carries its own spring — crisp, no overshoot */
+            whileHover={{ scale: 1.06, transition: { type: "spring", stiffness: 400, damping: 25 } }}
             className="w-10 h-10 rounded-xl flex items-center justify-center"
             style={{
               backgroundColor: activeTab === "subscriptions"
@@ -349,12 +349,14 @@ export default function FavoritesView() {
           {/* Batch mode toggle */}
           {activeTab !== "subscriptions" && filteredTracks.length > 0 && (
             <motion.button
-              whileTap={{ scale: 0.9 }}
+              /* §HOVER: own tap transition; transition-all removed (CSS chased
+                 Framer's per-frame transform writes → double animation). */
+              whileTap={{ scale: 0.9, transition: { duration: 0.08 } }}
               onClick={() => {
                 if (batchMode) exitBatchMode();
                 else setBatchMode(true);
               }}
-              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-all duration-200"
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors duration-150"
               style={{
                 backgroundColor: batchMode ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                 color: batchMode ? "var(--mq-text)" : "var(--mq-text-muted)",
@@ -388,7 +390,7 @@ export default function FavoritesView() {
               return (
                 <motion.button
                   key={tab.id}
-                  whileTap={{ scale: 0.95 }}
+                  whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                   onClick={() => { setActiveTab(tab.id); setSearchQuery(""); setSortBy("default"); setActiveFilter(null); exitBatchMode(); }}
                   className="relative flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors duration-200 cursor-pointer"
                   style={{
@@ -437,7 +439,7 @@ export default function FavoritesView() {
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           <motion.button
-            whileTap={{ scale: 0.93 }}
+            whileTap={{ scale: 0.93, transition: { duration: 0.08 }} }
             onClick={() => setActiveFilter(null)}
             className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors duration-200 cursor-pointer"
             style={{
@@ -455,7 +457,7 @@ export default function FavoritesView() {
             return (
               <motion.button
                 key={tagKey}
-                whileTap={{ scale: 0.93 }}
+                whileTap={{ scale: 0.93, transition: { duration: 0.08 }} }
                 onClick={() => setActiveFilter(isActive ? null : tagKey)}
                 className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors duration-200 cursor-pointer"
                 style={{
@@ -481,7 +483,7 @@ export default function FavoritesView() {
       >
         {/* Search bar */}
         <div
-          className="flex-1 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl transition-all duration-200"
+          className="flex-1 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl transition-colors duration-150"
           style={{
             backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)",
             border: searchQuery ? "1.5px solid var(--mq-accent)" : "1px solid var(--mq-border-thin)",
@@ -501,7 +503,7 @@ export default function FavoritesView() {
             <motion.button
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              whileTap={{ scale: 0.8 }}
+              whileTap={{ scale: 0.8, transition: { duration: 0.08 }} }
               onClick={() => setSearchQuery("")}
               className="flex-shrink-0 cursor-pointer w-5 h-5 rounded-full flex items-center justify-center"
               style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 10%, transparent)", color: "var(--mq-text-muted)" }}
@@ -515,7 +517,7 @@ export default function FavoritesView() {
         {activeTab !== "subscriptions" && (
           <div className="relative" ref={sortMenuRef}>
             <motion.button
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
               onClick={(e) => { e.stopPropagation(); setShowSortMenu(!showSortMenu); }}
               className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors duration-200"
               style={{
@@ -550,7 +552,7 @@ export default function FavoritesView() {
                     return (
                       <motion.button
                         key={opt.id}
-                        whileTap={{ scale: 0.97 }}
+                        whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                         onClick={(e) => { e.stopPropagation(); setSortBy(opt.id); setShowSortMenu(false); }}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs cursor-pointer transition-colors"
                         style={{
@@ -575,8 +577,8 @@ export default function FavoritesView() {
         {/* Shuffle — tracks tabs only */}
         {activeTab !== "subscriptions" && !batchMode && (
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" } }}
+            whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
             onClick={handleShuffleAll}
             disabled={tracks.length === 0}
             className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 cursor-pointer disabled:opacity-30 transition-colors duration-200"
@@ -604,7 +606,7 @@ export default function FavoritesView() {
           </span>
           <div className="flex-1" />
           <motion.button
-            whileTap={{ scale: 0.93 }}
+            whileTap={{ scale: 0.93, transition: { duration: 0.08 }} }
             onClick={selectedIds.size === tracks.length ? deselectAll : selectAll}
             className="text-[11px] font-medium px-3 py-1.5 rounded-lg cursor-pointer"
             style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text)" }}
@@ -614,7 +616,7 @@ export default function FavoritesView() {
           {activeTab === "liked" && playlists.length > 0 && selectedIds.size > 0 && (
             <div className="relative">
               <motion.button
-                whileTap={{ scale: 0.93 }}
+                whileTap={{ scale: 0.93, transition: { duration: 0.08 }} }
                 onClick={() => setShowPlaylistMenu(!showPlaylistMenu)}
                 className="text-[11px] font-medium px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1"
                 style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
@@ -635,7 +637,7 @@ export default function FavoritesView() {
                     {playlists.map(pl => (
                       <motion.button
                         key={pl.id}
-                        whileTap={{ scale: 0.97 }}
+                        whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                         onClick={() => handleBatchAddToPlaylist(pl.id)}
                         className="w-full flex items-center gap-2 px-4 py-2.5 text-xs cursor-pointer transition-colors"
                         style={{ color: "var(--mq-text)" }}
@@ -651,7 +653,7 @@ export default function FavoritesView() {
           )}
           {selectedIds.size > 0 && (
             <motion.button
-              whileTap={{ scale: 0.93 }}
+              whileTap={{ scale: 0.93, transition: { duration: 0.08 }} }
               onClick={handleBatchRemove}
               className="text-[11px] font-medium px-3 py-1.5 rounded-lg cursor-pointer"
               style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
@@ -672,10 +674,13 @@ export default function FavoritesView() {
           className="flex items-center gap-2.5 mb-4 px-1"
         >
           <motion.button
-            whileHover={{ scale: 1.02, boxShadow: "var(--mq-shadow-card-hover)" }}
-            whileTap={{ scale: 0.97 }}
+            /* §HOVER: Framer owns scale only; the boxShadow feedback is a
+               CSS pseudo-class (below) — one owner per property, no
+               double-easing between CSS transition and Framer writes. */
+            whileHover={{ scale: 1.02, transition: { duration: 0.15, ease: "easeOut" } }}
+            whileTap={{ scale: 0.97, transition: { duration: 0.08 } }}
             onClick={handlePlayAll}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-colors duration-200"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-[background-color,color,box-shadow] duration-150 hover:shadow-[var(--mq-shadow-card-hover)]"
             style={{
               backgroundColor: "var(--mq-accent)",
               color: "var(--mq-text)",
@@ -686,10 +691,10 @@ export default function FavoritesView() {
             {activeTab === "liked" ? "Слушать все" : "Прослушать"}
           </motion.button>
           <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
+            whileHover={{ scale: 1.02, transition: { duration: 0.15, ease: "easeOut" } }}
+            whileTap={{ scale: 0.97, transition: { duration: 0.08 } }}
             onClick={handleShuffleAll}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-colors duration-200"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold cursor-pointer transition-colors duration-150"
             style={{
               backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)",
               color: "var(--mq-text-muted)",
@@ -783,7 +788,7 @@ export default function FavoritesView() {
                   >
                     {/* Artist avatar */}
                     <motion.div
-                      whileHover={{ scale: 1.06 }}
+                      whileHover={{ scale: 1.06, transition: { duration: 0.12, ease: "easeOut" } }}
                       className="w-11 h-11 rounded-full overflow-hidden flex-shrink-0 relative"
                       style={{ border: "2px solid rgba(139,92,246,0.25)" }}
                     >
@@ -825,8 +830,8 @@ export default function FavoritesView() {
 
                     {/* Open artist */}
                     <motion.button
-                      whileHover={{ scale: 1.12 }}
-                      whileTap={{ scale: 0.95 }}
+                      whileHover={{ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" } }}
+                      whileTap={{ scale: 0.95, transition: { duration: 0.08 } }}
                       onClick={(e) => { e.stopPropagation(); handleArtistClick(artist); }}
                       className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer sm:opacity-0 sm:group-hover:opacity-70 transition-opacity"
                       style={{ color: "var(--mq-accent)" }}
@@ -837,10 +842,13 @@ export default function FavoritesView() {
 
                     {/* Unsubscribe button */}
                     <motion.button
-                      whileHover={{ scale: 1.12, backgroundColor: "rgba(239,68,68,0.12)" }}
-                      whileTap={{ scale: 0.95 }}
+                      /* §HOVER one-owner: Framer owns scale; the red bg tint
+                         is a CSS hover class (was a framer backgroundColor —
+                         double-eased with the button CSS transition). */
+                      whileHover={{ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" } }}
+                      whileTap={{ scale: 0.95, transition: { duration: 0.08 } }}
                       onClick={(e) => { e.stopPropagation(); removeFavoriteArtist(artist.id); }}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer sm:opacity-0 sm:group-hover:opacity-70 transition-opacity"
+                      className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer sm:opacity-0 sm:group-hover:opacity-70 transition-[background-color,opacity] hover:bg-[rgba(239,68,68,0.12)]"
                       style={{ color: "#ef4444" }}
                       title="Отписаться"
                     >
@@ -917,7 +925,7 @@ export default function FavoritesView() {
               </p>
               {activeTab === "liked" && (
                 <motion.button
-                  whileTap={{ scale: 0.95 }}
+                  whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                   onClick={() => useAppStore.getState().setView("main")}
                   className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold"
                   style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text)" }}
@@ -949,7 +957,7 @@ export default function FavoritesView() {
               </p>
               {activeFilter && (
                 <motion.button
-                  whileTap={{ scale: 0.95 }}
+                  whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                   onClick={() => setActiveFilter(null)}
                   className="mt-2 text-xs font-medium px-3 py-1.5 rounded-lg"
                   style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}
@@ -995,7 +1003,7 @@ export default function FavoritesView() {
                       {/* Batch checkbox */}
                       {batchMode ? (
                         <motion.button
-                          whileTap={{ scale: 0.95 }}
+                          whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                           className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 cursor-pointer transition-colors"
                           style={{
                             backgroundColor: isSelected ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
@@ -1015,7 +1023,7 @@ export default function FavoritesView() {
                             {index + 1}
                           </span>
                           <motion.button
-                            whileTap={{ scale: 0.95 }}
+                            whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                             onClick={() => handlePlayTrack(track)}
                             className="hidden group-hover:flex w-6 h-6 items-center justify-center cursor-pointer mx-auto"
                             style={{ color: "var(--mq-text)" }}
@@ -1100,8 +1108,8 @@ export default function FavoritesView() {
                       {/* More button (3-dot) — opens context menu */}
                       {!batchMode && (
                         <motion.button
-                          whileHover={{ scale: 1.12 }}
-                          whileTap={{ scale: 0.95 }}
+                          whileHover={{ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" }} }
+                          whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                           onClick={(e) => handleMoreClick(track, e)}
                           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
                           style={{ color: "var(--mq-text-muted)", backgroundColor: "transparent" }}
@@ -1114,8 +1122,8 @@ export default function FavoritesView() {
                       {/* Remove button (hidden in batch mode) */}
                       {!batchMode && (
                         <motion.button
-                          whileHover={{ scale: 1.12 }}
-                          whileTap={{ scale: 0.95 }}
+                          whileHover={{ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" }} }
+                          whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                           onClick={(e) => { e.stopPropagation(); handleRemoveTrack(track.id, track); }}
                           className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
                           style={{

@@ -438,8 +438,8 @@ export default function TasteProfileView() {
           </div>
         </div>
         <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+          whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
           onClick={resetTasteProfile}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs transition-colors"
           style={{
@@ -563,8 +563,8 @@ export default function TasteProfileView() {
                   }}
                 />
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.05, transition: { duration: 0.12, ease: "easeOut" }} }
+                  whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
                   onClick={addCustomGenre}
                   disabled={!customGenreInput.trim()}
                   className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors disabled:opacity-30"
@@ -662,8 +662,8 @@ export default function TasteProfileView() {
 
                     {/* Exclude toggle */}
                     <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
+                      whileHover={{ scale: 1.1, transition: { duration: 0.12, ease: "easeOut" }} }
+                      whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
                       onClick={() => toggleExcludedArtist(artist.name)}
                       className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all"
                       style={{
