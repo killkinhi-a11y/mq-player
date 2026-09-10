@@ -1041,7 +1041,7 @@ export default function PlaylistView() {
                   {importMode === "url" && (
                     <button
                       onClick={() => { setImportMode("text"); setImportError(""); setImportHint(""); }}
-                      className="mt-2 text-[11px] font-semibold"
+                      className="mq-t-label mt-2"
                       style={{ color: "var(--mq-accent)" }}
                     >
                       Перейти к «Импорт текстом» →
@@ -1153,7 +1153,7 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, playlistId, onP
             <NowPlayingEqualizer size="sm" variant="inline" paused={!isPlaying} />
           ) : (
             <>
-              <span className="mq-t-num text-xs group-hover:hidden" style={{ color: "var(--mq-text-muted)", opacity: 0.65 }}>
+              <span className="mq-t-num group-hover:hidden" style={{ color: "var(--mq-text-muted)", opacity: 0.65 }}>
                 {index}
               </span>
               <Play className="w-3.5 h-3.5 hidden group-hover:block" style={{ color: "var(--mq-text)" }} fill="currentColor" />
@@ -1183,7 +1183,7 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, playlistId, onP
           </p>
           <button
             onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-            className="text-[13px] block max-w-full text-left truncate hover:underline transition-colors"
+            className="mq-t-artist block max-w-full text-left truncate hover:underline transition-colors"
             style={{ color: "var(--mq-text-muted)" }}
             title={track.artist}
           >
@@ -1193,7 +1193,7 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, playlistId, onP
 
         {/* Duration */}
         {track.duration > 0 && (
-          <span className="mq-t-num text-[11px] flex-shrink-0 hidden sm:block text-right w-[68px]" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>
+          <span className="mq-t-num flex-shrink-0 hidden sm:block text-right w-[68px]" style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}>
             {formatDuration(track.duration)}
           </span>
         )}
@@ -1327,7 +1327,7 @@ function PlaylistTile({
         ) : (
           <div className="flex flex-col items-center justify-center w-full h-full" style={patternStyle(pl.name)}>
             <ListMusic className="w-9 h-9" style={{ color: "rgba(255,255,255,0.6)" }} />
-            <span className="text-[11px] font-medium mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+            <span className="mq-t-meta-2 mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
               {pl.tracks.length}
             </span>
           </div>
@@ -1441,11 +1441,11 @@ function PlaylistTile({
             {pl.name}
           </p>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+            <span className="mq-t-meta-2">
               {pl.tracks.length} треков
             </span>
             {totalDur && (
-              <span className="text-[11px] flex items-center gap-0.5" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+              <span className="mq-t-meta-2 flex items-center gap-0.5" style={{ opacity: 0.6 }}>
                 <Clock className="w-2.5 h-2.5" />
                 {totalDur}
               </span>

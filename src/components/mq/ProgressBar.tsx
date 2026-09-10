@@ -191,7 +191,7 @@ function ProgressBarBase({
     <div className="flex items-center gap-2 w-full select-none">
       {/* Current time */}
       <span
-        className="mq-t-num text-[11px] text-right flex-shrink-0"
+        className="mq-t-num text-right flex-shrink-0"
         style={{ color: "var(--mq-text-muted)", width: 36 }}
       >
         {formatDuration(progress)}
@@ -304,7 +304,7 @@ function ProgressBarBase({
 
       {/* Duration */}
       <span
-        className="mq-t-num text-[11px] flex-shrink-0"
+        className="mq-t-num flex-shrink-0"
         style={{ color: "var(--mq-text-muted)", width: 36 }}
       >
         {formatDuration(duration)}

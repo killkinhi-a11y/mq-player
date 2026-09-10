@@ -254,7 +254,7 @@ function VoicePlayer({
         <motion.button
           whileTap={{ scale: 0.9, transition: { duration: 0.08 }} }
           onClick={cycleSpeed}
-          className="text-[10px] font-bold tabular-nums flex-shrink-0 px-1.5 py-0.5 rounded-md transition-colors"
+          className="mq-t-num flex-shrink-0 px-1.5 py-0.5 rounded-md transition-colors"
           style={{
             color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)",
             backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 10%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
@@ -267,7 +267,7 @@ function VoicePlayer({
 
         {/* Duration */}
         <span
-          className="text-[11px] flex-shrink-0 tabular-nums min-w-[36px] text-right"
+          className="mq-t-num flex-shrink-0 min-w-[36px] text-right"
           style={{
             color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)",
           }}
@@ -280,7 +280,7 @@ function VoicePlayer({
       {!transcription && !transcribing && (
         <button
           onClick={handleTranscribe}
-          className="flex items-center gap-1.5 text-[11px] font-medium transition-opacity hover:opacity-80 active:opacity-70 self-start mt-0.5"
+          className="mq-t-meta-2 flex items-center gap-1.5 transition-opacity hover:opacity-80 active:opacity-70 self-start mt-0.5"
           style={{ color: isMine ? "rgba(255,255,255,0.6)" : "var(--mq-text-muted)" }}
           title="Транскрибировать голосовое сообщение"
         >
@@ -291,7 +291,7 @@ function VoicePlayer({
 
       {/* Transcribing spinner */}
       {transcribing && (
-        <div className="flex items-center gap-1.5 text-[11px] self-start mt-0.5" style={{ color: isMine ? "rgba(255,255,255,0.5)" : "var(--mq-text-muted)" }}>
+        <div className="mq-t-meta-2 flex items-center gap-1.5 self-start mt-0.5" style={{ color: isMine ? "rgba(255,255,255,0.5)" : "var(--mq-text-muted)" }}>
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
           Транскрибация…
         </div>
@@ -300,7 +300,7 @@ function VoicePlayer({
       {/* Transcription result */}
       {transcription && (
         <div
-          className="text-[12px] leading-relaxed rounded-lg px-3 py-2 mt-0.5 max-w-[100%] break-words"
+          className="mq-t-body rounded-lg px-3 py-2 mt-0.5 max-w-[100%] break-words"
           style={{
             backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 10%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
             color: isMine ? "rgba(255,255,255,0.9)" : "var(--mq-text)",
@@ -313,7 +313,7 @@ function VoicePlayer({
 
       {/* Transcription error */}
       {transcriptionError && (
-        <p className="text-[11px] self-start mt-0.5" style={{ color: isMine ? "rgba(255,255,255,0.4)" : "var(--mq-text-muted)" }}>
+        <p className="mq-t-meta-2 self-start mt-0.5" style={{ color: isMine ? "rgba(255,255,255,0.4)" : "var(--mq-text-muted)" }}>
           {transcriptionError}
         </p>
       )}
@@ -354,13 +354,13 @@ function ReplyPreview({
     >
       <div className="min-w-0 flex-1">
         <p
-          className="text-[11px] font-bold leading-tight truncate"
+          className="mq-t-track-sm leading-tight truncate"
           style={{ color: isMine ? "rgba(255,255,255,0.8)" : "var(--mq-accent)" }}
         >
           {senderLabel}
         </p>
         <p
-          className="text-[11px] leading-snug truncate mt-0.5"
+          className="mq-t-meta-2 leading-snug truncate mt-0.5"
           style={{ color: isMine ? "rgba(255,255,255,0.55)" : "var(--mq-text-muted)" }}
         >
           {truncated}
@@ -535,7 +535,7 @@ export default function MessageBubble({
             <p className="text-xs text-center font-medium" style={{ color: "var(--mq-text)" }}>
               Приглашение слушать вместе
             </p>
-            <p className="text-[11px] text-center" style={{ color: "var(--mq-text-muted)" }}>
+            <p className="mq-t-meta-2 text-center">
               Присоединиться к совместному прослушиванию?
             </p>
             <button
@@ -592,7 +592,7 @@ export default function MessageBubble({
           }}
         >
           <p
-            className="text-[11px] text-center break-words"
+            className="mq-t-meta-2 text-center break-words"
             style={{ color: "var(--mq-text-muted)" }}
           >
             {systemText}
@@ -634,7 +634,7 @@ export default function MessageBubble({
         <div className="max-w-[85%] lg:max-w-[70%] w-fit">
           {!isMine && message.senderName && (
             <p
-              className="text-[11px] mb-1 ml-3 font-semibold"
+              className="mq-t-track-sm mb-1 ml-3"
               style={{ color: "var(--mq-accent)" }}
             >
               {message.senderName}
@@ -666,7 +666,7 @@ export default function MessageBubble({
                 <span title="Передано по TLS"><Lock className="w-3 h-3" style={{ color: "#64748b" }} /></span>
               )}
               <span
-                className="text-[11px]"
+                className="mq-t-meta-2"
                 style={{ color: isMine ? "rgba(255,255,255,0.6)" : "var(--mq-text-muted)" }}
               >
                 {time}
@@ -793,7 +793,7 @@ export default function MessageBubble({
         {/* Sender name (received messages only) */}
         {!isMine && message.senderName && (
           <p
-            className="text-[11px] mb-1 ml-3 font-semibold"
+            className="mq-t-track-sm mb-1 ml-3"
             style={{ color: "var(--mq-accent)" }}
           >
             {message.senderName}
@@ -836,7 +836,7 @@ export default function MessageBubble({
           {/* Timestamp + lock + edited + checkmarks — inline at end */}
           <div className="flex items-center justify-end gap-1 mt-1 -mb-0.5">
             {isEdited && (
-              <span className="text-[11px] italic" style={{ color: isMine ? "rgba(255,255,255,0.45)" : "var(--mq-text-muted)" }}>
+              <span className="mq-t-meta-2 italic" style={{ color: isMine ? "rgba(255,255,255,0.45)" : "var(--mq-text-muted)" }}>
                 ред.
               </span>
             )}
@@ -844,7 +844,7 @@ export default function MessageBubble({
               <span title="Передано по TLS"><Lock className="w-3 h-3" style={{ color: "#64748b" }} /></span>
             )}
             <span
-              className="text-[11px] tabular-nums"
+              className="mq-t-num"
               style={{ color: isMine ? "rgba(255,255,255,0.5)" : "var(--mq-text-muted)" }}
             >
               {time}
@@ -867,7 +867,7 @@ export default function MessageBubble({
                     transition={{ type: "spring", stiffness: 500, damping: 25 }}
                     whileTap={{ scale: 0.94, transition: { duration: 0.08 }} }
                     onClick={() => addReaction(emoji)}
-                    className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] transition-colors"
+                    className="mq-t-badge flex items-center gap-0.5 px-1.5 py-0.5 rounded-full transition-colors"
                     style={{
                       backgroundColor: hasMine
                         ? "color-mix(in srgb, var(--mq-accent) 20%, transparent)"

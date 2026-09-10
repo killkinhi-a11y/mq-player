@@ -228,10 +228,10 @@ export default function OnboardingView() {
           aria-label={`Шаг ${stepIndex + 1} из 2`}
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="mq-t-meta text-[11px] uppercase tracking-[0.14em]" style={{ color: "var(--mq-text-muted)" }}>
+            <span className="mq-t-label">
               Шаг {stepIndex + 1} из 2
             </span>
-            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+            <span className="mq-t-meta-2">
               {step === "genres"
                 ? selectedGenres.length > 0 ? `Выбрано: ${selectedGenres.length}` : "Жанры"
                 : favoriteArtists.length > 0 ? `Выбрано: ${favoriteArtists.length}` : "Артисты"}

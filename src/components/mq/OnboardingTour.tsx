@@ -420,7 +420,7 @@ export default function OnboardingTour() {
                     />
                   </div>
                   <span
-                    className="text-xs sm:text-[11px] font-bold uppercase tracking-widest"
+                    className="mq-t-label"
                     style={{ color: "var(--mq-accent, #e03131)" }}
                   >
                     {currentStep + 1} / {totalSteps}
@@ -445,7 +445,7 @@ export default function OnboardingTour() {
                   {step.title}
                 </h3>
                 <p
-                  className="text-[13px] sm:text-[13px] leading-relaxed"
+                  className="mq-t-body leading-relaxed"
                   style={{ color: "var(--mq-text-muted, #aaa)" }}
                 >
                   {step.description}
@@ -525,7 +525,7 @@ export default function OnboardingTour() {
                 <div className="flex items-center justify-between mt-2.5">
                   <button
                     onClick={skipAndDontShow}
-                    className="text-[11px] transition-colors hover:underline py-1"
+                    className="mq-t-meta-2 transition-colors hover:underline py-1"
                     style={{ color: "var(--mq-text-muted, #666)" }}
                   >
                     Пропустить тур
@@ -539,7 +539,7 @@ export default function OnboardingTour() {
                       className="w-3.5 h-3.5 rounded accent-[var(--mq-accent,#e03131)]"
                     />
                     <span
-                      className="text-[11px]"
+                      className="mq-t-meta-2"
                       style={{ color: "var(--mq-text-muted, #777)" }}
                     >
                       Не показывать снова

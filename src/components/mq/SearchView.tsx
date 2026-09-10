@@ -395,7 +395,7 @@ export default function SearchView() {
       {/* ── Page header — editorial voice: display serif + meta hint ── */}
       <div className="flex items-baseline justify-between mb-1">
         <h1 className="mq-t-display text-[26px] sm:text-[30px]" style={{ color: "var(--mq-text)" }}>Поиск</h1>
-        <p className="mq-t-meta text-xs hidden sm:block">Треки · артисты · жанры · свои файлы</p>
+        <p className="mq-t-meta hidden sm:block">Треки · артисты · жанры · свои файлы</p>
       </div>
 
       {/* ── Quick Picks — 4 random liked tracks ── */}
@@ -407,7 +407,7 @@ export default function SearchView() {
         >
           <div className="flex items-center gap-2.5 mb-3">
             <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-            <h2 className="mq-t-title text-[15px]" style={{ color: "var(--mq-text)" }}>Быстрый доступ</h2>
+            <h2 className="mq-t-section" style={{ color: "var(--mq-text)" }}>Быстрый доступ</h2>
             <button
               onClick={() => setQuickPicksSeed(s => s + 1)}
               className="ml-auto p-2.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)] flex-shrink-0"
@@ -667,7 +667,7 @@ export default function SearchView() {
               <motion.button
                 whileTap={{ scale: 0.94, transition: { duration: 0.08 }} }
                 onClick={handleClearHistory}
-                className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors hover:bg-[var(--mq-overlay-hover)]"
+                className="mq-t-meta-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors hover:bg-[var(--mq-overlay-hover)]"
                 style={{ color: "var(--mq-text-muted)" }}
               >
                 <Trash2 className="w-3 h-3" />
@@ -706,17 +706,28 @@ export default function SearchView() {
                     >
                       <Clock className="w-3 h-3 opacity-40" />
                       <span className="whitespace-nowrap">{query}</span>
-                      {/* Remove individual item button */}
-                      <button
+                      {/* Remove individual item (span[role=button]: valid inside
+                          the outer chip button, keyboard-accessible, 20px hit area) */}
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Убрать «${query}» из истории`}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleRemoveHistoryItem(query);
                         }}
-                        className="w-4 h-4 rounded-full flex items-center justify-center transition-opacity ml-0.5 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:pointer-events-auto hover:!opacity-100 active:scale-90"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleRemoveHistoryItem(query);
+                          }
+                        }}
+                        className="w-5 h-5 rounded-full flex items-center justify-center transition-opacity ml-0.5 shrink-0 sm:opacity-0 sm:group-hover:opacity-60 sm:group-hover:pointer-events-auto hover:!opacity-100 active:scale-90 cursor-pointer"
                         style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)" }}
                       >
-                        <X className="w-2.5 h-2.5" />
-                      </button>
+                        <X className="w-2.5 h-2.5 pointer-events-none" />
+                      </span>
                     </button>
                   </motion.div>
                 ))}
@@ -740,7 +751,7 @@ export default function SearchView() {
               <h3 className="mq-section-title" style={{ fontFamily: "var(--mq-font-serif)" }}>
                 {selectedGenre ? (genreLabels[selectedGenre] || selectedGenre) : "Результаты"}
               </h3>
-              <span className="mq-t-num text-[13px]" style={{ color: "var(--mq-text-muted)" }}>
+              <span className="mq-t-num" style={{ color: "var(--mq-text-muted)" }}>
                 {activeTracks.length} {activeTracks.length === 1 ? "трек" : activeTracks.length < 5 ? "трека" : "треков"}
               </span>
             </div>
@@ -817,7 +828,7 @@ export default function SearchView() {
               <select
                 value={filterDuration}
                 onChange={(e) => setFilterDuration(e.target.value as "all" | "short" | "medium" | "long")}
-                className="text-[11px] font-medium px-2 py-1 rounded-lg cursor-pointer outline-none"
+                className="mq-t-meta-2 px-2 py-1 rounded-lg cursor-pointer outline-none"
                 style={{
                   backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text)",
@@ -833,7 +844,7 @@ export default function SearchView() {
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as "relevance" | "duration" | "title")}
-                className="text-[11px] font-medium px-2 py-1 rounded-lg cursor-pointer outline-none"
+                className="mq-t-meta-2 px-2 py-1 rounded-lg cursor-pointer outline-none"
                 style={{
                   backgroundColor: "var(--mq-card)",
                   color: "var(--mq-text)",

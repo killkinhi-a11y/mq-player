@@ -51,7 +51,7 @@ function CardTitle({ icon: Icon, title }: { icon: React.ElementType; title: stri
   return (
     <div className="px-3 sm:px-4 pt-3 sm:pt-4 pb-2 flex items-center gap-2.5">
       <Icon className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-      <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
+      <span className="mq-t-label">
         {title}
       </span>
     </div>
@@ -112,26 +112,20 @@ function SystemDiagnosticsCard() {
           style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
         >
           <div className="flex justify-between items-center">
-            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
-              АУДИОДВИЖОК
-            </span>
-            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-secondary, var(--mq-text-muted))" }}>
+            <span className="mq-t-label">АУДИОДВИЖОК</span>
+            <span className="mq-t-meta-2">
               HTML5 Audio + WebAudio
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
-              ПОСЛЕДНИЙ ДЕПЛОЙ
-            </span>
-            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-secondary, var(--mq-text-muted))" }}>
+            <span className="mq-t-label">ПОСЛЕДНИЙ ДЕПЛОЙ</span>
+            <span className="mq-t-meta-2">
               {info?.releasedAt ? new Date(info.releasedAt).toLocaleString("ru-RU") : "—"}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
-              BUILD ID
-            </span>
-            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-secondary, var(--mq-text-muted))" }}>
+            <span className="mq-t-label">BUILD ID</span>
+            <span className="mq-t-meta-2">
               {buildId || "—"}
             </span>
           </div>
@@ -172,7 +166,7 @@ function SettingRow({
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium" style={{ color: danger ? "#ef4444" : "var(--mq-text)" }}>{label}</p>
-        {subtitle && <p className="text-[11px] sm:text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{subtitle}</p>}
+        {subtitle && <p className="mq-t-meta-2 mt-0.5">{subtitle}</p>}
       </div>
       {value && (
         <span className="text-xs px-2 py-1 rounded-full" style={{ backgroundColor: "var(--mq-glass-bg)", color: "var(--mq-text-muted)" }}>{value}</span>
@@ -205,7 +199,7 @@ function SettingToggle({
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>{label}</p>
-        {subtitle && <p className="text-[11px] sm:text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{subtitle}</p>}
+        {subtitle && <p className="mq-t-meta-2 mt-0.5">{subtitle}</p>}
       </div>
       <Switch checked={value} onCheckedChange={onCheckedChange} />
     </div>
@@ -444,7 +438,7 @@ export default function SettingsView() {
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="mb-4 sm:mb-5">
         <h1 className="mq-t-display text-[26px] sm:text-[30px]" style={{ color: "var(--mq-text)" }}>Настройки</h1>
-        <p className="text-xs sm:text-sm mt-1" style={{ color: "var(--mq-text-muted)" }}>Персонализируйте ваш mq</p>
+        <p className="mq-t-meta mt-1">Персонализируйте ваш mq</p>
       </motion.div>
 
       <div className="lg:flex lg:gap-6 lg:items-start">
@@ -482,7 +476,7 @@ export default function SettingsView() {
               const isActive = activeTab === tab.id;
               return (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-4 min-h-[40px] py-1.5 rounded-full text-[11px] sm:text-sm font-semibold whitespace-nowrap transition-colors duration-150 flex-shrink-0"
+                  className="mq-t-nav flex items-center gap-1.5 px-2.5 sm:px-4 min-h-[40px] py-1.5 rounded-full whitespace-nowrap transition-colors duration-150 flex-shrink-0"
                   style={{ background: isActive ? "var(--mq-accent)" : "transparent", color: isActive ? "#fff" : "var(--mq-text-muted)" }}>
                   <Icon className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">{tab.label}</span>
@@ -666,7 +660,7 @@ export default function SettingsView() {
                             style={{ width: 10, backgroundColor: "color-mix(in srgb, " + String(theme.text || "#fff") + " 30%, transparent)" }}
                           />
                         </div>
-                        <span className="text-[11px] font-medium truncate w-full text-center" style={{ color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)" }}>{theme.name || key}</span>
+                        <span className="mq-t-meta-2 truncate w-full text-center" style={{ color: isActive ? "var(--mq-text)" : "var(--mq-text-muted)" }}>{theme.name || key}</span>
                         {isActive && <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "var(--mq-accent)" }}><Check className="w-2.5 h-2.5" style={{ color: "var(--mq-text-on-accent, #fff)" }} /></div>}
                       </motion.button>
                     );
@@ -841,36 +835,36 @@ export default function SettingsView() {
                     href="https://github.com/killkinhi-a11y/mq-player/releases/download/v1.0.1/MQ-Player-Setup.zip" target="_blank" rel="noopener noreferrer"
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
                     <Monitor className="w-5 h-5" style={{ color: "#3b82f6" }} />
-                    <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>Windows</span>
+                    <span className="mq-t-btn">Windows</span>
                   </motion.a>
                   <motion.a whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} } whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                     href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer"
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
                     <Apple className="w-5 h-5" style={{ color: "#a855f7" }} />
-                    <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>macOS</span>
+                    <span className="mq-t-btn">macOS</span>
                   </motion.a>
                   <motion.a whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} } whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                     href="https://github.com/killkinhi-a11y/mq-player/releases" target="_blank" rel="noopener noreferrer"
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer" style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}>
                     <Terminal className="w-5 h-5" style={{ color: "#eab308" }} />
-                    <span className="text-[11px] font-semibold" style={{ color: "var(--mq-text)" }}>Linux</span>
+                    <span className="mq-t-btn">Linux</span>
                   </motion.a>
                   <motion.a whileHover={{ scale: 1.03, transition: { duration: 0.12, ease: "easeOut" }} } whileTap={{ scale: 0.97, transition: { duration: 0.08 }} }
                     href="https://github.com/killkinhi-a11y/mq-player/releases/latest/download/mq-player.apk" target="_blank" rel="noopener noreferrer" download
                     className="flex flex-col items-center gap-1.5 p-3 rounded-xl cursor-pointer relative" style={{ backgroundColor: "color-mix(in srgb, #3ddc84 8%, var(--mq-surface-1))", border: "1px solid color-mix(in srgb, #3ddc84 25%, transparent)" }}>
                     <Smartphone className="w-5 h-5" style={{ color: "#3ddc84" }} />
-                    <span className="text-[11px] font-semibold" style={{ color: "color-mix(in srgb, #3ddc84 80%, var(--mq-text))" }}>Android APK</span>
+                    <span className="mq-t-btn" style={{ color: "color-mix(in srgb, #3ddc84 80%, var(--mq-text))" }}>Android APK</span>
                   </motion.a>
                 </div>
                 <div className="mt-3 flex items-center justify-between gap-2 pt-3" style={{ borderTop: "1px solid var(--mq-border-hairline)" }}>
-                  <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <p className="mq-t-meta-2">
                     APK обновляется автоматически при каждом релизе
                   </p>
                   <a
                     href="https://github.com/killkinhi-a11y/mq-player/releases"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[11px] font-medium underline"
+                    className="mq-t-meta-2 underline"
                     style={{ color: "var(--mq-accent)" }}
                   >
                     Все версии →

@@ -239,11 +239,10 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
             <p
               className={`
                 truncate
-                ${compactMode ? "text-xs font-semibold" : "text-sm sm:text-[14px] font-semibold"}
+                ${compactMode ? "mq-t-track-sm" : "mq-t-track"}
               `}
               style={{
                 color: isActive ? "var(--mq-accent)" : "var(--mq-text)",
-                letterSpacing: "-0.01em",
               }}
             >
               <span title={`${track.title} — ${track.artist}`}>{track.title}</span>
@@ -264,7 +263,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
 
           {/* Artist row */}
           <p
-            className={`truncate mt-0.5 ${compactMode ? "text-[11px]" : "text-xs"}`}
+            className={`truncate mt-0.5 mq-t-artist`}
             style={{ color: "var(--mq-text-muted)" }}
             title={track.artist}
           >
@@ -290,7 +289,7 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
           {track.duration > 0 && (
             <span
               className={`
-                mq-t-num text-[11px] text-right
+                mq-t-num text-right
                 ${compactMode ? "w-8 mr-0.5" : "w-10 mr-0.5"}
               `}
               style={{ color: "var(--mq-text-muted)", opacity: 0.75 }}

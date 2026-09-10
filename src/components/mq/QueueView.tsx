@@ -275,7 +275,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                         playTrack(currentTrack, [currentTrack]);
                       }
                     }}
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-colors hover:bg-[rgba(239,68,68,0.1)]"
+                    className="mq-t-meta-2 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors hover:bg-[rgba(239,68,68,0.1)]"
                     style={{ color: "#ef4444" }}
                     title="Очистить всю очередь"
                   >
@@ -308,7 +308,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
               {currentTrack && (
                 <div className="px-4 pt-3 pb-2">
                   <p
-                    className="mq-text-eyebrow mb-2"
+                    className="mq-t-label mb-2"
                     style={{ color: "var(--mq-accent)" }}
                   >
                     Сейчас играет
@@ -325,7 +325,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                 <div className="px-5 pt-2 pb-1">
                   <div className="flex items-center gap-1.5 mb-2">
                     <History className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                    <p className="mq-text-eyebrow">
+                    <p className="mq-t-label">
                       Недавно играло
                     </p>
                   </div>
@@ -349,7 +349,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
               <div className="px-5 pt-2 pb-1">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <p className="mq-text-eyebrow">
+                    <p className="mq-t-label">
                       Слушать дальше
                     </p>
                     {upNext.length > 0 && (
@@ -364,7 +364,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                   {upNext.length > 0 && (
                     <button
                       onClick={clearUpNext}
-                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors hover:opacity-80"
+                      className="mq-t-meta-2 flex items-center gap-1 px-2 py-1 rounded-lg transition-colors hover:opacity-80"
                       style={{ color: "var(--mq-text-muted)" }}
                     >
                       <Trash2 className="w-3 h-3" />
@@ -438,7 +438,7 @@ export default function QueueView({ isOpen, onClose }: QueueViewProps) {
                 <div className="px-5 pt-1 pb-6">
                   <div className="flex items-center gap-1.5 mb-2">
                     <Clock className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                    <p className="mq-text-eyebrow">
+                    <p className="mq-t-label">
                       Из очереди
                     </p>
                     <span
@@ -571,7 +571,7 @@ function NowPlayingCard({
 
       {/* Duration */}
       <span
-        className="mq-t-num text-xs flex-shrink-0"
+        className="mq-t-num flex-shrink-0"
         style={{ color: "var(--mq-text-muted)" }}
       >
         {formatDuration(track.duration)}

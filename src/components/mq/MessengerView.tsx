@@ -167,7 +167,7 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
         className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
         style={{ backgroundColor: isMine ? "color-mix(in srgb, var(--mq-text) 22%, transparent)" : "var(--mq-accent)", color: "#fff" }}
         aria-label={playing ? "Пауза" : "Воспроизвести"}>
-        {playing ? <span className="text-[10px] leading-none">❚❚</span>
+        {playing ? <span className="mq-t-badge leading-none">❚❚</span>
           : <span className="text-xs leading-none ml-0.5">▶</span>}
       </motion.button>
       <div className="flex-1">
@@ -185,7 +185,7 @@ function VoiceMessageBubble({ voiceUrl, duration, isMine }: {
             );
           })}
         </div>
-        <div className="text-[10px] mt-1"
+        <div className="mq-t-meta-2 mt-1"
           style={{ color: isMine ? "rgba(255,255,255,0.75)" : "var(--mq-text-muted)" }}>
           {formatDuration(playing ? currentTime : dur)}
         </div>
@@ -220,7 +220,7 @@ function Avatar({ src, name, id, size = 44, isGroup = false }: {
 function DateSeparator({ label }: { label: string }) {
   return (
     <div className="flex justify-center my-3">
-      <span className="text-[11px] px-3 py-1 rounded-full font-medium"
+      <span className="mq-t-meta-2 px-3 py-1 rounded-full"
         style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 8%, transparent)", color: "var(--mq-text-muted)" }}>
         {label}
       </span>
@@ -1365,7 +1365,7 @@ export default function MessengerView() {
                             {item.name}
                           </p>
                           {last && (
-                            <span className="text-[10px] flex-shrink-0"
+                            <span className="mq-t-badge flex-shrink-0"
                               style={{ color: isPinned ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>
                               {formatTime(last.createdAt)}
                             </span>
@@ -1376,7 +1376,7 @@ export default function MessengerView() {
                             {lastText}
                           </p>
                           {unread > 0 && (
-                            <span className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold px-1 flex-shrink-0"
+                            <span className="mq-t-badge min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 flex-shrink-0"
                               style={{ backgroundColor: "var(--mq-accent)", color: "#fff" }}>
                               {unread > 99 ? "99+" : unread}
                             </span>
@@ -1505,7 +1505,7 @@ export default function MessengerView() {
                       )}
                     </div>
                     {inChatSearch.trim() && (
-                      <p className="text-[11px] mt-1.5" style={{ color: "var(--mq-text-muted)" }}>
+                      <p className="mq-t-meta-2 mt-1.5">
                         Найдено: {filteredMessages.length}
                       </p>
                     )}
@@ -1594,7 +1594,7 @@ export default function MessengerView() {
                           <div className="w-7 flex-shrink-0">
                             {!prevSameSender && (
                               isGroupChat ? (
-                                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
+                                <div className="mq-t-badge w-7 h-7 rounded-full flex items-center justify-center"
                                   style={{ background: colorForId(msg.senderId), color: "#fff" }}>
                                   {getInitials(msg.senderName || msg.senderId)}
                                 </div>
@@ -1608,7 +1608,7 @@ export default function MessengerView() {
                         )}
                         <div className="relative group max-w-[85%]">
                           {isGroupChat && !isMine && !prevSameSender && (
-                            <p className="text-[10px] mb-1 ml-1 font-medium"
+                            <p className="mq-t-meta-2 mb-1 ml-1"
                               style={{ color: colorForId(msg.senderId) }}>
                               {msg.senderName?.replace("@", "") || "User"}
                             </p>
@@ -1631,7 +1631,7 @@ export default function MessengerView() {
                               <p className="text-sm whitespace-pre-wrap break-words">{text}</p>
                             )}
                             <div className="flex items-center justify-end gap-1 mt-0.5">
-                              <span className="text-[10px]"
+                              <span className="mq-t-num"
                                 style={{ color: isMine ? "rgba(255,255,255,0.7)" : "var(--mq-text-muted)" }}>
                                 {formatTime(msg.createdAt)}
                               </span>
@@ -1753,7 +1753,7 @@ export default function MessengerView() {
                       {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                     </motion.button>
                   </div>
-                  <div className="flex items-center justify-center gap-1 text-[10px]"
+                  <div className="mq-t-meta-2 flex items-center justify-center gap-1"
                     style={{ color: "var(--mq-text-muted)" }}>
                     <Lock className="w-2.5 h-2.5" />
                     <span>Сообщения защищены TLS-шифрованием</span>
@@ -1956,7 +1956,7 @@ export default function MessengerView() {
                         {selected && (
                           <div className="w-5 h-5 rounded-full flex items-center justify-center"
                             style={{ backgroundColor: "var(--mq-accent)" }}>
-                            <span className="text-[10px]" style={{ color: "#fff" }}>✓</span>
+                            <span className="mq-t-badge" style={{ color: "#fff" }}>✓</span>
                           </div>
                         )}
                       </motion.button>
@@ -2056,11 +2056,11 @@ export default function MessengerView() {
                           {user.username}
                         </p>
                         {alreadyIn ? (
-                          <span className="text-[10px]" style={{ color: "var(--mq-text-muted)" }}>уже в группе</span>
+                          <span className="mq-t-meta-2">уже в группе</span>
                         ) : selected && (
                           <div className="w-5 h-5 rounded-full flex items-center justify-center"
                             style={{ backgroundColor: "var(--mq-accent)" }}>
-                            <span className="text-[10px]" style={{ color: "#fff" }}>✓</span>
+                            <span className="mq-t-badge" style={{ color: "#fff" }}>✓</span>
                           </div>
                         )}
                       </motion.button>

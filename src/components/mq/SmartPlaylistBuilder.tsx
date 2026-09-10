@@ -211,7 +211,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
         <div className="overflow-y-auto px-5 py-4 flex-1">
           {/* Presets */}
           <div className="mb-5">
-            <h3 className="text-[11px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: "var(--mq-text-muted)" }}>
+            <h3 className="mq-t-label mb-2.5">
               Шаблоны
             </h3>
             <div className="grid grid-cols-2 gap-2">
@@ -226,7 +226,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
                   }}
                 >
                   <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>{preset.name}</p>
-                  <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>{preset.description}</p>
+                  <p className="mq-t-meta-2 mt-0.5">{preset.description}</p>
                 </button>
               ))}
             </div>
@@ -252,10 +252,10 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
           {/* Rules */}
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+              <h3 className="mq-t-label">
                 Правила ({rules.length})
               </h3>
-              <button onClick={addRule} className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg cursor-pointer hover:opacity-80" style={{ color: "var(--mq-accent)" }}>
+              <button onClick={addRule} className="flex items-center gap-1 mq-t-meta-2 px-2 py-1 rounded-lg cursor-pointer hover:opacity-80" style={{ color: "var(--mq-accent)" }}>
                 <Plus className="w-3 h-3" /> Добавить
               </button>
             </div>
@@ -314,7 +314,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
           {/* Limit + Sort */}
           <div className="flex gap-3 mb-4">
             <div className="flex-1">
-              <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--mq-text-muted)" }}>Лимит треков</label>
+              <label className="mq-t-meta-2 block mb-1">Лимит треков</label>
               <input
                 type="number"
                 value={limit}
@@ -324,7 +324,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
               />
             </div>
             <div className="flex-1">
-              <label className="text-[11px] font-medium block mb-1" style={{ color: "var(--mq-text-muted)" }}>Сортировка</label>
+              <label className="mq-t-meta-2 block mb-1">Сортировка</label>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as SmartPlaylistConfig["sortBy"])}
@@ -340,12 +340,12 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
           {previewTracks.length > 0 && (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+                <h3 className="mq-t-label">
                   Предпросмотр ({previewTracks.length})
                 </h3>
                 <button
                   onClick={() => onPlayTracks(previewTracks)}
-                  className="flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg cursor-pointer"
+                  className="flex items-center gap-1 mq-t-meta-2 px-2 py-1 rounded-lg cursor-pointer"
                   style={{ color: "var(--mq-accent)", backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}
                 >
                   <Play className="w-3 h-3" fill="currentColor" /> Играть все
@@ -360,7 +360,7 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
                   </div>
                 ))}
                 {previewTracks.length > 20 && (
-                  <p className="text-center py-1 text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <p className="mq-t-meta-2 text-center py-1">
                     ...и ещё {previewTracks.length - 20}
                   </p>
                 )}
@@ -371,14 +371,14 @@ export function SmartPlaylistBuilder({ onClose, onPlayTracks }: SmartPlaylistBui
           {/* Existing smart playlists */}
           {existingPlaylists.length > 0 && (
             <div className="mb-4">
-              <h3 className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--mq-text-muted)" }}>
+              <h3 className="mq-t-label mb-2">
                 Существующие ({existingPlaylists.length})
               </h3>
               {existingPlaylists.map((pl) => (
                 <div key={pl.id} className="flex items-center gap-2 px-3 py-2 rounded-lg mb-1" style={{ backgroundColor: "rgba(255,255,255,0.02)" }}>
                   <ListFilter className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
                   <span className="flex-1 text-xs truncate" style={{ color: "var(--mq-text)" }}>{pl.name}</span>
-                  <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>лимит {pl.limit}</span>
+                  <span className="mq-t-meta-2">лимит {pl.limit}</span>
                 </div>
               ))}
             </div>

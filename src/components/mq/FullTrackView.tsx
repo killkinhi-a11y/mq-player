@@ -23,6 +23,8 @@ import { AudioVisualizer } from "./AudioVisualizer";
 import { ShareSheet } from "./ShareSheet";
 import { waveReasonText } from "./MainView";
 import MenuCore, { MenuHeader, type MenuElement } from "./ui/MenuCore";
+import { TrackMoreButton } from "./ui/TrackMoreButton";
+import ContextMenu from "./ContextMenu";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
@@ -198,6 +200,13 @@ export default function FullTrackView() {
   // v68: More menu = unified MenuCore (portal, keyboard, flip). Anchor at
   // trigger position; null = closed. Replaces the inline absolute menu.
   const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
+  // v68: per-row context menu for the queue/history side panel rows.
+  // Same unified engine + queue context ("Убрать из очереди").
+  const [panelMenu, setPanelMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
+  const openPanelMenu = useCallback((track: Track, e: React.MouseEvent) => {
+    setMoreMenu(null);
+    setPanelMenu({ track, x: e.clientX, y: e.clientY });
+  }, []);
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(true);
   const [showVisualizer, setShowVisualizer] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
@@ -675,7 +684,7 @@ export default function FullTrackView() {
       {/* Hint text for double-tap — auto-hides after 4 seconds */}
       {showDoubleTapHint && (
         <motion.div
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[11px] pointer-events-none"
+          className="mq-t-meta-2 absolute bottom-2 left-1/2 -translate-x-1/2 pointer-events-none"
           style={{ color: "var(--mq-text-muted)" }}
           initial={{ opacity: 0 }}
           animate={{ opacity: [0, 0.5, 0.5, 0] }}
@@ -691,7 +700,7 @@ export default function FullTrackView() {
     <>
       {/* Track info */}
       <div className={`w-full ${isMobile ? "text-center" : "text-left"} mb-4`}>
-        <h1 className="mq-text-display text-xl sm:text-2xl lg:text-4xl mb-1.5 leading-tight line-clamp-2 w-full" style={{ color: "var(--mq-text)" }}>
+        <h1 className="mq-t-display text-xl sm:text-2xl lg:text-4xl mb-1.5 line-clamp-2 w-full" style={{ color: "var(--mq-text)" }}>
           {currentTrack.title}
         </h1>
         <button
@@ -706,7 +715,7 @@ export default function FullTrackView() {
             {currentTrack.album}
           </p>
         )}
-        <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[11px] ${isMobile ? "justify-center" : ""}`} style={{ color: "var(--mq-text-muted)" }}>
+        <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 ${isMobile ? "justify-center" : ""}`} style={{ color: "var(--mq-text-muted)" }}>
           {duration > 0 && (
             <span className="flex items-center gap-1 shrink-0"><Clock className="w-3 h-3" />{formatDuration(duration)}</span>
           )}
@@ -994,7 +1003,7 @@ export default function FullTrackView() {
                       <p className="text-xs font-medium truncate" style={{ color: "var(--mq-text)" }}>
                         {pl.name}
                       </p>
-                      <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                      <p className="mq-t-meta-2">
                         {pl.tracks.length} треков
                       </p>
                     </div>
@@ -1011,7 +1020,7 @@ export default function FullTrackView() {
         {showSpeedMenu && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="w-full mb-3 overflow-hidden">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Скорость:</span>
+              <span className="mq-t-label">Скорость:</span>
               {speedOptions.map(speed => (
                 <button key={speed} onClick={() => handleSpeedChange(speed)} className="px-3 py-1.5 rounded-full text-xs font-semibold transition-colors" style={{ backgroundColor: playbackRate === speed ? "var(--mq-accent)" : "var(--mq-card)", color: playbackRate === speed ? "#fff" : "var(--mq-text-muted)" }}>
                   {speed}x
@@ -1027,7 +1036,7 @@ export default function FullTrackView() {
         {showSleepMenu && (
           <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="w-full mb-3 overflow-hidden">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Сон через:</span>
+              <span className="mq-t-label">Сон через:</span>
               {sleepOptions.map(min => (
                 <button key={min} onClick={() => handleSleepSet(min)} className="px-3 py-1.5 rounded-full text-xs font-semibold" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text-muted)" }}>
                   {min} мин
@@ -1092,7 +1101,7 @@ export default function FullTrackView() {
             style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
           >
             <div className="flex items-center justify-between mb-2">
-              <p className="mq-text-eyebrow text-[11px] uppercase tracking-widest">Далее в очереди</p>
+              <p className="mq-t-label">Далее в очереди</p>
               <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
                 <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
               </button>
@@ -1115,7 +1124,7 @@ export default function FullTrackView() {
                       <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
                       <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
                     </div>
-                    <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                    <span className="mq-t-time" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
                   </button>
                 ))}
               </div>
@@ -1133,7 +1142,7 @@ export default function FullTrackView() {
             style={{ backgroundColor: "var(--mq-surface-1)", border: "1px solid var(--mq-edge)" }}
           >
             <div className="flex items-center justify-between mb-2">
-              <p className="mq-text-eyebrow text-[11px] uppercase tracking-widest">Недавно играло</p>
+              <p className="mq-t-label">Недавно играло</p>
               <button onClick={() => setActivePanel(null)} aria-label="Закрыть" className="w-8 h-8 rounded-full flex items-center justify-center transition-colors hover:bg-[var(--mq-overlay-hover)]" style={{ backgroundColor: "transparent" }}>
                 <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
               </button>
@@ -1156,7 +1165,7 @@ export default function FullTrackView() {
                       <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
                       <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
                     </div>
-                    <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                    <span className="mq-t-time" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
                   </button>
                 ))}
               </div>
@@ -1214,7 +1223,7 @@ export default function FullTrackView() {
           {/* Hover tooltip — inside progressBarRef div for correct positioning */}
           {hoveredTime !== null && !isDragging && (
             <div
-              className="absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded text-[11px] font-mono pointer-events-none whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
+              className="mq-t-time absolute -top-7 -translate-x-1/2 px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity"
               style={{ left: `${Math.max(10, Math.min(90, hoveredPct))}%`, backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-thin)" }}
             >
               {formatDuration(hoveredTime)}
@@ -1222,8 +1231,8 @@ export default function FullTrackView() {
           )}
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(progress)}</span>
-          <span className="text-[11px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(duration)}</span>
+          <span className="mq-t-time" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(progress)}</span>
+          <span className="mq-t-time" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(duration)}</span>
         </div>
       </div>
 
@@ -1277,17 +1286,17 @@ export default function FullTrackView() {
     <>
       {/* ═══ Keyboard shortcuts hint (desktop, top 3 only) ═══ */}
       {!isMobile && (
-        <div className="mt-4 flex items-center gap-3 flex-wrap text-[11px] opacity-70" style={{ color: "var(--mq-text-muted)" }}>
+        <div className="mq-t-meta-2 mt-4 flex items-center gap-3 flex-wrap opacity-70">
           <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded font-mono text-[11px]" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>Space</kbd>
+            <kbd className="px-1.5 py-0.5 rounded mq-t-num" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>Space</kbd>
             play/pause
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded font-mono text-[11px]" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>←/→</kbd>
+            <kbd className="px-1.5 py-0.5 rounded mq-t-num" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>←/→</kbd>
             seek
           </span>
           <span className="flex items-center gap-1">
-            <kbd className="px-1.5 py-0.5 rounded font-mono text-[11px]" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>Esc</kbd>
+            <kbd className="px-1.5 py-0.5 rounded mq-t-num" style={{ backgroundColor: "var(--mq-card)", color: "var(--mq-text)", border: "1px solid var(--mq-border-hairline)" }}>Esc</kbd>
             close
           </span>
         </div>
@@ -1351,7 +1360,7 @@ export default function FullTrackView() {
                 <ChevronDown className="w-5 h-5" style={{ color: "var(--mq-text)" }} />
               </button>
               <div className="text-center">
-                <p className="mq-text-eyebrow text-[11px] uppercase tracking-widest">{radioMode ? "Волна" : isPlaying ? "Играет" : "Пауза"}</p>
+                <p className="mq-t-label">{radioMode ? "Волна" : isPlaying ? "Играет" : "Пауза"}</p>
                 <p className="text-xs font-medium truncate max-w-[200px] sm:max-w-xs" style={{ color: "var(--mq-text-muted)" }}>
                   {currentTrack.album || currentTrack.artist}
                 </p>
@@ -1501,7 +1510,7 @@ export default function FullTrackView() {
                         >
                           Очередь
                           {upcomingAll.length > 0 && (
-                            <span className="text-[11px] font-semibold px-1.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}>
+                            <span className="mq-t-badge px-1.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}>
                               {upcomingAll.length}
                             </span>
                           )}
@@ -1526,7 +1535,7 @@ export default function FullTrackView() {
                         >
                           История
                           {recentAll.length > 0 && (
-                            <span className="text-[11px] font-semibold px-1.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}>
+                            <span className="mq-t-badge px-1.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 15%, transparent)", color: "var(--mq-accent)" }}>
                               {recentAll.length}
                             </span>
                           )}
@@ -1546,7 +1555,7 @@ export default function FullTrackView() {
                       {radioMode && currentTrack?._reason && (
                         <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: "1px solid var(--mq-edge)" }}>
                           <Sparkles className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-                          <span className="text-[11px] leading-snug truncate" style={{ color: "var(--mq-text-muted)" }}>
+                          <span className="mq-t-meta-2 leading-snug truncate">
                             {waveReasonText(currentTrack) || currentTrack._reason}
                           </span>
                         </div>
@@ -1559,7 +1568,7 @@ export default function FullTrackView() {
                             {/* Now playing */}
                             {currentTrack && (
                               <div className="px-3 pb-2">
-                                <p className="mq-text-eyebrow text-[11px] uppercase tracking-widest px-1 pb-2" style={{ color: "var(--mq-text-muted)" }}>Сейчас играет</p>
+                                <p className="mq-t-label px-1 pb-2" style={{ color: "var(--mq-text-muted)" }}>Сейчас играет</p>
                                 <div className="flex items-center gap-3 px-2.5 py-2 rounded-xl" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, transparent)" }}>
                                   <div className="w-10 h-10 rounded-[var(--mq-r-art)] overflow-hidden flex-shrink-0 mq-art">
                                     {currentTrack.cover ? (
@@ -1585,7 +1594,7 @@ export default function FullTrackView() {
 
                             {/* Upcoming */}
                             <div className="px-4 flex items-center justify-between pb-1">
-                              <p className="mq-text-eyebrow text-[11px] uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>{radioMode ? "Волна · далее" : "Далее"}</p>
+                              <p className="mq-t-label" style={{ color: "var(--mq-text-muted)" }}>{radioMode ? "Волна · далее" : "Далее"}</p>
                             </div>
                             {upcomingAll.length === 0 ? (
                               <div className="px-4 py-8 text-center">
@@ -1611,10 +1620,11 @@ export default function FullTrackView() {
                                       <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
                                       <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
                                       {radioMode && track._reason && (
-                                        <p className="text-[11px] truncate" style={{ color: "var(--mq-accent)", opacity: 0.75 }}>{waveReasonText(track) || track._reason}</p>
+                                        <p className="mq-t-meta-2 truncate" style={{ color: "var(--mq-accent)", opacity: 0.75 }}>{waveReasonText(track) || track._reason}</p>
                                       )}
                                     </div>
-                                    <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                                    <span className="mq-t-time shrink-0" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                                    <TrackMoreButton onOpen={(e) => openPanelMenu(track, e)} size="sm" as="span" label={`Действия: ${track.title}`} alwaysVisible={isMobile} />
                                   </button>
                                 ))}
                               </div>
@@ -1652,7 +1662,7 @@ export default function FullTrackView() {
                               </div>
                             ) : (
                               <div className="px-2">
-                                <p className="mq-text-eyebrow text-[11px] uppercase tracking-widest px-2 pb-1" style={{ color: "var(--mq-text-muted)" }}>Недавно играло</p>
+                                <p className="mq-t-label px-2 pb-1" style={{ color: "var(--mq-text-muted)" }}>Недавно играло</p>
                                 {recentAll.map((track, i) => (
                                   <button
                                     key={track.id + "_h_" + i}
@@ -1668,7 +1678,8 @@ export default function FullTrackView() {
                                       <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
                                       <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{track.artist}</p>
                                     </div>
-                                    <span className="text-[11px] font-mono" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                                    <span className="mq-t-time shrink-0" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                                    <TrackMoreButton onOpen={(e) => openPanelMenu(track, e)} size="sm" as="span" label={`Действия: ${track.title}`} alwaysVisible={isMobile} />
                                   </button>
                                 ))}
                               </div>
@@ -1686,6 +1697,22 @@ export default function FullTrackView() {
         </motion.div>
       )}
     </AnimatePresence>
+    {panelMenu && (
+      <ContextMenu
+        track={panelMenu.track}
+        x={panelMenu.x}
+        y={panelMenu.y}
+        onClose={() => setPanelMenu(null)}
+        context={{
+          kind: "queue",
+          onRemove: () => {
+            const st = useAppStore.getState();
+            useAppStore.setState({ queue: st.queue.filter((t) => t.id !== panelMenu.track.id) });
+            setPanelMenu(null);
+          },
+        }}
+      />
+    )}
     <ShareSheet
       isOpen={showShareSheet}
       onClose={() => setShowShareSheet(false)}

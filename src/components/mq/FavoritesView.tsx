@@ -414,7 +414,7 @@ export default function FavoritesView() {
                     <Icon className="w-3.5 h-3.5" style={{ color: isActive ? tab.color : undefined }} />
                     <span className="hidden sm:inline">{tab.label}</span>
                     <span
-                      className="text-[11px] px-1.5 py-0.5 rounded-full font-bold"
+                      className="mq-t-badge px-1.5 py-0.5 rounded-full"
                       style={{
                         backgroundColor: isActive ? `${tab.color}22` : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                         color: isActive ? tab.color : "var(--mq-text-muted)",
@@ -442,7 +442,7 @@ export default function FavoritesView() {
           <motion.button
             whileTap={{ scale: 0.93, transition: { duration: 0.08 }} }
             onClick={() => setActiveFilter(null)}
-            className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors duration-200 cursor-pointer"
+            className="mq-t-meta-2 flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors duration-200 cursor-pointer"
             style={{
               backgroundColor: !activeFilter ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
               color: !activeFilter ? "var(--mq-accent)" : "var(--mq-text-muted)",
@@ -460,7 +460,7 @@ export default function FavoritesView() {
                 key={tagKey}
                 whileTap={{ scale: 0.93, transition: { duration: 0.08 }} }
                 onClick={() => setActiveFilter(isActive ? null : tagKey)}
-                className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors duration-200 cursor-pointer"
+                className="mq-t-meta-2 flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg transition-colors duration-200 cursor-pointer"
                 style={{
                   backgroundColor: isActive ? "color-mix(in srgb, var(--mq-accent) 15%, transparent)" : "color-mix(in srgb, var(--mq-text) 4%, transparent)",
                   color: isActive ? "var(--mq-accent)" : "var(--mq-text-muted)",
@@ -546,7 +546,7 @@ export default function FavoritesView() {
                   }}
                 >
                   <div className="px-3 py-2">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>Сортировка</p>
+                    <p className="mq-t-label">Сортировка</p>
                   </div>
                   {sortOptions.map((opt) => {
                     const Icon = opt.icon;
@@ -609,7 +609,7 @@ export default function FavoritesView() {
           <motion.button
             whileTap={{ scale: 0.93, transition: { duration: 0.08 }} }
             onClick={selectedIds.size === tracks.length ? deselectAll : selectAll}
-            className="text-[11px] font-medium px-3 py-1.5 rounded-lg cursor-pointer"
+            className="mq-t-meta-2 px-3 py-1.5 rounded-lg cursor-pointer"
             style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text)" }}
           >
             {selectedIds.size === tracks.length ? "Снять все" : "Выбрать все"}
@@ -619,7 +619,7 @@ export default function FavoritesView() {
               <motion.button
                 whileTap={{ scale: 0.93, transition: { duration: 0.08 }} }
                 onClick={() => setShowPlaylistMenu(!showPlaylistMenu)}
-                className="text-[11px] font-medium px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1"
+                className="mq-t-meta-2 px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1"
                 style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
               >
                 <ListPlus className="w-3 h-3" />
@@ -656,7 +656,7 @@ export default function FavoritesView() {
             <motion.button
               whileTap={{ scale: 0.93, transition: { duration: 0.08 }} }
               onClick={handleBatchRemove}
-              className="text-[11px] font-medium px-3 py-1.5 rounded-lg cursor-pointer"
+              className="mq-t-meta-2 px-3 py-1.5 rounded-lg cursor-pointer"
               style={{ backgroundColor: "rgba(239,68,68,0.1)", color: "#ef4444" }}
             >
               <Trash2 className="w-3 h-3 inline mr-1" />
@@ -938,7 +938,7 @@ export default function FavoritesView() {
               <motion.div
                 animate={{ opacity: [0.3, 0.6, 0.3] }}
                 transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                className="flex items-center gap-1.5 mt-4 text-[11px]"
+                className="mq-t-meta-2 flex items-center gap-1.5 mt-4"
                 style={{ color: "var(--mq-text-muted)" }}
               >
                 <Sparkles className="w-3 h-3" />

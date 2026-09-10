@@ -376,13 +376,13 @@ function MainView() {
       <ScrollReveal direction="up" delay={0}>
         <header className="mb-4 lg:mb-6 flex items-end justify-between gap-4">
           <div className="min-w-0">
-            <p className="mq-t-meta text-[11px] uppercase tracking-[0.14em] mb-1.5" style={{ color: "var(--mq-text-muted)" }}>
+            <p className="mq-t-label mb-1.5">
               {currentDate()}
             </p>
-            <h1 className="mq-t-title text-2xl sm:text-3xl lg:text-[2rem] truncate" style={{ color: "var(--mq-text)" }}>
+            <h1 className="mq-t-display text-2xl sm:text-3xl lg:text-[2rem] truncate" style={{ color: "var(--mq-text)" }}>
               {greeting()}
             </h1>
-            <p className="mq-t-meta text-xs mt-2 truncate" style={{ color: "var(--mq-text-muted)" }}>
+            <p className="mq-t-meta mt-2 truncate">
               {listeningFriends.length > 0
                 ? `${listeningFriends.length} ${pluralRu(listeningFriends.length, "друг слушает", "друга слушают", "друзей слушают")} музыку сейчас`
                 : personalCategories.length > 0
@@ -409,7 +409,7 @@ function MainView() {
             ) : (
               <Waves className="w-4 h-4" style={{ color: wave.radioMode ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
             )}
-            <span className="mq-t-label text-xs" style={{ color: wave.radioMode ? "var(--mq-accent)" : "var(--mq-text)" }}>
+            <span className="mq-t-label" style={{ color: wave.radioMode ? "var(--mq-accent)" : "var(--mq-text)" }}>
               {wave.waveLoading ? "Подбираем…" : wave.radioMode ? "Волна · играет" : "Волна"}
             </span>
           </button>
@@ -515,7 +515,7 @@ function MainView() {
       {/* rest as compact square cards. Real recommendations only.           */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {personalCategories.length > 0 && (
-        <Section title="Для вас" icon={Sparkles} action={<span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>по твоей истории и лайкам</span>}>
+        <Section title="Для вас" icon={Sparkles} action={<span className="mq-t-meta-2">по твоей истории и лайкам</span>}>
           {personalCategories.slice(0, 1).map((cat) => (
             <div key={cat.id} className="flex flex-col gap-2 mb-5">
               {cat.tracks.slice(0, 4).map((track, i) => (
@@ -538,10 +538,10 @@ function MainView() {
                   const CatIcon = iconForRec(cat.id);
                   return <CatIcon className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />;
                 })()}
-                <h3 className="mq-t-label text-[13px]" style={{ color: "var(--mq-text)" }}>
+                <h3 className="mq-t-label" style={{ color: "var(--mq-text)" }}>
                   {cat.title}
                 </h3>
-                <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                <span className="mq-t-meta-2">
                   {reasonForRec(cat.id)}
                 </span>
               </div>
@@ -586,7 +586,7 @@ function MainView() {
           title="Недавно"
           icon={Clock}
           action={
-            <button onClick={() => setView("history")} className="mq-t-label text-xs" style={{ color: "var(--mq-accent)" }}>
+            <button onClick={() => setView("history")} className="mq-t-btn py-1.5 px-1" style={{ color: "var(--mq-accent)" }}>
               Все
             </button>
           }
@@ -615,7 +615,7 @@ function MainView() {
       {/* Apple/Spotify chart data, presented as a ranked list.              */}
       {/* ════════════════════════════════════════════════════════════════ */}
       {chartCategories.length > 0 && (
-        <Section title="Новое и в тренде" icon={Flame} action={<span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>обновляется каждый час</span>}>
+        <Section title="Новое и в тренде" icon={Flame} action={<span className="mq-t-meta-2">обновляется каждый час</span>}>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-1.5">
             {chartCategories.flatMap((cat) =>
               cat.tracks.slice(0, 5).map((track, i) => (
@@ -681,14 +681,14 @@ function MainView() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="mq-t-label text-xs truncate" style={{ color: "var(--mq-text)" }}>
+                    <p className="mq-t-track-sm truncate" style={{ color: "var(--mq-text)" }}>
                       {f.username}
                     </p>
                     <div className="flex items-center gap-1">
                       {f.isPlaying && (
                         <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
                       )}
-                      <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                      <span className="mq-t-meta-2">
                         {f.isPlaying ? "сейчас" : "на паузе"}
                       </span>
                     </div>
@@ -746,7 +746,7 @@ function MainView() {
         icon={ListMusic}
         action={
           playlists.length > 0 ? (
-            <button onClick={() => setView("playlists")} className="mq-t-label text-xs" style={{ color: "var(--mq-accent)" }}>
+            <button onClick={() => setView("playlists")} className="mq-t-btn py-1.5 px-1" style={{ color: "var(--mq-accent)" }}>
               Все
             </button>
           ) : undefined
@@ -785,8 +785,8 @@ function MainView() {
               <Plus className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="mq-t-body text-sm" style={{ color: "var(--mq-text)" }}>Новый плейлист</p>
-              <p className="mq-t-meta text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>Собери своё</p>
+              <p className="mq-t-track-sm" style={{ color: "var(--mq-text)" }}>Новый плейлист</p>
+              <p className="mq-t-meta-2 mt-0.5">Собери своё</p>
             </div>
             {recentTracks.length > 0 && (
               <div className="flex -space-x-2 flex-shrink-0">
@@ -970,7 +970,7 @@ function Section({
             >
               <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" style={{ color: "var(--mq-accent)" }} />
             </div>
-            <h2 className="mq-text-headline text-base sm:text-lg lg:text-xl" style={{ color: "var(--mq-text)" }}>
+            <h2 className="mq-t-section" style={{ color: "var(--mq-text)" }}>
               {title}
             </h2>
           </div>
@@ -1063,7 +1063,7 @@ function FeaturedCard({
             </h2>
             <button
               onClick={onArtistClick}
-              className="mq-t-artist mt-1 hover:underline text-left"
+              className="mq-t-artist mt-1 py-1 -my-1 hover:underline text-left"
             >
               {track.artist}
             </button>
@@ -1146,8 +1146,8 @@ function ContinueListeningCard({
           <Play className="w-5 h-5" style={{ color: "var(--mq-accent)" }} />
         </div>
         <div className="min-w-0">
-          <p className="mq-t-label text-sm" style={{ color: "var(--mq-text)" }}>Продолжить прослушивание</p>
-          <p className="mq-t-meta text-xs mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="mq-t-section" style={{ color: "var(--mq-text)" }}>Продолжить прослушивание</p>
+          <p className="mq-t-meta mt-0.5">
             Пока пусто — включи трек, и он появится здесь
           </p>
         </div>
@@ -1427,13 +1427,13 @@ function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="mq-t-meta text-[11px] uppercase tracking-[0.12em] mb-0.5" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="mq-t-label mb-0.5">
             Персональное радио
           </p>
-          <p className="mq-t-title text-[15px] font-semibold leading-tight" style={{ color: "var(--mq-text)" }}>
+          <p className="mq-t-track leading-tight" style={{ color: "var(--mq-text)" }}>
             {wave.waveLoading ? "Подбираем музыку…" : "Запустить Волну"}
           </p>
-          <p className="mq-t-body text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="mq-t-meta truncate">
             по истории, лайкам и любимым артистам
           </p>
         </div>
@@ -1460,7 +1460,7 @@ function HeroWaveCTA({ compact = false }: { compact?: boolean }) {
       ) : (
         <Waves className="w-5 h-5" />
       )}
-      <span className="mq-t-label text-sm font-semibold">
+      <span className="mq-t-btn">
         {wave.waveLoading ? "Подбираем музыку…" : wave.radioMode ? "Пауза Волны" : "Запустить Волну"}
       </span>
     </button>
@@ -1500,14 +1500,14 @@ function MobileQuickRow({
             </div>
             {count > 0 && (
               <span
-                className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center mq-t-num text-[11px] font-bold"
+                className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center mq-t-badge"
                 style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
               >
                 {count > 99 ? "99+" : count}
               </span>
             )}
           </div>
-          <span className="mq-t-label text-[11px] leading-none max-w-full truncate" style={{ color: "var(--mq-text-muted)" }}>
+          <span className="mq-t-label leading-none max-w-full truncate">
             {label}
           </span>
         </button>
@@ -1555,8 +1555,8 @@ function QuickActionGrid({
           className="flex flex-col lg:flex-row items-center justify-center lg:justify-start gap-1 lg:gap-2.5 rounded-xl px-2 py-2.5 lg:px-3 transition-colors hover:bg-[var(--mq-overlay-hover)]"
         >
           <Icon className="w-4 h-4 shrink-0" style={{ color: accent }} />
-          <span className="mq-t-label text-[11px] leading-none" style={{ color: "var(--mq-text)" }}>{label}</span>
-          <span className="mq-t-num text-[11px] leading-none" style={{ color: "var(--mq-text-muted)" }}>
+          <span className="mq-t-label leading-none" style={{ color: "var(--mq-text)" }}>{label}</span>
+          <span className="mq-t-num leading-none" style={{ color: "var(--mq-text-muted)" }}>
             {count > 0 ? count : "—"}
           </span>
         </button>
@@ -1611,7 +1611,7 @@ function HorizontalTrackRow({
         </p>
         <button
           onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="mq-t-artist block max-w-full text-left truncate hover:underline"
+          className="mq-t-artist block max-w-full text-left truncate hover:underline py-1 -my-1"
         >
           {track.artist}
         </button>
@@ -1677,7 +1677,7 @@ function CompactTrackCard({
           style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
           onClick={(e) => e.stopPropagation()}
         >
-          <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${track.title}`} className="!text-white" />
+          <TrackMoreButton onOpen={onMore} size="sm" as="span" label={`Действия: ${track.title}`} className="!text-white" />
         </div>
       </div>
       <div className="p-2">
@@ -1743,7 +1743,7 @@ function ChartRow({
         </p>
         <button
           onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="mq-t-artist block max-w-full text-left truncate hover:underline"
+          className="mq-t-artist block max-w-full text-left truncate hover:underline py-1 -my-1"
         >
           {track.artist}
         </button>
@@ -1824,7 +1824,7 @@ function PlaylistCard({
         ) : (
           <div className="flex flex-col items-center justify-center w-full h-full">
             <ListMusic className="w-8 h-8" style={{ color: "rgba(255,255,255,0.5)" }} />
-            <span className="text-[11px] font-medium mt-1" style={{ color: "rgba(255,255,255,0.35)" }}>{pl.tracks.length}</span>
+            <span className="mq-t-meta-2 mt-1" style={{ color: "rgba(255,255,255,0.35)" }}>{pl.tracks.length}</span>
           </div>
         )}
         {/* Gradient overlay */}
@@ -1858,7 +1858,7 @@ function PlaylistCard({
           style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
           onClick={(e) => e.stopPropagation()}
         >
-          <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${pl.name}`} className="!text-white" />
+          <TrackMoreButton onOpen={onMore} size="sm" as="span" label={`Действия: ${pl.name}`} className="!text-white" />
         </div>
       </div>
       <div className="p-3">
@@ -2085,7 +2085,7 @@ function ArtistCircleCard({
           style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
           onClick={(e) => e.stopPropagation()}
         >
-          <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${artist.username}`} className="!text-white !opacity-100" />
+          <TrackMoreButton onOpen={onMore} size="sm" as="span" label={`Действия: ${artist.username}`} className="!text-white !opacity-100" />
         </div>
       </div>
       <p className="mq-t-track-sm truncate w-full text-center">{artist.username}</p>
@@ -2143,7 +2143,7 @@ function CuratedPlaylistCard({
           style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
           onClick={(e) => e.stopPropagation()}
         >
-          <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${pl.name}`} className="!text-white" />
+          <TrackMoreButton onOpen={onMore} size="sm" as="span" label={`Действия: ${pl.name}`} className="!text-white" />
         </div>
       </div>
       <div className="p-3">

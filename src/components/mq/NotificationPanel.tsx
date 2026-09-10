@@ -166,7 +166,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                   Уведомления
                 </h2>
                 {unreadCount > 0 && (
-                  <span className="mq-t-num text-[12px] px-1.5 rounded"
+                  <span className="mq-t-num px-1.5 rounded"
                     style={{ color: "var(--mq-accent)", background: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
                     {unreadCount}
                   </span>
@@ -240,7 +240,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                       {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="text-[13px] font-semibold truncate" style={{ color: notif.read ? "var(--mq-text)" : "var(--mq-accent)" }}>
+                          <p className="mq-t-track truncate" style={{ color: notif.read ? "var(--mq-text)" : "var(--mq-accent)" }}>
                             {notif.title}
                           </p>
                           {!notif.read && (
@@ -252,7 +252,7 @@ export default function NotificationPanel({ isOpen, onClose }: NotificationPanel
                             {notif.body}
                           </p>
                         )}
-                        <p className="mq-t-meta text-[11px] mt-1.5">
+                        <p className="mq-t-meta-2 mt-1.5">
                           {formatNotifTime(notif.createdAt)}
                         </p>
                       </div>

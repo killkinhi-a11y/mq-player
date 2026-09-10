@@ -190,8 +190,11 @@
   --mq-emphasis-disabled: 0.38;
 
   /* Tip 1 (Typography anchor) — serif headline font variable.
-     Playfair Display loaded in layout.tsx; fallback to Georgia then serif. */
-  --mq-font-serif: var(--font-playfair-display), Georgia, "Times New Roman", serif;
+     Playfair Display loaded in layout.tsx; fallback to Georgia then serif.
+     Fallback inside var() is REQUIRED: next/font variables live on <body>,
+     while this :root rule resolves on <html> where they are undefined —
+     without the fallback the whole custom property computes to empty. */
+  --mq-font-serif: var(--font-playfair-display, "Playfair Display"), Georgia, "Times New Roman", serif;
 
   /* Brand colors — single source of truth (was hardcoded in 6+ files). */
   --mq-telegram: #2AABEE;

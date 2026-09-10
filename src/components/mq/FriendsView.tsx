@@ -424,7 +424,7 @@ export default function FriendsView() {
             )}
             {showOnlineOnly ? "Только онлайн" : "Все друзья"}
             <span
-              className="px-1.5 py-0.5 rounded-md text-[11px] font-bold"
+              className="mq-t-badge px-1.5 py-0.5 rounded-md"
               style={{
                 backgroundColor: showOnlineOnly ? "rgba(34,197,94,0.15)" : "color-mix(in srgb, var(--mq-text) 6%, transparent)",
               }}
@@ -471,7 +471,7 @@ export default function FriendsView() {
                         <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>
                           {req.username}
                         </p>
-                        <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                        <p className="mq-t-meta-2">
                           Хочет добавить вас в друзья
                         </p>
                       </div>
@@ -537,7 +537,7 @@ export default function FriendsView() {
                         <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>
                           {req.username}
                         </p>
-                        <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                        <p className="mq-t-meta-2">
                           Ожидает подтверждения
                         </p>
                       </div>
@@ -694,7 +694,7 @@ export default function FriendsView() {
                   <h2 className="text-lg font-bold" style={{ color: "var(--mq-text)" }}>
                     Добавить друга
                   </h2>
-                  <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+                  <p className="mq-t-meta-2 mt-0.5">
                     Введите имя пользователя для поиска
                   </p>
                 </div>
@@ -861,7 +861,7 @@ function FriendCard({
         <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>
           {friend.username}
         </p>
-        <p className="text-[11px] flex items-center gap-1" style={{ color: isOnline ? "#22c55e" : "var(--mq-text-muted)" }}>
+        <p className="mq-t-meta-2 flex items-center gap-1" style={{ color: isOnline ? "#22c55e" : "var(--mq-text-muted)" }}>
           {isOnline ? (
             <>
               <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: "#22c55e" }} />

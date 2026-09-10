@@ -176,7 +176,7 @@ function SyncedLyrics({ lines, currentTime, onSeek }: {
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -8 }}
-                  className="ml-2 text-[10px] font-mono align-middle"
+                  className="mq-t-num ml-2 align-middle"
                   style={{ color: "var(--mq-accent)" }}
                 >
                   → {formatTime(line.time)}
@@ -248,12 +248,12 @@ function LyricsViewBase({ lines, plainText, currentTime, isLoading, error, onSee
     <div className="w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <p className="mq-text-eyebrow text-[10px] uppercase tracking-widest flex items-center gap-1.5">
+        <p className="mq-t-label flex items-center gap-1.5">
           <span style={{ color: "var(--mq-accent)" }}>♪</span>
           Текст песни
           {hasSynced && (
             <span
-              className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+              className="mq-t-badge px-1.5 py-0.5 rounded-full"
               style={{
                 backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
                 color: "var(--mq-accent)",
@@ -285,7 +285,7 @@ function LyricsViewBase({ lines, plainText, currentTime, isLoading, error, onSee
           </p>
           <button
             onClick={handleRetry}
-            className="px-3 py-1.5 rounded-full text-[10px] font-semibold transition-colors"
+            className="mq-t-badge px-3 py-1.5 rounded-full transition-colors"
             style={{
               backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)",
               color: "var(--mq-accent)",

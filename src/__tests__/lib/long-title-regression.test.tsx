@@ -55,7 +55,7 @@ describe("long-title source contracts — actions never squeezed (min-w-0 + shri
     const src = read("ShareSheet.tsx");
     expect(src).toMatch(/flex items-center gap-2\.5 min-w-0 flex-1/);
     expect(src).toMatch(/h-8 rounded-full flex items-center justify-center shrink-0/);
-    expect(src).toMatch(/text-\[11px\] truncate/);
+    expect(src).toMatch(/mq-t-meta-2 truncate/);
   });
 
   it("StoriesView: viewer header username truncates, avatar + pause shrink-0", () => {

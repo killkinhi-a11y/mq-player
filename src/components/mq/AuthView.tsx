@@ -577,13 +577,13 @@ export default function AuthView() {
                     )}
                     {usernameStatus === 'idle' && (
                       <motion.p key="tg-idle" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="text-[11px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                        className="mq-t-meta-2 mt-1">
                         Отображается как @{tgUsername || "..."}
                       </motion.p>
                     )}
                     {usernameStatus === 'checking' && (
                       <motion.p key="tg-checking-hint" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="text-[11px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                        className="mq-t-meta-2 mt-1">
                         Проверка имени...
                       </motion.p>
                     )}

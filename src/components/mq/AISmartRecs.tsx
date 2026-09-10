@@ -205,7 +205,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
             <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>
               AI Подбор
             </h2>
-            <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>{tasteInsight}</p>
+            <p className="mq-t-meta-2 truncate">{tasteInsight}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -246,7 +246,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
             <h2 className="truncate" style={{ color: "var(--mq-text)", fontSize: "var(--mq-text-xl)", fontWeight: "var(--mq-font-bold)", letterSpacing: "var(--mq-tracking-tight)" }}>
               AI Подбор
             </h2>
-            <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+            <p className="mq-t-meta-2 truncate">
               {tasteInsight}
             </p>
           </div>
@@ -310,7 +310,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
           style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 8%, transparent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 12%, transparent)" }}
         >
           <Sparkles className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-          <p className="text-[11px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>{aiSummary}</p>
+          <p className="mq-t-meta-2 leading-relaxed">{aiSummary}</p>
         </motion.div>
       )}
 
@@ -370,7 +370,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
                       </div>
                       {/* AI badge */}
                       <div className="absolute top-0.5 right-0.5">
-                        <span className="text-[11px] px-1 py-[1px] rounded-full font-bold"
+                        <span className="mq-t-badge px-1 py-[1px] rounded-full"
                           style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", backdropFilter: "blur(4px)" }}>
                           AI
                         </span>
@@ -382,7 +382,7 @@ export default function AISmartRecs({ playTrack, addToUpNext, animationsEnabled 
                       <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>
                         {track.title}
                       </p>
-                      <p className="text-[11px] truncate mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+                      <p className="mq-t-meta-2 truncate mt-0.5">
                         {track.artist}
                         {track.genre ? ` · ${track.genre}` : ""}
                       </p>

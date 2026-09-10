@@ -188,10 +188,10 @@ function MobileDockInner() {
                 style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, color: active ? "var(--mq-accent)" : "color-mix(in srgb, var(--mq-text-muted) 70%, transparent)" }}>
                 <div className="relative">
                   <Icon className="w-[22px] h-[22px]" strokeWidth={active ? 2.3 : 1.7} />
-                  {badge > 0 && <span className="absolute -top-1 -right-2 min-w-[14px] h-[14px] rounded-full flex items-center justify-center text-[9px] font-bold px-1"
+                  {badge > 0 && <span className="mq-t-badge absolute -top-1 -right-2 min-w-[14px] h-[14px] rounded-full flex items-center justify-center px-1"
                     style={{ background: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}>{badge > 99 ? "99" : badge}</span>}
                 </div>
-                <span className="text-[11px] leading-none" style={{ opacity: active ? 1 : 0.8 }}>{item.label}</span>
+                <span className="mq-t-nav leading-none" style={{ opacity: active ? 1 : 0.8 }}>{item.label}</span>
               </button>
             );
           })}

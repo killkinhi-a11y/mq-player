@@ -510,7 +510,7 @@ export default function HistoryView() {
                           const tracks = group.items.map(g => g.track);
                           playTrack(tracks[0], tracks);
                         }}
-                        className="ml-auto flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg"
+                        className="mq-t-meta-2 ml-auto flex items-center gap-1 px-2 py-1 rounded-lg"
                         style={{ color: "var(--mq-accent)", backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}
                       >
                         <Play className="w-2.5 h-2.5" fill="currentColor" />

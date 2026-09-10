@@ -118,7 +118,7 @@ function TasteSlider({
   return (
     <div className="flex items-center gap-3 w-full">
       <span
-        className="text-[11px] w-10 text-right shrink-0 select-none"
+        className="mq-t-num w-10 text-right shrink-0 select-none"
         style={{ color: "var(--mq-text-muted)" }}
       >
         {value}%
@@ -481,7 +481,7 @@ export default function TasteProfileView() {
               className="overflow-hidden"
             >
               {/* Scale legend */}
-              <div className="flex items-center justify-between mb-4 text-[11px] px-1" style={{ color: "var(--mq-text-muted)" }}>
+              <div className="mq-t-meta-2 flex items-center justify-between mb-4 px-1">
                 <span>Исключить</span>
                 <span>Нейтрально</span>
                 <span>Любимый</span>
@@ -521,7 +521,7 @@ export default function TasteProfileView() {
                           {genre.name}
                         </span>
                         <span
-                          className="text-[11px] px-2 py-0.5 rounded-full"
+                          className="mq-t-meta-2 px-2 py-0.5 rounded-full"
                           style={{
                             color: barColor,
                             background: `${barColor}15`,
@@ -650,7 +650,7 @@ export default function TasteProfileView() {
                         >
                           {artist.name}
                         </span>
-                        <span className="text-[11px] shrink-0 ml-2" style={{ color: "var(--mq-text-muted)" }}>
+                        <span className="mq-t-meta-2 shrink-0 ml-2">
                           {artist.count}x
                         </span>
                       </div>
@@ -776,7 +776,7 @@ export default function TasteProfileView() {
                             {mood.label}
                           </span>
                           <p
-                            className="text-[11px] leading-tight"
+                            className="mq-t-meta-2 leading-tight"
                             style={{ color: "var(--mq-text-muted)" }}
                           >
                             {mood.desc}
@@ -838,7 +838,7 @@ export default function TasteProfileView() {
                   >
                     {summary.totalTracked}
                   </div>
-                  <div className="text-[11px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                  <div className="mq-t-meta-2 mt-1">
                     Жанров отслежено
                   </div>
                 </div>
@@ -859,7 +859,7 @@ export default function TasteProfileView() {
                   >
                     {summary.excludedCount}
                   </div>
-                  <div className="text-[11px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                  <div className="mq-t-meta-2 mt-1">
                     Исключено артистов
                   </div>
                 </div>
@@ -885,7 +885,7 @@ export default function TasteProfileView() {
                   >
                     {summary.diversity}%
                   </div>
-                  <div className="text-[11px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                  <div className="mq-t-meta-2 mt-1">
                     Разнообразие вкуса
                   </div>
                 </div>
@@ -904,7 +904,7 @@ export default function TasteProfileView() {
                   >
                     {summary.moodCount}
                   </div>
-                  <div className="text-[11px] mt-1" style={{ color: "var(--mq-text-muted)" }}>
+                  <div className="mq-t-meta-2 mt-1">
                     Настроений настроено
                   </div>
                 </div>
@@ -1083,7 +1083,7 @@ export default function TasteProfileView() {
                     .map(([g, v]) => (
                       <span
                         key={`boost-${g}`}
-                        className="text-[11px] px-2 py-1 rounded-md"
+                        className="mq-t-meta-2 px-2 py-1 rounded-md"
                         style={{
                           background: "rgba(34,197,94,0.1)",
                           color: "#22c55e",
@@ -1097,7 +1097,7 @@ export default function TasteProfileView() {
                     .map(([g]) => (
                       <span
                         key={`excl-${g}`}
-                        className="text-[11px] px-2 py-1 rounded-md"
+                        className="mq-t-meta-2 px-2 py-1 rounded-md"
                         style={{
                           background: "rgba(239,68,68,0.1)",
                           color: "#ef4444",
@@ -1109,7 +1109,7 @@ export default function TasteProfileView() {
                   {excludedArtists.map((a) => (
                     <span
                       key={`ban-${a}`}
-                      className="text-[11px] px-2 py-1 rounded-md"
+                      className="mq-t-meta-2 px-2 py-1 rounded-md"
                       style={{
                         background: "rgba(239,68,68,0.1)",
                         color: "#ef4444",
@@ -1121,7 +1121,7 @@ export default function TasteProfileView() {
                   {Object.entries(tasteGenres).filter(([, v]) => v > 70).length === 0 &&
                     Object.entries(tasteGenres).filter(([, v]) => v < 10).length === 0 &&
                     excludedArtists.length === 0 && (
-                      <span className="text-[11px] px-2 py-1 rounded-md" style={{ color: "var(--mq-text-muted)", background: "rgba(255,255,255,0.04)" }}>
+                      <span className="mq-t-meta-2 px-2 py-1 rounded-md" style={{ color: "var(--mq-text-muted)", background: "rgba(255,255,255,0.04)" }}>
                         Нет активных фильтров
                       </span>
                     )}

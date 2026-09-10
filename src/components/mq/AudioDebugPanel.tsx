@@ -126,7 +126,7 @@ export default function AudioDebugPanel() {
       )}
 
       {!open && (
-        <button onClick={handleDismiss} className="absolute top-1.5 right-1.5" aria-label="Скрыть панель">
+        <button onClick={handleDismiss} className="absolute top-1 right-1 w-8 h-8 flex items-center justify-center rounded-md hover:bg-[var(--mq-overlay-hover)] transition-colors" aria-label="Скрыть панель">
           <X className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
         </button>
       )}

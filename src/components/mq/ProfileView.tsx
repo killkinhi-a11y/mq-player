@@ -518,7 +518,7 @@ const ProfileView = React.memo(function ProfileView() {
                 ) : (
                   <>
                     <Camera className="w-6 h-6" style={{ color: "white" }} />
-                    <span className="text-[11px] mt-1 font-semibold" style={{ color: "white" }}>Изменить</span>
+                    <span className="mq-t-btn mt-1" style={{ color: "white" }}>Изменить</span>
                   </>
                 )}
               </button>
@@ -610,7 +610,7 @@ const ProfileView = React.memo(function ProfileView() {
                       </span>
                     </div>
                   )}
-                  <p className="text-[11px]" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                  <p className="mq-t-meta-2" style={{ opacity: 0.7 }}>
                     {USERNAME_RULES}
                   </p>
                 </div>
@@ -628,7 +628,7 @@ const ProfileView = React.memo(function ProfileView() {
             {!isEditingName && (
               <div className="flex items-center gap-1.5 mt-3 px-3 py-1.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)", border: "1px solid var(--mq-border-thin)" }}>
                 <Calendar className="w-3 h-3" style={{ color: "var(--mq-text-muted)" }} />
-                <span className="text-[11px] font-medium" style={{ color: "var(--mq-text)", opacity: 0.85 }}>
+                <span className="mq-t-meta-2" style={{ color: "var(--mq-text)", opacity: 0.85 }}>
                   Участник с {accountCreated || memberSince}
                 </span>
               </div>
@@ -668,7 +668,7 @@ const ProfileView = React.memo(function ProfileView() {
             </div>
             {(Object.values(unreadCounts).reduce((sum, c) => sum + c, 0) + supportUnreadCount) > 0 && (
               <span
-                className="flex-shrink-0 min-w-[20px] h-5 rounded-full flex items-center justify-center text-[11px] font-bold px-1.5"
+                className="mq-t-badge flex-shrink-0 min-w-[20px] h-5 rounded-full flex items-center justify-center px-1.5"
                 style={{
                   backgroundColor: "var(--mq-accent)",
                   color: "#fff",
@@ -735,7 +735,7 @@ const ProfileView = React.memo(function ProfileView() {
               <p className="mq-t-num text-xl leading-none" style={{ color: "var(--mq-text)" }}>
                 {stats.totalTracksPlayed}
               </p>
-              <p className="text-[11px] mt-1 truncate font-medium" style={{ color: "var(--mq-text-muted)" }}>
+              <p className="mq-t-meta-2 mt-1 truncate">
                 Треков прослушано
               </p>
             </div>
@@ -759,7 +759,7 @@ const ProfileView = React.memo(function ProfileView() {
               <p className="mq-t-num text-xl leading-none" style={{ color: "var(--mq-text)" }}>
                 {stats.hoursListened > 0 ? `${stats.hoursListened}` : "0"}
               </p>
-              <p className="text-[11px] mt-1 truncate font-medium" style={{ color: "var(--mq-text-muted)" }}>
+              <p className="mq-t-meta-2 mt-1 truncate">
                 Часов прослушано
               </p>
             </div>
@@ -780,10 +780,10 @@ const ProfileView = React.memo(function ProfileView() {
               <TrendingUp className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
             </div>
             <div className="min-w-0">
-              <p className="mq-t-title text-[15px] leading-none truncate" style={{ color: "var(--mq-text)" }}>
+              <p className="mq-t-track leading-none truncate" style={{ color: "var(--mq-text)" }}>
                 {stats.topGenre}
               </p>
-              <p className="text-[11px] mt-1 truncate font-medium" style={{ color: "var(--mq-text-muted)" }}>
+              <p className="mq-t-meta-2 mt-1 truncate">
                 Любимый жанр
               </p>
             </div>
@@ -807,7 +807,7 @@ const ProfileView = React.memo(function ProfileView() {
               <p className="mq-t-num text-xl leading-none" style={{ color: "var(--mq-text)" }}>
                 {stats.likedCount}
               </p>
-              <p className="text-[11px] mt-1 truncate font-medium" style={{ color: "var(--mq-text-muted)" }}>
+              <p className="mq-t-meta-2 mt-1 truncate">
                 Избранных
               </p>
             </div>
@@ -852,11 +852,11 @@ const ProfileView = React.memo(function ProfileView() {
                       }}
                     />
                   </div>
-                  <span className="text-[11px]" style={{ color: day.count > 0 ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
+                  <span className="mq-t-meta-2" style={{ color: day.count > 0 ? "var(--mq-text)" : "var(--mq-text-muted)" }}>
                     {day.day}
                   </span>
                   {day.count > 0 && (
-                    <span className="text-[11px] font-medium" style={{ color: "var(--mq-accent)" }}>
+                    <span className="mq-t-meta-2" style={{ color: "var(--mq-accent)" }}>
                       {day.count}
                     </span>
                   )}
@@ -882,17 +882,17 @@ const ProfileView = React.memo(function ProfileView() {
               <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", border: "1px solid color-mix(in srgb, var(--mq-accent) 18%, transparent)" }}>
                 <Clock className="w-3.5 h-3.5" style={{ color: "var(--mq-accent)" }} />
               </div>
-              <h3 className="text-[11px] font-bold uppercase tracking-widest" style={{ color: "var(--mq-text-muted)" }}>
+              <h3 className="mq-t-label">
                 Тепловая карта
               </h3>
             </div>
 
             {/* Insights */}
             <div className="px-4 pb-2 flex flex-wrap gap-2">
-              <span className="text-[11px] px-2.5 py-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-accent)" }}>
+              <span className="mq-t-meta-2 px-2.5 py-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-accent)" }}>
                 🕐 Пик: {listeningInsights.peakHourLabel} ({listeningInsights.peakHourPeriod})
               </span>
-              <span className="text-[11px] px-2.5 py-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-accent)" }}>
+              <span className="mq-t-meta-2 px-2.5 py-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-accent)" }}>
                 📅 День: {listeningInsights.peakDay}
               </span>
             </div>
@@ -903,7 +903,7 @@ const ProfileView = React.memo(function ProfileView() {
                 {/* Hour labels */}
                 <div className="flex gap-[2px] mb-1 ml-7">
                   {[0, 4, 8, 12, 16, 20].map(h => (
-                    <span key={h} className="text-[8px] flex-1 text-center" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>
+                    <span key={h} className="mq-t-meta-2 flex-1 text-center" style={{ opacity: 0.5 }}>
                       {h}
                     </span>
                   ))}
@@ -911,7 +911,7 @@ const ProfileView = React.memo(function ProfileView() {
                 {/* Day rows */}
                 {listeningHeatmap.days.map((day, dIdx) => (
                   <div key={day} className="flex items-center gap-1 mb-[2px]">
-                    <span className="text-[9px] w-6 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                    <span className="mq-t-meta-2 w-6 text-right flex-shrink-0" style={{ opacity: 0.6 }}>
                       {day}
                     </span>
                     <div className="flex gap-[2px] flex-1">
@@ -935,7 +935,7 @@ const ProfileView = React.memo(function ProfileView() {
                 ))}
                 {/* Legend */}
                 <div className="flex items-center justify-end gap-1 mt-2">
-                  <span className="text-[9px]" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>меньше</span>
+                  <span className="mq-t-meta-2" style={{ opacity: 0.5 }}>меньше</span>
                   {[0.1, 0.3, 0.5, 0.7, 1].map(i => (
                     <div
                       key={i}
@@ -943,7 +943,7 @@ const ProfileView = React.memo(function ProfileView() {
                       style={{ backgroundColor: `color-mix(in srgb, var(--mq-accent) ${i * 100}%, transparent)` }}
                     />
                   ))}
-                  <span className="text-[9px]" style={{ color: "var(--mq-text-muted)", opacity: 0.5 }}>больше</span>
+                  <span className="mq-t-meta-2" style={{ opacity: 0.5 }}>больше</span>
                 </div>
               </div>
             </div>
@@ -974,7 +974,7 @@ const ProfileView = React.memo(function ProfileView() {
             {/* Genre tags with frequency bars */}
             {tasteProfileGenres.length > 0 && (
               <div className="px-4 pb-3">
-                <p className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                <p className="mq-t-label mb-2" style={{ opacity: 0.7 }}>
                   Жанры
                 </p>
                 <div className="space-y-2">
@@ -998,7 +998,7 @@ const ProfileView = React.memo(function ProfileView() {
                           }}
                         />
                       </div>
-                      <span className="text-[11px] w-8 text-right flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
+                      <span className="mq-t-num w-8 text-right flex-shrink-0">
                         {level}%
                       </span>
                     </div>
@@ -1010,7 +1010,7 @@ const ProfileView = React.memo(function ProfileView() {
             {/* Artist tags with frequency bars */}
             {tasteProfileArtists.length > 0 && (
               <div className="px-4 pb-4">
-                <p className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                <p className="mq-t-label mb-2" style={{ opacity: 0.7 }}>
                   Исполнители
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -1077,10 +1077,10 @@ const ProfileView = React.memo(function ProfileView() {
                         <Music className="w-5 h-5" style={{ color: "var(--mq-text-muted)" }} />
                       )}
                     </div>
-                    <p className="text-[11px] font-medium text-center truncate w-full" style={{ color: "var(--mq-text)" }}>
+                    <p className="mq-t-track-sm text-center truncate w-full" style={{ color: "var(--mq-text)" }}>
                       {artist.name}
                     </p>
-                    <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                    <p className="mq-t-meta-2">
                       {artist.count} {artist.count === 1 ? "трек" : artist.count < 5 ? "трека" : "треков"}
                     </p>
                   </motion.div>
@@ -1133,11 +1133,11 @@ const ProfileView = React.memo(function ProfileView() {
                     <p className="text-sm font-medium truncate" style={{ color: "var(--mq-text)" }}>
                       {track.title}
                     </p>
-                    <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                    <p className="mq-t-meta-2 truncate">
                       {track.artist}
                     </p>
                   </div>
-                  <span className="text-[11px] flex-shrink-0" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="mq-t-num flex-shrink-0">
                     {formatTimeAgo(track.playedAt)}
                   </span>
                 </motion.div>
@@ -1199,7 +1199,7 @@ const ProfileView = React.memo(function ProfileView() {
                 <p className="text-sm font-medium" style={{ color: "var(--mq-text)" }}>
                   Невидимка
                 </p>
-                <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                <p className="mq-t-meta-2">
                   {hideOnline ? "Вы невидимы для других" : "Ваш статус «В сети» виден всем"}
                 </p>
               </div>
@@ -1249,7 +1249,7 @@ const ProfileView = React.memo(function ProfileView() {
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium">Настройки приложения</p>
-              <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Тема, звук, эквалайзер</p>
+              <p className="mq-t-meta-2">Тема, звук, эквалайзер</p>
             </div>
           </motion.button>
 
@@ -1270,7 +1270,7 @@ const ProfileView = React.memo(function ProfileView() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">Админ-панель</p>
-                <p className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>Управление пользователями и системой</p>
+                <p className="mq-t-meta-2">Управление пользователями и системой</p>
               </div>
             </motion.button>
           )}
@@ -1291,7 +1291,7 @@ const ProfileView = React.memo(function ProfileView() {
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium">Выйти из аккаунта</p>
-              <p className="text-[11px]" style={{ color: "rgba(255,107,107,0.6)" }}>Потребуется повторный вход</p>
+              <p className="mq-t-meta-2" style={{ color: "rgba(255,107,107,0.6)" }}>Потребуется повторный вход</p>
             </div>
           </motion.button>
         </motion.div>

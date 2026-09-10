@@ -452,27 +452,6 @@ main {
    transform transitions on possibly-motion elements violated the
    one-property-one-owner contract. */
 
-/* Premium text styles — ALL on the primary token (one typeface). */
-.mq-text-display {
-  font-family: var(--mq-font-primary);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
-}
-.mq-text-headline {
-  font-family: var(--mq-font-primary);
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-.mq-text-eyebrow {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  color: var(--mq-text-muted);
-}
-
 /* Premium gradient text */
 .mq-text-gradient {
   background: linear-gradient(135deg, var(--mq-text) 0%, color-mix(in srgb, var(--mq-accent) 70%, var(--mq-text)) 100%);
@@ -3661,7 +3640,15 @@ a:focus-visible {
 
    Long-title contract preserved everywhere: min-w-0 + flex:1 +
    truncate/line-clamp on the TEXT element; metadata & action buttons
-   never shrink. */
+   never shrink.
+
+   Layer note: tokens live in @layer components — Tailwind utilities
+   (layer utilities) legitimately override them when a surface truly
+   needs a one-off scale (e.g. hero h1 text-2xl). Everywhere else the
+   token is the single source: no residual text-[Npx]/text-* size
+   utilities on token'd elements. */
+
+@layer components {
 
 .mq-t-display {           /* hero moments, empty-state headlines */
   font-family: var(--mq-font-serif);
@@ -3785,6 +3772,8 @@ a:focus-visible {
   line-height: 1.2;
   letter-spacing: 0;
 }
+
+} /* end @layer components (type system) */
 
 /* ── Context menu system (v68) ────────────────────────────────────────────
    ONE menu engine for the whole app (MenuCore.tsx). CSS owns hover/active

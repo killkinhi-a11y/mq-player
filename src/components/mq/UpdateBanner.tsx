@@ -60,13 +60,13 @@ function UpdateBannerBase() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <h2
-                    className="mq-t-display text-[17px] leading-snug font-semibold"
+                    className="mq-t-display text-[17px] leading-snug"
                     style={{ color: "var(--mq-text)" }}
                   >
                     Новая версия MQ доступна
                   </h2>
                   <p
-                    className="mt-1 text-[13px] leading-relaxed"
+                    className="mq-t-body mt-1 leading-relaxed"
                     style={{ color: "var(--mq-text-muted)" }}
                   >
                     Улучшения плеера уже онлайн. Обновитесь, когда удобно —
@@ -75,7 +75,7 @@ function UpdateBannerBase() {
                 </div>
                 {info && (
                   <span
-                    className="mq-t-num flex-shrink-0 rounded-md px-2 py-1 text-[11px] whitespace-nowrap"
+                    className="mq-t-num flex-shrink-0 rounded-md px-2 py-1 whitespace-nowrap"
                     style={{
                       color: "var(--mq-text-muted)",
                       backgroundColor: "var(--mq-surface-1, #0e0e0e)",
@@ -92,7 +92,7 @@ function UpdateBannerBase() {
                 <button
                   type="button"
                   onClick={applyUpdate}
-                  className="mq-update-apply h-11 min-w-[128px] rounded-lg px-4 text-[14px] font-semibold
+                  className="mq-update-apply h-11 min-w-[128px] rounded-lg px-4 mq-t-btn
                              transition-transform duration-100 active:scale-[0.98]"
                   style={{
                     backgroundColor: "var(--mq-accent)",
@@ -105,7 +105,7 @@ function UpdateBannerBase() {
                 <button
                   type="button"
                   onClick={dismiss}
-                  className="h-11 rounded-lg px-4 text-[14px] font-medium transition-colors duration-150"
+                  className="h-11 rounded-lg px-4 mq-t-btn transition-colors duration-150"
                   style={{
                     color: "var(--mq-text-muted)",
                     border: "1px solid var(--mq-border-subtle, rgba(255,255,255,0.08))",
@@ -127,13 +127,13 @@ function UpdateBannerBase() {
               />
               <div className="min-w-0">
                 <p
-                  className="text-[14px] font-semibold"
+                  className="mq-t-track"
                   style={{ color: "var(--mq-text)" }}
                 >
                   Обновление…
                 </p>
                 <p
-                  className="text-[12px]"
+                  className="mq-t-meta"
                   style={{ color: "var(--mq-text-muted)" }}
                 >
                   Загружаем новую версию и восстанавливаем плеер.
@@ -146,13 +146,13 @@ function UpdateBannerBase() {
             <div className="flex flex-col gap-3">
               <div className="min-w-0">
                 <h2
-                  className="text-[15px] font-semibold"
+                  className="mq-t-track text-[15px]"
                   style={{ color: "var(--mq-text)" }}
                 >
                   Не удалось обновить
                 </h2>
                 <p
-                  className="mq-body mt-1 text-[13px]"
+                  className="mq-body mq-t-body mt-1"
                   style={{ color: "var(--mq-text-muted)" }}
                 >
                   {error || "Проверьте соединение и попробуйте снова."}
@@ -163,7 +163,7 @@ function UpdateBannerBase() {
                 <button
                   type="button"
                   onClick={applyUpdate}
-                  className="h-11 rounded-lg px-4 text-[14px] font-medium transition-colors duration-150"
+                  className="h-11 rounded-lg px-4 mq-t-btn transition-colors duration-150"
                   style={{
                     color: "var(--mq-text-on-accent, #fff)",
                     backgroundColor: "var(--mq-accent)",
@@ -199,10 +199,10 @@ function UpdateBannerBase() {
                 </svg>
               </div>
               <div className="min-w-0">
-                <p className="text-[14px] font-semibold" style={{ color: "var(--mq-text)" }}>
+                <p className="mq-t-track" style={{ color: "var(--mq-text)" }}>
                   Обновлено
                 </p>
-                <p className="mq-t-num text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                <p className="mq-t-num" style={{ color: "var(--mq-text-muted)" }}>
                   {info ? `v${info.version} · ${info.buildId?.replace("mq-build-", "")}` : "MQ обновлён"}
                 </p>
               </div>

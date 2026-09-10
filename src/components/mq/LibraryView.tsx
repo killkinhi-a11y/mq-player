@@ -97,7 +97,7 @@ const LibraryView = React.memo(function LibraryView() {
                 {/* Live count badge */}
                 {tab.count > 0 && (
                   <span
-                    className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                    className="mq-t-badge px-1.5 py-0.5 rounded-full"
                     style={{
                       backgroundColor: isActive
                         ? "color-mix(in srgb, var(--mq-accent) 18%, transparent)"

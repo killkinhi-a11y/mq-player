@@ -465,8 +465,8 @@ function FullTrackViewMobileInner() {
             Weight contrast: title 800 / artist regular-muted. */}
         <div className="mq-ft-anim px-4 flex items-end justify-between gap-3" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 60ms backwards" }}>
           <div className="min-w-0 flex-1">
-            <h1 className="mq-text-display text-[25px] leading-[1.15] tracking-[-0.015em] line-clamp-2 font-extrabold" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
-            <button onClick={handleArtist} className="mq-t-body text-[14px] mt-1.5 flex items-center gap-1 max-w-full text-left group" style={{ color: "var(--mq-text-muted)" }}>
+            <h1 className="mq-t-display text-[25px] line-clamp-2" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</h1>
+            <button onClick={handleArtist} className="mq-t-artist mt-1.5 flex items-center gap-1 max-w-full text-left group" style={{ color: "var(--mq-text-muted)" }}>
               <span className="truncate">{currentTrack.artist}</span>
               <ChevronUp className="w-3.5 h-3.5 flex-shrink-0 rotate-90 opacity-60" />
             </button>
@@ -537,8 +537,8 @@ function FullTrackViewMobileInner() {
         <div className="mq-ft-anim px-4 mt-3.5" style={{ flexShrink: 0, animation: "mqFtRise 0.45s cubic-bezier(0.16, 1, 0.3, 1) 150ms backwards" }}>
           {/* Editorial flip: times ABOVE the bar — current in text color, larger */}
           <div className="flex items-baseline justify-between">
-            <span ref={timeCurrentRef} className="text-[26px] font-mono tabular-nums font-bold leading-none tracking-tight" style={{ color: "var(--mq-text)" }}>0:00</span>
-            <span ref={timeRemainingRef} className="text-[13px] font-mono tabular-nums" style={{ color: "var(--mq-text-muted)" }}>−{formatDuration(duration)}</span>
+            <span ref={timeCurrentRef} className="mq-t-time text-[26px] font-bold leading-none" style={{ color: "var(--mq-text)" }}>0:00</span>
+            <span ref={timeRemainingRef} className="mq-t-time" style={{ color: "var(--mq-text-muted)" }}>−{formatDuration(duration)}</span>
           </div>
           <input
             ref={seekInputRef}
