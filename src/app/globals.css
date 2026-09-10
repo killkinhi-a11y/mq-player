@@ -3645,38 +3645,298 @@ a:focus-visible {
   --mq-art-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
 }
 
-/* ── Type scale ──────────────────────────────────────────────────────────
-   Display voice = Playfair serif (Cyrillic-ready) for greetings, hero
-   moments and empty-state headlines. Everything else = primary (Manrope).
-   Numerals/timestamps = mono with tabular figures. */
+/* ── Type system (v68 — ONE ROLE = ONE STYLE) ─────────────────────────────
+   Every text surface in the app maps to exactly one token below. The token
+   owns ALL typographic properties: size, weight, line-height, tracking.
+   Per-usage text-[Npx] font-weight/leading overrides are FORBIDDEN —
+   fix the role, not the instance.
 
-.mq-t-display {
+   Voice map:
+     Display/Page    — big statements, view titles
+     Section/Label   — structure (label = quiet uppercase eyebrow)
+     Track/Artist    — the music itself; track = 600, artist = muted
+     Body/Meta/ Meta2 — running text, captions
+     Btn/Nav/Badge   — chrome (buttons, navigation, counts)
+     Time/Num        — mono tabular digits (player time, dB, metrics)
+
+   Long-title contract preserved everywhere: min-w-0 + flex:1 +
+   truncate/line-clamp on the TEXT element; metadata & action buttons
+   never shrink. */
+
+.mq-t-display {           /* hero moments, empty-state headlines */
   font-family: var(--mq-font-serif);
+  font-size: 30px;
   font-weight: 600;
-  letter-spacing: -0.01em;
-  line-height: 1.12;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
 }
-
-.mq-t-title {
+.mq-t-page {              /* view title: Поиск, Избранное, История */
   font-family: var(--mq-font-primary);
-  font-weight: 600;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+.mq-t-section {           /* section headings: "Рекомендации", "Недавно" */
+  font-family: var(--mq-font-primary);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
   letter-spacing: -0.01em;
 }
-
-.mq-t-meta {
+.mq-t-label {             /* eyebrow / quiet uppercase label */
   font-family: var(--mq-font-primary);
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--mq-text-muted);
 }
-
-.mq-t-num {
-  font-family: var(--mq-font-mono);
-  font-variant-numeric: tabular-nums;
+.mq-t-track {             /* track title (default density) */
+  font-family: var(--mq-font-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+.mq-t-track-sm {          /* track title (compact rows / cards) */
+  font-family: var(--mq-font-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+.mq-t-artist {            /* artist name line */
+  font-family: var(--mq-font-primary);
+  font-size: 13px;
   font-weight: 500;
+  line-height: 1.4;
+  color: var(--mq-text-muted);
+}
+.mq-t-body {              /* plain running text */
+  font-family: var(--mq-font-primary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+}
+.mq-t-meta {              /* metadata: dates, counts, subtitles */
+  font-family: var(--mq-font-primary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--mq-text-muted);
+}
+.mq-t-meta-2 {            /* secondary metadata / captions */
+  font-family: var(--mq-font-primary);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--mq-text-muted);
+  opacity: 0.78;
+}
+.mq-t-btn {               /* button label */
+  font-family: var(--mq-font-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+}
+.mq-t-nav {               /* navigation item */
+  font-family: var(--mq-font-primary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+}
+.mq-t-badge {             /* badges, counts, status chips */
+  font-family: var(--mq-font-primary);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.mq-t-time {              /* player time / progress */
+  font-family: var(--mq-font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.mq-t-num {               /* numeric / audio metrics: dB, LUFS, % */
+  font-family: var(--mq-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  line-height: 1.2;
+}
+.mq-t-title {             /* legacy alias → track title */
+  font-family: var(--mq-font-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+.mq-t-menu {              /* context-menu item label */
+  font-family: var(--mq-font-primary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
   letter-spacing: 0;
 }
 
-/* (mq-t-eyebrow folded into existing .mq-text-eyebrow — one eyebrow voice) */
+/* ── Context menu system (v68) ────────────────────────────────────────────
+   ONE menu engine for the whole app (MenuCore.tsx). CSS owns hover/active
+   feedback (one-owner: background + color only, 80ms). Framer owns the
+   mount/unmount transform. No transition-all, no glow, no z-wars:
+   backdrop z 10000 / surface z 10001, both portaled to <body>. */
+
+.mq-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background: transparent;
+  z-index: 10000;
+}
+
+.mq-menu-surface {
+  position: fixed;
+  min-width: 232px;
+  max-width: 300px;
+  max-height: min(420px, calc(100vh - 180px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  border-radius: var(--mq-r-card);
+  background: var(--mq-surface-1);
+  border: 1px solid var(--mq-edge-strong);
+  box-shadow: var(--mq-elev-dialog);
+  z-index: 10001;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mq-menu-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 10px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--mq-edge);
+}
+
+.mq-menu-label {
+  font-family: var(--mq-font-primary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mq-text-muted);
+  padding: 8px 10px 4px;
+}
+
+.mq-menu-sep {
+  height: 1px;
+  margin: 5px 8px;
+  background: var(--mq-edge);
+}
+
+.mq-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: left;
+  color: var(--mq-text);
+  transition: background-color 80ms ease, color 80ms ease;
+}
+.mq-menu-item:hover:not(:disabled),
+.mq-menu-item:focus-visible:not(:disabled) {
+  background: var(--mq-overlay-hover);
+  outline: none;
+}
+.mq-menu-item:active:not(:disabled) {
+  background: var(--mq-surface-2);
+}
+.mq-menu-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.mq-menu-item[data-destructive="true"] {
+  color: var(--mq-error);
+}
+.mq-menu-item[data-destructive="true"]:hover:not(:disabled),
+.mq-menu-item[data-destructive="true"]:focus-visible:not(:disabled) {
+  background: color-mix(in srgb, var(--mq-error) 12%, transparent);
+}
+.mq-menu-item[data-destructive="true"] .mq-menu-icon {
+  color: var(--mq-error);
+}
+
+.mq-menu-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  color: var(--mq-text-muted);
+}
+.mq-menu-item[data-active="true"] .mq-menu-icon,
+.mq-menu-item[data-accent="true"] .mq-menu-icon {
+  color: var(--mq-accent);
+}
+
+.mq-menu-item[data-accent="true"] {
+  color: var(--mq-accent);
+}
+
+.mq-menu-hint {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--mq-text-muted);
+}
+
+/* Mobile: bottom sheet */
+.mq-menu-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  min-width: 0;
+  max-width: none;
+  width: 100%;
+  max-height: 72vh;
+  border-radius: 16px 16px 0 0;
+  padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+  z-index: 10001;
+  animation: mq-sheet-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@keyframes mq-sheet-up {
+  from { transform: translateY(48px); opacity: 0.4; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.mq-menu-sheet .mq-menu-item {
+  min-height: 48px;
+}
+.mq-menu-grabber {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--mq-edge-strong);
+  margin: 4px auto 6px;
+  flex-shrink: 0;
+}
+.mq-menu-backdrop[data-sheet="true"] {
+  background: rgba(0, 0, 0, 0.45);
+  animation: mq-sheet-fade 0.22s ease;
+}
+@keyframes mq-sheet-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 
 /* ── Surfaces ───────────────────────────────────────────────────────────── */
 /* Every card sits on surface-1 with a hairline edge. Hover = edge lights

@@ -7,6 +7,7 @@ import { genresList, type Track, formatDuration } from "@/lib/musicApi";
 import TrackCard from "./TrackCard";
 import ScrollReveal from "./ScrollReveal";
 import ContextMenu from "./ContextMenu";
+import { TrackMoreButton } from "./ui/TrackMoreButton";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import { useLongPress } from "@/hooks/useLongPress";
 import { Input } from "@/components/ui/input";
@@ -15,7 +16,7 @@ import {
   Search, X, SlidersHorizontal, Play, Upload, Clock, Trash2, CheckCircle2,
   AlertCircle, Loader2, Headphones, TrendingUp, ChevronRight, Music, Sparkles,
   RefreshCw, Flame, Zap, Mic, Disc, Heart, Piano, Radio, RotateCcw, ListMusic,
-  Hash, ArrowRight, MoreHorizontal
+  Hash, ArrowRight
 } from "lucide-react";
 
 const SEARCH_HISTORY_KEY = "mq-search-history";
@@ -441,8 +442,8 @@ export default function SearchView() {
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
-                  <p className="text-[11px] truncate mq-t-meta">{track.artist}</p>
+                  <p className="mq-t-track-sm truncate" style={{ color: "var(--mq-text)" }}>{track.title}</p>
+                  <p className="truncate mq-t-meta">{track.artist}</p>
                 </div>
               </motion.button>
             ))}
@@ -1106,7 +1107,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
             {track.duration > 0 && (
               <span className="flex items-center gap-1.5 flex-shrink min-w-0">
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
-                <span className="mq-t-num text-[11px] truncate max-w-[64px]" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+                <span className="mq-t-num truncate max-w-[64px]" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
                   {formatDuration(track.duration)}
                 </span>
               </span>
@@ -1114,7 +1115,7 @@ const SearchTrackRow = memo(function SearchTrackRow({
             {track.genre && (
               <span className="flex items-center gap-1.5 flex-shrink min-w-0">
                 <span style={{ color: "var(--mq-text-muted)", opacity: 0.4 }}>·</span>
-                <span className="text-[11px] px-1.5 py-0 rounded-md max-w-[140px] truncate" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)", color: "var(--mq-text-muted)" }}>
+                <span className="mq-t-meta-2 px-1.5 py-0 rounded-md max-w-[140px] truncate" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)" }}>
                   {track.genre}
                 </span>
               </span>
@@ -1132,15 +1133,11 @@ const SearchTrackRow = memo(function SearchTrackRow({
           <Heart className="w-4 h-4" fill={isLiked ? "currentColor" : "none"} />
         </button>
 
-        {/* More button (3-dot) */}
-        <button
-          onClick={handleMoreClick}
-          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100 transition-opacity"
-          style={{ color: "var(--mq-text-muted)" }}
-          aria-label="Меню"
-        >
-          <MoreHorizontal className="w-4 h-4" />
-        </button>
+        {/* More button (3-dot) — unified trigger (v68) */}
+        <TrackMoreButton
+          onOpen={handleMoreClick}
+          label={`Действия: ${track.title}`}
+        />
       </div>
 
       {/* Context menu */}
@@ -1218,7 +1215,7 @@ function SearchSuggestions({
       {/* History matches */}
       {historyMatches.length > 0 && (
         <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-          <p className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="px-4 pt-2 pb-1 mq-t-label">
             Недавно искали
           </p>
           {historyMatches.map((term) => (
@@ -1237,7 +1234,7 @@ function SearchSuggestions({
       {/* Trending matches */}
       {trendingMatches.length > 0 && (
         <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-          <p className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="px-4 pt-2 pb-1 mq-t-label">
             Популярное
           </p>
           {trendingMatches.map((term) => (
@@ -1256,7 +1253,7 @@ function SearchSuggestions({
       {/* Artist matches */}
       {artistMatches.length > 0 && (
         <div className="border-t" style={{ borderColor: "var(--mq-border-hairline)" }}>
-          <p className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
+          <p className="px-4 pt-2 pb-1 mq-t-label">
             Артисты
           </p>
           {artistMatches.map((artist) => (

@@ -22,6 +22,7 @@ import { LyricsView, type LyricLine } from "./LyricsView";
 import { AudioVisualizer } from "./AudioVisualizer";
 import { ShareSheet } from "./ShareSheet";
 import { waveReasonText } from "./MainView";
+import MenuCore, { MenuHeader, type MenuElement } from "./ui/MenuCore";
 
 // ═════════════════════════════════════════════════════════════════════════
 // FULL TRACK VIEW — full-screen premium player
@@ -169,7 +170,7 @@ export default function FullTrackView() {
   // Wide 3-column composition (artwork | center | context panel) kicks in at
   // ≥1024px. Below that (768–1023) the centered 2-column layout is kept.
   // JS-level branch (not CSS lg:hidden) so refs (progressBarRef, coverRef,
-  // moreMenuRef) attach to the actually-mounted tree.
+  // volume popup) attach to the actually-mounted tree.
   const [isWide, setIsWide] = useState(false);
   useEffect(() => {
     const mql = window.matchMedia("(min-width: 1024px)");
@@ -194,7 +195,9 @@ export default function FullTrackView() {
   const [lyricsError, setLyricsError] = useState<string | null>(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showSleepMenu, setShowSleepMenu] = useState(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  // v68: More menu = unified MenuCore (portal, keyboard, flip). Anchor at
+  // trigger position; null = closed. Replaces the inline absolute menu.
+  const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
   const [showDoubleTapHint, setShowDoubleTapHint] = useState(true);
   const [showVisualizer, setShowVisualizer] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
@@ -609,22 +612,10 @@ export default function FullTrackView() {
     return () => window.removeEventListener("mousedown", onDown);
   }, [showVolumePopup]);
 
-  // Close More menu on outside click
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!showMoreMenu) return;
-    const onDown = (e: MouseEvent) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
-        setShowMoreMenu(false);
-      }
-    };
-    window.addEventListener("mousedown", onDown);
-    return () => window.removeEventListener("mousedown", onDown);
-  }, [showMoreMenu]);
   // ── Shared layout nodes ───────────────────────────────────────────────────
   // The classic (≤1023px) and wide (≥1024px) compositions render from the
   // same node trees below; only ONE composition is mounted at a time, so
-  // shared refs (coverRef / progressBarRef / moreMenuRef) always attach to
+  // shared refs (coverRef / progressBarRef) always attach to
   // live DOM.
   const coverBox = currentTrack ? (
     <>
@@ -777,88 +768,171 @@ export default function FullTrackView() {
         >
           <History className="w-4 h-4" style={{ color: panelTab === "history" ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
         </button>
-        {/* More button — replaces 4 secondary buttons (EQ, Spatial, Speed, Sleep) */}
-        {/* Reduces action row from 11 buttons to 8 — cleaner UX */}
-        <div className="relative" ref={moreMenuRef}>
+        {/* ── More button (v68) — unified MenuCore context menu ─────────────
+            One premium menu with two sections: track actions (share / copy /
+            download) + playback settings (EQ / spatial / speed / sleep /
+            visualizer). Portal-positioned, keyboard-navigable, auto-flip,
+            mobile bottom-sheet. Replaces the old inline absolute menu. */}
+        <div className="relative">
           <button
-            onClick={() => { setShowMoreMenu(!showMoreMenu); setShowSpeedMenu(false); setShowSleepMenu(false); }}
-            aria-label="Дополнительные настройки"
-            aria-expanded={showMoreMenu}
+            onClick={(e) => {
+              setShowSpeedMenu(false);
+              setShowSleepMenu(false);
+              if (moreMenu) {
+                setMoreMenu(null);
+              } else {
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                setMoreMenu({ x: Math.max(8, rect.right - 280), y: rect.bottom + 6 });
+              }
+            }}
+            aria-label="Контекстное меню трека"
+            aria-expanded={!!moreMenu}
             aria-haspopup="menu"
-            /* §HOVER: CSS owns hover bg (was missing — no feedback at all). */
             className="w-10 h-10 rounded-full flex items-center justify-center relative mq-icon-btn"
-            data-active={eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer}
+            data-active={eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer || !!moreMenu}
             title="Дополнительно"
           >
             <MoreHorizontal className="w-4 h-4" style={{ color: (eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer) ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-            {/* Active indicator dot */}
             {(eqEnabled || spatialAudioEnabled || playbackRate !== 1 || sleepTimerActive || showVisualizer) && (
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
             )}
           </button>
-          <AnimatePresence>
-            {showMoreMenu && (
-              <motion.div
-                initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute top-full right-0 mt-2 z-50 rounded-[var(--mq-r-card)] overflow-hidden min-w-[200px]"
-                style={{
-                  backgroundColor: "var(--mq-surface-1)",
-                  border: "1px solid var(--mq-edge-strong)",
-                  boxShadow: "var(--mq-elev-dialog)",
-                }}
-              >
-                <button
-                  onClick={() => { setEqOpen(true); setShowMoreMenu(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                >
-                  <Sliders className="w-4 h-4" style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                  <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Эквалайзер</span>
-                  {eqEnabled && <span className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>ON</span>}
-                </button>
-                <button
-                  onClick={() => setSpatialAudioEnabled(!spatialAudioEnabled)}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                  style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-                >
-                  <AirVent className="w-4 h-4" style={{ color: spatialAudioEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                  <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Пространственное аудио</span>
-                  {spatialAudioEnabled && <span className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>ON</span>}
-                </button>
-                <button
-                  onClick={() => { setShowSpeedMenu(!showSpeedMenu); setShowMoreMenu(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                  style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-                >
-                  <Gauge className="w-4 h-4" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                  <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Скорость</span>
-                  <span className="text-xs font-mono" style={{ color: playbackRate !== 1 ? "var(--mq-accent)" : "var(--mq-text-muted)" }}>{playbackRate}x</span>
-                </button>
-                <button
-                  onClick={() => { setShowSleepMenu(!showSleepMenu); setShowMoreMenu(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                  style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-                >
-                  <Timer className="w-4 h-4" style={{ color: sleepTimerActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                  <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Таймер сна</span>
-                  {sleepTimerActive && <span className="text-xs font-mono" style={{ color: "var(--mq-accent)" }}>{sleepRemainingMin}м</span>}
-                </button>
-                <button
-                  onClick={() => { setShowVisualizer(!showVisualizer); setShowMoreMenu(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[var(--mq-overlay-hover)]"
-                  style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
-                >
-                  <Sparkles className="w-4 h-4" style={{ color: showVisualizer ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                  <span className="text-sm flex-1" style={{ color: "var(--mq-text)" }}>Визуализатор</span>
-                  {showVisualizer && <span className="text-[11px] font-semibold" style={{ color: "var(--mq-accent)" }}>ВКЛ</span>}
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       </div>
+
+      {/* v68 unified context menu (portal) — track actions + playback settings */}
+      {moreMenu && currentTrack && (
+        <MenuCore
+          anchor={moreMenu}
+          onClose={() => setMoreMenu(null)}
+          width={280}
+          ariaLabel="Меню трека и воспроизведения"
+          header={
+            <MenuHeader
+              cover={currentTrack.cover}
+              title={currentTrack.title}
+              subtitle={currentTrack.artist}
+              fallbackIcon={Music}
+            />
+          }
+          elements={[
+            { type: "label", text: "Трек" },
+            {
+              type: "item",
+              id: "share",
+              icon: Share2,
+              label: "Поделиться",
+              onSelect: () => {
+                setMoreMenu(null);
+                setShowShareSheet(true);
+              },
+            },
+            {
+              type: "item",
+              id: "copy",
+              icon: Clock,
+              label: "Копировать название",
+              onSelect: () => {
+                navigator.clipboard.writeText(`${currentTrack.title} — ${currentTrack.artist}`).catch(() => {});
+                setMoreMenu(null);
+                toast({ title: "Название скопировано" });
+              },
+            },
+            {
+              type: "item",
+              id: "download",
+              icon: Music,
+              label: "Скачать",
+              onSelect: async () => {
+                setMoreMenu(null);
+                const audio = getAudioElement();
+                if (audio && audio.src) {
+                  const name = `${currentTrack.artist} - ${currentTrack.title}.mp3`;
+                  try {
+                    const res = await fetch(audio.src);
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  } catch {
+                    const a = document.createElement("a");
+                    a.href = audio.src;
+                    a.download = name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  }
+                }
+              },
+            },
+            { type: "separator" },
+            { type: "label", text: "Воспроизведение" },
+            {
+              type: "item",
+              id: "eq",
+              icon: Sliders,
+              label: "Эквалайзер",
+              active: eqEnabled,
+              hint: eqEnabled ? "ВКЛ" : undefined,
+              onSelect: () => {
+                setMoreMenu(null);
+                setEqOpen(true);
+              },
+            },
+            {
+              type: "item",
+              id: "spatial",
+              icon: AirVent,
+              label: "Пространственное аудио",
+              checked: spatialAudioEnabled,
+              onSelect: () => {
+                setSpatialAudioEnabled(!spatialAudioEnabled);
+                setMoreMenu(null);
+              },
+            },
+            {
+              type: "item",
+              id: "speed",
+              icon: Gauge,
+              label: "Скорость",
+              active: playbackRate !== 1,
+              hint: `${playbackRate}x`,
+              onSelect: () => {
+                setMoreMenu(null);
+                setShowSpeedMenu(true);
+              },
+            },
+            {
+              type: "item",
+              id: "sleep",
+              icon: Timer,
+              label: "Таймер сна",
+              active: sleepTimerActive,
+              hint: sleepTimerActive ? `${sleepRemainingMin}м` : undefined,
+              onSelect: () => {
+                setMoreMenu(null);
+                setShowSleepMenu(true);
+              },
+            },
+            {
+              type: "item",
+              id: "visualizer",
+              icon: Sparkles,
+              label: "Визуализатор",
+              checked: showVisualizer,
+              onSelect: () => {
+                setShowVisualizer(!showVisualizer);
+                setMoreMenu(null);
+              },
+            },
+          ] satisfies MenuElement[]}
+        />
+      )}
 
       {/* Playlist picker — add current track to a playlist */}
       <AnimatePresence>

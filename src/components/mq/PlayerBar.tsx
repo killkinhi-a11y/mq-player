@@ -5,7 +5,7 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipBack, SkipForward,
-  Repeat, Repeat1, Shuffle, Music, Heart, ListMusic,
+  Repeat, Repeat1, Shuffle, Music, Heart, ListMusic, User,
   Loader2, ThumbsDown, Volume2, VolumeX, Volume1, Sliders, Waves,
   Share2, MoreHorizontal,
 } from "lucide-react";
@@ -19,6 +19,7 @@ import { useToast } from "@/hooks/use-toast";
 import QueueView from "./QueueView";
 import { ProgressBar } from "./ProgressBar";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
+import MenuCore, { MenuHeader } from "./ui/MenuCore";
 
 // ═════════════════════════════════════════════════════════════════════════
 // PLAYER BAR — desktop mini player (Phase 2B redesign)
@@ -58,6 +59,7 @@ export default function PlayerBar() {
   const peekNextTrack = useAppStore((s) => s.peekNextTrack);
 
   const togglePlay = useAppStore((s) => s.togglePlay);
+  const setSelectedArtist = useAppStore((s) => s.setSelectedArtist);
   const nextTrack = useAppStore((s) => s.nextTrack);
   const prevTrack = useAppStore((s) => s.prevTrack);
   const setVolume = useAppStore((s) => s.setVolume);
@@ -86,27 +88,9 @@ export default function PlayerBar() {
   const isMobile = useIsMobile();
   const [isDragging, setIsDragging] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
-  const [showMoreMenu, setShowMoreMenu] = useState(false);
-  const moreMenuRef = useRef<HTMLDivElement>(null);
-
-  // ── More menu: close on outside click / Escape ──
-  useEffect(() => {
-    if (!showMoreMenu) return;
-    const onDown = (e: MouseEvent) => {
-      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) {
-        setShowMoreMenu(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowMoreMenu(false);
-    };
-    window.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [showMoreMenu]);
+  // v68: More menu = unified MenuCore (portal, keyboard, Escape, flip).
+  // PlayerBar sits at the bottom → menu opens ABOVE the trigger.
+  const [moreMenu, setMoreMenu] = useState<{ x: number; y: number } | null>(null);
 
   // ── Progress bar callbacks (memoized to prevent ProgressBar's drag
   // useEffect from re-running on every render — inline arrow functions
@@ -220,7 +204,7 @@ export default function PlayerBar() {
         duration: 2000,
       });
     }
-    setShowMoreMenu(false);
+    setMoreMenu(null);
   }, [currentTrack, toggleDislike, toast]);
 
   const handleShare = useCallback(async () => {
@@ -232,7 +216,7 @@ export default function PlayerBar() {
       navigator.clipboard.writeText(url);
       toast({ title: "Ссылка скопирована", duration: 2000 });
     }
-    setShowMoreMenu(false);
+    setMoreMenu(null);
   }, [currentTrack, toast]);
 
   const openFullPlayer = useCallback(() => {
@@ -334,7 +318,7 @@ export default function PlayerBar() {
                       "откуда играет трек". Статичный бейдж, без анимации. */}
                   {radioMode && (
                     <span
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider flex-shrink-0"
+                      className="mq-t-badge inline-flex items-center gap-1 px-1.5 py-0.5 rounded flex-shrink-0"
                       style={{
                         color: "var(--mq-accent)",
                         backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, transparent)",
@@ -347,9 +331,9 @@ export default function PlayerBar() {
                       Волна
                     </span>
                   )}
-                  <p className="text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
+                  <p className="mq-t-track truncate" style={{ color: "var(--mq-text)" }}>{currentTrack.title}</p>
                 </div>
-                <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>{currentTrack.artist}</p>
+                <p className="mq-t-artist truncate">{currentTrack.artist}</p>
               </div>
             </button>
 
@@ -430,19 +414,19 @@ export default function PlayerBar() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-accent)" }}>
+                          <p className="mq-t-label" style={{ color: "var(--mq-accent)" }}>
                             Далее
                           </p>
-                          <p className="text-xs font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+                          <p className="mq-t-track truncate" style={{ color: "var(--mq-text)" }}>
                             {nextTrackPreview.title}
                           </p>
-                          <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                          <p className="mq-t-artist truncate">
                             {nextTrackPreview.artist}
                           </p>
                         </div>
                         {nextTrackPreview.duration > 0 && (
                           <span
-                            className="text-[11px] font-medium flex-shrink-0 self-center px-1.5 py-0.5 rounded-md"
+                            className="mq-t-num flex-shrink-0 self-center px-1.5 py-0.5 rounded-md"
                             style={{
                               color: "var(--mq-text-muted)",
                               backgroundColor: "color-mix(in srgb, var(--mq-text-muted) 10%, transparent)",
@@ -576,75 +560,97 @@ export default function PlayerBar() {
               </button>
 
               {/* More — advanced controls live here, not on the play level:
-                  EQ, dislike, share. Static accent dot when something is on. */}
-              <div className="relative flex-shrink-0" ref={moreMenuRef}>
+                  EQ, dislike, share, artist. Static accent dot when on.
+                  v68: unified MenuCore, opens ABOVE (bar is at the bottom). */}
+              <div className="relative flex-shrink-0">
                 <button
-                  onClick={() => setShowMoreMenu(v => !v)}
+                  onClick={(e) => {
+                    if (moreMenu) {
+                      setMoreMenu(null);
+                    } else {
+                      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                      setMoreMenu({ x: Math.max(8, rect.right - 250), y: rect.top - 6 });
+                    }
+                  }}
                   className="w-9 h-9 rounded-full flex items-center justify-center relative mq-icon-btn"
-                  data-active={showMoreMenu}
+                  data-active={!!moreMenu}
                   style={{ ["--mq-active-bg" as string]: "var(--mq-overlay-hover)" }}
                   title="Дополнительно"
                   aria-label="Дополнительные действия"
                   aria-haspopup="menu"
-                  aria-expanded={showMoreMenu}
+                  aria-expanded={!!moreMenu}
                 >
                   <MoreHorizontal className="w-4 h-4" style={{ color: anyAdvancedActive ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
                   {anyAdvancedActive && (
                     <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
                   )}
                 </button>
-                <AnimatePresence>
-                  {showMoreMenu && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8, scale: 0.96 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 8, scale: 0.96 }}
-                      transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-                      role="menu"
-                      aria-label="Дополнительные действия"
-                      className="absolute bottom-full right-0 mb-2 z-50 rounded-xl overflow-hidden min-w-[210px] py-1"
-                      style={{
-                        backgroundColor: "var(--mq-surface-1)",
-                        border: "1px solid var(--mq-edge-strong)",
-                        boxShadow: "var(--mq-elev-dialog)",
-                      }}
-                    >
-                      <button
-                        role="menuitem"
-                        onClick={() => { setEqOpen(true); setShowMoreMenu(false); }}
-                        className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm transition-colors hover:bg-[var(--mq-overlay-hover)] text-left"
-                        style={{ color: "var(--mq-text)" }}
-                      >
-                        <Sliders className="w-4 h-4 flex-shrink-0" style={{ color: eqEnabled ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-                        Эквалайзер
-                        {eqEnabled && <span className="ml-auto text-[11px] font-bold" style={{ color: "var(--mq-accent)" }}>ВКЛ</span>}
-                      </button>
-                      <button
-                        role="menuitem"
-                        onClick={handleDislike}
-                        className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm transition-colors hover:bg-[var(--mq-overlay-hover)] text-left"
-                        style={{ color: "var(--mq-text)" }}
-                      >
-                        <ThumbsDown className="w-4 h-4 flex-shrink-0" style={{ color: isDisliked ? "var(--mq-error, #ef4444)" : "var(--mq-text-muted)" }} fill={isDisliked ? "currentColor" : "none"} />
-                        Не нравится
-                      </button>
-                      <button
-                        role="menuitem"
-                        onClick={handleShare}
-                        className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm transition-colors hover:bg-[var(--mq-overlay-hover)] text-left"
-                        style={{ color: "var(--mq-text)" }}
-                      >
-                        <Share2 className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-text-muted)" }} />
-                        Поделиться
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </div>
             </div>
           </div>
         </div>
       </motion.div>
+      {/* v68: unified More menu (portal) — opens above the bar */}
+      {moreMenu && currentTrack && (
+        <MenuCore
+          anchor={moreMenu}
+          onClose={() => setMoreMenu(null)}
+          side="above"
+          width={250}
+          ariaLabel="Действия с треком"
+          header={
+            <MenuHeader
+              cover={currentTrack.cover}
+              title={currentTrack.title}
+              subtitle={currentTrack.artist}
+              fallbackIcon={Music}
+            />
+          }
+          elements={[
+            {
+              type: "item",
+              id: "eq",
+              icon: Sliders,
+              label: "Эквалайзер",
+              active: eqEnabled,
+              hint: eqEnabled ? "ВКЛ" : undefined,
+              onSelect: () => {
+                setMoreMenu(null);
+                setEqOpen(true);
+              },
+            },
+            {
+              type: "item",
+              id: "dislike",
+              icon: ThumbsDown,
+              label: isDisliked ? "Убрать дизлайк" : "Не нравится",
+              active: isDisliked,
+              onSelect: handleDislike,
+            },
+            {
+              type: "item",
+              id: "share",
+              icon: Share2,
+              label: "Поделиться",
+              onSelect: handleShare,
+            },
+            ...(currentTrack.artist
+              ? [
+                  {
+                    type: "item" as const,
+                    id: "artist",
+                    icon: User,
+                    label: "К артисту",
+                    onSelect: () => {
+                      setSelectedArtist({ name: currentTrack.artist, avatar: currentTrack.cover || undefined });
+                      setMoreMenu(null);
+                    },
+                  },
+                ]
+              : []),
+          ]}
+        />
+      )}
       <QueueView isOpen={showQueue} onClose={() => setShowQueue(false)} />
     </>
   );

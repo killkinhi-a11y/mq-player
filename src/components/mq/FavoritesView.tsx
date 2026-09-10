@@ -8,10 +8,11 @@ import {
   Search, Shuffle, ArrowDownUp, ListFilter, ChevronDown,
   Timer, Disc3, Sparkles, CheckCircle2, ThumbsDown,
   CheckSquare, Square, ListPlus, Tag, Filter, SlidersHorizontal,
-  CalendarDays, MoreHorizontal,
+  CalendarDays,
 } from "lucide-react";
 import type { Track } from "@/lib/musicApi";
 import ContextMenu from "./ContextMenu";
+import { TrackMoreButton } from "./ui/TrackMoreButton";
 import { useTrackContextMenu } from "@/hooks/useTrackContextMenu";
 
 type TabType = "liked" | "disliked" | "subscriptions";
@@ -339,10 +340,10 @@ export default function FavoritesView() {
             )}
           </motion.div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold tracking-tight" style={{ color: "var(--mq-text)", letterSpacing: "-0.02em", fontFamily: "var(--mq-font-serif)" }}>
+            <h1 className="mq-t-page" style={{ color: "var(--mq-text)" }}>
               Избранное
             </h1>
-            <p className="text-[11px] mt-0.5" style={{ color: "var(--mq-text-muted)" }}>
+            <p className="mq-t-meta-2 mt-0.5">
               {likedTrackIds.length} понр. · {dislikedTrackIds.length} не понр. · {favoriteArtists.length} подписок
             </p>
           </div>
@@ -601,7 +602,7 @@ export default function FavoritesView() {
           exit={{ opacity: 0, y: -10, height: 0 }}
           className="flex items-center gap-2 mb-3 px-1"
         >
-          <span className="text-[11px] font-medium" style={{ color: "var(--mq-text-muted)" }}>
+          <span className="mq-t-meta-2">
             Выбрано: {selectedIds.size}
           </span>
           <div className="flex-1" />
@@ -706,13 +707,13 @@ export default function FavoritesView() {
           </motion.button>
           <div className="flex-1" />
           {totalDuration > 0 && (
-            <span className="text-[11px] flex items-center gap-1.5" style={{ color: "var(--mq-text-muted)" }}>
+            <span className="mq-t-meta-2 flex items-center gap-1.5">
               <Timer className="w-3 h-3" />
               {formatTotalDuration(totalDuration)}
             </span>
           )}
           {isSearchActive && (
-            <span className="text-[11px] ml-auto" style={{ color: "var(--mq-text-muted)" }}>
+            <span className="mq-t-meta-2 ml-auto">
               Найдено: {tracks.length}
             </span>
           )}
@@ -759,10 +760,10 @@ export default function FavoritesView() {
                   style={{ backgroundColor: "#8b5cf6" }}
                 />
               </motion.div>
-              <p className="text-sm font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
+              <p className="mq-t-track mb-1" style={{ color: "var(--mq-text)" }}>
                 Пока пусто
               </p>
-              <p className="text-xs leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+              <p className="mq-t-meta">
                 Подпишитесь на артистов — и они появятся здесь
               </p>
             </div>
@@ -816,12 +817,12 @@ export default function FavoritesView() {
                           </span>
                         )}
                         {artist.followers > 0 && (
-                          <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)", color: "var(--mq-text-muted)" }}>
+                          <span className="mq-t-meta-2 px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)" }}>
                             {formatNumber(artist.followers)}
                           </span>
                         )}
                         {artist.trackCount > 0 && (
-                          <span className="text-[11px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)", color: "var(--mq-text-muted)" }}>
+                          <span className="mq-t-meta-2 px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)" }}>
                             {artist.trackCount} треков
                           </span>
                         )}
@@ -915,10 +916,10 @@ export default function FavoritesView() {
                   style={{ backgroundColor: activeTab === "liked" ? "#ef4444" : "#f97316" }}
                 />
               </motion.div>
-              <p className="text-sm font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
+              <p className="mq-t-track mb-1" style={{ color: "var(--mq-text)" }}>
                 {activeTab === "liked" ? "Пока пусто" : "Пока пусто"}
               </p>
-              <p className="text-xs leading-relaxed max-w-[240px] text-center" style={{ color: "var(--mq-text-muted)" }}>
+              <p className="mq-t-meta max-w-[240px] text-center">
                 {activeTab === "liked"
                   ? "Лайкните трек — и он окажется здесь. Чем больше лайков, тем точнее рекомендации."
                   : "Дизлайкните трек — и он больше не попадётся в рекомендациях."}
@@ -949,10 +950,10 @@ export default function FavoritesView() {
               <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3" style={{ backgroundColor: "color-mix(in srgb, var(--mq-text) 4%, transparent)", border: "1px solid var(--mq-border-thin)" }}>
                 <Search className="w-6 h-6" style={{ color: "var(--mq-text-muted)", opacity: 0.35 }} />
               </div>
-              <p className="text-sm font-semibold mb-1" style={{ color: "var(--mq-text)" }}>
+              <p className="mq-t-track mb-1" style={{ color: "var(--mq-text)" }}>
                 Ничего не найдено
               </p>
-              <p className="text-xs" style={{ color: "var(--mq-text-muted)" }}>
+              <p className="mq-t-meta">
                 {isSearchActive ? `По запросу «${searchQuery}»` : "По выбранному фильтру"}
               </p>
               {activeFilter && (
@@ -1017,7 +1018,7 @@ export default function FavoritesView() {
                         /* Index / Play on hover */
                         <div className="w-6 text-center flex-shrink-0">
                           <span
-                            className="text-[11px] tabular-nums group-hover:hidden"
+                            className="mq-t-num group-hover:hidden"
                             style={{ color: isCurrentTrack ? "var(--mq-accent)" : "var(--mq-text-muted)", opacity: isCurrentTrack ? 1 : 0.4 }}
                           >
                             {index + 1}
@@ -1063,7 +1064,7 @@ export default function FavoritesView() {
                       {/* Track info */}
                       <div className="flex-1 min-w-0">
                         <p
-                          className="text-sm font-medium truncate"
+                          className="mq-t-track truncate"
                           style={{
                             color: isCurrentTrack ? "var(--mq-accent)" : "var(--mq-text)",
                           }}
@@ -1071,7 +1072,7 @@ export default function FavoritesView() {
                           {track.title}
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <p className="text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+                          <p className="mq-t-artist truncate">
                             <span
                               className="cursor-pointer hover:underline"
                               onClick={(e) => {
@@ -1086,7 +1087,7 @@ export default function FavoritesView() {
                           {/* Genre tag */}
                           {track.genre && (
                             <span
-                              className="text-[11px] font-medium px-1.5 py-0 rounded-md flex-shrink-0"
+                              className="mq-t-meta-2 px-1.5 py-0 rounded-md flex-shrink-0"
                               style={{
                                 backgroundColor: "color-mix(in srgb, var(--mq-text) 6%, transparent)",
                                 color: "var(--mq-text-muted)",
@@ -1100,23 +1101,17 @@ export default function FavoritesView() {
 
                       {/* Duration */}
                       {track.duration > 0 && (
-                        <span className="text-[11px] flex-shrink-0 hidden sm:block tabular-nums" style={{ color: "var(--mq-text-muted)", opacity: 0.6 }}>
+                        <span className="mq-t-num flex-shrink-0 hidden sm:block">
                           {formatDuration(track.duration)}
                         </span>
                       )}
 
-                      {/* More button (3-dot) — opens context menu */}
+                      {/* More button (3-dot) — unified trigger (v68) */}
                       {!batchMode && (
-                        <motion.button
-                          whileHover={{ scale: 1.12, transition: { duration: 0.12, ease: "easeOut" }} }
-                          whileTap={{ scale: 0.95, transition: { duration: 0.08 }} }
-                          onClick={(e) => handleMoreClick(track, e)}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
-                          style={{ color: "var(--mq-text-muted)", backgroundColor: "transparent" }}
-                          title="Меню"
-                        >
-                          <MoreHorizontal className="w-4 h-4" />
-                        </motion.button>
+                        <TrackMoreButton
+                          onOpen={(e) => handleMoreClick(track, e)}
+                          label={`Действия: ${track.title}`}
+                        />
                       )}
 
                       {/* Remove button (hidden in batch mode) */}
@@ -1186,10 +1181,10 @@ export default function FavoritesView() {
                   className="flex items-center justify-between px-4 py-2.5"
                   style={{ borderTop: "1px solid var(--mq-border-hairline)" }}
                 >
-                  <span className="text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="mq-t-meta-2">
                     {tracks.length} {tracks.length === 1 ? "трек" : tracks.length < 5 ? "трека" : "треков"}
                   </span>
-                  <span className="text-[11px] flex items-center gap-1.5" style={{ color: "var(--mq-text-muted)" }}>
+                  <span className="mq-t-meta-2 flex items-center gap-1.5">
                     <Timer className="w-3 h-3" />
                     {formatTotalDuration(totalDuration)}
                   </span>
@@ -1208,9 +1203,7 @@ export default function FavoritesView() {
           className="mt-3 flex items-center gap-2 px-1"
         >
           <ThumbsDown className="w-3.5 h-3.5" style={{ color: "#f97316", opacity: 0.5 }} />
-          <p className="text-[11px]" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
-            Эти треки исключены из рекомендаций и радиостанций
-          </p>
+          <p className="mq-t-meta-2">Эти треки исключены из рекомендаций и радиостанций</p>
         </motion.div>
       )}
 

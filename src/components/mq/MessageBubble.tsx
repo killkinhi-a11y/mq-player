@@ -5,6 +5,9 @@ import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import { Lock, Play, Pause, Music2, Headphones, BookOpen, Loader2, Check, CheckCheck, ChevronDown, Smile, Reply } from "lucide-react";
 import { simulateDecryptSync } from "@/lib/crypto";
+import ContextMenu from "./ContextMenu";
+import { TrackMoreButton } from "./ui/TrackMoreButton";
+import { type Track } from "@/lib/musicApi";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -392,6 +395,8 @@ export default function MessageBubble({
   onSwipeReply,
 }: MessageBubbleProps) {
   const isMine = message.senderId === currentUserId;
+  // v68: unified track context menu for shared track cards.
+  const [trackMenu, setTrackMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
 
   const time = new Date(message.createdAt).toLocaleTimeString("ru-RU", {
     hour: "2-digit",
@@ -690,6 +695,18 @@ export default function MessageBubble({
     }
 
     if (isTrackShare && trackShareData) {
+      const sharedTrack: Track = {
+        id: trackShareData.id,
+        title: trackShareData.title,
+        artist: trackShareData.artist,
+        cover: trackShareData.cover,
+        audioUrl: trackShareData.streamUrl || "",
+        duration: trackShareData.duration,
+        album: "",
+        genre: "",
+        source: (trackShareData.source as Track["source"]) || "soundcloud",
+        scTrackId: trackShareData.scTrackId,
+      };
       return (
         <motion.div
           className="flex items-center gap-3 mb-2 p-2 rounded-xl cursor-pointer"
@@ -699,22 +716,7 @@ export default function MessageBubble({
           }}
           whileTap={{ scale: 0.98, transition: { duration: 0.08 }} }
           onClick={() => {
-            const store = useAppStore.getState();
-            store.playTrack(
-              {
-                id: trackShareData!.id,
-                title: trackShareData!.title,
-                artist: trackShareData!.artist,
-                cover: trackShareData!.cover,
-                audioUrl: trackShareData!.streamUrl || "",
-                duration: trackShareData!.duration,
-                album: "",
-                genre: "",
-                source: (trackShareData!.source as any) || "soundcloud",
-                scTrackId: trackShareData!.scTrackId,
-              } as any,
-              []
-            );
+            useAppStore.getState().playTrack(sharedTrack, []);
           }}
         >
           {trackShareData.cover && (
@@ -730,14 +732,23 @@ export default function MessageBubble({
             </div>
           )}
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold truncate" style={{ color: isMine ? "#fff" : "var(--mq-text)" }}>
+            <p className="mq-t-track-sm truncate" style={{ color: isMine ? "#fff" : "var(--mq-text)" }}>
               {trackShareData.title}
             </p>
-            <p className="text-[11px] truncate" style={{ color: isMine ? "rgba(255,255,255,0.65)" : "var(--mq-text-muted)" }}>
+            <p className="mq-t-meta-2 truncate" style={{ color: isMine ? "rgba(255,255,255,0.65)" : "var(--mq-text-muted)" }}>
               {trackShareData.artist}
             </p>
           </div>
           <Music2 className="w-4 h-4 flex-shrink-0" style={{ color: isMine ? "rgba(255,255,255,0.5)" : "var(--mq-accent)" }} />
+          <TrackMoreButton
+            size="sm"
+            onOpen={(e) => {
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              setTrackMenu({ track: sharedTrack, x: rect.left, y: rect.bottom + 4 });
+            }}
+            label={`Действия: ${trackShareData.title}`}
+            alwaysVisible
+          />
         </motion.div>
       );
     }
@@ -750,7 +761,7 @@ export default function MessageBubble({
         >
           <Music2 className="w-4 h-4" style={{ color: isMine ? "rgba(255,255,255,0.6)" : "var(--mq-accent)" }} />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium truncate" style={{ color: isMine ? "#fff" : "var(--mq-text)" }}>
+            <p className="mq-t-track-sm truncate" style={{ color: isMine ? "#fff" : "var(--mq-text)" }}>
               Поделился треком
             </p>
           </div>
@@ -769,6 +780,16 @@ export default function MessageBubble({
       className={`flex ${isMine ? "justify-end" : "justify-start"} w-full`}
     >
       <div className="max-w-[85%] lg:max-w-[70%] w-fit group/msg relative" style={{ minWidth: 0 }}>
+      {/* v68: unified context menu (portal) for the shared track */}
+      {trackMenu && (
+        <ContextMenu
+          track={trackMenu.track}
+          x={trackMenu.x}
+          y={trackMenu.y}
+          onClose={() => setTrackMenu(null)}
+          bottomInset={96}
+        />
+      )}
         {/* Sender name (received messages only) */}
         {!isMine && message.senderName && (
           <p

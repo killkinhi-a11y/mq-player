@@ -7,11 +7,13 @@ import { type Track, formatDuration } from "@/lib/musicApi";
 import {
   Plus, Trash2, Play, ListMusic, ChevronLeft,
   Edit3, X, Check, Clock, Heart, Download, Loader2, AlertCircle,
-  Camera, Shuffle, Pin, MoreVertical, Music, Share2, MoreHorizontal, Pause,
+  Camera, Shuffle, Pin, MoreVertical, Music, Share2, Pause,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { EmptyState } from "./EmptyState";
 import ContextMenu from "./ContextMenu";
+import PlaylistActionsMenu from "./PlaylistActionsMenu";
+import { TrackMoreButton } from "./ui/TrackMoreButton";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 
 // ─── helpers ──────────────────────────────────────────────────────────────
@@ -557,12 +559,12 @@ export default function PlaylistView() {
             <div className="flex-1 min-w-0 flex flex-col sm:justify-end">
               {/* Eyebrow */}
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-[11px] uppercase tracking-[0.14em] font-bold" style={{ color: "var(--mq-accent)" }}>
+                <span className="mq-t-label" style={{ color: "var(--mq-accent)" }}>
                   Плейлист
                 </span>
                 {isPinned && (
                   <span
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                    className="mq-t-badge inline-flex items-center gap-1 px-2 py-0.5 rounded-full"
                     style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 12%, transparent)", color: "var(--mq-accent)" }}
                   >
                     <Pin className="w-3 h-3" />
@@ -616,7 +618,7 @@ export default function PlaylistView() {
               )}
 
               {/* Meta line */}
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs mb-5" style={{ color: "var(--mq-text-muted)" }}>
+              <div className="mq-t-meta flex flex-wrap items-center gap-x-3 gap-y-1.5 mb-5">
                 <span className="flex items-center gap-1.5 font-medium">
                   <Music className="w-3.5 h-3.5" />
                   {pl.tracks.length} {pluralRu(pl.tracks.length, "трек", "трека", "треков")}
@@ -739,8 +741,8 @@ export default function PlaylistView() {
           >
             {/* Column header */}
             <div
-              className="flex items-center gap-3 px-4 py-2.5 text-[11px] uppercase tracking-[0.12em] font-semibold select-none"
-              style={{ color: "var(--mq-text-muted)", borderBottom: "1px solid var(--mq-edge)" }}
+              className="mq-t-label flex items-center gap-3 px-4 py-2.5 select-none"
+              style={{ borderBottom: "1px solid var(--mq-edge)" }}
             >
               <span className="w-7 flex-shrink-0 text-center mq-t-num">#</span>
               <span className="flex-1">Название</span>
@@ -765,6 +767,7 @@ export default function PlaylistView() {
                         isCurrent={isCurrent}
                         isPlaying={isCurrent && storeIsPlaying}
                         isLiked={isLiked}
+                        playlistId={pl.id}
                         onPlay={() => playTrack(track, pl.tracks, pl.id)}
                         onLike={() => toggleLike(track.id, track)}
                         onRemove={() => setTimeout(() => removeFromPlaylist(pl.id, track.id), 0)}
@@ -1031,7 +1034,7 @@ export default function PlaylistView() {
                   className="rounded-xl p-3"
                   style={{ backgroundColor: "var(--mq-input-bg)", border: "1px solid var(--mq-border-thin)" }}
                 >
-                  <p className="text-[11px] leading-relaxed" style={{ color: "var(--mq-text-muted)" }}>
+                  <p className="mq-t-meta-2 leading-relaxed">
                     {importHint}
                   </p>
                   {/* Quick switch to text mode button */}
@@ -1101,13 +1104,14 @@ interface TrackRowProps {
   isCurrent: boolean;
   isPlaying: boolean;
   isLiked: boolean;
+  playlistId: string;
   onPlay: () => void;
   onLike: () => void;
   onRemove: () => void;
   onArtistClick: () => void;
 }
 
-function TrackRow({ track, index, isCurrent, isPlaying, isLiked, onPlay, onLike, onRemove, onArtistClick }: TrackRowProps) {
+function TrackRow({ track, index, isCurrent, isPlaying, isLiked, playlistId, onPlay, onLike, onRemove, onArtistClick }: TrackRowProps) {
   // §F/§J: CSS-only hover (.mq-row) — no per-row hover state, no framer
   // gestures on the row itself (press feedback via CSS :active).
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; show: boolean }>({ x: 0, y: 0, show: false });
@@ -1214,20 +1218,25 @@ function TrackRow({ track, index, isCurrent, isPlaying, isLiked, onPlay, onLike,
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
-          <button
-            onClick={handleMoreClick}
-            className="w-8 h-8 rounded-full flex items-center justify-center transition-[background-color,color,opacity] duration-150 hover:bg-[var(--mq-overlay-hover)] sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100"
-            style={{ color: "var(--mq-text-muted)" }}
-            aria-label="Меню трека"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
+          {/* More — unified trigger (v68) */}
+          <TrackMoreButton
+            onOpen={handleMoreClick}
+            label={`Действия: ${track.title}`}
+          />
         </div>
       </div>
 
-      {/* Context menu */}
+      {/* Context menu — v68 unified engine + playlist context (adds
+          "Убрать из плейлиста" as separated destructive action) */}
       {contextMenu.show && (
-        <ContextMenu track={track} x={contextMenu.x} y={contextMenu.y} onClose={closeContextMenu} />
+        <ContextMenu
+          track={track}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={closeContextMenu}
+          context={{ kind: "playlist", playlistId, onRemove }}
+          bottomInset={96}
+        />
       )}
     </>
   );
@@ -1472,10 +1481,11 @@ function pluralRu(n: number, one: string, few: string, many: string): string {
 }
 
 // ═════════════════════════════════════════════════════════════════════════
-// PLAYLIST CONTEXT MENU — portal-based, fixed positioning, not clipped
+// PLAYLIST CONTEXT MENU — v68: thin wrapper over the unified engine
+// (PlaylistActionsMenu). Same call-site API (anchor / pin / rename / cover /
+// share / delete), new premium internals: portal, keyboard nav, Escape,
+// click-outside, auto-flip, mobile bottom-sheet, destructive separation.
 // ═════════════════════════════════════════════════════════════════════════
-
-import { createPortal } from "react-dom";
 
 function PlaylistContextMenu({
   playlist: pl, pinned, anchor, onClose, onTogglePin, onRenameStart, onCoverUpload, onShare, onDelete,
@@ -1490,102 +1500,20 @@ function PlaylistContextMenu({
   onShare: () => void;
   onDelete: () => void;
 }) {
-  const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // §CONTEXT-AUDIT fix: anchor the menu to the TRIGGER (click position),
-  // clamped to the viewport — was pinned to the top-right viewport corner,
-  // far from the button ("wrong position" bug).
-  useEffect(() => {
-    const menuW = 208;
-    const menuH = 260;
-    const ax = anchor?.x ?? window.innerWidth - menuW - 16;
-    const ay = anchor?.y ?? 100;
-    // open to the LEFT of the anchor, below it when space allows
-    let x = ax - menuW - 8;
-    if (x < 8) x = Math.min(ax + 8, window.innerWidth - menuW - 8);
-    let y = ay + 8;
-    if (y + menuH > window.innerHeight - 16) y = Math.max(8, window.innerHeight - menuH - 16);
-    setPos({ x, y });
-  }, [anchor?.x, anchor?.y]);
-
-  // Close on outside click + Escape
-  useEffect(() => {
-    const onDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    // Delay to avoid immediate close from the trigger click
-    const t = setTimeout(() => {
-      document.addEventListener("mousedown", onDown);
-      document.addEventListener("keydown", onKey);
-    }, 0);
-    return () => {
-      clearTimeout(t);
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [onClose]);
-
-  const handle = (fn: () => void) => () => {
-    fn();
-    onClose();
-  };
-
-  if (typeof document === "undefined") return null;
-
-  return createPortal(
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-[200]"
-        onClick={onClose}
-        style={{ backgroundColor: "rgba(0,0,0,0.3)" }}
-      />
-      {/* Menu */}
-      <div
-        ref={menuRef}
-        className="fixed z-[201] min-w-[200px] rounded-2xl overflow-hidden py-1.5"
-        style={{
-          left: pos.x,
-          top: pos.y,
-          backgroundColor: "var(--mq-surface, #1a1a1a)",
-          border: "1px solid var(--mq-border-thin)",
-          boxShadow: "0 10px 40px rgba(0,0,0,0.6)",
-        }}
-      >
-        <PlaylistMenuItem icon={Pin} label={pinned ? "Открепить" : "Закрепить"} onClick={handle(onTogglePin)} />
-        <PlaylistMenuItem icon={Edit3} label="Переименовать" onClick={handle(onRenameStart)} />
-        <PlaylistMenuItem icon={Camera} label="Сменить обложку" onClick={handle(onCoverUpload)} />
-        <PlaylistMenuItem icon={Share2} label="Поделиться" onClick={handle(onShare)} />
-        <div className="h-px my-1 mx-2" style={{ backgroundColor: "rgba(255,255,255,0.06)" }} />
-        <PlaylistMenuItem icon={Trash2} label="Удалить" onClick={handle(onDelete)} danger />
-      </div>
-    </>,
-    document.body
-  );
-}
-
-function PlaylistMenuItem({
-  icon: Icon, label, onClick, danger,
-}: {
-  icon: React.ElementType;
-  label: string;
-  onClick: () => void;
-  danger?: boolean;
-}) {
   return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-white/5"
-      style={{ color: danger ? "#ef4444" : "var(--mq-text)" }}
-    >
-      <Icon className="w-4 h-4 flex-shrink-0" style={{ opacity: 0.8 }} />
-      <span className="text-sm font-medium">{label}</span>
-    </button>
+    <PlaylistActionsMenu
+      playlist={pl}
+      x={anchor?.x ?? window.innerWidth - 240}
+      y={anchor?.y ?? 100}
+      onClose={onClose}
+      side="below"
+      pinned={pinned}
+      onTogglePin={onTogglePin}
+      onRenameStart={onRenameStart}
+      onCoverUpload={onCoverUpload}
+      onDelete={onDelete}
+      shareUrl={`${window.location.origin}/play?pl=${pl.id}`}
+    />
   );
 }
+

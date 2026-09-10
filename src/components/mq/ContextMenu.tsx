@@ -1,23 +1,63 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useMemo, useState } from "react";
 import {
-  Play, ListPlus, Heart, ThumbsDown, User, Copy, ListMusic, Plus, Download, Users, Share2, Radio
+  Play, ListPlus, Heart, ThumbsDown, User, Copy, ListMusic, Plus, Download,
+  Users, Share2, Radio, Trash2, Ban, Music2,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { type Track } from "@/lib/musicApi";
 import { getAudioElement } from "@/lib/audioEngine";
+import MenuCore, { backLabelSpec, MenuHeader, type MenuElement } from "./ui/MenuCore";
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ContextMenu — THE unified track actions menu (v68).
+
+   Public API is unchanged (track / x / y / onClose) so every existing
+   surface (TrackCard, Favorites, History, Search, Queue, …) upgrades
+   instantly. Internals now run on the MenuCore engine: portal, keyboard
+   navigation, Escape / click-outside / scroll close, focus restore,
+   auto-flip positioning, mobile bottom sheet, CSS-only instant hover.
+
+   Action set is CONTEXTUAL — only physically applicable actions render:
+     • queue context        → "Remove from queue" (destructive)
+     • playlist context     → "Remove from playlist" (destructive)
+     • wave context         → "Not interested" (destructive)
+     • no scTrackId         → no Share
+     • everything else      → the standard set below
+
+   Standard set: Play · Queue · Playlist (picker page) · Like/Dislike ·
+   Artist · Subscribe · Similar · Copy title · Share · Download.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export type TrackMenuContext =
+  | { kind: "default" }
+  | { kind: "queue"; onRemove?: () => void }
+  | { kind: "playlist"; playlistId: string; onRemove?: () => void }
+  | { kind: "wave"; onNotInterested?: () => void };
 
 interface ContextMenuProps {
   track: Track;
   x: number;
   y: number;
   onClose: () => void;
+  /** Extra context — switches in contextual actions. */
+  context?: TrackMenuContext;
+  /** Preferred side (bottom-of-screen triggers use "above"). */
+  side?: "below" | "above";
+  /** Bottom allowance for viewport clamping (player bar etc.). */
+  bottomInset?: number;
 }
 
-export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) {
+export default function ContextMenu({
+  track,
+  x,
+  y,
+  onClose,
+  context = { kind: "default" },
+  side = "below",
+  bottomInset = 0,
+}: ContextMenuProps) {
   const playTrack = useAppStore((s) => s.playTrack);
   const queue = useAppStore((s) => s.queue);
   const toggleLike = useAppStore((s) => s.toggleLike);
@@ -34,75 +74,30 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
   const addFavoriteArtist = useAppStore((s) => s.addFavoriteArtist);
   const removeFavoriteArtist = useAppStore((s) => s.removeFavoriteArtist);
 
-  const menuRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState<"root" | "playlists">("root");
+  const [shareFeedback, setShareFeedback] = useState(false);
+
   const isLiked = isTrackLiked(track.id);
   const isDisliked = isTrackDisliked(track.id);
   const isSubscribed = favoriteArtists.some(
     (a) => a.username.toLowerCase() === track.artist.toLowerCase()
   );
-  const [showPlaylistPicker, setShowPlaylistPicker] = useState(false);
-  const [shareFeedback, setShareFeedback] = useState(false);
 
-  // Use actual menu dimensions for viewport clamping
-  const [menuPos, setMenuPos] = useState({ left: x, top: y });
-
-  // Measure menu after mount and adjust position to stay within viewport.
-  // Account for the bottom player bar (~80px) so the menu doesn't overlap it.
-  useLayoutEffect(() => {
-    if (menuRef.current) {
-      const rect = menuRef.current.getBoundingClientRect();
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      const PLAYER_BAR_HEIGHT = 80; // approximate bottom player height
-      let left = x;
-      let top = y;
-
-      // Clamp horizontally
-      if (left + rect.width > vw - 8) {
-        left = Math.max(8, vw - rect.width - 8);
-      }
-      // Clamp vertically — leave space for the bottom player bar
-      if (top + rect.height > vh - PLAYER_BAR_HEIGHT - 8) {
-        top = Math.max(8, vh - rect.height - PLAYER_BAR_HEIGHT - 8);
-      }
-
-      setMenuPos({ left, top });
-    }
-  }, [x, y, showPlaylistPicker]);
-
-  // Close on Escape key
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleEscape);
-    return () => {
-      document.removeEventListener("keydown", handleEscape);
-    };
-  }, [onClose]);
-
-  // Close on scroll (user scrolled away from context)
-  useEffect(() => {
-    const handleScroll = () => onClose();
-    // client-passive-event-listeners: scroll listener just closes menu, no preventDefault
-    window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
-    return () => window.removeEventListener("scroll", handleScroll, true);
-  }, [onClose]);
-
-  const handlePlay = () => {
+  // ── Actions ──────────────────────────────────────────────────────────
+  const handlePlay = useCallback(() => {
     playTrack(track, [...queue, track]);
     onClose();
-  };
+  }, [playTrack, track, queue, onClose]);
 
-  const handleAddToQueue = () => {
+  const handleAddToQueue = useCallback(() => {
     const state = useAppStore.getState();
     const newQueue = [...state.queue];
     newQueue.splice(state.queueIndex + 1, 0, track);
     useAppStore.setState({ queue: newQueue });
     onClose();
-  };
+  }, [track, onClose]);
 
-  const handleSimilar = async () => {
+  const handleSimilar = useCallback(() => {
     const st = useAppStore.getState();
     if (!st.currentTrack || st.currentTrack.id !== track.id) {
       playTrack(track, [...st.queue, track]);
@@ -110,73 +105,18 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
     setFullTrackViewOpen(true);
     requestShowSimilar();
     onClose();
-  };
+  }, [playTrack, track, setFullTrackViewOpen, requestShowSimilar, onClose]);
 
-  const handleToggleLike = () => {
-    toggleLike(track.id, track);
+  const handleGoToArtist = useCallback(() => {
+    setSelectedArtist({ name: track.artist, avatar: track.cover || undefined });
     onClose();
-  };
+  }, [setSelectedArtist, track, onClose]);
 
-  const handleToggleDislike = () => {
-    toggleDislike(track.id, track);
-    onClose();
-  };
-
-  const handleCopyTitle = () => {
-    navigator.clipboard.writeText(`${track.title} — ${track.artist}`).catch(() => {});
-    onClose();
-  };
-
-  const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/track/${track.scTrackId}`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: `${track.title} — ${track.artist}`, url: shareUrl });
-      } catch {}
-      onClose();
-    } else {
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        setShareFeedback(true);
-        setTimeout(() => {
-          setShareFeedback(false);
-          onClose();
-        }, 1500);
-      } catch {
-        onClose();
-      }
-    }
-  };
-
-  const handleAddToPlaylist = (playlistId: string) => {
-    addToPlaylist(playlistId, track);
-    onClose();
-  };
-
-  const handleQuickCreateAndAdd = () => {
-    const name = track.artist;
-    // Use functional update to avoid race condition — get the latest playlists
-    // after createPlaylist synchronously updates the store
-    createPlaylist(name);
-    // Read the most recent state — Zustand's set() is synchronous
-    const state = useAppStore.getState();
-    // Find the newly created playlist by matching the name (most recently added)
-    const newPl = [...state.playlists].reverse().find(p => p.name === name);
-    if (newPl) addToPlaylist(newPl.id, track);
-    onClose();
-  };
-
-  const handleGoToArtist = () => {
-    setSelectedArtist({
-      name: track.artist,
-      avatar: track.cover || undefined,
-    });
-    onClose();
-  };
-
-  const handleToggleSubscribe = () => {
+  const handleToggleSubscribe = useCallback(() => {
     if (isSubscribed) {
-      const fav = favoriteArtists.find((a) => a.username.toLowerCase() === track.artist.toLowerCase());
+      const fav = favoriteArtists.find(
+        (a) => a.username.toLowerCase() === track.artist.toLowerCase()
+      );
       if (fav) removeFavoriteArtist(fav.id);
     } else {
       addFavoriteArtist({
@@ -189,186 +129,247 @@ export default function ContextMenu({ track, x, y, onClose }: ContextMenuProps) 
       });
     }
     onClose();
-  };
+  }, [isSubscribed, favoriteArtists, track, addFavoriteArtist, removeFavoriteArtist, onClose]);
 
-  // Shared menu item style for better hover effect
-  // §HOVER one-owner: CSS owns the hover background (class), 100ms —
-  // no JS mouseenter handlers, no transition-all, no double highlight.
-  const menuItemClass = "w-full flex items-center gap-3 px-3 py-2.5 text-[13px] transition-colors duration-100 text-left hover:bg-[rgba(255,255,255,0.06)]";
+  const handleShare = useCallback(async () => {
+    const shareUrl = `${window.location.origin}/track/${track.scTrackId}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${track.title} — ${track.artist}`, url: shareUrl });
+      } catch {
+        /* user dismissed */
+      }
+      onClose();
+    } else {
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareFeedback(true);
+        setTimeout(() => {
+          setShareFeedback(false);
+          onClose();
+        }, 1400);
+      } catch {
+        onClose();
+      }
+    }
+  }, [track, onClose]);
 
-  const menuContent = showPlaylistPicker ? (
-    <motion.div
-      ref={menuRef}
-      initial={{ opacity: 0, scale: 0.95, y: 4 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: 4 }}
-      transition={{ duration: 0.12, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="fixed rounded-2xl py-1.5 shadow-2xl min-w-[220px] max-w-[280px] max-h-[320px] overflow-y-auto"
-      style={{
-        left: menuPos.left,
-        top: menuPos.top,
-        backgroundColor: "var(--mq-card)",
-        border: "1px solid var(--mq-border)",
-        boxShadow: "var(--mq-shadow-dramatic), 0 0 0 1px rgba(255,255,255,0.04)",
-        backdropFilter: "blur(40px) saturate(180%)",
-        WebkitBackdropFilter: "blur(40px) saturate(180%)",
-        zIndex: 10001,
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wider" style={{ color: "var(--mq-text-muted)" }}>
-        Добавить в плейлист
-      </div>
-      {playlists.map((pl) => (
-        <button
-          key={pl.id}
-          onClick={() => handleAddToPlaylist(pl.id)}
-          className={menuItemClass}
-          style={{ color: "var(--mq-text)" }}
-        >
-          <ListMusic className="w-4 h-4 flex-shrink-0" style={{ color: "var(--mq-accent)" }} />
-          <span className="truncate">{pl.name}</span>
-          <span className="ml-auto text-[11px]" style={{ color: "var(--mq-text-muted)" }}>{pl.tracks.length}</span>
-        </button>
-      ))}
-      <div className="my-1.5 mx-2" style={{ height: 1, backgroundColor: "rgba(255,255,255,0.06)" }} />
-      <button
-        onClick={handleQuickCreateAndAdd}
-        className={menuItemClass}
-        style={{ color: "var(--mq-accent)" }}
-      >
-        <Plus className="w-4 h-4" />
-        Новый плейлист
-      </button>
-      <button
-        onClick={() => setShowPlaylistPicker(false)}
-        className={menuItemClass}
-        style={{ color: "var(--mq-text-muted)" }}
-      >
-        Назад
-      </button>
-    </motion.div>
-  ) : (
-    <motion.div
-      ref={menuRef}
-      initial={{ opacity: 0, scale: 0.95, y: 4 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      exit={{ opacity: 0, scale: 0.95, y: 4 }}
-      transition={{ duration: 0.12, ease: [0.25, 0.46, 0.45, 0.94] }}
-      className="fixed rounded-2xl py-1.5 shadow-2xl min-w-[220px] max-w-[280px]"
-      style={{
-        left: menuPos.left,
-        top: menuPos.top,
-        backgroundColor: "var(--mq-card)",
-        border: "1px solid var(--mq-border)",
-        boxShadow: "var(--mq-shadow-dramatic), 0 0 0 1px rgba(255,255,255,0.04)",
-        backdropFilter: "blur(40px) saturate(180%)",
-        WebkitBackdropFilter: "blur(40px) saturate(180%)",
-        zIndex: 10001,
-      }}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {/* Track header in context menu */}
-      <div className="px-3 py-2.5 flex items-center gap-2.5" style={{ borderBottom: "1px solid var(--mq-border-thin)" }}>
-        <div className="w-9 h-9 rounded-lg flex-shrink-0 overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
-          {track.cover ? (
-            <img src={track.cover} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Music className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
-            </div>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[12px] font-medium truncate leading-tight" style={{ color: "var(--mq-text)" }}>
-            {track.title}
-          </p>
-          <p className="text-[11px] truncate leading-snug" style={{ color: "var(--mq-text-muted)" }}>
-            {track.artist}
-          </p>
-        </div>
-      </div>
+  const handleDownload = useCallback(async () => {
+    const audio = getAudioElement();
+    if (audio && audio.src) {
+      const name = `${track.artist} - ${track.title}.mp3`;
+      try {
+        const res = await fetch(audio.src);
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch {
+        const a = document.createElement("a");
+        a.href = audio.src;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    }
+    onClose();
+  }, [track, onClose]);
 
-      <div className="py-0.5">
-        {[
-          { icon: Play, label: "Воспроизвести", action: handlePlay, accent: false },
-          { icon: ListPlus, label: "Добавить в очередь", action: handleAddToQueue, accent: false },
-          { icon: ListMusic, label: "Добавить в плейлист", action: () => setShowPlaylistPicker(true), accent: false },
-          { icon: Radio, label: "Похожие треки", action: handleSimilar, accent: false },
-          null, // separator
-          { icon: Heart, label: isLiked ? "Убрать лайк" : "Лайк", action: handleToggleLike, accent: isLiked },
-          { icon: ThumbsDown, label: isDisliked ? "Убрать дизлайк" : "Дизлайк", action: handleToggleDislike, accent: isDisliked },
-          null, // separator
-          { icon: User, label: "Перейти к артисту", action: handleGoToArtist, accent: false },
-          { icon: Users, label: isSubscribed ? "Отписаться" : "Подписаться", action: handleToggleSubscribe, accent: isSubscribed },
-          { icon: Copy, label: "Копировать название", action: handleCopyTitle, accent: false },
-          ...(track.scTrackId ? [{ icon: Share2, label: shareFeedback ? "Ссылка скопирована!" : "Поделиться", action: handleShare, accent: shareFeedback }] : []),
-          { icon: Download, label: "Скачать", action: async () => {
-            const audio = getAudioElement();
-            if (audio && audio.src) {
-              try {
-                const res = await fetch(audio.src);
-                const blob = await res.blob();
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `${track.artist} - ${track.title}.mp3`;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-              } catch {
-                const a = document.createElement('a');
-                a.href = audio.src; a.download = `${track.artist} - ${track.title}.mp3`;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a);
-              }
+  const handleQuickCreateAndAdd = useCallback(() => {
+    const name = track.artist;
+    createPlaylist(name);
+    // Zustand set() is synchronous — read the most recent state.
+    const state = useAppStore.getState();
+    const newPl = [...state.playlists].reverse().find((p) => p.name === name);
+    if (newPl) addToPlaylist(newPl.id, track);
+    onClose();
+  }, [createPlaylist, track, addToPlaylist, onClose]);
+
+  // ── Element tree ─────────────────────────────────────────────────────
+  const elements: MenuElement[] = useMemo(() => {
+    if (page === "playlists") {
+      return [
+        backLabelSpec("Назад", () => setPage("root")),
+        { type: "separator" },
+        ...playlists.map<MenuElement>((pl) => ({
+          type: "item",
+          id: `pl-${pl.id}`,
+          icon: ListMusic,
+          label: pl.name,
+          hint: String(pl.tracks.length),
+          onSelect: () => {
+            addToPlaylist(pl.id, track);
+            onClose();
+          },
+        })),
+        { type: "separator" },
+        {
+          type: "item",
+          id: "pl-new",
+          icon: Plus,
+          label: "Новый плейлист",
+          onSelect: handleQuickCreateAndAdd,
+        },
+      ];
+    }
+
+    const els: MenuElement[] = [
+      { type: "item", id: "play", icon: Play, label: "Воспроизвести", onSelect: handlePlay },
+      { type: "item", id: "queue", icon: ListPlus, label: "Добавить в очередь", onSelect: handleAddToQueue },
+      {
+        type: "item",
+        id: "playlist",
+        icon: ListMusic,
+        label: "Добавить в плейлист",
+        keepOpen: true,
+        onSelect: () => setPage("playlists"),
+      },
+      { type: "item", id: "similar", icon: Radio, label: "Похожие треки", onSelect: handleSimilar },
+      { type: "separator" },
+      {
+        type: "item",
+        id: "like",
+        icon: Heart,
+        label: isLiked ? "Убрать лайк" : "Лайк",
+        active: isLiked,
+        onSelect: () => {
+          toggleLike(track.id, track);
+          onClose();
+        },
+      },
+      {
+        type: "item",
+        id: "dislike",
+        icon: ThumbsDown,
+        label: isDisliked ? "Убрать дизлайк" : "Не нравится",
+        active: isDisliked,
+        onSelect: () => {
+          toggleDislike(track.id, track);
+          onClose();
+        },
+      },
+      { type: "separator" },
+      { type: "item", id: "artist", icon: User, label: "Перейти к артисту", onSelect: handleGoToArtist },
+      {
+        type: "item",
+        id: "subscribe",
+        icon: Users,
+        label: isSubscribed ? "Отписаться от артиста" : "Подписаться на артиста",
+        active: isSubscribed,
+        onSelect: handleToggleSubscribe,
+      },
+      ...(track.scTrackId
+        ? [
+            {
+              type: "item" as const,
+              id: "share",
+              icon: Share2,
+              label: shareFeedback ? "Ссылка скопирована" : "Поделиться",
+              active: shareFeedback,
+              onSelect: handleShare,
+            },
+          ]
+        : []),
+      {
+        type: "item",
+        id: "copy",
+        icon: Copy,
+        label: "Копировать название",
+        onSelect: () => {
+          navigator.clipboard.writeText(`${track.title} — ${track.artist}`).catch(() => {});
+          onClose();
+        },
+      },
+      {
+        type: "item",
+        id: "download",
+        icon: Download,
+        label: "Скачать",
+        onSelect: handleDownload,
+      },
+    ];
+
+    // Contextual destructive tail — separated at the very end.
+    if (context.kind === "queue") {
+      els.push(
+        { type: "separator" },
+        {
+          type: "item",
+          id: "rm-queue",
+          icon: Trash2,
+          label: "Убрать из очереди",
+          destructive: true,
+          onSelect: () => {
+            context.kind === "queue" && context.onRemove?.();
+            onClose();
+          },
+        }
+      );
+    } else if (context.kind === "playlist") {
+      els.push(
+        { type: "separator" },
+        {
+          type: "item",
+          id: "rm-playlist",
+          icon: Trash2,
+          label: "Убрать из плейлиста",
+          destructive: true,
+          onSelect: () => {
+            if (context.kind === "playlist") {
+              useAppStore.getState().removeFromPlaylist(context.playlistId, track.id);
+              context.onRemove?.();
             }
             onClose();
-          }, accent: false },
-        ].map((item, i) => {
-          if (item === null) {
-            return <div key={`sep-${i}`} className="my-1 mx-2" style={{ height: 1, backgroundColor: "rgba(255,255,255,0.06)" }} />;
-          }
-          return (
-            <button
-              key={i}
-              onClick={item.action}
-              className={menuItemClass}
-              style={{
-                color: item.accent ? "var(--mq-accent)" : "var(--mq-text)",
-              }}
-            >
-              <item.icon className="w-4 h-4 flex-shrink-0" style={{ color: item.accent ? "var(--mq-accent)" : "var(--mq-text-muted)" }} />
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
-    </motion.div>
-  );
+          },
+        }
+      );
+    } else if (context.kind === "wave") {
+      els.push(
+        { type: "separator" },
+        {
+          type: "item",
+          id: "not-interested",
+          icon: Ban,
+          label: "Не интересно",
+          destructive: true,
+          onSelect: () => {
+            const st = useAppStore.getState();
+            if (!st.dislikedTrackIds?.includes(track.id)) st.toggleDislike(track.id, track);
+            context.kind === "wave" && context.onNotInterested?.();
+            onClose();
+          },
+        }
+      );
+    }
+    return els;
+  }, [
+    page, playlists, track, isLiked, isDisliked, isSubscribed, shareFeedback,
+    handlePlay, handleAddToQueue, handleSimilar, handleGoToArtist,
+    handleToggleSubscribe, handleShare, handleDownload, handleQuickCreateAndAdd,
+    toggleLike, toggleDislike, context, onClose,
+  ]);
 
-  return createPortal(
-    <AnimatePresence>
-      {/* Transparent backdrop — captures clicks to close, doesn't block other UI */}
-      <motion.div
-        key="backdrop"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.1 }}
-        className="fixed inset-0"
-        style={{ zIndex: 10000 }}
-        onClick={onClose}
-        onContextMenu={(e) => { e.preventDefault(); onClose(); }}
-      />
-      {menuContent}
-    </AnimatePresence>,
-    document.body
-  );
-}
-
-// ── Utility: Music icon for context menu header when no cover ──
-function Music({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
-    </svg>
+    <MenuCore
+      anchor={{ x, y }}
+      onClose={onClose}
+      elements={elements}
+      side={side}
+      bottomInset={bottomInset}
+      ariaLabel={`Действия: ${track.title}`}
+      header={
+        page === "root" ? (
+          <MenuHeader cover={track.cover} title={track.title} subtitle={track.artist} fallbackIcon={Music2} />
+        ) : (
+          <div className="mq-menu-label">Добавить в плейлист</div>
+        )
+      }
+    />
   );
 }

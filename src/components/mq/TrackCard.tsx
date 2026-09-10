@@ -19,6 +19,7 @@ interface TrackCardProps {
 }
 
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
+import { TrackMoreButton } from "./ui/TrackMoreButton";
 
 /* ══════════════════════════════════════════════════════════════════════════
    PHASE 4B — TrackCard, unified card language.
@@ -105,8 +106,9 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
   }, []);
 
   const handleMoreClick = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setContextMenu({ x: e.clientX, y: e.clientY, show: true });
+    // Anchor at the trigger (v68 pattern) — MenuCore flips/clamps itself.
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setContextMenu({ x: rect.left, y: rect.bottom + 4, show: true });
   }, []);
 
   const handleLikeClick = useCallback((e: React.MouseEvent) => {
@@ -338,21 +340,12 @@ const TrackCard = memo(function TrackCard({ track, index = 0, queue, onArtistCli
             <ThumbsDown className="w-3.5 h-3.5" style={isDisliked ? { fill: "#ef4444" } : {}} />
           </motion.button>
 
-          {/* More button */}
-          <motion.button
-            onClick={handleMoreClick}
-            className={`
-              ${compactMode ? "w-7 h-7" : "w-8 h-8"}
-              flex items-center justify-center
-              rounded-full
-              sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 focus-visible:opacity-100
-              hover:bg-[var(--mq-overlay-hover)]
-              transition-[background-color,color,opacity] duration-150
-            `}
-            style={{ color: "var(--mq-text-muted)" }}
-          >
-            <MoreHorizontal className={`${compactMode ? "w-3.5 h-3.5" : "w-4 h-4"}`} />
-          </motion.button>
+          {/* More button — unified trigger (v68) */}
+          <TrackMoreButton
+            onOpen={handleMoreClick}
+            size={compactMode ? "sm" : "md"}
+            label={`Действия: ${track.title}`}
+          />
         </div>
       </motion.div>
 

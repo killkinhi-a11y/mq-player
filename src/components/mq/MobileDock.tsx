@@ -155,8 +155,8 @@ function MobileDockInner() {
                   : <div className="w-full h-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, var(--mq-accent), color-mix(in srgb, var(--mq-accent) 60%, #000))" }}><Music className="w-4 h-4" style={{ color: "var(--mq-text-on-accent, rgba(255,255,255,0.7))" }} /></div>}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-semibold truncate" style={{ color: "var(--mq-text)", lineHeight: "1.2" }}>{currentTrack!.title}</p>
-                <p className="text-[11px] truncate" style={{ color: "var(--mq-text-muted)", lineHeight: "1.2", marginTop: "1px" }}>{currentTrack!.artist}</p>
+                <p className="mq-t-track-sm truncate" style={{ color: "var(--mq-text)" }}>{currentTrack!.title}</p>
+                <p className="mq-t-meta-2 truncate" style={{ marginTop: "1px" }}>{currentTrack!.artist}</p>
               </div>
             </button>
             <button onClick={onLike} aria-label={isLiked ? "Убрать из любимых" : "Добавить в любимые"} className="mq-mini w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: isLiked ? "color-mix(in srgb, var(--mq-accent) 12%, transparent)" : "transparent", border: "none", cursor: "pointer", padding: 0 }}>

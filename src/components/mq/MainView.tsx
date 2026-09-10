@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef, memo } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Play, Pause, Music, Heart, Clock, ListMusic, MessageCircle,
+  Play, Pause, Music, Heart, Clock, ListMusic, ListPlus, MessageCircle,
   Plus, Sparkles, Waves, User, Flame,
   SkipForward, SkipBack, ThumbsDown, TrendingUp, Compass, RotateCcw,
   MoreHorizontal, X, Shuffle,
@@ -14,12 +14,16 @@ import { useFriendsListening } from "@/hooks/useFriendsListening";
 import { useRecUpdates } from "@/hooks/useRecUpdates";
 import { type Track, formatDuration } from "@/lib/musicApi";
 import { extractTasteProfile, displayGenre } from "@/lib/tasteProfile";
-import { type HomeRecCategory as RecCategory, type HomeCuratedPlaylist as CuratedPlaylist } from "@/store/useAppStore";
+import { type HomeRecCategory as RecCategory, type HomeCuratedPlaylist as CuratedPlaylist, type UserPlaylist } from "@/store/useAppStore";
 import { useIsMobile } from "@/hooks/use-mobile";
 import ScrollReveal from "./ScrollReveal";
 import ArtistDetailView from "./ArtistDetailView";
 import PlaylistArtwork from "./PlaylistArtwork";
 import ContextMenu from "./ContextMenu";
+import ArtistActionsMenu, { type ArtistMenuTarget } from "./ArtistActionsMenu";
+import PlaylistActionsMenu from "./PlaylistActionsMenu";
+import { TrackMoreButton } from "./ui/TrackMoreButton";
+import MenuCore, { MenuHeader } from "./ui/MenuCore";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
 import { useMagnetic } from "@/hooks/useMagnetic";
 import { useLongPress } from "@/hooks/useLongPress";
@@ -106,6 +110,35 @@ function MainView() {
   const prevTrack = useAppStore((s) => s.prevTrack);
   const nextTrack = useAppStore((s) => s.nextTrack);
   const setFullTrackViewOpen = useAppStore((s) => s.setFullTrackViewOpen);
+
+  // ── Unified context-menu state (v68): ONE menu instance for the whole
+  // Home screen. Every surface (row / card / hero / artist / playlist)
+  // calls openTrackMenu / openArtistMenu / openPlaylistMenu with the click
+  // event; the menu anchors at the trigger and flips/clamps itself.
+  const [homeMenu, setHomeMenu] = useState<
+    | { kind: "track"; track: Track; x: number; y: number; wave?: boolean }
+    | { kind: "artist"; artist: ArtistMenuTarget; x: number; y: number }
+    | { kind: "playlist"; playlist: UserPlaylist; x: number; y: number }
+    | { kind: "curated"; playlist: CuratedPlaylist; x: number; y: number }
+    | null
+  >(null);
+  const openTrackMenu = useCallback((track: Track, e: React.MouseEvent, wave = false) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setHomeMenu({ kind: "track", track, x: rect.left, y: rect.bottom + 4, wave });
+  }, []);
+  const openArtistMenu = useCallback((artist: ArtistMenuTarget, e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setHomeMenu({ kind: "artist", artist, x: rect.left, y: rect.bottom + 4 });
+  }, []);
+  const openPlaylistMenu = useCallback((playlist: UserPlaylist, e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setHomeMenu({ kind: "playlist", playlist, x: Math.min(rect.left, window.innerWidth - 240), y: rect.bottom + 4 });
+  }, []);
+  const openCuratedMenu = useCallback((playlist: CuratedPlaylist, e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setHomeMenu({ kind: "curated", playlist, x: Math.min(rect.left, window.innerWidth - 240), y: rect.bottom + 4 });
+  }, []);
+  const closeHomeMenu = useCallback(() => setHomeMenu(null), []);
 
   // ── Wave engine (logic separated from UI) ──
   const wave = useWaveEngine();
@@ -399,6 +432,7 @@ function MainView() {
               isPlaying={isPlaying && currentTrack?.id === featuredTrack.id}
               onPlay={() => handlePlayRec(featuredTrack)}
               onArtistClick={() => handleNavigateToArtist(featuredTrack.artist)}
+              onMore={(e) => openTrackMenu(featuredTrack, e)}
               animationsEnabled={animationsEnabled}
             />
           </ScrollReveal>
@@ -432,6 +466,7 @@ function MainView() {
               if (currentTrack) setFullTrackViewOpen(true);
               else if (featuredTrack) handlePlayRec(featuredTrack);
             }}
+            onMore={(e) => openTrackMenu(currentTrack ?? featuredTrack!, e)}
           />
         </ScrollReveal>
         <MobileQuickRow
@@ -458,6 +493,7 @@ function MainView() {
               radioMode={radioMode}
               onToggle={togglePlay}
               onSkip={() => wave.skipTrack()}
+              onMore={(e) => openTrackMenu(currentTrack!, e)}
             />
             <QuickActionGrid
               likedCount={likedTrackIds.length}
@@ -490,6 +526,7 @@ function MainView() {
                   isPlaying={isPlaying && currentTrack?.id === track.id}
                   onPlay={() => handlePlayRec(track)}
                   onArtistClick={() => handleNavigateToArtist(track.artist)}
+                  onMore={(e) => openTrackMenu(track, e, true)}
                 />
               ))}
             </div>
@@ -517,6 +554,7 @@ function MainView() {
                     isPlaying={isPlaying && currentTrack?.id === track.id}
                     onPlay={() => handlePlayRec(track)}
                     onArtistClick={() => handleNavigateToArtist(track.artist)}
+                    onMore={(e) => openTrackMenu(track, e, true)}
                   />
                 ))}
               </HScroll>
@@ -565,6 +603,7 @@ function MainView() {
                   playTrack(track, recentTracks);
                 }}
                 onArtistClick={() => handleNavigateToArtist(track.artist)}
+                onMore={(e) => openTrackMenu(track, e)}
               />
             ))}
           </HScroll>
@@ -588,6 +627,7 @@ function MainView() {
                   isPlaying={isPlaying && currentTrack?.id === track.id}
                   onPlay={() => handlePlayRec(track)}
                   onArtistClick={() => handleNavigateToArtist(track.artist)}
+                  onMore={(e) => openTrackMenu(track, e)}
                 />
               ))
             ).slice(0, 10)}
@@ -665,13 +705,32 @@ function MainView() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="mq-t-body text-xs truncate" style={{ color: "var(--mq-text)" }}>
+                    <p className="mq-t-track-sm truncate">
                       {f.trackTitle}
                     </p>
-                    <p className="mq-t-meta text-[11px] truncate" style={{ color: "var(--mq-text-muted)" }}>
+                    <p className="mq-t-meta-2 truncate">
                       {f.trackArtist}
                     </p>
                   </div>
+                  {f.scTrackId && (
+                    <TrackMoreButton
+                      size="sm"
+                      onOpen={(e) => openTrackMenu({
+                        id: `sc_${f.scTrackId}`,
+                        title: f.trackTitle,
+                        artist: f.trackArtist,
+                        album: "",
+                        cover: f.trackCover,
+                        duration: f.duration ?? 0,
+                        genre: "",
+                        audioUrl: "",
+                        previewUrl: "",
+                        source: "soundcloud",
+                        scTrackId: f.scTrackId ?? undefined,
+                      }, e)}
+                      label={`Действия: ${f.trackTitle}`}
+                    />
+                  )}
                 </div>
               </div>
             ))}
@@ -711,6 +770,7 @@ function MainView() {
                   if (currentTrack?.id === pl.tracks[0].id) { togglePlay(); return; }
                   playTrack(pl.tracks[0], [...pl.tracks], pl.id);
                 }}
+                onMore={(e) => openPlaylistMenu(pl, e)}
                 animationsEnabled={animationsEnabled}
               />
             ))}
@@ -758,6 +818,7 @@ function MainView() {
                 artist={artist}
                 index={i}
                 onClick={() => setSelectedArtist({ name: artist.username, avatar: artist.avatar, followers: artist.followers, trackCount: artist.trackCount })}
+                onMore={(e) => openArtistMenu({ name: artist.username, avatar: artist.avatar, followers: artist.followers, genre: artist.genre, trackCount: artist.trackCount }, e)}
                 animationsEnabled={animationsEnabled}
               />
             ))}
@@ -781,11 +842,99 @@ function MainView() {
                   if (currentTrack?.id === pl.tracks[0].id) { togglePlay(); return; }
                   playTrack(pl.tracks[0], pl.tracks);
                 }}
+                onMore={(e) => openCuratedMenu(pl, e)}
                 animationsEnabled={animationsEnabled}
               />
             ))}
           </div>
         </Section>
+      )}
+
+      {/* ── Unified context menu for ALL Home surfaces (v68) ── */}
+      {homeMenu?.kind === "track" && (
+        <ContextMenu
+          track={homeMenu.track}
+          x={homeMenu.x}
+          y={homeMenu.y}
+          onClose={closeHomeMenu}
+          bottomInset={96}
+          context={homeMenu.wave ? { kind: "wave" } : undefined}
+        />
+      )}
+      {homeMenu?.kind === "artist" && (
+        <ArtistActionsMenu
+          artist={homeMenu.artist}
+          x={homeMenu.x}
+          y={homeMenu.y}
+          onClose={closeHomeMenu}
+        />
+      )}
+      {homeMenu?.kind === "playlist" && (
+        <PlaylistActionsMenu
+          playlist={homeMenu.playlist}
+          x={homeMenu.x}
+          y={homeMenu.y}
+          onClose={closeHomeMenu}
+        />
+      )}
+      {homeMenu?.kind === "curated" && (
+        <MenuCore
+          anchor={{ x: homeMenu.x, y: homeMenu.y }}
+          onClose={closeHomeMenu}
+          ariaLabel={`Действия: ${homeMenu.playlist.name}`}
+          header={
+            <MenuHeader
+              title={homeMenu.playlist.name}
+              subtitle={`${homeMenu.playlist.tracks.length} треков · подборка редакции`}
+              fallbackIcon={ListMusic}
+            />
+          }
+          elements={[
+            {
+              type: "item",
+              id: "play",
+              icon: Play,
+              label: "Воспроизвести",
+              disabled: homeMenu.playlist.tracks.length === 0,
+              onSelect: () => {
+                const pl = homeMenu.playlist;
+                if (pl.tracks.length === 0) return;
+                if (currentTrack?.id === pl.tracks[0].id) togglePlay();
+                else playTrack(pl.tracks[0], pl.tracks);
+                closeHomeMenu();
+              },
+            },
+            {
+              type: "item",
+              id: "shuffle",
+              icon: Shuffle,
+              label: "Перемешать и играть",
+              disabled: homeMenu.playlist.tracks.length === 0,
+              onSelect: () => {
+                const pl = homeMenu.playlist;
+                const shuffled = [...pl.tracks];
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                  const j = Math.floor(Math.random() * (i + 1));
+                  [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                playTrack(shuffled[0], shuffled);
+                closeHomeMenu();
+              },
+            },
+            {
+              type: "item",
+              id: "queue",
+              icon: ListPlus,
+              label: "Добавить в очередь",
+              disabled: homeMenu.playlist.tracks.length === 0,
+              onSelect: () => {
+                const state = useAppStore.getState();
+                useAppStore.setState({ queue: [...state.queue, ...homeMenu.playlist.tracks] });
+                closeHomeMenu();
+              },
+            },
+          ]}
+        />
       )}
     </div>
   );
@@ -853,6 +1002,7 @@ function FeaturedCard({
   isPlaying,
   onPlay,
   onArtistClick,
+  onMore,
   animationsEnabled,
 }: {
   track: Track;
@@ -861,6 +1011,7 @@ function FeaturedCard({
   isPlaying: boolean;
   onPlay: () => void;
   onArtistClick: () => void;
+  onMore: (e: React.MouseEvent) => void;
   animationsEnabled: boolean;
 }) {
   return (
@@ -896,7 +1047,7 @@ function FeaturedCard({
           {isPlaying && (
             <div className="absolute bottom-2 left-2 flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
               <NowPlayingEqualizer />
-              <span className="mq-t-meta text-[11px]" style={{ color: "#fff" }}>играет</span>
+              <span className="mq-t-meta-2" style={{ color: "#fff" }}>играет</span>
             </div>
           )}
         </button>
@@ -904,7 +1055,7 @@ function FeaturedCard({
         {/* Info + actions */}
         <div className="flex-1 min-w-0 p-4 sm:p-5 lg:p-6 flex flex-col justify-center gap-3">
           <div>
-            <p className="mq-t-label text-[11px] uppercase tracking-[0.12em] mb-1.5" style={{ color: "var(--mq-accent)" }}>
+            <p className="mq-t-label mb-1.5" style={{ color: "var(--mq-accent)" }}>
               {reason}
             </p>
             <h2 className="mq-t-display text-xl sm:text-2xl lg:text-[1.75rem] line-clamp-2" style={{ color: "var(--mq-text)" }}>
@@ -912,8 +1063,7 @@ function FeaturedCard({
             </h2>
             <button
               onClick={onArtistClick}
-              className="mq-t-body text-sm mt-1 hover:underline text-left"
-              style={{ color: "var(--mq-text-muted)" }}
+              className="mq-t-artist mt-1 hover:underline text-left"
             >
               {track.artist}
             </button>
@@ -922,16 +1072,16 @@ function FeaturedCard({
           {/* Metadata — real fields only */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
             {track.duration > 0 && (
-              <span className="mq-t-num text-[11px] flex items-center gap-1" style={{ color: "var(--mq-text-muted)" }}>
+              <span className="mq-t-num flex items-center gap-1" style={{ color: "var(--mq-text-muted)" }}>
                 <Clock className="w-3 h-3" />{formatDuration(track.duration)}
               </span>
             )}
             {track.genre && (
-              <span className="mq-t-meta text-[11px] px-2 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)", color: "var(--mq-text-muted)" }}>
+              <span className="mq-t-meta px-2 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 10%, transparent)" }}>
                 {displayGenre(track.genre)}
               </span>
             )}
-            <span className="mq-t-meta text-[11px]" style={{ color: "var(--mq-text-muted)" }}>
+            <span className="mq-t-meta">
               {track.source === "soundcloud" ? "SoundCloud" : track.source === "audius" ? "Audius" : "mq"}
             </span>
           </div>
@@ -941,7 +1091,7 @@ function FeaturedCard({
             <motion.button
               whileTap={animationsEnabled ? { scale: 0.96 } : undefined}
               onClick={onPlay}
-              className="h-11 px-6 rounded-xl flex items-center gap-2 font-semibold text-sm transition-colors"
+              className="h-11 px-6 rounded-xl flex items-center gap-2 mq-t-btn transition-colors"
               style={{ backgroundColor: "var(--mq-accent)", color: "var(--mq-text-on-accent, #fff)" }}
               aria-label={isPlaying ? "Пауза" : "Слушать"}
             >
@@ -950,12 +1100,13 @@ function FeaturedCard({
             </motion.button>
             <button
               onClick={onArtistClick}
-              className="h-11 px-4 rounded-xl flex items-center gap-2 text-sm mq-icon-btn"
+              className="h-11 px-4 rounded-xl flex items-center gap-2 mq-t-btn mq-icon-btn"
               style={{ ["--mq-rest-bg" as string]: "var(--mq-bg)", border: "1px solid var(--mq-border-thin)", color: "var(--mq-text)" }}
             >
               <User className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} />
               К артисту
             </button>
+            <TrackMoreButton onOpen={onMore} size="lg" alwaysVisible label={`Действия: ${track.title}`} className="ml-auto" />
           </div>
         </div>
       </div>
@@ -971,6 +1122,7 @@ function ContinueListeningCard({
   radioMode,
   onToggle,
   onSkip,
+  onMore,
 }: {
   track: Track | null;
   progress: number;
@@ -979,6 +1131,7 @@ function ContinueListeningCard({
   radioMode: boolean;
   onToggle: () => void;
   onSkip: () => void;
+  onMore: (e: React.MouseEvent) => void;
 }) {
   const pct = duration > 0 ? Math.min(100, (progress / duration) * 100) : 0;
 
@@ -1021,19 +1174,17 @@ function ContinueListeningCard({
       </button>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <p className="mq-t-label text-[11px] uppercase tracking-[0.1em]" style={{ color: "var(--mq-text-muted)" }}>
-            Продолжить
-          </p>
+          <p className="mq-t-label">Продолжить</p>
           {radioMode && (
-            <span className="mq-t-meta text-[11px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, transparent)", color: "var(--mq-accent)" }}>
+            <span className="mq-t-badge px-1.5 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, var(--mq-accent) 14%, transparent)", color: "var(--mq-accent)", letterSpacing: "0.04em" }}>
               Волна
             </span>
           )}
         </div>
-        <p className="mq-t-body text-sm font-semibold truncate" style={{ color: "var(--mq-text)" }}>
+        <p className="mq-t-track truncate" style={{ color: "var(--mq-text)" }}>
           {track.title}
         </p>
-        <p className="mq-t-meta text-xs truncate" style={{ color: "var(--mq-text-muted)" }}>
+        <p className="mq-t-artist truncate">
           {track.artist}
         </p>
         {/* Real progress bar */}
@@ -1041,11 +1192,12 @@ function ContinueListeningCard({
           <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ backgroundColor: "var(--mq-border-thin)" }} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
             <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: "var(--mq-accent)" }} />
           </div>
-          <span className="mq-t-num text-[11px] shrink-0" style={{ color: "var(--mq-text-muted)" }}>
+          <span className="mq-t-num shrink-0" style={{ color: "var(--mq-text-muted)" }}>
             {formatDuration(progress)} / {formatDuration(duration)}
           </span>
         </div>
       </div>
+      <TrackMoreButton onOpen={onMore} alwaysVisible label={`Действия: ${track.title}`} />
       {radioMode && (
         <button
           onClick={onSkip}
@@ -1106,6 +1258,7 @@ function MobileNowHero({
   onPlayFallback,
   onArtistClick,
   onOpenFull,
+  onMore,
 }: {
   track: Track | null;
   fallbackTrack: Track | null;
@@ -1120,6 +1273,7 @@ function MobileNowHero({
   onPlayFallback: () => void;
   onArtistClick: (artist: string) => void;
   onOpenFull: () => void;
+  onMore: (e: React.MouseEvent) => void;
 }) {
   const hero = track || fallbackTrack;
   const isNow = !!track; // true → real "now playing"; false → pick + play CTA
@@ -1184,20 +1338,19 @@ function MobileNowHero({
           aria-label={`Открыть плеер: ${hero.title}`}
         >
           <p
-            className="mq-t-meta text-[11px] uppercase tracking-[0.12em] truncate mb-0.5"
+            className="mq-t-label truncate mb-0.5"
             style={{ color: isNow ? "var(--mq-accent)" : "var(--mq-text-muted)" }}
           >
             {isNow
               ? waveReasonText(hero) || (radioMode ? "Волна · играет" : "Сейчас играет")
               : fallbackReason || "Подобрано для тебя"}
           </p>
-          <p className="mq-t-title text-[15px] font-semibold leading-tight line-clamp-1" style={{ color: "var(--mq-text)" }}>
+          <p className="mq-t-track truncate" style={{ color: "var(--mq-text)" }}>
             {hero.title}
           </p>
           <span
             onClick={(e) => { e.stopPropagation(); onArtistClick(hero.artist); }}
-            className="mq-t-body text-xs truncate block max-w-full"
-            style={{ color: "var(--mq-text-muted)" }}
+            className="mq-t-artist truncate block max-w-full"
             aria-label={`Артист: ${hero.artist}`}
           >
             {hero.artist}
@@ -1228,6 +1381,7 @@ function MobileNowHero({
               <SkipForward className="w-5 h-5" fill="currentColor" />
             </button>
           )}
+          <TrackMoreButton onOpen={onMore} alwaysVisible label={`Действия: ${hero.title}`} />
         </div>
 
         {/* Progress — 2.5px accent strip on the card's bottom edge */}
@@ -1417,12 +1571,14 @@ function HorizontalTrackRow({
   isPlaying,
   onPlay,
   onArtistClick,
+  onMore,
 }: {
   track: Track;
   isCurrent: boolean;
   isPlaying: boolean;
   onPlay: () => void;
   onArtistClick: () => void;
+  onMore: (e: React.MouseEvent) => void;
 }) {
   return (
     <div
@@ -1450,23 +1606,23 @@ function HorizontalTrackRow({
         </div>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="mq-t-body text-[13px] font-semibold truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+        <p className="mq-t-track-sm truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
           {track.title}
         </p>
         <button
           onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="mq-t-meta text-xs block max-w-full text-left truncate hover:underline"
-          style={{ color: "var(--mq-text-muted)" }}
+          className="mq-t-artist block max-w-full text-left truncate hover:underline"
         >
           {track.artist}
         </button>
       </div>
       {isPlaying && <NowPlayingEqualizer />}
       {track.duration > 0 && (
-        <span className="mq-t-num text-[11px] shrink-0 truncate max-w-[64px]" style={{ color: "var(--mq-text-muted)" }}>
+        <span className="mq-t-num shrink-0 truncate max-w-[64px]" style={{ color: "var(--mq-text-muted)" }}>
           {formatDuration(track.duration)}
         </span>
       )}
+      <TrackMoreButton onOpen={onMore} label={`Действия: ${track.title}`} />
     </div>
   );
 }
@@ -1477,12 +1633,14 @@ function CompactTrackCard({
   isPlaying,
   onPlay,
   onArtistClick,
+  onMore,
 }: {
   track: Track;
   isCurrent: boolean;
   isPlaying: boolean;
   onPlay: () => void;
   onArtistClick: () => void;
+  onMore: (e: React.MouseEvent) => void;
 }) {
   return (
     <button
@@ -1513,15 +1671,22 @@ function CompactTrackCard({
             <NowPlayingEqualizer />
           </div>
         )}
+        {/* More — overlay top-right; mobile always visible, desktop on hover */}
+        <div
+          className="absolute top-1.5 right-1.5 rounded-full"
+          style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${track.title}`} className="!text-white" />
+        </div>
       </div>
       <div className="p-2">
-        <p className="mq-t-body text-xs font-semibold truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+        <p className="mq-t-track-sm truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
           {track.title}
         </p>
         <span
           onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="mq-t-meta text-[11px] truncate block hover:underline"
-          style={{ color: "var(--mq-text-muted)" }}
+          className="mq-t-meta-2 truncate block hover:underline"
         >
           {track.artist}
         </span>
@@ -1537,6 +1702,7 @@ function ChartRow({
   isPlaying,
   onPlay,
   onArtistClick,
+  onMore,
 }: {
   rank: number;
   track: Track;
@@ -1544,6 +1710,7 @@ function ChartRow({
   isPlaying: boolean;
   onPlay: () => void;
   onArtistClick: () => void;
+  onMore: (e: React.MouseEvent) => void;
 }) {
   const isTop = rank <= 3;
   return (
@@ -1571,13 +1738,12 @@ function ChartRow({
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="mq-t-body text-[13px] font-semibold truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
+        <p className="mq-t-track-sm truncate" style={{ color: isCurrent ? "var(--mq-accent)" : "var(--mq-text)" }}>
           {track.title}
         </p>
         <button
           onClick={(e) => { e.stopPropagation(); onArtistClick(); }}
-          className="mq-t-meta text-xs block max-w-full text-left truncate hover:underline"
-          style={{ color: "var(--mq-text-muted)" }}
+          className="mq-t-artist block max-w-full text-left truncate hover:underline"
         >
           {track.artist}
         </button>
@@ -1587,6 +1753,7 @@ function ChartRow({
           <Play className="w-4 h-4" style={{ color: "var(--mq-text-muted)" }} fill="currentColor" />
         </div>
       )}
+      <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${track.title}`} />
     </div>
   );
 }
@@ -1619,6 +1786,7 @@ function PlaylistCard({
   isCurrent,
   onClick,
   onPlay,
+  onMore,
   animationsEnabled,
 }: {
   playlist: { id: string; name: string; cover: string; tracks: Track[] };
@@ -1626,6 +1794,7 @@ function PlaylistCard({
   isCurrent: boolean;
   onClick: () => void;
   onPlay: (e: React.MouseEvent) => void;
+  onMore: (e: React.MouseEvent) => void;
   animationsEnabled: boolean;
 }) {
   return (
@@ -1676,17 +1845,25 @@ function PlaylistCard({
         {/* Current badge */}
         {isCurrent && (
           <div
-            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[11px] font-bold backdrop-blur-md flex items-center gap-1"
+            className="absolute top-2 left-2 px-2 py-0.5 rounded-full backdrop-blur-md flex items-center gap-1"
             style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "var(--mq-accent)", border: "1px solid var(--mq-border-accent)" }}
           >
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "var(--mq-accent)" }} />
-            ИГРАЕТ
+            <span className="mq-t-badge">Играет</span>
           </div>
         )}
+        {/* More — top-right overlay on artwork */}
+        <div
+          className="absolute top-2 right-2 rounded-full"
+          style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${pl.name}`} className="!text-white" />
+        </div>
       </div>
       <div className="p-3">
-        <p className="text-[13px] sm:text-sm font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }} title={pl.name}>{pl.name}</p>
-        <p className="text-[11px] sm:text-xs mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>
+        <p className="mq-t-track-sm truncate leading-tight" title={pl.name}>{pl.name}</p>
+        <p className="mq-t-meta-2 mt-0.5 truncate">
           {pl.tracks.length} {pluralRu(pl.tracks.length, "трек", "трека", "треков")}
         </p>
       </div>
@@ -1872,11 +2049,13 @@ function ArtistCircleCard({
   artist,
   index,
   onClick,
+  onMore,
   animationsEnabled,
 }: {
-  artist: { username: string; avatar?: string; trackCount?: number };
+  artist: { username: string; avatar?: string; trackCount?: number; followers?: number; genre?: string };
   index: number;
   onClick: () => void;
+  onMore: (e: React.MouseEvent) => void;
   animationsEnabled: boolean;
 }) {
   return (
@@ -1900,10 +2079,18 @@ function ArtistCircleCard({
             <User className="w-8 h-8" style={{ color: "#fff" }} />
           </div>
         )}
+        {/* More — overlay bottom-right of the circle, dark pill for contrast */}
+        <div
+          className="absolute bottom-1 right-1 rounded-full group/more"
+          style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${artist.username}`} className="!text-white !opacity-100" />
+        </div>
       </div>
-      <p className="text-xs sm:text-sm font-semibold truncate w-full text-center" style={{ color: "var(--mq-text)" }}>{artist.username}</p>
+      <p className="mq-t-track-sm truncate w-full text-center">{artist.username}</p>
       {artist.trackCount !== undefined && (
-        <p className="text-[11px] truncate w-full text-center" style={{ color: "var(--mq-text-muted)" }}>
+        <p className="mq-t-meta-2 truncate w-full text-center">
           {artist.trackCount} {pluralRu(artist.trackCount, "трек", "трека", "треков")}
         </p>
       )}
@@ -1919,11 +2106,13 @@ function CuratedPlaylistCard({
   playlist: pl,
   index,
   onPlay,
+  onMore,
   animationsEnabled,
 }: {
   playlist: CuratedPlaylist;
   index: number;
   onPlay: () => void;
+  onMore: (e: React.MouseEvent) => void;
   animationsEnabled: boolean;
 }) {
   return (
@@ -1948,11 +2137,19 @@ function CuratedPlaylistCard({
             <Play className="w-4 h-4 ml-0.5" fill="#fff" style={{ color: "#fff" }} />
           </div>
         )}
+        {/* More — top-right overlay */}
+        <div
+          className="absolute top-2 right-2 rounded-full"
+          style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <TrackMoreButton onOpen={onMore} size="sm" label={`Действия: ${pl.name}`} className="!text-white" />
+        </div>
       </div>
       <div className="p-3">
-        <p className="text-[13px] sm:text-sm font-semibold truncate leading-tight" style={{ color: "var(--mq-text)" }}>{pl.name}</p>
-        <p className="text-[11px] sm:text-xs mt-0.5 truncate" style={{ color: "var(--mq-text-muted)" }}>{pl.subtitle}</p>
-        <p className="text-[11px] mt-1.5 uppercase tracking-wider font-semibold" style={{ color: "var(--mq-text-muted)", opacity: 0.7 }}>
+        <p className="mq-t-track-sm truncate leading-tight">{pl.name}</p>
+        <p className="mq-t-meta-2 mt-0.5 truncate">{pl.subtitle}</p>
+        <p className="mq-t-badge mt-1.5">
           {pl.tracks.length} {pluralRu(pl.tracks.length, "трек", "трека", "треков")}
         </p>
       </div>

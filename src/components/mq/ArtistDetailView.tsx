@@ -11,6 +11,9 @@ import { type Track, formatDuration } from "@/lib/musicApi";
 import { useToast } from "@/hooks/use-toast";
 import { extractColors, type DominantColors } from "@/hooks/useDominantColor";
 import { NowPlayingEqualizer } from "./NowPlayingEqualizer";
+import ContextMenu from "./ContextMenu";
+import ArtistActionsMenu, { type ArtistMenuTarget } from "./ArtistActionsMenu";
+import { TrackMoreButton } from "./ui/TrackMoreButton";
 
 /* ══════════════════════════════════════════════════════════════════════════
    ARTIST PAGE — premium music-product composition (Phase B redesign).
@@ -70,6 +73,17 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
   const [loading, setLoading] = useState(true);
   const [similar, setSimilar] = useState<SimilarArtist[]>([]);
   const [showAll, setShowAll] = useState(false);
+  // v68 unified context menus — ONE track menu + ONE artist menu per view.
+  const [trackMenu, setTrackMenu] = useState<{ track: Track; x: number; y: number } | null>(null);
+  const [artistMenu, setArtistMenu] = useState<{ artist: ArtistMenuTarget; x: number; y: number } | null>(null);
+  const openTrackMenu = useCallback((track: Track, e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setTrackMenu({ track, x: rect.left, y: rect.bottom + 4 });
+  }, []);
+  const openArtistMenu = useCallback((target: ArtistMenuTarget, e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setArtistMenu({ artist: target, x: rect.left, y: rect.bottom + 4 });
+  }, []);
   const [heroColors, setHeroColors] = useState<DominantColors>(FALLBACK_COLORS);
   const [heroGone, setHeroGone] = useState(false);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -407,6 +421,7 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                       <Heart className="w-4 h-4" style={{ color: liked ? "var(--mq-accent)" : "var(--mq-text-muted)" }} fill={liked ? "currentColor" : "none"} />
                     </button>
                     <span className="mq-t-num text-[12px] hidden sm:block shrink-0" style={{ color: "var(--mq-text-muted)" }}>{formatDuration(track.duration)}</span>
+                    <TrackMoreButton onOpen={(e) => openTrackMenu(track, e)} size="sm" label={`Действия: ${track.title}`} />
                   </div>
                 );
               })}
@@ -439,6 +454,14 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
                         ) : (
                           <div className="mq-play-overlay" aria-hidden><Play className="w-4.5 h-4.5 w-[18px] h-[18px]" fill="currentColor" /></div>
                         )}
+                        {/* More — overlay top-right */}
+                        <div
+                          className="absolute top-1.5 right-1.5 rounded-full"
+                          style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <TrackMoreButton onOpen={(e) => openTrackMenu(track, e)} size="sm" label={`Действия: ${track.title}`} className="!text-white" />
+                        </div>
                       </div>
                       <p className="mq-t-title text-[13.5px] leading-snug line-clamp-2 mb-0.5" style={{ color: isCur ? "var(--mq-accent)" : "var(--mq-text)" }}>{track.title}</p>
                       <p className="mq-t-meta text-[12px]">{year ? `Сингл · ${year}` : "Сингл"}</p>
@@ -459,25 +482,59 @@ function ArtistDetailViewBase({ artist, onBack, compactMode, animationsEnabled }
               <div className="flex gap-4 overflow-x-auto pb-1 -mx-1 px-1 lg:mx-0 lg:px-0 lg:grid lg:grid-cols-3 xl:grid-cols-6 lg:overflow-visible"
                 style={{ scrollbarWidth: "none", scrollSnapType: "x mandatory" }}>
                 {similar.map(a => (
-                  <button key={"sim_" + a.username} onClick={() => openSimilar(a)}
-                    className="shrink-0 lg:shrink w-[104px] lg:w-auto flex flex-col items-center text-center gap-2.5 py-2 rounded-2xl hover:bg-[var(--mq-surface-1)] transition-colors px-1"
+                  <div key={"sim_" + a.username} onClick={() => openSimilar(a)}
+                    className="group shrink-0 lg:shrink w-[104px] lg:w-auto flex flex-col items-center text-center gap-2.5 py-2 rounded-2xl hover:bg-[var(--mq-surface-1)] transition-colors px-1 cursor-pointer"
                     style={{ scrollSnapAlign: "start" }}
+                    role="button" tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openSimilar(a); } }}
                     aria-label={a.username}>
-                    <div className="mq-art" style={{ width: 104, height: 104, borderRadius: 999 }}>
+                    <div className="relative mq-art" style={{ width: 104, height: 104, borderRadius: 999 }}>
                       {a.avatar ? <img src={a.avatar} alt={a.username} loading="lazy" /> : (
                         <div className="w-full h-full flex items-center justify-center"><Music className="w-8 h-8" style={{ color: "var(--mq-text-muted)" }} /></div>
                       )}
+                      {/* More — overlay bottom-right on the artist circle */}
+                      <div
+                        className="absolute bottom-1 right-1 rounded-full"
+                        style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <TrackMoreButton
+                          size="sm"
+                          onOpen={(e) => openArtistMenu({ name: a.username, avatar: a.avatar, followers: a.followers, genre: a.genre, trackCount: a.trackCount }, e)}
+                          label={`Действия: ${a.username}`}
+                          className="!text-white"
+                        />
+                      </div>
                     </div>
                     <div className="min-w-0 w-full">
                       <p className="mq-t-title text-[13px] truncate" style={{ color: "var(--mq-text)" }}>{a.username}</p>
                       <p className="mq-t-meta text-[11.5px] truncate">{a.followers > 0 ? `${fmtNum(a.followers)} слушателей` : (a.genre || "Артист")}</p>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             </section>
           )}
         </>
+      )}
+
+      {/* v68: unified context menus (portal) for this view's surfaces */}
+      {trackMenu && (
+        <ContextMenu
+          track={trackMenu.track}
+          x={trackMenu.x}
+          y={trackMenu.y}
+          onClose={() => setTrackMenu(null)}
+          bottomInset={96}
+        />
+      )}
+      {artistMenu && (
+        <ArtistActionsMenu
+          artist={artistMenu.artist}
+          x={artistMenu.x}
+          y={artistMenu.y}
+          onClose={() => setArtistMenu(null)}
+        />
       )}
     </div>
   );

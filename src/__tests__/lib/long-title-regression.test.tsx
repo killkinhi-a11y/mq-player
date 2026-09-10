@@ -91,12 +91,19 @@ describe("long-title source contracts — actions never squeezed (min-w-0 + shri
 
   it("PlaylistView: PlaylistTrackRow actions are explicitly shrink-0", () => {
     const src = read("PlaylistView.tsx");
-    // §J TrackRow: actions live in a flex-shrink-0 container; every action
-    // button is fixed-size (w-8 h-8) — long titles can never squeeze them.
+    // §J TrackRow: actions live in a flex-shrink-0 container; like/remove
+    // are fixed-size (w-8 h-8), the more trigger is the shared
+    // TrackMoreButton (own component — also w-8 h-8 + flex-shrink-0).
     const actionContainer = src.match(/flex items-center gap-0\.5 flex-shrink-0/g) || [];
     expect(actionContainer.length).toBeGreaterThanOrEqual(1);
     const fixedButtons = src.match(/w-8 h-8 rounded-full flex items-center justify-center/g) || [];
-    expect(fixedButtons.length).toBeGreaterThanOrEqual(3); // like + remove + more
+    expect(fixedButtons.length).toBeGreaterThanOrEqual(2); // like + remove
+    // More trigger: unified TrackMoreButton wired into the row.
+    expect(src).toMatch(/<TrackMoreButton\s+onOpen=\{handleMoreClick\}/);
+    // …and the shared component itself honors the shrink-0 contract.
+    const btnSrc = read("ui/TrackMoreButton.tsx");
+    expect(btnSrc).toMatch(/flex-shrink-0/);
+    expect(btnSrc).toMatch(/w-8 h-8/);
   });
 });
 
